@@ -1,0 +1,115 @@
+import Supercluster from 'supercluster'
+import type { Bounds, LatLng } from '../shared'
+import { clamp } from '../core/math'
+import type { MarkerData } from '../data/types'
+
+export type ClusterInfo = {
+  total: number
+  counts: Record<string, number>
+  /** Types présents, triés par compte décroissant (dominant en premier). */
+  types: string[]
+  position: LatLng
+}
+
+/**
+ * Résume un `Record<type, compte>` en `ClusterInfo` : total, types triés par
+ * compte décroissant, position. Partagé entre le clustering géo (core) et le
+ * déclutter écran (composant React) pour un résumé identique des deux côtés.
+ */
+export function clusterInfoFromCounts(counts: Record<string, number>, position: LatLng): ClusterInfo {
+  const total = Object.values(counts).reduce((s, n) => s + n, 0)
+  const types = Object.keys(counts).sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0))
+  return { total, counts, types, position }
+}
+
+export type ClusterEntry =
+  | { kind: 'marker'; key: string; markerId: string | number; position: LatLng; type: string }
+  | { kind: 'cluster'; key: string; position: LatLng; cluster: ClusterInfo }
+
+type LeafProps = { markerId: string | number; mType: string }
+
+export type ClusterOptions = { radius: number; minPoints: number; maxZoom: number }
+
+/**
+ * Clustering en **espace géographique** via supercluster. Le zoom entier fait
+ * office de palier discret : à zoom constant, `getClusters` renvoie des clusters
+ * stables (même `cluster_id`) → clés DOM stables, aucun clignotement.
+ *
+ * Les comptes par type sont calculés depuis les **feuilles réelles** (`getLeaves`),
+ * PAS via un `reduce` custom : le reduce sur un objet imbriqué partage des
+ * références entre niveaux de zoom et gonfle les comptes (total > nb réel).
+ */
+export class ClusterEngine {
+  private index: Supercluster<LeafProps> | null = null
+
+  constructor(private options: ClusterOptions) {}
+
+  load(markers: readonly MarkerData[]): void {
+    const index = new Supercluster<LeafProps>({
+      radius: this.options.radius,
+      minPoints: this.options.minPoints,
+      maxZoom: this.options.maxZoom,
+    })
+    index.load(
+      markers.map((m) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [m.position.lng, m.position.lat] },
+        properties: { markerId: m.id, mType: m.type },
+      })),
+    )
+    this.index = index
+  }
+
+  /** Compte FIABLE par type des feuilles d'un cluster (via `getLeaves`). */
+  private leafCounts(clusterId: number): Record<string, number> {
+    if (!this.index) return {}
+    const counts: Record<string, number> = {}
+    for (const leaf of this.index.getLeaves(clusterId, Infinity)) {
+      const t = (leaf.properties as LeafProps).mType
+      counts[t] = (counts[t] ?? 0) + 1
+    }
+    return counts
+  }
+
+  getClusters(bounds: Bounds, zoom: number): ClusterEntry[] {
+    if (!this.index) return []
+    const z = clamp(Math.round(zoom), 0, this.options.maxZoom + 1)
+    const bbox: [number, number, number, number] = [
+      bounds.west,
+      bounds.south,
+      bounds.east,
+      bounds.north,
+    ]
+    const features = this.index.getClusters(bbox, z)
+    const out: ClusterEntry[] = []
+    for (const f of features) {
+      const lng = f.geometry.coordinates[0]!
+      const lat = f.geometry.coordinates[1]!
+      const position: LatLng = { lat, lng }
+      const props = f.properties as Partial<LeafProps> & {
+        cluster?: boolean
+        cluster_id?: number
+        point_count?: number
+      }
+      if (props.cluster) {
+        // Comptes FIABLES depuis les feuilles (le total = nb réel de feuilles).
+        const counts = this.leafCounts(props.cluster_id!)
+        out.push({
+          kind: 'cluster',
+          key: `cl:${props.cluster_id}`,
+          position,
+          cluster: clusterInfoFromCounts(counts, position),
+        })
+      } else {
+        out.push({
+          kind: 'marker',
+          key: `pt:${props.markerId}`,
+          markerId: props.markerId!,
+          position,
+          type: props.mType!,
+        })
+      }
+    }
+    return out
+  }
+}

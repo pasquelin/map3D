@@ -1,0 +1,41 @@
+import type { MapTheme, PartialTheme } from './types'
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function deepMerge<T>(base: T, override: unknown): T {
+  if (override === undefined) return base
+  if (!isPlainObject(base) || !isPlainObject(override)) return override as T
+  const out: Record<string, unknown> = { ...base }
+  for (const key of Object.keys(override)) {
+    const b = (base as Record<string, unknown>)[key]
+    const o = override[key]
+    // Fonctions et tableaux : remplacement complet (jamais de fusion).
+    if (typeof o === 'function' || Array.isArray(o) || !isPlainObject(o)) {
+      out[key] = o
+    } else {
+      out[key] = deepMerge(b, o)
+    }
+  }
+  return out as T
+}
+
+export type MergeOptions = { prefersReducedMotion?: boolean }
+
+/**
+ * Merge profond d'un thème partiel sur une base. `prefers-reduced-motion` est
+ * respecté automatiquement **sauf** si l'override force explicitement
+ * `animations.enabled`.
+ */
+export function mergeTheme(
+  base: MapTheme,
+  override?: PartialTheme,
+  opts?: MergeOptions,
+): MapTheme {
+  const merged = deepMerge(base, override)
+  if (opts?.prefersReducedMotion && override?.animations?.enabled === undefined) {
+    merged.animations = { ...merged.animations, enabled: false }
+  }
+  return merged
+}
