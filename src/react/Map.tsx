@@ -1,0 +1,103 @@
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import type { CameraState } from '../core/Camera'
+import { MapEngine } from '../core/MapEngine'
+import type { Viewport } from '../data/types'
+import type { LatLng } from '../shared'
+import { injectStyles } from '../style/injectStyles'
+import { themeToVars } from '../style/themeToVars'
+import { MapContext, useTheme } from './context'
+
+export type MapProps = {
+  center: LatLng
+  zoom: number
+  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. Seule source 3D. */
+  cesiumIonToken?: string
+  /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
+  cesiumIonAssetId?: string
+  /** Globe ellipsoïde uni de repli quand aucune tuile n'est disponible (défaut: true). */
+  fallbackGlobe?: boolean
+  /** Erreur d'écran cible (qualité/perf). */
+  errorTarget?: number
+  onViewportChange?: (viewport: Viewport) => void
+  onCameraChange?: (camera: CameraState) => void
+  className?: string
+  style?: CSSProperties
+  children?: ReactNode
+}
+
+/** Monte le canvas + overlay, crée le MapEngine (3D Tiles + GlobeControls). */
+export function Map(props: MapProps) {
+  const theme = useTheme()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const [engine, setEngine] = useState<MapEngine | null>(null)
+
+  const cbRef = useRef({ onViewportChange: props.onViewportChange, onCameraChange: props.onCameraChange })
+  cbRef.current = { onViewportChange: props.onViewportChange, onCameraChange: props.onCameraChange }
+
+  // Recrée le moteur si la source de tuiles change.
+  useEffect(() => {
+    injectStyles()
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+
+    const eng = new MapEngine({
+      canvas,
+      center: props.center,
+      zoom: props.zoom,
+      background: theme.colors.background,
+      cesiumIonToken: props.cesiumIonToken,
+      cesiumIonAssetId: props.cesiumIonAssetId,
+      fallbackGlobe: props.fallbackGlobe ?? true,
+      errorTarget: props.errorTarget,
+    })
+    eng.camera.flyDuration = theme.animations.flyDuration
+    eng.camera.flyEasing = theme.animations.flyEasing
+
+    const rect = container.getBoundingClientRect()
+    eng.setSize(rect.width || 800, rect.height || 600)
+    eng.start()
+
+    const offCam = eng.on('camera', (s) => cbRef.current.onCameraChange?.(s))
+    const offVp = eng.on('viewport', (v) =>
+      cbRef.current.onViewportChange?.({ bounds: v.bounds, center: v.center, zoom: v.zoom }),
+    )
+    const ro = new ResizeObserver(() => {
+      const r = container.getBoundingClientRect()
+      eng.setSize(r.width, r.height)
+    })
+    ro.observe(container)
+
+    setEngine(eng)
+    return () => {
+      offCam()
+      offVp()
+      ro.disconnect()
+      eng.dispose()
+      setEngine(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.cesiumIonToken, props.cesiumIonAssetId])
+
+  const vars = useMemo(() => themeToVars(theme), [theme])
+  const style: CSSProperties = { ...(vars as CSSProperties), ...props.style }
+
+  return (
+    <div
+      ref={containerRef}
+      className={`m3d-root${props.className ? ` ${props.className}` : ''}`}
+      data-theme={theme.colorScheme}
+      style={style}
+    >
+      <canvas ref={canvasRef} />
+      <div ref={overlayRef} className="m3d-overlay" />
+      {engine && overlayRef.current && (
+        <MapContext.Provider value={{ engine, overlay: overlayRef.current, theme }}>
+          {props.children}
+        </MapContext.Provider>
+      )}
+    </div>
+  )
+}
