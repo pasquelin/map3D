@@ -1,16 +1,33 @@
+import {
+  mdiCompassOutline,
+  mdiEarth,
+  mdiFullscreen,
+  mdiMinus,
+  mdiPlus,
+  mdiVideo2d,
+  mdiVideo3d,
+} from '@mdi/js'
+import Icon from '@mdi/react'
 import { type ReactNode, useCallback } from 'react'
+import { Tooltip } from 'react-tooltip'
+import 'react-tooltip/dist/react-tooltip.css'
 import { useMapContext } from '../context'
 
 export type MapControlsProps = {
   position?: 'left' | 'right'
-  components?: Partial<Record<'zoom' | 'compass' | 'fullscreen', boolean | ReactNode>>
+  components?: Partial<Record<'compass' | 'zoom' | 'view' | 'fullscreen', boolean | ReactNode>>
 }
+
+/** Pas d'inclinaison par clic (rad). */
+const TILT_STEP = Math.PI * 0.11
+const ICON_SIZE = 0.8
+const TIP_ID = 'm3d-tooltip'
 
 function isNode(v: boolean | ReactNode | undefined): v is ReactNode {
   return v !== undefined && typeof v !== 'boolean'
 }
 
-/** Contrôles de navigation (zoom via altitude, recentrage nord, plein écran). */
+/** Contrôles de navigation : boussole, zoom, inclinaison / vue du dessus / retour au globe, plein écran. */
 export function MapControls({ position = 'right', components = {} }: MapControlsProps) {
   const { engine } = useMapContext()
 
@@ -21,10 +38,9 @@ export function MapControls({ position = 'right', components = {} }: MapControls
     },
     [engine],
   )
-  const resetNorth = useCallback(() => {
-    const s = engine.camera.getState()
-    engine.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: s.altitude }, { duration: 0.5 })
-  }, [engine])
+  const topDown = useCallback(() => engine.flyToTopDown(), [engine])
+  const tiltUp = useCallback(() => engine.tiltBy(TILT_STEP), [engine])
+  const globe = useCallback(() => engine.flyToGlobe(), [engine])
   const toggleFs = useCallback(() => {
     const root = engine.renderer.domElement.parentElement
     if (!document.fullscreenElement) root?.requestFullscreen?.()
@@ -32,29 +48,45 @@ export function MapControls({ position = 'right', components = {} }: MapControls
   }, [engine])
 
   const show = (key: keyof NonNullable<MapControlsProps['components']>) => components[key] !== false
+  const tip = (label: string) => ({ 'data-tooltip-id': TIP_ID, 'data-tooltip-content': label, 'aria-label': label })
 
   return (
     <div className={`m3d-controls m3d-${position}`}>
       {isNode(components.compass)
         ? components.compass
         : show('compass') && (
-            <button className="m3d-btn" style={{ width: 44, height: 44, borderRadius: '50%' }} onClick={resetNorth} aria-label="Recentrer (nadir)" title="Recentrer (nadir)">
-              <svg viewBox="0 0 40 40" width="30" height="30">
-                <path d="M20 6 L25 21 L20 18 L15 21 Z" fill="#F0503A" />
-                <path d="M20 34 L15 19 L20 22 L25 19 Z" fill="#98A2B3" />
-              </svg>
-            </button>
+            <div className="m3d-controls-group">
+              <button className="m3d-btn" {...tip('Nord / vue du dessus')} onClick={topDown}>
+                <Icon path={mdiCompassOutline} size={ICON_SIZE} />
+              </button>
+            </div>
           )}
 
       {isNode(components.zoom)
         ? components.zoom
         : show('zoom') && (
             <div className="m3d-controls-group">
-              <button className="m3d-btn" onClick={() => zoomBy(0.5)} aria-label="Zoom avant">
-                <Icon d="M12 5v14M5 12h14" />
+              <button className="m3d-btn" {...tip('Zoom avant')} onClick={() => zoomBy(0.5)}>
+                <Icon path={mdiPlus} size={ICON_SIZE} />
               </button>
-              <button className="m3d-btn" onClick={() => zoomBy(2)} aria-label="Zoom arrière">
-                <Icon d="M5 12h14" />
+              <button className="m3d-btn" {...tip('Zoom arrière')} onClick={() => zoomBy(2)}>
+                <Icon path={mdiMinus} size={ICON_SIZE} />
+              </button>
+            </div>
+          )}
+
+      {isNode(components.view)
+        ? components.view
+        : show('view') && (
+            <div className="m3d-controls-group">
+              <button className="m3d-btn" {...tip('Incliner')} onClick={tiltUp}>
+                <Icon path={mdiVideo3d} size={ICON_SIZE} />
+              </button>
+              <button className="m3d-btn" {...tip('Vue du dessus')} onClick={topDown}>
+                <Icon path={mdiVideo2d} size={ICON_SIZE} />
+              </button>
+              <button className="m3d-btn" {...tip('Retour au globe')} onClick={globe}>
+                <Icon path={mdiEarth} size={ICON_SIZE} />
               </button>
             </div>
           )}
@@ -63,19 +95,13 @@ export function MapControls({ position = 'right', components = {} }: MapControls
         ? components.fullscreen
         : show('fullscreen') && (
             <div className="m3d-controls-group">
-              <button className="m3d-btn" onClick={toggleFs} aria-label="Plein écran">
-                <Icon d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+              <button className="m3d-btn" {...tip('Plein écran')} onClick={toggleFs}>
+                <Icon path={mdiFullscreen} size={ICON_SIZE} />
               </button>
             </div>
           )}
-    </div>
-  )
-}
 
-function Icon({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <path d={d} />
-    </svg>
+      <Tooltip id={TIP_ID} place={position === 'right' ? 'left' : 'right'} />
+    </div>
   )
 }

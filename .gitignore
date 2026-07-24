@@ -6,3 +6,7 @@ examples/react/dist
 .env
 .env.local
 examples/react/.env
+
+# Artefacts de debug (captures Playwright, screenshots de validation)
+.playwright-mcp/
+/*.jpeg

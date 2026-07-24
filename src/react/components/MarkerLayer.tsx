@@ -64,7 +64,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // Couche DOM de positionnement (pool, tween, ancrage CSS2DObject).
   useEffect(() => {
     const core = new CoreMarkerLayer(
-      engine.tiles.group,
+      engine.overlayAnchor,
       engine.tiles.ellipsoid,
       engine.projection,
       (id, el) => setNodes((prev) => new Map(prev).set(id, el)),

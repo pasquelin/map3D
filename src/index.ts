@@ -7,7 +7,7 @@ export type { LatLng, Bounds } from './shared'
 
 // ── Core ──
 export { MapEngine, altitudeForZoom, zoomForAltitude } from './core/MapEngine'
-export type { MapEngineOptions, MapEvents, PointerInterceptor, PointerPhase } from './core/MapEngine'
+export type { MapEngineOptions, MapMode, MapEvents, PointerInterceptor, PointerPhase } from './core/MapEngine'
 export { Camera } from './core/Camera'
 export type { CameraState, FlyOptions } from './core/Camera'
 export { Projection } from './core/Projection'
