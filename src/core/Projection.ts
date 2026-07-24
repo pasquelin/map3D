@@ -112,8 +112,29 @@ export class Projection {
     ;(this.groundRay as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
     const hits = this.groundRay.intersectObject(this.group, true)
     if (hits.length === 0) return null
-    // point monde → local (repère groupe) → cartographique.height
-    this.hitLocal.copy(hits[0]!.point).applyMatrix4(this.groupInverse())
+    return this.heightAtWorld(hits[0]!.point)
+  }
+
+  /**
+   * Pixel écran → hauteur de la **vraie surface des tuiles 3D** sous ce point (m
+   * au-dessus de l'ellipsoïde), ou `null` si aucune tuile n'est touchée. Réutilise le
+   * raycaster interne (comme `pickLatLng`) — pas de raycaster dédié côté appelant.
+   */
+  pickHeight(clientX: number, clientY: number, camera: THREE.Camera): number | null {
+    if (!this.ellipsoid || !this.group) return null
+    this.ndc.set((clientX / this.width) * 2 - 1, -(clientY / this.height) * 2 + 1)
+    this.raycaster.setFromCamera(this.ndc, camera)
+    this.raycaster.far = Infinity
+    ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
+    const hits = this.raycaster.intersectObject(this.group, true)
+    if (hits.length === 0) return null
+    return this.heightAtWorld(hits[0]!.point)
+  }
+
+  /** Hauteur cartographique (m au-dessus ellipsoïde) d'un point en coordonnées MONDE. */
+  heightAtWorld(world: THREE.Vector3): number | null {
+    if (!this.ellipsoid || !this.group) return null
+    this.hitLocal.copy(world).applyMatrix4(this.groupInverse())
     const c = this.ellipsoid.getPositionToCartographic(this.hitLocal, this.cartoScratch) as {
       height: number
     }

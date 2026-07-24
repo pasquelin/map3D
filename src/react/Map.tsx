@@ -10,7 +10,9 @@ import { MapContext, useTheme } from './context'
 export type MapProps = {
   center: LatLng
   zoom: number
-  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. Seule source 3D. */
+  /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
+  googleMapsApiKey?: string
+  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
   cesiumIonToken?: string
   /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
   cesiumIonAssetId?: string
@@ -48,6 +50,7 @@ export function Map(props: MapProps) {
       center: props.center,
       zoom: props.zoom,
       background: theme.colors.background,
+      googleMapsApiKey: props.googleMapsApiKey,
       cesiumIonToken: props.cesiumIonToken,
       cesiumIonAssetId: props.cesiumIonAssetId,
       fallbackGlobe: props.fallbackGlobe ?? true,
@@ -79,7 +82,7 @@ export function Map(props: MapProps) {
       setEngine(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.cesiumIonToken, props.cesiumIonAssetId])
+  }, [props.googleMapsApiKey, props.cesiumIonToken, props.cesiumIonAssetId])
 
   const vars = useMemo(() => themeToVars(theme), [theme])
   const style: CSSProperties = { ...(vars as CSSProperties), ...props.style }

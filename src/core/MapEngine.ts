@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 import { GlobeControls, TilesRenderer } from '3d-tiles-renderer'
-import { CesiumIonAuthPlugin } from '3d-tiles-renderer/plugins'
+import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/plugins'
+import { TiledGlobeLayer } from '../layers/TiledGlobeLayer'
 import type { Bounds, LatLng } from '../shared'
 import { Camera, type CameraState } from './Camera'
+import { GoogleTileSource, TILE_SIZE } from './googleTiles'
 import type { FrameContext, Layer, MapView } from './Layer'
-import { DEG2RAD } from './math'
+import { clamp, DEG2RAD } from './math'
 import { Projection } from './Projection'
 
 export type PointerPhase = 'down' | 'move' | 'up'
@@ -16,12 +18,21 @@ export type PointerInterceptor = (
   event: PointerEvent,
 ) => boolean
 
+/** Type de carte : 3D photoréaliste (Ion) ou fond 2D Google (plan). */
+export type MapMode = '3d' | 'plan'
+
+/** Inclinaison max en 2D (rad, mesurée depuis le nadir : 0 = vue du dessus). ~36° max
+ *  → la vue ne plonge pas vers l'horizon → couverture de tuiles bornée. Défaut lib 0.45π. */
+const TWO_D_MAX_ALTITUDE = Math.PI * 0.2
+
 export type MapEngineOptions = {
   canvas: HTMLCanvasElement
   center: LatLng
   zoom: number
   background: string
-  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. Seule source 3D. */
+  /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
+  googleMapsApiKey?: string
+  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
   cesiumIonToken?: string
   /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
   cesiumIonAssetId?: string
@@ -59,6 +70,12 @@ export class MapEngine {
   readonly labelRenderer: CSS2DRenderer
   readonly tiles: TilesRenderer
   readonly controls: GlobeControls
+  /**
+   * Ancre (enfant de `tiles.group`, transformée identité) pour les overlays qui doivent
+   * hériter du repère du tileset mais rester visibles même quand la 3D est masquée (mode
+   * 2D) — les markers `CSS2DObject` s'y attachent au lieu de `tiles.group` directement.
+   */
+  readonly overlayAnchor = new THREE.Group()
 
   inputInterceptor: PointerInterceptor | null = null
 
@@ -85,6 +102,10 @@ export class MapEngine {
 
   private stars: THREE.Points | null = null
   private drawingMode = false
+  /** Globe 2D Google tuilé (LOD/cache/prefetch), null si pas de clé. */
+  private basemap2d: TiledGlobeLayer | null = null
+  /** Inclinaison max d'origine de GlobeControls (rétablie en sortie de mode 2D). */
+  private defaultMaxAltitude = 0.45 * Math.PI
   /** Distance max caméra↔centre Terre (limite de dézoom). 0 = illimité. */
   private maxCameraDistance = 0
   private readonly clampScratch = new THREE.Vector3()
@@ -100,9 +121,11 @@ export class MapEngine {
     this.threeCamera = new THREE.PerspectiveCamera(60, 1, 1, 1e8)
     this.threeCamera.position.set(0, 0, 2e7)
 
-    // Source de tuiles 3D : Cesium Ion (Google Photorealistic 3D Tiles). Sans token,
-    // le TilesRenderer reste vide → le globe ellipsoïde de repli prend le relais.
-    const hasCustomTiles = !!opts.cesiumIonToken
+    // Source de tuiles 3D : Cesium Ion (token) en priorité, sinon Google Maps Platform
+    // en direct (clé). NB : les Photorealistic 3D Tiles Google sont bloquées pour les
+    // comptes EEA → Ion reste la source fiable. Sans l'un ni l'autre, le TilesRenderer
+    // reste vide → globe ellipsoïde de repli.
+    const hasCustomTiles = !!(opts.cesiumIonToken || opts.googleMapsApiKey)
     this.tiles = new TilesRenderer()
     if (opts.cesiumIonToken) {
       this.tiles.registerPlugin(
@@ -112,13 +135,32 @@ export class MapEngine {
           autoRefreshToken: true,
         }),
       )
+    } else if (opts.googleMapsApiKey) {
+      this.tiles.registerPlugin(
+        new GoogleCloudAuthPlugin({ apiToken: opts.googleMapsApiKey, autoRefreshToken: true }),
+      )
     }
     if (opts.errorTarget !== undefined) this.tiles.errorTarget = opts.errorTarget
     this.tiles.setCamera(this.threeCamera)
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     this.scene.add(this.tiles.group)
+    // Ancre des overlays (markers) : partage la transformée du tileset mais n'est jamais
+    // masquée avec les tuiles 3D (cf. setTiles3DVisible).
+    this.overlayAnchor.name = 'm3d-overlay-anchor'
+    this.tiles.group.add(this.overlayAnchor)
 
     this.projection.setContext(this.tiles.ellipsoid, this.tiles.group)
+
+    // Fond 2D Google : couche indépendante (plan/terrain/trafic) drapée sur le globe,
+    // rendue seulement en mode 2D (le tileset 3D est alors masqué). NB EEA : Google 2D
+    // ne sert que roadmap/terrain/trafic (satellite/hybride bloqués).
+    if (opts.googleMapsApiKey) {
+      this.basemap2d = new TiledGlobeLayer(
+        this.tiles.group,
+        this.tiles.ellipsoid,
+        new GoogleTileSource(opts.googleMapsApiKey),
+      )
+    }
 
     // Renderer HTML superposé au canvas : positionne chaque `CSS2DObject` via la
     // caméra Three (aucune projection écran manuelle → zéro dérive). `domElement`
@@ -145,6 +187,7 @@ export class MapEngine {
     this.controls.setEllipsoid(this.tiles.ellipsoid, this.tiles.group)
     ;(this.controls as unknown as { tilesRenderer: TilesRenderer }).tilesRenderer = this.tiles
     this.controls.enableDamping = true
+    this.defaultMaxAltitude = this.controls.maxAltitude
     this.controls.attach(this.canvas)
 
     this.camera = new Camera(this.threeCamera, this.projection)
@@ -290,6 +333,98 @@ export class MapEngine {
     this.controls.enabled = true
   }
 
+  /** Recentre en vue du dessus (nadir) à l'altitude courante. */
+  flyToTopDown(): void {
+    const s = this.camera.getState()
+    this.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: s.altitude }, { duration: 0.5 })
+  }
+
+  /** Recule jusqu'à voir tout le globe (vue monde), au-dessus du point courant. */
+  flyToGlobe(): void {
+    const s = this.camera.getState()
+    this.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: this.tiles.ellipsoid.radius.x }, { duration: 1.0 })
+  }
+
+  /**
+   * Incline la caméra autour du point visé au centre écran, de `step` radians
+   * (positif = plus incliné). L'angle est **borné** à `[0, controls.maxAltitude]`
+   * (donc à la limite du mode courant en 2D) → jamais de bascule/tête à l'envers.
+   */
+  tiltBy(step: number): void {
+    const center = this.projection.pickLatLng(this.size.width / 2, this.size.height / 2, this.threeCamera)
+    if (!center) return
+    const cam = this.threeCamera
+    const pivot = this.projection.latLngToWorld(center, new THREE.Vector3(), 0)
+    const up = this.projection.worldNormal(center, new THREE.Vector3())
+    const right = new THREE.Vector3(1, 0, 0).transformDirection(cam.matrixWorld).normalize()
+    const back = new THREE.Vector3()
+    const savePos = cam.position.clone()
+    const saveQuat = cam.quaternion.clone()
+
+    const tiltFromNadir = (): number => up.angleTo(back.set(0, 0, 1).transformDirection(cam.matrixWorld))
+    const current = tiltFromNadir()
+    const max = Math.min(this.controls.maxAltitude, Math.PI * 0.44)
+    const target = clamp(current + step, 0, max)
+    const delta = target - current
+    if (Math.abs(delta) < 1e-4) return
+
+    const apply = (angle: number): number => {
+      const q = new THREE.Quaternion().setFromAxisAngle(right, angle)
+      cam.position.copy(savePos).sub(pivot).applyQuaternion(q).add(pivot)
+      cam.quaternion.copy(saveQuat).premultiply(q)
+      cam.updateMatrixWorld()
+      return tiltFromNadir()
+    }
+    // L'axe `right` peut incliner dans un sens ou l'autre : on essaie +δ, et si le
+    // résultat n'atteint pas la cible (mauvais sens), on prend −δ.
+    if (Math.abs(apply(delta) - target) > 0.02) apply(-delta)
+  }
+
+  /** Type de carte affiché. '3d' = tuiles Ion photoréalistes ; 'plan' = globe 2D Google. */
+  private mapMode: MapMode = '3d'
+
+  /**
+   * Bascule le type de carte. En 2D, le tileset 3D est masqué (et son `update` gelé
+   * pour ne rien charger en fond), le globe tuilé Google prend le relais, et
+   * l'inclinaison est **limitée** (`minAltitude` relevé) : une carte 2D à plat ne peut
+   * pas couvrir jusqu'à l'horizon en tuiles → sinon fond bas-résolution étiré/étrange.
+   * Nécessite une clé Google (sinon les modes 2D sont sans effet).
+   */
+  setMapMode(mode: MapMode): void {
+    this.mapMode = mode
+    const in2d = mode !== '3d'
+    // Aligne le fond 2D sur l'altitude du terrain suivie en continu en 3D → même échelle.
+    if (in2d) this.basemap2d?.setElevation(this.terrainElevation)
+    // Limite l'inclinaison en 2D (borne la couverture de tuiles), libre en 3D.
+    this.controls.maxAltitude = in2d ? TWO_D_MAX_ALTITUDE : this.defaultMaxAltitude
+    // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
+    this.setTiles3DVisible(!in2d)
+    this.basemap2d?.setVisible(in2d)
+  }
+
+  /** Masque/affiche uniquement les tuiles 3D — jamais l'ancre des markers ni le globe 2D. */
+  private setTiles3DVisible(visible: boolean): void {
+    for (const child of this.tiles.group.children) {
+      if (child !== this.overlayAnchor && child !== this.basemap2d?.group) child.visible = visible
+    }
+  }
+
+  /** Altitude du terrain (m) sous le centre écran, suivie en continu en mode 3D et
+   *  appliquée au fond 2D pour qu'il coïncide avec la 3D (évite l'écart d'échelle). */
+  private terrainElevation = 0
+
+  /** (Ré)échantillonne l'altitude du terrain sous le centre écran (raycast BVH). No-op
+   *  si rien touché → conserve la dernière valeur connue. À n'appeler qu'en mode 3D. */
+  private trackTerrainElevation(): void {
+    const e = this.projection.pickHeight(this.size.width / 2, this.size.height / 2, this.threeCamera)
+    if (e !== null) this.terrainElevation = e
+  }
+
+  /** Affiche/masque le calque trafic Google (mode 2D uniquement). */
+  setTrafficVisible(visible: boolean): void {
+    this.basemap2d?.setTraffic(visible)
+  }
+
   /** Neutralise pan/rotation de GlobeControls (état NONE + inerties nulles). */
   private freezeControlsPanRotate(): void {
     const c = this.controls as unknown as {
@@ -306,6 +441,27 @@ export class MapEngine {
     return this.computeView(this.camera.getState())
   }
 
+  /**
+   * Alimente le globe 2D : zoom de tuile pour une résolution ~1:1 à l'écran (calculé
+   * depuis la vraie résolution mètres/pixel — distance caméra→sol, FOV, hauteur écran —
+   * et non l'altitude seule, sinon flou), et emprise **centrée sur la vue** dimensionnée
+   * à l'écran (évite les bounds gonflés par l'inclinaison → compte de tuiles raisonnable).
+   */
+  private updateBasemap(state: CameraState): void {
+    if (!this.basemap2d) return
+    // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
+    // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
+    const view = this.computeView(state)
+    // Zoom pour une résolution ~1:1 au centre (mètres/pixel réels : distance→sol, FOV, écran).
+    const distance = Math.max(1, state.altitude - this.terrainElevation)
+    const groundHeight = 2 * distance * Math.tan((this.threeCamera.fov * DEG2RAD) / 2)
+    const metersPerPixel = groundHeight / Math.max(1, this.size.height)
+    // Résolution Web Mercator au zoom 0 (m/px à l'équateur) = circonférence / taille tuile.
+    const equatorMetersPerPixel = EARTH_CIRCUMFERENCE / TILE_SIZE
+    const zoom = Math.log2((equatorMetersPerPixel * Math.cos(state.lat * DEG2RAD)) / metersPerPixel)
+    this.basemap2d.update(view.bounds, zoom)
+  }
+
   // ── Boucle ──
 
   private tick(now: number): void {
@@ -318,11 +474,17 @@ export class MapEngine {
     if (!controlling && this.controls.enabled) this.controls.update()
     this.clampZoom()
     this.threeCamera.updateMatrixWorld()
-    // Résolution requise par le calcul d'erreur d'écran des tuiles (LOD).
-    this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
-    this.tiles.update()
-    // Repère des tuiles à jour AVANT la projection des overlays (ancrage exact).
+    // En mode 2D le tileset 3D est masqué : on gèle son update (aucun fetch/parse/LOD en
+    // fond) tout en gardant son cache pour un retour instantané. `updateMatrixWorld` reste
+    // appelé — le repère du groupe sert encore à la projection (ancrage overlays/2D).
+    if (this.mapMode === '3d') {
+      // Résolution requise par le calcul d'erreur d'écran des tuiles (LOD).
+      this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
+      this.tiles.update()
+    }
     this.tiles.group.updateMatrixWorld(true)
+    // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
+    if (this.mapMode === '3d') this.trackTerrainElevation()
 
     // État caméra calculé UNE fois par frame (chaque getState = inversion de matrice)
     // et réutilisé par updateNearFar/computeView/ctx.
@@ -338,6 +500,9 @@ export class MapEngine {
       this.settleFrames++
       if (this.settleFrames === 4) this.emit('viewport', this.computeView(state))
     }
+
+    // Mode 2D : alimente le globe tuilé chaque frame (raffinement incrémental fluide).
+    if (this.mapMode !== '3d') this.updateBasemap(state)
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
     // aucun layer ne le lit par frame, seul l'event 'viewport' et getView() le forcent.
@@ -558,6 +723,7 @@ export class MapEngine {
     this.unbindInput()
     for (const layer of this.layers) layer.dispose()
     this.layers.clear()
+    this.basemap2d?.dispose()
     this.controls.dispose()
     this.tiles.dispose()
     this.renderer.dispose()

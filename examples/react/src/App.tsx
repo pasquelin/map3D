@@ -1,5 +1,7 @@
-import { StrictMode, type ReactNode, useEffect, useRef, useState } from 'react'
+import { StrictMode, type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Tooltip } from 'react-tooltip'
+import 'react-tooltip/dist/react-tooltip.css'
 import {
   type DrawTool,
   DrawLayer,
@@ -14,23 +16,30 @@ import {
   SearchBox,
   type SearchResult,
   ShapeLayer,
+  type MapMode,
   defaultTheme,
   mergeTheme,
   useDrawing,
+  useMap,
+  zoomForAltitude,
 } from 'map3d'
 
-const ENV = (import.meta as { env?: { VITE_CESIUM_ION_TOKEN?: string } }).env
+const ENV = (import.meta as { env?: { VITE_CESIUM_ION_TOKEN?: string; VITE_GOOGLE_MAPS_KEY?: string } }).env
 const CESIUM = ENV?.VITE_CESIUM_ION_TOKEN
+const GOOGLE_MAPS_KEY = ENV?.VITE_GOOGLE_MAPS_KEY
 
 /* ══════════════════ DATA — juste des lat/lng réels (Paris) ══════════════════ */
 
 const PARIS = { lat: 48.8566, lng: 2.3522 }
+// Point de contrôle précision (marqueur + centre initial).
+const TEST_POINT = { lat: 49.095441, lng: 1.378192 }
 type Severity = 'critical' | 'high' | 'medium' | 'low'
 type Alert = { id: number; severity: Severity; title: string }
 type Agent = { id: string; name: string; phone: string; status: 'available' | 'enroute' | 'onsite'; position: { lat: number; lng: number } }
 
 // Alertes = points réels de Paris, un lat/lng par alerte. Rien de calculé.
 const ALERTS: MarkerData<Alert>[] = [
+  { id: 99, type: 'alert-critical', position: TEST_POINT, data: { id: 99, severity: 'critical', title: 'Point de contrôle précision' } },
   { id: 1, type: 'alert-critical', position: { lat: 48.8606, lng: 2.3376 }, data: { id: 1, severity: 'critical', title: 'Intrusion — Louvre' } },
   { id: 2, type: 'alert-high', position: { lat: 48.853, lng: 2.3499 }, data: { id: 2, severity: 'high', title: 'Malaise — Notre-Dame' } },
   { id: 3, type: 'alert-medium', position: { lat: 48.8584, lng: 2.2945 }, data: { id: 3, severity: 'medium', title: 'Colis suspect — Tour Eiffel' } },
@@ -180,35 +189,106 @@ const TOOL_ICON: Record<string, ReactNode> = {
   clear: <path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 10v7M14 10v7" />,
 }
 
-function DrawToolbar() {
+// Zoom minimal par défaut pour afficher la barre de dessin (dessiner n'a de sens qu'en
+// vue rapprochée). En dessous, la barre glisse hors écran à gauche.
+const DRAW_MIN_ZOOM = 14
+const DRAW_TIP_ID = 'm3d-draw-tip'
+
+function DrawToolbar({ minZoom = DRAW_MIN_ZOOM }: { minZoom?: number }) {
   const { tool, setTool, undo, clear } = useDrawing()
+  const engine = useMap()
+  // Visible seulement au-delà du seuil de zoom. On s'abonne à 'camera' (émis chaque frame
+  // en mouvement) mais on ne stocke qu'un BOOLÉEN : `setHidden(false)` alors qu'il l'est
+  // déjà → React court-circuite (Object.is) → aucun re-render par frame pendant le pan,
+  // seulement au franchissement du seuil.
+  const [hidden, setHidden] = useState(true)
+  useEffect(
+    () => engine.on('camera', (s) => setHidden(zoomForAltitude(s.altitude) < minZoom)),
+    [engine, minZoom],
+  )
+
   const drawTools: Array<[DrawTool, string]> = [
     ['line', 'Ligne'], ['polygon', 'Polygone'], ['rect', 'Rectangle'], ['circle', 'Cercle'],
     ['freehand', 'Main levée'], ['arrow', 'Flèche'], ['measure', 'Mesurer'],
   ]
   const btn = { width: 40, height: 40 } as const
   const Sep = () => <div style={{ height: 1, background: 'var(--m3d-border)', margin: '4px 7px' }} />
+  const tip = (label: string) => ({ 'data-tooltip-id': DRAW_TIP_ID, 'data-tooltip-content': label, 'aria-label': label })
   return (
-    <div style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 2, padding: 6, background: 'var(--m3d-panel)', border: '1px solid var(--m3d-border)', borderRadius: 14, backdropFilter: 'blur(20px)' }}>
-      <button title="Naviguer" className={`m3d-btn${tool === null ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(null)}>
-        <Svg d={TOOL_ICON.pan} />
-      </button>
-      <Sep />
-      {drawTools.map(([t, label]) => (
-        <button key={t} title={label} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(tool === t ? null : t)}>
-          <Svg d={TOOL_ICON[t]} />
+    <>
+      <div
+        style={{
+          position: 'absolute', left: 16, top: '50%', zIndex: 20,
+          display: 'flex', flexDirection: 'column', gap: 2, padding: 6,
+          background: 'var(--m3d-panel)', border: '1px solid var(--m3d-border)', borderRadius: 14,
+          backdropFilter: 'blur(20px)',
+          // Sous le seuil : glisse à gauche (translateY conserve le centrage vertical).
+          transform: `translateY(-50%) translateX(${hidden ? 'calc(-100% - 24px)' : '0'})`,
+          opacity: hidden ? 0 : 1,
+          pointerEvents: hidden ? 'none' : 'auto',
+          transition: 'transform .28s cubic-bezier(.4,0,.2,1), opacity .28s',
+        }}
+      >
+        <button {...tip('Naviguer')} className={`m3d-btn${tool === null ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(null)}>
+          <Svg d={TOOL_ICON.pan} />
         </button>
-      ))}
-      <Sep />
-      <button title="Effacer" className={`m3d-btn${tool === 'erase' ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>
-        <Svg d={TOOL_ICON.erase} />
-      </button>
-      <button className="m3d-btn" title="Annuler" style={btn} onClick={undo}>
-        <Svg d={TOOL_ICON.undo} />
-      </button>
-      <button className="m3d-btn" title="Tout effacer" style={btn} onClick={clear}>
-        <Svg d={TOOL_ICON.clear} />
-      </button>
+        <Sep />
+        {drawTools.map(([t, label]) => (
+          <button key={t} {...tip(label)} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(tool === t ? null : t)}>
+            <Svg d={TOOL_ICON[t]} />
+          </button>
+        ))}
+        <Sep />
+        <button {...tip('Effacer')} className={`m3d-btn${tool === 'erase' ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>
+          <Svg d={TOOL_ICON.erase} />
+        </button>
+        <button {...tip('Annuler')} className="m3d-btn" style={btn} onClick={undo}>
+          <Svg d={TOOL_ICON.undo} />
+        </button>
+        <button {...tip('Tout effacer')} className="m3d-btn" style={btn} onClick={clear}>
+          <Svg d={TOOL_ICON.clear} />
+        </button>
+      </div>
+      <Tooltip id={DRAW_TIP_ID} place="right" />
+    </>
+  )
+}
+
+// TEMP: panneau de test des fonds 2D Google (à retirer après validation).
+function BasemapTestPanel() {
+  const engine = useMap()
+  const [mode, setMode] = useState<MapMode>('3d')
+  const [traffic, setTraffic] = useState(false)
+  const pick = (m: MapMode) => {
+    setMode(m)
+    engine.setMapMode(m)
+    // Le trafic n'existe qu'en 2D : on le coupe en repassant en 3D.
+    if (m === '3d' && traffic) {
+      setTraffic(false)
+      engine.setTrafficVisible(false)
+    }
+  }
+  const toggleTraffic = () => {
+    const v = !traffic
+    setTraffic(v)
+    engine.setTrafficVisible(v)
+  }
+  const btn = (active: boolean): CSSProperties => ({
+    padding: '6px 12px',
+    borderRadius: 8,
+    border: '1px solid var(--m3d-border)',
+    background: active ? 'var(--m3d-accent)' : 'var(--m3d-panel)',
+    color: active ? '#fff' : 'var(--m3d-text)',
+    cursor: 'pointer',
+    fontSize: 13,
+  })
+  return (
+    <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 30, display: 'flex', gap: 6, padding: 6, background: 'var(--m3d-panel)', border: '1px solid var(--m3d-border)', borderRadius: 12, backdropFilter: 'blur(20px)' }}>
+      <button style={btn(mode === '3d')} onClick={() => pick('3d')}>3D</button>
+      <button style={btn(mode === 'plan')} onClick={() => pick('plan')}>Plan</button>
+      {mode !== '3d' && (
+        <button style={btn(traffic)} onClick={toggleTraffic}>Trafic</button>
+      )}
     </div>
   )
 }
@@ -286,9 +366,10 @@ function MapDemo() {
 
   return (
     <Map
+      googleMapsApiKey={GOOGLE_MAPS_KEY || undefined}
       cesiumIonToken={CESIUM || undefined}
-      center={PARIS}
-      zoom={14}
+      center={TEST_POINT}
+      zoom={18}
       fallbackGlobe
     >
       <ShapeLayer shapes={[{ kind: 'circle', center: PARIS, radiusMeters: 6000, color: ZONE_STROKE, fillOpacity: 0.1 }]} />
@@ -317,6 +398,7 @@ function MapDemo() {
       </DrawLayer>
 
       <MapControls position="right" />
+      <BasemapTestPanel />
       <SearchBox onSelect={() => {}} search={(q) => Promise.resolve(PLACES.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())))} />
     </Map>
   )
