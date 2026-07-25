@@ -106,6 +106,32 @@ const theme = mergeTheme(defaultTheme, {
 - Accès programmatique : `useTags()` / `useTagSelection()` (ou `engine.tags` : `toggle`, `clear`, `isVisible`, `all`).
 - Persistance : clé configurable via `<Map tagStorageKey>` (`null` pour désactiver, une clé par carte si plusieurs cartes cohabitent).
 
+## Raccourcis clavier
+
+Lettres **seules**, identiques Mac/PC (pas de ⌘/Ctrl : les navigateurs réservent ⌘T/⌘N/⌘W…), affichées dans les tooltips des boutons, ignorées pendant une saisie (recherche, formulaires).
+
+**Contrôles carte (`<MapControls>`)** :
+
+| Touche | Action |
+|---|---|
+| `N` | Nord / vue du dessus |
+| `+` / `−` | Zoom avant / arrière |
+| `I` | Incliner (vue 3D) |
+| `G` | Retour au globe |
+| `T` | Couches — filtre par tags (ouvrir/fermer) |
+| `F` | Plein écran |
+
+Remappable si une touche est déjà prise ailleurs dans votre app — même pattern que les outils de dessin :
+
+```tsx
+<MapControls shortcuts={{ layers: 'y', fullscreen: false }} />   // T → Y, F désactivé
+<DrawLayer shortcuts={{ rect: 'k' }} />                          // outils de dessin
+```
+
+**Outils de dessin (`<DrawLayer>`)** : `L` ligne, `P` polygone, `R` rectangle, `C` cercle, `D` main levée, `A` flèche, `M` mesurer, `E` gomme, `Entrée` fermer le polygone, `Échap` outil navigation, `⌘Z`/`Ctrl+Z` annuler (selon la plateforme).
+
+Un remapping est immédiatement reflété dans les tooltips (les deux barres affichent leurs raccourcis effectifs).
+
 ## API principale
 
 | Élément | Rôle |

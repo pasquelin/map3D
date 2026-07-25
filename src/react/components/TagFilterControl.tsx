@@ -4,13 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { tagColor } from '../../core/TagFilter'
 import { useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
-import { ICON_SIZE, tipProps } from './tooltip'
+import { plainKey } from './shortcuts'
+import { ICON_SIZE, tipProps, withShortcut } from './tooltip'
 
 export type TagFilterControlProps = {
   /** Côté de la barre hôte : le panneau s'ouvre du côté opposé. */
   position?: 'left' | 'right'
   /** id du `<Tooltip>` partagé de la barre hôte (MapControls). */
   tipId?: string
+  /** Touche (lettre seule) qui ouvre/ferme le panneau — affichée dans le tooltip. `false` = aucun raccourci. */
+  shortcut?: string | false
 }
 
 /**
@@ -24,10 +27,24 @@ export type TagFilterControlProps = {
  * monté qu'ouvert — panneau fermé, les évolutions de compteurs des flux temps
  * réel ne re-rendent rien.
  */
-export function TagFilterControl({ position = 'right', tipId }: TagFilterControlProps) {
+export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFilterControlProps) {
   const tags = useTagSelection()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  // Raccourci d'ouverture/fermeture du panneau (lettre seule, hors champ de saisie).
+  useEffect(() => {
+    if (!shortcut) return
+    const onKey = (e: KeyboardEvent) => {
+      if (plainKey(e) !== shortcut) return
+      // Sans preventDefault, la lettre du raccourci serait insérée dans le champ
+      // de recherche que l'ouverture vient de focaliser (autoFocus synchrone).
+      e.preventDefault()
+      setOpen((v) => !v)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [shortcut])
 
   // Fermeture au clic hors panneau ou Échap.
   useEffect(() => {
@@ -53,7 +70,7 @@ export function TagFilterControl({ position = 'right', tipId }: TagFilterControl
     <div className="m3d-controls-group m3d-tags" ref={rootRef}>
       <button
         className={`m3d-btn m3d-tagbtn${active > 0 ? ' m3d-on' : ''}`}
-        {...(tipId ? tipProps(tipId, label) : { 'aria-label': label })}
+        {...(tipId ? tipProps(tipId, label, shortcut) : { 'aria-label': withShortcut(label, shortcut) })}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
