@@ -264,7 +264,7 @@ function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onAct
       {caption}
       {tipPos && tip && (tip.title != null || tip.content != null) && root
         ? createPortal(
-            <div className="m3d-pin-tip" style={{ left: tipPos.left, top: tipPos.top }}>
+            <div className="m3d-markertip m3d-pin-tip" style={{ left: tipPos.left, top: tipPos.top }}>
               {tip.title != null && <div className="m3d-markertip-title">{tip.title}</div>}
               {tip.content != null && <div className="m3d-markertip-content">{tip.content}</div>}
             </div>,
