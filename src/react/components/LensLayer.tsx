@@ -237,6 +237,18 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     if (drawTool !== null && activeRef.current) deactivate()
   }, [drawTool, deactivate])
 
+  // Échap : retire la zone si elle existe (prêt à retracer), sinon quitte l'outil.
+  useEffect(() => {
+    if (!active) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (rectRef.current) clearZone()
+      else deactivate()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active, clearZone, deactivate])
+
   // ── Sélection de liste ──
   const onToggle = useCallback((id: string | number) => {
     setSelected((prev) => {
