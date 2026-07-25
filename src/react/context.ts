@@ -39,6 +39,8 @@ export type DrawingApi = {
   clear: () => void
   toGeoJSON: () => GeoJSONFeatureCollection
   fromGeoJSON: (fc: GeoJSONFeatureCollection) => void
+  /** Raccourcis effectifs par outil (`false` = désactivé) — affichés par `DrawToolbar` dans ses tooltips. */
+  shortcuts: Record<DrawTool, string | false>
 }
 
 export const DrawingContext = createContext<DrawingApi | null>(null)

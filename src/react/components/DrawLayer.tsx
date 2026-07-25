@@ -5,10 +5,12 @@ import {
   type GeoJSONFeatureCollection,
 } from '../../layers/DrawLayer'
 import { DrawingContext, type DrawingApi, useMapContext } from '../context'
+import { inTextInput, plainKey } from './shortcuts'
 
 export type DrawLayerProps = {
   tools?: DrawTool[]
-  shortcuts?: Partial<Record<DrawTool, string>>
+  /** Raccourci par outil — `false` pour en désactiver un, autre lettre pour remapper. */
+  shortcuts?: Partial<Record<DrawTool, string | false>>
   defaults?: { color?: string; width?: number; fillOpacity?: number }
   value?: GeoJSONFeatureCollection
   onChange?: (geojson: GeoJSONFeatureCollection) => void
@@ -103,21 +105,23 @@ export function DrawLayer(props: DrawLayerProps) {
     [engine, overlay, allowed.join(',')],
   )
 
+  // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips de DrawToolbar.
+  const shortcuts: Record<DrawTool, string | false> = { ...DEFAULT_SHORTCUTS, ...props.shortcuts }
+
   // Raccourcis clavier (configurables) + Entrée/Échap/Ctrl+Z.
   useEffect(() => {
-    const shortcuts = { ...DEFAULT_SHORTCUTS, ...props.shortcuts }
+    const table = { ...DEFAULT_SHORTCUTS, ...props.shortcuts }
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
+      if (inTextInput(e)) return
       if (e.key === 'Enter') coreRef.current?.closeCurrent()
       else if (e.key === 'Escape') setTool(null)
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         coreRef.current?.undo()
-      } else if (!e.ctrlKey && !e.metaKey) {
-        const found = (Object.entries(shortcuts) as Array<[DrawTool, string]>).find(
-          ([, key]) => key === e.key.toLowerCase(),
-        )
+      } else {
+        const k = plainKey(e)
+        if (!k) return
+        const found = (Object.entries(table) as Array<[DrawTool, string | false]>).find(([, key]) => key === k)
         if (found) setTool(found[0])
       }
     }
@@ -132,6 +136,7 @@ export function DrawLayer(props: DrawLayerProps) {
     clear: () => coreRef.current?.clear(),
     toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
     fromGeoJSON: (fc) => coreRef.current?.fromGeoJSON(fc),
+    shortcuts,
   }
 
   return <DrawingContext.Provider value={api}>{props.children}</DrawingContext.Provider>

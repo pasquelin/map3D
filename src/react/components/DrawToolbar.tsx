@@ -50,7 +50,7 @@ const DEFAULT_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehan
  * `minZoom` (glisse hors écran) : dessiner n'a de sens qu'en vue rapprochée.
  */
 export function DrawToolbar({ position = 'left', minZoom = 11, tools = DEFAULT_TOOLS }: DrawToolbarProps) {
-  const { tool, setTool, undo, clear } = useDrawing()
+  const { tool, setTool, undo, clear, shortcuts } = useDrawing()
   const { engine } = useMapContext()
   const [hidden, setHidden] = useState(true)
   useEffect(() => {
@@ -60,21 +60,22 @@ export function DrawToolbar({ position = 'left', minZoom = 11, tools = DEFAULT_T
     return engine.on('camera', (s) => setHidden(below(s.altitude)))
   }, [engine, minZoom])
 
-  const tip = (label: string) => tipProps(TIP_ID, label)
+  const tip = (label: string, shortcut?: string | false) => tipProps(TIP_ID, label, shortcut)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
+  const undoKey = /Mac|iP(hone|ad|od)/.test(navigator.userAgent) ? '⌘Z' : 'Ctrl+Z'
 
   return (
     <>
       <div className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
-        <button {...tip('Naviguer')} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
+        <button {...tip('Naviguer', 'Échap')} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
           <Icon path={mdiHandBackRightOutline} size={ICON_SIZE} />
         </button>
         {tools.map((t) => (
-          <button key={t} {...tip(TOOL_META[t].label)} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} onClick={() => toggle(t)}>
+          <button key={t} {...tip(TOOL_META[t].label, shortcuts[t])} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} onClick={() => toggle(t)}>
             <Icon path={TOOL_META[t].icon} size={ICON_SIZE} />
           </button>
         ))}
-        <button {...tip('Annuler')} className="m3d-btn" onClick={undo}>
+        <button {...tip('Annuler', undoKey)} className="m3d-btn" onClick={undo}>
           <Icon path={mdiUndo} size={ICON_SIZE} />
         </button>
         <button {...tip('Tout effacer')} className="m3d-btn m3d-btn-delete" onClick={clear}>
