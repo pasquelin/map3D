@@ -4,9 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { tagColor } from '../../core/TagFilter'
 import { useLabels, useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
+import { useAnchoredPanel } from './panelFit'
 import { plainKey } from './shortcuts'
 import { useDismiss } from './useDismiss'
 import { ICON_SIZE, tipProps, withShortcut } from './tooltip'
+
+/** Hauteur maximale souhaitée du panneau quand le conteneur le permet (px). */
+const PANEL_MAX_HEIGHT = 380
 
 export type TagFilterControlProps = {
   /** Côté de la barre hôte : le panneau s'ouvre du côté opposé. */
@@ -15,6 +19,8 @@ export type TagFilterControlProps = {
   tipId?: string
   /** Touche (lettre seule) qui ouvre/ferme le panneau — affichée dans le tooltip. `false` = aucun raccourci. */
   shortcut?: string | false
+  /** Libellé lisible d'un tag dans le panneau (défaut : le tag brut). */
+  tagLabel?: (tag: string) => string
 }
 
 /**
@@ -28,7 +34,7 @@ export type TagFilterControlProps = {
  * monté qu'ouvert — panneau fermé, les évolutions de compteurs des flux temps
  * réel ne re-rendent rien.
  */
-export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFilterControlProps) {
+export function TagFilterControl({ position = 'right', tipId, shortcut, tagLabel }: TagFilterControlProps) {
   const tags = useTagSelection()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
@@ -67,17 +73,22 @@ export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFil
         <Icon path={mdiLayersOutline} size={ICON_SIZE} />
         {active > 0 && <span className="m3d-tag-badge">{active}</span>}
       </button>
-      {open && <TagPanel position={position} />}
+      {open && <TagPanel position={position} tagLabel={tagLabel} />}
     </div>
   )
 }
 
 /** Contenu du panneau — monté uniquement ouvert (seul abonné au registre des tags). */
-function TagPanel({ position }: { position: 'left' | 'right' }) {
+function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel?: (tag: string) => string }) {
+  const labelOf = (tag: string) => tagLabel?.(tag) ?? tag
   const { theme } = useMapContext()
   const tags = useTags()
   const labels = useLabels()
   const [query, setQuery] = useState('')
+  // Le bouton « Couches » est bas dans la barre : sans clamp, un panneau bien
+  // rempli déborde sous le conteneur et sa moitié basse (liste + « Tout
+  // afficher ») devient inatteignable.
+  const [side, setPanel] = useAnchoredPanel(position, { maxHeight: PANEL_MAX_HEIGHT })
 
   // Fusion+tri seulement quand registre ou sélection changent — pas à chaque
   // frappe dans la recherche. (La sélection compte : un tag fantôme sélectionné
@@ -88,11 +99,13 @@ function TagPanel({ position }: { position: 'left' | 'right' }) {
     [tags.registryVersion, tags.selectionVersion],
   )
   const q = query.trim().toLowerCase()
-  const shown = q ? entries.filter((e) => e.tag.toLowerCase().includes(q)) : entries
+  const shown = q
+    ? entries.filter((e) => labelOf(e.tag).toLowerCase().includes(q) || e.tag.toLowerCase().includes(q))
+    : entries
   const active = tags.selected.size
 
   return (
-    <div className={`m3d-panel m3d-tagpanel m3d-${position}`}>
+    <div ref={setPanel} className={`m3d-panel m3d-tagpanel m3d-${side}`}>
       <div className="m3d-tagsearch">
         <Icon path={mdiMagnify} size={0.6} />
         <input
@@ -107,7 +120,7 @@ function TagPanel({ position }: { position: 'left' | 'right' }) {
           <label key={tag} className="m3d-tagrow">
             <input type="checkbox" checked={tags.selected.has(tag)} onChange={() => tags.toggle(tag)} />
             <span className="m3d-tagdot" style={{ background: theme.colors.tags?.[tag] ?? tagColor(tag) }} />
-            <span className="m3d-taglabel">{tag}</span>
+            <span className="m3d-taglabel">{labelOf(tag)}</span>
             <span className="m3d-tagcount">{count}</span>
           </label>
         ))}

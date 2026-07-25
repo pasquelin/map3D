@@ -3,11 +3,19 @@
 export const VERSION = '0.1.0'
 
 // ── Primitives partagées ──
-export type { LatLng, Bounds } from './shared'
+export type { LatLng, Bounds, SearchResult } from './shared'
 
 // ── Core ──
 export { MapEngine, altitudeForZoom, zoomForAltitude } from './core/MapEngine'
-export type { MapEngineOptions, MapMode, MapEvents, DragMode, PointerInterceptor, PointerPhase } from './core/MapEngine'
+export type {
+  MapEngineOptions,
+  MapMode,
+  BasemapState,
+  MapEvents,
+  DragMode,
+  PointerInterceptor,
+  PointerPhase,
+} from './core/MapEngine'
 export { Camera } from './core/Camera'
 export type { CameraState, FlyOptions } from './core/Camera'
 export { Projection } from './core/Projection'
@@ -90,7 +98,9 @@ export { DrawStylePanel } from './react/components/DrawStylePanel'
 export type { DrawStylePanelProps } from './react/components/DrawStylePanel'
 export { DrawSettingsButton } from './react/components/DrawSettingsPanel'
 export { SearchBox } from './react/components/SearchBox'
-export type { SearchBoxProps, SearchResult } from './react/components/SearchBox'
+export type { SearchBoxProps } from './react/components/SearchBox'
+export { createGooglePlacesSearch } from './search/googlePlaces'
+export type { GooglePlacesOptions } from './search/googlePlaces'
 export { ContextMenu } from './react/components/ContextMenu'
 export type { MenuItem } from './react/components/ContextMenu'
 export { Popup } from './react/components/Popup'

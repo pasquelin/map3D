@@ -1,4 +1,5 @@
 import { mdiRotateRight } from '@mdi/js'
+import { BAR_INSET, GAP } from './panelGeometry'
 
 const STYLE_ID = 'm3d-styles'
 
@@ -124,18 +125,35 @@ const CSS = `
 .m3d-root.m3d-space-pan canvas{cursor:grab!important}
 .m3d-root.m3d-space-pan canvas:active{cursor:grabbing!important}
 
+/* react-tooltip pose z-index:1 : sous les barres (20) et les panneaux (30/31), un
+   tooltip de bouton passait derrière la barre — illisible dès qu'elle est en
+   colonnes. Il flotte au-dessus de toutes les surfaces d'UI, sous le menu (95). */
+.react-tooltip{z-index:60}
+
+/* Scrollbar du thème, pour toutes les zones scrollables des surfaces flottantes —
+   déclarée une fois : les cinq listes doivent rester visuellement identiques. */
+.m3d-stylepanel,.m3d-settings-list,.m3d-settings-sub,.m3d-taglist,.m3d-search-results{
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
+
 .m3d-panel{background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);
   backdrop-filter:blur(20px);color:var(--m3d-text)}
 
+/* Barres : toute la géométrie est proportionnelle à --m3d-bar-scale, que
+   useFitColumns réduit quand la carte est trop courte (puis passe en colonnes).
+   Variable absente = 1 : aucun effet hors barre. */
 .m3d-controls{position:absolute;top:50%;transform:translateY(-50%);z-index:20;
-  display:flex;flex-direction:column;gap:9px;align-items:center}
-.m3d-controls.m3d-right{right:16px}
-.m3d-controls.m3d-left{left:16px}
-.m3d-controls-group{display:flex;flex-direction:column;gap:2px;padding:5px;
+  display:flex;flex-direction:column;gap:calc(9px * var(--m3d-bar-scale,1));
+  align-items:center;align-content:flex-start}
+.m3d-controls.m3d-right{right:${BAR_INSET}px}
+.m3d-controls.m3d-left{left:${BAR_INSET}px}
+.m3d-controls-group{display:flex;flex-direction:column;gap:2px;
+  padding:calc(5px * var(--m3d-bar-scale,1));
   background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px)}
-.m3d-btn{width:38px;height:38px;border:none;background:transparent;border-radius:9px;
+.m3d-btn{width:calc(38px * var(--m3d-bar-scale,1));height:calc(38px * var(--m3d-bar-scale,1));
+  border:none;background:transparent;border-radius:9px;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--m3d-text);
   transition:background .14s}
 .m3d-btn:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
@@ -146,22 +164,24 @@ const CSS = `
 .m3d-palette-dot:focus-visible,.m3d-swatch:focus-visible,.m3d-swap:focus-visible,
 .m3d-settings-toolhead:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
 .m3d-btn:disabled{opacity:.35;cursor:default;background:transparent}
-.m3d-btn-move{margin-bottom:4px}
-.m3d-btn-delete{margin-top:4px; color:var(--m3d-error)}
+.m3d-btn-move{margin-bottom:calc(4px * var(--m3d-bar-scale,1))}
+.m3d-btn-delete{margin-top:calc(4px * var(--m3d-bar-scale,1)); color:var(--m3d-error)}
 
 /* Barre d'outils de dessin : sous le zoom minimal elle glisse hors écran
    (translateY conserve le centrage vertical pendant la transition). */
 .m3d-drawbar{position:absolute;top:50%;z-index:20;display:flex;flex-direction:column;
-  gap:2px;padding:6px;background:var(--m3d-panel);border:1px solid var(--m3d-border);
+  align-content:flex-start;gap:calc(2px * var(--m3d-bar-scale,1));
+  padding:calc(6px * var(--m3d-bar-scale,1));
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px);
   transform:translateY(-50%);
   transition:transform .28s cubic-bezier(.4,0,.2,1),opacity .28s}
-.m3d-drawbar.m3d-left{left:16px}
-.m3d-drawbar.m3d-right{right:16px}
+.m3d-drawbar.m3d-left{left:${BAR_INSET}px}
+.m3d-drawbar.m3d-right{right:${BAR_INSET}px}
 .m3d-drawbar.m3d-hidden{opacity:0;pointer-events:none}
 .m3d-drawbar.m3d-left.m3d-hidden{transform:translateY(-50%) translateX(calc(-100% - 24px))}
 .m3d-drawbar.m3d-right.m3d-hidden{transform:translateY(-50%) translateX(calc(100% + 24px))}
-.m3d-drawbar .m3d-btn{width:40px;height:40px}
+.m3d-drawbar .m3d-btn{width:calc(40px * var(--m3d-bar-scale,1));height:calc(40px * var(--m3d-bar-scale,1))}
 /* Bouton à flyout (sélection) : flèche en coin = « il y a des sous-outils ». */
 .m3d-selectwrap{position:relative}
 .m3d-btn-flyout{position:relative}
@@ -172,8 +192,8 @@ const CSS = `
    que le survol ne se coupe pas en traversant les 12px de vide. */
 .m3d-flyout{position:absolute;top:0;display:flex;flex-direction:column;gap:2px;padding:5px;z-index:30;
   min-width:150px;animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-flyout.m3d-left{left:calc(100% + 12px)}
-.m3d-flyout.m3d-right{right:calc(100% + 12px)}
+.m3d-flyout.m3d-left{left:calc(100% + ${GAP}px)}
+.m3d-flyout.m3d-right{right:calc(100% + ${GAP}px)}
 .m3d-flyout.m3d-left::before{content:'';position:absolute;left:-14px;top:0;bottom:0;width:14px}
 .m3d-flyout.m3d-right::before{content:'';position:absolute;right:-14px;top:0;bottom:0;width:14px}
 .m3d-flyout-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;
@@ -189,10 +209,12 @@ const CSS = `
    la sélection). Swatches fond/bordure superposés façon Photoshop + palette +
    presets visuels (épaisseur, style de trait, opacité, angles). */
 .m3d-stylepanel{position:absolute;top:50%;transform:translateY(-50%);z-index:19;
-  width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;
+  width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;
   animation:m3d-style-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-stylepanel.m3d-left{left:80px;--m3d-fly-dx:-10px}
-.m3d-stylepanel.m3d-right{right:80px;--m3d-fly-dx:10px}
+/* Décalé de la largeur RÉELLE de la drawbar (publiée par useFitColumns) : en deux
+   colonnes elle double, et un offset figé la ferait recouvrir. */
+.m3d-stylepanel.m3d-left{left:calc(${BAR_INSET + GAP}px + var(--m3d-drawbar-w,52px));--m3d-fly-dx:-10px}
+.m3d-stylepanel.m3d-right{right:calc(${BAR_INSET + GAP}px + var(--m3d-drawbar-w,52px));--m3d-fly-dx:10px}
 /* Fermeture = animation inverse (le composant reste monté le temps de la jouer).
    Les keyframes embarquent le translateY(-50%) de centrage, sinon il sauterait. */
 .m3d-stylepanel.m3d-closing{animation:m3d-style-out var(--m3d-menu-dur,200ms) ease-in forwards}
@@ -246,18 +268,16 @@ const CSS = `
    Ancré en bas → grandit vers le haut (le bouton est en bas de barre). */
 .m3d-settingswrap{position:relative}
 .m3d-settings{position:absolute;bottom:0;width:252px;padding:10px;z-index:30;
-  display:flex;flex-direction:column;gap:8px;max-height:min(560px,74vh);
+  display:flex;flex-direction:column;gap:8px;
   animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-settings.m3d-left{left:calc(100% + 12px)}
-.m3d-settings.m3d-right{right:calc(100% + 12px)}
+.m3d-settings.m3d-left{left:calc(100% + ${GAP}px)}
+.m3d-settings.m3d-right{right:calc(100% + ${GAP}px)}
 .m3d-settings-head{display:flex;align-items:center;justify-content:space-between;
   font-size:12.5px;font-weight:600;padding:2px 2px 0}
 .m3d-settings-reset{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
   border:none;border-radius:7px;background:transparent;color:var(--m3d-muted);cursor:pointer}
 .m3d-settings-reset:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
-.m3d-settings-list{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;
-  gap:2px;scrollbar-width:thin;
-  scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
+.m3d-settings-list{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
 .m3d-settings-toolhead{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;
   border:none;border-radius:8px;background:transparent;color:var(--m3d-text);cursor:pointer;
   font-family:inherit;font-size:12.5px;text-align:left;transition:background .14s}
@@ -272,10 +292,12 @@ const CSS = `
    de l'écart ligne↔sous-panneau est couvert par la fermeture différée du
    composant (timer) — pas de pont ::before. */
 .m3d-settings-sub{position:absolute;width:212px;padding:11px;z-index:31;
-  display:flex;flex-direction:column;gap:9px;
+  display:flex;flex-direction:column;gap:9px;overflow-y:auto;
   animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-settings-sub.m3d-left{left:calc(100% + 10px)}
-.m3d-settings-sub.m3d-right{right:calc(100% + 10px)}
+/* 12px comme toutes les surfaces ancrées : c'est l'écart que le GAP de panelFit
+   suppose pour calculer la place disponible de chaque côté. */
+.m3d-settings-sub.m3d-left{left:calc(100% + ${GAP}px)}
+.m3d-settings-sub.m3d-right{right:calc(100% + ${GAP}px)}
 .m3d-settings-subtitle{font-size:11px;font-weight:600;color:var(--m3d-muted);
   text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
@@ -284,7 +306,10 @@ const CSS = `
 .m3d-shortcut-sep{border-top:1px solid var(--m3d-border);margin:5px 0}
 
 /* Panneau « Couches » (filtre par tag) : ancré au groupe du bouton, ouvert du
-   côté opposé à la barre (m3d-right = barre à droite → panneau à gauche). */
+   côté opposé à la barre (m3d-right = barre à droite → panneau à gauche).
+   Les top / max-height ci-dessous ne sont que des valeurs de départ : useAnchoredPanel
+   les recalcule (styles inline) pour que le panneau reste dans le conteneur de carte,
+   et bascule de côté si la place manque. */
 .m3d-tags{position:relative}
 .m3d-tagbtn{position:relative}
 .m3d-tag-badge{position:absolute;top:-10px;right:-10px;min-width:15px;height:15px;padding:0 4px;
@@ -293,19 +318,17 @@ const CSS = `
   box-shadow:0 0 0 2px var(--m3d-panel)}
 .m3d-btn.m3d-on .m3d-tag-badge{background:#fff;color:var(--m3d-accent)}
 .m3d-tagpanel{position:absolute;top:0;width:236px;padding:8px;z-index:30;
-  display:flex;flex-direction:column;gap:7px;max-height:min(380px,55vh);
+  display:flex;flex-direction:column;gap:7px;
   animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-tagpanel.m3d-right{right:calc(100% + 12px)}
-.m3d-tagpanel.m3d-left{left:calc(100% + 12px)}
-.m3d-tagsearch{display:flex;align-items:center;gap:7px;padding:7px 9px;
+.m3d-tagpanel.m3d-right{right:calc(100% + ${GAP}px)}
+.m3d-tagpanel.m3d-left{left:calc(100% + ${GAP}px)}
+.m3d-tagsearch{display:flex;align-items:center;gap:2px;padding:7px 9px;
   border:1px solid var(--m3d-border);border-radius:9px;color:var(--m3d-muted)}
 .m3d-tagsearch input{border:none;background:none;outline:none;flex:1;min-width:0;
   font-family:inherit;font-size:12.5px;color:var(--m3d-text)}
 /* Seule la liste scrolle : recherche (au-dessus) et « Tout afficher » (en dessous)
    restent visibles quand le panneau atteint sa hauteur max. */
-.m3d-taglist{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:0;
-  overflow-y:auto;scrollbar-width:thin;
-  scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
+.m3d-taglist{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:0;overflow-y:auto}
 .m3d-tagrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
   cursor:pointer;font-size:12.5px;user-select:none}
 .m3d-tagrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
@@ -325,7 +348,8 @@ const CSS = `
 .m3d-taglabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-tagcount{font-size:10.5px;color:var(--m3d-muted);font-variant-numeric:tabular-nums}
 .m3d-tagempty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
-.m3d-tagclear{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 9px;
+/* width:100% : un <button> ne s'étire pas seul hors parent flex (panneau recherche). */
+.m3d-tagclear{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 9px;width:100%;margin-top:6px;
   border:1px solid var(--m3d-border);border-radius:9px;background:transparent;cursor:pointer;
   font-family:inherit;font-size:12px;color:var(--m3d-text);transition:background .14s}
 .m3d-tagclear:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
@@ -337,13 +361,28 @@ const CSS = `
   border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px)}
 .m3d-search-box input{border:none;background:none;outline:none;flex:1;min-width:0;
   font-family:inherit;font-size:13.5px;color:var(--m3d-text)}
-.m3d-search-results{margin-top:7px;padding:5px;max-height:300px;overflow-y:auto}
+.m3d-search-box input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.m3d-search-icon{color:var(--m3d-muted);flex:none}
+.m3d-search-clear{border:none;background:none;padding:0;display:flex;align-items:center;
+  cursor:pointer;color:var(--m3d-muted)}
+.m3d-search-clear:hover{color:var(--m3d-text)}
+.m3d-search-results{margin-top:7px;padding:5px;overflow-y:auto}
 .m3d-search-item{display:flex;align-items:center;gap:10px;padding:9px 10px;
   border-radius:9px;cursor:pointer;font-size:13px}
-.m3d-search-item:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+/* Survol ET surbrillance clavier (↑/↓) partagent le même état visuel. */
+.m3d-search-item:hover,.m3d-search-item.m3d-active{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-search-text{min-width:0}
+.m3d-search-text b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3d-search-text small{display:block;font-size:11px;color:var(--m3d-muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3d-search-empty{padding:10px;font-size:12px;color:var(--m3d-muted);text-align:center}
+.m3d-search-subtitle{padding:4px 10px 0}
 
 .m3d-menu{position:absolute;z-index:95;pointer-events:none;will-change:transform}
+/* flex column + align-content : support du passage en colonnes (useFitColumns)
+   quand le menu est plus haut que la carte. */
 .m3d-menu-panel{position:absolute;left:14px;top:-14px;min-width:186px;padding:5px;
+  display:flex;flex-direction:column;align-content:flex-start;
   background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-lg);pointer-events:auto;
   animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
@@ -355,7 +394,11 @@ const CSS = `
 .m3d-menu-item .m3d-menu-label{flex:1}
 .m3d-menu-item .m3d-menu-arrow{font-size:10px;color:var(--m3d-muted)}
 .m3d-menu-sep{height:1px;background:var(--m3d-border);margin:4px 6px}
+/* Sous-menu : à droite du parent, ou à gauche (m3d-flip, posé par useNudgeInside)
+   quand le bord du conteneur est trop proche. Le panneau ne prend NI overflow NI
+   max-height : ils clipperaient les sous-menus — il est rabattu par marges. */
 .m3d-menu-sub{position:absolute;left:100%;top:-5px;margin-left:3px}
+.m3d-menu-sub.m3d-flip{left:auto;right:100%;margin-left:0;margin-right:3px}
 
 .m3d-popup{position:absolute;left:0;top:0;z-index:90;transform-origin:0 0;
   pointer-events:none;will-change:transform}

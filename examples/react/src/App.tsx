@@ -1,4 +1,4 @@
-import { StrictMode, type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
+import { StrictMode, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   DrawLayer,
@@ -13,14 +13,11 @@ import {
   type MarkerData,
   type MenuItem,
   SearchBox,
-  type SearchResult,
   ShapeLayer,
-  type MapMode,
   defaultTheme,
   mergeTheme,
   useDrawing,
   useDrawSettings,
-  useMap,
 } from 'map3d'
 
 const ENV = (import.meta as { env?: { VITE_CESIUM_ION_TOKEN?: string; VITE_GOOGLE_MAPS_KEY?: string } }).env
@@ -172,54 +169,6 @@ const glyph = (s: string): string =>
 const SHIELD = '<path d="M40 26l12 4.2v7.6c0 7.4-5.2 12.6-12 14.6-6.8-2-12-7.2-12-14.6v-7.6z" fill="#ffffff"/>'
 const DOT = '<circle cx="40" cy="40" r="7.5" fill="#ffffff"/>'
 const AGENT_INNER: Record<string, string> = { 'agent-available': SHIELD, 'agent-enroute': SHIELD, 'agent-onsite': DOT }
-const PLACES: SearchResult[] = [
-  { name: 'Tour Eiffel', description: 'Paris 7e', lat: 48.8584, lng: 2.2945 },
-  { name: 'La Défense', description: 'Hauts-de-Seine', lat: 48.8918, lng: 2.2385 },
-  { name: 'New York', description: 'USA', lat: 40.7128, lng: -74.006 },
-]
-
-// TEMP: panneau de test des fonds 2D Google (à retirer après validation).
-function BasemapTestPanel() {
-  const engine = useMap()
-  // Accès console au moteur pour vérifier la précision (pick/projection) en live.
-  useEffect(() => {
-    ;(window as unknown as { m3d?: unknown }).m3d = engine
-  }, [engine])
-  const [mode, setMode] = useState<MapMode>('3d')
-  const [traffic, setTraffic] = useState(false)
-  const pick = (m: MapMode) => {
-    setMode(m)
-    engine.setMapMode(m)
-    // Le trafic n'existe qu'en 2D : on le coupe en repassant en 3D.
-    if (m === '3d' && traffic) {
-      setTraffic(false)
-      engine.setTrafficVisible(false)
-    }
-  }
-  const toggleTraffic = () => {
-    const v = !traffic
-    setTraffic(v)
-    engine.setTrafficVisible(v)
-  }
-  const btn = (active: boolean): CSSProperties => ({
-    padding: '6px 12px',
-    borderRadius: 8,
-    border: '1px solid var(--m3d-border)',
-    background: active ? 'var(--m3d-accent)' : 'var(--m3d-panel)',
-    color: active ? '#fff' : 'var(--m3d-text)',
-    cursor: 'pointer',
-    fontSize: 13,
-  })
-  return (
-    <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 30, display: 'flex', gap: 6, padding: 6, background: 'var(--m3d-panel)', border: '1px solid var(--m3d-border)', borderRadius: 12, backdropFilter: 'blur(20px)' }}>
-      <button style={btn(mode === '3d')} onClick={() => pick('3d')}>3D</button>
-      <button style={btn(mode === 'plan')} onClick={() => pick('plan')}>Plan</button>
-      {mode !== '3d' && (
-        <button style={btn(traffic)} onClick={toggleTraffic}>Trafic</button>
-      )}
-    </div>
-  )
-}
 
 function MapDemo() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -330,9 +279,11 @@ function MapDemo() {
         <DrawDebug />
       </DrawLayer>
 
+      {/* Le groupe « fond de carte » (3D / plan / trafic) est fourni par la barre
+          elle-même, et masqué si aucune clé Google n'est configurée. */}
       <MapControls position="right" />
-      <BasemapTestPanel />
-      <SearchBox onSelect={() => {}} search={(q) => Promise.resolve(PLACES.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())))} />
+      {/* Sans prop `search` : Google Places via la clé de <Map googleMapsApiKey>. */}
+      <SearchBox />
     </Map>
   )
 }

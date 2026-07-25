@@ -98,6 +98,11 @@ export class TiledGlobeLayer {
     this.clearTiles()
   }
 
+  /** État réel du calque — le moteur le lit plutôt que d'en tenir une copie. */
+  get trafficOn(): boolean {
+    return this.traffic
+  }
+
   /**
    * Appelé chaque frame en mode 2D. Demande les tuiles nécessaires (base + niveau de
    * la vue), affiche celles qui sont prêtes (toutes zooms confondus → fallback flou

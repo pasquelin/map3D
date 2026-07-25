@@ -1,18 +1,22 @@
 import { mdiChevronRight, mdiCog, mdiKeyboardOutline, mdiRestore } from '@mdi/js'
 import Icon from '@mdi/react'
-import { useLayoutEffect, useRef, useState } from 'react'
-import { clamp } from '../../core/math'
+import { useRef, useState } from 'react'
 import type { DrawTool } from '../../layers/DrawLayer'
 import type { ToolSettings } from '../../layers/draw/DrawSettings'
 import { useLabels, useTheme } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDrawSettings } from '../hooks/useDrawSettings'
 import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
+import { useAnchoredPanel } from './panelFit'
 import { modKey } from './shortcuts'
 import { ICON_SIZE, formatKey } from './tooltip'
 import { useDismiss } from './useDismiss'
 
 const SHAPE_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure']
+
+/** Hauteurs maximales souhaitées quand le conteneur le permet (px). */
+const PANEL_MAX_HEIGHT = 560
+const SUB_MAX_HEIGHT = 520
 
 /** Entrées du panneau ouvrant un sous-panneau latéral : un outil ou le récap raccourcis. */
 type SubKey = DrawTool | 'shortcuts'
@@ -41,9 +45,12 @@ export function DrawSettingsButton({
   const [subTop, setSubTop] = useState(0)
   const [target, setTarget] = useState<SwatchTarget>('fill')
   const rootRef = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const subRef = useRef<HTMLDivElement>(null)
   useDismiss(rootRef, open, () => setOpen(false))
+
+  // Placement : le panneau est calé sur le BAS du bouton (il grandit vers le haut),
+  // le sous-panneau sur la ligne survolée — les deux clampés au conteneur.
+  const [panelSide, setPanel] = useAnchoredPanel(position, { edge: 'bottom', maxHeight: PANEL_MAX_HEIGHT })
+  const [subSide, setSubEl] = useAnchoredPanel(position, { desiredTop: subTop, maxHeight: SUB_MAX_HEIGHT })
 
   // Fermeture différée : le pointeur doit pouvoir traverser l'écart ligne →
   // sous-panneau sans que celui-ci se referme (même rôle que le pont ::before
@@ -59,22 +66,11 @@ export function DrawSettingsButton({
   }
   const openFor = (key: SubKey, row: HTMLElement) => {
     cancelClose()
-    const panel = panelRef.current
+    // Le panneau est un ancêtre de la ligne : `closest` évite d'en garder une ref.
+    const panel = row.closest('.m3d-settings')
     if (panel) setSubTop(Math.round(row.getBoundingClientRect().top - panel.getBoundingClientRect().top))
     setOpenSub(key)
   }
-
-  // Clampe le sous-panneau au viewport (une ligne du bas ne doit pas pousser
-  // l'éditeur hors écran) — mesuré après rendu, style muté sans re-render.
-  useLayoutEffect(() => {
-    const panel = panelRef.current
-    const sub = subRef.current
-    if (!panel || !sub || !openSub) return
-    const panelTop = panel.getBoundingClientRect().top
-    const maxTop = window.innerHeight - 8 - sub.offsetHeight - panelTop
-    const minTop = 8 - panelTop
-    sub.style.top = `${Math.round(clamp(subTop, minTop, maxTop))}px`
-  }, [openSub, subTop])
 
   /** Ligne du panneau ouvrant un sous-panneau (outil ou raccourcis). */
   const row = (key: SubKey, icon: string, name: string, extra?: React.ReactNode) => (
@@ -111,7 +107,7 @@ export function DrawSettingsButton({
         <Icon path={mdiCog} size={ICON_SIZE} />
       </button>
       {open && (
-        <div ref={panelRef} className={`m3d-panel m3d-settings m3d-${position}`}>
+        <div ref={setPanel} className={`m3d-panel m3d-settings m3d-${panelSide}`}>
           <div className="m3d-settings-head">
             <span>{labels.settings.title}</span>
             <button
@@ -142,8 +138,8 @@ export function DrawSettingsButton({
           </div>
           {openSub && (
             <div
-              ref={subRef}
-              className={`m3d-panel m3d-settings-sub m3d-${position}`}
+              ref={setSubEl}
+              className={`m3d-panel m3d-settings-sub m3d-${subSide}`}
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >

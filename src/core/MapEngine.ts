@@ -62,11 +62,24 @@ export type MapEngineOptions = {
 /** Mode du drag gauche : 'pan' (déplacer la carte, défaut) ou 'rotate' (pivoter la vue, = Maj maintenu). */
 export type DragMode = 'pan' | 'rotate'
 
+/** Fond de carte affiché et calques optionnels qui en dépendent. */
+export type BasemapState = {
+  mode: MapMode
+  traffic: boolean
+  /**
+   * Le trafic est un calque du fond 2D Google : indisponible en 3D et sans clé.
+   * Diffusé plutôt que redérivé par chaque consommateur — l'UI n'a pas à
+   * connaître la règle.
+   */
+  trafficAvailable: boolean
+}
+
 export type MapEvents = {
   camera: CameraState
   viewport: MapView
   click: { latLng: LatLng; originalEvent: PointerEvent }
   dragmode: DragMode
+  basemap: BasemapState
 }
 
 type Listener<E extends keyof MapEvents> = (payload: MapEvents[E]) => void
@@ -108,6 +121,9 @@ export class MapEngine {
 
   inputInterceptor: PointerInterceptor | null = null
 
+  /** Clé Google exposée aux composants qui la réutilisent (ex. SearchBox → Places). */
+  readonly googleMapsApiKey?: string
+
   private readonly canvas: HTMLCanvasElement
   private readonly layers = new Set<Layer>()
   private readonly listeners: { [E in keyof MapEvents]: Set<Listener<E>> } = {
@@ -115,6 +131,7 @@ export class MapEngine {
     viewport: new Set(),
     click: new Set(),
     dragmode: new Set(),
+    basemap: new Set(),
   }
   private dragMode: DragMode = 'pan'
   private fallback: THREE.Object3D | null = null
@@ -145,6 +162,7 @@ export class MapEngine {
 
   constructor(opts: MapEngineOptions) {
     this.canvas = opts.canvas
+    this.googleMapsApiKey = opts.googleMapsApiKey
     this.tags = new TagFilter(opts.tagStorageKey)
     this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: true })
     // pixelRatio = 1 imposé : le canvas fait EXACTEMENT la taille du parent (aucun
@@ -442,6 +460,39 @@ export class MapEngine {
 
   /** Type de carte affiché. '3d' = tuiles Ion photoréalistes ; 'plan' = globe 2D Google. */
   private mapMode: MapMode = '3d'
+  private basemapState: BasemapState = { mode: '3d', traffic: false, trafficAvailable: false }
+
+  /**
+   * Fond de carte courant — source de vérité de l'UI, avec l'événement `basemap`.
+   * L'objet est **stable** tant que rien ne change : un consommateur React peut le
+   * mettre en état sans re-rendre à chaque émission.
+   */
+  getBasemap(): BasemapState {
+    return this.basemapState
+  }
+
+  /**
+   * Recalcule l'état diffusé depuis les sources réelles (mode + calque), et n'émet
+   * que sur changement effectif. Le trafic est lu sur la couche : en garder une
+   * copie ici la laisserait diverger.
+   */
+  private syncBasemap(): void {
+    const traffic = this.basemap2d?.trafficOn ?? false
+    const trafficAvailable = !!this.basemap2d && this.mapMode !== '3d'
+    const s = this.basemapState
+    if (s.mode === this.mapMode && s.traffic === traffic && s.trafficAvailable === trafficAvailable) return
+    this.basemapState = { mode: this.mapMode, traffic, trafficAvailable }
+    this.emit('basemap', this.basemapState)
+  }
+
+  /**
+   * Les fonds 2D et le trafic sont des services Google : sans clé, `setMapMode('plan')`
+   * et `setTrafficVisible(true)` sont sans effet (voir leurs gardes). L'UI s'en sert
+   * pour ne pas proposer des boutons inertes.
+   */
+  get supportsBasemap2d(): boolean {
+    return !!this.basemap2d
+  }
 
   /**
    * Bascule le type de carte. En 2D, le tileset 3D est masqué (et son `update` gelé
@@ -451,8 +502,15 @@ export class MapEngine {
    * Nécessite une clé Google (sinon les modes 2D sont sans effet).
    */
   setMapMode(mode: MapMode): void {
-    this.mapMode = mode
     const in2d = mode !== '3d'
+    // Sans fond 2D à afficher, basculer ne ferait que masquer les tuiles 3D sans
+    // rien mettre à la place — carte vide. L'appel est ignoré, y compris en usage
+    // vanilla où aucune UI ne filtre.
+    if (in2d && !this.basemap2d) return
+    // Idempotent, comme `setDragMode` et `setTrafficVisible` : recliquer le mode
+    // actif ne rejoue ni l'intro ni le basculement des tuiles.
+    if (mode === this.mapMode) return
+    this.mapMode = mode
     // En 2D le terrain n'est plus suivi : une intro encore en attente ne partirait
     // jamais — on lance la descente tout de suite (le fond plat est à terrainElevation),
     // sauf si un autre pilotage caméra a déjà pris la main (l'intro s'efface alors).
@@ -470,6 +528,10 @@ export class MapEngine {
     // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
     this.setTiles3DVisible(!in2d)
     this.basemap2d?.setVisible(in2d)
+    // Le trafic est un calque du fond 2D : repasser en 3D l'éteint. La règle est
+    // celle de `setTrafficVisible`, appelée plutôt que recopiée ici.
+    if (!in2d) this.setTrafficVisible(false)
+    this.syncBasemap()
   }
 
   /** Masque/affiche uniquement les tuiles 3D — jamais l'ancre des markers ni le globe 2D. */
@@ -585,7 +647,10 @@ export class MapEngine {
 
   /** Affiche/masque le calque trafic Google (mode 2D uniquement). */
   setTrafficVisible(visible: boolean): void {
-    this.basemap2d?.setTraffic(visible)
+    // En 3D le calque n'a pas de support : accepter l'état donnerait un bouton
+    // allumé sans rien à l'écran. `setTraffic` est déjà idempotent.
+    this.basemap2d?.setTraffic(visible && this.mapMode !== '3d')
+    this.syncBasemap()
   }
 
   /**
