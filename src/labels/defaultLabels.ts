@@ -74,6 +74,15 @@ export const defaultLabels: MapLabels = {
     selectionCount: '{count} forme',
     selectionCountPlural: '{count} formes',
   },
+  selection: {
+    title: 'Sélection',
+    shapesGroup: 'Formes',
+    markersGroup: 'Marqueurs',
+    group: '{group} · {type}',
+    deselectGroup: 'Désélectionner {label}',
+    clearAll: 'Tout désélectionner',
+    movePanel: 'Déplacer le panneau',
+  },
   settings: {
     title: 'Réglages des outils',
     resetAll: 'Tout réinitialiser',
@@ -91,6 +100,8 @@ export const defaultLabels: MapLabels = {
     moveSelection: 'Déplacer la sélection',
     closePolygon: 'Fermer le polygone',
     cancel: 'Annuler / quitter',
+    addToSelection: 'Ajouter à la sélection',
+    markersOnly: 'Marqueurs seuls (tracé)',
   },
   keys: {
     escape: 'Échap',
@@ -100,6 +111,8 @@ export const defaultLabels: MapLabels = {
     enter: 'Entrée',
     arrows: 'Flèches',
     backspace: '⌫',
+    shiftClick: 'Maj + clic',
+    altOrCmd: 'Alt / ⌘',
   },
   format: {
     shortcut: '{label} ({key})',

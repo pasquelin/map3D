@@ -95,6 +95,22 @@ export type MapLabels = {
     /** Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. */
     selectionCountPlural: string
   }
+  /** Panneau de sélection (liste des éléments sélectionnés, par groupe). */
+  selection: {
+    /** Titre du panneau. */
+    title: string
+    /** Nom de la catégorie formes dans une rangée. */
+    shapesGroup: string
+    /** Nom de la catégorie markers dans une rangée. */
+    markersGroup: string
+    /** Gabarit du libellé d'une rangée — `{group}`, `{type}` (compteur séparé). */
+    group: string
+    /** aria-label de la croix d'une rangée — `{label}` = libellé de la rangée. */
+    deselectGroup: string
+    clearAll: string
+    /** aria-label de la poignée de déplacement du panneau. */
+    movePanel: string
+  }
   /** Panneau « Réglages des outils ». */
   settings: {
     title: string
@@ -114,6 +130,10 @@ export type MapLabels = {
     moveSelection: string
     closePolygon: string
     cancel: string
+    /** Maj+clic / Maj+marquee : ajouter à la sélection. */
+    addToSelection: string
+    /** Alt/⌘+marquee : ne sélectionner que les markers. */
+    markersOnly: string
   }
   /** Noms de touches affichés (tooltips, récap raccourcis). */
   keys: {
@@ -124,6 +144,8 @@ export type MapLabels = {
     enter: string
     arrows: string
     backspace: string
+    shiftClick: string
+    altOrCmd: string
   }
   /** Gabarits de composition des textes affichés. */
   format: {

@@ -1,15 +1,24 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { altitudeForZoom } from '../../core/MapEngine'
+import type { SelectableScreenItem } from '../../core/Selectables'
 import { countTags } from '../../core/TagFilter'
 import { MarkerLayer as CoreMarkerLayer, type OverlayItem } from '../../layers/MarkerLayer'
-import { ClusterEngine, type ClusterEntry, type ClusterInfo, clusterInfoFromCounts } from '../../layers/ClusterLayer'
+import {
+  ClusterEngine,
+  type ClusterEntry,
+  type ClusterInfo,
+  clusterInfoFromCounts,
+  markerEntryKey,
+  spiderfyLayout,
+} from '../../layers/ClusterLayer'
 import type { LatLng } from '../../shared'
 import type { DataSource, MarkerData } from '../../data/types'
 import { useLiveData } from '../hooks/useLiveData'
 import { useTagSelection } from '../hooks/useTags'
 import { useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
-import { DefaultCluster } from './DefaultCluster'
+import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { DefaultMarker } from './DefaultMarker'
 
 export type MarkerLayerProps<T> = {
@@ -26,18 +35,42 @@ export type MarkerLayerProps<T> = {
   clusterTypeIcon?: (type: string) => ReactNode
   /** Libellé lisible d'un type, pour l'infobulle au survol d'un satellite. */
   clusterTypeLabel?: (type: string) => string
-  renderPopup?: (p: MarkerData<T>) => ReactNode
+  /**
+   * Infobulle au survol d'un marker : `title` et `content` acceptent tout
+   * ReactNode (texte, HTML, composants — avatar, badges…). `null` = pas
+   * d'infobulle pour ce marker. L'info vit AU SURVOL — le clic est réservé aux
+   * actions (menu contextuel, sélection).
+   */
+  tooltip?: (p: MarkerData<T>) => { title?: ReactNode; content?: ReactNode } | null
+  /**
+   * Infobulle au survol d'un CLUSTER : reçoit l'agrégat ET la liste des markers
+   * contenus (feuilles, fusion écran comprise) — permet de lister leurs infos.
+   * Au survol d'une PART du donut, `members` est restreint aux markers du type
+   * survolé et `segmentType` le porte ; cœur/`undefined` → infobulle globale.
+   */
+  clusterTooltip?: (
+    c: ClusterInfo,
+    members: MarkerData<T>[],
+    segmentType?: string,
+  ) => { title?: ReactNode; content?: ReactNode } | null
   menu?: (p: MarkerData<T>) => MenuItem[]
   selectedId?: string | number
   followId?: string | number
   onSelect?: (p: MarkerData<T>) => void
   /** Diamètre (px) du marker (défaut: `theme.markers.size`). */
   size?: number
+  /**
+   * Diamètre (px) de l'anneau de multi-sélection (défaut: `size + 4`). À régler
+   * quand l'icône SVG occupe moins que sa boîte (ex. pastille à 58/80 du sprite)
+   * pour que l'anneau reste collé au visuel.
+   */
+  selectionRing?: number
 }
 
 type Entry<T> =
   | { kind: 'marker'; marker: MarkerData<T> }
   | { kind: 'cluster'; cluster: ClusterInfo }
+
 
 const svgToDataUri = (svg: string): string =>
   svg.startsWith('data:') ? svg : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
@@ -47,7 +80,16 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const getId = props.getId ?? ((p: MarkerData<T>) => p.id)
 
   const { data: sourceData } = useLiveData<MarkerData<T>>(props.source)
-  const allPoints = props.points ?? sourceData
+  const rawPoints = props.points ?? sourceData
+
+  // Tags garantis : un marker sans tags reçoit `['marker', type]` (miroir du défaut
+  // `['draw', kind]` des dessins) — sans quoi il disparaît dès qu'un filtre est
+  // actif. Identité ET allocation évitées dans le cas courant « tout est taggé »
+  // (flux temps réel : un tick de données ne coûte rien ici).
+  const allPoints = useMemo(() => {
+    if (!rawPoints.some((p) => !p.tags)) return rawPoints
+    return rawPoints.map((p) => (p.tags ? p : { ...p, tags: ['marker', p.type] }))
+  }, [rawPoints])
 
   // Filtre « Couches » : appliqué AVANT le clustering (les clusters reflètent le
   // filtre). Recalculé uniquement au changement des points ou de la sélection.
@@ -68,16 +110,37 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const coreRef = useRef<CoreMarkerLayer | null>(null)
   const clusterRef = useRef<ClusterEngine | null>(null)
   const entriesRef = useRef(new Map<string | number, Entry<T>>())
+  /** Points visibles (filtre tags appliqué) par id — `info()` du registre + prune. */
+  const pointsByIdRef = useRef(new Map<string | number, MarkerData<T>>())
+  /** Entrées géo (markers/clusters) par nœud cluster — feuilles résolues à la
+   *  demande (survol, spiderfy), jamais pendant le recompute. */
+  const clusterMembersRef = useRef(new Map<string | number, ClusterEntry[]>())
 
   const [nodes, setNodes] = useState<Map<string | number, HTMLDivElement>>(new Map())
   const [openMenu, setOpenMenu] = useState<string | number | null>(null)
-  const [openPopup, setOpenPopup] = useState<string | number | null>(null)
+  /** Marker survolé (infobulle) — id de nœud du portail. */
+  const [hoverId, setHoverId] = useState<string | number | null>(null)
+  const [hoverSegment, setHoverSegment] = useState<string | null>(null)
+  /** Rayons d'éventail par nœud éclaté (auto-spiderfy au zoom max), rebâti au recompute. */
+  /** Version des données + signature du dernier jeu d'entrées (bump conditionnel). */
+  const pointsRevRef = useRef(0)
+  const entriesSigRef = useRef('')
+  /** Version des entrées : `recompute` mute `entriesRef` hors cycle React — ce
+   *  compteur re-rend les portails (flags new/urgent, compteurs de clusters). */
+  const [entriesRev, bumpEntries] = useReducer((x: number) => x + 1, 0)
+  /** Markers `new` déjà cliqués : leur sonar est éteint pour la session. */
+  const [seenNew, setSeenNew] = useState<ReadonlySet<string | number>>(new Set())
 
   const markerSize = props.size ?? theme.markers.size
   const clusterSize = Math.round(markerSize * 1.18)
 
-  const latest = useRef({ points, getId, cluster: props.cluster })
-  latest.current = { points, getId, cluster: props.cluster }
+  const ringSize = props.selectionRing ?? markerSize + 4
+
+  const maxZoom = theme.clustering.maxZoom
+  const spiderfyZoom = theme.clustering.spiderfyZoom ?? 19
+  const clusterRadius = props.cluster?.radius ?? theme.clustering.radius
+  const latest = useRef({ points, getId, cluster: props.cluster, clusterRadius, ringSize, maxZoom, spiderfyZoom })
+  latest.current = { points, getId, cluster: props.cluster, clusterRadius, ringSize, maxZoom, spiderfyZoom }
 
   // Couche DOM de positionnement (pool, tween, ancrage CSS2DObject).
   useEffect(() => {
@@ -97,6 +160,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       durationMs: theme.markers.moveTween.duration,
       easing: theme.markers.moveTween.easing,
     }
+    core.setSelectionRing(latest.current.ringSize)
     engine.addLayer(core)
     coreRef.current = core
     return () => {
@@ -122,14 +186,33 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     }
   }, [props.cluster?.enabled, props.cluster?.radius, props.cluster?.minPoints, theme.clustering])
 
+  /** Entrées géo (markers/sous-clusters) → markers feuilles. UNIQUE implémentation
+   *  (recompute, infobulle de cluster) — ne lit que des refs. */
+  const leavesOf = useCallback((ges: ClusterEntry[]): MarkerData<T>[] => {
+    const out: MarkerData<T>[] = []
+    for (const ge of ges) {
+      if (ge.kind === 'marker') {
+        const m = pointsByIdRef.current.get(ge.markerId)
+        if (m) out.push(m)
+      } else {
+        for (const mid of clusterRef.current?.leafMarkerIds(ge.clusterId) ?? []) {
+          const m = pointsByIdRef.current.get(mid)
+          if (m) out.push(m)
+        }
+      }
+    }
+    return out
+  }, [])
+
   const recompute = useCallback(() => {
     const core = coreRef.current
     if (!core) return
     const { points: pts, getId: idOf } = latest.current
-    const byId = new Map<string | number, MarkerData<T>>()
-    for (const p of pts) byId.set(idOf(p), p)
+    // Index id → point maintenu par l'effet points (mêmes données) : pas de
+    // reconstruction ici — recompute tourne à ~11 Hz pendant un pan en clustering.
+    const byId = pointsByIdRef.current
 
-    const items: OverlayItem[] = []
+    let items: OverlayItem[] = []
     const entries = new Map<string | number, Entry<T>>()
 
     if (clusterRef.current) {
@@ -149,7 +232,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       // dans le cluster de DEVANT → aucune info n'est masquée en arrière-plan.
       const cam = engine.threeCamera
       const proj = engine.projection
-      const mergePx = latest.current.cluster?.radius ?? 60
+      const mergePx = latest.current.clusterRadius
       const r2 = mergePx * mergePx
       const projected = geo
         .map((entry) => {
@@ -184,6 +267,9 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         }
       }
 
+      // Entrées géo par nœud cluster (références, gratuit) — les feuilles sont
+      // résolues à la demande (survol de l'infobulle, spiderfy), pas à 11 Hz.
+      const members = new Map<string | number, ClusterEntry[]>()
       for (const bin of bins) {
         const solo = bin.members.length === 1 ? bin.members[0]! : null
         if (solo && solo.kind === 'marker') {
@@ -199,7 +285,36 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
           const key = solo ? solo.key : `grp:${bin.members[0]!.key}`
           items.push({ id: key, position: bin.position, animateEnter: solo ? undefined : false })
           entries.set(key, { kind: 'cluster', cluster: clusterInfoFromCounts(bin.counts, bin.position) })
+          members.set(key, bin.members)
         }
+      }
+      clusterMembersRef.current = members
+
+      // AUTO-éventail : dès que le clustering géographique s'arrête (zoom ≥ maxZoom),
+      // supercluster ne fusionne plus par proximité géographique — tout nœud encore
+      // fusionné est un CHEVAUCHEMENT ÉCRAN qu'on décolle (markers réels décalés d'un
+      // petit offset ; chacun garde son propre fil vertical vers son point au sol).
+      // Replié dès qu'on dézoome.
+      const { maxZoom: clusterMaxZoom, ringSize } = latest.current
+      if (view.zoom >= clusterMaxZoom - 0.05) {
+        // `members` ne contient QUE les nœuds cluster — itération directe. Les nœuds
+        // éclatés sont retirés en UNE passe après la boucle (pas de splice O(n) par cluster).
+        const exploded = new Set<string | number>()
+        for (const [key, ges] of members) {
+          const entry = entries.get(key)
+          if (entry?.kind !== 'cluster') continue
+          const leaves = leavesOf(ges)
+          if (leaves.length < 2) continue
+          exploded.add(key)
+          entries.delete(key)
+          const slots = spiderfyLayout(leaves.length, entry.cluster.position, view.zoom, ringSize)
+          leaves.forEach((m, i) => {
+            const mkey = markerEntryKey(idOf(m))
+            items.push({ id: mkey, position: slots[i]!.position, animateEnter: false })
+            entries.set(mkey, { kind: 'marker', marker: m })
+          })
+        }
+        if (exploded.size) items = items.filter((it) => !exploded.has(it.id))
       }
     } else {
       for (const p of pts) {
@@ -210,13 +325,60 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     }
     entriesRef.current = entries
     core.setItems(items)
-  }, [engine])
+    // Signature bon marché du jeu d'entrées (clés triées + totaux de clusters +
+    // version des données) : pendant un pan où le regroupement ne change pas,
+    // le recompute à ~11 Hz ne re-rend PAS les portails.
+    const parts: string[] = []
+    for (const [k, e] of entries) parts.push(e.kind === 'cluster' ? `${k}:${e.cluster.total}` : String(k))
+    parts.sort()
+    const sig = `${pointsRevRef.current}|${parts.join(',')}`
+    if (sig !== entriesSigRef.current) {
+      entriesSigRef.current = sig
+      bumpEntries()
+    }
+  }, [engine, leavesOf])
 
   // Recharge l'index de clustering et recalcule quand les points changent.
   useEffect(() => {
+    const map = new Map<string | number, MarkerData<T>>()
+    for (const p of points) map.set(latest.current.getId(p), p)
+    pointsByIdRef.current = map
+    pointsRevRef.current++
     clusterRef.current?.load(points)
     recompute()
-  }, [points, recompute])
+    // Un marker supprimé ou masqué par le filtre tags sort de la sélection (prune).
+    engine.selectables.itemsChanged()
+  }, [points, recompute, engine])
+
+  // Provider du registre de sélection : expose les markers individuels visibles
+  // au marquee de l'outil sélection (ids MARKERS côté hôte — la clé de nœud
+  // `pt:<id>` du clustering est traduite dans les deux sens).
+  useEffect(() => {
+    const toNodeId = (id: string | number) => (latest.current.cluster?.enabled ? markerEntryKey(id) : id)
+    return engine.selectables.register({
+      screenItems: () => {
+        const core = coreRef.current
+        if (!core) return []
+        const out: SelectableScreenItem[] = []
+        for (const it of core.screenPositions(engine.threeCamera)) {
+          const entry = entriesRef.current.get(it.id)
+          // Les clusters sont ignorés : seuls les markers individuellement
+          // visibles sont sélectionnables au marquee.
+          if (entry?.kind === 'marker') out.push({ id: latest.current.getId(entry.marker), x: it.x, y: it.y })
+        }
+        return out
+      },
+      setSelected: (ids) => {
+        const nodeIds = new Set<string | number>()
+        for (const id of ids) nodeIds.add(toNodeId(id))
+        coreRef.current?.setMultiSelected(nodeIds)
+      },
+      info: (id) => {
+        const p = pointsByIdRef.current.get(id)
+        return p ? { type: p.type } : null
+      },
+    })
+  }, [engine])
 
   // Recalcule les clusters au déplacement caméra — UNIQUEMENT en mode clustering
   // (sans clustering les markers sont des CSS2DObject ancrés en 3D et suivent la
@@ -253,36 +415,39 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     }
   }, [engine, recompute, props.cluster?.enabled])
 
-  // Sélection — réappliquée quand un nœud (ré)apparaît.
+  // Sélection — réappliquée quand un nœud (ré)apparaît. En clustering les nœuds
+  // sont keyés `pt:<id>` : l'id hôte doit être traduit.
   useEffect(() => {
-    coreRef.current?.setSelected(props.selectedId ?? null)
-  }, [props.selectedId, nodes])
+    const id = props.selectedId ?? null
+    coreRef.current?.setSelected(id != null && props.cluster?.enabled ? markerEntryKey(id) : id)
+  }, [props.selectedId, props.cluster?.enabled, nodes])
 
-  // Relève le marker dont le menu/popup est ouvert au-dessus des clusters/markers
-  // voisins (le CSS2DRenderer trie le z-index par renderOrder), sinon le menu passe
-  // sous un cluster plus proche de la caméra.
+  // Taille de l'anneau de multi-sélection : le core la pose par nœud à la
+  // création — ici seule la resynchronisation au changement de valeur.
   useEffect(() => {
-    coreRef.current?.setRaised(openMenu ?? openPopup ?? null)
-  }, [openMenu, openPopup, nodes])
+    coreRef.current?.setSelectionRing(ringSize)
+  }, [ringSize])
 
-  // Suivi caméra d'un marker/agent live.
+  // Relève le marker dont le menu est ouvert — ou survolé (infobulle) —
+  // au-dessus des clusters/markers voisins (le CSS2DRenderer trie le z-index par
+  // renderOrder), sinon la surface passe sous un voisin plus proche de la caméra.
+  useEffect(() => {
+    coreRef.current?.setRaised(openMenu ?? hoverId ?? null)
+  }, [openMenu, hoverId, nodes])
+
+  // Suivi caméra d'un marker/agent live (id hôte traduit en clé de nœud `pt:` en clustering).
   useEffect(() => {
     if (props.followId == null) return
-    const stop = engine.camera.follow(() => coreRef.current?.getItemPosition(props.followId!) ?? null)
+    const nodeId = props.cluster?.enabled ? markerEntryKey(props.followId) : props.followId
+    const stop = engine.camera.follow(() => coreRef.current?.getItemPosition(nodeId) ?? null)
     return stop
-  }, [engine, props.followId])
+  }, [engine, props.followId, props.cluster?.enabled])
 
-  // Ferme menu/popup au clic sur le fond de carte ou Échap.
+  // Ferme le menu au clic sur le fond de carte ou Échap.
   useEffect(() => {
-    const off = engine.on('click', () => {
-      setOpenMenu(null)
-      setOpenPopup(null)
-    })
+    const off = engine.on('click', () => setOpenMenu(null))
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpenMenu(null)
-        setOpenPopup(null)
-      }
+      if (e.key === 'Escape') setOpenMenu(null)
     }
     window.addEventListener('keydown', onKey)
     return () => {
@@ -291,31 +456,76 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     }
   }, [engine])
 
+  /** Markers feuilles d'un nœud cluster, résolus à la demande (infobulle). */
+  const leafMarkersOf = useCallback(
+    (nodeId: string | number): MarkerData<T>[] => leavesOf(clusterMembersRef.current.get(nodeId) ?? []),
+    [leavesOf],
+  )
+
   const handleClick = useCallback(
-    (id: string | number, entry: Entry<T>) => {
+    (id: string | number, entry: Entry<T>, ev: React.MouseEvent) => {
       if (entry.kind === 'cluster') {
-        // Zoom vers le cluster : altitude divisée pour rapprocher.
-        const altitude = engine.camera.getState().altitude
+        // Le clic sur un cluster ne fait QUE zoomer : vers le zoom d'éclatement
+        // réel (supercluster) s'il est séparable, sinon juste au-delà de l'arrêt
+        // du clustering — où l'auto-éventail du recompute prend le relais.
+        // Toujours borné : fini le zoom infini dans le globe.
+        const { maxZoom, spiderfyZoom } = latest.current
+        const geo = clusterMembersRef.current.get(id) ?? []
+        const soloCluster = geo.length === 1 && geo[0]!.kind === 'cluster' ? geo[0] : null
+        const expansion = soloCluster ? (clusterRef.current?.expansionZoom(soloCluster.clusterId) ?? Infinity) : Infinity
+        // Marge au-delà du zoom d'éclatement pour que la séparation soit nette.
+        const targetZoom = Math.min(expansion <= maxZoom ? expansion + 0.3 : maxZoom + 0.5, spiderfyZoom)
         engine.camera.flyTo(
-          { lat: entry.cluster.position.lat, lng: entry.cluster.position.lng, altitude: altitude * 0.45 },
+          {
+            lat: entry.cluster.position.lat,
+            lng: entry.cluster.position.lng,
+            altitude: altitudeForZoom(targetZoom),
+          },
           { duration: 0.6 },
         )
         return
       }
+      // Premier clic sur un marker `new` : le sonar s'éteint (vu), quel que soit
+      // le comportement déclenché ensuite (sélection, menu…).
+      if (entry.marker.new) {
+        const markerId = latest.current.getId(entry.marker)
+        setSeenNew((prev) => (prev.has(markerId) ? prev : new Set(prev).add(markerId)))
+      }
+      // Outil sélection actif : le clic alimente la multi-sélection au lieu du
+      // comportement hôte (onSelect/menu). Modificateurs transmis BRUTS —
+      // leur sémantique (Maj = toggle) appartient à l'outil sélection.
+      const consumer = engine.selectables.consumer
+      if (consumer) {
+        consumer.pick(latest.current.getId(entry.marker), ev)
+        return
+      }
+      // Le clic = ACTIONS uniquement (sélection hôte, menu contextuel) —
+      // l'information vit dans l'infobulle au survol.
       props.onSelect?.(entry.marker)
       const menuItems = props.menu?.(entry.marker)
-      if (menuItems && menuItems.length > 0) {
-        setOpenMenu((cur) => (cur === id ? null : id))
-        setOpenPopup(null)
-      } else if (props.renderPopup) {
-        setOpenPopup((cur) => (cur === id ? null : id))
-      }
+      if (menuItems && menuItems.length > 0) setOpenMenu((cur) => (cur === id ? null : id))
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [engine, props.onSelect, props.menu, props.renderPopup],
+    [engine, props.onSelect, props.menu],
   )
 
+  // Data-URI d'icône par marker (clé = identité de l'objet, invalidé quand la
+  // fabrique change) : l'encodage SVG (~1 Ko/marker) n'est payé qu'une fois par
+  // donnée, pas à chaque rebuild des portails.
+  const svgCacheRef = useRef(new WeakMap<object, string>())
+  useEffect(() => {
+    svgCacheRef.current = new WeakMap()
+  }, [props.icon])
+
   const portals = useMemo(() => {
+    const markerIconSrc = (m: MarkerData<T>): string => {
+      let src = svgCacheRef.current.get(m)
+      if (!src) {
+        src = svgToDataUri(props.icon!(m))
+        svgCacheRef.current.set(m, src)
+      }
+      return src
+    }
     const out: ReactNode[] = []
     for (const [id, el] of nodes) {
       const entry = entriesRef.current.get(id)
@@ -330,28 +540,118 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         cursor: 'pointer',
       }
       // Cluster : icône SVG custom si fournie, sinon `DefaultCluster` (cœur + satellites).
-      // Marker : icône SVG custom si fournie, sinon `DefaultMarker` (pastille + halo).
+      // Marker : avatar (photo ronde cerclée couleur du type) PRIORITAIRE sur
+      // l'icône SVG custom, sinon `DefaultMarker` (pastille + halo).
       const content: ReactNode =
         entry.kind === 'cluster'
           ? props.clusterIcon
             ? <img className="m3d-marker-img" src={svgToDataUri(props.clusterIcon(entry.cluster))} style={imgStyle} draggable={false} alt="" />
-            : <DefaultCluster cluster={entry.cluster} theme={theme} typeIcon={props.clusterTypeIcon} typeLabel={props.clusterTypeLabel} />
-          : props.icon
-            ? <img className="m3d-marker-img" src={svgToDataUri(props.icon(entry.marker))} style={imgStyle} draggable={false} alt="" />
-            : <DefaultMarker marker={entry.marker as MarkerData} theme={theme} />
-      const menuItems = entry.kind === 'marker' ? props.menu?.(entry.marker) : undefined
+            : <DefaultCluster
+                cluster={entry.cluster}
+                theme={theme}
+                typeIcon={props.clusterTypeIcon}
+                typeLabel={props.clusterTypeLabel}
+                satelliteTip={!props.clusterTooltip}
+                onSegmentHover={props.clusterTooltip ? setHoverSegment : undefined}
+              />
+          : entry.marker.avatar
+            ? <img
+                className="m3d-marker-img m3d-marker-avatar"
+                src={entry.marker.avatar}
+                style={{ ...imgStyle, borderColor: (theme.colors.marker[entry.marker.type] ?? theme.colors.marker.default!).base }}
+                draggable={false}
+                alt=""
+                // Avatar introuvable (404, chemin cassé) → repli sur l'icône du type,
+                // jamais une image cassée.
+                onError={props.icon ? (e) => {
+                  const img = e.currentTarget
+                  img.classList.remove('m3d-marker-avatar')
+                  img.style.borderColor = ''
+                  img.src = markerIconSrc(entry.marker)
+                } : undefined}
+              />
+            : props.icon
+              ? <img className="m3d-marker-img" src={markerIconSrc(entry.marker)} style={imgStyle} draggable={false} alt="" />
+              : <DefaultMarker marker={entry.marker as MarkerData} theme={theme} />
+      // Menu : évalué SEULEMENT pour le nœud dont le menu est ouvert (l'appel
+      // hôte alloue items + closures — pas pour N markers à chaque rebuild).
+      const menuItems = openMenu === id && entry.kind === 'marker' ? props.menu?.(entry.marker) : undefined
+      // Décorations d'attention (pointer-events:none, centrées sur l'ancre) :
+      // viseur rouge tant que `urgent` ; sonar tant que `new` n'a pas été cliqué.
+      // Jamais les deux : l'urgence PRIME sur la nouveauté.
+      const showTarget = entry.kind === 'marker' && entry.marker.urgent === true
+      const showSonar =
+        !showTarget &&
+        entry.kind === 'marker' &&
+        entry.marker.new === true &&
+        !seenNew.has(latest.current.getId(entry.marker))
+      // Infobulle au survol : title/content ReactNode fournis par l'hôte —
+      // marker OU cluster (avec la liste des markers contenus, résolue ici).
+      // Masquée dès qu'un menu ou une popup est ouvert — jamais deux surfaces
+      // empilées au même endroit.
+      const hovered = hoverId === id && openMenu !== id
+      // Part du donut survolée → infobulle restreinte au type ; cœur → globale.
+      const segment = entry.kind === 'cluster' ? hoverSegment : null
+      const tip = !hovered
+        ? null
+        : entry.kind === 'marker'
+          ? props.tooltip?.(entry.marker)
+          : props.clusterTooltip
+            ? segment == null
+              ? props.clusterTooltip(entry.cluster, leafMarkersOf(id))
+              : props.clusterTooltip(
+                  entry.cluster,
+                  leafMarkersOf(id).filter((m) => m.type === segment),
+                  segment,
+                )
+            : null
+      const hoverable = entry.kind === 'marker' ? !!props.tooltip : !!props.clusterTooltip
+      // Ancrage de l'infobulle : au-dessus du VISUEL réel — donut du cluster par
+      // défaut (rayon dépendant du total) ou pastille du marker.
+      const tipLift =
+        entry.kind === 'cluster' && !props.clusterIcon
+          ? defaultClusterRadius(entry.cluster.total) + 10
+          : size / 2 + 10
       out.push(
         createPortal(
           <>
-            <div onClick={() => handleClick(id, entry)}>{content}</div>
-            {openMenu === id && menuItems && menuItems.length > 0 && (
-              <div className="m3d-menu">
-                <ContextMenu items={menuItems} onClose={() => setOpenMenu(null)} />
+            <div
+              className={entry.kind === 'marker' ? 'm3d-marker-content' : undefined}
+              onClick={(e) => handleClick(id, entry, e)}
+              onPointerEnter={hoverable ? () => setHoverId(id) : undefined}
+              onPointerLeave={
+                hoverable
+                  ? () => {
+                      setHoverId((cur) => (cur === id ? null : cur))
+                      setHoverSegment(null)
+                    }
+                  : undefined
+              }
+            >
+              {showSonar && <span className="m3d-sonar" />}
+              {showTarget && (
+                <span className="m3d-target">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              )}
+              {content}
+            </div>
+            {tip && (tip.title != null || tip.content != null) && (
+              <div
+                // Urgence : style rouge dédié, immédiatement distinct des autres.
+                className={`m3d-markertip${showTarget ? ' m3d-markertip-urgent' : ''}`}
+                style={{ '--m3d-tiplift': `${tipLift}px` } as CSSProperties}
+              >
+                {tip.title != null && <div className="m3d-markertip-title">{tip.title}</div>}
+                {tip.content != null && <div className="m3d-markertip-content">{tip.content}</div>}
               </div>
             )}
-            {openPopup === id && entry.kind === 'marker' && props.renderPopup && (
-              <div className="m3d-popup">
-                <div className="m3d-popup-inner">{props.renderPopup(entry.marker)}</div>
+            {menuItems && menuItems.length > 0 && (
+              <div className="m3d-menu">
+                <ContextMenu items={menuItems} onClose={() => setOpenMenu(null)} />
               </div>
             )}
           </>,
@@ -364,18 +664,23 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     nodes,
+    entriesRev,
     theme,
     openMenu,
-    openPopup,
+    hoverId,
+    hoverSegment,
+    seenNew,
     props.icon,
     props.clusterIcon,
     props.clusterTypeIcon,
     props.clusterTypeLabel,
     props.menu,
-    props.renderPopup,
+    props.tooltip,
+    props.clusterTooltip,
     handleClick,
     markerSize,
     clusterSize,
+    ringSize,
   ])
 
   return <>{portals}</>

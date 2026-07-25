@@ -27,6 +27,16 @@ export { EnuFrame } from './core/enu'
 export { tagColor, countTags } from './core/TagFilter'
 export type { TagFilter, TagEntry } from './core/TagFilter'
 export type { Layer, FrameContext, MapView } from './core/Layer'
+// Registre des sélectionnables externes (`engine.selectables`) : un intégrateur
+// peut y brancher sa propre couche pour la rendre sélectionnable au marquee.
+export { SelectableRegistry } from './core/Selectables'
+export type {
+  SelectableProvider,
+  SelectableConsumer,
+  SelectableInfo,
+  SelectableScreenItem,
+  PickModifiers,
+} from './core/Selectables'
 export * as MapMath from './core/math'
 
 // ── Data (viewport-driven / temps réel) ──
@@ -96,6 +106,8 @@ export { DrawToolbar } from './react/components/DrawToolbar'
 export type { DrawToolbarProps, DrawToolbarSection } from './react/components/DrawToolbar'
 export { DrawStylePanel } from './react/components/DrawStylePanel'
 export type { DrawStylePanelProps } from './react/components/DrawStylePanel'
+export { SelectionBadges } from './react/components/SelectionBadges'
+export type { SelectionBadgesProps } from './react/components/SelectionBadges'
 export { DrawSettingsButton } from './react/components/DrawSettingsPanel'
 export { SearchBox } from './react/components/SearchBox'
 export type { SearchBoxProps } from './react/components/SearchBox'
@@ -103,6 +115,5 @@ export { createGooglePlacesSearch } from './search/googlePlaces'
 export type { GooglePlacesOptions } from './search/googlePlaces'
 export { ContextMenu } from './react/components/ContextMenu'
 export type { MenuItem } from './react/components/ContextMenu'
-export { Popup } from './react/components/Popup'
 export { DefaultMarker } from './react/components/DefaultMarker'
 export { DefaultCluster } from './react/components/DefaultCluster'

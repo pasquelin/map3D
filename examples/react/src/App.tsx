@@ -1,6 +1,7 @@
 import { StrictMode, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  type ClusterInfo,
   DrawLayer,
   DrawToolbar,
   type GeoJSONFeatureCollection,
@@ -13,6 +14,7 @@ import {
   type MarkerData,
   type MenuItem,
   SearchBox,
+  SelectionBadges,
   ShapeLayer,
   defaultTheme,
   mergeTheme,
@@ -35,19 +37,33 @@ type Agent = { id: string; name: string; phone: string; status: 'available' | 'e
 
 // Alertes = points réels de Paris, un lat/lng par alerte. Rien de calculé.
 // `tags` (filtre « Couches ») dérivés de la sévérité : ['alert', <sévérité>].
+// Démo des flags d'attention — toutes les combinaisons :
+//   #1 `urgent` (viseur rouge), #5 `new` (sonar, éteint au clic),
+//   #6 les deux flags → le viseur PRIME (le sonar n'apparaît pas).
 const ALERTS = ([
   { id: 99, type: 'alert-critical', position: TEST_POINT, data: { id: 99, severity: 'critical', title: 'Point de contrôle précision' } },
-  { id: 1, type: 'alert-critical', position: { lat: 48.8606, lng: 2.3376 }, data: { id: 1, severity: 'critical', title: 'Intrusion — Louvre' } },
+  { id: 1, type: 'alert-critical', urgent: true, position: { lat: 48.8606, lng: 2.3376 }, data: { id: 1, severity: 'critical', title: 'Intrusion — Louvre' } },
   { id: 2, type: 'alert-high', position: { lat: 48.853, lng: 2.3499 }, data: { id: 2, severity: 'high', title: 'Malaise — Notre-Dame' } },
   { id: 3, type: 'alert-medium', position: { lat: 48.8584, lng: 2.2945 }, data: { id: 3, severity: 'medium', title: 'Colis suspect — Tour Eiffel' } },
   { id: 4, type: 'alert-low', position: { lat: 48.8738, lng: 2.295 }, data: { id: 4, severity: 'low', title: 'Tapage — Arc de Triomphe' } },
-  { id: 5, type: 'alert-high', position: { lat: 48.8809, lng: 2.3553 }, data: { id: 5, severity: 'high', title: 'Vol — Gare du Nord' } },
-  { id: 6, type: 'alert-critical', position: { lat: 48.8532, lng: 2.369 }, data: { id: 6, severity: 'critical', title: 'Bagarre — Bastille' } },
+  { id: 5, type: 'alert-high', new: true, position: { lat: 48.8809, lng: 2.3553 }, data: { id: 5, severity: 'high', title: 'Vol — Gare du Nord' } },
+  { id: 6, type: 'alert-critical', new: true, urgent: true, position: { lat: 48.8532, lng: 2.369 }, data: { id: 6, severity: 'critical', title: 'Bagarre — Bastille' } },
   { id: 7, type: 'alert-medium', position: { lat: 48.8867, lng: 2.3431 }, data: { id: 7, severity: 'medium', title: 'Accident — Montmartre' } },
   { id: 8, type: 'alert-low', position: { lat: 48.8462, lng: 2.3464 }, data: { id: 8, severity: 'low', title: 'Signalement — Panthéon' } },
   { id: 9, type: 'alert-high', position: { lat: 48.8615, lng: 2.3934 }, data: { id: 9, severity: 'high', title: 'Malaise — Père-Lachaise' } },
   { id: 10, type: 'alert-medium', position: { lat: 48.8616, lng: 2.287 }, data: { id: 10, severity: 'medium', title: 'Colis — Trocadéro' } },
+  // Même position EXACTE que #2 (Notre-Dame) : cluster inséparable quel que soit
+  // le zoom — cas de test du comportement « cluster au zoom max ».
+  { id: 11, type: 'alert-low', position: { lat: 48.853, lng: 2.3499 }, data: { id: 11, severity: 'low', title: 'Second signalement — Notre-Dame' } },
 ] satisfies MarkerData<Alert>[]).map((a) => ({ ...a, tags: ['alert', a.data.severity] }))
+
+// Avatars de démo (clé `avatar` GÉRÉE par la lib : pastille photo cerclée
+// couleur du type, prioritaire sur `icon`) — 2 agents avec photo, 2 sans
+// (repli sprite) pour comparer les deux rendus.
+const AGENT_AVATARS: Record<string, string> = {
+  'agent-0': 'https://i.pravatar.cc/80?img=12',
+  'agent-2': 'https://i.pravatar.cc/80?img=32',
+}
 
 // Tags d'un agent (['user', <activité>]) — constantes hissées : le flux temps réel
 // n'alloue pas de tableau par agent et par tick.
@@ -187,7 +203,7 @@ function MapDemo() {
     }
   }, [])
 
-  const agentMarkers: MarkerData<Agent>[] = agents.map((a) => ({ id: a.id, type: `agent-${a.status}`, tags: AGENT_TAGS[a.status], position: a.position, data: a }))
+  const agentMarkers: MarkerData<Agent>[] = agents.map((a) => ({ id: a.id, type: `agent-${a.status}`, tags: AGENT_TAGS[a.status], avatar: AGENT_AVATARS[a.id], position: a.position, data: a }))
 
   const alertMenu = (m: MarkerData<Alert>): MenuItem[] => [
     { icon: '↗', label: 'Ouvrir la fiche', onSelect: () => console.info('fiche', m.data.id) },
@@ -209,6 +225,10 @@ function MapDemo() {
     'alert-critical': 'Critique', 'alert-high': 'Élevée', 'alert-medium': 'Moyenne', 'alert-low': 'Info',
     'agent-available': 'Agent disponible', 'agent-enroute': 'Agent en route', 'agent-onsite': 'Agent sur place',
   }
+  const CLUSTER_LABEL_PLURAL: Record<string, string> = {
+    'alert-critical': 'Critiques', 'alert-high': 'Élevées', 'alert-medium': 'Moyennes', 'alert-low': 'Infos',
+    'agent-available': 'Agents disponibles', 'agent-enroute': 'Agents en route', 'agent-onsite': 'Agents sur place',
+  }
   const clusterTypeLabel = (t: string): string => CLUSTER_LABEL[t] ?? t
   const clusterTypeIcon = (t: string): ReactNode => {
     if (t === 'agent-onsite') return <circle cx={12} cy={12} r={4} fill="currentColor" />
@@ -220,25 +240,96 @@ function MapDemo() {
       </text>
     )
   }
+  // Le clic = ACTIONS (menu contextuel) — l'information vit dans l'infobulle au survol.
+  const agentMenu = (m: MarkerData<Agent>): MenuItem[] => [
+    {
+      icon: '◎',
+      label: followed === m.data.id ? 'Ne plus suivre' : 'Suivre',
+      onSelect: () => setFollowed((cur) => (cur === m.data.id ? undefined : m.data.id)),
+    },
+    { icon: '✆', label: `Appeler ${m.data.phone}`, onSelect: () => console.info('call', m.data.phone) },
+    { icon: '↗', label: 'Ouvrir la fiche', onSelect: () => console.info('fiche agent', m.data.id) },
+  ]
   const menuFor = (m: MarkerData<AnyData>): MenuItem[] =>
-    m.type.startsWith('alert') ? alertMenu(m as MarkerData<Alert>) : []
-  const popupFor = (m: MarkerData<AnyData>) => {
+    m.type.startsWith('alert') ? alertMenu(m as MarkerData<Alert>) : agentMenu(m as MarkerData<Agent>)
+  // Infobulle au survol — démontre toutes les possibilités : title seul (alertes
+  // basses), title + content riche (agents : avatar, tél, statut coloré),
+  // et `null` = pas d'infobulle (point de contrôle #99).
+  const STATUS_LABEL: Record<Agent['status'], string> = { available: 'Disponible', enroute: 'En route', onsite: 'Sur site' }
+  const tipFor = (m: MarkerData<AnyData>) => {
+    if (m.data.id === 99) return null
     if (m.type.startsWith('agent')) {
       const a = m.data as Agent
-      return (
-        <div>
-          <strong>{a.name}</strong>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>{a.phone}</div>
-        </div>
-      )
+      return {
+        title: (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span
+              style={{
+                width: 20, height: 20, borderRadius: '50%', flex: 'none',
+                background: typeColor(m.type), color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 9.5, fontWeight: 800,
+              }}
+            >
+              {a.name.split(' ').map((p) => p[0]).join('')}
+            </span>
+            {a.name}
+          </span>
+        ),
+        // Contenu = LISTE (une info par ligne, classe m3d-markertip-row de la lib).
+        content: (
+          <>
+            <div className="m3d-markertip-row">
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: typeColor(m.type), flex: 'none' }} />
+              <span>{STATUS_LABEL[a.status]}</span>
+            </div>
+            <div className="m3d-markertip-row"><span>{a.phone}</span></div>
+            <div className="m3d-markertip-row"><span>{CLUSTER_LABEL[m.type]}</span></div>
+          </>
+        ),
+      }
     }
     const al = m.data as Alert
-    return (
-      <div>
-        <strong>{al.title}</strong>
-        <div style={{ fontSize: 12, opacity: 0.7 }}>Sévérité : {al.severity}</div>
-      </div>
-    )
+    // Sévérité basse : title seul. Sinon title + liste (sévérité, urgence, état).
+    if (al.severity === 'low') return { title: al.title }
+    return {
+      title: al.title,
+      content: (
+        <>
+          <div className="m3d-markertip-row">
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: typeColor(m.type), flex: 'none' }} />
+            <span>{CLUSTER_LABEL[m.type]}</span>
+          </div>
+          {m.urgent && <div className="m3d-markertip-row"><span>Intervention immédiate</span></div>}
+          {m.new && <div className="m3d-markertip-row"><span>Non traitée</span></div>}
+        </>
+      ),
+    }
+  }
+  // Infobulle de CLUSTER : liste le contenu réel (feuilles fournies par la lib).
+  const memberLabel = (m: MarkerData<AnyData>): string =>
+    m.type.startsWith('agent') ? (m.data as Agent).name : (m.data as Alert).title
+  const clusterTipFor = (c: ClusterInfo, members: MarkerData<AnyData>[], segmentType?: string) => {
+    const n = segmentType ? (c.counts[segmentType] ?? members.length) : c.total
+    const label = segmentType
+      ? (n > 1 ? CLUSTER_LABEL_PLURAL[segmentType] : CLUSTER_LABEL[segmentType]) ?? segmentType
+      : n > 1 ? 'éléments' : 'élément'
+    return {
+      title: `${n} ${label}`,
+      content: (
+        <>
+          {members.slice(0, 6).map((m) => (
+            <div key={String(m.id)} className="m3d-markertip-row">
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: typeColor(m.type), flex: 'none' }} />
+              <span>{memberLabel(m)}</span>
+            </div>
+          ))}
+          {members.length > 6 && (
+            <div className="m3d-markertip-row"><span>+{members.length - 6} autres</span></div>
+          )}
+        </>
+      ),
+    }
   }
 
   return (
@@ -259,23 +350,28 @@ function MapDemo() {
         followId={followed}
         onSelect={(m) => {
           if (!m.type.startsWith('agent')) return
+          // Clic = sélection ; le suivi caméra passe par le menu « Suivre ».
           setSelected(String(m.id))
-          setFollowed((cur) => (cur === m.id ? undefined : String(m.id)))
         }}
         size={44}
+        // Pastille visible = 58/80 du sprite (r=29 dans un viewBox 80) → anneau collé.
+        selectionRing={Math.round(44 * (58 / 80)) + 2}
         icon={iconFor}
         clusterTypeIcon={clusterTypeIcon}
         clusterTypeLabel={clusterTypeLabel}
         menu={menuFor}
-        renderPopup={popupFor}
+        tooltip={tipFor}
+        clusterTooltip={clusterTipFor}
       />
 
       <DrawLayer
         value={LOCKED_ZONE}
         onChange={(g) => console.log('[draw] change — GeoJSON complet (ce que reçoit l’API) :', g)}
-        onSelectionChange={(ids) => console.log('[draw] selection', ids)}
+        onSelectionChange={(ids, markerIds) => console.log('[draw] selection', ids, markerIds)}
       >
         <DrawToolbar />
+        {/* Badges de sélection : groupes formes/markers + hint des modificateurs. */}
+        <SelectionBadges markerTypeLabel={clusterTypeLabel} />
         <DrawDebug />
       </DrawLayer>
 

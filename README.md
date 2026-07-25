@@ -214,13 +214,13 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 |---|---|
 | `<MapProvider theme colorScheme labels>` | Thème résolu (clair/sombre + reduced-motion) + libellés traduisibles ([LABELS.md](./LABELS.md)). |
 | `<Map cesiumIonToken center zoom fallbackGlobe onViewportChange onCameraChange>` | Canvas + moteur (Cesium Ion). |
-| `<MarkerLayer points/source getId cluster icon clusterIcon renderPopup menu selectedId followId onSelect>` | Markers/clusters DOM. |
+| `<MarkerLayer points/source getId cluster icon clusterIcon tooltip clusterTooltip menu selectedId followId onSelect selectionRing>` | Markers/clusters DOM. Infobulles au survol (`tooltip`/`clusterTooltip` — le clic = actions), `MarkerData.avatar` (photo ronde gérée), `MarkerData.new` (sonar jusqu'au clic) et `MarkerData.urgent` (viseur rouge, infobulle style urgence). Cluster inséparable au zoom max → éclaté automatiquement en éventail. |
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
 | `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds. |
 | `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON. |
 | `<DrawToolbar position minZoom tools selectModes components>` | Barre de dessin entièrement paramétrable (sections masquables/remplaçables). |
 | `<DrawStylePanel>` `DrawSettingsButton` | Panneau de style et réglages par outil, utilisables seuls. |
-| `<MapControls>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
+| `<MapControls>` `<ContextMenu>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
 | `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize>` | Recherche de lieu : **Google Places intégré** (clé de `<Map googleMapsApiKey>`, zéro config), vol caméra au **zoom adapté au viewport** du lieu, **historique localStorage** (champ vide focalisé), navigation clavier ↑ ↓ Entrée Échap, requêtes débouncées et annulées. Provider custom via `search` (ou `createGooglePlacesSearch({ apiKey, language, region, limit })`). |
 
 `<MapControls>` est entièrement configurable, à deux grains :

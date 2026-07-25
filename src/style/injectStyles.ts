@@ -75,6 +75,12 @@ const CSS = `
   border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(17,24,39,.5);pointer-events:none}
 /* Zone de clic invisible alignée sur le sprite WebGL (le visuel du marker). */
 .m3d-hit{cursor:pointer;border-radius:50%;background:transparent}
+/* Avatar de marker (MarkerData.avatar) : photo ronde cerclée de la couleur du
+   type (border-color inline) + liseré blanc — prioritaire sur l'icône custom. */
+.m3d-marker-img{max-width:none;max-height:none}
+.m3d-marker-avatar{border-radius:50%;object-fit:cover;box-sizing:border-box;
+  border:2.5px solid;background:var(--m3d-panel);
+  box-shadow:0 0 0 1.5px rgba(255,255,255,.9),0 2px 6px rgba(0,0,0,.4)}
 .m3d-marker-node.m3d-enter{animation:m3d-enter var(--m3d-enter-dur,460ms)
   var(--m3d-enter-ease,cubic-bezier(.32,1.5,.5,1)) backwards}
 .m3d-marker-node.m3d-selected{z-index:80}
@@ -103,9 +109,127 @@ const CSS = `
   animation:m3d-ants .5s linear infinite}
 .m3d-selbox{fill:none;stroke:#fff;stroke-width:1;stroke-dasharray:4 4;opacity:.9;
   filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9));animation:m3d-ants .6s linear infinite}
-.m3d-marquee{fill:rgba(255,255,255,.10);stroke:#fff;stroke-width:1.4;stroke-dasharray:5 4;
-  filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9));animation:m3d-ants .5s linear infinite}
+/* Marquee : même double trait marching ants que les contours de formes (blanc
+   plein dessous + tirets noirs animés dessus), avec un voile translucide. */
+.m3d-marquee-under{fill:rgba(255,255,255,.10);stroke:#fff;stroke-width:1.6}
+.m3d-marquee{fill:none;stroke:#000;stroke-width:1.6;stroke-dasharray:5 4;
+  animation:m3d-ants .5s linear infinite}
 @keyframes m3d-ants{to{stroke-dashoffset:-9}}
+/* Boilerplate COMMUN des anneaux de décoration centrés sur l'ancre du marker
+   (multi-sélection, sonar, viseur) : chaque variante ne définit plus que son
+   diamètre (--ring-d), son trait et son animation. Le CSS2DRenderer déplace le
+   nœud — zéro JS par frame. --m3d-selring (posé par la couche React) = taille
+   du marker + marge. Les glows sont en box-shadow (peints avec l'anneau,
+   composables avec l'animation transform) — pas de filter:drop-shadow qui
+   re-rastérise le sous-arbre à chaque frame d'animation. */
+.m3d-marker-node.m3d-multisel::before,.m3d-marker-node.m3d-multisel::after,
+.m3d-sonar::before,.m3d-sonar::after,
+.m3d-target::before,.m3d-target::after{content:'';position:absolute;left:0;top:0;
+  box-sizing:border-box;width:var(--ring-d);height:var(--ring-d);
+  margin:calc(var(--ring-d) / -2) 0 0 calc(var(--ring-d) / -2);
+  border-radius:50%;pointer-events:none}
+
+/* Marker multi-sélectionné : anneau blanc plein + anneau noir en tirets qui
+   tourne lentement — même langage N/B que les formes. */
+.m3d-marker-node.m3d-multisel::before,
+.m3d-marker-node.m3d-multisel::after{--ring-d:var(--m3d-selring,52px)}
+.m3d-marker-node.m3d-multisel::before{border:1.6px solid #fff}
+.m3d-marker-node.m3d-multisel::after{border:1.6px dashed #000;
+  animation:m3d-selring-spin 7s linear infinite}
+@keyframes m3d-selring-spin{to{transform:rotate(360deg)}}
+
+/* Sonar « nouvel élément » : signal opérationnel À TRAITER — anneaux épais très
+   voyants (couleur thème attention.sonar, jaune vif par défaut) + glow, en
+   expansion continue, éteints au premier clic sur le marker (état « vu » côté React). */
+.m3d-sonar{position:absolute;left:0;top:0;pointer-events:none;
+  color:var(--m3d-sonar-color,#ffd60a)}
+.m3d-sonar::before,.m3d-sonar::after{--ring-d:var(--m3d-selring,52px);
+  border:3.5px solid currentColor;box-shadow:0 0 6px currentColor;
+  animation:m3d-sonar 1.8s cubic-bezier(.2,.6,.35,1) infinite}
+.m3d-sonar::after{animation-delay:.9s}
+@keyframes m3d-sonar{0%{transform:scale(.7);opacity:1}70%{opacity:.35}
+  100%{transform:scale(2.6);opacity:0}}
+
+/* Viseur « urgent » : réticule rouge qui pulse + anneau tireté en rotation +
+   4 crans clignotants — conçu pour capter l'œil immédiatement, tant que le
+   flag est vrai. Couleur thème attention.target (rouge vif par défaut). */
+.m3d-target{position:absolute;left:0;top:0;pointer-events:none;
+  color:var(--m3d-target-color,var(--m3d-error,#ef4444))}
+.m3d-target::before{--ring-d:calc(var(--m3d-selring,52px) + 10px);
+  border:3.5px solid currentColor;box-shadow:0 0 5px currentColor;
+  animation:m3d-target-pulse 1s ease-in-out infinite}
+.m3d-target::after{--ring-d:calc(var(--m3d-selring,52px) + 22px);
+  border:3px dashed currentColor;animation:m3d-selring-spin 3s linear infinite}
+/* Crans du réticule (haut/droite/bas/gauche), pointés vers le centre. */
+.m3d-target i{position:absolute;left:0;top:0;width:4px;height:12px;
+  margin:-2px 0 0 -2px;border-radius:2px;background:currentColor;
+  box-shadow:0 0 4px currentColor;
+  --m3d-target-r:calc(var(--m3d-selring,52px) / 2 + 17px);
+  animation:m3d-target-blink 1s ease-in-out infinite}
+.m3d-target i:nth-child(1){transform:translateY(calc(-1 * var(--m3d-target-r)))}
+.m3d-target i:nth-child(2){transform:rotate(90deg) translateY(calc(-1 * var(--m3d-target-r)))}
+.m3d-target i:nth-child(3){transform:translateY(var(--m3d-target-r))}
+.m3d-target i:nth-child(4){transform:rotate(90deg) translateY(var(--m3d-target-r))}
+@keyframes m3d-target-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.75}}
+@keyframes m3d-target-blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* Infobulle de marker (survol) : title + content ReactNode fournis par l'hôte.
+   Ancrée au-dessus du marker (--m3d-tiplift = rayon + marge), non interactive. */
+.m3d-markertip{position:absolute;left:0;top:0;pointer-events:none;z-index:90;
+  transform:translate(-50%,calc(-100% - var(--m3d-tiplift,32px)));
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);
+  border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-lg);
+  backdrop-filter:blur(12px);padding:8px 11px;min-width:120px;max-width:240px;
+  animation:m3d-tip-in .16s ease-out}
+.m3d-markertip-title{font-size:12.5px;font-weight:600;color:var(--m3d-text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Le contenu est une LISTE : une information par ligne (m3d-markertip-row),
+   jamais de concaténation wrappée sur une ligne. */
+.m3d-markertip-content{display:flex;flex-direction:column;gap:3px;
+  font-size:11.5px;color:var(--m3d-muted);margin-top:2px}
+.m3d-markertip-title + .m3d-markertip-content{margin-top:5px}
+.m3d-markertip-row{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.m3d-markertip-row span{overflow:hidden;text-overflow:ellipsis}
+/* Marker urgent : infobulle en style URGENCE — bordure, titre et halo rouges
+   (couleur thème attention.target), distincte au premier coup d'œil. */
+.m3d-markertip.m3d-markertip-urgent{
+  border:2.5px solid color-mix(in srgb,var(--m3d-target-color,#ff3b30) 85%,transparent);
+  box-shadow:var(--m3d-shadow-lg),0 0 12px color-mix(in srgb,var(--m3d-target-color,#ff3b30) 45%,transparent)}
+.m3d-markertip-urgent .m3d-markertip-title{color:var(--m3d-target-color,#ff3b30)}
+@keyframes m3d-tip-in{from{opacity:0;transform:translate(-50%,calc(-100% - var(--m3d-tiplift,32px) + 4px))}}
+
+/* HUD de sélection : badges par groupe (catégorie · type, compteur, croix de
+   désélection, tout désélectionner) + hint des modificateurs. Par défaut en haut
+   à droite, décalé de la barre de contrôles ; déplaçable par la poignée (le
+   composant bascule alors en left/top inline, clampé au conteneur). */
+.m3d-selhud{position:absolute;top:14px;right:82px;z-index:20;
+  display:flex;flex-direction:column;align-items:flex-end;gap:7px;pointer-events:none;
+  max-width:min(70%,640px)}
+.m3d-selhud > *{pointer-events:auto}
+/* Poignée de déplacement du HUD (drag & drop). touch-action:none : le drag
+   pointer ne doit pas être avalé par le scroll tactile. */
+.m3d-selgrip{display:flex;align-items:center;justify-content:center;width:20px;height:22px;
+  border:none;border-radius:6px;background:transparent;padding:0;cursor:grab;
+  color:var(--m3d-muted);touch-action:none;flex:none}
+.m3d-selgrip:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
+.m3d-selgrip:active{cursor:grabbing}
+/* Panneau liste : mêmes classes que le panneau « Couches » (m3d-taglist/-tagrow/
+   -taglabel/-tagdot/-tagcount/-tagclear) — seuls les deltas sont scopés ici. */
+.m3d-selpanel{width:236px;padding:8px;display:flex;flex-direction:column;gap:7px}
+.m3d-selhead{display:flex;align-items:center;gap:6px;padding:2px 2px 0;
+  font-size:12.5px;font-weight:600}
+.m3d-selhead span{flex:1}
+/* Rangées non cliquables (seule la croix agit) + liste bornée. */
+.m3d-selpanel .m3d-taglist{max-height:40vh}
+.m3d-selpanel .m3d-tagrow{cursor:default}
+.m3d-selrow-x{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border:none;border-radius:50%;background:transparent;padding:0;cursor:pointer;
+  color:var(--m3d-muted);transition:background .14s,color .14s;flex:none}
+.m3d-selrow-x:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent);
+  color:var(--m3d-text)}
+/* Pied du panneau : rappel des modificateurs — vit et meurt avec la liste. */
+.m3d-selfoot{border-top:1px solid var(--m3d-border);padding-top:6px;
+  display:flex;flex-direction:column;gap:3px}
 /* Poignées : blanches à bord sombre (Figma/Illustrator) — lisibles partout. */
 .m3d-handle{fill:#fff;stroke:rgba(0,0,0,.65);stroke-width:1.2;pointer-events:all;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
@@ -118,6 +242,11 @@ const CSS = `
 @keyframes m3d-lockflash{0%{opacity:0}12%{opacity:1}70%{opacity:1}100%{opacity:0}}
 /* Outil sélection : curseur flèche (pas le crosshair de dessin), « déplacer » sur une forme. */
 .m3d-root.m3d-selecting canvas{cursor:default}
+/* En mode sélection, le pointer (main) des markers cliquables est neutralisé —
+   la main brouillait sélection vs pan. Les clusters gardent le pointer (clic = zoom).
+   !important : le cursor du contenu marker est posé en style inline. */
+.m3d-root.m3d-selecting .m3d-marker-content,
+.m3d-root.m3d-selecting .m3d-marker-content *{cursor:default!important}
 .m3d-root.m3d-selecting.m3d-hover-shape canvas{cursor:move}
 /* Rotation de forme (Maj + glisser) : curseur de rotation dédié, partout. */
 .m3d-root.m3d-rotating canvas,.m3d-root.m3d-rotating .m3d-handle{cursor:${ROTATE_CURSOR}!important}
@@ -400,12 +529,6 @@ const CSS = `
 .m3d-menu-sub{position:absolute;left:100%;top:-5px;margin-left:3px}
 .m3d-menu-sub.m3d-flip{left:auto;right:100%;margin-left:0;margin-right:3px}
 
-.m3d-popup{position:absolute;left:0;top:0;z-index:90;transform-origin:0 0;
-  pointer-events:none;will-change:transform}
-.m3d-popup-inner{pointer-events:auto;transform:translate(-50%,calc(-100% - 14px));
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-lg);padding:10px 12px;
-  min-width:160px;max-width:280px}
 
 @media(prefers-reduced-motion:reduce){
   .m3d-root *{animation-duration:.001ms!important;animation-iteration-count:1!important}

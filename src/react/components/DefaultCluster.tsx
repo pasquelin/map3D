@@ -11,9 +11,21 @@ export type DefaultClusterProps = {
   typeIcon?: (type: string) => ReactNode
   /** Libellé lisible d'un type, pour l'infobulle au survol. */
   typeLabel?: (type: string) => string
+  /** Infobulle interne par satellite — coupée quand l'hôte fournit `clusterTooltip`
+   *  (sinon deux infobulles se superposeraient au survol). */
+  satelliteTip?: boolean
+  /** Notifie le type de la part survolée (`null` : cœur ou sortie) — permet à
+   *  l'hôte une infobulle par segment distincte de l'infobulle globale. */
+  onSegmentHover?: (type: string | null) => void
 }
 
 type Tip = { x: number; y: number; below: boolean; label: string; count: number; color: string }
+
+const RING_W = 30
+
+/** Rayon extérieur (px) du donut par défaut — l'ancrage de l'infobulle de
+ *  cluster le lit pour ne jamais recouvrir le camembert. */
+export const defaultClusterRadius = (total: number): number => Math.min(28, 19 + Math.sqrt(total)) + RING_W
 
 /**
  * Cluster par défaut, en **donut** : un cœur portant le **nombre total** (couleur
@@ -22,7 +34,7 @@ type Tip = { x: number; y: number; below: boolean; label: string; count: number;
  * l'icône du type + son compte, et une **infobulle stylée** au survol (clampée aux
  * bords de la fenêtre).
  */
-export function DefaultCluster({ cluster, theme, typeIcon, typeLabel }: DefaultClusterProps) {
+export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteTip = true, onSegmentHover }: DefaultClusterProps) {
   const { total, counts, types } = cluster
   const [tip, setTip] = useState<Tip | null>(null)
   const box = 150
@@ -32,9 +44,8 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel }: DefaultC
   const colorOf = (type: string) => theme.colors.marker[type] ?? theme.colors.marker.default!
   const core = theme.colors.cluster // couleur PROPRE du cluster (indépendante des types)
 
-  const cr = Math.min(28, 19 + Math.sqrt(total)) // cœur compact
-  const ringW = 30
-  const ro = cr + ringW
+  const ro = defaultClusterRadius(total)
+  const cr = ro - RING_W // cœur compact
   const rm = (cr + ro) / 2
   const gap = types.length > 1 ? 0.045 : 0
 
@@ -60,8 +71,10 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel }: DefaultC
     return { type, count, a0, a1, am, col: colorOf(type) }
   })
 
-  const showTip = (e: { clientX: number; clientY: number }, type: string, count: number, color: string) =>
+  const showTip = (e: { clientX: number; clientY: number }, type: string, count: number, color: string) => {
+    if (!satelliteTip) return
     setTip({ x: e.clientX, y: e.clientY, below: e.clientY < 76, label: typeLabel?.(type) ?? type, count, color })
+  }
 
   return (
     <div
@@ -77,8 +90,14 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel }: DefaultC
             <g
               key={s.type}
               className="m3d-cluster-sat"
-              onPointerMove={(e) => showTip(e, s.type, s.count, s.col.base)}
-              onPointerLeave={() => setTip(null)}
+              onPointerMove={(e) => {
+                showTip(e, s.type, s.count, s.col.base)
+                onSegmentHover?.(s.type)
+              }}
+              onPointerLeave={() => {
+                setTip(null)
+                onSegmentHover?.(null)
+              }}
             >
               {segs.length === 1 ? (
                 <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke="#fff" strokeWidth={2.5} />

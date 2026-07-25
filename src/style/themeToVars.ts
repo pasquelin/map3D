@@ -7,7 +7,7 @@ import type { MapTheme } from '../theme/types'
  */
 export function themeToVars(theme: MapTheme): Record<string, string> {
   const c = theme.colors
-  return {
+  const vars: Record<string, string> = {
     '--m3d-bg': c.background,
     '--m3d-panel': c.ui.panel,
     '--m3d-text': c.ui.text,
@@ -32,4 +32,8 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-size-md': `${theme.typography.sizes.md ?? 13.5}px`,
     '--m3d-size-lg': `${theme.typography.sizes.lg ?? 16}px`,
   }
+  // Optionnelles (thème antérieur valide) : les règles CSS ont leur repli.
+  if (c.attention?.sonar) vars['--m3d-sonar-color'] = c.attention.sonar
+  if (c.attention?.target) vars['--m3d-target-color'] = c.attention.target
+  return vars
 }

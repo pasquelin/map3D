@@ -3,6 +3,7 @@ import type { Ellipsoid } from '3d-tiles-renderer'
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { Projection } from '../core/Projection'
+import type { SelectableScreenItem } from '../core/Selectables'
 import { clamp, DEG2RAD, shortestLngDelta } from '../core/math'
 import type { LatLng } from '../shared'
 
@@ -59,6 +60,10 @@ export class MarkerLayer implements Layer {
   private readonly nodes = new Map<string | number, Node>()
   private readonly worldScratch = new THREE.Vector3()
   private selected: string | number | null = null
+  /** Multi-sélection (outil sélection) — canal parallèle à `selected` (popup/follow). */
+  private readonly multiSel = new Set<string | number>()
+  /** Diamètre (px) de l'anneau de multi-sélection — CSS var posée par nœud. */
+  private ringPx: number | null = null
   /** Marker relevé au sommet du tri z (menu/popup ouvert). */
   private raised: string | number | null = null
   private frame = 0
@@ -193,6 +198,10 @@ export class MarkerLayer implements Layer {
         // recréé (marker → cluster → marker avec menu ouvert) repart à renderOrder 0,
         // sinon son menu repasse DERRIÈRE le cluster voisin.
         this.applyOrder(item.id)
+        // Même restauration pour la multi-sélection : un marker absorbé par un
+        // cluster puis ré-éclaté ressort avec son anneau.
+        if (this.multiSel.has(item.id)) el.classList.add('m3d-multisel')
+        if (this.ringPx !== null) el.style.setProperty('--m3d-selring', `${this.ringPx}px`)
         this.onMount(item.id, el)
         if (item.animateEnter !== false) {
           requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('m3d-enter')))
@@ -208,6 +217,52 @@ export class MarkerLayer implements Layer {
         this.nodes.delete(id)
       }
     }
+  }
+
+  /**
+   * Taille de l'anneau de multi-sélection. Posée à la création de chaque nœud
+   * (et resynchronisée ici au changement) : pas de passe sur tous les nœuds à
+   * chaque mount/unmount côté React.
+   */
+  setSelectionRing(px: number): void {
+    if (this.ringPx === px) return
+    this.ringPx = px
+    for (const node of this.nodes.values()) node.el.style.setProperty('--m3d-selring', `${px}px`)
+  }
+
+  /**
+   * Applique la multi-sélection de l'outil sélection : toggle la classe
+   * `m3d-multisel` (anneau CSS) par diff — indépendant de `setSelected` mono-id.
+   */
+  setMultiSelected(ids: ReadonlySet<string | number>): void {
+    for (const id of [...this.multiSel]) {
+      if (!ids.has(id)) {
+        this.multiSel.delete(id)
+        this.nodes.get(id)?.el.classList.remove('m3d-multisel')
+      }
+    }
+    for (const id of ids) {
+      if (!this.multiSel.has(id)) {
+        this.multiSel.add(id)
+        this.nodes.get(id)?.el.classList.add('m3d-multisel')
+      }
+    }
+  }
+
+  /**
+   * Positions écran (px canvas) des markers individuellement visibles — occlusion
+   * horizon exclue (`node.visible`), derrière-caméra exclu (z>1). Appelée
+   * uniquement au finalize du marquee : aucune position n'est maintenue par frame.
+   */
+  screenPositions(camera: THREE.Camera): SelectableScreenItem[] {
+    const out: SelectableScreenItem[] = []
+    for (const node of this.nodes.values()) {
+      if (!node.visible) continue
+      const world = node.obj.getWorldPosition(this.worldScratch)
+      const s = this.projection.worldToScreen(world, camera)
+      if (s.z <= 1) out.push({ id: node.id, x: s.sx, y: s.sy })
+    }
+    return out
   }
 
   setSelected(id: string | number | null): void {

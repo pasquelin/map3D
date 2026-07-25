@@ -32,5 +32,20 @@ export type MarkerData<T = unknown> = {
   type: string
   /** Tags de filtrage (panneau « Couches »), ex. `['user', 'move']`. */
   tags?: string[]
+  /**
+   * URL d'avatar (photo d'un user/agent) — GÉRÉ par la couche : rendu en
+   * pastille photo ronde cerclée de la couleur du type, prioritaire sur `icon`.
+   */
+  avatar?: string
+  /**
+   * Élément fraîchement arrivé (ex. nouvelle alerte) : animation sonar autour
+   * du marker jusqu'au premier clic dessus (état « vu » géré par la couche).
+   */
+  new?: boolean
+  /**
+   * Urgence (ex. alerte critique) : viseur rouge animé ultra visible autour du
+   * marker, tant que le flag est vrai — conçu pour attirer l'œil immédiatement.
+   */
+  urgent?: boolean
   data: T
 }

@@ -1,7 +1,8 @@
 import { mdiClose, mdiHistory, mdiMagnify, mdiMapMarkerOutline, mdiTrashCanOutline } from '@mdi/js'
 import Icon from '@mdi/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DEG2RAD, clamp } from '../../core/math'
+import { DEG2RAD, M_PER_DEG, clamp } from '../../core/math'
+import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../../core/storage'
 import { createGooglePlacesSearch } from '../../search/googlePlaces'
 import type { Bounds, SearchResult } from '../../shared'
 import { useLabels, useMapContext } from '../context'
@@ -32,7 +33,6 @@ export type SearchBoxProps = {
 /** Longueur mini de requête avant d'interroger le provider. */
 const MIN_QUERY = 2
 const DEBOUNCE_MS = 250
-const M_PER_DEG = 111_320
 /** Hauteur maximale de la liste de résultats quand la place le permet (px). */
 const RESULTS_MAX_HEIGHT = 300
 
@@ -62,17 +62,13 @@ function altitudeForBounds(b: Bounds): number {
 const sameResult = (a: SearchResult, b: SearchResult) => a.name === b.name && a.lat === b.lat && a.lng === b.lng
 
 function loadHistory(key: string): SearchResult[] {
-  try {
-    const raw: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
-    if (!Array.isArray(raw)) return []
-    return raw.filter(
-      (r): r is SearchResult =>
-        !!r && typeof r === 'object' && typeof (r as SearchResult).name === 'string' &&
-        typeof (r as SearchResult).lat === 'number' && typeof (r as SearchResult).lng === 'number',
-    )
-  } catch {
-    return []
-  }
+  const raw = readStoredJSON(key)
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (r): r is SearchResult =>
+      !!r && typeof r === 'object' && typeof (r as SearchResult).name === 'string' &&
+      typeof (r as SearchResult).lat === 'number' && typeof (r as SearchResult).lng === 'number',
+  )
 }
 
 /**
@@ -157,11 +153,7 @@ export function SearchBox({
     if (historyStorageKey) {
       const next = [r, ...history.filter((h) => !sameResult(h, r))].slice(0, historySize)
       setHistory(next)
-      try {
-        localStorage.setItem(historyStorageKey, JSON.stringify(next))
-      } catch {
-        // Stockage privé/plein : l'historique est best-effort.
-      }
+      writeStoredJSON(historyStorageKey, next)
     }
   }
 
@@ -169,11 +161,7 @@ export function SearchBox({
     setHistory([])
     setOpen(false)
     if (historyStorageKey) {
-      try {
-        localStorage.removeItem(historyStorageKey)
-      } catch {
-        // idem : best-effort.
-      }
+      removeStoredKey(historyStorageKey)
     }
   }
 
