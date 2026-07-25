@@ -679,11 +679,12 @@ img.m3d-pin-media{object-fit:cover}
 /* ── Loupe (LensLayer) : zone d'inspection + panneau d'inventaire ─────────────── */
 /* Curseur de tracé, seulement tant qu'aucune zone n'existe (phase de dessin). */
 .m3d-root.m3d-lensing canvas{cursor:crosshair}
-/* Zone : fenêtre écran 2D, déplaçable (corps) + redimensionnable (poignées). */
+/* Zone : sélecteur en POINTILLÉS (façon marquee), déplaçable (corps) +
+   redimensionnable (poignées). Fenêtre écran 2D. */
 .m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move;
-  border:1.5px solid var(--m3d-accent);border-radius:6px;
-  background:color-mix(in srgb,var(--m3d-accent) 10%,transparent);
-  box-shadow:0 0 0 1px color-mix(in srgb,#000 28%,transparent),0 2px 12px rgba(0,0,0,.28)}
+  border:1.5px dashed var(--m3d-accent);border-radius:4px;
+  background:color-mix(in srgb,var(--m3d-accent) 8%,transparent);
+  box-shadow:0 0 0 1px color-mix(in srgb,#fff 55%,transparent)}
 .m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:1;
   display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;padding:0;
   background:var(--m3d-accent);color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4)}
