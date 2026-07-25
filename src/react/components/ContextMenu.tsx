@@ -10,6 +10,12 @@ export type MenuItem =
       separator?: false
     }
 
+export type ContextMenuProps = {
+  items: MenuItem[]
+  header?: ReactNode
+  onClose: () => void
+}
+
 type LevelProps = { items: MenuItem[]; onClose: () => void }
 
 /** Liste d'items d'un niveau (sans panneau) — récursif pour les sous-menus. */
@@ -55,12 +61,6 @@ function MenuLevel({ items, onClose }: LevelProps) {
       })}
     </>
   )
-}
-
-export type ContextMenuProps = {
-  items: MenuItem[]
-  header?: ReactNode
-  onClose: () => void
 }
 
 /** Menu contextuel arborescent (profondeur illimitée, ouverture au survol). */

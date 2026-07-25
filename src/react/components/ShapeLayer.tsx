@@ -12,7 +12,7 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
   const ref = useRef<CoreShapeLayer | null>(null)
 
   useEffect(() => {
-    const layer = new CoreShapeLayer(engine.scene, engine.projection, {
+    const layer = new CoreShapeLayer(engine.annotations, engine.projection, {
       color: theme.colors.zone.stroke,
       width: 6,
       fillOpacity: 0.22,

@@ -20,8 +20,10 @@ export class EnuFrame {
   constructor(
     private readonly projection: Projection,
     anchor: LatLng,
+    /** Hauteur de l'origine (m au-dessus de l'ellipsoïde) — cf. `Projection.resolveAnchorHeight`. */
+    height = 0,
   ) {
-    projection.getENUAxes(anchor, this.origin, this.east, this.north, this.up)
+    projection.getENUAxes(anchor, this.origin, this.east, this.north, this.up, height)
   }
 
   /** lat/lng → coordonnées locales (mètres) dans le plan tangent. */
