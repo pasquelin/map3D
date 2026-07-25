@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import {
   DrawLayer,
   DrawToolbar,
+  type GeoJSONFeatureCollection,
   Map,
   MapControls,
   MapProvider,
@@ -17,6 +18,8 @@ import {
   type MapMode,
   defaultTheme,
   mergeTheme,
+  useDrawing,
+  useDrawSettings,
   useMap,
 } from 'map3d'
 
@@ -318,8 +321,13 @@ function MapDemo() {
         renderPopup={popupFor}
       />
 
-      <DrawLayer onChange={(g) => console.info('[map3d] GeoJSON', g.features.length, 'features')}>
+      <DrawLayer
+        value={LOCKED_ZONE}
+        onChange={(g) => console.log('[draw] change — GeoJSON complet (ce que reçoit l’API) :', g)}
+        onSelectionChange={(ids) => console.log('[draw] selection', ids)}
+      >
         <DrawToolbar />
+        <DrawDebug />
       </DrawLayer>
 
       <MapControls position="right" />
@@ -327,6 +335,60 @@ function MapDemo() {
       <SearchBox onSelect={() => {}} search={(q) => Promise.resolve(PLACES.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())))} />
     </Map>
   )
+}
+
+/**
+ * Zone imposée « par l'API » : `locked` → ni sélection, ni édition, ni gomme, ni
+ * « Tout effacer ». Clic dessus = flash cadenas. Pour la déverrouiller depuis la
+ * console : `drawApi.unlock(['draw-0'])` (les ids sont dans les logs de sélection).
+ */
+const LOCKED_ZONE: GeoJSONFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [2.335, 48.868],
+            [2.352, 48.868],
+            [2.352, 48.876],
+            [2.335, 48.876],
+            [2.335, 48.868],
+          ],
+        ],
+      },
+      properties: {
+        kind: 'polygon',
+        color: '#d11a01',
+        width: 4,
+        fillOpacity: 0.12,
+        stroke: 'dashed',
+        locked: true,
+        tags: ['draw', 'zone-interdite'],
+      },
+    },
+  ],
+}
+
+/**
+ * Sonde de debug : loggue chaque action du dessin pour visualiser ce que
+ * recevrait une API consommatrice, et expose l'API sur `window.drawApi`
+ * (ex. `drawApi.unlock([...])`, `drawApi.selectAll()`).
+ */
+function DrawDebug() {
+  const api = useDrawing()
+  const settings = useDrawSettings()
+  useEffect(() => console.log('[draw] tool', api.tool, api.tool === 'select' ? `(mode ${api.selectMode})` : ''), [api.tool, api.selectMode])
+  useEffect(() => console.log('[draw] history', { canUndo: api.canUndo, canRedo: api.canRedo }), [api.canUndo, api.canRedo])
+  const styleJson = JSON.stringify(api.currentStyle)
+  useEffect(() => console.log('[draw] style courant', JSON.parse(styleJson)), [styleJson])
+  useEffect(() => console.log('[draw] settings modifiés (v%d)', settings.version), [settings.version])
+  useEffect(() => {
+    ;(window as unknown as { drawApi: typeof api }).drawApi = api
+  })
+  return null
 }
 
 export function App() {

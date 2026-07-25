@@ -32,7 +32,17 @@ export { ClusterEngine } from './layers/ClusterLayer'
 export type { ClusterInfo, ClusterEntry } from './layers/ClusterLayer'
 export type { ShapeData } from './layers/ShapeLayer'
 export type { PathData } from './layers/PathLayer'
-export type { DrawTool, GeoJSONFeatureCollection } from './layers/DrawLayer'
+export type {
+  DrawTool,
+  GeoJSONFeatureCollection,
+  SelectMode,
+  DrawStyle,
+  StrokeStyle,
+  Drawing,
+  DrawDefaults,
+} from './layers/DrawLayer'
+export { DrawSettings } from './layers/draw/DrawSettings'
+export type { ToolSettings } from './layers/draw/DrawSettings'
 
 // ── Thème ──
 export type { MapTheme, MarkerColor, PartialTheme, ThemeInput, DeepPartial } from './theme/types'
@@ -47,10 +57,12 @@ export type { MapProviderProps } from './react/MapProvider'
 export { Map } from './react/Map'
 export type { MapProps } from './react/Map'
 export { useMap, useTheme } from './react/context'
+export type { DrawingApi, DrawAction } from './react/context'
 export { useCamera } from './react/hooks/useCamera'
 export { useViewport } from './react/hooks/useViewport'
 export { useLiveData } from './react/hooks/useLiveData'
 export { useDrawing } from './react/hooks/useDrawing'
+export { useDrawSettings } from './react/hooks/useDrawSettings'
 export { useMapEvents } from './react/hooks/useMapEvents'
 export { useTags, useTagSelection } from './react/hooks/useTags'
 
@@ -67,7 +79,10 @@ export type { MapControlsProps, MapControlAction, MapControlButton } from './rea
 export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { DrawToolbar } from './react/components/DrawToolbar'
-export type { DrawToolbarProps } from './react/components/DrawToolbar'
+export type { DrawToolbarProps, DrawToolbarSection } from './react/components/DrawToolbar'
+export { DrawStylePanel } from './react/components/DrawStylePanel'
+export type { DrawStylePanelProps } from './react/components/DrawStylePanel'
+export { DrawSettingsButton } from './react/components/DrawSettingsPanel'
 export { SearchBox } from './react/components/SearchBox'
 export type { SearchBoxProps, SearchResult } from './react/components/SearchBox'
 export { ContextMenu } from './react/components/ContextMenu'

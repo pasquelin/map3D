@@ -12,7 +12,8 @@ Conçue pour le *Dashboard Opérateur* GoSecure (alertes par sévérité, agents
 - **Clustering** en espace monde (supercluster), paliers de zoom discrets, clés stables (aucun clignotement).
 - **Agents mobiles animés** : identité stable → le marker glisse au lieu d'être recréé.
 - **Données viewport-driven** : rechargement à la bbox au déplacement + temps réel live.
-- **Tracés/formes plaqués au sol** (Y=0, `polygonOffset`, épaisseur en mètres).
+- **Tracés/formes drapés au sol** (hauteur d'ancre sur le terrain, traits en **px écran** constants au zoom).
+- **Éditeur de dessin complet** façon Figma : sélection (clic, marquee, lasso), poignées de resize/rotation, styles fond/bordure séparés, réglages par outil persistés, undo/redo, formes verrouillables par l'hôte.
 - **Source 3D unique** : Google Photorealistic 3D Tiles via **Cesium Ion** (un seul token).
 - **Filtrage par tags (« couches »)** : markers et dessins tagués, panneau de filtre intégré aux contrôles (recherche, checkboxes, pastilles couleur, compteurs), sélection persistée.
 - **Thème typé** clair/sombre, `prefers-reduced-motion` respecté.
@@ -106,9 +107,50 @@ const theme = mergeTheme(defaultTheme, {
 - Accès programmatique : `useTags()` / `useTagSelection()` (ou `engine.tags` : `toggle`, `clear`, `isVisible`, `all`).
 - Persistance : clé configurable via `<Map tagStorageKey>` (`null` pour désactiver, une clé par carte si plusieurs cartes cohabitent).
 
+## Outils de dessin
+
+Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (formes ancrées au sol, traits en px écran constants au zoom).
+
+**Dessin** : ligne, polygone (clics + Entrée), rectangle (angles arrondis réglables), cercle, main levée, flèche, règle (cote fine pointillée ⊢––⊣ avec label de distance), gomme.
+
+**Sélection** (`V`) : clic simple (Maj+clic = ajout/retrait), ou marquee **rectangle** (`1`), **polygone** (`2`), **lasso** (`3`) — sous-menu au survol du bouton, sémantique « touche = sélectionné ». Contours en marching-ants noir/blanc (lisibles sur tout fond), bbox englobante en multi-sélection.
+
+**Édition** : poignées façon Figma — coins (2 axes, Maj = homothétie), milieux d'arêtes (1 axe), sommets individuels (polygone/ligne/flèche/règle), drag du corps = déplacement, **Maj pendant le drag = rotation** (curseur dédié). Multi-sélection : transformations groupées dans un repère commun. Un rectangle tourné se redimensionne le long de ses axes propres.
+
+**Panneau de style** (affiché avec un outil actif ou une sélection) : couleurs **fond et bordure séparées** (swatches superposés façon Photoshop avec échange ⇄), palette du thème + sélecteur natif, épaisseur de bordure **y compris 0** (sans bordure), style de trait (plein/tirets/pointillés), opacité de bordure ET de fond, rayon d'angle des rectangles. Sans sélection il règle les défauts de l'outil actif ; avec sélection il restyle les formes.
+
+**Réglages par outil** (engrenage) : chaque outil garde ses propres défauts (couleurs, épaisseur, trait, opacités, rayon…), **persistés en `localStorage`** (`m3d:draw-settings`, désactivable via `settingsStorage="none"`), avec aperçu live, réinitialisation par outil ou globale, et récapitulatif des raccourcis.
+
+**Barre espace** : maintenir Espace pendant le dessin/l'édition = **pan caméra temporaire** (le tracé en cours est gelé, pas perdu) ; Espace+Maj = rotation caméra ; relâcher = reprise exacte.
+
+**Historique** : undo/redo complet (`⌘Z`/`⌘⇧Z`) couvrant création, édition, style, suppression, duplication. `⌘A` tout sélectionner, `⌘D` dupliquer, `Suppr` supprimer, flèches = déplacer d'1 px (Maj = 10 px).
+
+**Formes verrouillées** : une feature GeoJSON avec `properties.locked: true` (ex. limite de zone imposée par votre API) est intouchable dans l'UI — clic dessus = flash cadenas ; « Tout effacer » la conserve, et **l'undo/redo la préserve** (ni supprimée ni déverrouillée par Ctrl+Z). Déverrouillage réservé au code hôte : `api.lock(ids)` / `api.unlock(ids)`.
+
+**GeoJSON** : export/import via `onChange`/`value`/`toGeoJSON`/`fromGeoJSON`. Properties par forme : `kind`, `color` (bordure), `fillColor`, `width` (px, 0 = sans bordure), `fillOpacity`, `strokeOpacity`, `stroke` (`solid`/`dashed`/`dotted`), `radius` (% d'angle, rects), `locked`, `tags`. Les anciens fichiers (sans les nouveaux champs) se chargent tels quels.
+
+```tsx
+<DrawLayer
+  value={zonesImposees}                        // import contrôlé (remplace tout, non annulable)
+  onChange={(fc) => save(fc)}                  // GeoJSON complet, coalescé (1 émission max par frame)
+  onSelectionChange={(ids) => console.log(ids)}
+  settingsStorage="local"                      // ou "none"
+  shortcuts={{ selectLasso: 'q', rect: false }} // remappe/désactive outils et modes de sélection
+>
+  <DrawToolbar
+    position="left"
+    tools={['select', 'rect', 'circle', 'arrow', 'erase']}  // outils affichés, dans l'ordre
+    selectModes={['rect', 'lasso']}                          // modes du sélecteur (1 seul = pas de flyout)
+    components={{ settings: false, clear: false }}           // masquer/remplacer chaque section
+  />
+</DrawLayer>
+```
+
+L'API `useDrawing()` expose tout : `tool/setTool`, `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`, `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`, `undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`), `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
+
 ## Raccourcis clavier
 
-Lettres **seules**, identiques Mac/PC (pas de ⌘/Ctrl : les navigateurs réservent ⌘T/⌘N/⌘W…), affichées dans les tooltips des boutons, ignorées pendant une saisie (recherche, formulaires).
+Les **outils** se choisissent par lettres seules, identiques Mac/PC ; les **actions d'édition** (annuler, tout sélectionner, dupliquer) utilisent le modificateur de la plateforme (⌘ sur Mac, Ctrl ailleurs) avec `preventDefault` ciblé. Tous sont affichés dans les tooltips des boutons et ignorés pendant une saisie (recherche, formulaires).
 
 **Contrôles carte (`<MapControls>`)** :
 
@@ -128,7 +170,20 @@ Remappable si une touche est déjà prise ailleurs dans votre app — même patt
 <DrawLayer shortcuts={{ rect: 'k' }} />                          // outils de dessin
 ```
 
-**Outils de dessin (`<DrawLayer>`)** : `L` ligne, `P` polygone, `R` rectangle, `C` cercle, `D` main levée, `A` flèche, `M` mesurer, `E` gomme, `Entrée` fermer le polygone, `Échap` outil navigation, `⌘Z`/`Ctrl+Z` annuler (selon la plateforme).
+**Outils de dessin (`<DrawLayer>`)** :
+
+| Touche | Action |
+|---|---|
+| `V` | Sélectionner — `1` rectangle, `2` polygone, `3` lasso |
+| `L` `P` `R` `C` `D` `A` `M` `E` | Ligne, Polygone, Rectangle, Cercle, main levée (Dessin), flèche (Arrow), Mesurer, gomme (Effacer) |
+| `Espace` (maintenir) | Pan caméra temporaire (dessin gelé, pas perdu) — `Espace+Maj` = rotation caméra |
+| `Maj` + glisser | Rotation de la forme (corps) / homothétie (poignée de coin) |
+| `⌘Z` / `⌘⇧Z` (`Ctrl` ailleurs) | Annuler / Rétablir (création, édition, style, suppression) |
+| `⌘A` / `⌘D` | Tout sélectionner / Dupliquer la sélection |
+| `Suppr`/`⌫` | Supprimer la sélection |
+| Flèches | Déplacer la sélection d'1 px (Maj = 10 px) |
+| `Entrée` | Fermer le polygone (dessin ou marquee) |
+| `Échap` | Cascade : annule le geste/tracé en cours → marquee → désélectionne → outil navigation |
 
 Un remapping est immédiatement reflété dans les tooltips (les deux barres affichent leurs raccourcis effectifs).
 
@@ -141,7 +196,9 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | `<MarkerLayer points/source getId cluster icon clusterIcon renderPopup menu selectedId followId onSelect>` | Markers/clusters DOM. |
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
 | `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds. |
-| `<DrawLayer tools shortcuts defaults value onChange>` | Outils de dessin + GeoJSON. |
+| `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON. |
+| `<DrawToolbar position minZoom tools selectModes components>` | Barre de dessin entièrement paramétrable (sections masquables/remplaçables). |
+| `<DrawStylePanel>` `DrawSettingsButton` | Panneau de style et réglages par outil, utilisables seuls. |
 | `<MapControls>` `<SearchBox>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
 
 `<MapControls>` est entièrement configurable, à deux grains :

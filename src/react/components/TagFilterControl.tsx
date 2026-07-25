@@ -5,6 +5,7 @@ import { tagColor } from '../../core/TagFilter'
 import { useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
 import { plainKey } from './shortcuts'
+import { useDismiss } from './useDismiss'
 import { ICON_SIZE, tipProps, withShortcut } from './tooltip'
 
 export type TagFilterControlProps = {
@@ -47,21 +48,7 @@ export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFil
   }, [shortcut])
 
   // Fermeture au clic hors panneau ou Échap.
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', onDown)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onDown)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  useDismiss(rootRef, open, () => setOpen(false))
 
   const active = tags.selected.size
   const label = 'Couches — filtrer par tag'

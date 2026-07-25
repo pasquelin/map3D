@@ -1,56 +1,66 @@
 import {
-  mdiArrowTopRight,
-  mdiCircleOutline,
-  mdiEraser,
-  mdiGesture,
+  mdiCursorDefaultOutline,
   mdiHandBackRightOutline,
-  mdiRuler,
+  mdiRedo,
   mdiTrashCanOutline,
   mdiUndo,
-  mdiVectorLine,
-  mdiVectorPolygon,
-  mdiVectorRectangle,
 } from '@mdi/js'
 import Icon from '@mdi/react'
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import 'react-tooltip/dist/react-tooltip.css'
 import { zoomForAltitude } from '../../core/MapEngine'
-import type { DrawTool } from '../../layers/DrawLayer'
+import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
 import { useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
-import { ICON_SIZE, tipProps } from './tooltip'
+import { SELECT_MODE_META, TOOL_META } from './drawControls'
+import { DrawSettingsButton } from './DrawSettingsPanel'
+import { DrawStylePanel } from './DrawStylePanel'
+import { modKey } from './shortcuts'
+import { ICON_SIZE, formatKey, tipProps } from './tooltip'
+
+/** Sections optionnelles de la barre : `false` pour masquer, ReactNode pour remplacer. */
+export type DrawToolbarSection = 'navigate' | 'select' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
 
 export type DrawToolbarProps = {
   position?: 'left' | 'right'
   /** Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. */
   minZoom?: number
-  /** Outils affichés, dans l'ordre (défaut : tous). */
+  /** Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). */
   tools?: DrawTool[]
+  /** Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. */
+  selectModes?: SelectMode[]
+  /** Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. */
+  components?: Partial<Record<DrawToolbarSection, boolean | ReactNode>>
 }
 
 const TIP_ID = 'm3d-draw-tip'
 
-const TOOL_META: Record<DrawTool, { icon: string; label: string }> = {
-  line: { icon: mdiVectorLine, label: 'Ligne' },
-  polygon: { icon: mdiVectorPolygon, label: 'Polygone' },
-  rect: { icon: mdiVectorRectangle, label: 'Rectangle' },
-  circle: { icon: mdiCircleOutline, label: 'Cercle' },
-  freehand: { icon: mdiGesture, label: 'Main levée' },
-  arrow: { icon: mdiArrowTopRight, label: 'Flèche' },
-  measure: { icon: mdiRuler, label: 'Mesurer' },
-  erase: { icon: mdiEraser, label: 'Effacer' },
-}
-
-const DEFAULT_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure', 'erase']
+const DEFAULT_TOOLS: DrawTool[] = [
+  'select',
+  'line',
+  'polygon',
+  'rect',
+  'circle',
+  'freehand',
+  'arrow',
+  'measure',
+  'erase',
+]
 
 /**
  * Barre d'outils de dessin (navigation, formes, gomme, annuler, tout effacer).
  * Nécessite un `<DrawLayer>` monté (elle pilote `useDrawing()`). Masquée sous
  * `minZoom` (glisse hors écran) : dessiner n'a de sens qu'en vue rapprochée.
  */
-export function DrawToolbar({ position = 'left', minZoom = 11, tools = DEFAULT_TOOLS }: DrawToolbarProps) {
-  const { tool, setTool, undo, clear, shortcuts } = useDrawing()
+export function DrawToolbar({
+  position = 'left',
+  minZoom = 11,
+  tools = DEFAULT_TOOLS,
+  selectModes,
+  components = {},
+}: DrawToolbarProps) {
+  const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts } = useDrawing()
   const { engine } = useMapContext()
   const [hidden, setHidden] = useState(true)
   useEffect(() => {
@@ -62,27 +72,113 @@ export function DrawToolbar({ position = 'left', minZoom = 11, tools = DEFAULT_T
 
   const tip = (label: string, shortcut?: string | false) => tipProps(TIP_ID, label, shortcut)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
-  const undoKey = /Mac|iP(hone|ad|od)/.test(navigator.userAgent) ? '⌘Z' : 'Ctrl+Z'
+  const undoKey = `${modKey}Z`
+  /** Section configurable : masquée (false), remplacée (ReactNode) ou par défaut. */
+  const slot = (key: DrawToolbarSection, node: ReactNode): ReactNode => {
+    const c = components[key]
+    if (c === false) return null
+    if (c !== undefined && c !== true) return c
+    return node
+  }
 
   return (
     <>
       <div className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
-        <button {...tip('Naviguer', 'Échap')} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
-          <Icon path={mdiHandBackRightOutline} size={ICON_SIZE} />
-        </button>
-        {tools.map((t) => (
-          <button key={t} {...tip(TOOL_META[t].label, shortcuts[t])} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} onClick={() => toggle(t)}>
-            <Icon path={TOOL_META[t].icon} size={ICON_SIZE} />
-          </button>
-        ))}
-        <button {...tip('Annuler', undoKey)} className="m3d-btn" onClick={undo}>
-          <Icon path={mdiUndo} size={ICON_SIZE} />
-        </button>
-        <button {...tip('Tout effacer')} className="m3d-btn m3d-btn-delete" onClick={clear}>
-          <Icon path={mdiTrashCanOutline} size={ICON_SIZE} />
-        </button>
+        {slot(
+          'navigate',
+          <button {...tip('Naviguer', 'Échap')} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
+            <Icon path={mdiHandBackRightOutline} size={ICON_SIZE} />
+          </button>,
+        )}
+        {tools.map((t) =>
+          t === 'select' ? (
+            slot('select', <SelectToolButton key={t} position={position} modes={selectModes} />)
+          ) : (
+            <button key={t} {...tip(TOOL_META[t].label, shortcuts[t])} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} onClick={() => toggle(t)}>
+              <Icon path={TOOL_META[t].icon} size={ICON_SIZE} />
+            </button>
+          ),
+        )}
+        {slot(
+          'undo',
+          <button {...tip('Annuler', undoKey)} className="m3d-btn" onClick={undo} disabled={!canUndo}>
+            <Icon path={mdiUndo} size={ICON_SIZE} />
+          </button>,
+        )}
+        {slot(
+          'redo',
+          <button {...tip('Rétablir', `⇧${undoKey}`)} className="m3d-btn" onClick={redo} disabled={!canRedo}>
+            <Icon path={mdiRedo} size={ICON_SIZE} />
+          </button>,
+        )}
+        {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
+        {slot(
+          'clear',
+          <button {...tip('Tout effacer')} className="m3d-btn m3d-btn-delete" onClick={clear}>
+            <Icon path={mdiTrashCanOutline} size={ICON_SIZE} />
+          </button>,
+        )}
       </div>
+      {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       <Tooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} />
     </>
+  )
+}
+
+/**
+ * Bouton Sélectionner + flyout des modes (rectangle, polygone, lasso), ouvert au
+ * SURVOL du côté opposé à la barre. Les sous-boutons sont auto-explicatifs :
+ * icône + libellé + raccourci visibles (pas de tooltip — ils se lisent seuls).
+ */
+function SelectToolButton({ position, modes }: { position: 'left' | 'right'; modes?: SelectMode[] }) {
+  const { tool, setTool, selectMode, setSelectMode, shortcuts } = useDrawing()
+  const [open, setOpen] = useState(false)
+
+  const active = tool === 'select'
+  const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
+  const hasFlyout = available.length > 1
+
+  return (
+    <div
+      className="m3d-selectwrap"
+      onPointerEnter={hasFlyout ? () => setOpen(true) : undefined}
+      onPointerLeave={hasFlyout ? () => setOpen(false) : undefined}
+    >
+      <button
+        aria-label="Sélectionner"
+        className={`m3d-btn${hasFlyout ? ' m3d-btn-flyout' : ''}${active ? ' m3d-on' : ''}`}
+        onClick={() => {
+          // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
+          if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
+            setSelectMode(available[0]!.mode)
+          }
+          setTool(active ? null : 'select')
+        }}
+      >
+        <Icon path={mdiCursorDefaultOutline} size={ICON_SIZE} />
+      </button>
+      {open && hasFlyout && (
+        <div className={`m3d-panel m3d-flyout m3d-${position}`}>
+          {available.map((m) => {
+            const key = shortcuts[m.action]
+            return (
+              <button
+                key={m.mode}
+                className={`m3d-flyout-item${active && selectMode === m.mode ? ' m3d-on' : ''}`}
+                onClick={() => {
+                  setSelectMode(m.mode)
+                  setTool('select')
+                  setOpen(false)
+                }}
+              >
+                <Icon path={m.icon} size={0.7} />
+                <span className="m3d-flyout-label">{m.label}</span>
+                {key && <kbd className="m3d-kbd">{formatKey(key)}</kbd>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

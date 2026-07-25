@@ -1,4 +1,12 @@
+import { mdiRotateRight } from '@mdi/js'
+
 const STYLE_ID = 'm3d-styles'
+
+/** Curseur de rotation : pas de curseur CSS natif → data-URI construit sur l'icône mdi.
+ *  Noir à liseré blanc, comme les curseurs système. */
+const ROTATE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#000" stroke="#fff" stroke-width="1.6" paint-order="stroke" d="${mdiRotateRight}"/></svg>`,
+)}") 12 12, grabbing`
 
 /**
  * Injecte **une seule fois** par document une feuille scopée sous `.m3d-root`.
@@ -76,9 +84,45 @@ const CSS = `
 @keyframes m3d-cluster-bloom{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes m3d-menu-in{from{opacity:0;transform:translateX(-8px) scale(.96)}}
 
-.m3d-measure-label{position:absolute;left:0;top:0;background:#101828;color:#fff;
-  font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;white-space:nowrap;
+.m3d-measure-label{position:absolute;left:0;top:0;background:var(--m3d-panel);
+  color:var(--m3d-text);border:1px solid var(--m3d-border);backdrop-filter:blur(12px);
+  font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;padding:3px 9px;
+  border-radius:var(--m3d-radius-pill);white-space:nowrap;box-shadow:var(--m3d-shadow-sm);
   pointer-events:none}
+
+/* Overlay SVG de l'outil sélection : contours marching-ants, bbox, marquee/lasso.
+   pointer-events:none — le SVG n'intercepte rien, seules les poignées (plus tard)
+   réactivent les événements. Tout est en px écran, resynchronisé chaque frame. */
+.m3d-edit-svg{position:absolute;inset:0;width:100%;height:100%;z-index:15;
+  pointer-events:none!important;overflow:visible}
+/* Marching ants noir/blanc (Photoshop) : blanc plein dessous + tirets noirs animés
+   dessus = alternance N/B visible sur tout fond (satellite, eau, toits, neige). */
+.m3d-ants-under{fill:none;stroke:#fff;stroke-width:1.6}
+.m3d-ants-over{fill:none;stroke:#000;stroke-width:1.6;stroke-dasharray:5 4;
+  animation:m3d-ants .5s linear infinite}
+.m3d-selbox{fill:none;stroke:#fff;stroke-width:1;stroke-dasharray:4 4;opacity:.9;
+  filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9));animation:m3d-ants .6s linear infinite}
+.m3d-marquee{fill:rgba(255,255,255,.10);stroke:#fff;stroke-width:1.4;stroke-dasharray:5 4;
+  filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9));animation:m3d-ants .5s linear infinite}
+@keyframes m3d-ants{to{stroke-dashoffset:-9}}
+/* Poignées : blanches à bord sombre (Figma/Illustrator) — lisibles partout. */
+.m3d-handle{fill:#fff;stroke:rgba(0,0,0,.65);stroke-width:1.2;pointer-events:all;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.m3d-handle:hover{fill:var(--m3d-accent);stroke:#fff}
+.m3d-vhandle{stroke:rgba(0,0,0,.75)}
+.m3d-lockflash{animation:m3d-lockflash .8s ease-out forwards}
+.m3d-lockflash path:first-child{fill:none;stroke:var(--m3d-muted);stroke-width:2}
+.m3d-lockflash-icon{fill:var(--m3d-text);stroke:none;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
+@keyframes m3d-lockflash{0%{opacity:0}12%{opacity:1}70%{opacity:1}100%{opacity:0}}
+/* Outil sélection : curseur flèche (pas le crosshair de dessin), « déplacer » sur une forme. */
+.m3d-root.m3d-selecting canvas{cursor:default}
+.m3d-root.m3d-selecting.m3d-hover-shape canvas{cursor:move}
+/* Rotation de forme (Maj + glisser) : curseur de rotation dédié, partout. */
+.m3d-root.m3d-rotating canvas,.m3d-root.m3d-rotating .m3d-handle{cursor:${ROTATE_CURSOR}!important}
+/* Barre espace maintenue : pan caméra temporaire (prioritaire sur tous les modes). */
+.m3d-root.m3d-space-pan canvas{cursor:grab!important}
+.m3d-root.m3d-space-pan canvas:active{cursor:grabbing!important}
 
 .m3d-panel{background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);
@@ -96,7 +140,12 @@ const CSS = `
   transition:background .14s}
 .m3d-btn:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
 .m3d-btn.m3d-on{background:var(--m3d-accent);color:#fff}
-.m3d-btn:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+/* :focus-visible ne s'active qu'au clavier (pas au clic) : indispensable pour
+   naviguer les barres à la tabulation (WCAG 2.4.7). */
+.m3d-btn:focus-visible,.m3d-flyout-item:focus-visible,.m3d-preset:focus-visible,
+.m3d-palette-dot:focus-visible,.m3d-swatch:focus-visible,.m3d-swap:focus-visible,
+.m3d-settings-toolhead:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
+.m3d-btn:disabled{opacity:.35;cursor:default;background:transparent}
 .m3d-btn-move{margin-bottom:4px}
 .m3d-btn-delete{margin-top:4px; color:var(--m3d-error)}
 
@@ -113,6 +162,116 @@ const CSS = `
 .m3d-drawbar.m3d-left.m3d-hidden{transform:translateY(-50%) translateX(calc(-100% - 24px))}
 .m3d-drawbar.m3d-right.m3d-hidden{transform:translateY(-50%) translateX(calc(100% + 24px))}
 .m3d-drawbar .m3d-btn{width:40px;height:40px}
+/* Bouton à flyout (sélection) : flèche en coin = « il y a des sous-outils ». */
+.m3d-selectwrap{position:relative}
+.m3d-btn-flyout{position:relative}
+.m3d-btn-flyout::after{content:'';position:absolute;right:5px;bottom:5px;
+  border-left:4px solid transparent;border-bottom:4px solid currentColor;opacity:.55}
+/* Flyout vertical ouvert au survol : rangées auto-explicatives (icône + libellé
+   + raccourci) — pas de tooltips. Le ::before comble l'écart bouton↔flyout pour
+   que le survol ne se coupe pas en traversant les 12px de vide. */
+.m3d-flyout{position:absolute;top:0;display:flex;flex-direction:column;gap:2px;padding:5px;z-index:30;
+  min-width:150px;animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+.m3d-flyout.m3d-left{left:calc(100% + 12px)}
+.m3d-flyout.m3d-right{right:calc(100% + 12px)}
+.m3d-flyout.m3d-left::before{content:'';position:absolute;left:-14px;top:0;bottom:0;width:14px}
+.m3d-flyout.m3d-right::before{content:'';position:absolute;right:-14px;top:0;bottom:0;width:14px}
+.m3d-flyout-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;
+  background:transparent;border-radius:8px;font-family:inherit;font-size:12.5px;cursor:pointer;
+  color:var(--m3d-text);text-align:left;transition:background .14s}
+.m3d-flyout-item:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-flyout-item.m3d-on{background:var(--m3d-accent);color:#fff}
+.m3d-flyout-label{flex:1;white-space:nowrap}
+.m3d-kbd{font-family:inherit;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;
+  border:1px solid color-mix(in srgb,currentColor 35%,transparent);opacity:.75;line-height:1.5}
+
+/* Panneau de style : à côté de la drawbar (défauts de l'outil actif OU restyle de
+   la sélection). Swatches fond/bordure superposés façon Photoshop + palette +
+   presets visuels (épaisseur, style de trait, opacité, angles). */
+.m3d-stylepanel{position:absolute;top:50%;transform:translateY(-50%);z-index:19;
+  width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;
+  animation:m3d-style-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+.m3d-stylepanel.m3d-left{left:80px;--m3d-fly-dx:-10px}
+.m3d-stylepanel.m3d-right{right:80px;--m3d-fly-dx:10px}
+/* Fermeture = animation inverse (le composant reste monté le temps de la jouer).
+   Les keyframes embarquent le translateY(-50%) de centrage, sinon il sauterait. */
+.m3d-stylepanel.m3d-closing{animation:m3d-style-out var(--m3d-menu-dur,200ms) ease-in forwards}
+@keyframes m3d-style-in{from{opacity:0;transform:translateY(-50%) translateX(var(--m3d-fly-dx,-10px)) scale(.97)}
+  to{opacity:1;transform:translateY(-50%)}}
+@keyframes m3d-style-out{from{opacity:1;transform:translateY(-50%)}
+  to{opacity:0;transform:translateY(-50%) translateX(var(--m3d-fly-dx,-10px)) scale(.97)}}
+.m3d-style-head{display:flex;align-items:center;gap:12px}
+.m3d-style-title{font-size:11.5px;color:var(--m3d-muted)}
+.m3d-swatches{position:relative;width:46px;height:46px;flex:none}
+.m3d-swatch{position:absolute;width:28px;height:28px;border-radius:7px;padding:0;cursor:pointer;
+  border:2px solid var(--m3d-panel);box-shadow:0 0 0 1px var(--m3d-border)}
+.m3d-swatch-fill{left:0;top:0;z-index:2}
+.m3d-swatch-stroke{right:0;bottom:0;z-index:1;background:transparent}
+.m3d-swatch-stroke span{position:absolute;inset:1px;border:5px solid;border-radius:5px;display:block}
+.m3d-swatch.m3d-active{outline:2px solid var(--m3d-accent);outline-offset:1px;z-index:3}
+.m3d-swap{position:absolute;right:-3px;top:-5px;z-index:4;width:18px;height:18px;padding:0;
+  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;
+  background:var(--m3d-panel);color:var(--m3d-muted);cursor:pointer;box-shadow:0 0 0 1px var(--m3d-border)}
+.m3d-swap:hover{color:var(--m3d-text)}
+.m3d-palette{display:flex;gap:6px;flex-wrap:wrap}
+.m3d-palette-dot{width:22px;height:22px;border-radius:50%;padding:0;cursor:pointer;
+  border:2px solid color-mix(in srgb,#fff 30%,transparent);transition:transform .12s}
+.m3d-palette-dot:hover{transform:scale(1.15)}
+.m3d-palette-custom{background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);
+  position:relative;overflow:hidden;display:block}
+.m3d-palette-custom input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.m3d-style-row{display:flex;align-items:center;gap:8px}
+.m3d-style-label{font-size:11px;color:var(--m3d-muted);width:42px;flex:none}
+.m3d-presets{display:flex;gap:3px;flex:1;min-width:0}
+.m3d-preset{flex:1;height:26px;min-width:0;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--m3d-border);background:transparent;border-radius:6px;cursor:pointer;
+  color:var(--m3d-text);padding:0;transition:background .14s,border-color .14s}
+.m3d-preset:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-preset.m3d-on{border-color:var(--m3d-accent);
+  background:color-mix(in srgb,var(--m3d-accent) 20%,transparent)}
+.m3d-preset-bar{display:block;width:64%;border-radius:99px;background:currentColor;min-height:1.5px}
+.m3d-preset-none{font-size:13px;opacity:.7;line-height:1}
+.m3d-preset-line{display:block;width:64%;border-top:2px solid currentColor}
+.m3d-preset-checker{width:16px;height:16px;border-radius:4px;overflow:hidden;position:relative;
+  background:repeating-conic-gradient(color-mix(in srgb,var(--m3d-text) 30%,transparent) 0% 25%,transparent 0% 50%) 0 0/8px 8px;
+  box-shadow:inset 0 0 0 1px var(--m3d-border)}
+.m3d-preset-checker span{position:absolute;inset:0;background:currentColor;display:block}
+.m3d-preset-corner{width:13px;height:13px;border-top:2px solid currentColor;
+  border-left:2px solid currentColor;display:block}
+
+/* Panneau « Réglages des outils » : ancré au bouton engrenage de la drawbar,
+   accordéon par outil (aperçu live), récap raccourcis. Ancré en bas → grandit
+   vers le haut (le bouton est en bas de barre). */
+.m3d-settingswrap{position:relative}
+.m3d-settings{position:absolute;bottom:0;width:252px;padding:10px;z-index:30;
+  display:flex;flex-direction:column;gap:8px;max-height:min(560px,74vh);
+  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+.m3d-settings.m3d-left{left:calc(100% + 12px)}
+.m3d-settings.m3d-right{right:calc(100% + 12px)}
+.m3d-settings-head{display:flex;align-items:center;justify-content:space-between;
+  font-size:12.5px;font-weight:600;padding:2px 2px 0}
+.m3d-settings-reset{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border:none;border-radius:7px;background:transparent;color:var(--m3d-muted);cursor:pointer}
+.m3d-settings-reset:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
+.m3d-settings-list{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;
+  gap:2px;scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
+.m3d-settings-toolhead{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;
+  border:none;border-radius:8px;background:transparent;color:var(--m3d-text);cursor:pointer;
+  font-family:inherit;font-size:12.5px;text-align:left;transition:background .14s}
+.m3d-settings-toolhead:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-settings-toolname{flex:1;display:flex;align-items:center;gap:6px}
+.m3d-settings-dot{width:6px;height:6px;border-radius:50%;background:var(--m3d-accent);flex:none}
+.m3d-settings-preview{width:34px;height:18px;flex:none;opacity:.95}
+.m3d-settings-body{display:flex;flex-direction:column;gap:8px;padding:8px 8px 10px;
+  border-radius:8px;background:color-mix(in srgb,var(--m3d-text) 4%,transparent)}
+.m3d-settings-subtitle{font-size:11px;font-weight:600;color:var(--m3d-muted);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.m3d-shortcuts{border-top:1px solid var(--m3d-border);padding-top:8px;display:flex;
+  flex-direction:column;gap:3px;flex:none}
+.m3d-shortcut-row{display:flex;align-items:center;justify-content:space-between;
+  font-size:11.5px;color:var(--m3d-text)}
+.m3d-shortcut-tools{font-size:10.5px;color:var(--m3d-muted);margin-top:4px;line-height:1.6}
 
 /* Panneau « Couches » (filtre par tag) : ancré au groupe du bouton, ouvert du
    côté opposé à la barre (m3d-right = barre à droite → panneau à gauche). */
