@@ -17,3 +17,9 @@ export const inTextInput = (e: KeyboardEvent): boolean => {
  */
 export const plainKey = (e: KeyboardEvent): string | null =>
   e.metaKey || e.ctrlKey || e.altKey || inTextInput(e) ? null : e.key.toLowerCase()
+
+/** Plateforme Mac (⌘ au lieu de Ctrl) — unique point de détection. */
+export const isMac = /Mac|iP(hone|ad|od)/.test(navigator.userAgent)
+
+/** Préfixe du modificateur d'action selon la plateforme : `⌘Z` / `Ctrl+Z`. */
+export const modKey = isMac ? '⌘' : 'Ctrl+'

@@ -33,6 +33,13 @@ export class EnuFrame {
     return { x: this.d.dot(this.east), z: this.d.dot(this.north) }
   }
 
+  /** Coordonnées locales (mètres) → lat/lng — inverse de `local` (l'écart au plan
+   *  tangent est négligeable aux échelles d'édition, quelques km au plus). */
+  toLatLng(p: Pt): LatLng {
+    this.w.copy(this.origin).addScaledVector(this.east, p.x).addScaledVector(this.north, p.z)
+    return this.projection.worldToLatLng(this.w)
+  }
+
   /** Matrice monde qui pose le plan local sur le globe. */
   basis(out?: THREE.Matrix4): THREE.Matrix4 {
     return this.projection.enuBasis(this.origin, this.east, this.north, this.up, out)

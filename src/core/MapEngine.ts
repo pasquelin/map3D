@@ -133,6 +133,8 @@ export class MapEngine {
 
   private stars: THREE.Points | null = null
   private drawingMode = false
+  /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
+  private drawingSuspended = false
   /** Globe 2D Google tuilé (LOD/cache/prefetch), null si pas de clé. */
   private basemap2d: TiledGlobeLayer | null = null
   /** Inclinaison max d'origine de GlobeControls (rétablie en sortie de mode 2D). */
@@ -378,7 +380,17 @@ export class MapEngine {
    */
   setDrawing(active: boolean): void {
     this.drawingMode = active
+    this.drawingSuspended = false
     this.controls.enabled = true
+  }
+
+  /**
+   * Suspension temporaire du mode dessin (barre espace maintenue) : le gel
+   * pan/rotation est levé — la caméra se manipule normalement — sans quitter
+   * l'outil ni perdre le tracé/geste en cours.
+   */
+  setDrawingSuspended(suspended: boolean): void {
+    this.drawingSuspended = suspended
   }
 
   /** Recentre en vue du dessus (nadir) à l'altitude courante. */
@@ -635,7 +647,8 @@ export class MapEngine {
 
     const controlling = this.camera.update()
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
-    if (this.drawingMode) this.freezeControlsPanRotate()
+    // Suspendu (barre espace) : la caméra reprend la main sans quitter l'outil.
+    if (this.drawingMode && !this.drawingSuspended) this.freezeControlsPanRotate()
     if (!controlling && this.controls.enabled) this.controls.update()
     this.clampZoom()
     this.threeCamera.updateMatrixWorld()
@@ -908,10 +921,9 @@ export class MapEngine {
   private onPointerUp = (e: PointerEvent): void => {
     const drag = this.drag
     this.drag = null
-    if (this.inputInterceptor) {
-      this.inputInterceptor('up', this.pickAt(e), e)
-      return
-    }
+    // L'interceptor rend un booléen « consommé » : false (ex. dessin suspendu par
+    // la barre espace) → l'événement reste au moteur, le `click` doit être émis.
+    if (this.inputInterceptor?.('up', this.pickAt(e), e)) return
     // Clic « propre » (peu de mouvement) → événement de sélection carte.
     if (drag && drag.moved < 6) {
       const ll = this.pickAt(e)

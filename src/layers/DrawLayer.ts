@@ -6,20 +6,77 @@ import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
-import { type Pt, arrowHead, circlePoints, disposeObject3D, fillGeo, fillMaterial, ribbon, strokeMaterial } from '../core/geometry'
+import { EditController, type HandleId } from './draw/EditController'
+import { History } from './draw/History'
+import { type ScreenPt, pointInPolygon, screenBBox, segDistPx } from './draw/hitTest'
+import { type SelectMode, SelectionManager } from './draw/SelectionManager'
+import { type OverlayShape, SelectionOverlay } from './draw/SelectionOverlay'
+import {
+  type Pt,
+  arrowHead,
+  circlePoints,
+  dashedRibbon,
+  diagonalToCorners,
+  disposeObject3D,
+  endTicks,
+  fillGeo,
+  fillMaterial,
+  filletPolygon,
+  ribbon,
+  strokeMaterial,
+  strokePolylines,
+} from '../core/geometry'
 import type { LatLng } from '../shared'
 
-export type DrawTool = 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase'
+export type DrawTool = 'select' | 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase'
+export type { SelectMode } from './draw/SelectionManager'
+/** Style de trait d'une forme — absent = `'solid'`. */
+export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
 /** `width` : épaisseur de trait en **pixels écran** (constante au zoom, comme toute carte). */
-export type DrawDefaults = { color: string; width: number; fillOpacity: number }
+export type DrawDefaults = {
+  color: string
+  /** Couleur de remplissage — absente = `color` (rétro-compatible). */
+  fillColor?: string
+  /** 0 = pas de bordure (le remplissage seul est rendu). */
+  width: number
+  fillOpacity: number
+  /** Opacité de la bordure — absente = 0.95 (0.85 pour la règle). */
+  strokeOpacity?: number
+  stroke?: StrokeStyle
+  /** Rectangles : rayon d'angle en % du petit côté (0–50). */
+  radius?: number
+}
+
+/** Patch de style applicable à une sélection ou aux défauts d'un outil. */
+export type DrawStyle = {
+  color?: string
+  fillColor?: string
+  width?: number
+  fillOpacity?: number
+  strokeOpacity?: number
+  stroke?: StrokeStyle
+  radius?: number
+}
 
 export type Drawing = {
   id: string
   kind: DrawTool
   points: LatLng[]
+  /** Couleur de bordure (et de remplissage si `fillColor` est absent). */
   color: string
+  fillColor?: string
   width: number
   fillOpacity: number
+  /** Opacité de la bordure — absente = 0.95 (0.85 pour la règle). */
+  strokeOpacity?: number
+  stroke?: StrokeStyle
+  /** Rectangles : rayon d'angle en % du petit côté (0–50). */
+  radius?: number
+  /**
+   * Forme protégée (ex. limite de zone imposée par l'app hôte) : ni sélection, ni
+   * édition, ni gomme, ni « Tout effacer » — seuls `fromGeoJSON`/`setLocked` la changent.
+   */
+  locked?: boolean
   closed: boolean
   /** Tags de filtrage (panneau « Couches ») — défaut `['draw', kind]`. */
   tags: string[]
@@ -28,7 +85,18 @@ export type Drawing = {
 type GeoJSONFeature = {
   type: 'Feature'
   geometry: { type: 'LineString'; coordinates: number[][] } | { type: 'Polygon'; coordinates: number[][][] }
-  properties: { kind: DrawTool; color: string; width: number; fillOpacity: number; tags?: string[] }
+  properties: {
+    kind: DrawTool
+    color: string
+    width: number
+    fillOpacity: number
+    tags?: string[]
+    fillColor?: string
+    strokeOpacity?: number
+    stroke?: StrokeStyle
+    radius?: number
+    locked?: boolean
+  }
 }
 export type GeoJSONFeatureCollection = { type: 'FeatureCollection'; features: GeoJSONFeature[] }
 
@@ -46,8 +114,55 @@ export class DrawLayer implements Layer {
 
   tool: DrawTool | null = null
   defaults: DrawDefaults
+  /** Tentative d'action (gomme, sélection…) sur une forme verrouillée — feedback UI. */
+  onLockedHit?: (d: Drawing) => void
+  /** Notifiée à chaque changement de sélection (ids des formes sélectionnées). */
+  onSelectionChange?: (ids: string[]) => void
+  /**
+   * Défauts **par outil** (réglages persistés, cf. `DrawSettings`) — prioritaire
+   * sur `defaults` pour les nouvelles formes quand il est fourni.
+   */
+  defaultsFor?: (tool: DrawTool) => DrawDefaults
 
   private drawings: Drawing[] = []
+  private readonly history = new History()
+  private overlaySel: SelectionOverlay | null = null
+  private readonly selection = new SelectionManager({
+    list: () => this.drawings,
+    hitTest: (p, tol) => this.hitTest(p, tol),
+    screenContour: (d) => this.screenContour(d),
+    isSelectable: (d) => !d.locked && this.isShown(d),
+    onLockedHit: (d) => this.lockedFeedback(d),
+    selectionChanged: () => {
+      this.onSelectionChange?.(this.selection.ids)
+      this.overlayDirty = true
+      this.syncSelectionOverlay()
+    },
+    eventToScreen: (e) => this.eventToScreen(e),
+    beginBodyDrag: (latLng) => (latLng ? this.editCtl.beginMove(latLng) : false),
+  })
+  private editCtl!: EditController
+  /** Formes mutées pendant un geste — reconstruites au prochain `update()`. */
+  private readonly pendingEdit = new Set<string>()
+  /** Garde anti-spam du hit-test de survol (1×/frame max). */
+  private hoverChecked = false
+  /** L'overlay de sélection affichait du contenu à la frame précédente. */
+  private overlayActive = false
+  /** L'overlay doit être recalculé (caméra/sélection/geste ont bougé). */
+  private overlayDirty = true
+  /** Rect du conteneur, mémoïsé par frame (getBoundingClientRect force un layout). */
+  private overlayRect: DOMRect | null = null
+  /** Rayon englobant local (m depuis l'ancre) par forme — pré-rejet du hit-test. */
+  private readonly boundRadius = new Map<string, number>()
+  /** Émission `onChange` en attente — flushée 1×/frame dans `update()`. */
+  private pendingEmit = false
+  /** Horodatages des dernières rafales (coalescence d'historique). */
+  private lastNudge = 0
+  private lastStyle = 0
+  /** Barre espace : interception levée, tracé en cours gelé. */
+  private suspended = false
+  /** Maj enfoncée (aperçu du curseur de rotation avant même le drag). */
+  private rotateHint = false
   /** Index id → dessin, maintenu avec `drawings` : les boucles par frame font des
    *  lookups O(1) au lieu de `drawings.find` O(n) (O(n²) par frame sinon). */
   private readonly byId = new Map<string, Drawing>()
@@ -107,14 +222,307 @@ export class DrawLayer implements Layer {
     this.group.name = 'm3d-draw'
     this.defaults = defaults
     this.scene.add(this.group)
+    this.overlaySel = new SelectionOverlay(overlay)
+    this.editCtl = new EditController(projection, {
+      targets: () => this.selectedEditable(),
+      anchorHeight: (d) => this.heightFor(d),
+      toScreen: (p, h) => this.toScreen(p, h),
+      snapshotBefore: () => this.history.push(this.drawings),
+      afterMutate: (changed) => {
+        // Coalescé : reconstruit au prochain update() (1×/frame), pas par pointermove.
+        for (const d of changed) this.pendingEdit.add(d.id)
+      },
+      commit: (changed) => this.commitEdit(changed),
+    })
+    this.overlaySel.onHandle = (id, phase, e) => this.onHandlePointer(id, phase, e)
+  }
+
+  /** Fin d'un geste d'édition : hauteurs/mpp invalidées (l'ancre a bougé), rebuild, émission. */
+  private commitEdit(changed: readonly Drawing[]): void {
+    // Une forme supprimée/remplacée PENDANT le geste (Suppr, undo…) ne doit pas
+    // être reconstruite : son mesh deviendrait un fantôme hors collection.
+    const alive = changed.filter((d) => this.byId.get(d.id) === d)
+    for (const d of changed) this.pendingEdit.delete(d.id)
+    if (alive.length === 0) return
+    for (const d of alive) {
+      this.heights.delete(d.id)
+      this.builtMpp.delete(d.id)
+    }
+    this.resettle.open()
+    for (const d of alive) this.rebuildOne(d, false)
+    this.overlayDirty = true
+    this.emitChange()
+  }
+
+  /** Drag d'une poignée : le curseur écran est re-piqué en lat/lng (même picking que la souris). */
+  private onHandlePointer(id: HandleId, phase: PointerPhase, e: PointerEvent): void {
+    if (!this.lastCamera) return
+    const s = this.eventToScreen(e)
+    const latLng =
+      this.projection.pickLatLng(s.x, s.y, this.lastCamera) ??
+      this.projection.pickEllipsoidLatLng(s.x, s.y, this.lastCamera)
+    if (phase === 'down') {
+      if (!latLng) return
+      if (id.type === 'scale') this.editCtl.beginScale(latLng, { u: id.u, v: id.v })
+      else this.editCtl.beginVertex(latLng, id.shapeId, id.index)
+    } else if (phase === 'move') {
+      this.editCtl.move(latLng, e.shiftKey)
+    } else {
+      this.editCtl.end()
+    }
+    this.overlayDirty = true
+    this.updateRotateCursor()
   }
 
   setTool(tool: DrawTool | null): void {
+    // Un geste d'édition en cours (drag) est annulé — sinon il resterait actif
+    // et transformerait la forme à la reprise de l'outil sélection.
+    if (this.editCtl?.active) this.editCtl.cancel()
     // Un polygone en cours (mode clic) est VALIDÉ au changement d'outil au lieu
     // d'être jeté — sinon cliquer sur « main » fait disparaître le tracé.
     if (this.live && this.mode === 'click' && this.live.kind === 'polygon') this.closeCurrent()
     else this.cancelLive()
+    // Quitter l'outil sélection abandonne sélection et marquee en cours.
+    if (this.tool === 'select' && tool !== 'select') {
+      this.selection.escape()
+      this.selection.clear()
+    }
     this.tool = tool
+    this.updateRotateCursor()
+  }
+
+  // ── Sélection ──
+
+  /** Mode du sélecteur (marquee rectangle, polygone, lasso). */
+  setSelectMode(mode: SelectMode): void {
+    this.selection.mode = mode
+  }
+
+  /** Sélectionne par ids (les formes verrouillées/masquées sont filtrées). */
+  select(ids: readonly string[]): void {
+    this.selection.set(ids)
+  }
+
+  /** Formes sélectionnées éditables (jamais verrouillées) — unique point de vérité. */
+  private selectedEditable(): Drawing[] {
+    return this.drawings.filter((d) => this.selection.has(d.id) && !d.locked)
+  }
+
+  getSelection(): string[] {
+    return this.selection.ids
+  }
+
+  clearSelection(): void {
+    this.selection.clear()
+  }
+
+  /** Sélectionne toutes les formes visibles non verrouillées. */
+  selectAll(): void {
+    this.selection.set(this.drawings.map((d) => d.id))
+  }
+
+  /** Supprime les formes sélectionnées (une entrée d'historique). */
+  deleteSelected(): void {
+    const ids = new Set(this.selectedEditable().map((d) => d.id))
+    if (ids.size === 0) return
+    // Un geste en cours sur ces formes est abandonné — sans quoi son commit au
+    // pointer-up reconstruirait un mesh fantôme pour une forme supprimée.
+    this.editCtl.abort()
+    this.history.push(this.drawings)
+    for (const id of ids) {
+      this.dropDrawing(id)
+      this.byId.delete(id)
+    }
+    this.drawings = this.drawings.filter((d) => !ids.has(d.id))
+    this.selection.prune()
+    this.emitChange()
+  }
+
+  /**
+   * Applique un patch de style aux formes sélectionnées (restyle = rebuild simple,
+   * aucune invalidation de hauteur). Une rafale de changements (drag d'un picker)
+   * = UNE entrée d'historique (coalescence à 800 ms).
+   */
+  setStyleForSelection(patch: DrawStyle): void {
+    const ds = this.selectedEditable()
+    if (ds.length === 0) return
+    const now = Date.now()
+    if (now - this.lastStyle > 800) this.history.push(this.drawings)
+    this.lastStyle = now
+    for (const d of ds) {
+      if (patch.color !== undefined) d.color = patch.color
+      if (patch.fillColor !== undefined) d.fillColor = patch.fillColor
+      if (patch.width !== undefined) d.width = patch.width
+      if (patch.fillOpacity !== undefined) d.fillOpacity = patch.fillOpacity
+      if (patch.strokeOpacity !== undefined) d.strokeOpacity = patch.strokeOpacity
+      if (patch.stroke !== undefined) d.stroke = patch.stroke
+      if (patch.radius !== undefined && d.kind === 'rect') d.radius = patch.radius
+      // Rebuild coalescé (1×/frame) : le picker natif émet en continu pendant le drag.
+      this.pendingEdit.add(d.id)
+    }
+    this.emitChange()
+  }
+
+  /** Style commun des formes sélectionnées — champ hétérogène = absent ; null si sélection vide. */
+  styleOfSelection(): DrawStyle | null {
+    const ds = this.drawings.filter((d) => this.selection.has(d.id))
+    if (ds.length === 0) return null
+    const first = ds[0]!
+    const style: DrawStyle = {
+      color: first.color,
+      fillColor: first.fillColor,
+      width: first.width,
+      fillOpacity: first.fillOpacity,
+      strokeOpacity: strokeOpacityOf(first),
+      stroke: first.stroke ?? 'solid',
+    }
+    for (const d of ds.slice(1)) {
+      if (d.color !== style.color) style.color = undefined
+      if (d.fillColor !== style.fillColor) style.fillColor = undefined
+      if (d.width !== style.width) style.width = undefined
+      if (d.fillOpacity !== style.fillOpacity) style.fillOpacity = undefined
+      if (strokeOpacityOf(d) !== style.strokeOpacity) style.strokeOpacity = undefined
+      if ((d.stroke ?? 'solid') !== style.stroke) style.stroke = undefined
+    }
+    // Rayon d'angle : pertinent seulement si la sélection contient des rects.
+    const rects = ds.filter((d) => d.kind === 'rect')
+    if (rects.length > 0) {
+      const r0 = rects[0]!.radius ?? 0
+      style.radius = rects.every((r) => (r.radius ?? 0) === r0) ? r0 : undefined
+    }
+    return style
+  }
+
+  /** true si la sélection contient au moins une forme de ce type. */
+  selectionHas(kind: DrawTool): boolean {
+    return this.drawings.some((d) => this.selection.has(d.id) && d.kind === kind)
+  }
+
+  /** Duplique les formes sélectionnées (clones décalés de ~12 px, nouvelle sélection). */
+  duplicateSelected(): void {
+    const ds = this.selectedEditable()
+    if (ds.length === 0) return
+    this.history.push(this.drawings)
+    const clones: Drawing[] = []
+    for (const d of ds) {
+      const clone = structuredClone(d) as Drawing
+      clone.id = nextId()
+      clone.locked = undefined
+      // Décalage bas-droite à l'écran : +est / −nord en mètres locaux.
+      const frame = new EnuFrame(this.projection, d.points[0]!, this.heightFor(d))
+      const off = 12 * this.mppFor(d)
+      clone.points = d.points.map((p) => {
+        const l = frame.local(p)
+        return frame.toLatLng({ x: l.x + off, z: l.z - off })
+      })
+      this.drawings.push(clone)
+      this.byId.set(clone.id, clone)
+      this.rebuildOne(clone, false)
+      clones.push(clone)
+    }
+    this.selection.set(clones.map((c) => c.id))
+    this.emitChange()
+  }
+
+  /** Déplace la sélection de (dx,dy) px écran — flèches du clavier (Maj = ×10). */
+  nudgeSelection(dxPx: number, dyPx: number): void {
+    const ds = this.selectedEditable()
+    if (ds.length === 0) return
+    // Une rafale de nudges = UNE entrée d'historique (coalescence à 800 ms).
+    const now = Date.now()
+    if (now - this.lastNudge > 800) this.history.push(this.drawings)
+    this.lastNudge = now
+    for (const d of ds) {
+      const frame = new EnuFrame(this.projection, d.points[0]!, this.heightFor(d))
+      const mpp = this.mppFor(d)
+      const dx = dxPx * mpp
+      const dz = -dyPx * mpp
+      d.points = d.points.map((p) => {
+        const l = frame.local(p)
+        return frame.toLatLng({ x: l.x + dx, z: l.z + dz })
+      })
+    }
+    this.commitEdit(ds)
+  }
+
+  /**
+   * Échap en cascade, tous outils : geste d'édition → annulé ; marquee → annulé ;
+   * sélection → vidée ; tracé en cours → abandonné (PAS commité). Renvoie true si
+   * consommé (le caller ne doit alors pas quitter l'outil).
+   */
+  escape(): boolean {
+    if (this.editCtl.active) {
+      this.editCtl.cancel()
+      return true
+    }
+    if (this.tool === 'select') return this.selection.escape()
+    if (this.live) {
+      this.cancelLive()
+      return true
+    }
+    return false
+  }
+
+  /** Verrouille/déverrouille des formes (réservé au code hôte — aucune UI n'y touche). */
+  setLocked(ids: readonly string[], locked: boolean): void {
+    let changed = false
+    for (const id of ids) {
+      const d = this.byId.get(id)
+      if (d && !!d.locked !== locked) {
+        d.locked = locked || undefined
+        changed = true
+      }
+    }
+    if (!changed) return
+    this.selection.prune()
+    this.emitChange()
+  }
+
+  private eventToScreen(e: PointerEvent): ScreenPt {
+    // Au plus 1 mesure de layout par frame, même à 250 Hz de pointermove.
+    const r = (this.overlayRect ??= this.overlay.getBoundingClientRect())
+    return { x: e.clientX - r.left, y: e.clientY - r.top }
+  }
+
+  /** Feedback « forme protégée » : flash du contour + cadenas au centre. */
+  private lockedFeedback(d: Drawing): void {
+    this.onLockedHit?.(d)
+    const c = this.screenContour(d)
+    if (!c || !this.overlaySel) return
+    const bb = screenBBox(c.pts)
+    const center = bb ? { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 } : c.pts[0]!
+    this.overlaySel.flashLock(c, center)
+  }
+
+  /** Repositionne contours/bbox/marquee/poignées de la sélection (px écran, chaque frame). */
+  private syncSelectionOverlay(): void {
+    if (!this.overlaySel) return
+    const marquee = this.selection.marquee()
+    // Feature au repos (aucune sélection, aucun marquee) : zéro travail par frame —
+    // un dernier sync vide efface l'overlay, puis on dort jusqu'au prochain contenu.
+    if (this.selection.size === 0 && !marquee) {
+      if (this.overlayActive) {
+        this.overlaySel.sync([], null, null, [])
+        this.overlayActive = false
+      }
+      return
+    }
+    // Rien n'a bougé (caméra immobile, pas de geste) : l'overlay affiché est valide.
+    if (!this.overlayDirty) return
+    this.overlayDirty = false
+    this.overlayActive = true
+    const shapes: OverlayShape[] = []
+    const all: ScreenPt[] = []
+    for (const id of this.selection.ids) {
+      const d = this.byId.get(id)
+      if (!d) continue
+      const c = this.screenContour(d)
+      if (!c) continue
+      shapes.push(c)
+      for (const p of c.pts) all.push(p)
+    }
+    const handles = this.tool === 'select' && shapes.length > 0 ? this.editCtl.layout() : []
+    this.overlaySel.sync(shapes, shapes.length > 0 ? screenBBox(all) : null, marquee, handles)
   }
 
   setDefaults(d: Partial<DrawDefaults>): void {
@@ -139,6 +547,8 @@ export class DrawLayer implements Layer {
       const d = this.drawingFor(id)
       if (d) enu.visible = this.isShown(d)
     }
+    // Une forme sélectionnée que le filtre vient de masquer sort de la sélection.
+    this.selection.prune()
   }
 
   /** Compteurs de tags des dessins commités (registre du panneau « Couches »). */
@@ -146,8 +556,64 @@ export class DrawLayer implements Layer {
     return countTags(this.drawings, (d) => d.tags)
   }
 
-  readonly interceptor: PointerInterceptor = (phase, latLng) => {
+  /**
+   * Suspension (barre espace) : l'interception souris est levée — les événements
+   * retombent sur les contrôles caméra — mais tracé/geste en cours restent GELÉS
+   * (pas annulés) et reprennent au relâchement de la touche.
+   */
+  setSuspended(suspended: boolean): void {
+    this.suspended = suspended
+    this.updateRotateCursor()
+  }
+
+  /** Maj enfoncée/relâchée : annonce la rotation (curseur dédié dès l'appui). */
+  setRotateHint(on: boolean): void {
+    this.rotateHint = on
+    this.updateRotateCursor()
+  }
+
+  /** Curseur de rotation : dès Maj enfoncée en mode sélection, et pendant le drag. */
+  private updateRotateCursor(): void {
+    const rotating = this.editCtl.rotating || (this.rotateHint && this.tool === 'select' && !this.suspended)
+    this.overlay.parentElement?.classList.toggle('m3d-rotating', rotating)
+  }
+
+  readonly interceptor: PointerInterceptor = (phase, latLng, e) => {
+    if (this.suspended) {
+      // Le bouton souris relâché PENDANT la suspension clôture proprement le
+      // geste/tracé gelé — sinon la forme suivrait le curseur après reprise.
+      if (phase === 'up') {
+        if (this.editCtl.active) {
+          this.editCtl.end()
+          this.updateRotateCursor()
+        } else if (this.live && this.mode === 'drag') {
+          this.commitLive()
+        }
+      }
+      return false
+    }
     if (!this.tool) return false
+    if (this.tool === 'select') {
+      // Geste d'édition en cours (drag du corps) : il consomme move/up.
+      if (this.editCtl.active) {
+        if (phase === 'move') this.editCtl.move(latLng, e.shiftKey)
+        else if (phase === 'up') this.editCtl.end()
+        this.updateRotateCursor()
+        this.overlayDirty = true
+        return true
+      }
+      // Curseur « déplacer » au survol d'une forme (throttlé à 1 hit-test/frame).
+      if (phase === 'move' && latLng && !this.hoverChecked) {
+        this.hoverChecked = true
+        const hit = this.hitTest(latLng)
+        this.overlay.parentElement?.classList.toggle('m3d-hover-shape', !!hit && !hit.locked)
+      }
+      const consumed = this.selection.handle(phase, latLng, e)
+      // Le marquee suit le curseur : recalcul de l'overlay seulement quand il y a
+      // quelque chose à animer (pas au simple survol).
+      if (phase !== 'move' || this.selection.marquee()) this.overlayDirty = true
+      return consumed
+    }
     if (!latLng) return true
     if (this.tool === 'erase') {
       if (phase === 'down') this.eraseAt(latLng)
@@ -188,7 +654,7 @@ export class DrawLayer implements Layer {
       else if (phase === 'move' && this.live) {
         const last = this.live.points[this.live.points.length - 1]!
         // Décimation en px écran (convertie en mètres à la résolution courante).
-        const minMeters = Math.max(2, this.defaults.width * 0.4) * this.mppFor(this.live)
+        const minMeters = Math.max(2, this.live.width * 0.4) * this.mppFor(this.live)
         if (this.projection.groundDistance(last, p) > minMeters) {
           this.live.points.push(p)
           this.rebuildLive()
@@ -205,6 +671,10 @@ export class DrawLayer implements Layer {
   }
 
   closeCurrent(): void {
+    if (this.tool === 'select') {
+      this.selection.closeMarquee()
+      return
+    }
     if (!this.live) return
     if (this.live.kind === 'polygon') {
       this.live.points.pop()
@@ -215,13 +685,19 @@ export class DrawLayer implements Layer {
 
   private startLive(p: LatLng, mode: 'click' | 'drag', points?: LatLng[]): void {
     if (!this.tool) return
+    const base = this.defaultsFor?.(this.tool) ?? this.defaults
     this.live = {
       id: nextId(),
       kind: this.tool,
       points: points ?? [p],
-      color: this.defaults.color,
-      width: this.defaults.width,
-      fillOpacity: this.defaults.fillOpacity,
+      color: base.color,
+      fillColor: base.fillColor,
+      // Sans réglages par outil, la règle reste une cote fine (2 px) par défaut.
+      width: !this.defaultsFor && this.tool === 'measure' ? 2 : base.width,
+      fillOpacity: base.fillOpacity,
+      strokeOpacity: base.strokeOpacity,
+      stroke: base.stroke,
+      radius: this.tool === 'rect' ? base.radius : undefined,
       closed: this.tool === 'rect' || this.tool === 'circle',
       tags: ['draw', this.tool],
     }
@@ -237,6 +713,7 @@ export class DrawLayer implements Layer {
       this.dropDrawing(d.id)
       return
     }
+    this.history.push(this.drawings)
     this.drawings.push(d)
     this.byId.set(d.id, d)
     if (!this.isTagVisible(d.tags)) this.filterExempt.add(d.id)
@@ -251,28 +728,80 @@ export class DrawLayer implements Layer {
     this.mode = 'idle'
   }
 
-  /** Annule le dernier dessin **visible** — comme la gomme, ne détruit jamais
-   *  silencieusement un dessin masqué par le filtre « Couches ». */
+  /** Annule la dernière action (création, suppression, édition, style). */
   undo(): void {
-    for (let i = this.drawings.length - 1; i >= 0; i--) {
-      const d = this.drawings[i]!
-      if (!this.isShown(d)) continue
-      this.drawings.splice(i, 1)
-      this.byId.delete(d.id)
-      this.dropDrawing(d.id)
-      this.emitChange()
-      return
+    const prev = this.history.undo(this.drawings)
+    if (prev) this.restore(prev)
+  }
+
+  /** Rétablit la dernière action annulée. */
+  redo(): void {
+    const next = this.history.redo(this.drawings)
+    if (next) this.restore(next)
+  }
+
+  get canUndo(): boolean {
+    return this.history.canUndo
+  }
+
+  get canRedo(): boolean {
+    return this.history.canRedo
+  }
+
+  /**
+   * Remplace la collection par un snapshot d'historique et reconstruit tout.
+   * Deux invariants survivent à l'historique :
+   * - les formes VERROUILLÉES (contrat `locked` : seul le code hôte les change —
+   *   un Ctrl+Z ne doit ni les supprimer ni les déverrouiller) ;
+   * - les exemptions de filtre (une forme dessinée sous filtre actif reste
+   *   visible — sinon un undo la ferait disparaître de l'écran en silence).
+   */
+  private restore(state: Drawing[]): void {
+    this.cancelLive()
+    this.editCtl.abort()
+    const lockedById = new Map(this.drawings.filter((d) => d.locked).map((d) => [d.id, d]))
+    const exempt = new Set(this.filterExempt)
+    for (const d of this.drawings) {
+      if (!lockedById.has(d.id)) this.dropDrawing(d.id)
     }
+    const next: Drawing[] = []
+    for (const d of state) {
+      const cur = lockedById.get(d.id)
+      if (cur) {
+        // L'instance courante (verrouillée) fait foi — son mesh est conservé.
+        next.push(cur)
+        lockedById.delete(d.id)
+      } else {
+        next.push(d)
+      }
+    }
+    // Formes verrouillées absentes du snapshot (créées/verrouillées depuis) : conservées.
+    next.push(...lockedById.values())
+    this.drawings = next
+    this.byId.clear()
+    for (const d of next) {
+      this.byId.set(d.id, d)
+      if (exempt.has(d.id)) this.filterExempt.add(d.id)
+    }
+    for (const d of next) {
+      if (!this.meshes.has(d.id)) this.rebuildOne(d, false)
+    }
+    this.selection.prune()
+    this.emitChange()
   }
 
   /** Efface les dessins **visibles** ; sous filtre actif, les dessins masqués sont
-   *  conservés (cohérent avec la gomme et `undo` — pas de perte silencieuse). */
+   *  conservés, ainsi que les formes verrouillées (pas de perte silencieuse). */
   clear(): void {
     const kept: Drawing[] = []
+    const dropped: Drawing[] = []
     for (const d of this.drawings) {
-      if (this.isShown(d)) this.dropDrawing(d.id)
+      if (this.isShown(d) && !d.locked) dropped.push(d)
       else kept.push(d)
     }
+    if (dropped.length === 0 && !this.live) return
+    if (dropped.length > 0) this.history.push(this.drawings)
+    for (const d of dropped) this.dropDrawing(d.id)
     this.drawings = kept
     this.byId.clear()
     for (const d of kept) this.byId.set(d.id, d)
@@ -280,54 +809,104 @@ export class DrawLayer implements Layer {
     this.emitChange()
   }
 
-  private eraseAt(p: LatLng): void {
-    const TOL = 14
+  /**
+   * Contour écran d'un dessin — sa géométrie **réelle** (rect → 4 coins, cercle →
+   * 48 pts), pas ses points de contrôle — projeté à SA hauteur de drapage :
+   * comparé à une autre hauteur, la parallaxe fausserait les tolérances en px.
+   */
+  private screenContour(d: Drawing): { pts: ScreenPt[]; closed: boolean } | null {
+    if (d.points.length < 1 || !this.projection.isReady()) return null
+    const h = this.heightFor(d)
+    const frame = new EnuFrame(this.projection, d.points[0]!, h)
+    const { points, closed } = this.localGeometry(d, frame)
+    const pts: ScreenPt[] = []
+    for (const lp of points) {
+      const s = this.toScreen(frame.toLatLng(lp), h)
+      if (s) pts.push(s)
+    }
+    return pts.length > 0 ? { pts, closed } : null
+  }
+
+  /**
+   * Forme la plus haute sous le point, en cohérence avec l'AFFICHAGE (`isShown` :
+   * exemptions de filtre incluses). Deux passes : d'abord les CONTOURS de toutes
+   * les formes (les traits sont rendus au-dessus des remplissages — cliquer le
+   * trait d'une ligne posée sous un rect rempli doit toucher la ligne), puis les
+   * intérieurs remplis. Pré-rejet bon marché par rayon englobant avant de
+   * construire le contour complet (le survol appelle ceci à chaque frame).
+   */
+  hitTest(p: LatLng, tolPx = 14): Drawing | null {
+    type Candidate = { d: Drawing; sp: ScreenPt; pts: ScreenPt[]; closed: boolean }
+    const candidates: Candidate[] = []
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i]!
-      // On ne gomme pas ce qui est masqué par le filtre « Couches ».
-      if (!this.isTagVisible(d.tags)) continue
-      // Curseur et sommets projetés À LA MÊME hauteur (celle du dessin) : comparés à
-      // des hauteurs différentes, la parallaxe fausserait la tolérance en px.
+      if (!this.isShown(d)) continue
       const h = this.heightFor(d)
       const sp = this.toScreen(p, h)
       if (!sp) continue
-      const scr: Array<{ x: number; y: number }> = []
-      for (const q of d.points) {
-        const s = this.toScreen(q, h)
-        if (s) scr.push(s)
+      // Pré-rejet : curseur plus loin de l'ancre que le rayon englobant (en px).
+      const radius = this.boundRadius.get(d.id)
+      if (radius !== undefined) {
+        const anchor = this.toScreen(d.points[0]!, h)
+        if (anchor && Math.hypot(sp.x - anchor.x, sp.y - anchor.y) > radius / this.mppFor(d) + tolPx) continue
       }
-      if (scr.length === 0) continue
-      let hit = false
-      if (scr.length === 1) {
-        hit = Math.hypot(sp.x - scr[0]!.x, sp.y - scr[0]!.y) < TOL
-      } else {
-        const segs = d.closed ? scr.length : scr.length - 1
-        for (let k = 0; k < segs; k++) {
-          const a = scr[k]!
-          const b = scr[(k + 1) % scr.length]!
-          if (DrawLayer.segDistPx(sp.x, sp.y, a.x, a.y, b.x, b.y) < TOL) {
-            hit = true
-            break
-          }
-        }
+      const contour = this.screenContour(d)
+      if (!contour) continue
+      candidates.push({ d, sp, pts: contour.pts, closed: contour.closed })
+    }
+    for (const c of candidates) {
+      if (c.pts.length === 1) {
+        if (Math.hypot(c.sp.x - c.pts[0]!.x, c.sp.y - c.pts[0]!.y) < tolPx) return c.d
+        continue
       }
-      if (hit) {
-        this.dropDrawing(d.id)
-        this.drawings.splice(i, 1)
-        this.byId.delete(d.id)
-        this.emitChange()
-        return
+      const segs = c.closed ? c.pts.length : c.pts.length - 1
+      for (let k = 0; k < segs; k++) {
+        const a = c.pts[k]!
+        const b = c.pts[(k + 1) % c.pts.length]!
+        if (segDistPx(c.sp.x, c.sp.y, a.x, a.y, b.x, b.y) < tolPx) return c.d
       }
     }
+    for (const c of candidates) {
+      if (c.closed && c.d.fillOpacity > 0 && c.pts.length >= 3 && pointInPolygon(c.sp, c.pts)) return c.d
+    }
+    return null
+  }
+
+  private eraseAt(p: LatLng): void {
+    const d = this.hitTest(p)
+    if (!d) return
+    if (d.locked) {
+      this.onLockedHit?.(d)
+      return
+    }
+    this.history.push(this.drawings)
+    this.dropDrawing(d.id)
+    const i = this.drawings.indexOf(d)
+    if (i >= 0) this.drawings.splice(i, 1)
+    this.byId.delete(d.id)
+    this.emitChange()
   }
 
   // ── Rendu (drapé ENU) ──
 
   private localGeometry(d: Drawing, frame: EnuFrame): { points: Pt[]; closed: boolean } {
     if (d.kind === 'rect' && d.points.length >= 2) {
-      const a = frame.local(d.points[0]!)
-      const b = frame.local(d.points[d.points.length - 1]!)
-      return { points: [a, { x: b.x, z: a.z }, b, { x: a.x, z: b.z }], closed: true }
+      // 4 coins stockés (rect édité/tourné) tels quels ; sinon 2 points diagonaux
+      // (tracé initial, anciens GeoJSON) → 4 coins axis-aligned (rétro-compatible).
+      let corners: Pt[]
+      if (d.points.length >= 4) {
+        corners = d.points.slice(0, 4).map((p) => frame.local(p))
+      } else {
+        corners = diagonalToCorners(frame.local(d.points[0]!), frame.local(d.points[d.points.length - 1]!))
+      }
+      const pct = clamp(d.radius ?? 0, 0, 50)
+      if (pct > 0) {
+        const w = Math.hypot(corners[1]!.x - corners[0]!.x, corners[1]!.z - corners[0]!.z)
+        const h = Math.hypot(corners[3]!.x - corners[0]!.x, corners[3]!.z - corners[0]!.z)
+        const r = (pct / 100) * Math.min(w, h)
+        if (r > 1e-6) return { points: filletPolygon(corners, r), closed: true }
+      }
+      return { points: corners, closed: true }
     }
     if (d.kind === 'circle' && d.points.length >= 2) {
       const c = frame.local(d.points[0]!)
@@ -373,9 +952,18 @@ export class DrawLayer implements Layer {
     if (!this.projection.isReady() || d.points.length < 1) return
     const frame = new EnuFrame(this.projection, d.points[0]!, height)
     const { points, closed } = this.localGeometry(d, frame)
+    // Rayon englobant local (m depuis l'ancre) — pré-rejet du hit-test de survol.
+    let maxR = 0
+    for (const pt of points) {
+      const r = pt.x * pt.x + pt.z * pt.z
+      if (r > maxR) maxR = r
+    }
+    this.boundRadius.set(d.id, Math.sqrt(maxR))
     // Épaisseur de trait : px écran → mètres monde à la résolution courante.
     const mpp = this.mppFor(d)
-    const widthMeters = d.width * mpp
+    // width 0 = pas de bordure — sauf la flèche dont la tête a besoin d'une base.
+    const effWidth = d.kind === 'arrow' ? Math.max(d.width, 1) : d.width
+    const widthMeters = effWidth * mpp
     this.builtMpp.set(d.id, mpp)
 
     const enu = frame.group()
@@ -383,21 +971,40 @@ export class DrawLayer implements Layer {
     if (closed && points.length > 2 && d.fillOpacity > 0) {
       const fg = fillGeo(points)
       if (fg) {
-        const m = new THREE.Mesh(fg, fillMaterial(d.color, d.fillOpacity * (preview ? 0.6 : 1)))
+        const m = new THREE.Mesh(fg, fillMaterial(d.fillColor ?? d.color, d.fillOpacity * (preview ? 0.6 : 1)))
         m.renderOrder = this.renderOrder
         enu.add(m)
       }
     }
-    const rg = ribbon(points, widthMeters, closed)
-    if (rg) {
-      const m = new THREE.Mesh(rg, strokeMaterial(d.color, preview ? 0.6 : 0.95))
-      m.renderOrder = this.renderOrder + 1
-      enu.add(m)
+    const strokeOpacity = preview ? 0.6 : strokeOpacityOf(d)
+    if (effWidth > 0) {
+      let rg: THREE.BufferGeometry | null
+      if (d.kind === 'measure') {
+        // Cote d'architecte ⊢––⊣ : trait fin pointillé + butées perpendiculaires.
+        rg = dashedRibbon(points, widthMeters, 8 * mpp, 6 * mpp, false)
+        const tg = strokePolylines(endTicks(points, 10 * mpp), widthMeters)
+        if (tg) {
+          const m = new THREE.Mesh(tg, strokeMaterial(d.color, strokeOpacity))
+          m.renderOrder = this.renderOrder + 1
+          enu.add(m)
+        }
+      } else if (d.stroke === 'dashed') {
+        rg = dashedRibbon(points, widthMeters, 10 * mpp, 7 * mpp, closed)
+      } else if (d.stroke === 'dotted') {
+        rg = dashedRibbon(points, widthMeters, widthMeters, Math.max(widthMeters * 1.6, 3 * mpp), closed)
+      } else {
+        rg = ribbon(points, widthMeters, closed)
+      }
+      if (rg) {
+        const m = new THREE.Mesh(rg, strokeMaterial(d.color, strokeOpacity))
+        m.renderOrder = this.renderOrder + 1
+        enu.add(m)
+      }
     }
     if (d.kind === 'arrow') {
       const ah = arrowHead(points, widthMeters)
       if (ah) {
-        const m = new THREE.Mesh(ah, strokeMaterial(d.color, preview ? 0.6 : 0.95))
+        const m = new THREE.Mesh(ah, strokeMaterial(d.color, strokeOpacity))
         m.renderOrder = this.renderOrder + 1
         enu.add(m)
       }
@@ -433,6 +1040,7 @@ export class DrawLayer implements Layer {
     this.removeMeshes(id)
     this.heights.delete(id)
     this.builtMpp.delete(id)
+    this.boundRadius.delete(id)
     this.filterExempt.delete(id)
   }
 
@@ -456,6 +1064,18 @@ export class DrawLayer implements Layer {
   update(ctx: FrameContext): void {
     this.lastCamera = ctx.camera
     this.viewH = ctx.size.height
+    this.hoverChecked = false
+    this.overlayRect = null
+    this.flushEmit()
+    // Rebuild coalescé des formes en cours d'édition (1×/frame max).
+    if (this.pendingEdit.size > 0) {
+      for (const id of this.pendingEdit) {
+        const d = this.drawingFor(id)
+        if (d) this.rebuildOne(d, false)
+      }
+      this.pendingEdit.clear()
+      this.overlayDirty = true
+    }
     let heightsChanged = false
     // Bascule 2D/3D : la surface de référence change → hauteurs re-résolues.
     if (this.heightEpoch !== this.projection.heightEpoch) {
@@ -509,6 +1129,8 @@ export class DrawLayer implements Layer {
       }
     }
 
+    // Caméra/hauteurs ont bougé → les positions écran de l'overlay sont périmées.
+    if (camMoved || heightsChanged) this.overlayDirty = true
     // Épaisseur px écran : le ratio ne peut changer que si caméra/hauteurs ont bougé.
     if (camMoved || heightsChanged) {
       let toRebuild: Drawing[] | null = null
@@ -565,15 +1187,6 @@ export class DrawLayer implements Layer {
     return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) < 16)
   }
 
-  /** Distance point→segment en pixels. */
-  private static segDistPx(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-    const dx = bx - ax
-    const dy = by - ay
-    const len2 = dx * dx + dy * dy
-    const t = len2 > 0 ? clamp(((px - ax) * dx + (py - ay) * dy) / len2, 0, 1) : 0
-    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
-  }
-
   project(ctx: FrameContext): void {
     this.lastCamera = ctx.camera
     for (const [id, label] of this.labels) {
@@ -592,6 +1205,7 @@ export class DrawLayer implements Layer {
       label.style.display = show ? 'block' : 'none'
       if (show) label.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%)`
     }
+    this.syncSelectionOverlay()
   }
 
   toGeoJSON(): GeoJSONFeatureCollection {
@@ -599,7 +1213,18 @@ export class DrawLayer implements Layer {
       type: 'FeatureCollection',
       features: this.drawings.map((d) => {
         const coords = d.points.map((p) => [p.lng, p.lat])
-        const props = { kind: d.kind, color: d.color, width: d.width, fillOpacity: d.fillOpacity, tags: d.tags }
+        const props: GeoJSONFeature['properties'] = {
+          kind: d.kind,
+          color: d.color,
+          width: d.width,
+          fillOpacity: d.fillOpacity,
+          tags: d.tags,
+        }
+        if (d.fillColor !== undefined) props.fillColor = d.fillColor
+        if (d.strokeOpacity !== undefined) props.strokeOpacity = d.strokeOpacity
+        if (d.stroke !== undefined && d.stroke !== 'solid') props.stroke = d.stroke
+        if (d.radius) props.radius = d.radius
+        if (d.locked) props.locked = true
         if (d.closed) {
           const ring = [...coords, coords[0]!]
           return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: props }
@@ -610,18 +1235,33 @@ export class DrawLayer implements Layer {
   }
 
   fromGeoJSON(fc: GeoJSONFeatureCollection): void {
-    this.clear()
+    // Remplacement piloté par l'app hôte : non annulable (protège aussi les zones
+    // verrouillées fraîchement injectées d'un Ctrl+Z utilisateur).
+    this.history.reset()
+    this.clearAll()
     for (const f of fc.features) {
       const props = f.properties
       const coords = f.geometry.type === 'Polygon' ? f.geometry.coordinates[0]! : f.geometry.coordinates
       const points = coords.map((c) => ({ lng: c[0]!, lat: c[1]! }))
+      // Anneau GeoJSON : dernier point = 1er (fermeture) — retiré du modèle interne,
+      // sinon un rect [a,b,a] réimporté devient dégénéré (diagonale a→a).
+      if (f.geometry.type === 'Polygon' && points.length > 1) {
+        const a = points[0]!
+        const b = points[points.length - 1]!
+        if (Math.abs(a.lat - b.lat) < 1e-12 && Math.abs(a.lng - b.lng) < 1e-12) points.pop()
+      }
       const d: Drawing = {
         id: nextId(),
         kind: props.kind,
         points,
         color: props.color,
+        fillColor: props.fillColor,
         width: props.width,
         fillOpacity: props.fillOpacity,
+        strokeOpacity: props.strokeOpacity,
+        stroke: props.stroke,
+        radius: props.radius,
+        locked: props.locked,
         closed: f.geometry.type === 'Polygon',
         tags: props.tags ?? ['draw', props.kind],
       }
@@ -629,10 +1269,30 @@ export class DrawLayer implements Layer {
       this.byId.set(d.id, d)
       this.rebuildOne(d, false)
     }
+    // Les ids sélectionnés n'existent plus (nouvelle collection = nouveaux ids).
+    this.selection.prune()
     this.emitChange()
   }
 
+  /** Remplacement intégral (import GeoJSON) : contrairement à `clear()`, les formes
+   *  verrouillées et masquées partent aussi — la nouvelle collection fait foi. */
+  private clearAll(): void {
+    this.editCtl.abort()
+    for (const d of this.drawings) this.dropDrawing(d.id)
+    this.drawings = []
+    this.byId.clear()
+    this.cancelLive()
+  }
+
+  /** Émission coalescée : 1 sérialisation GeoJSON max par frame, même quand un
+   *  picker/nudge mitraille les mutations (le flush vit dans `update()`). */
   private emitChange(): void {
+    this.pendingEmit = true
+  }
+
+  private flushEmit(): void {
+    if (!this.pendingEmit) return
+    this.pendingEmit = false
     this.onChange?.(this.toGeoJSON())
   }
 
@@ -641,10 +1301,19 @@ export class DrawLayer implements Layer {
     this.cancelLive()
     this.drawings = []
     this.byId.clear()
+    this.overlaySel?.dispose()
+    this.overlaySel = null
+    // Pas de curseur fantôme après démontage.
+    this.overlay.parentElement?.classList.remove('m3d-rotating', 'm3d-hover-shape')
     this.scene.remove(this.group)
   }
 }
 
 function formatDistance(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`
+}
+
+/** Opacité de bordure effective — la règle est plus discrète par défaut (0.85). */
+function strokeOpacityOf(d: Drawing): number {
+  return d.strokeOpacity ?? (d.kind === 'measure' ? 0.85 : 0.95)
 }
