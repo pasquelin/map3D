@@ -5,6 +5,7 @@ import type { FrameContext, Layer } from '../core/Layer'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
 import { clamp } from '../core/math'
+import { countTags } from '../core/TagFilter'
 import { type Pt, arrowHead, circlePoints, disposeObject3D, fillGeo, fillMaterial, ribbon, strokeMaterial } from '../core/geometry'
 import type { LatLng } from '../shared'
 
@@ -20,12 +21,14 @@ export type Drawing = {
   width: number
   fillOpacity: number
   closed: boolean
+  /** Tags de filtrage (panneau « Couches ») — défaut `['draw', kind]`. */
+  tags: string[]
 }
 
 type GeoJSONFeature = {
   type: 'Feature'
   geometry: { type: 'LineString'; coordinates: number[][] } | { type: 'Polygon'; coordinates: number[][][] }
-  properties: { kind: DrawTool; color: string; width: number; fillOpacity: number }
+  properties: { kind: DrawTool; color: string; width: number; fillOpacity: number; tags?: string[] }
 }
 export type GeoJSONFeatureCollection = { type: 'FeatureCollection'; features: GeoJSONFeature[] }
 
@@ -79,6 +82,18 @@ export class DrawLayer implements Layer {
   private lastCamera: THREE.Camera | null = null
   /** true quand le curseur aimante le 1er sommet du polygone (fermeture facile). */
   private snapping = false
+  /**
+   * Prédicat de visibilité par tags (filtre « Couches »). Appliqué en basculant
+   * `visible` sur le groupe de meshes — **jamais** de rebuild de géométrie. Le
+   * dessin en cours (`live`) reste toujours visible pour ne pas dessiner à l'aveugle.
+   */
+  private isTagVisible: (tags: readonly string[]) => boolean = () => true
+  /**
+   * Dessins commités PENDANT qu'un filtre les masquerait : exemptés jusqu'au
+   * prochain changement de sélection — sinon la forme s'évapore sous le curseur
+   * au relâchement (le statut `live` tombe à l'instant du commit).
+   */
+  private readonly filterExempt = new Set<string>()
 
   constructor(
     /** Parent — utiliser `engine.annotations` pour hériter du masquage pendant l'intro. */
@@ -104,6 +119,31 @@ export class DrawLayer implements Layer {
 
   setDefaults(d: Partial<DrawDefaults>): void {
     this.defaults = { ...this.defaults, ...d }
+  }
+
+  /** Visibilité d'un dessin sous le filtre « Couches » — le dessin en cours et les
+   *  commits frais (exemptés) restent toujours visibles. */
+  private isShown(d: Drawing): boolean {
+    return d === this.live || this.filterExempt.has(d.id) || this.isTagVisible(d.tags)
+  }
+
+  /**
+   * Applique le filtre « Couches » : bascule la visibilité des meshes existants
+   * (O(n) toggles, aucun rebuild) et mémorise le prédicat pour les rebuilds/labels.
+   * Un changement de sélection réaffirme le filtre → les exemptions de commit tombent.
+   */
+  setTagVisibility(isVisible: (tags: readonly string[]) => boolean): void {
+    this.isTagVisible = isVisible
+    this.filterExempt.clear()
+    for (const [id, enu] of this.meshes) {
+      const d = this.drawingFor(id)
+      if (d) enu.visible = this.isShown(d)
+    }
+  }
+
+  /** Compteurs de tags des dessins commités (registre du panneau « Couches »). */
+  tagCounts(): Map<string, number> {
+    return countTags(this.drawings, (d) => d.tags)
   }
 
   readonly interceptor: PointerInterceptor = (phase, latLng) => {
@@ -183,6 +223,7 @@ export class DrawLayer implements Layer {
       width: this.defaults.width,
       fillOpacity: this.defaults.fillOpacity,
       closed: this.tool === 'rect' || this.tool === 'circle',
+      tags: ['draw', this.tool],
     }
     this.mode = mode
   }
@@ -198,6 +239,7 @@ export class DrawLayer implements Layer {
     }
     this.drawings.push(d)
     this.byId.set(d.id, d)
+    if (!this.isTagVisible(d.tags)) this.filterExempt.add(d.id)
     this.rebuildOne(d, false)
     this.emitChange()
   }
@@ -209,18 +251,31 @@ export class DrawLayer implements Layer {
     this.mode = 'idle'
   }
 
+  /** Annule le dernier dessin **visible** — comme la gomme, ne détruit jamais
+   *  silencieusement un dessin masqué par le filtre « Couches ». */
   undo(): void {
-    const d = this.drawings.pop()
-    if (!d) return
-    this.byId.delete(d.id)
-    this.dropDrawing(d.id)
-    this.emitChange()
+    for (let i = this.drawings.length - 1; i >= 0; i--) {
+      const d = this.drawings[i]!
+      if (!this.isShown(d)) continue
+      this.drawings.splice(i, 1)
+      this.byId.delete(d.id)
+      this.dropDrawing(d.id)
+      this.emitChange()
+      return
+    }
   }
 
+  /** Efface les dessins **visibles** ; sous filtre actif, les dessins masqués sont
+   *  conservés (cohérent avec la gomme et `undo` — pas de perte silencieuse). */
   clear(): void {
-    for (const d of this.drawings) this.dropDrawing(d.id)
-    this.drawings = []
+    const kept: Drawing[] = []
+    for (const d of this.drawings) {
+      if (this.isShown(d)) this.dropDrawing(d.id)
+      else kept.push(d)
+    }
+    this.drawings = kept
     this.byId.clear()
+    for (const d of kept) this.byId.set(d.id, d)
     this.cancelLive()
     this.emitChange()
   }
@@ -229,6 +284,8 @@ export class DrawLayer implements Layer {
     const TOL = 14
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i]!
+      // On ne gomme pas ce qui est masqué par le filtre « Couches ».
+      if (!this.isTagVisible(d.tags)) continue
       // Curseur et sommets projetés À LA MÊME hauteur (celle du dessin) : comparés à
       // des hauteurs différentes, la parallaxe fausserait la tolérance en px.
       const h = this.heightFor(d)
@@ -345,6 +402,8 @@ export class DrawLayer implements Layer {
         enu.add(m)
       }
     }
+    // Filtre « Couches » : un dessin commité masqué le reste après rebuild (LOD/zoom).
+    enu.visible = this.isShown(d)
     this.group.add(enu)
     this.meshes.set(d.id, enu)
     if (d.kind === 'measure') this.ensureLabel(d)
@@ -374,6 +433,7 @@ export class DrawLayer implements Layer {
     this.removeMeshes(id)
     this.heights.delete(id)
     this.builtMpp.delete(id)
+    this.filterExempt.delete(id)
   }
 
   private ensureLabel(d: Drawing): void {
@@ -523,10 +583,12 @@ export class DrawLayer implements Layer {
         continue
       }
       const mid = d.points[Math.floor(d.points.length / 2)]!
-      const world = this.projection.latLngToWorld(mid, undefined, this.heightFor(d))
+      // camScratch réutilisé : pas d'allocation Vector3 par label et par frame
+      // (`toScreen`, l'autre utilisateur du scratch, n'est jamais appelé ici).
+      const world = this.projection.latLngToWorld(mid, this.camScratch, this.heightFor(d))
       const visible = this.projection.isAboveHorizon(world, ctx.camera.position)
       const s = this.projection.worldToScreen(world, ctx.camera)
-      const show = visible && s.z <= 1
+      const show = visible && s.z <= 1 && this.isShown(d)
       label.style.display = show ? 'block' : 'none'
       if (show) label.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%)`
     }
@@ -537,7 +599,7 @@ export class DrawLayer implements Layer {
       type: 'FeatureCollection',
       features: this.drawings.map((d) => {
         const coords = d.points.map((p) => [p.lng, p.lat])
-        const props = { kind: d.kind, color: d.color, width: d.width, fillOpacity: d.fillOpacity }
+        const props = { kind: d.kind, color: d.color, width: d.width, fillOpacity: d.fillOpacity, tags: d.tags }
         if (d.closed) {
           const ring = [...coords, coords[0]!]
           return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: props }
@@ -561,6 +623,7 @@ export class DrawLayer implements Layer {
         width: props.width,
         fillOpacity: props.fillOpacity,
         closed: f.geometry.type === 'Polygon',
+        tags: props.tags ?? ['draw', props.kind],
       }
       this.drawings.push(d)
       this.byId.set(d.id, d)

@@ -30,5 +30,7 @@ export type MarkerData<T = unknown> = {
   position: LatLng
   /** Type/catégorie → couleur via `theme.colors.marker[type]`. */
   type: string
+  /** Tags de filtrage (panneau « Couches »), ex. `['user', 'move']`. */
+  tags?: string[]
   data: T
 }

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   DrawLayer as CoreDrawLayer,
   type DrawTool,
@@ -35,6 +35,7 @@ export function DrawLayer(props: DrawLayerProps) {
   const allowed = props.tools ?? ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure', 'erase']
   const onChangeRef = useRef(props.onChange)
   onChangeRef.current = props.onChange
+  const tagSource = useId()
 
   useEffect(() => {
     const core = new CoreDrawLayer(
@@ -47,14 +48,26 @@ export function DrawLayer(props: DrawLayerProps) {
         fillOpacity: props.defaults?.fillOpacity ?? 0.3,
       },
       4,
-      (fc) => onChangeRef.current?.(fc),
+      (fc) => {
+        onChangeRef.current?.(fc)
+        // Registre du panneau « Couches » : à chaque ajout/suppression de dessin.
+        engine.tags.report(tagSource, core.tagCounts())
+      },
     )
     engine.addLayer(core)
     coreRef.current = core
+    // Filtre « Couches » : simple bascule de visibilité des meshes, aucun rebuild.
+    // Câblé dans CE même effet : un core recréé (ex. overlay changé) repart
+    // toujours avec le filtre courant appliqué.
+    const applyFilter = () => core.setTagVisibility((t) => engine.tags.isVisible(t))
+    applyFilter()
+    const offSelection = engine.tags.onSelection(applyFilter)
     return () => {
+      offSelection()
       engine.inputInterceptor = null
       engine.setDrawing(false)
       engine.removeLayer(core)
+      engine.tags.unreport(tagSource)
       coreRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

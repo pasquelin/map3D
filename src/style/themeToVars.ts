@@ -13,6 +13,7 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-text': c.ui.text,
     '--m3d-muted': c.ui.muted,
     '--m3d-accent': c.ui.accent,
+    '--m3d-error': c.ui.error,
     '--m3d-border': c.ui.border,
     '--m3d-cluster-core': c.cluster.core,
     '--m3d-cluster-satellite': c.cluster.satellite,

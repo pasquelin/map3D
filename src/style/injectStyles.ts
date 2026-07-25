@@ -3,10 +3,18 @@ const STYLE_ID = 'm3d-styles'
 /**
  * Injecte **une seule fois** par document une feuille scopée sous `.m3d-root`.
  * Aucun style global n'est posé ailleurs. SSR-safe : appelée depuis un effet,
- * jamais au niveau module.
+ * jamais au niveau module. Une feuille déjà présente mais périmée (HMR en dev,
+ * mise à jour de la lib sur page ouverte) est resynchronisée — sinon les
+ * nouveaux composants s'affichent sans leurs styles. Comparaison de chaîne
+ * directe : appelée seulement au montage d'un `<Map>`, et sûre cross-realm
+ * (iframe/popup), contrairement à un `instanceof HTMLElement`.
  */
 export function injectStyles(doc: Document = document): void {
-  if (doc.getElementById(STYLE_ID)) return
+  const existing = doc.getElementById(STYLE_ID)
+  if (existing) {
+    if (existing.textContent !== CSS) existing.textContent = CSS
+    return
+  }
   const style = doc.createElement('style')
   style.id = STYLE_ID
   style.textContent = CSS
@@ -89,6 +97,8 @@ const CSS = `
 .m3d-btn:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
 .m3d-btn.m3d-on{background:var(--m3d-accent);color:#fff}
 .m3d-btn:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+.m3d-btn-move{margin-bottom:4px}
+.m3d-btn-delete{margin-top:4px; color:var(--m3d-error)}
 
 /* Barre d'outils de dessin : sous le zoom minimal elle glisse hors écran
    (translateY conserve le centrage vertical pendant la transition). */
@@ -103,6 +113,54 @@ const CSS = `
 .m3d-drawbar.m3d-left.m3d-hidden{transform:translateY(-50%) translateX(calc(-100% - 24px))}
 .m3d-drawbar.m3d-right.m3d-hidden{transform:translateY(-50%) translateX(calc(100% + 24px))}
 .m3d-drawbar .m3d-btn{width:40px;height:40px}
+
+/* Panneau « Couches » (filtre par tag) : ancré au groupe du bouton, ouvert du
+   côté opposé à la barre (m3d-right = barre à droite → panneau à gauche). */
+.m3d-tags{position:relative}
+.m3d-tagbtn{position:relative}
+.m3d-tag-badge{position:absolute;top:-10px;right:-10px;min-width:15px;height:15px;padding:0 4px;
+  border-radius:8px;background:var(--m3d-accent);color:#fff;font-size:9.5px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+  box-shadow:0 0 0 2px var(--m3d-panel)}
+.m3d-btn.m3d-on .m3d-tag-badge{background:#fff;color:var(--m3d-accent)}
+.m3d-tagpanel{position:absolute;top:0;width:236px;padding:8px;z-index:30;
+  display:flex;flex-direction:column;gap:7px;max-height:min(380px,55vh);
+  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+.m3d-tagpanel.m3d-right{right:calc(100% + 12px)}
+.m3d-tagpanel.m3d-left{left:calc(100% + 12px)}
+.m3d-tagsearch{display:flex;align-items:center;gap:7px;padding:7px 9px;
+  border:1px solid var(--m3d-border);border-radius:9px;color:var(--m3d-muted)}
+.m3d-tagsearch input{border:none;background:none;outline:none;flex:1;min-width:0;
+  font-family:inherit;font-size:12.5px;color:var(--m3d-text)}
+/* Seule la liste scrolle : recherche (au-dessus) et « Tout afficher » (en dessous)
+   restent visibles quand le panneau atteint sa hauteur max. */
+.m3d-taglist{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:0;
+  overflow-y:auto;scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
+.m3d-tagrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
+  cursor:pointer;font-size:12.5px;user-select:none}
+.m3d-tagrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+/* Checkbox custom au style du thème (case arrondie + coche dessinée en CSS). */
+.m3d-tagrow input{appearance:none;-webkit-appearance:none;margin:0;flex:none;cursor:pointer;
+  width:15px;height:15px;border:1.5px solid color-mix(in srgb,var(--m3d-text) 35%,transparent);
+  border-radius:5px;background:transparent;display:grid;place-items:center;
+  transition:background .14s,border-color .14s}
+.m3d-tagrow:hover input{border-color:color-mix(in srgb,var(--m3d-text) 55%,transparent)}
+.m3d-tagrow input:checked{background:var(--m3d-accent);border-color:var(--m3d-accent)}
+.m3d-tagrow input::after{content:'';width:8px;height:4.5px;margin-top:-1.5px;opacity:0;
+  border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(.5);
+  transition:opacity .12s,transform .12s}
+.m3d-tagrow input:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
+.m3d-tagrow input:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+.m3d-tagdot{width:9px;height:9px;border-radius:50%;flex:none}
+.m3d-taglabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-tagcount{font-size:10.5px;color:var(--m3d-muted);font-variant-numeric:tabular-nums}
+.m3d-tagempty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
+.m3d-tagclear{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 9px;
+  border:1px solid var(--m3d-border);border-radius:9px;background:transparent;cursor:pointer;
+  font-family:inherit;font-size:12px;color:var(--m3d-text);transition:background .14s}
+.m3d-tagclear:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-tagclear:disabled{opacity:.45;cursor:default}
 
 .m3d-search{position:absolute;left:16px;top:16px;z-index:20;width:270px}
 .m3d-search-box{display:flex;align-items:center;gap:9px;padding:11px 13px;

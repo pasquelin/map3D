@@ -9,6 +9,7 @@ import { GoogleTileSource, TILE_SIZE } from './googleTiles'
 import type { FrameContext, Layer, MapView } from './Layer'
 import { clamp, DEG2RAD } from './math'
 import { Projection } from './Projection'
+import { TagFilter } from './TagFilter'
 
 export type PointerPhase = 'down' | 'move' | 'up'
 /** Intercepteur d'entrée (outils de dessin) : renvoie true pour consommer. */
@@ -50,6 +51,12 @@ export type MapEngineOptions = {
    * première interaction.
    */
   intro?: boolean
+  /**
+   * Clé localStorage de la sélection du filtre « Couches » (`engine.tags`).
+   * `null` = pas de persistance ; une clé distincte par carte si plusieurs
+   * `<Map>` cohabitent sur le même origin. Défaut : `m3d:tag-filter`.
+   */
+  tagStorageKey?: string | null
 }
 
 export type MapEvents = {
@@ -75,6 +82,8 @@ export class MapEngine {
   readonly threeCamera: THREE.PerspectiveCamera
   readonly camera: Camera
   readonly projection = new Projection()
+  /** Filtre de visibilité par tags, partagé par toutes les couches (markers, dessins). */
+  readonly tags: TagFilter
   readonly renderer: THREE.WebGLRenderer
   /** Overlay HTML ancré au repère 3D : les markers sont des `CSS2DObject`. */
   readonly labelRenderer: CSS2DRenderer
@@ -128,6 +137,7 @@ export class MapEngine {
 
   constructor(opts: MapEngineOptions) {
     this.canvas = opts.canvas
+    this.tags = new TagFilter(opts.tagStorageKey)
     this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: true })
     // pixelRatio = 1 imposé : le canvas fait EXACTEMENT la taille du parent (aucun
     // ×2 DPR, ni sur le backing store ni sur l'affichage).

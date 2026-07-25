@@ -22,6 +22,11 @@ export type MapProps = {
   errorTarget?: number
   /** Intro façon Google Earth : vue globe puis descente animée vers center/zoom (défaut: true). */
   intro?: boolean
+  /**
+   * Clé localStorage du filtre « Couches » (`null` = pas de persistance ; une clé
+   * distincte par carte si plusieurs `<Map>` cohabitent). Défaut : `m3d:tag-filter`.
+   */
+  tagStorageKey?: string | null
   onViewportChange?: (viewport: Viewport) => void
   onCameraChange?: (camera: CameraState) => void
   className?: string
@@ -58,6 +63,7 @@ export function Map(props: MapProps) {
       fallbackGlobe: props.fallbackGlobe ?? true,
       errorTarget: props.errorTarget,
       intro: props.intro,
+      tagStorageKey: props.tagStorageKey,
     })
     eng.camera.flyDuration = theme.animations.flyDuration
     eng.camera.flyEasing = theme.animations.flyEasing

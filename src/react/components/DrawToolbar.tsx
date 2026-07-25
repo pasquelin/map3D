@@ -66,7 +66,7 @@ export function DrawToolbar({ position = 'left', minZoom = 11, tools = DEFAULT_T
   return (
     <>
       <div className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
-        <button {...tip('Naviguer')} className={`m3d-btn${tool === null ? ' m3d-on' : ''}`} onClick={() => setTool(null)}>
+        <button {...tip('Naviguer')} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
           <Icon path={mdiHandBackRightOutline} size={ICON_SIZE} />
         </button>
         {tools.map((t) => (
@@ -77,7 +77,7 @@ export function DrawToolbar({ position = 'left', minZoom = 11, tools = DEFAULT_T
         <button {...tip('Annuler')} className="m3d-btn" onClick={undo}>
           <Icon path={mdiUndo} size={ICON_SIZE} />
         </button>
-        <button {...tip('Tout effacer')} className="m3d-btn" onClick={clear}>
+        <button {...tip('Tout effacer')} className="m3d-btn m3d-btn-delete" onClick={clear}>
           <Icon path={mdiTrashCanOutline} size={ICON_SIZE} />
         </button>
       </div>
