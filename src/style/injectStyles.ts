@@ -661,12 +661,12 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-drag-ghost:not(.m3d-drag-over) .m3d-pin-remove-hint{opacity:1}
 
 /* Infobulle au survol d'une pastille : rendue en PORTAL dans .m3d-root (hors du
-   conteneur scrollable, sinon rognée), positionnée AU-DESSUS de la pastille via
-   left/top inline (px conteneur). Même langage visuel que l'infobulle des markers. */
-.m3d-pin-tip{position:absolute;z-index:100;transform:translate(-50%,calc(-100% - 12px));
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);border-radius:var(--m3d-radius-md);
-  box-shadow:var(--m3d-shadow-lg);backdrop-filter:blur(12px);padding:8px 11px;
-  min-width:120px;max-width:240px;pointer-events:none;animation:m3d-fade-in .16s ease-out}
+   conteneur scrollable, sinon rognée). Elle porte AUSSI la classe .m3d-markertip
+   → elle hérite du fond/bordure/min-max-width des infobulles de markers (et donc
+   de tout override hôte). Ici on ne surcharge QUE le positionnement (left/top
+   inline via le portail + lift) et l'animation. */
+.m3d-pin-tip{z-index:100;transform:translate(-50%,calc(-100% - 12px));
+  animation:m3d-fade-in .16s ease-out}
 @keyframes m3d-fade-in{from{opacity:0}}
 
 /* Pendant un drag, les pastilles sous le curseur ne réagissent pas — on dépose
