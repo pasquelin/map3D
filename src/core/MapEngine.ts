@@ -59,10 +59,14 @@ export type MapEngineOptions = {
   tagStorageKey?: string | null
 }
 
+/** Mode du drag gauche : 'pan' (déplacer la carte, défaut) ou 'rotate' (pivoter la vue, = Maj maintenu). */
+export type DragMode = 'pan' | 'rotate'
+
 export type MapEvents = {
   camera: CameraState
   viewport: MapView
   click: { latLng: LatLng; originalEvent: PointerEvent }
+  dragmode: DragMode
 }
 
 type Listener<E extends keyof MapEvents> = (payload: MapEvents[E]) => void
@@ -110,7 +114,9 @@ export class MapEngine {
     camera: new Set(),
     viewport: new Set(),
     click: new Set(),
+    dragmode: new Set(),
   }
+  private dragMode: DragMode = 'pan'
   private fallback: THREE.Object3D | null = null
   private size = { width: 1, height: 1 }
   private raf = 0
@@ -830,7 +836,37 @@ export class MapEngine {
 
   // ── Entrées (clic + interception dessin) ──
 
+  /**
+   * Bascule le comportement du drag GAUCHE : 'rotate' pivote la vue autour du
+   * point cliqué comme si Maj était maintenu (bouton MapControls pour les
+   * utilisateurs qui ne connaissent pas le modificateur), 'pan' (défaut) déplace
+   * la carte. Maj/clic droit/2 doigts continuent de pivoter dans les deux modes.
+   */
+  setDragMode(mode: DragMode): void {
+    if (this.dragMode === mode) return
+    this.dragMode = mode
+    this.emit('dragmode', mode)
+  }
+
+  getDragMode(): DragMode {
+    return this.dragMode
+  }
+
+  /**
+   * Mode rotation : GlobeControls choisit pivoter/déplacer en lisant `e.shiftKey`
+   * au pointerdown — on shadow la propriété sur L'INSTANCE de l'événement, en
+   * capture sur `window` (s'exécute AVANT les listeners du canvas, quel que soit
+   * leur ordre d'enregistrement), sans re-dispatch : le pointer capture et le
+   * reste de la chaîne d'événements restent intacts.
+   */
+  private readonly forceRotateModifier = (e: PointerEvent): void => {
+    if (this.dragMode === 'rotate' && e.target === this.canvas && e.button === 0) {
+      Object.defineProperty(e, 'shiftKey', { value: true })
+    }
+  }
+
   private bindInput(): void {
+    window.addEventListener('pointerdown', this.forceRotateModifier, true)
     this.canvas.addEventListener('pointerdown', this.onPointerDown)
     this.canvas.addEventListener('pointermove', this.onPointerMove)
     window.addEventListener('pointerup', this.onPointerUp)
@@ -840,6 +876,7 @@ export class MapEngine {
   }
 
   private unbindInput(): void {
+    window.removeEventListener('pointerdown', this.forceRotateModifier, true)
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
     window.removeEventListener('pointerup', this.onPointerUp)

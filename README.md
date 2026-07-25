@@ -142,7 +142,20 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
 | `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds. |
 | `<DrawLayer tools shortcuts defaults value onChange>` | Outils de dessin + GeoJSON. |
-| `<MapControls>` `<SearchBox>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (dont bouton **Couches** = filtre par tags). |
+| `<MapControls>` `<SearchBox>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
+
+`<MapControls>` est entièrement configurable, à deux grains :
+
+```tsx
+// Grain GROUPE : masquer (false) ou remplacer (ReactNode) un groupe entier.
+<MapControls components={{ view: false, zoom: <MonZoom /> }} />
+
+// Grain BOUTON : masquer un bouton précis — son raccourci clavier est
+// désactivé avec lui, un groupe vidé disparaît.
+<MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />
+```
+
+Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `layers`, `fullscreen`.
 | `<TagFilterControl position tipId>` | Bouton + panneau de filtre par tags, utilisable seul hors `<MapControls>`. |
 | Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTags`, `useTagSelection`, `useTheme`. |
 
