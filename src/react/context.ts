@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { MapEngine } from '../core/MapEngine'
+import { defaultLabels } from '../labels/defaultLabels'
+import type { MapLabels } from '../labels/types'
 import type { DrawStyle, DrawTool, GeoJSONFeatureCollection, SelectMode } from '../layers/DrawLayer'
 import type { DrawSettings } from '../layers/draw/DrawSettings'
 import { defaultTheme } from '../theme/defaultTheme'
@@ -7,6 +9,9 @@ import type { MapTheme } from '../theme/types'
 
 /** Fourni par `<MapProvider>` : thème résolu (clair/sombre + reduced-motion). */
 export const ThemeContext = createContext<MapTheme>(defaultTheme)
+
+/** Fourni par `<MapProvider>` : libellés résolus (défauts + overrides `labels`). */
+export const LabelsContext = createContext<MapLabels>(defaultLabels)
 
 export type MapContextValue = {
   engine: MapEngine
@@ -21,9 +26,15 @@ export function useTheme(): MapTheme {
   return useContext(ThemeContext)
 }
 
+/** Libellés résolus — chaque texte affiché par la lib passe par ici. */
+export function useLabels(): MapLabels {
+  return useContext(LabelsContext)
+}
+
 export function useMapContext(): MapContextValue {
+  const labels = useContext(LabelsContext)
   const ctx = useContext(MapContext)
-  if (!ctx) throw new Error('Ce composant doit être utilisé à l’intérieur de <Map>')
+  if (!ctx) throw new Error(labels.errors.outsideMap)
   return ctx
 }
 

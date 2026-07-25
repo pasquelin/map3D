@@ -13,10 +13,10 @@ import Icon from '@mdi/react'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import 'react-tooltip/dist/react-tooltip.css'
-import { useMapContext } from '../context'
+import { useLabels, useMapContext } from '../context'
 import { plainKey } from './shortcuts'
 import { TagFilterControl } from './TagFilterControl'
-import { ICON_SIZE, tipProps } from './tooltip'
+import { ICON_SIZE, useTip } from './tooltip'
 
 export type MapControlAction =
   | 'north'
@@ -84,6 +84,7 @@ function isNode(v: boolean | ReactNode | undefined): v is ReactNode {
 /** Contrôles de navigation : déplacement/rotation du drag, boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
 export function MapControls({ position = 'right', components = {}, buttons = {}, shortcuts }: MapControlsProps) {
   const { engine } = useMapContext()
+  const labels = useLabels()
 
   // Mode du drag gauche (déplacer / pivoter) — source de vérité côté moteur.
   const [dragMode, setDragModeState] = useState(engine.getDragMode())
@@ -113,7 +114,8 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
   /** Ce bouton précis est-il visible ? (grain fin `buttons`, dans un groupe rendu) */
   const btn = (b: MapControlButton) => buttons[b] !== false
   const keys = { ...DEFAULT_SHORTCUTS, ...shortcuts }
-  const tip = (label: string, action?: MapControlAction) => tipProps(TIP_ID, label, action && keys[action])
+  const tipBase = useTip(TIP_ID)
+  const tip = (label: string, action?: MapControlAction) => tipBase(label, action && keys[action])
 
   // Raccourcis : listener monté UNE fois (les props sont lues via ref au moment de
   // la frappe — un littéral `shortcuts={{...}}` inline ne recrée pas le listener).
@@ -151,7 +153,7 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
               {btn('pan') && (
                 <button
                   className={`m3d-btn${dragMode === 'pan' ? ' m3d-on' : ''}`}
-                  {...tip('Déplacer la carte')}
+                  {...tip(labels.controls.pan)}
                   onClick={() => engine.setDragMode('pan')}
                 >
                   <Icon path={mdiCursorMove} size={ICON_SIZE} />
@@ -160,7 +162,7 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
               {btn('rotate') && (
                 <button
                   className={`m3d-btn${dragMode === 'rotate' ? ' m3d-on' : ''}`}
-                  {...tip('Pivoter la vue (MAJ)')}
+                  {...tip(labels.controls.rotate)}
                   onClick={() => engine.setDragMode('rotate')}
                 >
                   <Icon path={mdiRotateOrbit} size={ICON_SIZE} />
@@ -173,7 +175,7 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
         ? components.compass
         : defaultShown('compass') && btn('compass') && (
             <div className="m3d-controls-group">
-              <button className="m3d-btn" {...tip('Nord / vue du dessus', 'north')} onClick={topDown}>
+              <button className="m3d-btn" {...tip(labels.controls.north, 'north')} onClick={topDown}>
                 <Icon path={mdiCompassOutline} size={ICON_SIZE} />
               </button>
             </div>
@@ -184,12 +186,12 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
         : defaultShown('zoom') && (btn('zoomIn') || btn('zoomOut')) && (
             <div className="m3d-controls-group">
               {btn('zoomIn') && (
-                <button className="m3d-btn" {...tip('Zoom avant', 'zoomIn')} onClick={() => zoomBy(0.5)}>
+                <button className="m3d-btn" {...tip(labels.controls.zoomIn, 'zoomIn')} onClick={() => zoomBy(0.5)}>
                   <Icon path={mdiPlus} size={ICON_SIZE} />
                 </button>
               )}
               {btn('zoomOut') && (
-                <button className="m3d-btn" {...tip('Zoom arrière', 'zoomOut')} onClick={() => zoomBy(2)}>
+                <button className="m3d-btn" {...tip(labels.controls.zoomOut, 'zoomOut')} onClick={() => zoomBy(2)}>
                   <Icon path={mdiMinus} size={ICON_SIZE} />
                 </button>
               )}
@@ -201,17 +203,17 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
         : defaultShown('view') && (btn('tilt') || btn('topDown') || btn('globe')) && (
             <div className="m3d-controls-group">
               {btn('tilt') && (
-                <button className="m3d-btn" {...tip('Incliner', 'tilt')} onClick={tiltUp}>
+                <button className="m3d-btn" {...tip(labels.controls.tilt, 'tilt')} onClick={tiltUp}>
                   <Icon path={mdiVideo3d} size={ICON_SIZE} />
                 </button>
               )}
               {btn('topDown') && (
-                <button className="m3d-btn" {...tip('Vue du dessus', 'topDown')} onClick={topDown}>
+                <button className="m3d-btn" {...tip(labels.controls.topDown, 'topDown')} onClick={topDown}>
                   <Icon path={mdiVideo2d} size={ICON_SIZE} />
                 </button>
               )}
               {btn('globe') && (
-                <button className="m3d-btn" {...tip('Retour au globe', 'globe')} onClick={globe}>
+                <button className="m3d-btn" {...tip(labels.controls.globe, 'globe')} onClick={globe}>
                   <Icon path={mdiEarth} size={ICON_SIZE} />
                 </button>
               )}
@@ -228,7 +230,7 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
         ? components.fullscreen
         : defaultShown('fullscreen') && btn('fullscreen') && (
             <div className="m3d-controls-group">
-              <button className="m3d-btn" {...tip('Plein écran', 'fullscreen')} onClick={toggleFs}>
+              <button className="m3d-btn" {...tip(labels.controls.fullscreen, 'fullscreen')} onClick={toggleFs}>
                 <Icon path={mdiFullscreen} size={ICON_SIZE} />
               </button>
             </div>

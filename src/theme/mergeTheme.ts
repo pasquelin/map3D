@@ -4,7 +4,8 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
-function deepMerge<T>(base: T, override: unknown): T {
+/** Merge profond générique (partagé par `mergeTheme` et `mergeLabels`). */
+export function deepMerge<T>(base: T, override: unknown): T {
   if (override === undefined) return base
   if (!isPlainObject(base) || !isPlainObject(override)) return override as T
   const out: Record<string, unknown> = { ...base }

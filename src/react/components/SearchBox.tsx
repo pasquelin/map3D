@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LatLng } from '../../shared'
+import { useLabels } from '../context'
 import { useCamera } from '../hooks/useCamera'
 
 export type SearchResult = LatLng & { name: string; description?: string }
@@ -8,14 +9,16 @@ export type SearchBoxProps = {
   onSelect: (place: SearchResult) => void
   /** Fonction de recherche (async). Sans elle, la boîte reste inerte. */
   search?: (query: string) => Promise<SearchResult[]>
+  /** Défaut : `labels.search.placeholder`. */
   placeholder?: string
   /** Altitude caméra (mètres) au choix d'un résultat. */
   flyAltitude?: number
 }
 
 /** Boîte de recherche de lieu (débouncée). Utilisable seule ou remplaçable. */
-export function SearchBox({ onSelect, search, placeholder = 'Rechercher un lieu…', flyAltitude = 2500 }: SearchBoxProps) {
+export function SearchBox({ onSelect, search, placeholder, flyAltitude = 2500 }: SearchBoxProps) {
   const { flyTo } = useCamera()
+  const labels = useLabels()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [open, setOpen] = useState(false)
@@ -56,8 +59,8 @@ export function SearchBox({ onSelect, search, placeholder = 'Rechercher un lieu�
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(results.length > 0)}
-          placeholder={placeholder}
-          aria-label="Recherche"
+          placeholder={placeholder ?? labels.search.placeholder}
+          aria-label={labels.search.inputLabel}
         />
       </div>
       {open && (

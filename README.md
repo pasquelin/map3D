@@ -17,6 +17,7 @@ Conçue pour le *Dashboard Opérateur* GoSecure (alertes par sévérité, agents
 - **Source 3D unique** : Google Photorealistic 3D Tiles via **Cesium Ion** (un seul token).
 - **Filtrage par tags (« couches »)** : markers et dessins tagués, panneau de filtre intégré aux contrôles (recherche, checkboxes, pastilles couleur, compteurs), sélection persistée.
 - **Thème typé** clair/sombre, `prefers-reduced-motion` respecté.
+- **Libellés 100 % traduisibles** : aucun texte en dur, tout est overridable via `<MapProvider labels>` (voir [LABELS.md](./LABELS.md)).
 
 ## Installation
 
@@ -148,6 +149,25 @@ Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (
 
 L'API `useDrawing()` expose tout : `tool/setTool`, `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`, `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`, `undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`), `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
+## Traduction des libellés (`labels`)
+
+Chaque texte affiché (tooltips, aria-labels, placeholders, panneaux, label de distance de la règle) a un **défaut français** dans `defaultLabels` et s'override clé par clé via `<MapProvider labels>` (merge profond — ne passez que ce que vous traduisez) :
+
+```tsx
+<MapProvider
+  labels={{
+    controls: { fullscreen: 'Fullscreen' },
+    toolbar: { undo: 'Undo', redo: 'Redo' },
+    tools: { freehand: 'Freehand', measure: 'Measure' },
+    tags: { button: 'Layers — filter by tag' },
+    measure: { kilometers: '{value} km' },   // gabarits : conservez les {variables}
+  }}
+>
+```
+
+- `useLabels()` donne l'objet résolu à vos composants custom ; `formatLabel(template, params)` interpole les `{variables}`.
+- **Référence complète des clés** (groupes `controls`, `tags`, `search`, `toolbar`, `tools`, `selectModes`, `style`, `settings`, `actions`, `keys`, `format`, `measure`, `errors`) : voir [LABELS.md](./LABELS.md).
+
 ## Raccourcis clavier
 
 Les **outils** se choisissent par lettres seules, identiques Mac/PC ; les **actions d'édition** (annuler, tout sélectionner, dupliquer) utilisent le modificateur de la plateforme (⌘ sur Mac, Ctrl ailleurs) avec `preventDefault` ciblé. Tous sont affichés dans les tooltips des boutons et ignorés pendant une saisie (recherche, formulaires).
@@ -191,7 +211,7 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 
 | Élément | Rôle |
 |---|---|
-| `<MapProvider theme colorScheme>` | Thème résolu (clair/sombre + reduced-motion). |
+| `<MapProvider theme colorScheme labels>` | Thème résolu (clair/sombre + reduced-motion) + libellés traduisibles ([LABELS.md](./LABELS.md)). |
 | `<Map cesiumIonToken center zoom fallbackGlobe onViewportChange onCameraChange>` | Canvas + moteur (Cesium Ion). |
 | `<MarkerLayer points/source getId cluster icon clusterIcon renderPopup menu selectedId followId onSelect>` | Markers/clusters DOM. |
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
@@ -214,7 +234,7 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 
 Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `layers`, `fullscreen`.
 | `<TagFilterControl position tipId>` | Bouton + panneau de filtre par tags, utilisable seul hors `<MapControls>`. |
-| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTags`, `useTagSelection`, `useTheme`. |
+| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTags`, `useTagSelection`, `useTheme`, `useLabels`. |
 
 ## Exemple complet (Dashboard GoSecure)
 

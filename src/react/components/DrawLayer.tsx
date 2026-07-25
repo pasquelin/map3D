@@ -7,8 +7,9 @@ import {
   type SelectMode,
 } from '../../layers/DrawLayer'
 import { DrawSettings, type ToolSettings } from '../../layers/draw/DrawSettings'
+import { makeDistanceFormatter } from '../../layers/DrawLayer'
 import { SELECT_MODE_META } from './drawControls'
-import { type DrawAction, DrawingContext, type DrawingApi, useMapContext } from '../context'
+import { type DrawAction, DrawingContext, type DrawingApi, useLabels, useMapContext } from '../context'
 import { inTextInput, plainKey } from './shortcuts'
 
 export type DrawLayerProps = {
@@ -44,6 +45,7 @@ const DEFAULT_SHORTCUTS: Record<DrawTool | DrawAction, string> = {
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */
 export function DrawLayer(props: DrawLayerProps) {
   const { engine, overlay, theme } = useMapContext()
+  const labels = useLabels()
   const coreRef = useRef<CoreDrawLayer | null>(null)
   const [tool, setToolState] = useState<DrawTool | null>(null)
   // Re-render à chaque mutation du core (canUndo/canRedo, sélection…) ; `rev`
@@ -97,6 +99,8 @@ export function DrawLayer(props: DrawLayerProps) {
   }, [settings, base.color, base.width, base.fillOpacity])
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  const labelsRef = useRef(labels)
+  labelsRef.current = labels
   // Re-render (panneaux, aperçus) à chaque changement de réglage.
   useEffect(() => settings.onChange(bump), [settings])
 
@@ -122,6 +126,8 @@ export function DrawLayer(props: DrawLayerProps) {
     // Via ref : si `settings` est recréé (changement de settingsStorage), le core
     // lit toujours l'instance courante — pas une closure périmée.
     core.defaultsFor = (t) => settingsRef.current.get(t)
+    // Labels de mesure traduits via le provider (ref : labels changés sans recréer le core).
+    core.formatDistance = (m) => makeDistanceFormatter(labelsRef.current.measure)(m)
     engine.addLayer(core)
     coreRef.current = core
     // Un core recréé (engine/overlay changés) repart vide : on rejoue l'import

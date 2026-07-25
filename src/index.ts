@@ -51,12 +51,18 @@ export { mergeTheme } from './theme/mergeTheme'
 export { themeToVars } from './style/themeToVars'
 export { injectStyles } from './style/injectStyles'
 
+// ── Libellés (traduction) ──
+export type { MapLabels, PartialLabels } from './labels/types'
+export { defaultLabels } from './labels/defaultLabels'
+export { mergeLabels, formatLabel, formatCount } from './labels/mergeLabels'
+export { makeDistanceFormatter } from './layers/DrawLayer'
+
 // ── React ──
 export { MapProvider } from './react/MapProvider'
 export type { MapProviderProps } from './react/MapProvider'
 export { Map } from './react/Map'
 export type { MapProps } from './react/Map'
-export { useMap, useTheme } from './react/context'
+export { useMap, useTheme, useLabels } from './react/context'
 export type { DrawingApi, DrawAction } from './react/context'
 export { useCamera } from './react/hooks/useCamera'
 export { useViewport } from './react/hooks/useViewport'
