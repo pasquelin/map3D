@@ -14,7 +14,7 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
 
   useEffect(() => {
     const layer = new CorePathLayer(
-      engine.scene,
+      engine.annotations,
       engine.projection,
       {
         color: theme.colors.path.base,

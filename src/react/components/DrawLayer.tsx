@@ -38,7 +38,7 @@ export function DrawLayer(props: DrawLayerProps) {
 
   useEffect(() => {
     const core = new CoreDrawLayer(
-      engine.scene,
+      engine.annotations,
       engine.projection,
       overlay,
       {

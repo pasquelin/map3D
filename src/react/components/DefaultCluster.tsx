@@ -123,8 +123,7 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel }: DefaultC
         </g>
       </svg>
 
-      {tip
-        ? createPortal(
+      {tip && createPortal(
             <div
               style={{
                 position: 'fixed',
@@ -152,8 +151,7 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel }: DefaultC
               <span style={{ fontWeight: 800 }}>{tip.count}</span>
             </div>,
             document.body,
-          )
-        : null}
+          )}
     </div>
   )
 }

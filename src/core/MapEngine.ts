@@ -40,6 +40,16 @@ export type MapEngineOptions = {
   fallbackGlobe: boolean
   /** Erreur d'écran cible (screen-space error) — qualité/perf. */
   errorTarget?: number
+  /**
+   * Intro façon Google Earth (défaut true) : démarre en vue globe au-dessus de la
+   * cible puis descend en vol animé jusqu'à `center`/`zoom`, une fois le terrain
+   * streamé connu — l'altitude d'arrivée est comptée AU-DESSUS DU SOL et affinée
+   * pendant la descente. La caméra ne naît jamais contre le terrain (sinon
+   * l'anti-collision de GlobeControls la propulse à une distance dépendant de
+   * l'ordre d'arrivée des tuiles → zoom différent à chaque refresh). Annulée à la
+   * première interaction.
+   */
+  intro?: boolean
 }
 
 export type MapEvents = {
@@ -76,6 +86,12 @@ export class MapEngine {
    * 2D) — les markers `CSS2DObject` s'y attachent au lieu de `tiles.group` directement.
    */
   readonly overlayAnchor = new THREE.Group()
+  /**
+   * Parent commun des couches d'annotation WebGL (formes, dessins, tracés) : leur
+   * donne un interrupteur de visibilité unique — masquées pendant l'intro, comme
+   * les markers (elles flotteraient sur le vide pendant le streaming du globe).
+   */
+  readonly annotations = new THREE.Group()
 
   inputInterceptor: PointerInterceptor | null = null
 
@@ -148,6 +164,8 @@ export class MapEngine {
     // masquée avec les tuiles 3D (cf. setTiles3DVisible).
     this.overlayAnchor.name = 'm3d-overlay-anchor'
     this.tiles.group.add(this.overlayAnchor)
+    this.annotations.name = 'm3d-annotations'
+    this.scene.add(this.annotations)
 
     this.projection.setContext(this.tiles.ellipsoid, this.tiles.group)
 
@@ -191,8 +209,22 @@ export class MapEngine {
     this.controls.attach(this.canvas)
 
     this.camera = new Camera(this.threeCamera, this.projection)
-    // Vue initiale : survol nadir du centre à l'altitude déduite du zoom.
-    this.camera.jumpTo(opts.center, altitudeForZoom(opts.zoom))
+    if (opts.intro === false) {
+      // Sans intro : survol nadir direct à l'altitude déduite du zoom (NB : comptée
+      // depuis l'ellipsoïde, le terrain n'étant pas encore streamé).
+      this.camera.jumpTo(opts.center, altitudeForZoom(opts.zoom))
+    } else {
+      // Intro : vue globe au-dessus de la cible ; le vol part quand le terrain est
+      // connu (cf. intro dans tick). Départ déterministe, jamais sous le terrain.
+      this.camera.jumpTo(opts.center, this.tiles.ellipsoid.radius.x)
+      this.intro = {
+        center: opts.center,
+        altitude: altitudeForZoom(opts.zoom),
+        flying: false,
+        startedAt: performance.now(),
+      }
+      this.setOverlaysVisible(false)
+    }
 
     // Limite de dézoom : la Terre reste bien visible avec une petite marge d'espace,
     // jamais réduite à un point. maxCameraDistance = distance caméra↔centre Terre.
@@ -393,8 +425,18 @@ export class MapEngine {
   setMapMode(mode: MapMode): void {
     this.mapMode = mode
     const in2d = mode !== '3d'
+    // En 2D le terrain n'est plus suivi : une intro encore en attente ne partirait
+    // jamais — on lance la descente tout de suite (le fond plat est à terrainElevation),
+    // sauf si un autre pilotage caméra a déjà pris la main (l'intro s'efface alors).
+    if (in2d && this.intro && !this.intro.flying) {
+      if (this.camera.isControlling()) this.cancelIntro()
+      else this.startIntroFlight()
+    }
     // Aligne le fond 2D sur l'altitude du terrain suivie en continu en 3D → même échelle.
     if (in2d) this.basemap2d?.setElevation(this.terrainElevation)
+    // En 2D, pick ET drapage des formes visent le PLAN du fond (même hauteur que le
+    // basemap) — pas les tuiles 3D invisibles ; en 3D, retour à la surface réelle.
+    this.projection.setFlatHeight(in2d ? this.terrainElevation : null)
     // Limite l'inclinaison en 2D (borne la couverture de tuiles), libre en 3D.
     this.controls.maxAltitude = in2d ? TWO_D_MAX_ALTITUDE : this.defaultMaxAltitude
     // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
@@ -412,17 +454,120 @@ export class MapEngine {
   /** Altitude du terrain (m) sous le centre écran, suivie en continu en mode 3D et
    *  appliquée au fond 2D pour qu'il coïncide avec la 3D (évite l'écart d'échelle). */
   private terrainElevation = 0
+  /** true dès qu'un échantillon de terrain a réellement touché les tuiles. */
+  private terrainKnown = false
+
+  /**
+   * Vol d'intro façon Google Earth : `center`/`altitude` (au-dessus du sol) demandés
+   * au constructeur. `flying=false` = en attente du terrain streamé (bornée par
+   * `INTRO_MAX_WAIT_MS`) ; `flying=true` = descente en cours, destination affinée
+   * chaque frame (`retargetFlyAltitude`) au fil du raffinement des tuiles. `null` =
+   * terminé ou annulé. L'intro **s'efface devant tout autre pilotage caméra**
+   * (interaction, flyTo programmatique, suivi) — elle ne vole jamais la main.
+   */
+  private intro: { center: LatLng; altitude: number; flying: boolean; startedAt: number } | null = null
+
+  private readonly cancelIntro = (): void => {
+    // N'annule QUE le vol d'intro : un vol de recherche/suivi qui a pris la main
+    // n'est jamais tué par une interaction destinée à stopper l'intro.
+    if (this.camera.isFlying('intro')) this.camera.cancelFly()
+    this.intro = null
+    this.setOverlaysVisible(true)
+  }
+
+  /**
+   * Masque/révèle les overlays (markers WebGL de `overlayAnchor` + CSS2D via la
+   * classe `m3d-intro` du conteneur, avec fondu). Pendant l'intro, la planète
+   * streame encore : des markers flottant sur le vide avant que le globe
+   * n'apparaisse font désordre — ils ne se montrent qu'à l'atterrissage.
+   */
+  private setOverlaysVisible(visible: boolean): void {
+    this.overlayAnchor.visible = visible
+    this.annotations.visible = visible
+    this.canvas.parentElement?.classList.toggle('m3d-intro', !visible)
+  }
 
   /** (Ré)échantillonne l'altitude du terrain sous le centre écran (raycast BVH). No-op
    *  si rien touché → conserve la dernière valeur connue. À n'appeler qu'en mode 3D. */
   private trackTerrainElevation(): void {
+    // Les bornes de plausibilité (artefacts du LOD racine) sont appliquées DANS
+    // Projection.pickHeight/sampleSurfaceHeight — un seul endroit pour tous les appelants.
     const e = this.projection.pickHeight(this.size.width / 2, this.size.height / 2, this.threeCamera)
-    if (e !== null) this.terrainElevation = e
+    if (e !== null) {
+      this.terrainElevation = e
+      this.terrainKnown = true
+      // Repli de hauteur des formes drapées quand leur raycast d'ancre ne touche rien.
+      this.projection.surfaceFallbackHeight = e
+    }
+  }
+
+  /** Durée du vol d'intro (s). */
+  private static readonly INTRO_DURATION = 3.0
+  /** Attente max des tuiles avant de partir quand même (ms) — source de tuiles en
+   *  échec (403, token invalide, réseau) : la carte ne reste jamais bloquée en vue
+   *  globe avec les overlays masqués. */
+  private static readonly INTRO_MAX_WAIT_MS = 8000
+
+  /** Lance la descente de l'intro vers la cible, au-dessus du sol connu. */
+  private startIntroFlight(): void {
+    if (!this.intro || this.intro.flying) return
+    this.intro.flying = true
+    this.camera.flyTo(
+      { ...this.intro.center, altitude: this.terrainElevation + this.intro.altitude },
+      { duration: MapEngine.INTRO_DURATION, tag: 'intro' },
+    )
+  }
+
+  /**
+   * Avance la machine à états de l'intro (appelée chaque tick) : lance la descente
+   * quand le terrain est connu, affine la destination pendant le vol, se termine à
+   * l'atterrissage. Le vol passe par `Camera.flyTo` — le même chemin éprouvé que la
+   * recherche de lieux — jamais par téléportation derrière GlobeControls. L'intro
+   * s'efface (overlays révélés) dès qu'un autre pilotage caméra prend la main.
+   */
+  private updateIntro(now: number): void {
+    const intro = this.intro
+    if (!intro) return
+    if (!intro.flying) {
+      // Un vol programmatique (recherche…) ou un suivi a pris la main pendant
+      // l'attente : l'intro s'efface au lieu de l'écraser à son décollage.
+      if (this.camera.isControlling()) {
+        this.cancelIntro()
+        return
+      }
+      // Décollage quand le terrain est connu ET la file de tuiles vidée
+      // (`loadProgress` = 1) : la planète est visible AVANT la descente. Au-delà du
+      // délai max (tuiles en échec), on part quand même avec la meilleure hauteur
+      // connue — même arrivée que l'ancien placement direct, jamais de blocage.
+      const ready = this.terrainKnown && this.tiles.loadProgress >= 1
+      if (!ready && now - intro.startedAt < MapEngine.INTRO_MAX_WAIT_MS) return
+      this.startIntroFlight()
+      return
+    }
+    if (this.camera.isFlying('intro')) {
+      // Le sol se précise pendant la descente (LOD) → la destination suit.
+      this.camera.retargetFlyAltitude(this.terrainElevation + intro.altitude, 'intro')
+    } else {
+      // Atterri, ou remplacé par un autre vol/suivi (qui garde la main) : l'intro est
+      // finie dans les deux cas — cancelIntro est l'unique sortie de l'état (le
+      // cancelFly y est un no-op : plus de vol taggé 'intro').
+      this.cancelIntro()
+    }
   }
 
   /** Affiche/masque le calque trafic Google (mode 2D uniquement). */
   setTrafficVisible(visible: boolean): void {
     this.basemap2d?.setTraffic(visible)
+  }
+
+  /**
+   * Altitude du terrain (m au-dessus de l'ellipsoïde) sous le centre écran — suivie
+   * en continu en 3D. Sert aux consommateurs qui raisonnent en altitude **au-dessus
+   * du sol** (seuils de zoom UI) : `state.altitude` est ellipsoïdale, et l'écart
+   * (jusqu'à des milliers de mètres en montagne) fausserait leurs seuils.
+   */
+  get terrainHeight(): number {
+    return this.terrainElevation
   }
 
   /** Neutralise pan/rotation de GlobeControls (état NONE + inerties nulles). */
@@ -452,10 +597,14 @@ export class MapEngine {
     // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
     // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
     const view = this.computeView(state)
-    // Zoom pour une résolution ~1:1 au centre (mètres/pixel réels : distance→sol, FOV, écran).
-    const distance = Math.max(1, state.altitude - this.terrainElevation)
-    const groundHeight = 2 * distance * Math.tan((this.threeCamera.fov * DEG2RAD) / 2)
-    const metersPerPixel = groundHeight / Math.max(1, this.size.height)
+    // Zoom pour une résolution ~1:1 au centre — même définition m/px que les épaisseurs
+    // de trait des layers (Projection.metersPerPixel : distance→sol réel, FOV, écran).
+    const metersPerPixel = this.projection.metersPerPixel(
+      { lat: state.lat, lng: state.lng },
+      this.threeCamera,
+      this.size.height,
+      this.terrainElevation,
+    )
     // Résolution Web Mercator au zoom 0 (m/px à l'équateur) = circonférence / taille tuile.
     const equatorMetersPerPixel = EARTH_CIRCUMFERENCE / TILE_SIZE
     const zoom = Math.log2((equatorMetersPerPixel * Math.cos(state.lat * DEG2RAD)) / metersPerPixel)
@@ -485,6 +634,7 @@ export class MapEngine {
     this.tiles.group.updateMatrixWorld(true)
     // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
     if (this.mapMode === '3d') this.trackTerrainElevation()
+    this.updateIntro(now)
 
     // État caméra calculé UNE fois par frame (chaque getState = inversion de matrice)
     // et réutilisé par updateNearFar/computeView/ctx.
@@ -674,12 +824,17 @@ export class MapEngine {
     this.canvas.addEventListener('pointerdown', this.onPointerDown)
     this.canvas.addEventListener('pointermove', this.onPointerMove)
     window.addEventListener('pointerup', this.onPointerUp)
+    // Toute interaction annule l'intro (on ne vole jamais la caméra à l'utilisateur).
+    this.canvas.addEventListener('pointerdown', this.cancelIntro)
+    this.canvas.addEventListener('wheel', this.cancelIntro, { passive: true })
   }
 
   private unbindInput(): void {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
     window.removeEventListener('pointerup', this.onPointerUp)
+    this.canvas.removeEventListener('pointerdown', this.cancelIntro)
+    this.canvas.removeEventListener('wheel', this.cancelIntro)
   }
 
   private pickAt(e: PointerEvent): LatLng | null {

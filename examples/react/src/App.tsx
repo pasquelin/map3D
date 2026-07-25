@@ -1,10 +1,8 @@
 import { StrictMode, type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Tooltip } from 'react-tooltip'
-import 'react-tooltip/dist/react-tooltip.css'
 import {
-  type DrawTool,
   DrawLayer,
+  DrawToolbar,
   Map,
   MapControls,
   MapProvider,
@@ -19,9 +17,7 @@ import {
   type MapMode,
   defaultTheme,
   mergeTheme,
-  useDrawing,
   useMap,
-  zoomForAltitude,
 } from 'map3d'
 
 const ENV = (import.meta as { env?: { VITE_CESIUM_ION_TOKEN?: string; VITE_GOOGLE_MAPS_KEY?: string } }).env
@@ -153,110 +149,13 @@ const PLACES: SearchResult[] = [
   { name: 'New York', description: 'USA', lat: 40.7128, lng: -74.006 },
 ]
 
-// Icônes SVG (mêmes tracés que la référence globe-tools-v2.html).
-const Svg = ({ d }: { d: ReactNode }) => (
-  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-    {d}
-  </svg>
-)
-const TOOL_ICON: Record<string, ReactNode> = {
-  pan: (
-    <>
-      <path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8" />
-      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
-    </>
-  ),
-  line: (
-    <>
-      <path d="M4 20L20 4" />
-      <circle cx="4" cy="20" r="2" fill="currentColor" stroke="none" />
-      <circle cx="20" cy="4" r="2" fill="currentColor" stroke="none" />
-    </>
-  ),
-  polygon: <path d="M12 3l8.5 6.2-3.2 10H6.7l-3.2-10z" />,
-  rect: <rect x="3.5" y="5.5" width="17" height="13" rx="1.5" />,
-  circle: <circle cx="12" cy="12" r="8.5" />,
-  freehand: <path d="M3 17c3-6 5.5 4 8.5-1.5S17 6 21 8" />,
-  arrow: <path d="M4 20L19 5M19 5h-7M19 5v7" />,
-  measure: (
-    <>
-      <rect x="2" y="8" width="20" height="8" rx="1.5" />
-      <path d="M7 8v3M12 8v4M17 8v3" />
-    </>
-  ),
-  erase: <path d="M4 20h16M13.5 4.5l6 6-8 8H6l-2-2z" />,
-  undo: <path d="M3 8h11a5.5 5.5 0 0 1 0 11H8M3 8l4-4M3 8l4 4" />,
-  clear: <path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 10v7M14 10v7" />,
-}
-
-// Zoom minimal par défaut pour afficher la barre de dessin (dessiner n'a de sens qu'en
-// vue rapprochée). En dessous, la barre glisse hors écran à gauche.
-const DRAW_MIN_ZOOM = 14
-const DRAW_TIP_ID = 'm3d-draw-tip'
-
-function DrawToolbar({ minZoom = DRAW_MIN_ZOOM }: { minZoom?: number }) {
-  const { tool, setTool, undo, clear } = useDrawing()
-  const engine = useMap()
-  // Visible seulement au-delà du seuil de zoom. On s'abonne à 'camera' (émis chaque frame
-  // en mouvement) mais on ne stocke qu'un BOOLÉEN : `setHidden(false)` alors qu'il l'est
-  // déjà → React court-circuite (Object.is) → aucun re-render par frame pendant le pan,
-  // seulement au franchissement du seuil.
-  const [hidden, setHidden] = useState(true)
-  useEffect(
-    () => engine.on('camera', (s) => setHidden(zoomForAltitude(s.altitude) < minZoom)),
-    [engine, minZoom],
-  )
-
-  const drawTools: Array<[DrawTool, string]> = [
-    ['line', 'Ligne'], ['polygon', 'Polygone'], ['rect', 'Rectangle'], ['circle', 'Cercle'],
-    ['freehand', 'Main levée'], ['arrow', 'Flèche'], ['measure', 'Mesurer'],
-  ]
-  const btn = { width: 40, height: 40 } as const
-  const Sep = () => <div style={{ height: 1, background: 'var(--m3d-border)', margin: '4px 7px' }} />
-  const tip = (label: string) => ({ 'data-tooltip-id': DRAW_TIP_ID, 'data-tooltip-content': label, 'aria-label': label })
-  return (
-    <>
-      <div
-        style={{
-          position: 'absolute', left: 16, top: '50%', zIndex: 20,
-          display: 'flex', flexDirection: 'column', gap: 2, padding: 6,
-          background: 'var(--m3d-panel)', border: '1px solid var(--m3d-border)', borderRadius: 14,
-          backdropFilter: 'blur(20px)',
-          // Sous le seuil : glisse à gauche (translateY conserve le centrage vertical).
-          transform: `translateY(-50%) translateX(${hidden ? 'calc(-100% - 24px)' : '0'})`,
-          opacity: hidden ? 0 : 1,
-          pointerEvents: hidden ? 'none' : 'auto',
-          transition: 'transform .28s cubic-bezier(.4,0,.2,1), opacity .28s',
-        }}
-      >
-        <button {...tip('Naviguer')} className={`m3d-btn${tool === null ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(null)}>
-          <Svg d={TOOL_ICON.pan} />
-        </button>
-        <Sep />
-        {drawTools.map(([t, label]) => (
-          <button key={t} {...tip(label)} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(tool === t ? null : t)}>
-            <Svg d={TOOL_ICON[t]} />
-          </button>
-        ))}
-        <Sep />
-        <button {...tip('Effacer')} className={`m3d-btn${tool === 'erase' ? ' m3d-on' : ''}`} style={btn} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>
-          <Svg d={TOOL_ICON.erase} />
-        </button>
-        <button {...tip('Annuler')} className="m3d-btn" style={btn} onClick={undo}>
-          <Svg d={TOOL_ICON.undo} />
-        </button>
-        <button {...tip('Tout effacer')} className="m3d-btn" style={btn} onClick={clear}>
-          <Svg d={TOOL_ICON.clear} />
-        </button>
-      </div>
-      <Tooltip id={DRAW_TIP_ID} place="right" />
-    </>
-  )
-}
-
 // TEMP: panneau de test des fonds 2D Google (à retirer après validation).
 function BasemapTestPanel() {
   const engine = useMap()
+  // Accès console au moteur pour vérifier la précision (pick/projection) en live.
+  useEffect(() => {
+    ;(window as unknown as { m3d?: unknown }).m3d = engine
+  }, [engine])
   const [mode, setMode] = useState<MapMode>('3d')
   const [traffic, setTraffic] = useState(false)
   const pick = (m: MapMode) => {
@@ -368,8 +267,8 @@ function MapDemo() {
     <Map
       googleMapsApiKey={GOOGLE_MAPS_KEY || undefined}
       cesiumIonToken={CESIUM || undefined}
-      center={TEST_POINT}
-      zoom={18}
+      center={PARIS}
+      zoom={14}
       fallbackGlobe
     >
       <ShapeLayer shapes={[{ kind: 'circle', center: PARIS, radiusMeters: 6000, color: ZONE_STROKE, fillOpacity: 0.1 }]} />

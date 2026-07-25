@@ -7,6 +7,17 @@ export type { LatLng } from '../shared'
 export type ScreenPoint = { sx: number; sy: number; z: number }
 
 /**
+ * Bornes physiques terrestres des hauteurs de surface (mer Morte −430 m, Everest
+ * 8 849 m) : hors de cette plage, l'échantillon est un artefact du LOD racine du
+ * tileset (mesuré : −17 km à la vue globe) et doit être traité comme « rien touché »
+ * — sinon il serait mémoïsé et draperait formes/vols des kilomètres sous la surface.
+ */
+const MIN_PLAUSIBLE_HEIGHT = -500
+const MAX_PLAUSIBLE_HEIGHT = 9000
+const plausibleHeight = (h: number | null): number | null =>
+  h !== null && h > MIN_PLAUSIBLE_HEIGHT && h < MAX_PLAUSIBLE_HEIGHT ? h : null
+
+/**
  * Conversion lat/lng ↔ monde ↔ écran en repère **géocentrique (ECEF)**, adossée
  * à l'ellipsoïde WGS84 du `TilesRenderer`. C'est ce repère 3D réel qui **ancre**
  * les markers à leur coordonnée géographique : la position monde d'un point ne
@@ -34,6 +45,53 @@ export class Projection {
   private readonly rayDir = new THREE.Vector3()
   private readonly hitLocal = new THREE.Vector3()
   private readonly cartoScratch = { lat: 0, lon: 0, height: 0 }
+  // Scratch dédiés au recalage par frame des bases ENU des formes drapées (enuBasisFor).
+  private readonly enuOrigin = new THREE.Vector3()
+  private readonly enuEast = new THREE.Vector3()
+  private readonly enuNorth = new THREE.Vector3()
+  private readonly enuUp = new THREE.Vector3()
+  private readonly flatNormal = new THREE.Vector3()
+
+  /**
+   * Hauteur de surface de repli (m au-dessus de l'ellipsoïde), suivie par le moteur
+   * (terrain sous le centre écran). Utilisée quand le raycast des tuiles ne touche
+   * rien (tuiles pas encore chargées, océan…).
+   */
+  surfaceFallbackHeight = 0
+
+  /**
+   * Mode « surface plate » (carte 2D) : hauteur unique du plan visible (le fond 2D est
+   * drapé à `terrainElevation`), ou `null` en 3D. Quand il est actif, pick et drapage
+   * utilisent CE plan — jamais les tuiles 3D (invisibles mais toujours raycastables).
+   */
+  private flatHeight: number | null = null
+
+  /**
+   * Époque du régime de hauteur : incrémentée à chaque bascule 2D/3D. Les layers la
+   * comparent par frame pour re-résoudre leurs hauteurs d'ancre mémoïsées (raycasts
+   * uniquement au changement de mode, pas par frame).
+   */
+  heightEpoch = 0
+
+  setFlatHeight(h: number | null): void {
+    if (h === this.flatHeight) return
+    this.flatHeight = h
+    this.heightEpoch++
+  }
+
+  /**
+   * Hauteur (m au-dessus de l'ellipsoïde) à laquelle draper une forme ancrée en `p`
+   * pour qu'elle colle à la **surface visible**. C'est LE correctif anti-parallaxe des
+   * formes : drapées à h=0 sur l'ellipsoïde alors que la surface visible est ~50–100 m
+   * plus haut, elles se projetaient décalées et « glissaient » au pan — le bug corrigé
+   * pour les markers via `sampleSurfaceHeight`. Renvoie `null` (indéterminée : aucune
+   * tuile sous l'ancre) → l'appelant utilise `surfaceFallbackHeight` SANS le mémoïser
+   * et retente plus tard (les tuiles arrivent en async).
+   */
+  resolveAnchorHeight(p: LatLng): number | null {
+    if (this.flatHeight !== null) return this.flatHeight
+    return this.sampleSurfaceHeight(p)
+  }
 
   /** Fournit l'ellipsoïde et le groupe de tuiles (leur repère local = ECEF). */
   setContext(ellipsoid: Ellipsoid, group: THREE.Object3D): void {
@@ -57,12 +115,30 @@ export class Projection {
    * d'occlusion par marker partagent une seule inversion.
    */
   private groupInverse(): THREE.Matrix4 {
-    const m = this.group!.matrixWorld
-    if (!this.cachedMatrix.equals(m)) {
+    this.syncGroupMatrix()
+    return this.cachedInverse
+  }
+
+  private groupEpochCount = 0
+
+  private syncGroupMatrix(): void {
+    const m = this.group?.matrixWorld
+    if (m && !this.cachedMatrix.equals(m)) {
       this.cachedMatrix.copy(m)
       this.cachedInverse.copy(m).invert()
+      this.groupEpochCount++
     }
-    return this.cachedInverse
+  }
+
+  /**
+   * Époque du repère du tileset : incrémentée quand `group.matrixWorld` change
+   * (rebase d'origine — événement rare). Les layers comparent cette valeur par
+   * frame pour ne recaler leurs bases ENU qu'au rebase, au lieu de reconstruire
+   * des matrices identiques 60×/s carte immobile.
+   */
+  groupEpoch(): number {
+    this.syncGroupMatrix()
+    return this.groupEpochCount
   }
 
   /** lat/lng (+ hauteur en mètres) → position monde (ECEF, appliquée au groupe). */
@@ -112,7 +188,7 @@ export class Projection {
     ;(this.groundRay as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
     const hits = this.groundRay.intersectObject(this.group, true)
     if (hits.length === 0) return null
-    return this.heightAtWorld(hits[0]!.point)
+    return plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
 
   /**
@@ -128,7 +204,7 @@ export class Projection {
     ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
     const hits = this.raycaster.intersectObject(this.group, true)
     if (hits.length === 0) return null
-    return this.heightAtWorld(hits[0]!.point)
+    return plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
 
   /** Hauteur cartographique (m au-dessus ellipsoïde) d'un point en coordonnées MONDE. */
@@ -166,6 +242,19 @@ export class Projection {
       if (h !== null && h < min) min = h
     }
     return min
+  }
+
+  /**
+   * Résolution locale (mètres/pixel) au point `p` (à `height` m) pour la caméra
+   * donnée : distance caméra→point, FOV vertical et hauteur d'écran. Sert à convertir
+   * les épaisseurs de trait exprimées en **pixels** (style écran constant) en mètres
+   * monde au moment de construire la géométrie.
+   */
+  metersPerPixel(p: LatLng, camera: THREE.Camera, viewportHeight: number, height = 0): number {
+    this.latLngToWorld(p, this.scratch, height)
+    const dist = camera.position.distanceTo(this.scratch)
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? 60
+    return (2 * dist * Math.tan((fov * DEG2RAD) / 2)) / Math.max(1, viewportHeight)
   }
 
   /** Position monde → pixels écran (+ profondeur NDC ; z>1 = derrière la caméra). */
@@ -215,9 +304,13 @@ export class Projection {
     east: THREE.Vector3,
     north: THREE.Vector3,
     up: THREE.Vector3,
+    height = 0,
   ): void {
     if (!this.ellipsoid || !this.group) return
     this.ellipsoid.getEastNorthUpAxes(p.lat * DEG2RAD, p.lng * DEG2RAD, east, north, up, origin)
+    // Origine relevée à la hauteur de la surface visible (axes inchangés) : un plan
+    // drapé à h=0 sous un sol à ~50 m se projette décalé et glisse au pan (parallaxe).
+    if (height !== 0) origin.addScaledVector(up, height)
     origin.applyMatrix4(this.group.matrixWorld)
     east.transformDirection(this.group.matrixWorld)
     north.transformDirection(this.group.matrixWorld)
@@ -232,6 +325,18 @@ export class Projection {
   }
 
   /**
+   * Écrit dans `out` la matrice de base ENU **monde** d'une ancre lat/lng. À rappeler
+   * chaque frame sur la matrice figée d'une forme drapée : `group.matrixWorld` change
+   * au **rebase d'origine du tileset** (caméra qui s'éloigne), et sans ce recalage la
+   * géométrie resterait dans l'ancien repère → dérive au pan. Réutilise des scratch
+   * internes (aucune allocation par appel).
+   */
+  enuBasisFor(anchor: LatLng, out: THREE.Matrix4, height = 0): THREE.Matrix4 {
+    this.getENUAxes(anchor, this.enuOrigin, this.enuEast, this.enuNorth, this.enuUp, height)
+    return this.enuBasis(this.enuOrigin, this.enuEast, this.enuNorth, this.enuUp, out)
+  }
+
+  /**
    * Pixel écran → lat/lng. Vise d'abord la **vraie surface des tuiles 3D**
    * (sol/bâti visible) pour que « cliquer ici » pose la coordonnée exactement là
    * où on clique ; repli sur l'intersection de l'ellipsoïde (globe lointain, ciel).
@@ -243,6 +348,11 @@ export class Projection {
     if (!this.ellipsoid || !this.group) return null
     this.ndc.set((clientX / this.width) * 2 - 1, -(clientY / this.height) * 2 + 1)
     this.raycaster.setFromCamera(this.ndc, camera)
+    // Mode 2D : la surface visible est le PLAN du fond (terrainElevation), pas les
+    // tuiles 3D — masquées mais toujours raycastables (three ignore `visible`). Sans
+    // ce court-circuit, cliquer « sur la carte plate » ramènerait le toit d'un
+    // bâtiment invisible → coordonnée décalée par rapport au point visé.
+    if (this.flatHeight !== null) return this.ellipsoidFromRay(this.flatHeight)
     // 1) Surface réelle des tuiles (repère monde) → coordonnée sous le curseur exact.
     this.raycaster.far = Infinity
     ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
@@ -264,12 +374,23 @@ export class Projection {
     return this.ellipsoidFromRay()
   }
 
-  /** Intersection ellipsoïde du rayon courant de `this.raycaster` → lat/lng. */
-  private ellipsoidFromRay(): LatLng | null {
+  /**
+   * Intersection du rayon courant de `this.raycaster` avec la surface « ellipsoïde
+   * + `height` mètres » → lat/lng. Pour h ≠ 0 : le rayon est décalé de −h le long de
+   * la verticale locale du premier impact puis ré-intersecté (h ≪ R → une itération
+   * suffit, erreur ~h²/R sub-millimétrique).
+   */
+  private ellipsoidFromRay(height = 0): LatLng | null {
     if (!this.ellipsoid || !this.group) return null
     const ray = this.rayScratch.copy(this.raycaster.ray).applyMatrix4(this.groupInverse())
-    const hit = this.ellipsoid.intersectRay(ray, this.scratchLocal)
+    let hit = this.ellipsoid.intersectRay(ray, this.scratchLocal)
     if (!hit) return null
+    if (height !== 0) {
+      this.ellipsoid.getPositionToNormal(this.scratchLocal, this.flatNormal)
+      ray.origin.addScaledVector(this.flatNormal, -height)
+      hit = this.ellipsoid.intersectRay(ray, this.scratchLocal)
+      if (!hit) return null
+    }
     const c = this.ellipsoid.getPositionToCartographic(hit, { lat: 0, lon: 0, height: 0 }) as {
       lat: number
       lon: number

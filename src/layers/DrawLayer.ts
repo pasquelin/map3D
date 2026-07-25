@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
+import { HEIGHT_EPSILON, HeightResettle, MPP_BAND, UNRESOLVED_RETRY_FRAMES } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
@@ -8,6 +9,7 @@ import { type Pt, arrowHead, circlePoints, disposeObject3D, fillGeo, fillMateria
 import type { LatLng } from '../shared'
 
 export type DrawTool = 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase'
+/** `width` : épaisseur de trait en **pixels écran** (constante au zoom, comme toute carte). */
 export type DrawDefaults = { color: string; width: number; fillOpacity: number }
 
 export type Drawing = {
@@ -43,9 +45,35 @@ export class DrawLayer implements Layer {
   defaults: DrawDefaults
 
   private drawings: Drawing[] = []
+  /** Index id → dessin, maintenu avec `drawings` : les boucles par frame font des
+   *  lookups O(1) au lieu de `drawings.find` O(n) (O(n²) par frame sinon). */
+  private readonly byId = new Map<string, Drawing>()
   private live: Drawing | null = null
   private mode: 'idle' | 'click' | 'drag' = 'idle'
   private readonly meshes = new Map<string, THREE.Group>()
+  /**
+   * Hauteur de drapage (m au-dessus de l'ellipsoïde) par dessin, à l'ancre : SANS
+   * elle, les formes seraient rendues à h=0 sur l'ellipsoïde, ~50–100 m sous la
+   * surface visible → décalage au curseur et glissement au pan (parallaxe).
+   * `null` = **non résolue** (tuiles absentes) : le repli est utilisé sans jamais
+   * être mémoïsé comme définitif — la fenêtre resettle reste ouverte jusqu'à
+   * résolution. Invalidée au changement de `Projection.heightEpoch` (bascule 2D/3D)
+   * et raffinée par lots après mouvement caméra (streaming LOD).
+   */
+  private readonly heights = new Map<string, number | null>()
+  private heightEpoch = -1
+  private readonly resettle = new HeightResettle()
+  private groupEpochSeen = -1
+  private stableRuns = 0
+  private retryTick = 0
+  /**
+   * Résolution (m/px) utilisée au dernier build de chaque dessin. L'épaisseur de
+   * trait est un style **écran** (px) convertie en mètres à la construction : quand
+   * le zoom fait dériver la résolution hors d'une bande d'hystérésis (±25 %), la
+   * géométrie est reconstruite — jamais de rebuild par frame.
+   */
+  private readonly builtMpp = new Map<string, number>()
+  private viewH = 1
   private readonly labels = new Map<string, HTMLDivElement>()
   private readonly camScratch = new THREE.Vector3()
   private lastCamera: THREE.Camera | null = null
@@ -53,6 +81,7 @@ export class DrawLayer implements Layer {
   private snapping = false
 
   constructor(
+    /** Parent — utiliser `engine.annotations` pour hériter du masquage pendant l'intro. */
     private readonly scene: THREE.Object3D,
     private readonly projection: Projection,
     private readonly overlay: HTMLElement,
@@ -118,7 +147,9 @@ export class DrawLayer implements Layer {
       if (phase === 'down') this.startLive(p, 'drag')
       else if (phase === 'move' && this.live) {
         const last = this.live.points[this.live.points.length - 1]!
-        if (this.projection.groundDistance(last, p) > Math.max(2, this.defaults.width * 0.4)) {
+        // Décimation en px écran (convertie en mètres à la résolution courante).
+        const minMeters = Math.max(2, this.defaults.width * 0.4) * this.mppFor(this.live)
+        if (this.projection.groundDistance(last, p) > minMeters) {
           this.live.points.push(p)
           this.rebuildLive()
         }
@@ -162,17 +193,18 @@ export class DrawLayer implements Layer {
     this.mode = 'idle'
     if (!d) return
     if (d.points.length < 2) {
-      this.removeMeshes(d.id)
+      this.dropDrawing(d.id)
       return
     }
     this.drawings.push(d)
+    this.byId.set(d.id, d)
     this.rebuildOne(d, false)
     this.emitChange()
   }
 
   private cancelLive(): void {
     if (!this.live) return
-    this.removeMeshes(this.live.id)
+    this.dropDrawing(this.live.id)
     this.live = null
     this.mode = 'idle'
   }
@@ -180,26 +212,31 @@ export class DrawLayer implements Layer {
   undo(): void {
     const d = this.drawings.pop()
     if (!d) return
-    this.removeMeshes(d.id)
+    this.byId.delete(d.id)
+    this.dropDrawing(d.id)
     this.emitChange()
   }
 
   clear(): void {
-    for (const d of this.drawings) this.removeMeshes(d.id)
+    for (const d of this.drawings) this.dropDrawing(d.id)
     this.drawings = []
+    this.byId.clear()
     this.cancelLive()
     this.emitChange()
   }
 
   private eraseAt(p: LatLng): void {
-    const sp = this.toScreen(p)
-    if (!sp) return
     const TOL = 14
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i]!
+      // Curseur et sommets projetés À LA MÊME hauteur (celle du dessin) : comparés à
+      // des hauteurs différentes, la parallaxe fausserait la tolérance en px.
+      const h = this.heightFor(d)
+      const sp = this.toScreen(p, h)
+      if (!sp) continue
       const scr: Array<{ x: number; y: number }> = []
       for (const q of d.points) {
-        const s = this.toScreen(q)
+        const s = this.toScreen(q, h)
         if (s) scr.push(s)
       }
       if (scr.length === 0) continue
@@ -218,8 +255,9 @@ export class DrawLayer implements Layer {
         }
       }
       if (hit) {
-        this.removeMeshes(d.id)
+        this.dropDrawing(d.id)
         this.drawings.splice(i, 1)
+        this.byId.delete(d.id)
         this.emitChange()
         return
       }
@@ -243,11 +281,45 @@ export class DrawLayer implements Layer {
     return { points: d.points.map((p) => frame.local(p)), closed: d.closed }
   }
 
+  /** Dessin (commité ou en cours) portant cet id — lookup O(1). */
+  private drawingFor(id: string): Drawing | null {
+    return this.byId.get(id) ?? (this.live?.id === id ? this.live : null)
+  }
+
+  /**
+   * Hauteur de drapage du dessin : mémoïsée quand elle est **résolue** (raycast ayant
+   * touché une tuile, ou plan 2D), puis raffinée par la fenêtre resettle. Non résolue
+   * (`null`) → repli renvoyé SANS mémoïsation définitive, retenté via la fenêtre.
+   */
+  private heightFor(d: Drawing): number {
+    const cached = this.heights.get(d.id)
+    if (cached !== undefined && cached !== null) return cached
+    if (cached === undefined) {
+      const h = this.projection.resolveAnchorHeight(d.points[0]!)
+      this.heights.set(d.id, h)
+      // Tuiles fines de la zone en cours de streaming : re-échantillonnage à suivre.
+      this.resettle.open()
+      if (h !== null) return h
+    }
+    return this.projection.surfaceFallbackHeight
+  }
+
+  /** Résolution courante (m/px) à l'ancre du dessin — 1 tant que la caméra est inconnue. */
+  private mppFor(d: Drawing): number {
+    if (!this.lastCamera || d.points.length < 1) return 1
+    return this.projection.metersPerPixel(d.points[0]!, this.lastCamera, this.viewH, this.heightFor(d))
+  }
+
   private rebuildOne(d: Drawing, preview: boolean): void {
     this.removeMeshes(d.id)
+    const height = this.heightFor(d)
     if (!this.projection.isReady() || d.points.length < 1) return
-    const frame = new EnuFrame(this.projection, d.points[0]!)
+    const frame = new EnuFrame(this.projection, d.points[0]!, height)
     const { points, closed } = this.localGeometry(d, frame)
+    // Épaisseur de trait : px écran → mètres monde à la résolution courante.
+    const mpp = this.mppFor(d)
+    const widthMeters = d.width * mpp
+    this.builtMpp.set(d.id, mpp)
 
     const enu = frame.group()
 
@@ -259,14 +331,14 @@ export class DrawLayer implements Layer {
         enu.add(m)
       }
     }
-    const rg = ribbon(points, d.width, closed)
+    const rg = ribbon(points, widthMeters, closed)
     if (rg) {
       const m = new THREE.Mesh(rg, strokeMaterial(d.color, preview ? 0.6 : 0.95))
       m.renderOrder = this.renderOrder + 1
       enu.add(m)
     }
     if (d.kind === 'arrow') {
-      const ah = arrowHead(points, d.width)
+      const ah = arrowHead(points, widthMeters)
       if (ah) {
         const m = new THREE.Mesh(ah, strokeMaterial(d.color, preview ? 0.6 : 0.95))
         m.renderOrder = this.renderOrder + 1
@@ -282,6 +354,7 @@ export class DrawLayer implements Layer {
     if (this.live) this.rebuildOne(this.live, true)
   }
 
+  /** Retire meshes + label d'un dessin (rebuildable : les mémos hauteur/mpp survivent). */
   private removeMeshes(id: string): void {
     const g = this.meshes.get(id)
     if (g) {
@@ -294,6 +367,13 @@ export class DrawLayer implements Layer {
       label.remove()
       this.labels.delete(id)
     }
+  }
+
+  /** Oublie complètement un dessin supprimé : meshes, label ET mémos hauteur/mpp. */
+  private dropDrawing(id: string): void {
+    this.removeMeshes(id)
+    this.heights.delete(id)
+    this.builtMpp.delete(id)
   }
 
   private ensureLabel(d: Drawing): void {
@@ -313,12 +393,105 @@ export class DrawLayer implements Layer {
     return total
   }
 
-  update(_ctx: FrameContext): void {}
+  update(ctx: FrameContext): void {
+    this.lastCamera = ctx.camera
+    this.viewH = ctx.size.height
+    let heightsChanged = false
+    // Bascule 2D/3D : la surface de référence change → hauteurs re-résolues.
+    if (this.heightEpoch !== this.projection.heightEpoch) {
+      this.heightEpoch = this.projection.heightEpoch
+      this.heights.clear()
+      this.resettle.open()
+      this.stableRuns = 0
+      heightsChanged = true
+    }
+    // `note` sert aussi de garde « caméra immobile » : bande d'épaisseur et bases
+    // sont sautées intégralement au repos.
+    const camMoved = this.resettle.note(ctx.cameraState)
+    if (camMoved) this.stableRuns = 0
 
-  /** Projette un lat/lng en pixels écran (null si derrière la caméra / non prêt). */
-  private toScreen(p: LatLng): { x: number; y: number } | null {
+    // Suit le raffinement des tuiles (LOD) par petits lots amortis.
+    const ids = this.resettle.batch(this.meshes.size)
+    if (ids.length > 0) {
+      const keys = [...this.meshes.keys()]
+      for (const i of ids) {
+        const id = keys[i]!
+        const d = this.drawingFor(id)
+        if (!d || d.points.length < 1) continue
+        const h = this.projection.resolveAnchorHeight(d.points[0]!)
+        if (h === null) continue
+        const prev = this.heights.get(id)
+        if (prev == null || Math.abs(h - prev) > HEIGHT_EPSILON) {
+          this.heights.set(id, h)
+          heightsChanged = true
+          this.stableRuns = 0
+        } else {
+          this.stableRuns++
+        }
+      }
+    }
+    // Cycle complet stable → fenêtre fermée tôt.
+    if (this.meshes.size > 0 && this.stableRuns >= this.meshes.size) {
+      this.resettle.close()
+      this.stableRuns = 0
+    }
+    // Ancres jamais résolues : retentative à basse cadence, ciblée sur elles seules.
+    if (++this.retryTick % UNRESOLVED_RETRY_FRAMES === 0) {
+      for (const [id, h] of this.heights) {
+        if (h !== null) continue
+        const d = this.drawingFor(id)
+        if (!d || d.points.length < 1) continue
+        const nh = this.projection.resolveAnchorHeight(d.points[0]!)
+        if (nh !== null) {
+          this.heights.set(id, nh)
+          heightsChanged = true
+        }
+      }
+    }
+
+    // Épaisseur px écran : le ratio ne peut changer que si caméra/hauteurs ont bougé.
+    if (camMoved || heightsChanged) {
+      let toRebuild: Drawing[] | null = null
+      for (const [id] of this.meshes) {
+        const d = this.drawingFor(id)
+        const built = this.builtMpp.get(id)
+        if (!d || built === undefined) continue
+        const ratio = this.mppFor(d) / built
+        if (ratio > MPP_BAND || ratio < 1 / MPP_BAND) (toRebuild ??= []).push(d)
+      }
+      if (toRebuild) for (const d of toRebuild) this.rebuildOne(d, d === this.live)
+    }
+    // Bases ENU : recalées au rebase du tileset ou au changement de hauteur seulement
+    // (un rebuild arrive déjà avec sa base fraîche) — jamais par frame au repos.
+    const gEpoch = this.projection.groupEpoch()
+    if (gEpoch !== this.groupEpochSeen || heightsChanged) {
+      this.groupEpochSeen = gEpoch
+      this.refreshBases()
+    }
+  }
+
+  /**
+   * Recale la base ENU (matrice figée) de chaque forme depuis son ancre. Le tileset
+   * **rebase son origine** quand la caméra s'éloigne (`group.matrixWorld` change,
+   * cf. Projection) : sans ce recalage, la géométrie drapée resterait dans l'ancien
+   * repère monde et **dériverait** sous la carte au pan (2D comme 3D). La géométrie
+   * locale 2D est invariante au rebase (transformée rigide) — seule la base doit
+   * suivre. Appelé au rebase et au changement de hauteur, pas par frame.
+   */
+  private refreshBases(): void {
+    if (!this.projection.isReady()) return
+    for (const [id, enu] of this.meshes) {
+      const d = this.drawingFor(id)
+      if (!d || d.points.length < 1) continue
+      this.projection.enuBasisFor(d.points[0]!, enu.matrix, this.heightFor(d))
+      enu.matrixWorldNeedsUpdate = true
+    }
+  }
+
+  /** Projette un lat/lng (à `height` m) en pixels écran (null si derrière la caméra / non prêt). */
+  private toScreen(p: LatLng, height = 0): { x: number; y: number } | null {
     if (!this.lastCamera) return null
-    const w = this.projection.latLngToWorld(p, this.camScratch)
+    const w = this.projection.latLngToWorld(p, this.camScratch, height)
     const s = this.projection.worldToScreen(w, this.lastCamera)
     return s.z <= 1 ? { x: s.sx, y: s.sy } : null
   }
@@ -326,8 +499,9 @@ export class DrawLayer implements Layer {
   /** Curseur proche du 1er sommet à l'écran (≥3 sommets posés) → aimant de fermeture. */
   private nearFirst(first: LatLng, cur: LatLng): boolean {
     if (!this.live || this.live.points.length < 4) return false
-    const a = this.toScreen(first)
-    const b = this.toScreen(cur)
+    const h = this.heightFor(this.live)
+    const a = this.toScreen(first, h)
+    const b = this.toScreen(cur, h)
     return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) < 16)
   }
 
@@ -343,13 +517,13 @@ export class DrawLayer implements Layer {
   project(ctx: FrameContext): void {
     this.lastCamera = ctx.camera
     for (const [id, label] of this.labels) {
-      const d = this.drawings.find((x) => x.id === id) ?? (this.live?.id === id ? this.live : null)
+      const d = this.drawingFor(id)
       if (!d || d.points.length < 2) {
         label.style.display = 'none'
         continue
       }
       const mid = d.points[Math.floor(d.points.length / 2)]!
-      const world = this.projection.latLngToWorld(mid)
+      const world = this.projection.latLngToWorld(mid, undefined, this.heightFor(d))
       const visible = this.projection.isAboveHorizon(world, ctx.camera.position)
       const s = this.projection.worldToScreen(world, ctx.camera)
       const show = visible && s.z <= 1
@@ -389,6 +563,7 @@ export class DrawLayer implements Layer {
         closed: f.geometry.type === 'Polygon',
       }
       this.drawings.push(d)
+      this.byId.set(d.id, d)
       this.rebuildOne(d, false)
     }
     this.emitChange()
@@ -399,9 +574,10 @@ export class DrawLayer implements Layer {
   }
 
   dispose(): void {
-    for (const d of [...this.drawings]) this.removeMeshes(d.id)
+    for (const d of [...this.drawings]) this.dropDrawing(d.id)
     this.cancelLive()
     this.drawings = []
+    this.byId.clear()
     this.scene.remove(this.group)
   }
 }

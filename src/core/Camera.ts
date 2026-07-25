@@ -12,7 +12,13 @@ export type CameraState = {
   tilt: number
 }
 
-export type FlyOptions = { duration?: number; altitude?: number }
+export type FlyOptions = {
+  duration?: number
+  altitude?: number
+  /** Étiquette du vol — permet à `retargetFlyAltitude` de ne viser QUE ce vol.
+   *  `'intro'` est RÉSERVÉ au moteur (vol de démarrage, re-ciblé/annulé par lui). */
+  tag?: string
+}
 
 type Fly = {
   fromPos: THREE.Vector3
@@ -21,6 +27,9 @@ type Fly = {
   toQuat: THREE.Quaternion
   t: number
   speed: number
+  target: LatLng
+  altitude: number
+  tag?: string
 }
 
 /**
@@ -39,6 +48,7 @@ export class Camera {
 
   private readonly surface = new THREE.Vector3()
   private readonly normal = new THREE.Vector3()
+  private readonly lookTarget = new THREE.Vector3()
   // Scratch réutilisés par placeNadir/update (mode `follow` : appelé chaque frame).
   private readonly nadirMatrix = new THREE.Matrix4()
   private readonly nadirUp = new THREE.Vector3()
@@ -55,6 +65,12 @@ export class Camera {
     return this.fly !== null || this.followFn !== null
   }
 
+  /** Vol en cours ? Avec `tag`, seulement s'il porte ce tag (distingue le vol
+   *  d'intro d'un vol de recherche/suivi — un suivi n'est PAS un vol). */
+  isFlying(tag?: string): boolean {
+    return this.fly !== null && (tag === undefined || this.fly.tag === tag)
+  }
+
   getState(): CameraState {
     const ll = this.projection.worldToLatLng(this.camera.position)
     this.projection.latLngToWorld(ll, this.surface, 0)
@@ -62,7 +78,9 @@ export class Camera {
     return { lat: ll.lat, lng: ll.lng, altitude, heading: 0, tilt: 0 }
   }
 
-  /** Place la caméra à la verticale (nadir) d'un point, à une altitude donnée. */
+  /** Place la caméra à la verticale (nadir) d'un point, à une altitude donnée
+   *  (mètres au-dessus de l'ellipsoïde — négative légitime sous le niveau de la
+   *  mer : mer Morte, géoïde négatif). */
   private placeNadir(p: LatLng, altitude: number, outPos: THREE.Vector3, outQuat: THREE.Quaternion): void {
     this.projection.latLngToWorld(p, this.surface, 0)
     this.projection.worldNormal(p, this.normal)
@@ -70,7 +88,12 @@ export class Camera {
     // Regarde le sol, "up" ≈ nord approximé par l'axe polaire projeté.
     const up = this.nadirUp.set(0, 0, 1)
     if (Math.abs(this.normal.dot(up)) > 0.99) up.set(0, 1, 0)
-    this.nadirMatrix.lookAt(outPos, this.surface, up)
+    // Cible 1 m SOUS L'ŒIL le long de la verticale — pas la surface h=0 : avec une
+    // cible fixe, un œil passé sous l'ellipsoïde (altitude négative) inversait le
+    // lookAt → caméra dos à la Terre. L'orientation nadir ne dépend ainsi jamais
+    // du signe de l'altitude.
+    this.lookTarget.copy(outPos).addScaledVector(this.normal, -1)
+    this.nadirMatrix.lookAt(outPos, this.lookTarget, up)
     outQuat.setFromRotationMatrix(this.nadirMatrix)
   }
 
@@ -100,7 +123,27 @@ export class Camera {
       toQuat,
       t: 0,
       speed: 1 / (duration * 60),
+      target,
+      altitude,
+      tag: opts.tag,
     }
+  }
+
+  /**
+   * Ré-ancre l'altitude d'arrivée du vol en cours portant `tag` (no-op sinon).
+   * Sert au vol d'intro : la hauteur du sol se précise pendant la descente
+   * (raffinement des tuiles) → la destination suit, l'atterrissage est exact.
+   */
+  retargetFlyAltitude(altitude: number, tag?: string): void {
+    const f = this.fly
+    if (!f || f.tag !== tag) return
+    f.altitude = Math.min(this.maxAltitude, altitude)
+    this.placeNadir(f.target, f.altitude, f.toPos, f.toQuat)
+  }
+
+  /** Interrompt le vol en cours (la caméra reste où elle est). */
+  cancelFly(): void {
+    this.fly = null
   }
 
   follow(getPos: () => LatLng | null): () => void {

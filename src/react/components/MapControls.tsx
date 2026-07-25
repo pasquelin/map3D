@@ -12,6 +12,7 @@ import { type ReactNode, useCallback } from 'react'
 import { Tooltip } from 'react-tooltip'
 import 'react-tooltip/dist/react-tooltip.css'
 import { useMapContext } from '../context'
+import { ICON_SIZE, tipProps } from './tooltip'
 
 export type MapControlsProps = {
   position?: 'left' | 'right'
@@ -20,7 +21,6 @@ export type MapControlsProps = {
 
 /** Pas d'inclinaison par clic (rad). */
 const TILT_STEP = Math.PI * 0.11
-const ICON_SIZE = 0.8
 const TIP_ID = 'm3d-tooltip'
 
 function isNode(v: boolean | ReactNode | undefined): v is ReactNode {
@@ -48,7 +48,7 @@ export function MapControls({ position = 'right', components = {} }: MapControls
   }, [engine])
 
   const show = (key: keyof NonNullable<MapControlsProps['components']>) => components[key] !== false
-  const tip = (label: string) => ({ 'data-tooltip-id': TIP_ID, 'data-tooltip-content': label, 'aria-label': label })
+  const tip = (label: string) => tipProps(TIP_ID, label)
 
   return (
     <div className={`m3d-controls m3d-${position}`}>

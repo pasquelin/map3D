@@ -24,10 +24,17 @@ const CSS = `
 .m3d-root canvas:active{cursor:grabbing}
 .m3d-root.m3d-drawing canvas{cursor:crosshair}
 /* overflow visible : sinon les menus/sous-menus ancrés aux markers sont coupés */
-.m3d-overlay{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:visible}
+.m3d-overlay{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:visible;transition:opacity .5s}
 .m3d-overlay > *{pointer-events:auto}
+/* Intro : labels/popups ancrés à la carte masqués avec les markers (fondu à l'entrée). */
+.m3d-root.m3d-intro .m3d-overlay{opacity:0}
+.m3d-root.m3d-intro .m3d-overlay > *{pointer-events:none!important}
 /* Overlay HTML piloté par le CSS2DRenderer (superposé au canvas). */
-.m3d-css2d{pointer-events:none}
+.m3d-css2d{pointer-events:none;transition:opacity .5s}
+/* Intro (vol globe → cible) : markers/clusters masqués jusqu'à l'atterrissage —
+   sinon ils flottent sur le vide pendant que la planète streame. Fondu à l'entrée. */
+.m3d-root.m3d-intro .m3d-css2d{opacity:0}
+.m3d-root.m3d-intro .m3d-css2d *{pointer-events:none!important}
 /* Enveloppe ancrée : positionnée (transform) par le CSS2DRenderer chaque frame.
    PAS de will-change : la promotion en couche GPU désynchronise le marker du
    canvas WebGL pendant le déplacement (les 2 couches sont présentées à ~1 frame
@@ -82,6 +89,20 @@ const CSS = `
 .m3d-btn:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
 .m3d-btn.m3d-on{background:var(--m3d-accent);color:#fff}
 .m3d-btn:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+
+/* Barre d'outils de dessin : sous le zoom minimal elle glisse hors écran
+   (translateY conserve le centrage vertical pendant la transition). */
+.m3d-drawbar{position:absolute;top:50%;z-index:20;display:flex;flex-direction:column;
+  gap:2px;padding:6px;background:var(--m3d-panel);border:1px solid var(--m3d-border);
+  border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px);
+  transform:translateY(-50%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1),opacity .28s}
+.m3d-drawbar.m3d-left{left:16px}
+.m3d-drawbar.m3d-right{right:16px}
+.m3d-drawbar.m3d-hidden{opacity:0;pointer-events:none}
+.m3d-drawbar.m3d-left.m3d-hidden{transform:translateY(-50%) translateX(calc(-100% - 24px))}
+.m3d-drawbar.m3d-right.m3d-hidden{transform:translateY(-50%) translateX(calc(100% + 24px))}
+.m3d-drawbar .m3d-btn{width:40px;height:40px}
 
 .m3d-search{position:absolute;left:16px;top:16px;z-index:20;width:270px}
 .m3d-search-box{display:flex;align-items:center;gap:9px;padding:11px 13px;

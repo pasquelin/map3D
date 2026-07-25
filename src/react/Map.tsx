@@ -20,6 +20,8 @@ export type MapProps = {
   fallbackGlobe?: boolean
   /** Erreur d'écran cible (qualité/perf). */
   errorTarget?: number
+  /** Intro façon Google Earth : vue globe puis descente animée vers center/zoom (défaut: true). */
+  intro?: boolean
   onViewportChange?: (viewport: Viewport) => void
   onCameraChange?: (camera: CameraState) => void
   className?: string
@@ -55,6 +57,7 @@ export function Map(props: MapProps) {
       cesiumIonAssetId: props.cesiumIonAssetId,
       fallbackGlobe: props.fallbackGlobe ?? true,
       errorTarget: props.errorTarget,
+      intro: props.intro,
     })
     eng.camera.flyDuration = theme.animations.flyDuration
     eng.camera.flyEasing = theme.animations.flyEasing
