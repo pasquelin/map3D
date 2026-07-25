@@ -61,7 +61,7 @@ import { MapProvider } from '@gosecure/map3d'
 | `search.clearHistory` | `Effacer l’historique` |
 | `search.clearInput` | `Effacer la recherche` (aria du bouton ✕) |
 
-### `toolbar` — boutons de `<DrawToolbar>` hors outils
+### `toolbar` — boutons de `<Toolbar>` hors outils
 
 | Clé | Défaut |
 |---|---|

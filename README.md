@@ -138,7 +138,7 @@ Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (
   settingsStorage="local"                      // ou "none"
   shortcuts={{ selectLasso: 'q', rect: false }} // remappe/désactive outils et modes de sélection
 >
-  <DrawToolbar
+  <Toolbar
     position="left"
     tools={['select', 'rect', 'circle', 'arrow', 'erase']}  // outils affichés, dans l'ordre
     selectModes={['rect', 'lasso']}                          // modes du sélecteur (1 seul = pas de flyout)
@@ -218,7 +218,7 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
 | `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds. |
 | `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON. |
-| `<DrawToolbar position minZoom tools selectModes components>` | Barre de dessin entièrement paramétrable (sections masquables/remplaçables). |
+| `<Toolbar position minZoom tools selectModes components>` | Barre de dessin entièrement paramétrable (sections masquables/remplaçables). |
 | `<DrawStylePanel>` `DrawSettingsButton` | Panneau de style et réglages par outil, utilisables seuls. |
 | `<MapControls>` `<ContextMenu>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
 | `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize>` | Recherche de lieu : **Google Places intégré** (clé de `<Map googleMapsApiKey>`, zéro config), vol caméra au **zoom adapté au viewport** du lieu, **historique localStorage** (champ vide focalisé), navigation clavier ↑ ↓ Entrée Échap, requêtes débouncées et annulées. Provider custom via `search` (ou `createGooglePlacesSearch({ apiKey, language, region, limit })`). |

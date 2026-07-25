@@ -54,7 +54,7 @@ const DEFAULT_TOOLS: DrawTool[] = [
  * Nécessite un `<DrawLayer>` monté (elle pilote `useDrawing()`). Masquée sous
  * `minZoom` (glisse hors écran) : dessiner n'a de sens qu'en vue rapprochée.
  */
-export function DrawToolbar({
+export function Toolbar({
   position = 'left',
   minZoom = 11,
   tools = DEFAULT_TOOLS,
