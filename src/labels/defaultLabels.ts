@@ -124,6 +124,8 @@ export const defaultLabels: MapLabels = {
   pinned: {
     add: 'Ajouter un marqueur',
     remove: 'Supprimer',
+    collapse: 'Réduire',
+    expand: 'Développer',
   },
   errors: {
     outsideMap: 'Ce composant doit être utilisé à l’intérieur de <Map>',
