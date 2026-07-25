@@ -6,6 +6,7 @@ import type { Viewport } from '../data/types'
 import type { LatLng } from '../shared'
 import { injectStyles } from '../style/injectStyles'
 import { themeToVars } from '../style/themeToVars'
+import { DragOverlay } from './components/DragOverlay'
 import { MapContext, useTheme } from './context'
 
 export type MapProps = {
@@ -146,6 +147,7 @@ export function Map(props: MapProps) {
       {engine && overlayRef.current && (
         <MapContext.Provider value={{ engine, overlay: overlayRef.current, theme }}>
           {props.children}
+          <DragOverlay />
         </MapContext.Provider>
       )}
     </div>

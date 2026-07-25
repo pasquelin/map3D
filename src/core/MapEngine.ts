@@ -8,6 +8,7 @@ import { Camera, type CameraState } from './Camera'
 import { GoogleTileSource, TILE_SIZE } from './googleTiles'
 import type { FrameContext, Layer, MapView } from './Layer'
 import { clamp, DEG2RAD, EARTH_CIRCUMFERENCE } from './math'
+import { DragRegistry } from './DragRegistry'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
 import { TagFilter } from './TagFilter'
@@ -103,6 +104,12 @@ export class MapEngine {
   readonly tags: TagFilter
   /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
   readonly selectables = new SelectableRegistry()
+  /**
+   * Registre du drag-and-drop générique (markers → dock favoris, et tout futur
+   * usage) : source de vérité de l'état, zones de dépôt, diffusion. Piloté par la
+   * couche React (`useDraggable`/`useDropZone`/`DragOverlay`).
+   */
+  readonly drag = new DragRegistry()
   readonly renderer: THREE.WebGLRenderer
   /** Overlay HTML ancré au repère 3D : les markers sont des `CSS2DObject`. */
   readonly labelRenderer: CSS2DRenderer
@@ -148,7 +155,7 @@ export class MapEngine {
   private viewDirty = true
   private cachedView: MapView | null = null
 
-  private drag: { x: number; y: number; moved: number } | null = null
+  private pointerDrag: { x: number; y: number; moved: number } | null = null
 
   private stars: THREE.Points | null = null
   private drawingMode = false
@@ -975,14 +982,14 @@ export class MapEngine {
   }
 
   private onPointerDown = (e: PointerEvent): void => {
-    this.drag = { x: e.clientX, y: e.clientY, moved: 0 }
+    this.pointerDrag = { x: e.clientX, y: e.clientY, moved: 0 }
     if (this.inputInterceptor && e.button === 0) {
       this.inputInterceptor('down', this.pickAt(e), e)
     }
   }
 
   private onPointerMove = (e: PointerEvent): void => {
-    if (this.drag) this.drag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
+    if (this.pointerDrag) this.pointerDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
     // Transmet le survol (pointer up) à l'outil aussi : indispensable au mode clic
     // du polygone (élastique + aimant de fermeture entre deux clics).
     if (this.inputInterceptor) {
@@ -991,8 +998,8 @@ export class MapEngine {
   }
 
   private onPointerUp = (e: PointerEvent): void => {
-    const drag = this.drag
-    this.drag = null
+    const drag = this.pointerDrag
+    this.pointerDrag = null
     // L'interceptor rend un booléen « consommé » : false (ex. dessin suspendu par
     // la barre espace) → l'événement reste au moteur, le `click` doit être émis.
     if (this.inputInterceptor?.('up', this.pickAt(e), e)) return

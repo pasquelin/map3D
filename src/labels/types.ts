@@ -157,6 +157,13 @@ export type MapLabels = {
     kilometers: string
     meters: string
   }
+  /** Dock des favoris épinglés (`<PinnedDock>`). */
+  pinned: {
+    /** Invite de la languette d'ajout. */
+    add: string
+    /** Tooltip affiché en glissant une pastille hors de la dock. */
+    remove: string
+  }
   /** Messages d'erreur développeur. */
   errors: {
     outsideMap: string
