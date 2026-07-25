@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import {
   type ClusterInfo,
   DrawLayer,
-  DrawToolbar,
+  Toolbar,
   type GeoJSONFeatureCollection,
   Map,
   MapControls,
@@ -412,7 +412,7 @@ function MapDemo() {
         onChange={(g) => console.log('[draw] change — GeoJSON complet (ce que reçoit l’API) :', g)}
         onSelectionChange={(ids, markerIds) => console.log('[draw] selection', ids, markerIds)}
       >
-        <DrawToolbar />
+        <Toolbar />
         {/* Badges de sélection : groupes formes/markers + hint des modificateurs. */}
         <SelectionBadges markerTypeLabel={clusterTypeLabel} />
         <DrawDebug />
