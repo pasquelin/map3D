@@ -33,9 +33,16 @@ export type DrawToolbarProps = {
   selectModes?: SelectMode[]
   /** Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. */
   components?: Partial<Record<DrawToolbarSection, boolean | ReactNode>>
+  /**
+   * Outils externes (non-dessin) rendus en **items principaux** de la barre, après
+   * les outils de dessin — ex. `<LensToolButton>` (loupe). Mécanisme d'extension
+   * générique : ils pilotent leur propre contexte, la barre ne les connaît pas.
+   */
+  extraTools?: ReactNode
 }
 
-const TIP_ID = 'm3d-draw-tip'
+/** Id du `<Tooltip>` partagé de la barre — réutilisable par les outils externes. */
+export const TIP_ID = 'm3d-draw-tip'
 
 const DEFAULT_TOOLS: DrawTool[] = [
   'select',
@@ -60,6 +67,7 @@ export function Toolbar({
   tools = DEFAULT_TOOLS,
   selectModes,
   components = {},
+  extraTools,
 }: DrawToolbarProps) {
   const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts } = useDrawing()
   const { engine } = useMapContext()
@@ -106,6 +114,7 @@ export function Toolbar({
             </button>
           ),
         )}
+        {extraTools}
         {slot(
           'undo',
           <button {...tip(labels.toolbar.undo, undoKey)} className="m3d-btn" onClick={undo} disabled={!canUndo}>

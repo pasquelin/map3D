@@ -111,6 +111,27 @@ export type MapLabels = {
     /** aria-label de la poignée de déplacement du panneau. */
     movePanel: string
   }
+  /** Outil loupe (`<LensLayer>`) : inventaire des markers d'une zone. */
+  lens: {
+    /** Libellé/aria de l'outil loupe dans la toolbar. */
+    tool: string
+    /** Titre du panneau — `{count}` = nombre de markers. */
+    title: string
+    /** Titre au singulier — `{count}` = 1. */
+    titleSingular: string
+    /** Panneau vide (zone sans marker). */
+    empty: string
+    /** aria-label du bouton qui retire la zone loupe. */
+    remove: string
+    /** aria-label de la poignée de déplacement du panneau. */
+    movePanel: string
+    /** Bouton « tout sélectionner » (sélection dans la liste). */
+    selectAll: string
+    /** Bouton « désélectionner tout ». */
+    clearSelection: string
+    /** aria-label de la case de sélection d'une ligne — `{label}`. */
+    selectItem: string
+  }
   /** Panneau « Réglages des outils ». */
   settings: {
     title: string

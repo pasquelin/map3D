@@ -83,6 +83,17 @@ export const defaultLabels: MapLabels = {
     clearAll: 'Tout désélectionner',
     movePanel: 'Déplacer le panneau',
   },
+  lens: {
+    tool: 'Loupe — lister les marqueurs d’une zone',
+    title: '{count} marqueurs',
+    titleSingular: '{count} marqueur',
+    empty: 'Aucun marqueur dans la zone',
+    remove: 'Retirer la loupe',
+    movePanel: 'Déplacer le panneau',
+    selectAll: 'Tout sélectionner',
+    clearSelection: 'Tout désélectionner',
+    selectItem: 'Sélectionner {label}',
+  },
   settings: {
     title: 'Réglages des outils',
     resetAll: 'Tout réinitialiser',

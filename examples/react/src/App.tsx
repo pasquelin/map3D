@@ -5,6 +5,8 @@ import {
   DrawLayer,
   Toolbar,
   type GeoJSONFeatureCollection,
+  LensLayer,
+  LensToolButton,
   Map,
   MapControls,
   MapProvider,
@@ -412,10 +414,28 @@ function MapDemo() {
         onChange={(g) => console.log('[draw] change — GeoJSON complet (ce que reçoit l’API) :', g)}
         onSelectionChange={(ids, markerIds) => console.log('[draw] selection', ids, markerIds)}
       >
-        <Toolbar />
-        {/* Badges de sélection : groupes formes/markers + hint des modificateurs. */}
-        <SelectionBadges markerTypeLabel={clusterTypeLabel} />
-        <DrawDebug />
+        {/* Loupe : trace une zone → liste TOUS les markers dedans (clusters inclus).
+            L'action « Cibler » démontre le système d'actions extensible. */}
+        <LensLayer<AnyData>
+          getId={(m) => m.id}
+          markerTypeLabel={clusterTypeLabel}
+          renderItem={(m) => (
+            <>
+              {m.avatar && <img className="m3d-lensavatar" src={m.avatar} alt="" />}
+              <span className="m3d-lenslabel">{pinnedLabel(m)}</span>
+              <span style={{ fontSize: 10.5, color: 'var(--m3d-muted)' }}>{clusterTypeLabel(m.type)}</span>
+            </>
+          )}
+          actions={[
+            { id: 'target', label: 'Cibler', scope: 'row', run: ({ marker }) => marker && setSelected(String(marker.id)) },
+          ]}
+          onSelectionChange={(ms) => console.log('[lens] sélection liste', ms.map((m) => m.id))}
+        >
+          <Toolbar extraTools={<LensToolButton />} />
+          {/* Badges de sélection : groupes formes/markers + hint des modificateurs. */}
+          <SelectionBadges markerTypeLabel={clusterTypeLabel} />
+          <DrawDebug />
+        </LensLayer>
       </DrawLayer>
 
       {/* Le groupe « fond de carte » (3D / plan / trafic) est fourni par la barre
