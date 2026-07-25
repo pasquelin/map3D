@@ -52,8 +52,15 @@ export type DrawingApi = {
   setSelectMode: (mode: SelectMode) => void
   /** Ids des formes sélectionnées (ordre de la collection). */
   selection: readonly string[]
+  /** Ids des markers sélectionnés (multi-sélection de l'outil sélection). */
+  markerSelection: ReadonlyArray<string | number>
+  /** Détail des formes sélectionnées (kind par id) — pour les badges de sélection. */
+  selectionDetails: ReadonlyArray<{ id: string; kind: DrawTool }>
   /** Sélectionne par ids (les formes verrouillées/masquées sont filtrées). */
   select: (ids: readonly string[]) => void
+  /** Retire des markers de la sélection (croix d'un groupe de badges). */
+  deselectMarkers: (ids: ReadonlyArray<string | number>) => void
+  /** Vide TOUTE la sélection (formes + markers). */
   clearSelection: () => void
   /** Sélectionne toutes les formes visibles non verrouillées (active l'outil sélection). */
   selectAll: () => void

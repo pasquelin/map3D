@@ -25,6 +25,9 @@ export const defaultTheme: MapTheme = {
       error: '#d11a01',
       border: 'rgba(255,255,255,0.10)',
     },
+    // Signaux opérationnels (pas décoratifs) : jaune vif pour « à traiter »,
+    // rouge vif pour le viseur d'urgence — faits pour sauter aux yeux.
+    attention: { sonar: '#ffd60a', target: '#ff3b30' },
     path: { base: '#2E7CF6', casing: '#ffffff' },
     zone: { fill: '#079A7D', stroke: '#079A7D' },
   },
@@ -74,7 +77,9 @@ export const defaultTheme: MapTheme = {
     zoomStep: 0.5,
     dragSpeed: { min: 0.002, max: 0.35 },
   },
-  clustering: { radius: 60, minPoints: 2, maxZoom: 18, levelQuantization: 1 },
+  // spiderfyZoom 19 ≈ 76 m d'altitude : assez près pour juger, tuiles encore
+  // nettes — plus bas la caméra plonge dans le bâti 3D.
+  clustering: { radius: 60, minPoints: 2, maxZoom: 18, levelQuantization: 1, spiderfyZoom: 19 },
   tiles: {
     cacheSize: 256,
     uploadsPerFrame: 4,

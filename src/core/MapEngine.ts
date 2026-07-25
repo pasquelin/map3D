@@ -7,8 +7,9 @@ import type { Bounds, LatLng } from '../shared'
 import { Camera, type CameraState } from './Camera'
 import { GoogleTileSource, TILE_SIZE } from './googleTiles'
 import type { FrameContext, Layer, MapView } from './Layer'
-import { clamp, DEG2RAD } from './math'
+import { clamp, DEG2RAD, EARTH_CIRCUMFERENCE } from './math'
 import { Projection } from './Projection'
+import { SelectableRegistry } from './Selectables'
 import { TagFilter } from './TagFilter'
 
 export type PointerPhase = 'down' | 'move' | 'up'
@@ -84,7 +85,6 @@ export type MapEvents = {
 
 type Listener<E extends keyof MapEvents> = (payload: MapEvents[E]) => void
 
-const EARTH_CIRCUMFERENCE = 40_075_016
 export const altitudeForZoom = (zoom: number): number => EARTH_CIRCUMFERENCE / Math.pow(2, zoom)
 export const zoomForAltitude = (alt: number): number => Math.log2(EARTH_CIRCUMFERENCE / Math.max(1, alt))
 
@@ -101,6 +101,8 @@ export class MapEngine {
   readonly projection = new Projection()
   /** Filtre de visibilité par tags, partagé par toutes les couches (markers, dessins). */
   readonly tags: TagFilter
+  /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
+  readonly selectables = new SelectableRegistry()
   readonly renderer: THREE.WebGLRenderer
   /** Overlay HTML ancré au repère 3D : les markers sont des `CSS2DObject`. */
   readonly labelRenderer: CSS2DRenderer
@@ -556,6 +558,11 @@ export class MapEngine {
    * (interaction, flyTo programmatique, suivi) — elle ne vole jamais la main.
    */
   private intro: { center: LatLng; altitude: number; flying: boolean; startedAt: number } | null = null
+
+  /** Intro encore active (attente du terrain ou descente en cours). */
+  get introActive(): boolean {
+    return this.intro !== null
+  }
 
   private readonly cancelIntro = (): void => {
     // N'annule QUE le vol d'intro : un vol de recherche/suivi qui a pris la main

@@ -227,6 +227,8 @@ function ShortcutsList() {
     [labels.actions.rotateShape, labels.keys.shiftDrag],
     [labels.actions.undoRedo, `${modKey}Z / ${modKey}⇧Z`],
     [labels.actions.selectAll, `${modKey}A`],
+    [labels.actions.addToSelection, labels.keys.shiftClick],
+    [labels.actions.markersOnly, labels.keys.altOrCmd],
     [labels.actions.duplicate, `${modKey}D`],
     [labels.actions.delete, labels.keys.backspace],
     [labels.actions.moveSelection, labels.keys.arrows],

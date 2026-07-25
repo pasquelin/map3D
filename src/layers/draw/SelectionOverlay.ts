@@ -22,6 +22,8 @@ export class SelectionOverlay {
   private readonly svg: SVGSVGElement
   private readonly antsG: SVGGElement
   private readonly bboxRect: SVGRectElement
+  /** Sous-trait du marquee (blanc plein + fond translucide) — même langage que les formes. */
+  private readonly marqueeUnder: SVGPathElement
   private readonly marqueePath: SVGPathElement
   private readonly handlesG: SVGGElement
   private readonly antPool: Array<{ g: SVGGElement; under: SVGPathElement; over: SVGPathElement }> = []
@@ -36,11 +38,14 @@ export class SelectionOverlay {
     this.bboxRect = document.createElementNS(SVG_NS, 'rect')
     this.bboxRect.classList.add('m3d-selbox')
     this.bboxRect.style.display = 'none'
+    this.marqueeUnder = document.createElementNS(SVG_NS, 'path')
+    this.marqueeUnder.classList.add('m3d-marquee-under')
+    this.marqueeUnder.style.display = 'none'
     this.marqueePath = document.createElementNS(SVG_NS, 'path')
     this.marqueePath.classList.add('m3d-marquee')
     this.marqueePath.style.display = 'none'
     this.handlesG = document.createElementNS(SVG_NS, 'g')
-    this.svg.append(this.antsG, this.bboxRect, this.marqueePath, this.handlesG)
+    this.svg.append(this.antsG, this.bboxRect, this.marqueeUnder, this.marqueePath, this.handlesG)
     overlay.appendChild(this.svg)
   }
 
@@ -87,9 +92,13 @@ export class SelectionOverlay {
       this.bboxRect.style.display = 'none'
     }
     if (marquee) {
-      this.marqueePath.setAttribute('d', pathD(marquee.pts, marquee.kind !== 'poly'))
+      const d = pathD(marquee.pts, marquee.kind !== 'poly')
+      this.marqueeUnder.setAttribute('d', d)
+      this.marqueePath.setAttribute('d', d)
+      this.marqueeUnder.style.display = ''
       this.marqueePath.style.display = ''
     } else {
+      this.marqueeUnder.style.display = 'none'
       this.marqueePath.style.display = 'none'
     }
     this.syncHandles(handles)

@@ -42,6 +42,13 @@ export class Camera {
   flyEasing: (t: number) => number = easeInOutCubic
   /** Altitude max (m) au-dessus de la surface — borne le dézoom des vols/boutons. */
   maxAltitude = Infinity
+  /**
+   * Garde-fou : aucune destination de caméra ne descend à moins de N mètres du
+   * SOL RÉEL (tuiles 3D, pas l'ellipsoïde) — sécurité contre toute plongée dans
+   * le bâti/le globe, quel que soit l'appelant (clic cluster, recherche, hôte).
+   * 30 m : au-dessus de la plupart des toits, tuiles encore nettes.
+   */
+  minGroundClearance = 20
 
   private fly: Fly | null = null
   private followFn: (() => LatLng | null) | null = null
@@ -78,6 +85,27 @@ export class Camera {
     return { lat: ll.lat, lng: ll.lng, altitude, heading: 0, tilt: 0 }
   }
 
+  /** Dernier échantillon de sol — `sampleGroundHeight` coûte ~9 raycasts BVH, et
+   *  certains appelants reviennent sur la même cible par frame (retarget d'intro,
+   *  follow). Expiré après 2 s : le sol se raffine avec le streaming des tuiles. */
+  private groundCache: { lat: number; lng: number; ground: number | null; at: number } | null = null
+
+  /**
+   * Borne une altitude de destination : ≤ `maxAltitude` ET ≥ sol réel (tuiles) +
+   * `minGroundClearance`. Sol inconnu (tuiles pas chargées) → repli ellipsoïde ;
+   * le géoïde négatif (mer Morte) reste légitime, le plancher le suit.
+   * NB : le zoom molette ne passe pas ici — il est couvert par l'anti-collision
+   * de GlobeControls.
+   */
+  private clampAltitude(p: LatLng, altitude: number): number {
+    const now = performance.now()
+    const c = this.groundCache
+    const cached = c && now - c.at < 2000 && Math.abs(c.lat - p.lat) < 1e-4 && Math.abs(c.lng - p.lng) < 1e-4
+    const ground = cached ? c.ground : this.projection.sampleGroundHeight(p)
+    if (!cached) this.groundCache = { lat: p.lat, lng: p.lng, ground, at: now }
+    return Math.max(Math.min(altitude, this.maxAltitude), (ground ?? 0) + this.minGroundClearance)
+  }
+
   /** Place la caméra à la verticale (nadir) d'un point, à une altitude donnée
    *  (mètres au-dessus de l'ellipsoïde — négative légitime sous le niveau de la
    *  mer : mer Morte, géoïde négatif). */
@@ -101,7 +129,7 @@ export class Camera {
   jumpTo(p: LatLng, altitude: number): void {
     const pos = new THREE.Vector3()
     const quat = new THREE.Quaternion()
-    this.placeNadir(p, Math.min(altitude, this.maxAltitude), pos, quat)
+    this.placeNadir(p, this.clampAltitude(p, altitude), pos, quat)
     this.camera.position.copy(pos)
     this.camera.quaternion.copy(quat)
     this.camera.updateMatrixWorld()
@@ -111,7 +139,7 @@ export class Camera {
     this.followFn = null
     const state = this.getState()
     const target: LatLng = { lat: dest.lat ?? state.lat, lng: dest.lng ?? state.lng }
-    const altitude = Math.min(this.maxAltitude, opts.altitude ?? dest.altitude ?? state.altitude)
+    const altitude = this.clampAltitude(target, opts.altitude ?? dest.altitude ?? state.altitude)
     const toPos = new THREE.Vector3()
     const toQuat = new THREE.Quaternion()
     this.placeNadir(target, altitude, toPos, toQuat)
@@ -137,7 +165,7 @@ export class Camera {
   retargetFlyAltitude(altitude: number, tag?: string): void {
     const f = this.fly
     if (!f || f.tag !== tag) return
-    f.altitude = Math.min(this.maxAltitude, altitude)
+    f.altitude = this.clampAltitude(f.target, altitude)
     this.placeNadir(f.target, f.altitude, f.toPos, f.toQuat)
   }
 
@@ -172,7 +200,9 @@ export class Camera {
       // le suivi reprend dès que la cible réapparaît.
       if (!p) return false
       const altitude = this.getState().altitude
-      this.placeNadir(p, clamp(altitude, 200, 2_000_000), this.followPos, this.followQuat)
+      // Plancher sol aussi en suivi (terrain haut : montagne, plateau) — le
+      // cache d'échantillon absorbe l'appel par frame d'une cible mobile.
+      this.placeNadir(p, this.clampAltitude(p, clamp(altitude, 200, 2_000_000)), this.followPos, this.followQuat)
       this.camera.position.copy(this.followPos)
       this.camera.quaternion.copy(this.followQuat)
       return true

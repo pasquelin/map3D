@@ -4,6 +4,7 @@ import { HEIGHT_EPSILON, HeightResettle, MPP_BAND, UNRESOLVED_RETRY_FRAMES } fro
 import type { FrameContext, Layer } from '../core/Layer'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
+import type { SelectableRegistry } from '../core/Selectables'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
 import { EditController, type HandleId } from './draw/EditController'
@@ -119,8 +120,8 @@ export class DrawLayer implements Layer {
   defaults: DrawDefaults
   /** Tentative d'action (gomme, sélection…) sur une forme verrouillée — feedback UI. */
   onLockedHit?: (d: Drawing) => void
-  /** Notifiée à chaque changement de sélection (ids des formes sélectionnées). */
-  onSelectionChange?: (ids: string[]) => void
+  /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
+  onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
   /**
    * Défauts **par outil** (réglages persistés, cf. `DrawSettings`) — prioritaire
    * sur `defaults` pour les nouvelles formes quand il est fourni.
@@ -137,13 +138,19 @@ export class DrawLayer implements Layer {
     isSelectable: (d) => !d.locked && this.isShown(d),
     onLockedHit: (d) => this.lockedFeedback(d),
     selectionChanged: () => {
-      this.onSelectionChange?.(this.selection.ids)
+      const markerIds = this.selection.markerIds
+      this.externalSelectables?.apply(new Set(markerIds))
+      this.onSelectionChange?.(this.selection.ids, markerIds)
       this.overlayDirty = true
       this.syncSelectionOverlay()
     },
     eventToScreen: (e) => this.eventToScreen(e),
     beginBodyDrag: (latLng) => (latLng ? this.editCtl.beginMove(latLng) : false),
+    externalItems: () => this.externalSelectables?.items() ?? [],
   })
+  private externalSelectables: SelectableRegistry | null = null
+  /** Désabonnement du `onItemsChanged` du registre courant. */
+  private offSelectables: (() => void) | null = null
   private editCtl!: EditController
   /** Formes mutées pendant un geste — reconstruites au prochain `update()`. */
   private readonly pendingEdit = new Set<string>()
@@ -166,6 +173,8 @@ export class DrawLayer implements Layer {
   private suspended = false
   /** Maj enfoncée (aperçu du curseur de rotation avant même le drag). */
   private rotateHint = false
+  /** Le pointeur survole une forme non verrouillée (curseur move/rotation). */
+  private hoverShape = false
   /** Index id → dessin, maintenu avec `drawings` : les boucles par frame font des
    *  lookups O(1) au lieu de `drawings.find` O(n) (O(n²) par frame sinon). */
   private readonly byId = new Map<string, Drawing>()
@@ -291,6 +300,11 @@ export class DrawLayer implements Layer {
       this.selection.clear()
     }
     this.tool = tool
+    // Routage des clics markers : actif seulement pendant l'outil sélection.
+    this.syncSelectableConsumer()
+    // État de survol remis à zéro : pas de curseur rotation fantôme à la reprise.
+    this.hoverShape = false
+    this.overlay.parentElement?.classList.remove('m3d-hover-shape')
     this.updateRotateCursor()
   }
 
@@ -306,6 +320,46 @@ export class DrawLayer implements Layer {
     this.selection.set(ids)
   }
 
+  /**
+   * Branche (ou débranche avec `null`) le registre des sélectionnables externes
+   * (markers, `engine.selectables`). Le core gère TOUT le cycle de vie : prune de
+   * la sélection quand le jeu d'éléments change, et routage des clics (consumer)
+   * quand l'outil sélection est actif — un intégrateur vanilla n'a rien d'autre
+   * à câbler. Les markers restent exclus de toute édition (move/resize/rotation).
+   */
+  setExternalSelectables(registry: SelectableRegistry | null): void {
+    if (registry === this.externalSelectables) return
+    this.offSelectables?.()
+    if (this.externalSelectables) this.externalSelectables.consumer = null
+    this.externalSelectables = registry
+    this.offSelectables = registry
+      ? registry.onItemsChanged(() => this.selection.pruneExternal((id) => registry.has(id)))
+      : null
+    this.syncSelectableConsumer()
+  }
+
+  /** Pose/retire le consumer du registre — la politique Maj = additif vit ICI. */
+  private syncSelectableConsumer(): void {
+    if (!this.externalSelectables) return
+    this.externalSelectables.consumer =
+      this.tool === 'select' ? { pick: (id, modifiers) => this.selection.pickExternal(id, modifiers.shiftKey) } : null
+  }
+
+  /** Désélectionne des sélectionnables externes (croix d'un groupe de badges). */
+  deselectExternal(ids: ReadonlyArray<string | number>): void {
+    this.selection.deselectExternal(ids)
+  }
+
+  /** Détail des formes sélectionnées (kind par id) — pour les badges de sélection. */
+  selectionDetails(): Array<{ id: string; kind: DrawTool }> {
+    const out: Array<{ id: string; kind: DrawTool }> = []
+    for (const id of this.selection.ids) {
+      const d = this.byId.get(id)
+      if (d) out.push({ id: d.id, kind: d.kind })
+    }
+    return out
+  }
+
   /** Formes sélectionnées éditables (jamais verrouillées) — unique point de vérité. */
   private selectedEditable(): Drawing[] {
     return this.drawings.filter((d) => this.selection.has(d.id) && !d.locked)
@@ -319,7 +373,8 @@ export class DrawLayer implements Layer {
     this.selection.clear()
   }
 
-  /** Sélectionne toutes les formes visibles non verrouillées. */
+  /** Sélectionne toutes les formes visibles non verrouillées (formes uniquement,
+   *  jamais les markers : « tout sélectionner » reste un geste d'édition). */
   selectAll(): void {
     this.selection.set(this.drawings.map((d) => d.id))
   }
@@ -575,9 +630,14 @@ export class DrawLayer implements Layer {
     this.updateRotateCursor()
   }
 
-  /** Curseur de rotation : dès Maj enfoncée en mode sélection, et pendant le drag. */
+  /**
+   * Curseur de rotation : pendant un drag de rotation, ou Maj enfoncée en mode
+   * sélection **au survol d'une forme** — jamais sur le vide (Maj sert aussi à
+   * l'ajout à la sélection : un curseur de rotation partout serait trompeur).
+   */
   private updateRotateCursor(): void {
-    const rotating = this.editCtl.rotating || (this.rotateHint && this.tool === 'select' && !this.suspended)
+    const rotating =
+      this.editCtl.rotating || (this.rotateHint && this.tool === 'select' && !this.suspended && this.hoverShape)
     this.overlay.parentElement?.classList.toggle('m3d-rotating', rotating)
   }
 
@@ -609,7 +669,13 @@ export class DrawLayer implements Layer {
       if (phase === 'move' && latLng && !this.hoverChecked) {
         this.hoverChecked = true
         const hit = this.hitTest(latLng)
-        this.overlay.parentElement?.classList.toggle('m3d-hover-shape', !!hit && !hit.locked)
+        const hover = !!hit && !hit.locked
+        if (hover !== this.hoverShape) {
+          this.hoverShape = hover
+          this.overlay.parentElement?.classList.toggle('m3d-hover-shape', hover)
+          // Maj déjà enfoncée : le curseur de rotation suit l'entrée/sortie de forme.
+          this.updateRotateCursor()
+        }
       }
       const consumed = this.selection.handle(phase, latLng, e)
       // Le marquee suit le curseur : recalcul de l'overlay seulement quand il y a
@@ -1306,6 +1372,10 @@ export class DrawLayer implements Layer {
   }
 
   dispose(): void {
+    // Efface les anneaux de sélection des markers (les nœuds DOM leur survivent)
+    // puis débranche le registre (consumer + abonnement prune).
+    this.externalSelectables?.apply(new Set())
+    this.setExternalSelectables(null)
     for (const d of [...this.drawings]) this.dropDrawing(d.id)
     this.cancelLive()
     this.drawings = []

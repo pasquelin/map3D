@@ -1,7 +1,8 @@
 import type { PointerPhase } from '../../core/MapEngine'
+import type { SelectableScreenItem } from '../../core/Selectables'
 import type { LatLng } from '../../shared'
 import type { Drawing } from '../DrawLayer'
-import { type ScreenPt, shapeTouchesSelector } from './hitTest'
+import { pointInPolygon, type ScreenPt, shapeTouchesSelector } from './hitTest'
 
 /** Mode de l'outil sélection : marquee rectangle, polygone à clics, ou lasso libre. */
 export type SelectMode = 'rect' | 'poly' | 'lasso'
@@ -19,6 +20,8 @@ export type SelectHost = {
   eventToScreen(e: PointerEvent): ScreenPt
   /** Un drag commence sur le corps d'une forme sélectionnée → bascule en édition. */
   beginBodyDrag?(latLng: LatLng | null): boolean
+  /** Sélectionnables externes (markers) visibles, en px canvas — lu au finalize. */
+  externalItems?(): SelectableScreenItem[]
 }
 
 const CLICK_SLOP_PX = 4
@@ -26,24 +29,36 @@ const CLOSE_SNAP_PX = 16
 const LASSO_MIN_STEP_PX = 3
 
 /**
- * Sélection des dessins : clic simple (Maj = toggle), marquee rectangle/polygone/
- * lasso avec sémantique « touche = sélectionné » (façon Figma). Machine à états
- * pilotée par l'interceptor de DrawLayer quand l'outil `select` est actif.
+ * Sélection des dessins ET des sélectionnables externes (markers) : clic simple
+ * (Maj = toggle), marquee rectangle/polygone/lasso avec sémantique « touche =
+ * sélectionné » (façon Figma) ; Alt/⌘ pendant le marquee = markers seulement.
+ * Machine à états pilotée par l'interceptor de DrawLayer quand l'outil `select`
+ * est actif. Les markers vivent dans un Set séparé (`extSel`) : ils ne passent
+ * jamais par l'édition (move/resize/rotation = formes uniquement).
  */
 export class SelectionManager {
   mode: SelectMode = 'rect'
 
   private readonly sel = new Set<string>()
+  /** Sélection externe (markers) — ids libres côté hôte, pas de namespacing. */
+  private readonly extSel = new Set<string | number>()
   private pressed: { id: string; additive: boolean; start: ScreenPt; dragging: boolean } | null = null
   /** Tracé du sélecteur en cours (px canvas). `poly` = mode clics (persiste entre up/down). */
   private marqueePts: ScreenPt[] | null = null
   private marqueeKind: SelectMode = 'rect'
   private marqueeAdditive = false
+  /** Alt/⌘ enfoncé pendant le marquee : seuls les markers sont pris en compte. */
+  private marqueeMarkersOnly = false
 
   constructor(private readonly host: SelectHost) {}
 
   get ids(): string[] {
     return [...this.sel]
+  }
+
+  /** Ids des sélectionnables externes (markers) sélectionnés. */
+  get markerIds(): (string | number)[] {
+    return [...this.extSel]
   }
 
   has(id: string): boolean {
@@ -54,22 +69,64 @@ export class SelectionManager {
     return this.sel.size
   }
 
-  /** Remplace la sélection (les formes non sélectionnables sont filtrées). */
-  set(ids: readonly string[]): void {
-    const valid = new Set<string>()
+  /**
+   * Réécrit les DEUX populations sans notifier — unique endroit qui mute les
+   * Sets en bloc. Renvoie true si le contenu a changé ; chaque geste appelant
+   * notifie alors UNE fois (au lieu d'une notification par population).
+   */
+  private write(shapeIds: readonly string[], markerIds: ReadonlyArray<string | number>): boolean {
+    const shapes = new Set<string>()
     for (const d of this.host.list()) {
-      if (ids.includes(d.id) && this.host.isSelectable(d)) valid.add(d.id)
+      if (shapeIds.includes(d.id) && this.host.isSelectable(d)) shapes.add(d.id)
     }
-    if (sameSet(valid, this.sel)) return
-    this.sel.clear()
-    for (const id of valid) this.sel.add(id)
-    this.host.selectionChanged()
+    const markers = new Set(markerIds)
+    const changed = !sameSet(shapes, this.sel) || !sameSet(markers, this.extSel)
+    if (changed) {
+      this.sel.clear()
+      for (const id of shapes) this.sel.add(id)
+      this.extSel.clear()
+      for (const id of markers) this.extSel.add(id)
+    }
+    return changed
+  }
+
+  /** Remplace la sélection de formes (markers intacts — sert l'API publique `select`). */
+  set(ids: readonly string[]): void {
+    if (this.write(ids, [...this.extSel])) this.host.selectionChanged()
   }
 
   clear(): void {
-    if (this.sel.size === 0) return
-    this.sel.clear()
-    this.host.selectionChanged()
+    if (this.write([], [])) this.host.selectionChanged()
+  }
+
+  /** Clic sur un sélectionnable externe (routé par le consumer du registre). */
+  pickExternal(id: string | number, additive: boolean): void {
+    if (additive) {
+      if (this.extSel.has(id)) this.extSel.delete(id)
+      else this.extSel.add(id)
+      this.host.selectionChanged()
+    } else if (this.write([], [id])) {
+      this.host.selectionChanged()
+    }
+  }
+
+  /** Désélectionne des sélectionnables externes (croix d'un groupe de badges). */
+  deselectExternal(ids: ReadonlyArray<string | number>): void {
+    let changed = false
+    for (const id of ids) if (this.extSel.delete(id)) changed = true
+    if (changed) this.host.selectionChanged()
+  }
+
+  /** Retire les sélectionnables externes disparus (données, filtre tags…). */
+  pruneExternal(isAlive: (id: string | number) => boolean): void {
+    let changed = false
+    for (const id of [...this.extSel]) {
+      if (!isAlive(id)) {
+        this.extSel.delete(id)
+        changed = true
+      }
+    }
+    if (changed) this.host.selectionChanged()
   }
 
   /** Retire les ids disparus ou devenus non sélectionnables (undo, filtre tags…). */
@@ -101,7 +158,7 @@ export class SelectionManager {
       this.host.selectionChanged()
       return true
     }
-    if (this.sel.size > 0) {
+    if (this.sel.size > 0 || this.extSel.size > 0) {
       this.clear()
       return true
     }
@@ -120,7 +177,7 @@ export class SelectionManager {
   handle(phase: PointerPhase, latLng: LatLng | null, e: PointerEvent): boolean {
     const s = this.host.eventToScreen(e)
     if (phase === 'down') return this.onDown(s, latLng, e)
-    if (phase === 'move') return this.onMove(s, latLng)
+    if (phase === 'move') return this.onMove(s, latLng, e)
     return this.onUp()
   }
 
@@ -146,22 +203,26 @@ export class SelectionManager {
     }
     // Clic dans le vide → démarre un sélecteur (drag pour rect/lasso, clics pour poly).
     this.marqueeAdditive = e.shiftKey
+    this.marqueeMarkersOnly = e.altKey || e.metaKey
     this.marqueeKind = this.mode
     this.marqueePts = this.mode === 'poly' ? [s, { ...s }] : [s]
     return true
   }
 
-  private onMove(s: ScreenPt, latLng: LatLng | null): boolean {
+  private onMove(s: ScreenPt, latLng: LatLng | null, e: PointerEvent): boolean {
     if (this.pressed) {
       if (!this.pressed.dragging && Math.hypot(s.x - this.pressed.start.x, s.y - this.pressed.start.y) > CLICK_SLOP_PX) {
         this.pressed.dragging = true
         // Drag du corps : sélectionne la forme si besoin puis délègue à l'édition.
-        if (!this.pressed.additive && !this.sel.has(this.pressed.id)) this.set([this.pressed.id])
+        if (!this.pressed.additive && !this.sel.has(this.pressed.id) && this.write([this.pressed.id], []))
+          this.host.selectionChanged()
         if (this.host.beginBodyDrag?.(latLng)) this.pressed = null
       }
       return true
     }
     if (!this.marqueePts) return true
+    // Ré-échantillonné à chaque événement : Alt/⌘ peut être pressé en cours de tracé.
+    this.marqueeMarkersOnly = e.altKey || e.metaKey
     if (this.marqueeKind === 'rect') {
       const a = this.marqueePts[0]!
       this.marqueePts = [a, { x: s.x, y: a.y }, s, { x: a.x, y: s.y }]
@@ -185,7 +246,7 @@ export class SelectionManager {
           else this.sel.add(id)
           this.host.selectionChanged()
         } else {
-          this.set([id])
+          if (this.write([id], [])) this.host.selectionChanged()
         }
       }
       return true
@@ -208,23 +269,36 @@ export class SelectionManager {
   private finalizeMarquee(): void {
     const selector = this.marqueePts
     this.marqueePts = null
+    const markersOnly = this.marqueeMarkersOnly
+    this.marqueeMarkersOnly = false
     if (!selector || selector.length < 3) {
       this.host.selectionChanged()
       return
     }
+    // Formes : sautées si Alt/⌘ (markers seulement). Alt filtre ce que le
+    // sélecteur voit ; la sémantique remplace/ajoute reste portée par Maj seul.
     const hits: string[] = []
-    for (const d of this.host.list()) {
-      if (!this.host.isSelectable(d)) continue
-      const contour = this.host.screenContour(d)
-      if (contour && shapeTouchesSelector(contour.pts, contour.closed, selector)) hits.push(d.id)
+    if (!markersOnly) {
+      for (const d of this.host.list()) {
+        if (!this.host.isSelectable(d)) continue
+        const contour = this.host.screenContour(d)
+        if (contour && shapeTouchesSelector(contour.pts, contour.closed, selector)) hits.push(d.id)
+      }
     }
-    this.set(this.marqueeAdditive ? [...this.sel, ...hits] : hits)
-    // set() ne notifie que si le contenu change — resync overlay pour effacer le tracé.
+    // Markers : un point est « touché » s'il est DANS le sélecteur.
+    const extHits: (string | number)[] = []
+    for (const it of this.host.externalItems?.() ?? []) {
+      if (pointInPolygon({ x: it.x, y: it.y }, selector)) extHits.push(it.id)
+    }
+    const nextShapes = this.marqueeAdditive ? [...this.sel, ...hits] : hits
+    const nextMarkers = this.marqueeAdditive ? [...this.extSel, ...extHits] : extHits
+    this.write(nextShapes, nextMarkers)
+    // Notification unique : porte le changement de sélection ET l'effacement du tracé.
     this.host.selectionChanged()
   }
 }
 
-function sameSet(a: Set<string>, b: Set<string>): boolean {
+function sameSet<T>(a: Set<T>, b: Set<T>): boolean {
   if (a.size !== b.size) return false
   for (const v of a) if (!b.has(v)) return false
   return true

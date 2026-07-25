@@ -21,8 +21,8 @@ export type DrawLayerProps = {
   settingsStorage?: 'local' | 'none'
   value?: GeoJSONFeatureCollection
   onChange?: (geojson: GeoJSONFeatureCollection) => void
-  /** Notifiée à chaque changement de sélection (ids des formes sélectionnées). */
-  onSelectionChange?: (ids: string[]) => void
+  /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
+  onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
   children?: ReactNode
 }
 
@@ -66,6 +66,7 @@ export function DrawLayer(props: DrawLayerProps) {
   const onSelectionChangeRef = useRef(props.onSelectionChange)
   onSelectionChangeRef.current = props.onSelectionChange
   const [selection, setSelection] = useState<readonly string[]>([])
+  const [markerSelection, setMarkerSelection] = useState<ReadonlyArray<string | number>>([])
   const [selectMode, setSelectModeState] = useState<SelectMode>('rect')
   const toolRef = useRef(tool)
   toolRef.current = tool
@@ -119,10 +120,14 @@ export function DrawLayer(props: DrawLayerProps) {
         bump()
       },
     )
-    core.onSelectionChange = (ids) => {
+    core.onSelectionChange = (ids, markerIds) => {
       setSelection(ids)
-      onSelectionChangeRef.current?.(ids)
+      setMarkerSelection(markerIds)
+      onSelectionChangeRef.current?.(ids, markerIds)
     }
+    // Registre des sélectionnables externes (markers) : le core gère tout le
+    // cycle de vie (prune, routage des clics) — débranché par son dispose().
+    core.setExternalSelectables(engine.selectables)
     // Via ref : si `settings` est recréé (changement de settingsStorage), le core
     // lit toujours l'instance courante — pas une closure périmée.
     core.defaultsFor = (t) => settingsRef.current.get(t)
@@ -172,6 +177,7 @@ export function DrawLayer(props: DrawLayerProps) {
       // sinon moteur (dé-suspendu par setDrawing) et core divergent : tout gèle.
       releaseSpaceRef.current()
       const next = t && allowed.includes(t) ? t : null
+      // setTool() gère aussi le routage des clics markers (consumer du registre).
       core.setTool(next)
       engine.inputInterceptor = next ? core.interceptor : null
       // Mode dessin : coupe la rotation au drag mais GARDE le zoom molette actif.
@@ -289,6 +295,11 @@ export function DrawLayer(props: DrawLayerProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [props.shortcuts, setTool])
 
+  // Hors du memo `api` (qui recompute à chaque `rev`, jusqu'à 1×/frame pendant
+  // un restyle) : kind par id ne change qu'avec la sélection elle-même.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const selectionDetails = useMemo(() => coreRef.current?.selectionDetails() ?? [], [selection])
+
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
   // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -298,7 +309,10 @@ export function DrawLayer(props: DrawLayerProps) {
     selectMode,
     setSelectMode,
     selection,
+    markerSelection,
+    selectionDetails,
     select: (ids) => coreRef.current?.select(ids),
+    deselectMarkers: (ids) => coreRef.current?.deselectExternal(ids),
     clearSelection: () => coreRef.current?.clearSelection(),
     deleteSelection: () => coreRef.current?.deleteSelected(),
     selectAll: () => {
@@ -345,7 +359,7 @@ export function DrawLayer(props: DrawLayerProps) {
     // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips.
     shortcuts: { ...DEFAULT_SHORTCUTS, ...props.shortcuts },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tool, selectMode, selection, rev, settings, setTool, props.shortcuts])
+  }), [tool, selectMode, selection, selectionDetails, markerSelection, rev, settings, setTool, props.shortcuts])
 
   return <DrawingContext.Provider value={api}>{props.children}</DrawingContext.Provider>
 }

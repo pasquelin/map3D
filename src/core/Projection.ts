@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import type { LatLng } from '../shared'
-import { DEG2RAD, RAD2DEG } from './math'
+import { DEG2RAD, M_PER_DEG, RAD2DEG } from './math'
 
 export type { LatLng } from '../shared'
 export type ScreenPoint = { sx: number; sy: number; z: number }
@@ -231,8 +231,8 @@ export class Projection {
     const center = this.sampleSurfaceHeight(p)
     if (center === null) return null
     let min = center
-    const dLat = radiusMeters / 111320
-    const dLng = radiusMeters / (111320 * Math.cos(p.lat * DEG2RAD))
+    const dLat = radiusMeters / M_PER_DEG
+    const dLng = radiusMeters / (M_PER_DEG * Math.cos(p.lat * DEG2RAD))
     for (let a = 0; a < 360; a += 45) {
       const rad = a * DEG2RAD
       const h = this.sampleSurfaceHeight({

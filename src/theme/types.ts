@@ -21,6 +21,9 @@ export type MapTheme = {
     cluster: { core: string; satellite: string; text: string; ring: string }
     draw: { palette: string[]; default: string }
     ui: { panel: string; text: string; muted: string; accent: string; error: string; border: string }
+    /** Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels,
+     *  couleurs volontairement très voyantes. Optionnel : thème antérieur valide. */
+    attention?: { sonar?: string; target?: string }
     path: { base: string; casing: string }
     zone: { fill: string; stroke: string }
   }
@@ -68,7 +71,16 @@ export type MapTheme = {
     zoomStep: number
     dragSpeed: { min: number; max: number }
   }
-  clustering: { radius: number; minPoints: number; maxZoom: number; levelQuantization: number }
+  clustering: {
+    radius: number
+    minPoints: number
+    maxZoom: number
+    levelQuantization: number
+    /** Zoom à partir duquel un cluster inséparable (points confondus) éclate en
+     *  éventail au clic — le zoom max UTILE de la caméra (au-delà elle entre
+     *  dans le bâti 3D). Optionnel : 19 (~76 m d'altitude). */
+    spiderfyZoom?: number
+  }
   tiles: {
     cacheSize: number
     uploadsPerFrame: number
