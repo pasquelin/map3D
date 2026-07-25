@@ -1,4 +1,4 @@
-import { mdiChevronLeft, mdiChevronRight } from '@mdi/js'
+import { mdiChevronLeft, mdiChevronRight, mdiPin } from '@mdi/js'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
@@ -115,55 +115,67 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
   // Rien à montrer : ni favori, ni drag en cours.
   if (props.items.length === 0 && !dragActive) return null
 
-  // Panneau (add + vignettes) qui se replie horizontalement en slide derrière la
-  // languette de droite (toujours visible, cible de dépôt en repliée). Un seul
-  // rendu : la classe `m3d-pindock-collapsed` pilote l'animation CSS.
-  return (
-    <div
-      className={`m3d-pindock${collapsed ? ' m3d-pindock-collapsed' : ''}${isOver ? ' m3d-pindock-over' : ''}`}
-      {...dropProps}
-    >
-      <div className="m3d-pindock-panel">
-        <div className="m3d-pindock-inner">
-          <div className="m3d-pindock-add" style={{ width: size, height: size }} aria-hidden={props.items.length > 0}>
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-            </svg>
-            <span className="m3d-pindock-addlabel">{addLabel}</span>
-          </div>
-          {props.items.length > 0 && (
-            <div className="m3d-pindock-items">
-              {props.items.map((item) => (
-                <PinnedPin
-                  key={item.id}
-                  item={item}
-                  size={size}
-                  render={props.renderPin}
-                  tooltip={props.tooltip}
-                  removeLabel={removeLabel}
-                  onUnpin={props.onUnpin}
-                  onActivate={() => {
-                    if (props.flyOnClick !== false && item.position) {
-                      const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? 16)
-                      engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: 0.8 })
-                    }
-                    props.onPinClick?.(item)
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+  // Repliée : pastille compacte (épingle + compteur + chevron), qui reste une
+  // cible de dépôt. Un clic la redéploie. Chaque état monte un élément distinct
+  // (button ↔ div) → l'animation d'apparition CSS se rejoue à chaque bascule.
+  if (collapsed) {
+    return (
       <button
         type="button"
-        className="m3d-pindock-tab"
-        onClick={() => setCollapsed((c) => !c)}
-        aria-label={collapsed ? labels.pinned.expand : labels.pinned.collapse}
+        className={`m3d-pindock m3d-pindock-collapsed${isOver ? ' m3d-pindock-over' : ''}`}
+        {...dropProps}
+        onClick={() => setCollapsed(false)}
+        aria-label={labels.pinned.expand}
       >
-        {collapsed && props.items.length > 0 && <span className="m3d-pindock-count">{props.items.length}</span>}
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+          <path d={mdiPin} fill="currentColor" />
+        </svg>
+        {props.items.length > 0 && <span className="m3d-pindock-count">{props.items.length}</span>}
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden className="m3d-pindock-chev">
+          <path d={mdiChevronRight} fill="currentColor" />
+        </svg>
+      </button>
+    )
+  }
+
+  return (
+    <div className={`m3d-pindock${isOver ? ' m3d-pindock-over' : ''}`} {...dropProps}>
+      <div className="m3d-pindock-add" style={{ width: size, height: size }} aria-hidden={props.items.length > 0}>
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-          <path d={collapsed ? mdiChevronRight : mdiChevronLeft} fill="currentColor" />
+          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        </svg>
+        <span className="m3d-pindock-addlabel">{addLabel}</span>
+      </div>
+      {props.items.length > 0 && (
+        <div className="m3d-pindock-items">
+          {props.items.map((item) => (
+            <PinnedPin
+              key={item.id}
+              item={item}
+              size={size}
+              render={props.renderPin}
+              tooltip={props.tooltip}
+              removeLabel={removeLabel}
+              onUnpin={props.onUnpin}
+              onActivate={() => {
+                if (props.flyOnClick !== false && item.position) {
+                  const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? 16)
+                  engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: 0.8 })
+                }
+                props.onPinClick?.(item)
+              }}
+            />
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        className="m3d-pindock-toggle"
+        onClick={() => setCollapsed(true)}
+        aria-label={labels.pinned.collapse}
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+          <path d={mdiChevronLeft} fill="currentColor" />
         </svg>
       </button>
     </div>
