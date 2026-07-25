@@ -4,7 +4,6 @@ import {
   type ClusterInfo,
   DrawLayer,
   Toolbar,
-  type GeoJSONFeatureCollection,
   LensLayer,
   LensToolButton,
   Map,
@@ -410,7 +409,9 @@ function MapDemo() {
       />
 
       <DrawLayer
-        value={LOCKED_ZONE}
+        // Zone verrouillée de démo désactivée : elle affichait un rectangle rouge
+        // permanent qu'on pouvait confondre avec la zone de la loupe. Remettre
+        // `value={LOCKED_ZONE}` pour retrouver la démo de forme verrouillée.
         onChange={(g) => console.log('[draw] change — GeoJSON complet (ce que reçoit l’API) :', g)}
         onSelectionChange={(ids, markerIds) => console.log('[draw] selection', ids, markerIds)}
       >
@@ -445,41 +446,6 @@ function MapDemo() {
       <SearchBox />
     </Map>
   )
-}
-
-/**
- * Zone imposée « par l'API » : `locked` → ni sélection, ni édition, ni gomme, ni
- * « Tout effacer ». Clic dessus = flash cadenas. Pour la déverrouiller depuis la
- * console : `drawApi.unlock(['draw-0'])` (les ids sont dans les logs de sélection).
- */
-const LOCKED_ZONE: GeoJSONFeatureCollection = {
-  type: 'FeatureCollection',
-  features: [
-    {
-      type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [2.335, 48.868],
-            [2.352, 48.868],
-            [2.352, 48.876],
-            [2.335, 48.876],
-            [2.335, 48.868],
-          ],
-        ],
-      },
-      properties: {
-        kind: 'polygon',
-        color: '#d11a01',
-        width: 4,
-        fillOpacity: 0.12,
-        stroke: 'dashed',
-        locked: true,
-        tags: ['draw', 'zone-interdite'],
-      },
-    },
-  ],
 }
 
 /**
