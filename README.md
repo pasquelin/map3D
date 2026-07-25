@@ -180,6 +180,7 @@ Les **outils** se choisissent par lettres seules, identiques Mac/PC ; les **acti
 | `+` / `−` | Zoom avant / arrière |
 | `I` | Incliner (vue 3D) |
 | `G` | Retour au globe |
+| `B` | Fond de carte : bascule 3D ↔ plan |
 | `T` | Couches — filtre par tags (ouvrir/fermer) |
 | `F` | Plein écran |
 
@@ -219,7 +220,8 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON. |
 | `<DrawToolbar position minZoom tools selectModes components>` | Barre de dessin entièrement paramétrable (sections masquables/remplaçables). |
 | `<DrawStylePanel>` `DrawSettingsButton` | Panneau de style et réglages par outil, utilisables seuls. |
-| `<MapControls>` `<SearchBox>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
+| `<MapControls>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
+| `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize>` | Recherche de lieu : **Google Places intégré** (clé de `<Map googleMapsApiKey>`, zéro config), vol caméra au **zoom adapté au viewport** du lieu, **historique localStorage** (champ vide focalisé), navigation clavier ↑ ↓ Entrée Échap, requêtes débouncées et annulées. Provider custom via `search` (ou `createGooglePlacesSearch({ apiKey, language, region, limit })`). |
 
 `<MapControls>` est entièrement configurable, à deux grains :
 
@@ -232,7 +234,9 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />
 ```
 
-Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `layers`, `fullscreen`.
+Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `mode3d`, `plan`, `traffic`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `layers`, `fullscreen`.
+
+**Fond de carte (`basemap`)** — bascule entre les tuiles 3D photoréalistes et le plan 2D Google, plus le calque trafic. Ces fonds sont des services Google : **sans `googleMapsApiKey`, le groupe entier n'est pas rendu** plutôt que d'offrir des boutons inertes. Le bouton trafic n'apparaît qu'en mode plan (seul mode où le calque existe), et repasser en 3D l'éteint — le moteur s'en charge, `engine.getBasemap()` et l'événement `basemap` en sont la source de vérité.
 | `<TagFilterControl position tipId>` | Bouton + panneau de filtre par tags, utilisable seul hors `<MapControls>`. |
 | Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTags`, `useTagSelection`, `useTheme`, `useLabels`. |
 

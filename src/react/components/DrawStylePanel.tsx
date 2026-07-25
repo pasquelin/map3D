@@ -3,6 +3,7 @@ import { formatCount } from '../../labels/mergeLabels'
 import { useDrawing } from '../hooks/useDrawing'
 import { useLabels, useTheme } from '../context'
 import { StyleEditor, type SwatchTarget } from './drawControls'
+import { useFitHeight } from './panelFit'
 
 export type DrawStylePanelProps = {
   /** Côté de la drawbar à laquelle le panneau s'accroche (il s'ouvre à côté d'elle). */
@@ -20,6 +21,9 @@ export function DrawStylePanel({ position = 'left' }: DrawStylePanelProps) {
   const theme = useTheme()
   const labels = useLabels()
   const [target, setTarget] = useState<SwatchTarget>('fill')
+  // Centré verticalement : il ne peut pas se décaler, il ne peut que rétrécir
+  // (scroll interne) pour ne pas dépasser du conteneur sur une carte courte.
+  const setPanel = useFitHeight('centered')
 
   const editsSelection = selection.length > 0
   const visible = editsSelection || (tool !== null && tool !== 'select' && tool !== 'erase')
@@ -39,6 +43,7 @@ export function DrawStylePanel({ position = 'left' }: DrawStylePanelProps) {
 
   return (
     <div
+      ref={setPanel}
       className={`m3d-panel m3d-stylepanel m3d-${position}${closing ? ' m3d-closing' : ''}`}
       onAnimationEnd={() => {
         if (closing) {

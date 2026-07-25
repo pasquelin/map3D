@@ -35,6 +35,9 @@ import { MapProvider } from '@gosecure/map3d'
 | `controls.tilt` | `Incliner` |
 | `controls.topDown` | `Vue du dessus` |
 | `controls.globe` | `Retour au globe` |
+| `controls.mode3d` | `Vue 3D` |
+| `controls.plan` | `Plan` |
+| `controls.traffic` | `Trafic` |
 | `controls.fullscreen` | `Plein écran` |
 
 ### `tags` — bouton + panneau « Couches » (filtre par tag)
@@ -53,6 +56,10 @@ import { MapProvider } from '@gosecure/map3d'
 |---|---|
 | `search.placeholder` | `Rechercher un lieu…` (le prop `placeholder` du composant reste prioritaire) |
 | `search.inputLabel` | `Recherche` (aria-label du champ) |
+| `search.noResults` | `Aucun résultat` |
+| `search.historyTitle` | `Recherches récentes` |
+| `search.clearHistory` | `Effacer l’historique` |
+| `search.clearInput` | `Effacer la recherche` (aria du bouton ✕) |
 
 ### `toolbar` — boutons de `<DrawToolbar>` hors outils
 

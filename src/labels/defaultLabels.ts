@@ -12,6 +12,9 @@ export const defaultLabels: MapLabels = {
     topDown: 'Vue du dessus',
     globe: 'Retour au globe',
     fullscreen: 'Plein écran',
+    mode3d: 'Vue 3D',
+    plan: 'Plan',
+    traffic: 'Trafic',
   },
   tags: {
     button: 'Couches — filtrer par tag',
@@ -23,6 +26,10 @@ export const defaultLabels: MapLabels = {
   search: {
     placeholder: 'Rechercher un lieu…',
     inputLabel: 'Recherche',
+    noResults: 'Aucun résultat',
+    historyTitle: 'Recherches récentes',
+    clearHistory: 'Effacer l’historique',
+    clearInput: 'Effacer la recherche',
   },
   toolbar: {
     navigate: 'Naviguer',

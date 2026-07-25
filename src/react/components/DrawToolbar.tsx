@@ -16,6 +16,7 @@ import { useDrawing } from '../hooks/useDrawing'
 import { SELECT_MODE_META, TOOL_ICONS } from './drawControls'
 import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
+import { useAnchoredPanel, useFitColumns } from './panelFit'
 import { modKey } from './shortcuts'
 import { ICON_SIZE, useTip } from './tooltip'
 
@@ -71,6 +72,11 @@ export function DrawToolbar({
     return engine.on('camera', (s) => setHidden(below(s.altitude)))
   }, [engine, minZoom])
 
+  // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
+  // sans jamais passer sous la boîte de recherche (même coin haut).
+  // La largeur publiée sert au panneau de style, posé juste à côté de la barre : en
+  // deux colonnes elle double, il doit se décaler d'autant.
+  const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search', widthVar: '--m3d-drawbar-w' })
   const tip = useTip(TIP_ID)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
   const undoKey = `${modKey}Z`
@@ -84,7 +90,7 @@ export function DrawToolbar({
 
   return (
     <>
-      <div className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
+      <div ref={setBar} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
         {slot(
           'navigate',
           <button {...tip(labels.toolbar.navigate, labels.keys.escape)} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
@@ -136,6 +142,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   const [open, setOpen] = useState(false)
+  const [side, setFlyout] = useAnchoredPanel(position, { clampHeight: false })
 
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
@@ -161,7 +168,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
         <Icon path={mdiCursorDefaultOutline} size={ICON_SIZE} />
       </button>
       {open && hasFlyout && (
-        <div className={`m3d-panel m3d-flyout m3d-${position}`}>
+        <div ref={setFlyout} className={`m3d-panel m3d-flyout m3d-${side}`}>
           {available.map((m) => (
             <button
               key={m.mode}

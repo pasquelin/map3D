@@ -22,6 +22,12 @@ export type MapLabels = {
     topDown: string
     globe: string
     fullscreen: string
+    /** Fond de carte : tuiles 3D photoréalistes. */
+    mode3d: string
+    /** Fond de carte : plan 2D Google. */
+    plan: string
+    /** Calque trafic Google (mode plan uniquement). */
+    traffic: string
   }
   /** Bouton + panneau « Couches » (filtre par tag). */
   tags: {
@@ -38,6 +44,13 @@ export type MapLabels = {
     placeholder: string
     /** aria-label du champ. */
     inputLabel: string
+    /** Requête sans résultat. */
+    noResults: string
+    /** Titre de la section historique (champ vide focalisé). */
+    historyTitle: string
+    clearHistory: string
+    /** aria-label du bouton ✕ qui vide le champ. */
+    clearInput: string
   }
   /** Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). */
   toolbar: {
