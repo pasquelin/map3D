@@ -121,6 +121,10 @@ export const defaultLabels: MapLabels = {
     kilometers: '{value} km',
     meters: '{value} m',
   },
+  pinned: {
+    add: 'Ajouter un marqueur',
+    remove: 'Supprimer',
+  },
   errors: {
     outsideMap: 'Ce composant doit être utilisé à l’intérieur de <Map>',
   },

@@ -37,6 +37,10 @@ export type {
   SelectableScreenItem,
   PickModifiers,
 } from './core/Selectables'
+// Registre du drag-and-drop générique (`engine.drag`) : source de vérité de
+// l'état, zones de dépôt, payload typé. Piloté par la couche React.
+export { DragRegistry } from './core/DragRegistry'
+export type { DragPayload, DropZone, DragState, DragEnd } from './core/DragRegistry'
 export * as MapMath from './core/math'
 
 // ── Data (viewport-driven / temps réel) ──
@@ -89,9 +93,17 @@ export { useDrawing } from './react/hooks/useDrawing'
 export { useDrawSettings } from './react/hooks/useDrawSettings'
 export { useMapEvents } from './react/hooks/useMapEvents'
 export { useTags, useTagSelection } from './react/hooks/useTags'
+// Hooks du drag-and-drop générique : rendre un élément saisissable / une zone
+// réceptrice, quel que soit l'usage (dock favoris et au-delà).
+export { useDraggable } from './react/hooks/useDraggable'
+export type { UseDraggableOptions } from './react/hooks/useDraggable'
+export { useDropZone } from './react/hooks/useDropZone'
+export type { UseDropZoneOptions } from './react/hooks/useDropZone'
 
 export { MarkerLayer } from './react/components/MarkerLayer'
 export type { MarkerLayerProps } from './react/components/MarkerLayer'
+export { PinnedDock } from './react/components/PinnedDock'
+export type { PinnedDockProps, PinnedItem } from './react/components/PinnedDock'
 export { PathLayer } from './react/components/PathLayer'
 export type { PathLayerProps } from './react/components/PathLayer'
 export { ShapeLayer } from './react/components/ShapeLayer'

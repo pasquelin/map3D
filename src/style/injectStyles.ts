@@ -30,6 +30,12 @@ export function injectStyles(doc: Document = document): void {
   doc.head.appendChild(style)
 }
 
+// HMR (dev) : re-synchronise la feuille dès que ce module change, sinon les
+// styles ne suivraient qu'au prochain montage de `<Map>` (il faut sinon un reload
+// complet à chaque retouche CSS). No-op en build : `import.meta.hot` est absent.
+const hot = (import.meta as ImportMeta & { hot?: { accept: (cb: () => void) => void } }).hot
+if (hot) hot.accept(() => injectStyles())
+
 const CSS = `
 .m3d-root{position:relative;width:100%;height:100%;overflow:hidden;
   font-family:var(--m3d-font);color:var(--m3d-text);background:var(--m3d-bg);
@@ -529,6 +535,133 @@ const CSS = `
 .m3d-menu-sub{position:absolute;left:100%;top:-5px;margin-left:3px}
 .m3d-menu-sub.m3d-flip{left:auto;right:100%;margin-left:0;margin-right:3px}
 
+
+/* ── Drag-and-drop générique (engine.drag) ─────────────────────────────────
+   Élément saisissable : touch-action none pour que le long-press tactile ne
+   soit pas avalé par le scroll. Le curseur reste celui de l'élément (pointer). */
+.m3d-draggable{touch-action:none}
+/* Drag en cours : curseur de préhension partout + pas de sélection de texte
+   parasite pendant qu'on glisse. */
+.m3d-root.m3d-dragging,.m3d-root.m3d-dragging *{cursor:grabbing!important;user-select:none}
+/* Ghost accroché au curseur : positionné en px conteneur (left/top posés inline),
+   centré sur le point, transparent aux événements (le hit-test DOM voit à travers).
+   Les marges négatives de recentrage des icônes marker sont annulées → translate
+   centre n'importe quel contenu (icône marker OU pastille de dock). */
+.m3d-drag-ghost{position:absolute;z-index:200;pointer-events:none;
+  transform:translate(-50%,-50%) scale(2);transform-origin:center;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,.4));opacity:.92;
+  transition:transform .12s cubic-bezier(.2,.8,.3,1)}
+.m3d-drag-ghost > *{margin:0!important}
+/* Élément « en main » agrandi ×2 ; un cran de plus au-dessus d'une cible qui accepte. */
+.m3d-drag-ghost.m3d-drag-over{transform:translate(-50%,-50%) scale(2.2)}
+/* Ghost déclaré « compact » par le consommateur (classe posée via useDraggable,
+   ex. pastille du dock) : grossissement discret, pas le ×2 de l'ajout depuis la
+   carte. Le second sélecteur égale la spécificité de .m3d-drag-over pour primer. */
+.m3d-drag-ghost-pin,
+.m3d-drag-ghost-pin.m3d-drag-over{transform:translate(-50%,-50%) scale(1.3)}
+
+/* ── Dock des favoris épinglés (PinnedDock) ────────────────────────────────
+   Barre flottante ancrée en bas à GAUCHE, façon dock macOS : une languette
+   « + Ajouter » toujours visible, puis les carrés déposés (la barre s'élargit).
+   Défile horizontalement si ça déborde. */
+/* Ancrée en bas à gauche ; largeur bornée pour garder À DROITE la même marge
+   qu'à gauche (16px) — au-delà, les pastilles défilent (add reste fixe à gauche). */
+.m3d-pindock{position:absolute;left:16px;bottom:16px;z-index:20;max-width:calc(100% - 32px);
+  display:flex;align-items:center;gap:10px;padding:10px;overflow:visible;box-sizing:border-box;
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);
+  border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);backdrop-filter:blur(20px)}
+/* Cible de dépôt active : liseré accent en pointillé + voile teinté. */
+.m3d-pindock-over{border-color:var(--m3d-accent);border-style:dashed;
+  background:color-mix(in srgb,var(--m3d-accent) 14%,var(--m3d-panel))}
+/* Languette d'invite : carré pointillé « + Ajouter un marqueur » (même côté que
+   les pastilles), le libellé revient à la ligne. Léger grossissement au survol. */
+.m3d-pindock-add{flex:none;box-sizing:border-box;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:8px;border:1.5px dashed color-mix(in srgb,var(--m3d-text) 22%,transparent);
+  border-radius:18px;color:var(--m3d-muted);
+  transition:transform .12s cubic-bezier(.2,.8,.3,1),border-color .12s,color .12s}
+.m3d-pindock-add:hover{transform:scale(1.04);color:var(--m3d-text)}
+.m3d-pindock-over .m3d-pindock-add{border-color:var(--m3d-accent);color:var(--m3d-accent)}
+.m3d-pindock-addlabel{font-size:11px;font-weight:600;text-align:center;line-height:1.25}
+/* Liste des pastilles : défile en X quand elle dépasse la largeur bornée de la
+   dock (add reste fixe à gauche). padding+margin opposés = le grossissement au
+   survol (-3px) n'est pas rogné par le clip vertical du scroll. */
+.m3d-pindock-items{display:flex;align-items:center;gap:10px;min-width:0;
+  overflow-x:auto;overflow-y:hidden;padding:8px 16px;margin:-8px;
+  scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent;
+  /* Fondu doux aux deux bords : les pastilles qui débordent s'estompent au lieu
+     d'être tranchées net par le clip du scroll. */
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
+  mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+
+/* Carré épinglé : vignette arrondie (avatar/icône), croix de retrait dedans en
+   haut-droite ; saisissable (glisser-hors = retrait). */
+.m3d-pin{position:relative;flex:none;box-sizing:border-box;padding:0;border:none;
+  border-radius:18px;overflow:hidden;cursor:pointer;background:var(--m3d-panel);
+  box-shadow:0 0 0 1px var(--m3d-border),0 2px 8px rgba(0,0,0,.28);
+  transition:transform .12s cubic-bezier(.2,.8,.3,1)}
+.m3d-pin:hover{transform:translateY(-3px) scale(1.04)}
+.m3d-pin:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+/* Média de la vignette : avatar en cover (remplit), badge coloré sinon. */
+.m3d-pin-media{width:100%;height:100%;display:block}
+img.m3d-pin-media{object-fit:cover}
+.m3d-pin-badge{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;line-height:1}
+.m3d-pin-badge img{width:62%;height:62%;object-fit:contain}
+/* Légende (titre) posée EN BAS par-dessus la vignette, sur un dégradé sombre —
+   l'info « c'est quoi » lisible d'un coup d'œil. UNE seule ligne : le texte trop
+   long défile au survol (marquee CSS, sans <marquee> déprécié). container-type +
+   cqw = mesure la largeur visible ; min(0px, cqw - largeurTexte) ne défile QUE
+   si le texte déborde réellement (sinon 0 → immobile). */
+/* Voile sombre : couvre TOUTE la largeur (jamais masqué) → jusqu'au bord droit. */
+.m3d-pin-caption{position:absolute;left:0;right:0;bottom:0;padding:34px 10px 6px;
+  background:linear-gradient(to top,rgba(0,0,0,.88),rgba(0,0,0,.5) 42%,rgba(0,0,0,.16) 72%,transparent);
+  pointer-events:none;overflow:hidden}
+/* Couche du TEXTE : c'est ELLE (pas le voile) qui porte le fondu à droite + le
+   clip du défilement. container-type ici → 100cqw = largeur de texte visible. */
+.m3d-pin-caption-clip{display:block;overflow:hidden;container-type:inline-size;
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent);
+  mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent)}
+.m3d-pin-caption-text{display:inline-block;white-space:nowrap;
+  font-size:10px;font-weight:600;line-height:1.2;color:#fff}
+/* Défile au survol seulement si ça déborde ; s'arrête en laissant ~22px de marge
+   à droite → la fin du titre reste NETTE (hors de la zone de fondu). */
+.m3d-pin:hover .m3d-pin-caption-text,
+.m3d-pin:focus-within .m3d-pin-caption-text{
+  animation:m3d-caption-scroll 4.5s linear infinite alternate}
+@keyframes m3d-caption-scroll{
+  0%,12%{transform:translateX(0)}
+  88%,100%{transform:translateX(min(0px,calc(100cqw - 100% - 34px)))}}
+/* Croix de retrait : dans le coin haut-droit à 6px, révélée au survol/focus. */
+.m3d-pin-x{position:absolute;top:6px;right:6px;width:20px;height:20px;padding:0;
+  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;
+  background:color-mix(in srgb,#000 55%,transparent);color:#fff;cursor:pointer;
+  backdrop-filter:blur(4px);opacity:0;transform:scale(.6);
+  transition:opacity .12s,transform .12s,background .12s}
+.m3d-pin:hover .m3d-pin-x,.m3d-pin:focus-within .m3d-pin-x{opacity:1;transform:scale(1)}
+.m3d-pin-x:hover{background:var(--m3d-error)}
+/* Ghost d'une pastille en cours de retrait : tooltip « Supprimer » au-dessus,
+   visible UNIQUEMENT hors d'une cible acceptée (façon dock macOS). */
+.m3d-pin-remove-hint{position:absolute;left:50%;top:0;transform:translate(-50%,calc(-100% - 8px));
+  padding:3px 10px;border-radius:7px;background:var(--m3d-error);color:#fff;
+  font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.35);
+  opacity:0;transition:opacity .12s;pointer-events:none}
+.m3d-drag-ghost:not(.m3d-drag-over) .m3d-pin-remove-hint{opacity:1}
+
+/* Infobulle au survol d'une pastille : rendue en PORTAL dans .m3d-root (hors du
+   conteneur scrollable, sinon rognée), positionnée AU-DESSUS de la pastille via
+   left/top inline (px conteneur). Même langage visuel que l'infobulle des markers. */
+.m3d-pin-tip{position:absolute;z-index:100;transform:translate(-50%,calc(-100% - 12px));
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);border-radius:var(--m3d-radius-md);
+  box-shadow:var(--m3d-shadow-lg);backdrop-filter:blur(12px);padding:8px 11px;
+  min-width:120px;max-width:240px;pointer-events:none;animation:m3d-fade-in .16s ease-out}
+@keyframes m3d-fade-in{from{opacity:0}}
+
+/* Pendant un drag, les pastilles sous le curseur ne réagissent pas — on dépose
+   librement n'importe où dans la dock : ni croix de retrait, ni grossissement,
+   ni infobulle du voisin survolé. */
+.m3d-root.m3d-dragging .m3d-pin:hover{transform:none}
+.m3d-root.m3d-dragging .m3d-pin-x{opacity:0!important;pointer-events:none}
+.m3d-root.m3d-dragging .m3d-pin-tip{display:none}
 
 @media(prefers-reduced-motion:reduce){
   .m3d-root *{animation-duration:.001ms!important;animation-iteration-count:1!important}

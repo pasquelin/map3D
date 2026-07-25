@@ -13,6 +13,7 @@ import {
   type MarkerColor,
   type MarkerData,
   type MenuItem,
+  PinnedDock,
   SearchBox,
   SelectionBadges,
   ShapeLayer,
@@ -190,6 +191,18 @@ function MapDemo() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [selected, setSelected] = useState<string>()
   const [followed, setFollowed] = useState<string>()
+  // Favoris épinglés : ids en localStorage (la lib ne persiste rien — composant contrôlé).
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('m3d-demo-favs') ?? '[]')
+    } catch {
+      return []
+    }
+  })
+  const savePins = (ids: string[]) => {
+    setPinnedIds(ids)
+    localStorage.setItem('m3d-demo-favs', JSON.stringify(ids))
+  }
   const streamRef = useRef(createAgentStream())
 
   useEffect(() => {
@@ -220,6 +233,24 @@ function MapDemo() {
   const iconInner = (t: string): string =>
     t.startsWith('agent') ? (AGENT_INNER[t] ?? SHIELD) : glyph(t === 'alert-low' ? 'i' : '!')
   const iconFor = (m: MarkerData<AnyData>): string => badge(typeColor(m.type), iconInner(m.type))
+  // L'icône ne dépend que du TYPE : on encode le SVG une fois par type et on le
+  // réutilise — sinon chaque tick du flux temps réel ré-encode toutes les pastilles.
+  const iconUriCache = useRef<Record<string, string>>({})
+  const iconDataUri = (m: MarkerData<AnyData>): string => {
+    let uri = iconUriCache.current[m.type]
+    if (uri === undefined) {
+      uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconFor(m))}`
+      iconUriCache.current[m.type] = uri
+    }
+    return uri
+  }
+  // Éléments épinglés : résolus depuis les ids stockés + les données courantes.
+  const pinnedLabel = (m: MarkerData<AnyData>): string =>
+    m.type.startsWith('agent') ? (m.data as Agent).name : (m.data as Alert).title
+  const pinnedItems = pinnedIds
+    .map((id) => allMarkers.find((m) => String(m.id) === id))
+    .filter((m): m is MarkerData<AnyData> => !!m)
+    .map((m) => ({ id: m.id, position: m.position, type: m.type, label: pinnedLabel(m), avatar: m.avatar, icon: iconDataUri(m), data: m }))
   // Icône + libellé par type pour les satellites du cluster (survol = label).
   const CLUSTER_LABEL: Record<string, string> = {
     'alert-critical': 'Critique', 'alert-high': 'Élevée', 'alert-medium': 'Moyenne', 'alert-low': 'Info',
@@ -357,11 +388,23 @@ function MapDemo() {
         // Pastille visible = 58/80 du sprite (r=29 dans un viewBox 80) → anneau collé.
         selectionRing={Math.round(44 * (58 / 80)) + 2}
         icon={iconFor}
+        draggable
         clusterTypeIcon={clusterTypeIcon}
         clusterTypeLabel={clusterTypeLabel}
         menu={menuFor}
         tooltip={tipFor}
         clusterTooltip={clusterTipFor}
+      />
+
+      {/* Favoris : long-press sur un marker → glisser dans la barre du bas.
+          Clic sur une pastille = vol caméra + sélection. × ou glisser-hors = retrait. */}
+      <PinnedDock<MarkerData<AnyData>>
+        items={pinnedItems}
+        size={88}
+        onPin={(p) => savePins([...new Set([...pinnedIds, String(p.id)])])}
+        onUnpin={(id) => savePins(pinnedIds.filter((x) => x !== String(id)))}
+        onPinClick={(item) => setSelected(String(item.id))}
+        tooltip={(item) => tipFor(item.data!)}
       />
 
       <DrawLayer

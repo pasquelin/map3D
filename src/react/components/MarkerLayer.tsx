@@ -16,6 +16,7 @@ import type { LatLng } from '../../shared'
 import type { DataSource, MarkerData } from '../../data/types'
 import { useLiveData } from '../hooks/useLiveData'
 import { useTagSelection } from '../hooks/useTags'
+import { useDraggable } from '../hooks/useDraggable'
 import { useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
@@ -65,6 +66,14 @@ export type MarkerLayerProps<T> = {
    * pour que l'anneau reste collé au visuel.
    */
   selectionRing?: number
+  /**
+   * Rend les markers **saisissables au long-press** pour le drag-and-drop
+   * (ex. dépôt dans `<PinnedDock>`). `true` active tous les markers ; une fonction
+   * cible sélectivement. Le clic normal (sélection/menu) reste préservé ; le ghost
+   * accroché au curseur réutilise l'icône du marker. Les clusters ne sont jamais
+   * saisissables.
+   */
+  draggable?: boolean | ((p: MarkerData<T>) => boolean)
 }
 
 type Entry<T> =
@@ -612,14 +621,21 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         entry.kind === 'cluster' && !props.clusterIcon
           ? defaultClusterRadius(entry.cluster.total) + 10
           : size / 2 + 10
+      const isDraggable =
+        entry.kind === 'marker' &&
+        (typeof props.draggable === 'function' ? props.draggable(entry.marker) : !!props.draggable)
       out.push(
         createPortal(
           <>
-            <div
-              className={entry.kind === 'marker' ? 'm3d-marker-content' : undefined}
+            <MarkerContent
+              isMarker={entry.kind === 'marker'}
+              draggable={isDraggable}
+              markerId={entry.kind === 'marker' ? latest.current.getId(entry.marker) : id}
+              markerData={entry.kind === 'marker' ? entry.marker : null}
+              ghost={content}
               onClick={(e) => handleClick(id, entry, e)}
-              onPointerEnter={hoverable ? () => setHoverId(id) : undefined}
-              onPointerLeave={
+              onHoverEnter={hoverable ? () => setHoverId(id) : undefined}
+              onHoverLeave={
                 hoverable
                   ? () => {
                       setHoverId((cur) => (cur === id ? null : cur))
@@ -638,7 +654,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
                 </span>
               )}
               {content}
-            </div>
+            </MarkerContent>
             {tip && (tip.title != null || tip.content != null) && (
               <div
                 // Urgence : style rouge dédié, immédiatement distinct des autres.
@@ -677,6 +693,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     props.menu,
     props.tooltip,
     props.clusterTooltip,
+    props.draggable,
     handleClick,
     markerSize,
     clusterSize,
@@ -684,4 +701,51 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   ])
 
   return <>{portals}</>
+}
+
+/**
+ * Zone de contenu d'un marker/cluster : porte le clic (sélection/menu), le survol
+ * (infobulle) et, pour les markers, la **saisie au long-press** (`useDraggable`).
+ * Composant à part — et non `<div>` inline — parce que `useDraggable` est un hook :
+ * chaque nœud a ainsi son propre état de geste (timer, nettoyage). Le hook est
+ * toujours appelé (`disabled` selon `draggable`) pour respecter l'ordre des hooks.
+ */
+function MarkerContent<T>({
+  isMarker,
+  draggable,
+  markerId,
+  markerData,
+  ghost,
+  onClick,
+  onHoverEnter,
+  onHoverLeave,
+  children,
+}: {
+  isMarker: boolean
+  draggable: boolean
+  markerId: string | number
+  markerData: MarkerData<T> | null
+  ghost: ReactNode
+  onClick: (e: React.MouseEvent) => void
+  onHoverEnter?: () => void
+  onHoverLeave?: () => void
+  children: ReactNode
+}) {
+  const drag = useDraggable({
+    payload: { type: 'marker', id: markerId, data: markerData ?? undefined },
+    ghost,
+    disabled: !draggable,
+  })
+  const className = [isMarker ? 'm3d-marker-content' : '', draggable ? drag.className : ''].filter(Boolean).join(' ')
+  return (
+    <div
+      className={className || undefined}
+      onPointerDown={draggable ? drag.onPointerDown : undefined}
+      onClick={onClick}
+      onPointerEnter={onHoverEnter}
+      onPointerLeave={onHoverLeave}
+    >
+      {children}
+    </div>
+  )
 }
