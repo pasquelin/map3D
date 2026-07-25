@@ -240,8 +240,10 @@ const CSS = `
   border-left:2px solid currentColor;display:block}
 
 /* Panneau « Réglages des outils » : ancré au bouton engrenage de la drawbar,
-   accordéon par outil (aperçu live), récap raccourcis. Ancré en bas → grandit
-   vers le haut (le bouton est en bas de barre). */
+   une ligne par outil (aperçu live) + ligne « Raccourcis clavier ». Chaque ligne
+   ouvre un SOUS-PANNEAU latéral (éditeur de style / liste des raccourcis) du côté
+   opposé à la barre, aligné sur la ligne — jamais coupé par le scroll de la liste.
+   Ancré en bas → grandit vers le haut (le bouton est en bas de barre). */
 .m3d-settingswrap{position:relative}
 .m3d-settings{position:absolute;bottom:0;width:252px;padding:10px;z-index:30;
   display:flex;flex-direction:column;gap:8px;max-height:min(560px,74vh);
@@ -259,19 +261,27 @@ const CSS = `
 .m3d-settings-toolhead{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;
   border:none;border-radius:8px;background:transparent;color:var(--m3d-text);cursor:pointer;
   font-family:inherit;font-size:12.5px;text-align:left;transition:background .14s}
-.m3d-settings-toolhead:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-settings-toolhead:hover,
+.m3d-settings-toolhead.m3d-on{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-settings-toolname{flex:1;display:flex;align-items:center;gap:6px}
 .m3d-settings-dot{width:6px;height:6px;border-radius:50%;background:var(--m3d-accent);flex:none}
 .m3d-settings-preview{width:34px;height:18px;flex:none;opacity:.95}
-.m3d-settings-body{display:flex;flex-direction:column;gap:8px;padding:8px 8px 10px;
-  border-radius:8px;background:color-mix(in srgb,var(--m3d-text) 4%,transparent)}
+.m3d-settings-footer{border-top:1px solid var(--m3d-border);padding-top:6px;flex:none}
+/* Sous-panneau latéral (éditeur d'un outil / liste des raccourcis) : positionné
+   par le composant (top = ligne survolée, clampé au viewport). Le franchissement
+   de l'écart ligne↔sous-panneau est couvert par la fermeture différée du
+   composant (timer) — pas de pont ::before. */
+.m3d-settings-sub{position:absolute;width:212px;padding:11px;z-index:31;
+  display:flex;flex-direction:column;gap:9px;
+  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+.m3d-settings-sub.m3d-left{left:calc(100% + 10px)}
+.m3d-settings-sub.m3d-right{right:calc(100% + 10px)}
 .m3d-settings-subtitle{font-size:11px;font-weight:600;color:var(--m3d-muted);
   text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
-.m3d-shortcuts{border-top:1px solid var(--m3d-border);padding-top:8px;display:flex;
-  flex-direction:column;gap:3px;flex:none}
+.m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
 .m3d-shortcut-row{display:flex;align-items:center;justify-content:space-between;
   font-size:11.5px;color:var(--m3d-text)}
-.m3d-shortcut-tools{font-size:10.5px;color:var(--m3d-muted);margin-top:4px;line-height:1.6}
+.m3d-shortcut-sep{border-top:1px solid var(--m3d-border);margin:5px 0}
 
 /* Panneau « Couches » (filtre par tag) : ancré au groupe du bouton, ouvert du
    côté opposé à la barre (m3d-right = barre à droite → panneau à gauche). */

@@ -2,7 +2,7 @@ import { mdiFilterRemoveOutline, mdiLayersOutline, mdiMagnify } from '@mdi/js'
 import Icon from '@mdi/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { tagColor } from '../../core/TagFilter'
-import { useMapContext } from '../context'
+import { useLabels, useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
 import { plainKey } from './shortcuts'
 import { useDismiss } from './useDismiss'
@@ -30,6 +30,7 @@ export type TagFilterControlProps = {
  */
 export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFilterControlProps) {
   const tags = useTagSelection()
+  const labels = useLabels()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -51,13 +52,15 @@ export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFil
   useDismiss(rootRef, open, () => setOpen(false))
 
   const active = tags.selected.size
-  const label = 'Couches — filtrer par tag'
+  const label = labels.tags.button
 
   return (
     <div className="m3d-controls-group m3d-tags" ref={rootRef}>
       <button
         className={`m3d-btn m3d-tagbtn${active > 0 ? ' m3d-on' : ''}`}
-        {...(tipId ? tipProps(tipId, label, shortcut) : { 'aria-label': withShortcut(label, shortcut) })}
+        {...(tipId
+          ? tipProps(tipId, label, shortcut, labels.format.shortcut)
+          : { 'aria-label': withShortcut(label, shortcut, labels.format.shortcut) })}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -73,6 +76,7 @@ export function TagFilterControl({ position = 'right', tipId, shortcut }: TagFil
 function TagPanel({ position }: { position: 'left' | 'right' }) {
   const { theme } = useMapContext()
   const tags = useTags()
+  const labels = useLabels()
   const [query, setQuery] = useState('')
 
   // Fusion+tri seulement quand registre ou sélection changent — pas à chaque
@@ -94,7 +98,7 @@ function TagPanel({ position }: { position: 'left' | 'right' }) {
         <input
           autoFocus
           value={query}
-          placeholder="Rechercher un tag…"
+          placeholder={labels.tags.searchPlaceholder}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
@@ -109,13 +113,13 @@ function TagPanel({ position }: { position: 'left' | 'right' }) {
         ))}
         {shown.length === 0 && (
           <div className="m3d-tagempty">
-            {entries.length === 0 ? 'Aucun tag sur la carte' : 'Aucun tag ne correspond'}
+            {entries.length === 0 ? labels.tags.empty : labels.tags.noMatch}
           </div>
         )}
       </div>
       <button className="m3d-tagclear" onClick={() => tags.clear()} disabled={active === 0}>
         <Icon path={mdiFilterRemoveOutline} size={0.6} />
-        Tout afficher
+        {labels.tags.showAll}
       </button>
     </div>
   )

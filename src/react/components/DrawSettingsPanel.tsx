@@ -1,23 +1,29 @@
-import { mdiChevronDown, mdiCog, mdiRestore } from '@mdi/js'
+import { mdiChevronRight, mdiCog, mdiKeyboardOutline, mdiRestore } from '@mdi/js'
 import Icon from '@mdi/react'
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { clamp } from '../../core/math'
 import type { DrawTool } from '../../layers/DrawLayer'
 import type { ToolSettings } from '../../layers/draw/DrawSettings'
-import { useTheme } from '../context'
+import { useLabels, useTheme } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDrawSettings } from '../hooks/useDrawSettings'
-import { StyleEditor, TOOL_META, type SwatchTarget } from './drawControls'
+import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
 import { modKey } from './shortcuts'
 import { ICON_SIZE, formatKey } from './tooltip'
 import { useDismiss } from './useDismiss'
 
 const SHAPE_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure']
 
+/** Entrées du panneau ouvrant un sous-panneau latéral : un outil ou le récap raccourcis. */
+type SubKey = DrawTool | 'shortcuts'
+
 /**
  * Bouton engrenage + panneau « Réglages des outils » : chaque outil garde ses
  * propres couleurs/épaisseur/style de trait/opacités (+ rayon d'angle du
- * rectangle), persistés en localStorage. Accordéon avec aperçu live par outil,
- * réinitialisation par outil ou globale, récapitulatif des raccourcis clavier.
+ * rectangle), persistés en localStorage. L'éditeur d'un outil et le récap des
+ * raccourcis s'ouvrent dans un **sous-panneau latéral** (côté opposé à la barre,
+ * aligné sur sa ligne — même pattern que le flyout de sélection : jamais coupé
+ * par le scroll de la liste), réinitialisation par outil ou globale.
  */
 export function DrawSettingsButton({
   position,
@@ -28,76 +34,148 @@ export function DrawSettingsButton({
 }) {
   const settings = useDrawSettings()
   const theme = useTheme()
+  const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const [openTool, setOpenTool] = useState<DrawTool | null>(null)
+  const [openSub, setOpenSub] = useState<SubKey | null>(null)
+  /** Offset vertical du sous-panneau = ligne survolée (repère : panneau). */
+  const [subTop, setSubTop] = useState(0)
   const [target, setTarget] = useState<SwatchTarget>('fill')
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const subRef = useRef<HTMLDivElement>(null)
   useDismiss(rootRef, open, () => setOpen(false))
+
+  // Fermeture différée : le pointeur doit pouvoir traverser l'écart ligne →
+  // sous-panneau sans que celui-ci se referme (même rôle que le pont ::before
+  // du flyout, mais robuste aux trajectoires diagonales).
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    closeTimer.current = null
+  }
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimer.current = setTimeout(() => setOpenSub(null), 140)
+  }
+  const openFor = (key: SubKey, row: HTMLElement) => {
+    cancelClose()
+    const panel = panelRef.current
+    if (panel) setSubTop(Math.round(row.getBoundingClientRect().top - panel.getBoundingClientRect().top))
+    setOpenSub(key)
+  }
+
+  // Clampe le sous-panneau au viewport (une ligne du bas ne doit pas pousser
+  // l'éditeur hors écran) — mesuré après rendu, style muté sans re-render.
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    const sub = subRef.current
+    if (!panel || !sub || !openSub) return
+    const panelTop = panel.getBoundingClientRect().top
+    const maxTop = window.innerHeight - 8 - sub.offsetHeight - panelTop
+    const minTop = 8 - panelTop
+    sub.style.top = `${Math.round(clamp(subTop, minTop, maxTop))}px`
+  }, [openSub, subTop])
+
+  /** Ligne du panneau ouvrant un sous-panneau (outil ou raccourcis). */
+  const row = (key: SubKey, icon: string, name: string, extra?: React.ReactNode) => (
+    <div
+      key={key}
+      className="m3d-settings-tool"
+      onPointerEnter={(e) => openFor(key, e.currentTarget)}
+      onPointerLeave={scheduleClose}
+    >
+      <button
+        type="button"
+        className={`m3d-settings-toolhead${openSub === key ? ' m3d-on' : ''}`}
+        aria-expanded={openSub === key}
+        onClick={(e) => openFor(key, e.currentTarget.parentElement as HTMLElement)}
+      >
+        <Icon path={icon} size={0.62} />
+        <span className="m3d-settings-toolname">{name}</span>
+        {extra}
+        <Icon path={mdiChevronRight} size={0.55} rotate={position === 'right' ? 180 : 0} />
+      </button>
+    </div>
+  )
+
+  const openedTool = openSub && openSub !== 'shortcuts' ? openSub : null
+  const openedSettings = openedTool ? settings.get(openedTool) : null
 
   return (
     <div ref={rootRef} className="m3d-settingswrap">
       <button
-        {...tip('Réglages des outils')}
+        {...tip(labels.settings.title)}
         className={`m3d-btn${open ? ' m3d-on' : ''}`}
         onClick={() => setOpen((o) => !o)}
       >
         <Icon path={mdiCog} size={ICON_SIZE} />
       </button>
       {open && (
-        <div className={`m3d-panel m3d-settings m3d-${position}`}>
+        <div ref={panelRef} className={`m3d-panel m3d-settings m3d-${position}`}>
           <div className="m3d-settings-head">
-            <span>Réglages des outils</span>
+            <span>{labels.settings.title}</span>
             <button
               type="button"
               className="m3d-settings-reset"
-              aria-label="Tout réinitialiser"
-              title="Tout réinitialiser"
+              aria-label={labels.settings.resetAll}
+              title={labels.settings.resetAll}
               onClick={() => settings.reset()}
             >
               <Icon path={mdiRestore} size={0.6} />
             </button>
           </div>
           <div className="m3d-settings-list">
-            {SHAPE_TOOLS.map((t) => {
-              const s = settings.get(t)
-              const opened = openTool === t
-              return (
-                <div key={t} className="m3d-settings-tool">
-                  <button type="button" className="m3d-settings-toolhead" onClick={() => setOpenTool(opened ? null : t)}>
-                    <Icon path={TOOL_META[t].icon} size={0.62} />
-                    <span className="m3d-settings-toolname">
-                      {TOOL_META[t].label}
-                      {settings.isCustomized(t) && <span className="m3d-settings-dot" />}
-                    </span>
-                    <ToolPreview tool={t} s={s} />
-                    <Icon path={mdiChevronDown} size={0.55} rotate={opened ? 180 : 0} />
-                  </button>
-                  {opened && (
-                    <div className="m3d-settings-body">
-                      <StyleEditor
-                        style={{ ...s, strokeOpacity: s.strokeOpacity ?? 0.95, radius: s.radius ?? 0 }}
-                        onPatch={(patch) => settings.set(t, patch)}
-                        palette={theme.colors.draw.palette}
-                        fallbackColor={theme.colors.draw.default}
-                        target={target}
-                        onTarget={setTarget}
-                        showRadius={t === 'rect'}
-                      />
-                      <button
-                        type="button"
-                        className="m3d-tagclear"
-                        disabled={!settings.isCustomized(t)}
-                        onClick={() => settings.reset(t)}
-                      >
-                        Réinitialiser cet outil
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {SHAPE_TOOLS.map((t) =>
+              row(
+                t,
+                TOOL_ICONS[t],
+                labels.tools[t],
+                <>
+                  {settings.isCustomized(t) && <span className="m3d-settings-dot" />}
+                  <ToolPreview tool={t} s={settings.get(t)} />
+                </>,
+              ),
+            )}
           </div>
-          <ShortcutsRecap />
+          <div className="m3d-settings-footer">
+            {row('shortcuts', mdiKeyboardOutline, labels.settings.shortcutsTitle)}
+          </div>
+          {openSub && (
+            <div
+              ref={subRef}
+              className={`m3d-panel m3d-settings-sub m3d-${position}`}
+              onPointerEnter={cancelClose}
+              onPointerLeave={scheduleClose}
+            >
+              {openedTool && openedSettings ? (
+                <>
+                  <StyleEditor
+                    style={{
+                      ...openedSettings,
+                      strokeOpacity: openedSettings.strokeOpacity ?? 0.95,
+                      radius: openedSettings.radius ?? 0,
+                    }}
+                    onPatch={(patch) => settings.set(openedTool, patch)}
+                    palette={theme.colors.draw.palette}
+                    fallbackColor={theme.colors.draw.default}
+                    target={target}
+                    onTarget={setTarget}
+                    showRadius={openedTool === 'rect'}
+                  />
+                  <button
+                    type="button"
+                    className="m3d-tagclear"
+                    disabled={!settings.isCustomized(openedTool)}
+                    onClick={() => settings.reset(openedTool)}
+                  >
+                    {labels.settings.resetTool}
+                  </button>
+                </>
+              ) : (
+                <ShortcutsList />
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -140,35 +218,40 @@ function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
   )
 }
 
-/** Aide-mémoire des raccourcis clavier (reflète la plateforme). */
-function ShortcutsRecap() {
+/**
+ * Liste complète des raccourcis, **une ligne par entrée** (actions d'édition puis
+ * une ligne par outil) — contenu du sous-panneau « Raccourcis clavier ».
+ */
+function ShortcutsList() {
   const { shortcuts } = useDrawing()
+  const labels = useLabels()
   const rows: Array<[string, string]> = [
-    ['Déplacer la carte', 'Espace'],
-    ['Tourner la caméra', 'Espace+Maj'],
-    ['Tourner la forme', 'Maj + glisser'],
-    ['Annuler / Rétablir', `${modKey}Z / ${modKey}⇧Z`],
-    ['Tout sélectionner', `${modKey}A`],
-    ['Dupliquer', `${modKey}D`],
-    ['Supprimer', '⌫'],
-    ['Déplacer la sélection', 'Flèches'],
-    ['Fermer le polygone', 'Entrée'],
-    ['Annuler / quitter', 'Échap'],
+    [labels.actions.panMap, labels.keys.space],
+    [labels.actions.rotateCamera, labels.keys.spaceShift],
+    [labels.actions.rotateShape, labels.keys.shiftDrag],
+    [labels.actions.undoRedo, `${modKey}Z / ${modKey}⇧Z`],
+    [labels.actions.selectAll, `${modKey}A`],
+    [labels.actions.duplicate, `${modKey}D`],
+    [labels.actions.delete, labels.keys.backspace],
+    [labels.actions.moveSelection, labels.keys.arrows],
+    [labels.actions.closePolygon, labels.keys.enter],
+    [labels.actions.cancel, labels.keys.escape],
   ]
-  const toolKeys = (Object.entries(shortcuts) as Array<[string, string | false]>)
-    .filter(([k, v]) => v && k in TOOL_META)
-    .map(([k, v]) => `${TOOL_META[k as DrawTool].label} ${formatKey(String(v))}`)
-    .join(' · ')
+  const toolRows: Array<[string, string]> = (Object.entries(shortcuts) as Array<[string, string | false]>)
+    .filter(([k, v]) => v && k in TOOL_ICONS)
+    .map(([k, v]) => [labels.tools[k as DrawTool], formatKey(String(v))])
+  const shortcutRow = ([label, key]: [string, string]) => (
+    <div key={label} className="m3d-shortcut-row">
+      <span>{label}</span>
+      <kbd className="m3d-kbd">{key}</kbd>
+    </div>
+  )
   return (
     <div className="m3d-shortcuts">
-      <div className="m3d-settings-subtitle">Raccourcis clavier</div>
-      {rows.map(([label, key]) => (
-        <div key={label} className="m3d-shortcut-row">
-          <span>{label}</span>
-          <kbd className="m3d-kbd">{key}</kbd>
-        </div>
-      ))}
-      {toolKeys && <div className="m3d-shortcut-tools">{toolKeys}</div>}
+      <div className="m3d-settings-subtitle">{labels.settings.shortcutsTitle}</div>
+      {rows.map(shortcutRow)}
+      <div className="m3d-shortcut-sep" />
+      {toolRows.map(shortcutRow)}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { formatCount } from '../../labels/mergeLabels'
 import { useDrawing } from '../hooks/useDrawing'
-import { useTheme } from '../context'
+import { useLabels, useTheme } from '../context'
 import { StyleEditor, type SwatchTarget } from './drawControls'
 
 export type DrawStylePanelProps = {
@@ -17,6 +18,7 @@ export type DrawStylePanelProps = {
 export function DrawStylePanel({ position = 'left' }: DrawStylePanelProps) {
   const { tool, selection, setStyle, currentStyle, selectionHasRect } = useDrawing()
   const theme = useTheme()
+  const labels = useLabels()
   const [target, setTarget] = useState<SwatchTarget>('fill')
 
   const editsSelection = selection.length > 0
@@ -52,7 +54,11 @@ export function DrawStylePanel({ position = 'left' }: DrawStylePanelProps) {
         fallbackColor={theme.colors.draw.default}
         target={target}
         onTarget={setTarget}
-        title={editsSelection ? `${selection.length} forme${selection.length > 1 ? 's' : ''}` : undefined}
+        title={
+          editsSelection
+            ? formatCount(labels.style.selectionCount, labels.style.selectionCountPlural, selection.length)
+            : undefined
+        }
         showRadius={tool === 'rect' || (editsSelection && selectionHasRect)}
       />
     </div>

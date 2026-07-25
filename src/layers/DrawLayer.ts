@@ -27,6 +27,9 @@ import {
   strokePolylines,
 } from '../core/geometry'
 import type { LatLng } from '../shared'
+import { defaultLabels } from '../labels/defaultLabels'
+import { formatLabel } from '../labels/mergeLabels'
+import type { MapLabels } from '../labels/types'
 
 export type DrawTool = 'select' | 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase'
 export type { SelectMode } from './draw/SelectionManager'
@@ -1052,8 +1055,14 @@ export class DrawLayer implements Layer {
       this.overlay.appendChild(label)
       this.labels.set(d.id, label)
     }
-    label.textContent = formatDistance(this.measureLength(d.points))
+    label.textContent = this.formatDistance(this.measureLength(d.points))
   }
+
+  /**
+   * Formatage du label de distance de la règle — injectable (traduction) : la
+   * couche React le remplace par les gabarits `labels.measure` du provider.
+   */
+  formatDistance: (meters: number) => string = makeDistanceFormatter(defaultLabels.measure)
 
   private measureLength(points: LatLng[]): number {
     let total = 0
@@ -1309,8 +1318,15 @@ export class DrawLayer implements Layer {
   }
 }
 
-function formatDistance(m: number): string {
-  return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`
+/**
+ * Formateur de distance construit sur les gabarits `labels.measure` — UNIQUE
+ * implémentation du seuil km/m (le défaut du core et la couche React l'utilisent).
+ */
+export function makeDistanceFormatter(measure: MapLabels['measure']): (meters: number) => string {
+  return (m) =>
+    m >= 1000
+      ? formatLabel(measure.kilometers, { value: (m / 1000).toFixed(2) })
+      : formatLabel(measure.meters, { value: Math.round(m) })
 }
 
 /** Opacité de bordure effective — la règle est plus discrète par défaut (0.85). */
