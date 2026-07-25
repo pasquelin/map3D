@@ -163,6 +163,10 @@ export type MapLabels = {
     add: string
     /** Tooltip affiché en glissant une pastille hors de la dock. */
     remove: string
+    /** aria-label du bouton qui replie la dock. */
+    collapse: string
+    /** aria-label du bouton/pastille qui redéploie la dock. */
+    expand: string
   }
   /** Messages d'erreur développeur. */
   errors: {

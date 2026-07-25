@@ -561,20 +561,38 @@ const CSS = `
 .m3d-drag-ghost-pin.m3d-drag-over{transform:translate(-50%,-50%) scale(1.3)}
 
 /* ── Dock des favoris épinglés (PinnedDock) ────────────────────────────────
-   Barre flottante ancrée en bas à GAUCHE, façon dock macOS : une languette
-   « + Ajouter » toujours visible, puis les carrés déposés (la barre s'élargit).
-   Défile horizontalement si ça déborde. */
-/* Ancrée en bas à gauche ; largeur bornée pour garder À DROITE la même marge
-   qu'à gauche (16px) — au-delà, les pastilles défilent (add reste fixe à gauche). */
+   Panneau (invite « + Ajouter » + vignettes) qui se REPLIE horizontalement en
+   slide derrière une languette de droite toujours visible. Ancrée en bas à
+   gauche, largeur bornée (même marge à droite qu'à gauche). */
 .m3d-pindock{position:absolute;left:16px;bottom:16px;z-index:20;max-width:calc(100% - 32px);
-  display:flex;align-items:center;gap:10px;padding:10px;overflow:visible;box-sizing:border-box;
+  display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
   background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);backdrop-filter:blur(20px)}
 /* Cible de dépôt active : liseré accent en pointillé + voile teinté. */
 .m3d-pindock-over{border-color:var(--m3d-accent);border-style:dashed;
   background:color-mix(in srgb,var(--m3d-accent) 14%,var(--m3d-panel))}
-/* Languette d'invite : carré pointillé « + Ajouter un marqueur » (même côté que
-   les pastilles), le libellé revient à la ligne. Léger grossissement au survol. */
+/* Panneau animé : largeur auto↔0 en slide via grid 1fr↔0fr (interpolable) +
+   l'enfant en overflow hidden → repli/déploiement fluide, largeur dynamique. */
+.m3d-pindock-panel{display:grid;grid-template-columns:1fr;min-width:0;
+  transition:grid-template-columns .3s cubic-bezier(.4,0,.2,1)}
+.m3d-pindock-collapsed .m3d-pindock-panel{grid-template-columns:0fr}
+.m3d-pindock-inner{overflow:hidden;min-width:0;display:flex;align-items:center;gap:10px;padding:10px}
+/* Languette de droite : toujours visible, cliquable, replie/déploie ; sépare le
+   panneau d'un filet quand déployée. */
+.m3d-pindock-tab{position:relative;flex:none;align-self:stretch;
+  display:flex;align-items:center;justify-content:center;width:26px;
+  border:none;border-left:1px solid var(--m3d-border);background:transparent;cursor:pointer;
+  color:var(--m3d-muted);padding:0;transition:background .14s,color .14s}
+.m3d-pindock-tab:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
+.m3d-pindock-tab:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
+.m3d-pindock-collapsed .m3d-pindock-tab{border-left:none}
+/* Compteur (repliée) : badge en coin de la languette. */
+.m3d-pindock-count{position:absolute;top:3px;right:3px;min-width:15px;height:15px;padding:0 4px;
+  border-radius:8px;background:var(--m3d-accent);color:#fff;font-size:9.5px;font-weight:700;
+  font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 2px var(--m3d-panel)}
+/* Languette d'invite : carré pointillé « + Ajouter un marqueur », le libellé
+   revient à la ligne. Léger grossissement au survol. */
 .m3d-pindock-add{flex:none;box-sizing:border-box;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   padding:8px;border:1.5px dashed color-mix(in srgb,var(--m3d-text) 22%,transparent);
@@ -583,14 +601,12 @@ const CSS = `
 .m3d-pindock-add:hover{transform:scale(1.04);color:var(--m3d-text)}
 .m3d-pindock-over .m3d-pindock-add{border-color:var(--m3d-accent);color:var(--m3d-accent)}
 .m3d-pindock-addlabel{font-size:11px;font-weight:600;text-align:center;line-height:1.25}
-/* Liste des pastilles : défile en X quand elle dépasse la largeur bornée de la
-   dock (add reste fixe à gauche). padding+margin opposés = le grossissement au
-   survol (-3px) n'est pas rogné par le clip vertical du scroll. */
+/* Liste des pastilles : défile en X quand elle dépasse la largeur bornée. padding
+   + margin opposés = le grossissement au survol (-3px) n'est pas rogné par le clip. */
 .m3d-pindock-items{display:flex;align-items:center;gap:10px;min-width:0;
-  overflow-x:auto;overflow-y:hidden;padding:8px 16px;margin:-8px;
+  overflow-x:auto;overflow-y:hidden;padding:8px;margin:-8px;
   scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent;
-  /* Fondu doux aux deux bords : les pastilles qui débordent s'estompent au lieu
-     d'être tranchées net par le clip du scroll. */
+  /* Fondu doux aux deux bords : les pastilles qui débordent s'estompent. */
   -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
   mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
 
