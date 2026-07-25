@@ -1,14 +1,16 @@
 import {
   mdiCompassOutline,
+  mdiCursorMove,
   mdiEarth,
   mdiFullscreen,
   mdiMinus,
   mdiPlus,
+  mdiRotateOrbit,
   mdiVideo2d,
   mdiVideo3d,
 } from '@mdi/js'
 import Icon from '@mdi/react'
-import { type ReactNode, useCallback, useEffect, useRef } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import 'react-tooltip/dist/react-tooltip.css'
 import { useMapContext } from '../context'
@@ -26,9 +28,29 @@ export type MapControlAction =
   | 'layers'
   | 'fullscreen'
 
+/** Boutons individuels de la barre (grain fin de `MapControlsProps.buttons`). */
+export type MapControlButton =
+  | 'pan'
+  | 'rotate'
+  | 'compass'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'tilt'
+  | 'topDown'
+  | 'globe'
+  | 'layers'
+  | 'fullscreen'
+
 export type MapControlsProps = {
   position?: 'left' | 'right'
-  components?: Partial<Record<'compass' | 'zoom' | 'view' | 'layers' | 'fullscreen', boolean | ReactNode>>
+  /** Grain GROUPE : masquer (`false`) ou remplacer (ReactNode) un groupe entier de la barre. */
+  components?: Partial<Record<'drag' | 'compass' | 'zoom' | 'view' | 'layers' | 'fullscreen', boolean | ReactNode>>
+  /**
+   * Grain BOUTON : `false` masque un bouton précis (ex. `{ rotate: false, zoomOut: false }`).
+   * Un groupe dont tous les boutons sont masqués disparaît, et le raccourci
+   * clavier d'un bouton masqué est désactivé avec lui.
+   */
+  buttons?: Partial<Record<MapControlButton, boolean>>
   /**
    * Raccourcis clavier par action — `false` pour en désactiver un, une autre
    * touche pour le remapper si elle est déjà prise ailleurs dans l'app. Lettres
@@ -59,9 +81,13 @@ function isNode(v: boolean | ReactNode | undefined): v is ReactNode {
   return v !== undefined && typeof v !== 'boolean'
 }
 
-/** Contrôles de navigation : boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
-export function MapControls({ position = 'right', components = {}, shortcuts }: MapControlsProps) {
+/** Contrôles de navigation : déplacement/rotation du drag, boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
+export function MapControls({ position = 'right', components = {}, buttons = {}, shortcuts }: MapControlsProps) {
   const { engine } = useMapContext()
+
+  // Mode du drag gauche (déplacer / pivoter) — source de vérité côté moteur.
+  const [dragMode, setDragModeState] = useState(engine.getDragMode())
+  useEffect(() => engine.on('dragmode', setDragModeState), [engine])
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -84,26 +110,29 @@ export function MapControls({ position = 'right', components = {}, shortcuts }: 
    *  — même vérité pour le rendu et l'activation des raccourcis : un slot customisé
    *  ne garde pas d'action clavier fantôme. */
   const defaultShown = (key: Slot) => !isNode(components[key]) && components[key] !== false
+  /** Ce bouton précis est-il visible ? (grain fin `buttons`, dans un groupe rendu) */
+  const btn = (b: MapControlButton) => buttons[b] !== false
   const keys = { ...DEFAULT_SHORTCUTS, ...shortcuts }
   const tip = (label: string, action?: MapControlAction) => tipProps(TIP_ID, label, action && keys[action])
 
   // Raccourcis : listener monté UNE fois (les props sont lues via ref au moment de
   // la frappe — un littéral `shortcuts={{...}}` inline ne recrée pas le listener).
-  const stateRef = useRef({ keys, defaultShown })
-  stateRef.current = { keys, defaultShown }
+  const stateRef = useRef({ keys, defaultShown, btn })
+  stateRef.current = { keys, defaultShown, btn }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = plainKey(e)
       if (!k) return
-      const { keys, defaultShown } = stateRef.current
+      const { keys, defaultShown, btn } = stateRef.current
       // '=' accepté pour zoomIn '+' : même touche sans Maj sur la plupart des claviers.
       const is = (a: MapControlAction) => k === keys[a] || (keys[a] === '+' && k === '=')
-      if ((defaultShown('compass') && is('north')) || (defaultShown('view') && is('topDown'))) topDown()
-      else if (defaultShown('zoom') && is('zoomIn')) zoomBy(0.5)
-      else if (defaultShown('zoom') && is('zoomOut')) zoomBy(2)
-      else if (defaultShown('view') && is('tilt')) tiltUp()
-      else if (defaultShown('view') && is('globe')) globe()
-      else if (defaultShown('fullscreen') && is('fullscreen')) toggleFs()
+      // Un raccourci n'est actif que si SON bouton est visible (groupe + grain fin).
+      if ((defaultShown('compass') && btn('compass') && is('north')) || (defaultShown('view') && btn('topDown') && is('topDown'))) topDown()
+      else if (defaultShown('zoom') && btn('zoomIn') && is('zoomIn')) zoomBy(0.5)
+      else if (defaultShown('zoom') && btn('zoomOut') && is('zoomOut')) zoomBy(2)
+      else if (defaultShown('view') && btn('tilt') && is('tilt')) tiltUp()
+      else if (defaultShown('view') && btn('globe') && is('globe')) globe()
+      else if (defaultShown('fullscreen') && btn('fullscreen') && is('fullscreen')) toggleFs()
       else return
       // Raccourci consommé : pas d'action par défaut du navigateur (ex. frappe
       // insérée si un champ vient de prendre le focus).
@@ -115,9 +144,34 @@ export function MapControls({ position = 'right', components = {}, shortcuts }: 
 
   return (
     <div className={`m3d-controls m3d-${position}`}>
+      {isNode(components.drag)
+        ? components.drag
+        : defaultShown('drag') && (btn('pan') || btn('rotate')) && (
+            <div className="m3d-controls-group">
+              {btn('pan') && (
+                <button
+                  className={`m3d-btn${dragMode === 'pan' ? ' m3d-on' : ''}`}
+                  {...tip('Déplacer la carte')}
+                  onClick={() => engine.setDragMode('pan')}
+                >
+                  <Icon path={mdiCursorMove} size={ICON_SIZE} />
+                </button>
+              )}
+              {btn('rotate') && (
+                <button
+                  className={`m3d-btn${dragMode === 'rotate' ? ' m3d-on' : ''}`}
+                  {...tip('Pivoter la vue (MAJ)')}
+                  onClick={() => engine.setDragMode('rotate')}
+                >
+                  <Icon path={mdiRotateOrbit} size={ICON_SIZE} />
+                </button>
+              )}
+            </div>
+          )}
+
       {isNode(components.compass)
         ? components.compass
-        : defaultShown('compass') && (
+        : defaultShown('compass') && btn('compass') && (
             <div className="m3d-controls-group">
               <button className="m3d-btn" {...tip('Nord / vue du dessus', 'north')} onClick={topDown}>
                 <Icon path={mdiCompassOutline} size={ICON_SIZE} />
@@ -127,40 +181,52 @@ export function MapControls({ position = 'right', components = {}, shortcuts }: 
 
       {isNode(components.zoom)
         ? components.zoom
-        : defaultShown('zoom') && (
+        : defaultShown('zoom') && (btn('zoomIn') || btn('zoomOut')) && (
             <div className="m3d-controls-group">
-              <button className="m3d-btn" {...tip('Zoom avant', 'zoomIn')} onClick={() => zoomBy(0.5)}>
-                <Icon path={mdiPlus} size={ICON_SIZE} />
-              </button>
-              <button className="m3d-btn" {...tip('Zoom arrière', 'zoomOut')} onClick={() => zoomBy(2)}>
-                <Icon path={mdiMinus} size={ICON_SIZE} />
-              </button>
+              {btn('zoomIn') && (
+                <button className="m3d-btn" {...tip('Zoom avant', 'zoomIn')} onClick={() => zoomBy(0.5)}>
+                  <Icon path={mdiPlus} size={ICON_SIZE} />
+                </button>
+              )}
+              {btn('zoomOut') && (
+                <button className="m3d-btn" {...tip('Zoom arrière', 'zoomOut')} onClick={() => zoomBy(2)}>
+                  <Icon path={mdiMinus} size={ICON_SIZE} />
+                </button>
+              )}
             </div>
           )}
 
       {isNode(components.view)
         ? components.view
-        : defaultShown('view') && (
+        : defaultShown('view') && (btn('tilt') || btn('topDown') || btn('globe')) && (
             <div className="m3d-controls-group">
-              <button className="m3d-btn" {...tip('Incliner', 'tilt')} onClick={tiltUp}>
-                <Icon path={mdiVideo3d} size={ICON_SIZE} />
-              </button>
-              <button className="m3d-btn" {...tip('Vue du dessus', 'topDown')} onClick={topDown}>
-                <Icon path={mdiVideo2d} size={ICON_SIZE} />
-              </button>
-              <button className="m3d-btn" {...tip('Retour au globe', 'globe')} onClick={globe}>
-                <Icon path={mdiEarth} size={ICON_SIZE} />
-              </button>
+              {btn('tilt') && (
+                <button className="m3d-btn" {...tip('Incliner', 'tilt')} onClick={tiltUp}>
+                  <Icon path={mdiVideo3d} size={ICON_SIZE} />
+                </button>
+              )}
+              {btn('topDown') && (
+                <button className="m3d-btn" {...tip('Vue du dessus', 'topDown')} onClick={topDown}>
+                  <Icon path={mdiVideo2d} size={ICON_SIZE} />
+                </button>
+              )}
+              {btn('globe') && (
+                <button className="m3d-btn" {...tip('Retour au globe', 'globe')} onClick={globe}>
+                  <Icon path={mdiEarth} size={ICON_SIZE} />
+                </button>
+              )}
             </div>
           )}
 
       {isNode(components.layers)
         ? components.layers
-        : defaultShown('layers') && <TagFilterControl position={position} tipId={TIP_ID} shortcut={keys.layers} />}
+        : defaultShown('layers') && btn('layers') && (
+            <TagFilterControl position={position} tipId={TIP_ID} shortcut={keys.layers} />
+          )}
 
       {isNode(components.fullscreen)
         ? components.fullscreen
-        : defaultShown('fullscreen') && (
+        : defaultShown('fullscreen') && btn('fullscreen') && (
             <div className="m3d-controls-group">
               <button className="m3d-btn" {...tip('Plein écran', 'fullscreen')} onClick={toggleFs}>
                 <Icon path={mdiFullscreen} size={ICON_SIZE} />
