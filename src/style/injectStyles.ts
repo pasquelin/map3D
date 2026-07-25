@@ -575,7 +575,7 @@ const CSS = `
   background:color-mix(in srgb,var(--m3d-accent) 14%,var(--m3d-panel))}
 /* Bouton « réduire » à droite de la barre déployée. */
 .m3d-pindock-toggle{flex:none;align-self:stretch;display:flex;align-items:center;justify-content:center;
-  width:28px;margin-left:2px;padding:0;border:none;background:transparent;cursor:pointer;
+  width:20px;padding:0;border:none;background:transparent;cursor:pointer;
   color:var(--m3d-muted);border-radius:10px;transition:background .14s,color .14s}
 .m3d-pindock-toggle:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
 .m3d-pindock-toggle:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
@@ -601,7 +601,7 @@ const CSS = `
 /* Liste des pastilles : défile en X quand elle dépasse la largeur bornée. padding
    + margin opposés = le grossissement au survol (-3px) n'est pas rogné par le clip. */
 .m3d-pindock-items{display:flex;align-items:center;gap:10px;min-width:0;
-  overflow-x:auto;overflow-y:hidden;padding:8px;margin:-8px;
+  overflow-x:auto;overflow-y:hidden;padding:8px 16px;margin:-8px;
   scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent;
   /* Fondu doux aux deux bords : les pastilles qui débordent s'estompent. */
   -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
@@ -610,7 +610,7 @@ const CSS = `
 /* Carré épinglé : vignette arrondie (avatar/icône), croix de retrait dedans en
    haut-droite ; saisissable (glisser-hors = retrait). */
 .m3d-pin{position:relative;flex:none;box-sizing:border-box;padding:0;border:none;
-  border-radius:18px;overflow:hidden;cursor:pointer;background:var(--m3d-panel);
+  border-radius:10px;overflow:hidden;cursor:pointer;background:var(--m3d-panel);
   box-shadow:0 0 0 1px var(--m3d-border),0 2px 8px rgba(0,0,0,.28);
   transition:transform .12s cubic-bezier(.2,.8,.3,1)}
 .m3d-pin:hover{transform:translateY(-3px) scale(1.04)}
