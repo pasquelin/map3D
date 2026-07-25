@@ -11,6 +11,7 @@ import { clamp, DEG2RAD, EARTH_CIRCUMFERENCE } from './math'
 import { DragRegistry } from './DragRegistry'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
+import { MarkerRegistry } from './MarkerQuery'
 import { TagFilter } from './TagFilter'
 
 export type PointerPhase = 'down' | 'move' | 'up'
@@ -104,6 +105,8 @@ export class MapEngine {
   readonly tags: TagFilter
   /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
   readonly selectables = new SelectableRegistry()
+  /** Registre d'inventaire des markers (données sources, clusters inclus) consommé par l'outil loupe. */
+  readonly markers = new MarkerRegistry()
   /**
    * Registre du drag-and-drop générique (markers → dock favoris, et tout futur
    * usage) : source de vérité de l'état, zones de dépôt, diffusion. Piloté par la

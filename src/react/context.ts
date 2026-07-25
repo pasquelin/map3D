@@ -94,3 +94,16 @@ export type DrawingApi = {
 export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso'
 
 export const DrawingContext = createContext<DrawingApi | null>(null)
+
+/** API de l'outil loupe exposée par `<LensLayer>` (pilote le bouton de barre). */
+export type LensApi = {
+  /** Outil loupe actif : on peut tracer une zone (ou une zone existe déjà). */
+  active: boolean
+  /** Une zone d'inventaire est présente à l'écran. */
+  hasZone: boolean
+  activate: () => void
+  deactivate: () => void
+  toggle: () => void
+}
+
+export const LensContext = createContext<LensApi | null>(null)

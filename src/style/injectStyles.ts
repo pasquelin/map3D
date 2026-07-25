@@ -676,6 +676,54 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-root.m3d-dragging .m3d-pin-x{opacity:0!important;pointer-events:none}
 .m3d-root.m3d-dragging .m3d-pin-tip{display:none}
 
+/* ── Loupe (LensLayer) : zone d'inspection + panneau d'inventaire ─────────────── */
+/* Curseur de tracé, seulement tant qu'aucune zone n'existe (phase de dessin). */
+.m3d-root.m3d-lensing canvas{cursor:crosshair}
+/* Zone : fenêtre écran 2D, déplaçable (corps) + redimensionnable (poignées). */
+.m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move;
+  border:1.5px solid var(--m3d-accent);border-radius:6px;
+  background:color-mix(in srgb,var(--m3d-accent) 10%,transparent);
+  box-shadow:0 0 0 1px color-mix(in srgb,#000 28%,transparent),0 2px 12px rgba(0,0,0,.28)}
+.m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:1;
+  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;padding:0;
+  background:var(--m3d-accent);color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.m3d-lenszone-x:hover{filter:brightness(1.12)}
+.m3d-lenszone-h{position:absolute;width:11px;height:11px;box-sizing:border-box;transform:translate(-50%,-50%);
+  background:#fff;border:1.5px solid var(--m3d-accent);border-radius:2px;pointer-events:auto;
+  box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.m3d-lenszone-h:hover{background:var(--m3d-accent)}
+/* Panneau d'inventaire, ancré à droite de la zone (position inline via le hook). */
+.m3d-lenshud{position:absolute;z-index:20;display:flex;flex-direction:column;
+  pointer-events:none;max-width:min(60%,360px)}
+.m3d-lenshud > *{pointer-events:auto}
+.m3d-lenspanel{width:252px;padding:8px;display:flex;flex-direction:column;gap:7px}
+.m3d-lenshead{display:flex;align-items:center;gap:6px;padding:2px 2px 0}
+.m3d-lenstitle{flex:1;font-size:12.5px;font-weight:600}
+.m3d-lenssummary{font-size:11px;color:var(--m3d-muted);padding:0 2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-lenslist{display:flex;flex-direction:column;gap:1px;max-height:44vh;overflow-y:auto;margin:0 -2px;padding:0 2px}
+.m3d-lensrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;
+  text-align:left;color:inherit}
+.m3d-lensrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-lensrow-sel{background:color-mix(in srgb,var(--m3d-accent) 16%,transparent)}
+.m3d-lensrow-sel:hover{background:color-mix(in srgb,var(--m3d-accent) 22%,transparent)}
+.m3d-lensrow:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
+.m3d-lenscheck{flex:none;color:var(--m3d-muted)}
+.m3d-lensrow-sel .m3d-lenscheck{color:var(--m3d-accent)}
+.m3d-lensdot{width:10px;height:10px;border-radius:50%;flex:none}
+.m3d-lensavatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex:none;border:1.5px solid var(--m3d-border)}
+.m3d-lenslabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.m3d-lensrow-actions{display:flex;gap:2px;flex:none}
+.m3d-lensact{display:flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 4px;
+  border:none;border-radius:6px;background:transparent;color:var(--m3d-muted);cursor:pointer;font-size:11px}
+.m3d-lensact:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
+.m3d-lensfoot{border-top:1px solid var(--m3d-border);padding-top:6px;display:flex;flex-wrap:wrap;gap:4px}
+.m3d-lensbtn{display:flex;align-items:center;gap:5px;padding:6px 9px;border:none;border-radius:8px;
+  background:color-mix(in srgb,var(--m3d-text) 6%,transparent);color:var(--m3d-text);cursor:pointer;font-size:11.5px}
+.m3d-lensbtn:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
+.m3d-lensbtn:disabled{opacity:.45;cursor:default}
+.m3d-lensempty{padding:14px 8px;text-align:center;color:var(--m3d-muted);font-size:12px}
+
 @media(prefers-reduced-motion:reduce){
   .m3d-root *{animation-duration:.001ms!important;animation-iteration-count:1!important}
 }

@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useCallback, useEffect, useId, useM
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { SelectableScreenItem } from '../../core/Selectables'
+import { boundsContains } from '../../core/MarkerQuery'
 import { countTags } from '../../core/TagFilter'
 import { MarkerLayer as CoreMarkerLayer, type OverlayItem } from '../../layers/MarkerLayer'
 import {
@@ -357,6 +358,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     recompute()
     // Un marker supprimé ou masqué par le filtre tags sort de la sélection (prune).
     engine.selectables.itemsChanged()
+    // L'inventaire de la loupe reflète les données courantes (post-filtre tags).
+    engine.markers.itemsChanged()
   }, [points, recompute, engine])
 
   // Provider du registre de sélection : expose les markers individuels visibles
@@ -385,6 +388,21 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       info: (id) => {
         const p = pointsByIdRef.current.get(id)
         return p ? { type: p.type } : null
+      },
+    })
+  }, [engine])
+
+  // Fournisseur d'inventaire de l'outil loupe : TOUS les markers d'un cadre géo,
+  // depuis les données sources (post-filtre tags) — donc clusters inclus, à la
+  // différence du provider de sélection qui ne voit que les markers visibles.
+  useEffect(() => {
+    return engine.markers.register({
+      markersInBounds: (bounds) => {
+        const out: MarkerData<T>[] = []
+        for (const p of latest.current.points) {
+          if (boundsContains(bounds, p.position)) out.push(p)
+        }
+        return out
       },
     })
   }, [engine])
