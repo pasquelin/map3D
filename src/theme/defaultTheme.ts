@@ -9,6 +9,7 @@ export const defaultTheme: MapTheme = {
     marker: {
       default: { base: '#2E7CF6', accent: '#78BEFF', contrast: '#ffffff' },
     },
+    tags: {},
     // Couleur PROPRE au centre du cluster : gris ardoise neutre, distinct des couleurs
     // de type/accent → dit « total » sans se confondre avec une sévérité.
     cluster: { core: '#1e293b', satellite: '#6344F0', text: '#ffffff', ring: '#ffffff' },
@@ -21,6 +22,7 @@ export const defaultTheme: MapTheme = {
       text: '#f8fafc',
       muted: '#94a3b8',
       accent: '#2E7CF6',
+      error: '#d11a01',
       border: 'rgba(255,255,255,0.10)',
     },
     path: { base: '#2E7CF6', casing: '#ffffff' },

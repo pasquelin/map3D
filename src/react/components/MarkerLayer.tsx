@@ -1,10 +1,12 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { countTags } from '../../core/TagFilter'
 import { MarkerLayer as CoreMarkerLayer, type OverlayItem } from '../../layers/MarkerLayer'
 import { ClusterEngine, type ClusterEntry, type ClusterInfo, clusterInfoFromCounts } from '../../layers/ClusterLayer'
 import type { LatLng } from '../../shared'
 import type { DataSource, MarkerData } from '../../data/types'
 import { useLiveData } from '../hooks/useLiveData'
+import { useTagSelection } from '../hooks/useTags'
 import { useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { DefaultCluster } from './DefaultCluster'
@@ -45,7 +47,23 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const getId = props.getId ?? ((p: MarkerData<T>) => p.id)
 
   const { data: sourceData } = useLiveData<MarkerData<T>>(props.source)
-  const points = props.points ?? sourceData
+  const allPoints = props.points ?? sourceData
+
+  // Filtre « Couches » : appliqué AVANT le clustering (les clusters reflètent le
+  // filtre). Recalculé uniquement au changement des points ou de la sélection.
+  const tagFilter = useTagSelection()
+  const points = useMemo(
+    () => (tagFilter.isActive ? allPoints.filter((p) => tagFilter.isVisible(p.tags)) : allPoints),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPoints, tagFilter.selectionVersion],
+  )
+
+  // Registre du panneau « Couches » : tags portés par TOUS les points (même masqués).
+  const tagSource = useId()
+  useEffect(() => {
+    tagFilter.report(tagSource, countTags(allPoints, (p) => p.tags))
+  }, [allPoints, tagFilter, tagSource])
+  useEffect(() => () => tagFilter.unreport(tagSource), [tagFilter, tagSource])
 
   const coreRef = useRef<CoreMarkerLayer | null>(null)
   const clusterRef = useRef<ClusterEngine | null>(null)

@@ -12,11 +12,12 @@ import { type ReactNode, useCallback } from 'react'
 import { Tooltip } from 'react-tooltip'
 import 'react-tooltip/dist/react-tooltip.css'
 import { useMapContext } from '../context'
+import { TagFilterControl } from './TagFilterControl'
 import { ICON_SIZE, tipProps } from './tooltip'
 
 export type MapControlsProps = {
   position?: 'left' | 'right'
-  components?: Partial<Record<'compass' | 'zoom' | 'view' | 'fullscreen', boolean | ReactNode>>
+  components?: Partial<Record<'compass' | 'zoom' | 'view' | 'layers' | 'fullscreen', boolean | ReactNode>>
 }
 
 /** Pas d'inclinaison par clic (rad). */
@@ -27,7 +28,7 @@ function isNode(v: boolean | ReactNode | undefined): v is ReactNode {
   return v !== undefined && typeof v !== 'boolean'
 }
 
-/** Contrôles de navigation : boussole, zoom, inclinaison / vue du dessus / retour au globe, plein écran. */
+/** Contrôles de navigation : boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
 export function MapControls({ position = 'right', components = {} }: MapControlsProps) {
   const { engine } = useMapContext()
 
@@ -90,6 +91,10 @@ export function MapControls({ position = 'right', components = {} }: MapControls
               </button>
             </div>
           )}
+
+      {isNode(components.layers)
+        ? components.layers
+        : show('layers') && <TagFilterControl position={position} tipId={TIP_ID} />}
 
       {isNode(components.fullscreen)
         ? components.fullscreen

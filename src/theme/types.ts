@@ -15,9 +15,12 @@ export type MapTheme = {
     background: string
     /** Couleur par type de marker (ex. 'alert-critical', 'agent-available'). */
     marker: Record<string, MarkerColor>
+    /** Couleur de repérage par tag (panneau « Couches ») ; tag/champ absent → palette hashée de la lib.
+     *  Optionnel : un thème complet écrit avant cet ajout reste valide (et ne crashe pas le panneau). */
+    tags?: Record<string, string>
     cluster: { core: string; satellite: string; text: string; ring: string }
     draw: { palette: string[]; default: string }
-    ui: { panel: string; text: string; muted: string; accent: string; border: string }
+    ui: { panel: string; text: string; muted: string; accent: string; error: string; border: string }
     path: { base: string; casing: string }
     zone: { fill: string; stroke: string }
   }

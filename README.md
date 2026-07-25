@@ -14,6 +14,7 @@ Conçue pour le *Dashboard Opérateur* GoSecure (alertes par sévérité, agents
 - **Données viewport-driven** : rechargement à la bbox au déplacement + temps réel live.
 - **Tracés/formes plaqués au sol** (Y=0, `polygonOffset`, épaisseur en mètres).
 - **Source 3D unique** : Google Photorealistic 3D Tiles via **Cesium Ion** (un seul token).
+- **Filtrage par tags (« couches »)** : markers et dessins tagués, panneau de filtre intégré aux contrôles (recherche, checkboxes, pastilles couleur, compteurs), sélection persistée.
 - **Thème typé** clair/sombre, `prefers-reduced-motion` respecté.
 
 ## Installation
@@ -85,6 +86,26 @@ Pour le **temps réel** (positions d'agents), passez simplement des `points` qui
 />
 ```
 
+## Filtrage par tags (« couches »)
+
+Chaque marker peut porter des `tags` ; les dessins sont tagués automatiquement (`['draw', <outil>]`). Le bouton **Couches** de `<MapControls>` ouvre un panneau listant les tags présents sur la carte (recherche, checkboxes, compteurs) : cocher un ou plusieurs tags ne laisse visibles que les éléments correspondants (sémantique **OU** — « les users et tous les rectangles »). La sélection est persistée en `localStorage`.
+
+```tsx
+const agents: MarkerData<Agent>[] = [
+  { id: 'a1', type: 'agent-enroute', tags: ['user', 'move'], position, data },
+  { id: 'a2', type: 'agent-available', tags: ['user', 'standby'], position, data },
+]
+
+// Couleurs de repérage des pastilles du panneau (sinon palette hashée stable) :
+const theme = mergeTheme(defaultTheme, {
+  colors: { tags: { user: '#22c55e', move: '#06b6d4' } },
+})
+```
+
+- Le filtrage des markers s'applique **avant** le clustering (les clusters reflètent le filtre) ; les dessins basculent simplement leur visibilité (aucun rebuild de géométrie).
+- Accès programmatique : `useTags()` / `useTagSelection()` (ou `engine.tags` : `toggle`, `clear`, `isVisible`, `all`).
+- Persistance : clé configurable via `<Map tagStorageKey>` (`null` pour désactiver, une clé par carte si plusieurs cartes cohabitent).
+
 ## API principale
 
 | Élément | Rôle |
@@ -95,8 +116,9 @@ Pour le **temps réel** (positions d'agents), passez simplement des `points` qui
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
 | `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds. |
 | `<DrawLayer tools shortcuts defaults value onChange>` | Outils de dessin + GeoJSON. |
-| `<MapControls>` `<SearchBox>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables. |
-| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTheme`. |
+| `<MapControls>` `<SearchBox>` `<ContextMenu>` `<Popup>` | Contrôles remplaçables (dont bouton **Couches** = filtre par tags). |
+| `<TagFilterControl position tipId>` | Bouton + panneau de filtre par tags, utilisable seul hors `<MapControls>`. |
+| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTags`, `useTagSelection`, `useTheme`. |
 
 ## Exemple complet (Dashboard GoSecure)
 

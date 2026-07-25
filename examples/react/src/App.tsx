@@ -34,7 +34,8 @@ type Alert = { id: number; severity: Severity; title: string }
 type Agent = { id: string; name: string; phone: string; status: 'available' | 'enroute' | 'onsite'; position: { lat: number; lng: number } }
 
 // Alertes = points réels de Paris, un lat/lng par alerte. Rien de calculé.
-const ALERTS: MarkerData<Alert>[] = [
+// `tags` (filtre « Couches ») dérivés de la sévérité : ['alert', <sévérité>].
+const ALERTS = ([
   { id: 99, type: 'alert-critical', position: TEST_POINT, data: { id: 99, severity: 'critical', title: 'Point de contrôle précision' } },
   { id: 1, type: 'alert-critical', position: { lat: 48.8606, lng: 2.3376 }, data: { id: 1, severity: 'critical', title: 'Intrusion — Louvre' } },
   { id: 2, type: 'alert-high', position: { lat: 48.853, lng: 2.3499 }, data: { id: 2, severity: 'high', title: 'Malaise — Notre-Dame' } },
@@ -46,7 +47,15 @@ const ALERTS: MarkerData<Alert>[] = [
   { id: 8, type: 'alert-low', position: { lat: 48.8462, lng: 2.3464 }, data: { id: 8, severity: 'low', title: 'Signalement — Panthéon' } },
   { id: 9, type: 'alert-high', position: { lat: 48.8615, lng: 2.3934 }, data: { id: 9, severity: 'high', title: 'Malaise — Père-Lachaise' } },
   { id: 10, type: 'alert-medium', position: { lat: 48.8616, lng: 2.287 }, data: { id: 10, severity: 'medium', title: 'Colis — Trocadéro' } },
-]
+] satisfies MarkerData<Alert>[]).map((a) => ({ ...a, tags: ['alert', a.data.severity] }))
+
+// Tags d'un agent (['user', <activité>]) — constantes hissées : le flux temps réel
+// n'alloue pas de tableau par agent et par tick.
+const AGENT_TAGS: Record<Agent['status'], string[]> = {
+  available: ['user', 'standby'],
+  enroute: ['user', 'move'],
+  onsite: ['user', 'onsite'],
+}
 
 // Agents = points réels de Paris. Le « temps réel » ne fait qu'ajouter un delta
 // de position (déplacement), il ne calcule pas la donnée initiale.
@@ -97,6 +106,22 @@ const TYPE_COLORS: Record<string, string> = {
   'agent-onsite': '#8b5cf6',
 }
 
+// Couleurs des tags = couleurs des TYPES correspondants (mêmes pastilles que les
+// markers dans le panneau « Couches » → lecture immédiate). Déclarées dans le
+// thème (`colors.tags`) ; les tags sans correspondance (dessins : draw, rect…)
+// gardent la palette hashée de la lib.
+const TAG_COLORS: Record<string, string> = {
+  alert: TYPE_COLORS['alert-high']!,
+  critical: TYPE_COLORS['alert-critical']!,
+  high: TYPE_COLORS['alert-high']!,
+  medium: TYPE_COLORS['alert-medium']!,
+  low: TYPE_COLORS['alert-low']!,
+  user: TYPE_COLORS['agent-available']!,
+  standby: TYPE_COLORS['agent-available']!,
+  move: TYPE_COLORS['agent-enroute']!,
+  onsite: TYPE_COLORS['agent-onsite']!,
+}
+
 const ZONE_STROKE = '#2E7CF6'
 
 const theme: MapTheme = mergeTheme(defaultTheme, {
@@ -114,6 +139,7 @@ const theme: MapTheme = mergeTheme(defaultTheme, {
       'agent-onsite': mk(TYPE_COLORS['agent-onsite']!),
     },
     zone: { fill: ZONE_STROKE, stroke: ZONE_STROKE },
+    tags: TAG_COLORS,
   },
   markers: { size: 44, ringWidth: 3, gradient: true, gloss: true },
   clustering: { radius: 60 },
@@ -209,7 +235,7 @@ function MapDemo() {
     }
   }, [])
 
-  const agentMarkers: MarkerData<Agent>[] = agents.map((a) => ({ id: a.id, type: `agent-${a.status}`, position: a.position, data: a }))
+  const agentMarkers: MarkerData<Agent>[] = agents.map((a) => ({ id: a.id, type: `agent-${a.status}`, tags: AGENT_TAGS[a.status], position: a.position, data: a }))
 
   const alertMenu = (m: MarkerData<Alert>): MenuItem[] => [
     { icon: '↗', label: 'Ouvrir la fiche', onSelect: () => console.info('fiche', m.data.id) },

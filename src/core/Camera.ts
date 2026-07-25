@@ -167,12 +167,14 @@ export class Camera {
     }
     if (this.followFn) {
       const p = this.followFn()
-      if (p) {
-        const altitude = this.getState().altitude
-        this.placeNadir(p, clamp(altitude, 200, 2_000_000), this.followPos, this.followQuat)
-        this.camera.position.copy(this.followPos)
-        this.camera.quaternion.copy(this.followQuat)
-      }
+      // Cible momentanément absente (marker clusterisé ou masqué par le filtre
+      // « Couches ») : rendre la main aux contrôles au lieu de figer la caméra —
+      // le suivi reprend dès que la cible réapparaît.
+      if (!p) return false
+      const altitude = this.getState().altitude
+      this.placeNadir(p, clamp(altitude, 200, 2_000_000), this.followPos, this.followQuat)
+      this.camera.position.copy(this.followPos)
+      this.camera.quaternion.copy(this.followQuat)
       return true
     }
     return false
