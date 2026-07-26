@@ -29,8 +29,7 @@ import {
 } from '../core/geometry'
 import type { LatLng } from '../shared'
 import { defaultLabels } from '../labels/defaultLabels'
-import { formatLabel } from '../labels/mergeLabels'
-import type { MapLabels } from '../labels/types'
+import { makeDistanceFormatter } from '../labels/measure'
 
 export type DrawTool = 'select' | 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase'
 export type { SelectMode } from './draw/SelectionManager'
@@ -1386,17 +1385,6 @@ export class DrawLayer implements Layer {
     this.overlay.parentElement?.classList.remove('m3d-rotating', 'm3d-hover-shape')
     this.scene.remove(this.group)
   }
-}
-
-/**
- * Formateur de distance construit sur les gabarits `labels.measure` — UNIQUE
- * implémentation du seuil km/m (le défaut du core et la couche React l'utilisent).
- */
-export function makeDistanceFormatter(measure: MapLabels['measure']): (meters: number) => string {
-  return (m) =>
-    m >= 1000
-      ? formatLabel(measure.kilometers, { value: (m / 1000).toFixed(2) })
-      : formatLabel(measure.meters, { value: Math.round(m) })
 }
 
 /** Opacité de bordure effective — la règle est plus discrète par défaut (0.85). */

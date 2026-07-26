@@ -1,13 +1,15 @@
 import { mdiClose, mdiCrosshairsGps, mdiDotsHorizontal } from '@mdi/js'
 import Icon from '@mdi/react'
-import { memo, type ReactNode, useEffect, useState } from 'react'
+import { memo, type ReactNode, useCallback, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import type { MapTheme } from '../../theme/types'
 import { useLabels, useMapContext } from '../context'
-import { useNudgeInside } from './panelFit'
+import { ContextMenu, type MenuItem } from './ContextMenu'
+import { useMergedRefs, useNudgeInside } from './panelFit'
+import { useDismiss } from './useDismiss'
 
 /** Action du menu déroulant d'une ligne (extensible). */
 export type MarkerListAction<T = unknown> = {
@@ -60,7 +62,14 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
   const labels = useLabels()
   const root = overlay.parentElement
   const [menu, setMenu] = useState<{ id: string | number; left: number; top: number } | null>(null)
-  const [, setMenuEl] = useNudgeInside()
+  const closeMenu = useCallback(() => setMenu(null), [])
+  // Le nœud du menu sert à DEUX choses : le rabattre dans le conteneur (nudge) et
+  // décider si un clic tombe dedans (dismiss). D'où les deux refs fusionnées.
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const [, setNudge] = useNudgeInside()
+  const setMenuEl = useMergedRefs(setNudge, (el) => {
+    menuRef.current = el as HTMLDivElement | null
+  })
 
   const target = (m: MarkerData<T>) => {
     if (props.onTarget) {
@@ -73,31 +82,29 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
     )
   }
 
-  // Clic ailleurs / molette / Échap : ferme le menu ouvert. Échap est capté en
-  // CAPTURE et stoppé net : sinon il traverse jusqu'aux raccourcis globaux (sortie
-  // d'outil, retrait de la zone loupe) alors que l'utilisateur ne visait que le menu.
-  useEffect(() => {
-    if (!menu) return
-    const close = () => setMenu(null)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      e.stopPropagation()
-      setMenu(null)
-    }
-    window.addEventListener('pointerdown', close)
-    window.addEventListener('wheel', close, { passive: true })
-    window.addEventListener('keydown', onKey, true)
-    return () => {
-      window.removeEventListener('pointerdown', close)
-      window.removeEventListener('wheel', close)
-      window.removeEventListener('keydown', onKey, true)
-    }
-  }, [menu])
+  // Clic ailleurs / molette / Échap : ferme le menu ouvert — mécanique partagée avec
+  // les flyouts de barres. `wheel` parce que le menu est ancré à une ligne au-dessus
+  // de la carte, `captureEscape` pour que la touche ne file pas aux raccourcis
+  // globaux alors que l'utilisateur ne visait que ce menu.
+  useDismiss(menuRef, menu !== null, closeMenu, { wheel: true, captureEscape: true })
 
-  const actionsFor = (): MarkerListAction<T>[] => [
-    { id: 'target', label: labels.markerList.target, icon: mdiCrosshairsGps, run: target },
-    ...(props.actions ?? []),
-  ]
+  /**
+   * Actions d'une ligne traduites en items de `<ContextMenu>` — qui porte déjà le
+   * clavier complet (roving tabindex, flèches, Entrée/Espace), l'ARIA et les
+   * sous-menus. Ce menu était auparavant réimplémenté ici avec les mêmes classes
+   * CSS mais un clavier au rabais.
+   *
+   * `MarkerListAction` reste l'API publique (son `icon` est un chemin @mdi, plus
+   * simple à fournir qu'un nœud) : la conversion vit ici, pas chez l'appelant.
+   */
+  const menuItemsFor = (m: MarkerData<T>): MenuItem[] =>
+    [{ id: 'target', label: labels.markerList.target, icon: mdiCrosshairsGps, run: target }, ...(props.actions ?? [])].map(
+      (a) => ({
+        label: a.label,
+        icon: a.icon ? <Icon path={a.icon} size={0.7} /> : undefined,
+        onSelect: () => a.run(m),
+      }),
+    )
 
   // Ouvert sous le bouton ; `useNudgeInside` le rabat DANS le conteneur après
   // rendu, sur sa hauteur RÉELLE mesurée — pas sur une estimation calée sur le CSS
@@ -148,7 +155,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
-                if (menu?.id === id) setMenu(null)
+                if (menu?.id === id) closeMenu()
                 else openMenu(id, e.currentTarget)
               }}
             >
@@ -171,46 +178,13 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
             {menu?.id === id &&
               root &&
               createPortal(
-                <div
-                  ref={setMenuEl}
-                  className="m3d-menu-panel m3d-mlmenu"
-                  role="menu"
+                <ContextMenu
+                  items={menuItemsFor(m)}
+                  onClose={closeMenu}
+                  className="m3d-mlmenu"
                   style={{ left: menu.left, top: menu.top }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                  // Le portail est DOM-détaché mais reste enfant de la ligne dans
-                  // l'arbre React : sans cette barrière, le clavier du menu remonte
-                  // au `onKeyDown` de la ligne (qui cible le marker).
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  {actionsFor().map((a) => (
-                    <div
-                      key={a.id}
-                      className="m3d-menu-item"
-                      role="menuitem"
-                      tabIndex={0}
-                      onClick={() => {
-                        a.run(m)
-                        setMenu(null)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter' && e.key !== ' ') return
-                        // `preventDefault` : Espace ferait défiler la liste.
-                        e.preventDefault()
-                        e.stopPropagation()
-                        a.run(m)
-                        setMenu(null)
-                      }}
-                    >
-                      {a.icon && (
-                        <span className="m3d-menu-icon">
-                          <Icon path={a.icon} size={0.7} />
-                        </span>
-                      )}
-                      <span className="m3d-menu-label">{a.label}</span>
-                    </div>
-                  ))}
-                </div>,
+                  panelRef={setMenuEl}
+                />,
                 root,
               )}
           </div>

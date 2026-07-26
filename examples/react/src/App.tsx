@@ -1,4 +1,4 @@
-import { StrictMode, type ReactNode, useEffect, useRef, useState } from 'react'
+import { StrictMode, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   type ClusterInfo,
@@ -16,9 +16,13 @@ import {
   type MarkerListAction,
   type MenuItem,
   PinnedDock,
+  RelationLayer,
+  RelationStatusBar,
+  type RelationRule,
   SearchBox,
   SelectionBadges,
   ShapeLayer,
+  createGoogleRoutesProvider,
   defaultTheme,
   mergeTheme,
   useDrawing,
@@ -75,6 +79,53 @@ const AGENT_TAGS: Record<Agent['status'], string[]> = {
   enroute: ['user', 'move'],
   onsite: ['user', 'onsite'],
 }
+
+/* ══════════════════ RELATIONS — le SEUL endroit où vit le métier ══════════════════
+   Le moteur de relations ne connaît que des tags, des couleurs et des libellés :
+   « alerte », « agent » et « user » n'apparaissent que dans cette configuration,
+   jamais dans la lib. */
+const RELATION_RULES: RelationRule[] = [
+  {
+    id: 'alert-to-agents',
+    label: 'Agents',
+    from: { any: ['alert'] },
+    // Un agent déjà sur place n'est pas un renfort mobilisable.
+    to: { any: ['user'], none: ['onsite'] },
+    mode: 'DRIVE',
+    selection: { mode: 'fastest', count: 3, maxMeters: 15000 },
+    limit: { compute: 15, render: 10 },
+  },
+  {
+    id: 'agent-to-alerts',
+    label: 'Alertes',
+    from: { any: ['user'] },
+    to: { any: ['alert'] },
+    // `color` volontairement omis : démontre la couleur par défaut de
+    // `<RelationLayer defaultColor>`.
+    mode: 'DRIVE',
+    selection: { mode: 'fastest', count: 3, maxMeters: 15000 },
+    limit: { compute: 15, render: 10 },
+  },
+  {
+    id: 'agent-to-agents',
+    label: 'Autres agents',
+    from: { any: ['user'] },
+    // La source est toujours exclue de ses propres cibles par `selectTargets`.
+    to: { any: ['user'] },
+    mode: 'DRIVE',
+    selection: { mode: 'fastest', count: 3, maxMeters: 15000 },
+    limit: { compute: 15, render: 10 },
+  },
+  {
+    id: 'agent-to-critical',
+    label: 'Alertes critiques',
+    from: { any: ['user'] },
+    to: { all: ['alert', 'critical'] },
+    mode: 'DRIVE',
+    selection: { mode: 'radius', radiusMeters: 3000, maxMeters: 15000 },
+    limit: { compute: 15, render: 10 },
+  },
+]
 
 // Agents = points réels de Paris. Le « temps réel » ne fait qu'ajouter un delta
 // de position (déplacement), il ne calcule pas la donnée initiale.
@@ -226,6 +277,14 @@ function MapDemo() {
   }, [])
 
   const agentMarkers: MarkerData<Agent>[] = agents.map((a) => ({ id: a.id, type: `agent-${a.status}`, tags: AGENT_TAGS[a.status], avatar: AGENT_AVATARS[a.id], position: a.position, data: a }))
+
+  // Fournisseur de routage : la clé reste côté client (cette lib n'a pas de backend).
+  // Sans clé, les appels échouent et les étiquettes affichent « Temps indisponible » —
+  // jamais une distance à vol d'oiseau déguisée en temps de trajet.
+  const routesProvider = useMemo(
+    () => createGoogleRoutesProvider({ apiKey: GOOGLE_MAPS_KEY ?? '', region: 'fr' }),
+    [],
+  )
 
   const alertMenu = (m: MarkerData<Alert>): MenuItem[] => [
     { icon: '↗', label: 'Ouvrir la fiche', onSelect: () => console.info('fiche', m.data.id) },
@@ -384,28 +443,46 @@ function MapDemo() {
     >
       <ShapeLayer shapes={[{ kind: 'circle', center: PARIS, radiusMeters: 6000, color: ZONE_STROKE, fillOpacity: 0.1 }]} />
 
-      <MarkerLayer<AnyData>
-        points={allMarkers}
-        getId={(m) => m.id}
-        cluster={{ enabled: true, radius: 60 }}
-        selectedId={selected}
-        followId={followed}
-        onSelect={(m) => {
-          if (!m.type.startsWith('agent')) return
-          // Clic = sélection ; le suivi caméra passe par le menu « Suivre ».
-          setSelected(String(m.id))
-        }}
-        size={44}
-        // Pastille visible = 58/80 du sprite (r=29 dans un viewBox 80) → anneau collé.
-        selectionRing={Math.round(44 * (58 / 80)) + 2}
-        icon={iconFor}
-        draggable
-        clusterTypeIcon={clusterTypeIcon}
-        clusterTypeLabel={clusterTypeLabel}
-        menu={menuFor}
-        tooltip={tipFor}
-        clusterTooltip={clusterTipFor}
-      />
+      {/* Moteur de relations : l'entrée « Distance autour › » se GREFFE sur le menu
+          marker existant, elle ne le remplace pas. La forme fonction donne accès à
+          l'API sans extraire un composant juste pour `useRelations()`. */}
+      <RelationLayer rules={RELATION_RULES} provider={routesProvider}>
+        {(relations) => (
+          <>
+            <MarkerLayer<AnyData>
+              points={allMarkers}
+              getId={(m) => m.id}
+              cluster={{ enabled: true, radius: 60 }}
+              selectedId={selected}
+              followId={followed}
+              onSelect={(m) => {
+                if (!m.type.startsWith('agent')) return
+                // Clic = sélection ; le suivi caméra passe par le menu « Suivre ».
+                setSelected(String(m.id))
+              }}
+              size={44}
+              // Pastille visible = 58/80 du sprite (r=29 dans un viewBox 80) → anneau collé.
+              selectionRing={Math.round(44 * (58 / 80)) + 2}
+              icon={iconFor}
+              draggable
+              clusterTypeIcon={clusterTypeIcon}
+              clusterTypeLabel={clusterTypeLabel}
+              menu={(m) => {
+                const rel = relations.menuFor(m)
+                return rel.length === 0 ? menuFor(m) : [...menuFor(m), { separator: true }, ...rel]
+              }}
+              tooltip={tipFor}
+              clusterTooltip={clusterTipFor}
+            />
+            <RelationStatusBar
+              nameOf={(p) => {
+                const m = allMarkers.find((x) => String(x.id) === p.id)
+                return m ? markerLabel(m) : p.id
+              }}
+            />
+          </>
+        )}
+      </RelationLayer>
 
       {/* Favoris : long-press sur un marker → glisser dans la barre du bas.
           Clic sur une pastille = vol caméra + sélection. × ou glisser-hors = retrait. */}

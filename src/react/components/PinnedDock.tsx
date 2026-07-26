@@ -7,6 +7,8 @@ import type { LatLng } from '../../shared'
 import type { MapTheme } from '../../theme/types'
 import { useLabels, useMapContext } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
+import { hasTipContent, MarkerTip } from './MarkerTip'
+import { RemoveButton } from './RemoveButton'
 import { useDropZone } from '../hooks/useDropZone'
 
 /**
@@ -236,7 +238,11 @@ function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onAct
           {content}
           {caption}
         </div>
-        <span className="m3d-pin-remove-hint">{removeLabel}</span>
+        {/* Même bouton que partout ailleurs : glisser hors de la dock supprime, et
+            l'indice doit le dire avec le vocabulaire visuel de la suppression. */}
+        <span className="m3d-pin-remove-hint">
+          <RemoveButton label={removeLabel} withText onRemove={() => undefined} />
+        </span>
       </>
     ),
   })
@@ -262,29 +268,18 @@ function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onAct
     >
       {content}
       {caption}
-      {tipPos && tip && (tip.title != null || tip.content != null) && root
+      {tipPos && hasTipContent(tip) && root
         ? createPortal(
-            <div className="m3d-markertip m3d-pin-tip" style={{ left: tipPos.left, top: tipPos.top }}>
-              {tip.title != null && <div className="m3d-markertip-title">{tip.title}</div>}
-              {tip.content != null && <div className="m3d-markertip-content">{tip.content}</div>}
-            </div>,
+            <MarkerTip
+              title={tip?.title}
+              content={tip?.content}
+              className="m3d-pin-tip"
+              style={{ left: tipPos.left, top: tipPos.top }}
+            />,
             root,
           )
         : null}
-      <button
-        type="button"
-        className="m3d-pin-x"
-        aria-label={removeLabel}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation()
-          onUnpin(item.id)
-        }}
-      >
-        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden>
-          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-        </svg>
-      </button>
+      <RemoveButton label={removeLabel} className="m3d-pin-x" onRemove={() => onUnpin(item.id)} />
     </div>
   )
 }

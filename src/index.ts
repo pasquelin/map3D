@@ -48,7 +48,15 @@ export type { DragPayload, DropZone, DragState, DragEnd } from './core/DragRegis
 // une couche marker s'y branche pour rendre ses points interrogeables par cadre géo.
 export { MarkerRegistry, boundsContains } from './core/MarkerQuery'
 export type { MarkerProvider } from './core/MarkerQuery'
+// Hauteurs d'ancre mémoïsées (raycast amorti, retentatives des tuiles absentes,
+// invalidation 2D/3D) : à réutiliser par toute couche custom qui projette des
+// éléments drapés au sol plutôt que d'en réécrire les précautions.
+export { AnchorHeightCache } from './core/AnchorHeightCache'
 export * as MapMath from './core/math'
+// Les géométries dont les coordonnées ne sont pas finies sont écartées et signalées
+// une fois par origine. À rediriger vers le journal de l'hôte, ou à couper (`null`) :
+// une lib n'a pas à écrire d'autorité dans la console de l'application.
+export { setGeometryWarner } from './core/geometry'
 
 // ── Data (viewport-driven / temps réel) ──
 export type { Viewport, DataSource, MarkerData } from './data/types'
@@ -84,7 +92,7 @@ export { injectStyles } from './style/injectStyles'
 export type { MapLabels, PartialLabels } from './labels/types'
 export { defaultLabels } from './labels/defaultLabels'
 export { mergeLabels, formatLabel, formatCount } from './labels/mergeLabels'
-export { makeDistanceFormatter } from './layers/DrawLayer'
+export { makeDistanceFormatter, makeDurationFormatter, makeLinkLabelFormatter } from './labels/measure'
 
 // ── React ──
 export { MapProvider } from './react/MapProvider'
@@ -126,6 +134,10 @@ export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar } from './react/components/Toolbar'
 export type { DrawToolbarProps, DrawToolbarSection } from './react/components/Toolbar'
+/** Bouton de barre (icône + état + tooltip) — pour peupler `extraTools` / `components`
+ *  avec le même langage visuel que les boutons natifs. */
+export { ToolButton } from './react/components/ToolButton'
+export type { ToolButtonProps, BarTip } from './react/components/ToolButton'
 export { DrawStylePanel } from './react/components/DrawStylePanel'
 export type { DrawStylePanelProps } from './react/components/DrawStylePanel'
 export { SelectionBadges } from './react/components/SelectionBadges'
@@ -145,7 +157,44 @@ export { SearchBox } from './react/components/SearchBox'
 export type { SearchBoxProps } from './react/components/SearchBox'
 export { createGooglePlacesSearch } from './search/googlePlaces'
 export type { GooglePlacesOptions } from './search/googlePlaces'
+/** Bouton « supprimer » partagé (socle de relation, dock, indice de drag). */
+export { RemoveButton } from './react/components/RemoveButton'
+export type { RemoveButtonProps } from './react/components/RemoveButton'
+export { REMOVE_ICON_PATH } from './core/removeButton'
 export { ContextMenu } from './react/components/ContextMenu'
 export type { MenuItem } from './react/components/ContextMenu'
+
+// ── Moteur de relations (liens par tags + routage réel) ──
+// Le core est publié tel quel : il est utilisable sans carte (calcul de sélection
+// côté serveur, fournisseur de routage maison) — d'où l'export du moteur ET de son
+// contrat, pas seulement du composant.
+export { RelationLayer } from './react/components/RelationLayer'
+export type { RelationLayerProps } from './react/components/RelationLayer'
+export { RelationStatusBar } from './react/components/RelationStatusBar'
+export type { RelationStatusBarProps } from './react/components/RelationStatusBar'
+export { useRelations } from './react/hooks/useRelations'
+export type { RelationApi } from './react/context'
+export { RelationEngine } from './relations/core/engine'
+export type { RelationSnapshot } from './relations/core/engine'
+export { selectTargets, matchesSelector } from './relations/core/selection'
+export { buildRelationMenu } from './relations/relationMenu'
+export type { RelationMenuContext } from './relations/relationMenu'
+export { haversineMeters, bearingDeg, greatCirclePoints, fanLegs, boundsAround } from './relations/core/geo'
+export { decodePolyline } from './relations/core/polyline'
+export { RouteCache } from './relations/core/cache'
+export type {
+  MapPoint,
+  TagSelector,
+  TravelMode,
+  SelectionMode,
+  RelationRule,
+  LinkStatus,
+  Link,
+} from './relations/core/types'
+export { createGoogleRoutesProvider } from './relations/providers/GoogleRoutesProvider'
+export type { GoogleRoutesOptions } from './relations/providers/GoogleRoutesProvider'
+export type { RoutingProvider, MatrixEntry, ProviderRoute } from './relations/providers/RoutingProvider'
+export { LinkLayer } from './layers/LinkLayer'
+export type { LinkVisual, LinkLayerDefaults } from './layers/LinkLayer'
 export { DefaultMarker } from './react/components/DefaultMarker'
 export { DefaultCluster } from './react/components/DefaultCluster'

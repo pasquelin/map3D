@@ -115,6 +115,12 @@ export function Map(props: MapProps) {
       : null
     const ro = new ResizeObserver(() => {
       const r = container.getBoundingClientRect()
+      // Conteneur masqué (display:none, onglet inactif, panneau replié, transition) :
+      // on IGNORE la mesure au lieu de propager 0. La dernière taille valide reste en
+      // vigueur, donc la caméra ne traverse pas d'état dégénéré et rien n'est
+      // reprojeté pour rien ; au retour à l'écran, le vrai resize suit.
+      // (`setSize` planche de son côté — ceci évite en plus le rendu 1×1 transitoire.)
+      if (r.width < 1 || r.height < 1) return
       eng.setSize(r.width, r.height)
     })
     ro.observe(container)

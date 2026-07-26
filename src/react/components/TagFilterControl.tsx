@@ -6,8 +6,9 @@ import { useLabels, useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
 import { useAnchoredPanel } from './panelFit'
 import { plainKey } from './shortcuts'
+import { ToolButton } from './ToolButton'
 import { useDismiss } from './useDismiss'
-import { ICON_SIZE, tipProps, withShortcut } from './tooltip'
+import { useTip } from './tooltip'
 
 /** Hauteur maximale souhaitée du panneau quand le conteneur le permet (px). */
 const PANEL_MAX_HEIGHT = 380
@@ -59,20 +60,26 @@ export function TagFilterControl({ position = 'right', tipId, shortcut, tagLabel
 
   const active = tags.selected.size
   const label = labels.tags.button
+  // Hook appelé inconditionnellement (règles des hooks) ; c'est le PASSAGE du tip
+  // au bouton qui est conditionné par la présence d'une barre hôte.
+  const tip = useTip(tipId ?? '')
 
   return (
     <div className="m3d-controls-group m3d-tags" ref={rootRef}>
-      <button
-        className={`m3d-btn m3d-tagbtn${active > 0 ? ' m3d-on' : ''}`}
-        {...(tipId
-          ? tipProps(tipId, label, shortcut, labels.format.shortcut)
-          : { 'aria-label': withShortcut(label, shortcut, labels.format.shortcut) })}
+      {/* `tipId` absent (bouton monté hors d'une barre hôte) : `ToolButton` retombe
+          sur l'aria-label seul — le nom accessible reste porté. */}
+      <ToolButton
+        icon={mdiLayersOutline}
+        label={label}
+        tip={tipId ? tip : undefined}
+        shortcut={shortcut}
+        active={active > 0}
+        className="m3d-tagbtn"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <Icon path={mdiLayersOutline} size={ICON_SIZE} />
         {active > 0 && <span className="m3d-tag-badge">{active}</span>}
-      </button>
+      </ToolButton>
       {open && <TagPanel position={position} tagLabel={tagLabel} />}
     </div>
   )

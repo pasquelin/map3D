@@ -108,6 +108,77 @@ const theme = mergeTheme(defaultTheme, {
 - Accès programmatique : `useTags()` / `useTagSelection()` (ou `engine.tags` : `toggle`, `clear`, `isVisible`, `all`).
 - Persistance : clé configurable via `<Map tagStorageKey>` (`null` pour désactiver, une clé par carte si plusieurs cartes cohabitent).
 
+## Relations (distances et temps de trajet réels)
+
+`<RelationLayer>` relie un marker à ses voisins **par tags**, avec les distances et durées **routières réelles** d'un fournisseur de routage. Une section « Distance autour » se **greffe** sur le menu contextuel du marker : elle ne le remplace pas. Les familles de tags applicables à la source y sont listées directement, chacune ouvrant ses presets de sélection.
+
+```tsx
+import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from 'map3d'
+
+// Le SEUL endroit où vit le métier : le moteur ne connaît que des tags.
+const RULES: RelationRule[] = [
+  {
+    id: 'alert-to-agents',
+    label: 'Agents',              // libellé du niveau 2 du menu
+    from: { any: ['alert'] },     // le marker source doit satisfaire ce sélecteur
+    to: { any: ['user'], none: ['onsite'] }, // les cibles candidates aussi
+    color: '#22c55e',             // omis → `defaultColor` de la couche
+    mode: 'DRIVE',
+    selection: { mode: 'fastest', count: 3, maxMeters: 15000 },
+    limit: { compute: 15, render: 10 },
+  },
+]
+
+const provider = useMemo(() => createGoogleRoutesProvider({ apiKey, region: 'fr' }), [apiKey])
+
+<RelationLayer rules={RULES} provider={provider}>
+  {(relations) => (
+    <>
+      <MarkerLayer
+        points={markers}
+        menu={(m) => {
+          const rel = relations.menuFor(m)          // [] si aucune règle ne s'applique
+          return rel.length === 0 ? base(m) : [...base(m), { separator: true }, ...rel]
+        }}
+      />
+      <RelationStatusBar nameOf={(p) => nameById(p.id)} />
+    </>
+  )}
+</RelationLayer>
+```
+
+**Sélecteurs de tags** — `{ any, all, none }` : `any` = au moins un (sémantique OU, celle du filtre « Couches »), `all` = tous requis, `none` = exclusion. Les trois clauses se combinent en ET.
+
+**Sélection** — `fastest` retient les `count` plus rapides (le plus proche à vol d'oiseau n'est pas le plus rapide : on sur-échantillonne, c'est la **durée** qui tranche) ; `radius` retient tout ce qui est sous `radiusMeters`. `maxMeters` est le garde-fou de coût appliqué **avant** tout appel réseau, et `limit.compute` / `limit.render` plafonnent respectivement les points envoyés au routage et les liens dessinés.
+
+**Ce qui s'affiche** — un socle à plat sous le marker source, un trait par cible avec son rang et son étiquette `2,4 km · 9 min`, et l'itinéraire réel au clic sur un lien. Le socle porte la **barre d'état de sa relation** : elle s'ancre juste à côté du marker, suit ses déplacements, et bascule de l'autre côté du socle quand le bord du conteneur est trop proche. Chaque relation ouverte a donc sa propre barre, à l'endroit où le regard se trouve déjà.
+
+La barre décrit **ce qui est réellement à l'écran**, et change avec lui :
+
+| | Sans itinéraire | Itinéraire tracé |
+| --- | --- | --- |
+| Pastille | couleur de la famille | couleur de l'itinéraire |
+| Titre | `source → famille` | `source → cible retenue` |
+| Segments | famille, mode de transport | mode de transport seul |
+| Mesure | étendue (`Les 3 plus rapides`) | `2,4 km · 9 min` du trajet |
+
+Le sélecteur de famille disparaît une fois la cible arrêtée — il proposerait de refaire un choix déjà fait. Changer le **mode de transport** pendant un tracé le **retrace** dans le nouveau mode au lieu de revenir aux traits directs : c'est le même trajet demandé autrement. L'ancien tracé reste affiché pendant le recalcul plutôt que de laisser un vide. Les cibles agrégées dans un même cluster partagent un tronc et s'ouvrent en éventail, sans jamais éclater le cluster ni toucher au zoom. Les liens suivent leurs deux extrémités : un marker qui bouge emporte son trait, et au-delà de `staleMeters` les temps sont refaits (débit plafonné par `refreshIntervalMs`).
+
+**Honnêteté des valeurs** — tant que le routage n'a pas répondu, l'étiquette affiche `…` ; s'il échoue, « Temps indisponible ». **Jamais** de repli sur la distance à vol d'oiseau : elle sert à sélectionner, pas à remplir un temps de trajet.
+
+**Clé d'API — à lire avant la production.** `createGoogleRoutesProvider` appelle Google depuis le navigateur, donc la clé part dans le bundle. Les web services Google (Routes v2) **n'acceptent pas** les restrictions de clé par référent HTTP — seulement par IP : une clé embarquée dans une page web est donc utilisable par un tiers, à vos frais. En production, implémentez `RoutingProvider` (deux méthodes : `matrix` et `route`) contre votre propre backend. Le core ne dépend que de ce contrat, aucune modification n'est nécessaire ailleurs.
+
+| Export | Rôle |
+| --- | --- |
+| `<RelationLayer rules provider width defaultColor routeColor hubRadius casingWidth minOpacity staleMeters refreshIntervalMs>` | Monte la couche, tient l'état, fournit le contexte. `provider` doit être stable (`useMemo`). |
+| `<RelationStatusBar nameOf>` | Barres d'état — **une par relation**, ancrée au socle de son marker source : segments cliquables (famille de tags, mode de transport) et effacement. Se replace seule contre les bords. |
+| `useRelations()` | `{ rules, menuFor, run, snapshots, setMode, untrace, clear }` — lève hors d'un `<RelationLayer>`. |
+| `RelationEngine` `selectTargets` `matchesSelector` `buildRelationMenu` | Core **headless** (ni Three, ni React, ni `fetch`) : utilisable côté serveur ou en test avec un fournisseur factice. |
+| `createGoogleRoutesProvider({ apiKey, language, region })` `RoutingProvider` | Fournisseur Google Routes v2, ou le contrat à implémenter pour le vôtre. |
+| `LinkLayer` `haversineMeters` `greatCirclePoints` `decodePolyline` `RouteCache` | Briques réutilisables (rendu des liens drapés, géométrie sphérique, polylignes encodées, cache TTL + position). |
+
+Modes de transport : `DRIVE`, `WALK`, `BICYCLE`, `TWO_WHEELER`, `TRANSIT`. Libellés et gabarits sont traduisibles via `labels.relations` et `labels.duration` (cf. [Traduction des libellés](#traduction-des-libellés-labels)).
+
 ## Outils de dessin
 
 Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (formes ancrées au sol, traits en px écran constants au zoom).
@@ -222,6 +293,11 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | `<DrawStylePanel>` `DrawSettingsButton` | Panneau de style et réglages par outil, utilisables seuls. |
 | `<MapControls>` `<ContextMenu>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
 | `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize>` | Recherche de lieu : **Google Places intégré** (clé de `<Map googleMapsApiKey>`, zéro config), vol caméra au **zoom adapté au viewport** du lieu, **historique localStorage** (champ vide focalisé), navigation clavier ↑ ↓ Entrée Échap, requêtes débouncées et annulées. Provider custom via `search` (ou `createGooglePlacesSearch({ apiKey, language, region, limit })`). |
+| `<TagFilterControl position tipId>` | Bouton + panneau de filtre par tags, utilisable seul hors `<MapControls>`. |
+| `<ToolButton icon label tip shortcut active>` | Bouton de barre (icône, état, infobulle + `aria-label` porteurs du raccourci) — pour peupler `extraTools` / `components` avec le langage visuel des boutons natifs. |
+| `AnchorHeightCache` | Hauteurs d'ancre mémoïsées (raycast amorti, retentative des tuiles absentes, invalidation 2D↔3D) pour une couche custom qui projette des éléments drapés au sol. |
+| `<RelationLayer rules provider>` `<RelationStatusBar>` | Liens par tags vers les markers voisins, avec distances et durées routières réelles — cf. [Relations](#relations-distances-et-temps-de-trajet-réels). |
+| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useMapEvents`, `useTags`, `useTagSelection`, `useRelations`, `useDraggablePanel`, `useDraggable`, `useDropZone`, `useTheme`, `useLabels`. |
 
 `<MapControls>` est entièrement configurable, à deux grains :
 
@@ -237,8 +313,6 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `mode3d`, `plan`, `traffic`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `layers`, `fullscreen`.
 
 **Fond de carte (`basemap`)** — bascule entre les tuiles 3D photoréalistes et le plan 2D Google, plus le calque trafic. Ces fonds sont des services Google : **sans `googleMapsApiKey`, le groupe entier n'est pas rendu** plutôt que d'offrir des boutons inertes. Le bouton trafic n'apparaît qu'en mode plan (seul mode où le calque existe), et repasser en 3D l'éteint — le moteur s'en charge, `engine.getBasemap()` et l'événement `basemap` en sont la source de vérité.
-| `<TagFilterControl position tipId>` | Bouton + panneau de filtre par tags, utilisable seul hors `<MapControls>`. |
-| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useMapEvents`, `useTags`, `useTagSelection`, `useTheme`, `useLabels`. |
 
 ## Exemple complet (Dashboard GoSecure)
 

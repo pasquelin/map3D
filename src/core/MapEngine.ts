@@ -260,7 +260,22 @@ export class MapEngine {
     }
 
     this.controls = new GlobeControls()
-    this.controls.setScene(this.scene)
+    /**
+     * Surface d'interaction des contrôles = le TILESET, pas la scène entière.
+     * `setScene` ne sert qu'au raycast de surface (point sous la caméra, cible de
+     * zoom, garde d'altitude) — sa documentation le dit : « scene to raycast against
+     * for surface-based interaction ».
+     *
+     * Lui passer `this.scene` y incluait `annotations`, donc TOUTES les formes,
+     * tracés et liens : ils étaient retraversés à chaque frame par le raycast, et
+     * une seule géométrie corrompue y faussait le picking caméra pour toute la
+     * scène. Pire, une forme plaquée au sol pouvait servir de pivot de caméra à la
+     * place du terrain.
+     *
+     * Le fond de carte 2D est lui aussi dans `tiles.group` (cf. `basemap2d` plus
+     * bas) : la surface reste donc trouvable en mode plan comme en 3D.
+     */
+    this.controls.setScene(this.tiles.group)
     this.controls.setCamera(this.threeCamera)
     this.controls.setEllipsoid(this.tiles.ellipsoid, this.tiles.group)
     ;(this.controls as unknown as { tilesRenderer: TilesRenderer }).tilesRenderer = this.tiles
@@ -403,16 +418,28 @@ export class MapEngine {
   }
 
   setSize(width: number, height: number): void {
-    this.size = { width: Math.max(1, width), height: Math.max(1, height) }
+    /**
+     * Plancher sur les DEUX dimensions, et tout ce qui suit part des valeurs
+     * planchées. Un conteneur momentanément dégénéré (onglet inactif, display:none,
+     * panneau replié, transition) mesure 0 : avec une largeur nulle, `aspect` vaut 0
+     * et `makePerspective` divise par `(right - left) = 0` → matrice de projection
+     * NaN. La contamination ne s'arrête pas là : elle ressort dans les raycasts (les
+     * contrôles picorent la scène entière à chaque frame) ET dans `metersPerPixel`,
+     * donc dans les épaisseurs de trait converties px→mètres, donc dans la géométrie
+     * des layers. Le test en positif attrape aussi NaN.
+     */
+    const w = width > 1 ? width : 1
+    const h = height > 1 ? height : 1
+    this.size = { width: w, height: h }
     // updateStyle=true : three fixe canvas.style.width/height en px CSS (= taille du
     // conteneur), le backing store restant à ×DPR. SANS ça, le canvas (élément
     // remplacé) garde sa largeur intrinsèque (attribut = ×DPR) → affiché 2× trop
     // grand, globe en bas-droite et markers décalés d'un facteur DPR.
-    this.renderer.setSize(width, height, true)
-    this.threeCamera.aspect = width / Math.max(1, height)
+    this.renderer.setSize(w, h, true)
+    this.threeCamera.aspect = w / h
     this.threeCamera.updateProjectionMatrix()
-    this.projection.setViewportSize(width, height)
-    this.labelRenderer.setSize(width, height)
+    this.projection.setViewportSize(w, h)
+    this.labelRenderer.setSize(w, h)
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     // La taille du viewport change les bounds : invalide la vue mémoïsée.
     this.viewDirty = true

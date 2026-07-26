@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode, useCallback, useEffect, useId, useM
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { SelectableScreenItem } from '../../core/Selectables'
-import { boundsContains } from '../../core/MarkerQuery'
+import { boundsContains, type VisualNode } from '../../core/MarkerQuery'
 import { countTags } from '../../core/TagFilter'
 import { MarkerLayer as CoreMarkerLayer, type OverlayItem } from '../../layers/MarkerLayer'
 import {
@@ -14,6 +14,7 @@ import {
   spiderfyLayout,
 } from '../../layers/ClusterLayer'
 import type { LatLng } from '../../shared'
+import { markerTags } from '../../data/types'
 import type { DataSource, MarkerData } from '../../data/types'
 import { useLiveData } from '../hooks/useLiveData'
 import { useTagSelection } from '../hooks/useTags'
@@ -22,6 +23,7 @@ import { useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { DefaultMarker } from './DefaultMarker'
+import { hasTipContent, MarkerTip } from './MarkerTip'
 
 export type MarkerLayerProps<T> = {
   points?: MarkerData<T>[]
@@ -92,13 +94,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const { data: sourceData } = useLiveData<MarkerData<T>>(props.source)
   const rawPoints = props.points ?? sourceData
 
-  // Tags garantis : un marker sans tags reçoit `['marker', type]` (miroir du défaut
-  // `['draw', kind]` des dessins) — sans quoi il disparaît dès qu'un filtre est
-  // actif. Identité ET allocation évitées dans le cas courant « tout est taggé »
-  // (flux temps réel : un tick de données ne coûte rien ici).
+  // Tags garantis (cf. `markerTags`). Identité ET allocation évitées dans le cas
+  // courant « tout est taggé » (flux temps réel : un tick de données ne coûte rien ici).
   const allPoints = useMemo(() => {
     if (!rawPoints.some((p) => !p.tags)) return rawPoints
-    return rawPoints.map((p) => (p.tags ? p : { ...p, tags: ['marker', p.type] }))
+    return rawPoints.map((p) => (p.tags ? p : { ...p, tags: markerTags(p) }))
   }, [rawPoints])
 
   // Filtre « Couches » : appliqué AVANT le clustering (les clusters reflètent le
@@ -125,6 +125,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   /** Entrées géo (markers/clusters) par nœud cluster — feuilles résolues à la
    *  demande (survol, spiderfy), jamais pendant le recompute. */
   const clusterMembersRef = useRef(new Map<string | number, ClusterEntry[]>())
+  /** Index `id de marker → nœud visuel`, invalidé par le recompute (cf. `visualNodeOf`). */
+  const nodeIndexRef = useRef<Map<string | number, VisualNode> | null>(null)
 
   const [nodes, setNodes] = useState<Map<string | number, HTMLDivElement>>(new Map())
   const [openMenu, setOpenMenu] = useState<string | number | null>(null)
@@ -334,6 +336,9 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       }
     }
     entriesRef.current = entries
+    // Le regroupement vient de changer : l'index de `visualNodeOf` décrit l'état
+    // précédent. Invalidé plutôt que reconstruit — personne ne le redemandera peut-être.
+    nodeIndexRef.current = null
     core.setItems(items)
     // Signature bon marché du jeu d'entrées (clés triées + totaux de clusters +
     // version des données) : pendant un pan où le regroupement ne change pas,
@@ -405,8 +410,35 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         return out
       },
       markerById: (id) => pointsByIdRef.current.get(id) ?? null,
+      // Nœud visuel courant d'un marker : le cluster qui l'agrège, ou lui-même.
+      // Répond depuis l'état de clustering DÉJÀ calculé — interroger ne déclenche
+      // aucun recompute et ne change jamais le zoom.
+      //
+      // Passe par un index inverse construit À LA DEMANDE, et non par un balayage.
+      // Le balayage était O(nœuds × membres) PAR APPEL, avec une matérialisation des
+      // feuilles à chaque nœud visité ; l'appelant (une couche de relations) en émet
+      // un par lien affiché, à chaque recalcul de ses visuels. L'index est invalidé
+      // par le recompute et n'est reconstruit que si quelqu'un le redemande : sans
+      // consommateur, il ne coûte rien du tout.
+      visualNodeOf: (id) => {
+        let index = nodeIndexRef.current
+        if (!index) {
+          index = new Map()
+          for (const [nodeId, ges] of clusterMembersRef.current) {
+            const entry = entriesRef.current.get(nodeId)
+            const position = entry?.kind === 'cluster' ? entry.cluster.position : entry?.marker.position
+            if (!position) continue
+            const memberIds = leavesOf(ges).map((m) => latest.current.getId(m))
+            // Un seul objet par nœud, partagé par tous ses membres.
+            const node: VisualNode = { key: String(nodeId), position, memberIds }
+            for (const memberId of memberIds) index.set(memberId, node)
+          }
+          nodeIndexRef.current = index
+        }
+        return index.get(id) ?? null
+      },
     })
-  }, [engine])
+  }, [engine, leavesOf])
 
   // Recalcule les clusters au déplacement caméra — UNIQUEMENT en mode clustering
   // (sans clustering les markers sont des CSS2DObject ancrés en 3D et suivent la
@@ -674,15 +706,14 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
               )}
               {content}
             </MarkerContent>
-            {tip && (tip.title != null || tip.content != null) && (
-              <div
+            {hasTipContent(tip) && (
+              <MarkerTip
+                title={tip?.title}
+                content={tip?.content}
                 // Urgence : style rouge dédié, immédiatement distinct des autres.
-                className={`m3d-markertip${showTarget ? ' m3d-markertip-urgent' : ''}`}
+                className={showTarget ? 'm3d-markertip-urgent' : undefined}
                 style={{ '--m3d-tiplift': `${tipLift}px` } as CSSProperties}
-              >
-                {tip.title != null && <div className="m3d-markertip-title">{tip.title}</div>}
-                {tip.content != null && <div className="m3d-markertip-content">{tip.content}</div>}
-              </div>
+              />
             )}
             {menuItems && menuItems.length > 0 && (
               <div className="m3d-menu">

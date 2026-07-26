@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react'
+import { type CSSProperties, type ReactNode, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { clamp, RAD2DEG } from '../../core/math'
 import type { ClusterInfo } from '../../layers/ClusterLayer'
@@ -79,9 +79,10 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
   return (
     <div
       className="m3d-cluster"
-      style={{ width: box, height: box, marginLeft: -box / 2, marginTop: -box / 2, cursor: 'pointer', position: 'relative' }}
+      // Boîte, centrage et curseur sont en CSS (`.m3d-cluster`) : seule la taille varie.
+      style={{ '--m3d-sprite': `${box}px` } as CSSProperties}
     >
-      <svg viewBox={`0 0 ${box} ${box}`} style={{ width: '100%', height: '100%', overflow: 'visible', display: 'block' }}>
+      <svg viewBox={`0 0 ${box} ${box}`}>
         {segs.map((s) => {
           // Icône + nombre alignés le long de l'ARC (redressés) → suivent la courbe.
           const a = Math.atan2(Math.sin(s.am), Math.cos(s.am))

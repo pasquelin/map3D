@@ -8,7 +8,6 @@ import {
 import Icon from '@mdi/react'
 import { type ReactNode, useContext, useEffect, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
-import 'react-tooltip/dist/react-tooltip.css'
 import { zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, useLabels, useMapContext } from '../context'
@@ -18,7 +17,9 @@ import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { useAnchoredPanel, useFitColumns } from './panelFit'
 import { modKey } from './shortcuts'
-import { ICON_SIZE, useTip } from './tooltip'
+import { resolveSlots, type SlotConfig } from './slots'
+import { ToolButton } from './ToolButton'
+import { useTip } from './tooltip'
 
 /** Sections optionnelles de la barre : `false` pour masquer, ReactNode pour remplacer. */
 export type DrawToolbarSection = 'navigate' | 'select' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
@@ -32,7 +33,7 @@ export type DrawToolbarProps = {
   /** Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. */
   selectModes?: SelectMode[]
   /** Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. */
-  components?: Partial<Record<DrawToolbarSection, boolean | ReactNode>>
+  components?: SlotConfig<DrawToolbarSection>
   /**
    * Outils externes (non-dessin) rendus en **items principaux** de la barre, après
    * les outils de dessin — ex. `<LensToolButton>` (loupe). Mécanisme d'extension
@@ -91,62 +92,59 @@ export function Toolbar({
   const tip = useTip(TIP_ID)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
   const undoKey = `${modKey}Z`
-  /** Section configurable : masquée (false), remplacée (ReactNode) ou par défaut. */
-  const slot = (key: DrawToolbarSection, node: ReactNode): ReactNode => {
-    const c = components[key]
-    if (c === false) return null
-    if (c !== undefined && c !== true) return c
-    return node
-  }
+  // Sections configurables : convention partagée avec `MapControls` (cf. `slots.ts`).
+  const { slot } = resolveSlots<DrawToolbarSection>(components)
 
   return (
     <>
       <div ref={setBar} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
         {slot(
           'navigate',
-          <button
-            {...tip(labels.toolbar.navigate, labels.keys.escape)}
-            className={`m3d-btn${tool === null && !lens?.active ? ' m3d-on' : ''} m3d-btn-move`}
+          <ToolButton
+            icon={mdiHandBackRightOutline}
+            label={labels.toolbar.navigate}
+            tip={tip}
+            shortcut={labels.keys.escape}
+            active={tool === null && !lens?.active}
+            className="m3d-btn-move"
             onClick={() => {
               setTool(null)
               lens?.deactivate() // quitter tout outil externe → la main devient l'outil actif
             }}
-          >
-            <Icon path={mdiHandBackRightOutline} size={ICON_SIZE} />
-          </button>,
+          />,
         )}
         {tools.map((t) =>
           t === 'select' ? (
             slot('select', <SelectToolButton key={t} position={position} modes={selectModes} />)
           ) : (
-            <button key={t} {...tip(labels.tools[t], shortcuts[t])} className={`m3d-btn${tool === t ? ' m3d-on' : ''}`} onClick={() => toggle(t)}>
-              <Icon path={TOOL_ICONS[t]} size={ICON_SIZE} />
-            </button>
+            <ToolButton key={t} icon={TOOL_ICONS[t]} label={labels.tools[t]} tip={tip} shortcut={shortcuts[t]} active={tool === t} onClick={() => toggle(t)} />
           ),
         )}
         {extraTools}
         {slot(
           'undo',
-          <button {...tip(labels.toolbar.undo, undoKey)} className="m3d-btn" onClick={undo} disabled={!canUndo}>
-            <Icon path={mdiUndo} size={ICON_SIZE} />
-          </button>,
+          <ToolButton icon={mdiUndo} label={labels.toolbar.undo} tip={tip} shortcut={undoKey} onClick={undo} disabled={!canUndo} />,
         )}
         {slot(
           'redo',
-          <button {...tip(labels.toolbar.redo, `⇧${undoKey}`)} className="m3d-btn" onClick={redo} disabled={!canRedo}>
-            <Icon path={mdiRedo} size={ICON_SIZE} />
-          </button>,
+          <ToolButton icon={mdiRedo} label={labels.toolbar.redo} tip={tip} shortcut={`⇧${undoKey}`} onClick={redo} disabled={!canRedo} />,
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
         {slot(
           'clear',
-          <button {...tip(labels.toolbar.clearAll)} className="m3d-btn m3d-btn-delete" onClick={clear}>
-            <Icon path={mdiTrashCanOutline} size={ICON_SIZE} />
-          </button>,
+          <ToolButton icon={mdiTrashCanOutline} label={labels.toolbar.clearAll} tip={tip} className="m3d-btn-delete" onClick={clear} />,
         )}
       </div>
       {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
-      <Tooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} />
+      {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)
+          — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
+      <Tooltip
+        id={TIP_ID}
+        place={position === 'left' ? 'right' : 'left'}
+        className="m3d-tip"
+        classNameArrow="m3d-tip-arrow"
+        disableStyleInjection
+      />
     </>
   )
 }
@@ -173,9 +171,12 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
       onPointerEnter={hasFlyout ? () => setOpen(true) : undefined}
       onPointerLeave={hasFlyout ? () => setOpen(false) : undefined}
     >
-      <button
-        aria-label={labels.tools.select}
-        className={`m3d-btn${hasFlyout ? ' m3d-btn-flyout' : ''}${active ? ' m3d-on' : ''}`}
+      <ToolButton
+        icon={mdiCursorDefaultOutline}
+        label={labels.tools.select}
+        shortcut={shortcuts.select}
+        active={active}
+        className={hasFlyout ? 'm3d-btn-flyout' : undefined}
         onClick={() => {
           // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
           if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
@@ -183,9 +184,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
           }
           setTool(active ? null : 'select')
         }}
-      >
-        <Icon path={mdiCursorDefaultOutline} size={ICON_SIZE} />
-      </button>
+      />
       {open && hasFlyout && (
         <div ref={setFlyout} className={`m3d-panel m3d-flyout m3d-${side}`}>
           {available.map((m) => (

@@ -27,6 +27,25 @@ export type MarkerProvider = {
    * l'id du registre pouvant être un `getId` custom et non `m.id`.
    */
   markerById(id: string | number): MarkerData | null
+  /**
+   * Nœud VISUEL portant ce marker : lui-même s'il est isolé, ou le cluster qui
+   * l'agrège. Optionnel — une couche sans clustering n'a rien à déclarer, et ses
+   * consommateurs retombent sur la position du marker.
+   *
+   * Permet d'agréger un rendu sur ce que l'utilisateur voit RÉELLEMENT, sans
+   * jamais éclater le cluster ni toucher au zoom.
+   */
+  visualNodeOf?(id: string | number): VisualNode | null
+}
+
+/** Nœud visuel (marker isolé ou cluster) tel qu'il est affiché à l'instant t. */
+export type VisualNode = {
+  /** Clé du nœud, stable tant que le clustering ne change pas. */
+  key: string
+  /** Position affichée du nœud (centre du cluster, ou du marker isolé). */
+  position: LatLng
+  /** Tous les markers agrégés dans ce nœud, l'id demandé compris. */
+  memberIds: (string | number)[]
 }
 
 /**
@@ -50,6 +69,15 @@ export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
     for (const p of this.providers) {
       const m = p.markerById(id)
       if (m) return m
+    }
+    return null
+  }
+
+  /** Nœud visuel portant ce marker, ou `null` si aucun fournisseur ne l'agrège. */
+  visualNodeOf(id: string | number): VisualNode | null {
+    for (const p of this.providers) {
+      const node = p.visualNodeOf?.(id)
+      if (node) return node
     }
     return null
   }

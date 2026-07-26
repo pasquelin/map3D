@@ -1,9 +1,8 @@
-import { mdiClose, mdiDrag, mdiMagnetOn } from '@mdi/js'
-import Icon from '@mdi/react'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels } from '../context'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
+import { FloatingPanel } from './FloatingPanel'
 import { MarkerList, type MarkerListAction } from './MarkerList'
 import type { LensRenderItem } from './lensTypes'
 
@@ -32,43 +31,35 @@ export type LensPanelProps<T = unknown> = {
 export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
   const { markers, getId } = props
   const labels = useLabels()
-  const { panelRef, style, gripProps, pinned, reset } = useDraggablePanel(props.anchor)
+  const panel = useDraggablePanel(props.anchor)
 
   const count = markers.length
   const title = formatLabel(count === 1 ? labels.lens.titleSingular : labels.lens.title, { count })
 
   return (
-    <div ref={panelRef} className="m3d-lenshud" style={style}>
-      <div className="m3d-panel m3d-lenspanel">
-        <div className="m3d-lenshead">
-          <button type="button" className="m3d-selgrip" {...gripProps} aria-label={labels.lens.movePanel}>
-            <Icon path={mdiDrag} size={0.6} />
-          </button>
-          <span className="m3d-lenstitle">{title}</span>
-          {pinned && (
-            <button type="button" className="m3d-selrow-x" onClick={reset} title={labels.lens.snapBack} aria-label={labels.lens.snapBack}>
-              <Icon path={mdiMagnetOn} size={0.6} />
-            </button>
-          )}
-          <button type="button" className="m3d-selrow-x" onClick={props.onClose} aria-label={labels.lens.remove}>
-            <Icon path={mdiClose} size={0.6} />
-          </button>
-        </div>
-
-        {count === 0 ? (
-          <div className="m3d-lensempty">{labels.lens.empty}</div>
-        ) : (
-          <MarkerList<T>
-            markers={markers}
-            getId={getId}
-            renderItem={props.renderItem}
-            markerTypeLabel={props.markerTypeLabel}
-            onRemove={props.onRemove}
-            actions={props.actions}
-            targetZoom={props.targetZoom}
-          />
-        )}
-      </div>
-    </div>
+    <FloatingPanel
+      panel={panel}
+      title={title}
+      moveLabel={labels.lens.movePanel}
+      snapBackLabel={labels.lens.snapBack}
+      onClose={props.onClose}
+      closeLabel={labels.lens.remove}
+      hudClassName="m3d-lenshud"
+      panelClassName="m3d-lenspanel"
+    >
+      {count === 0 ? (
+        <div className="m3d-lensempty">{labels.lens.empty}</div>
+      ) : (
+        <MarkerList<T>
+          markers={markers}
+          getId={getId}
+          renderItem={props.renderItem}
+          markerTypeLabel={props.markerTypeLabel}
+          onRemove={props.onRemove}
+          actions={props.actions}
+          targetZoom={props.targetZoom}
+        />
+      )}
+    </FloatingPanel>
   )
 }

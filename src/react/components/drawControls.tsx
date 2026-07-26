@@ -14,6 +14,7 @@ import {
   mdiVectorSquare,
 } from '@mdi/js'
 import Icon from '@mdi/react'
+import type { ReactNode } from 'react'
 import { formatLabel } from '../../labels/mergeLabels'
 import type { DrawStyle, DrawTool, SelectMode, StrokeStyle } from '../../layers/DrawLayer'
 import { useLabels } from '../context'
@@ -57,11 +58,9 @@ const WIDTHS = [0, 2, 4, 8, 14]
 const STROKE_OPACITIES = [0.25, 0.5, 0.75, 0.95]
 const OPACITIES = [0, 0.3, 0.6, 1]
 const RADII = [0, 10, 25, 50]
-const STROKES: Array<{ value: StrokeStyle; style: 'solid' | 'dashed' | 'dotted' }> = [
-  { value: 'solid', style: 'solid' },
-  { value: 'dashed', style: 'dashed' },
-  { value: 'dotted', style: 'dotted' },
-]
+/** Les valeurs de `StrokeStyle` sont exactement les mots-clés CSS `border-style`
+ *  correspondants : l'aperçu les utilise telles quelles, sans table de conversion. */
+const STROKE_VALUES: readonly StrokeStyle[] = ['solid', 'dashed', 'dotted']
 
 /**
  * Swatches superposés façon Photoshop/Illustrator : carré plein = fond (dessus à
@@ -128,23 +127,65 @@ export function PalettePicker({ palette, onPick }: { palette: readonly string[];
   )
 }
 
+/**
+ * Rangée de presets : N boutons exclusifs dont un seul est actif. Source unique du
+ * squelette (`.m3d-presets` > `.m3d-preset` + `m3d-on`, `aria-label`, `onClick`) —
+ * les quatre pickers ci-dessous n'en diffèrent que par leur jeu de valeurs, leur
+ * aperçu et leur libellé. En ajouter un cinquième ne coûte plus que ces trois-là.
+ *
+ * `T extends string | number` : la valeur sert aussi de clé React, donc elle doit
+ * être primitive — le compilateur le garantit plutôt qu'un commentaire.
+ */
+function PresetRow<T extends string | number>({
+  values,
+  value,
+  onChange,
+  ariaLabel,
+  preview,
+  wide,
+}: {
+  values: readonly T[]
+  value?: T
+  onChange: (v: T) => void
+  ariaLabel: (v: T) => string
+  preview: (v: T) => ReactNode
+  /** Bouton élargi (aperçu de trait, qui a besoin de longueur). */
+  wide?: boolean
+}) {
+  return (
+    <div className="m3d-presets">
+      {values.map((v) => (
+        <button
+          type="button"
+          key={v}
+          aria-label={ariaLabel(v)}
+          className={`m3d-preset${wide ? ' m3d-preset-wide' : ''}${value === v ? ' m3d-on' : ''}`}
+          onClick={() => onChange(v)}
+        >
+          {preview(v)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /** Épaisseur de bordure : presets visuels, ∅ = pas de bordure. */
 export function WidthPicker({ value, onChange }: { value?: number; onChange: (w: number) => void }) {
   const labels = useLabels()
   return (
-    <div className="m3d-presets">
-      {WIDTHS.map((w) => (
-        <button
-          type="button"
-          key={w}
-          aria-label={w === 0 ? labels.style.noBorder : formatLabel(labels.style.borderWidth, { width: w })}
-          className={`m3d-preset${value === w ? ' m3d-on' : ''}`}
-          onClick={() => onChange(w)}
-        >
-          {w === 0 ? <span className="m3d-preset-none">∅</span> : <span className="m3d-preset-bar" style={{ height: Math.min(w, 10) }} />}
-        </button>
-      ))}
-    </div>
+    <PresetRow
+      values={WIDTHS}
+      value={value}
+      onChange={onChange}
+      ariaLabel={(w) => (w === 0 ? labels.style.noBorder : formatLabel(labels.style.borderWidth, { width: w }))}
+      preview={(w) =>
+        w === 0 ? (
+          <span className="m3d-preset-none">∅</span>
+        ) : (
+          <span className="m3d-preset-bar" style={{ height: Math.min(w, 10) }} />
+        )
+      }
+    />
   )
 }
 
@@ -152,19 +193,14 @@ export function WidthPicker({ value, onChange }: { value?: number; onChange: (w:
 export function StrokeStylePicker({ value, onChange }: { value?: StrokeStyle; onChange: (s: StrokeStyle) => void }) {
   const labels = useLabels()
   return (
-    <div className="m3d-presets">
-      {STROKES.map((s) => (
-        <button
-          type="button"
-          key={s.value}
-          aria-label={labels.style[s.value]}
-          className={`m3d-preset m3d-preset-wide${value === s.value ? ' m3d-on' : ''}`}
-          onClick={() => onChange(s.value)}
-        >
-          <span className="m3d-preset-line" style={{ borderTopStyle: s.style }} />
-        </button>
-      ))}
-    </div>
+    <PresetRow
+      wide
+      values={STROKE_VALUES}
+      value={value}
+      onChange={onChange}
+      ariaLabel={(s) => labels.style[s]}
+      preview={(s) => <span className="m3d-preset-line" style={{ borderTopStyle: s }} />}
+    />
   )
 }
 
@@ -180,21 +216,17 @@ export function OpacityPicker({
 }) {
   const labels = useLabels()
   return (
-    <div className="m3d-presets">
-      {values.map((o) => (
-        <button
-          type="button"
-          key={o}
-          aria-label={formatLabel(labels.style.opacityPreset, { percent: Math.round(o * 100) })}
-          className={`m3d-preset${value === o ? ' m3d-on' : ''}`}
-          onClick={() => onChange(o)}
-        >
-          <span className="m3d-preset-checker">
-            <span style={{ opacity: o }} />
-          </span>
-        </button>
-      ))}
-    </div>
+    <PresetRow
+      values={values}
+      value={value}
+      onChange={onChange}
+      ariaLabel={(o) => formatLabel(labels.style.opacityPreset, { percent: Math.round(o * 100) })}
+      preview={(o) => (
+        <span className="m3d-preset-checker">
+          <span style={{ opacity: o }} />
+        </span>
+      )}
+    />
   )
 }
 
@@ -275,18 +307,12 @@ export function StyleEditor({
 export function RadiusPicker({ value, onChange }: { value?: number; onChange: (r: number) => void }) {
   const labels = useLabels()
   return (
-    <div className="m3d-presets">
-      {RADII.map((r) => (
-        <button
-          type="button"
-          key={r}
-          aria-label={formatLabel(labels.style.cornerRadius, { radius: r })}
-          className={`m3d-preset${value === r ? ' m3d-on' : ''}`}
-          onClick={() => onChange(r)}
-        >
-          <span className="m3d-preset-corner" style={{ borderTopLeftRadius: `${r}%` }} />
-        </button>
-      ))}
-    </div>
+    <PresetRow
+      values={RADII}
+      value={value}
+      onChange={onChange}
+      ariaLabel={(r) => formatLabel(labels.style.cornerRadius, { radius: r })}
+      preview={(r) => <span className="m3d-preset-corner" style={{ borderTopLeftRadius: `${r}%` }} />}
+    />
   )
 }

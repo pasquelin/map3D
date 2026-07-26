@@ -3,12 +3,76 @@ import * as THREE from 'three'
 export type Pt = { x: number; z: number }
 
 /**
+ * Tous les sommets sont-ils exploitables ? Garde-fou OBLIGATOIRE avant toute
+ * construction de géométrie, pour une raison contre-intuitive : les tests de
+ * dégénérescence de ce module s'écrivent `if (len < 1e-6) continue`, et une
+ * comparaison avec NaN est TOUJOURS fausse. Un seul NaN en entrée traverse donc
+ * chacune de ces gardes et atterrit dans l'attribut `position`.
+ *
+ * La sanction est disproportionnée : `computeBoundingSphere()` échoue sur toute
+ * géométrie contenant un NaN, et il est appelé à CHAQUE frame — bruit console
+ * permanent. Jusqu'à ce que `MapEngine` restreigne `controls.setScene` au seul
+ * tileset, la sanction allait plus loin encore : les contrôles raycastaient la scène
+ * entière, `annotations` compris, et une seule forme corrompue faussait le picking de
+ * caméra pour tout le reste. Ce garde-fou reste nécessaire indépendamment.
+ *
+ * On REJETTE plutôt qu'on ne filtre : retirer les sommets fautifs déformerait la
+ * forme en silence. `null` est déjà le contrat de retour de ces fonctions, géré par
+ * tous les appelants — seul l'objet concerné disparaît.
+ */
+const allFinite = (points: readonly Pt[]): boolean =>
+  points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.z))
+
+/**
+ * Origines déjà signalées : le rejet doit laisser UNE trace, pas un flux. Les
+ * constructions de géométrie tournent par frame — un avertissement non dédupliqué
+ * remplacerait le bruit qu'on vient de supprimer.
+ */
+const warned = new Set<string>()
+
+/** Destination des avertissements — remplaçable par l'hôte (cf. `setGeometryWarner`). */
+let warn: ((message: string) => void) | null = (message) => console.warn(message)
+
+/**
+ * Redirige (ou coupe) les avertissements de géométrie. `null` = silence complet.
+ *
+ * Une bibliothèque n'a pas à écrire d'autorité dans la console de l'application qui
+ * l'héberge : celle-ci peut vouloir router le signal vers son propre journal, ou n'en
+ * rien faire en production. Le défaut reste `console.warn` — un garde-fou muet
+ * transformerait la cause en symptôme (« ça ne s'affiche pas »).
+ */
+export function setGeometryWarner(fn: ((message: string) => void) | null): void {
+  warn = fn
+}
+
+/**
+ * Signale une fois par origine qu'une géométrie a été écartée. Sans ce signal, le
+ * garde-fou est parfaitement silencieux : une couche qui produit des coordonnées
+ * invalides « perd » simplement ses formes, sans rien pour orienter le diagnostic —
+ * le symptôme devient « ça ne s'affiche pas », plus difficile à relier à sa cause
+ * que l'erreur `computeBoundingSphere` d'origine.
+ */
+function rejected(where: string): null {
+  if (!warned.has(where)) {
+    warned.add(where)
+    warn?.(
+      `[map3d] ${where}: géométrie ignorée — coordonnée ou épaisseur non finie (NaN/Infinity). ` +
+        'Vérifiez les points et largeurs fournis par la couche appelante ; ce message ne sera plus répété.',
+    )
+  }
+  return null
+}
+
+/**
  * Ruban plat (plan Y=0) d'épaisseur `width` (unités monde) : un quad par
  * segment plus un disque à chaque sommet pour des joints arrondis. `closed`
  * referme le tracé. Reproduit la construction validée du prototype.
  */
 export function ribbon(points: readonly Pt[], width: number, closed: boolean): THREE.BufferGeometry | null {
-  if (points.length < 2) return null
+  // `width` est aussi vérifié : il vaut `style.width * metersPerPixel`, donc il est
+  // NaN dès que la caméra est dégénérée — et `half = width / 2` contaminerait alors
+  // TOUTES les positions, sommets finis compris.
+  if (points.length < 2 || !Number.isFinite(width) || !allFinite(points)) return rejected('ribbon')
   const pos: number[] = []
   const idx: number[] = []
   const half = width / 2
@@ -50,7 +114,12 @@ export function ribbon(points: readonly Pt[], width: number, closed: boolean): T
  * locaux). Un tiret peut traverser un sommet (le motif est continu le long du tracé).
  */
 export function dashPattern(points: readonly Pt[], dash: number, gap: number, closed: boolean): Pt[][] {
-  if (points.length < 2 || dash <= 0 || gap < 0) return []
+  // Tests écrits en positif (`!(dash > 0)` et non `dash <= 0`) : la forme négative
+  // laisserait passer NaN, et le motif ne progresserait alors jamais.
+  if (points.length < 2 || !(dash > 0) || !(gap >= 0) || !allFinite(points)) {
+    if (points.length >= 2) rejected('dashPattern')
+    return []
+  }
   const list = closed ? [...points, points[0]!] : points
   const dashes: Pt[][] = []
   let inDash = true
@@ -91,6 +160,7 @@ export function dashPattern(points: readonly Pt[], dash: number, gap: number, cl
 
 /** Rubans plats (quads, caps plats) pour un ensemble de polylignes — géométrie unique. */
 export function strokePolylines(polylines: readonly (readonly Pt[])[], width: number): THREE.BufferGeometry | null {
+  if (!Number.isFinite(width) || !polylines.every(allFinite)) return rejected('strokePolylines')
   const pos: number[] = []
   const idx: number[] = []
   const half = width / 2
@@ -196,7 +266,7 @@ export function filletPolygon(corners: readonly Pt[], radius: number, segments =
 
 /** Remplissage plein d'un polygone (plaqué Y=0). */
 export function fillGeo(points: readonly Pt[]): THREE.BufferGeometry | null {
-  if (points.length < 3) return null
+  if (points.length < 3 || !allFinite(points)) return points.length < 3 ? null : rejected('fillGeo')
   const shape = new THREE.Shape()
   shape.moveTo(points[0]!.x, points[0]!.z)
   for (let i = 1; i < points.length; i++) shape.lineTo(points[i]!.x, points[i]!.z)
@@ -208,7 +278,9 @@ export function fillGeo(points: readonly Pt[]): THREE.BufferGeometry | null {
 
 /** Tête de flèche triangulaire au dernier segment. */
 export function arrowHead(points: readonly Pt[], width: number): THREE.BufferGeometry | null {
-  if (points.length < 2) return null
+  if (points.length < 2 || !Number.isFinite(width) || !allFinite(points)) {
+    return points.length < 2 ? null : rejected('arrowHead')
+  }
   const a = points[points.length - 2]!
   const b = points[points.length - 1]!
   const dx = b.x - a.x
@@ -276,6 +348,12 @@ export function clearGroup(group: THREE.Object3D): void {
 
 /** Convertit un cercle centre+rayon en polygone. */
 export function circlePoints(center: Pt, radius: number, segments = 48): Pt[] {
+  // Coupé à la source : sinon chaque sommet naît NaN et le rejet n'aurait lieu
+  // qu'en aval, une fois `segments` points inutiles construits.
+  if (!Number.isFinite(radius) || !Number.isFinite(center.x) || !Number.isFinite(center.z)) {
+    rejected('circlePoints')
+    return []
+  }
   const out: Pt[] = []
   for (let i = 0; i < segments; i++) {
     const a = (i / segments) * Math.PI * 2

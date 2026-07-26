@@ -1,9 +1,9 @@
 import { mdiMagnifyExpand } from '@mdi/js'
-import Icon from '@mdi/react'
 import { useLabels } from '../context'
 import { useLens } from '../hooks/useLens'
 import { TIP_ID } from './Toolbar'
-import { ICON_SIZE, useTip } from './tooltip'
+import { ToolButton } from './ToolButton'
+import { useTip } from './tooltip'
 
 /**
  * Bouton de l'outil loupe, à insérer dans `<Toolbar extraTools={<LensToolButton />}>`.
@@ -16,12 +16,13 @@ export function LensToolButton() {
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   return (
-    <button
-      {...tip(labels.lens.tool, lens.shortcut ?? undefined)}
-      className={`m3d-btn${lens.active ? ' m3d-on' : ''}`}
+    <ToolButton
+      icon={mdiMagnifyExpand}
+      label={labels.lens.tool}
+      tip={tip}
+      shortcut={lens.shortcut ?? undefined}
+      active={lens.active}
       onClick={lens.toggle}
-    >
-      <Icon path={mdiMagnifyExpand} size={ICON_SIZE} />
-    </button>
+    />
   )
 }

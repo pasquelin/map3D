@@ -1,5 +1,9 @@
 import { createContext, useContext } from 'react'
 import type { MapEngine } from '../core/MapEngine'
+import type { MarkerData } from '../data/types'
+import type { RelationSnapshot } from '../relations/core/engine'
+import type { MapPoint, RelationRule, TravelMode } from '../relations/core/types'
+import type { MenuItem } from './components/ContextMenu'
 import { defaultLabels } from '../labels/defaultLabels'
 import type { MapLabels } from '../labels/types'
 import type { DrawStyle, DrawTool, GeoJSONFeatureCollection, SelectMode } from '../layers/DrawLayer'
@@ -107,3 +111,44 @@ export type LensApi = {
 }
 
 export const LensContext = createContext<LensApi | null>(null)
+
+/** API du moteur de relations exposée par `<RelationLayer>`. */
+export type RelationApi = {
+  /** Règles déclarées par l'application — le seul endroit où vit le métier. */
+  rules: readonly RelationRule[]
+  /**
+   * Entrée de menu à concaténer au menu contextuel d'un marker. Renvoie un
+   * tableau vide si aucune règle ne s'applique : l'appelant concatène sans test.
+   */
+  menuFor: (marker: MarkerData) => MenuItem[]
+  /** Lance une relation (règle déjà dérivée du preset choisi). */
+  run: (source: MapPoint, rule: RelationRule) => void
+  /** Relations affichées — une par marker source, plusieurs peuvent coexister. */
+  snapshots: RelationSnapshot[]
+  /**
+   * Conteneurs DOM des socles, indexés par id de marker source. Ancrés à la carte par
+   * la couche de rendu : y monter un portail suffit à suivre le marker, sans qu'aucune
+   * position ne transite par React. C'est ce qui permet à `<RelationStatusBar>` de se
+   * poser sur le socle plutôt que de flotter dans un coin de l'écran.
+   */
+  hubHosts: ReadonlyMap<string, HTMLElement>
+  /**
+   * Bascule le mode de transport d'une relation. Si un itinéraire est affiché, il est
+   * RETRACÉ dans le nouveau mode plutôt que refermé : on demande le même trajet
+   * autrement, on ne revient pas au choix de la cible.
+   */
+  setMode: (sourceId: string, mode: TravelMode) => void
+  /**
+   * Couleur des itinéraires tracés. Exposée parce qu'une surface qui décrit le tracé
+   * doit pouvoir s'accorder à lui : la pastille de la barre d'état porte la couleur de
+   * ce qu'elle désigne, sinon elle continue d'annoncer la famille de tags alors que
+   * c'est un itinéraire qui est à l'écran.
+   */
+  routeColor: string
+  /** Referme l'itinéraire d'une relation (id de lien ou de source) ; tous si omis. */
+  untrace: (linkOrSourceId?: string) => void
+  /** Efface la relation d'un marker source, ou toutes si l'id est omis. */
+  clear: (sourceId?: string) => void
+}
+
+export const RelationContext = createContext<RelationApi | null>(null)

@@ -49,3 +49,13 @@ export type MarkerData<T = unknown> = {
   urgent?: boolean
   data: T
 }
+
+/**
+ * Tags EFFECTIFS d'un marker. Un marker sans tags reçoit `['marker', type]`
+ * (miroir du défaut `['draw', kind]` des dessins) — sans quoi il disparaîtrait
+ * dès qu'un filtre est actif. Point de vérité unique : la couche marker et le
+ * moteur de relations doivent voir exactement les mêmes tags.
+ */
+export function markerTags<T>(m: MarkerData<T>): string[] {
+  return m.tags ?? ['marker', m.type]
+}

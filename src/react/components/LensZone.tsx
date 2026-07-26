@@ -48,8 +48,10 @@ export type LensZoneProps = {
   preview?: boolean
 }
 
-/** Cadre marching-ants (façon marquee de sélection) : fond + trait continu sous
- *  un pointillé animé. Couleurs pilotées par le thème (`--m3d-marquee-*`). */
+/** Cadre marching-ants : fond + trait continu sous un pointillé animé. Rendu avec
+ *  les classes `.m3d-marquee-under` / `.m3d-marquee` du sélecteur — MÊMES règles
+ *  CSS, donc même trait, même cadence et même thème (`--m3d-marquee-*`) sans
+ *  duplication : seule la géométrie diffère (`<rect>` ici, `<path>` là-bas). */
 function AntsFrame({ rect }: { rect: LensRect }) {
   const x = 1
   const y = 1
@@ -57,8 +59,8 @@ function AntsFrame({ rect }: { rect: LensRect }) {
   const h = Math.max(0, rect.h - 2)
   return (
     <svg className="m3d-lenszone-svg" aria-hidden>
-      <rect className="m3d-lenszone-fill" x={x} y={y} width={w} height={h} rx={4} />
-      <rect className="m3d-lenszone-ants" x={x} y={y} width={w} height={h} rx={4} />
+      <rect className="m3d-marquee-under" x={x} y={y} width={w} height={h} rx={4} />
+      <rect className="m3d-marquee" x={x} y={y} width={w} height={h} rx={4} />
     </svg>
   )
 }

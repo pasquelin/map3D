@@ -15,3 +15,13 @@ export const GAP = 12
 export const EDGE = 8
 /** Retrait des barres verticales par rapport au bord du conteneur (px). */
 export const BAR_INSET = 16
+
+/**
+ * Largeur des panneaux flottants (px). Même raison d'être que `GAP` : la feuille de
+ * styles la pose, et `LensLayer` en a besoin pour décider de quel côté de la zone
+ * ancrer son panneau (« tient-il à droite ? »). Le nombre était écrit aux deux
+ * endroits, avec un commentaire pour tenir la synchro — c'est-à-dire rien.
+ */
+export const LENS_PANEL_W = 252
+/** Largeur du panneau de sélection (px). */
+export const SELECTION_PANEL_W = 236
