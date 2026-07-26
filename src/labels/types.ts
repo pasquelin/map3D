@@ -136,6 +136,8 @@ export type MapLabels = {
     remove: string
     /** aria-label de la poignée de déplacement du panneau. */
     movePanel: string
+    /** aria-label/tooltip du bouton qui ré-aimante le panneau à la zone (après déplacement). */
+    snapBack: string
     /** Bouton « tout sélectionner » (sélection dans la liste). */
     selectAll: string
     /** Bouton « désélectionner tout ». */

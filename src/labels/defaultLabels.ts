@@ -96,6 +96,7 @@ export const defaultLabels: MapLabels = {
     empty: 'Aucun marqueur dans la zone',
     remove: 'Retirer la loupe',
     movePanel: 'Déplacer le panneau',
+    snapBack: 'Rattacher le panneau à la zone',
     selectAll: 'Tout sélectionner',
     clearSelection: 'Tout désélectionner',
     selectItem: 'Sélectionner {label}',

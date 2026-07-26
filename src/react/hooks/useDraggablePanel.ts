@@ -27,6 +27,8 @@ export type DraggablePanel<E extends HTMLElement = HTMLDivElement> = {
   gripProps: GripProps
   /** true dès que l'utilisateur a épinglé le panneau (a cessé de suivre `defaultPos`). */
   pinned: boolean
+  /** Ré-aimante le panneau à sa position par défaut (annule l'épinglage). */
+  reset: () => void
 }
 
 /**
@@ -67,7 +69,11 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
     panel.style.left = `${rect.left - parentRect.left}px`
     panel.style.top = `${rect.top - parentRect.top}px`
     panel.style.right = 'auto'
-    e.currentTarget.setPointerCapture(e.pointerId)
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      /* pointeur déjà relâché / non capturable */
+    }
   }
   const onPointerMove = (e: PointerEvent<HTMLElement>) => {
     const drag = dragRef.current
@@ -131,5 +137,11 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
   // sur un nœud recréé → conteneur étiré et panneau ramené à droite.
   const style = pos ? { left: pos.x, top: pos.y, right: 'auto' as const } : undefined
 
-  return { panelRef, style, gripProps: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp }, pinned: pinned !== null }
+  return {
+    panelRef,
+    style,
+    gripProps: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp },
+    pinned: pinned !== null,
+    reset: () => setPinned(null),
+  }
 }
