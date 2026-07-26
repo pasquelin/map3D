@@ -1,4 +1,12 @@
-import { type CSSProperties, type PointerEvent, type RefObject, useEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type PointerEvent,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { clamp } from '../../core/math'
 import { EDGE } from '../../style/panelGeometry'
 
@@ -92,7 +100,33 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
     return () => ro.disconnect()
   }, [pinned])
 
-  const pos = pinned ?? defaultPos ?? null
+  // Collision avec les bords : la position par défaut (non épinglée, ex. ancrée à
+  // une zone) est ramenée DANS le conteneur, re-mesurée si le panneau grandit
+  // (plus de lignes) ou si le conteneur est redimensionné.
+  const [clamped, setClamped] = useState<{ x: number; y: number } | null>(null)
+  useLayoutEffect(() => {
+    if (pinned || !defaultPos) {
+      setClamped(null)
+      return
+    }
+    const panel = panelRef.current
+    const parent = panel?.offsetParent as HTMLElement | null
+    if (!panel || !parent) return
+    const apply = () => {
+      const pr = panel.getBoundingClientRect()
+      const rr = parent.getBoundingClientRect()
+      const x = clamp(defaultPos.x, EDGE, Math.max(EDGE, rr.width - pr.width - EDGE))
+      const y = clamp(defaultPos.y, EDGE, Math.max(EDGE, rr.height - pr.height - EDGE))
+      setClamped((prev) => (prev && prev.x === x && prev.y === y ? prev : { x, y }))
+    }
+    apply()
+    const ro = new ResizeObserver(apply)
+    ro.observe(panel)
+    ro.observe(parent)
+    return () => ro.disconnect()
+  }, [defaultPos?.x, defaultPos?.y, pinned])
+
+  const pos = pinned ?? clamped ?? defaultPos ?? null
   // right:auto obligatoire : sans lui, un `right` du CSS s'ajoute au left épinglé
   // sur un nœud recréé → conteneur étiré et panneau ramené à droite.
   const style = pos ? { left: pos.x, top: pos.y, right: 'auto' as const } : undefined

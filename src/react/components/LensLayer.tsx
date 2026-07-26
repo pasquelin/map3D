@@ -278,6 +278,17 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     [active, rect, activate, deactivate, toggle, shortcut],
   )
 
+  // Panneau à droite de la zone, basculé à gauche si le bord droit est trop proche
+  // (le clamp de useDraggablePanel garantit ensuite le maintien à l'écran).
+  const PANEL_W = 264
+  const cw = container?.clientWidth ?? 0
+  const anchor =
+    rect == null
+      ? { x: 0, y: 0 }
+      : rect.x + rect.w + GAP + PANEL_W <= cw || rect.x - GAP - PANEL_W < 0
+        ? { x: rect.x + rect.w + GAP, y: rect.y }
+        : { x: rect.x - GAP - PANEL_W, y: rect.y }
+
   return (
     <LensContext.Provider value={api}>
       {props.children}
@@ -290,7 +301,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
           <LensPanel<T>
             markers={displayed}
             getId={getId}
-            anchor={{ x: rect.x + rect.w + GAP, y: rect.y }}
+            anchor={anchor}
             onRemove={onRemoveRow}
             onClose={clearZone}
             renderItem={props.renderItem}
