@@ -31,7 +31,7 @@ export type LensLayerProps<T = unknown> = {
   actions?: MarkerListAction<T>[]
   /** Libellé lisible d'un type de marker (récap par type). */
   markerTypeLabel?: (type: string) => string
-  /** Raccourci clavier d'activation (lettre unique, insensible à la casse). Défaut `f`. `null` = aucun. */
+  /** Raccourci clavier d'activation (lettre unique, insensible à la casse). Défaut `x`. `null` = aucun. */
   shortcut?: string | null
   /** Zoom du vol « Cibler » d'une ligne (défaut 17). */
   targetZoom?: number
@@ -254,8 +254,9 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     return () => window.removeEventListener('keydown', onKey)
   }, [active, clearZone, deactivate])
 
-  // Raccourci clavier d'activation (défaut « f ») — ignoré dans un champ de saisie.
-  const shortcut = props.shortcut === undefined ? 'f' : props.shortcut
+  // Raccourci clavier d'activation (défaut « x » — « f » est pris par le plein écran).
+  // Ignoré dans un champ de saisie.
+  const shortcut = props.shortcut === undefined ? 'x' : props.shortcut
   useEffect(() => {
     if (!shortcut) return
     const key = shortcut.toLowerCase()
