@@ -16,7 +16,11 @@ export function LensToolButton() {
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   return (
-    <button {...tip(labels.lens.tool)} className={`m3d-btn${lens.active ? ' m3d-on' : ''}`} onClick={lens.toggle}>
+    <button
+      {...tip(labels.lens.tool, lens.shortcut ?? undefined)}
+      className={`m3d-btn${lens.active ? ' m3d-on' : ''}`}
+      onClick={lens.toggle}
+    >
       <Icon path={mdiMagnifyExpand} size={ICON_SIZE} />
     </button>
   )

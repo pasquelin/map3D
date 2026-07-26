@@ -248,6 +248,16 @@ function MapDemo() {
   // Éléments épinglés : résolus depuis les ids stockés + les données courantes.
   const pinnedLabel = (m: MarkerData<AnyData>): string =>
     m.type.startsWith('agent') ? (m.data as Agent).name : (m.data as Alert).title
+  // Libellé d'une ligne de marker, PARTAGÉ par la loupe et le panneau de sélection
+  // (MarkerList commun). La pastille/avatar coloré est rendu automatiquement.
+  const renderMarkerRow = (m: MarkerData): ReactNode => (
+    <>
+      <span className="m3d-mllabel">
+        {m.type.startsWith('agent') ? (m.data as Agent).name : (m.data as Alert).title}
+      </span>
+      <span style={{ fontSize: 10.5, color: 'var(--m3d-muted)' }}>{clusterTypeLabel(m.type)}</span>
+    </>
+  )
   const pinnedItems = pinnedIds
     .map((id) => allMarkers.find((m) => String(m.id) === id))
     .filter((m): m is MarkerData<AnyData> => !!m)
@@ -416,25 +426,22 @@ function MapDemo() {
         onSelectionChange={(ids, markerIds) => console.log('[draw] selection', ids, markerIds)}
       >
         {/* Loupe : trace une zone → liste TOUS les markers dedans (clusters inclus).
-            L'action « Cibler » démontre le système d'actions extensible. */}
+            La liste (MarkerList) est partagée avec le panneau de sélection.
+            « Cibler » est natif ; l'action « Ouvrir la fiche » démontre le dropdown. */}
         <LensLayer<AnyData>
           getId={(m) => m.id}
           markerTypeLabel={clusterTypeLabel}
-          renderItem={(m) => (
-            <>
-              {m.avatar && <img className="m3d-lensavatar" src={m.avatar} alt="" />}
-              <span className="m3d-lenslabel">{pinnedLabel(m)}</span>
-              <span style={{ fontSize: 10.5, color: 'var(--m3d-muted)' }}>{clusterTypeLabel(m.type)}</span>
-            </>
-          )}
-          actions={[
-            { id: 'target', label: 'Cibler', scope: 'row', run: ({ marker }) => marker && setSelected(String(marker.id)) },
-          ]}
+          renderItem={renderMarkerRow}
+          actions={[{ id: 'sheet', label: 'Ouvrir la fiche', run: (m) => console.info('fiche', m.id) }]}
           onSelectionChange={(ms) => console.log('[lens] sélection liste', ms.map((m) => m.id))}
         >
           <Toolbar extraTools={<LensToolButton />} />
-          {/* Badges de sélection : groupes formes/markers + hint des modificateurs. */}
-          <SelectionBadges markerTypeLabel={clusterTypeLabel} />
+          {/* Badges de sélection : formes groupées + markers en liste (MarkerList partagée). */}
+          <SelectionBadges
+            markerTypeLabel={clusterTypeLabel}
+            renderMarker={renderMarkerRow}
+            markerActions={[{ id: 'sheet', label: 'Ouvrir la fiche', run: (m) => console.info('fiche', m.id) }]}
+          />
           <DrawDebug />
         </LensLayer>
       </DrawLayer>

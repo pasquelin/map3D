@@ -404,6 +404,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         }
         return out
       },
+      markerById: (id) => pointsByIdRef.current.get(id) ?? null,
     })
   }, [engine])
 
