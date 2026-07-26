@@ -115,10 +115,12 @@ const CSS = `
   animation:m3d-ants .5s linear infinite}
 .m3d-selbox{fill:none;stroke:#fff;stroke-width:1;stroke-dasharray:4 4;opacity:.9;
   filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9));animation:m3d-ants .6s linear infinite}
-/* Marquee : même double trait marching ants que les contours de formes (blanc
-   plein dessous + tirets noirs animés dessus), avec un voile translucide. */
-.m3d-marquee-under{fill:rgba(255,255,255,.10);stroke:#fff;stroke-width:1.6}
-.m3d-marquee{fill:none;stroke:#000;stroke-width:1.6;stroke-dasharray:5 4;
+/* Marquee : double trait marching ants (blanc plein dessous + tirets sombres
+   animés dessus) + voile translucide. Couleurs partagées avec la zone de la loupe
+   via --m3d-marquee-* (thème : theme.colors.marquee), repli gris/blanc. */
+.m3d-marquee-under{fill:var(--m3d-marquee-fill,rgba(255,255,255,.12));
+  stroke:var(--m3d-marquee-under,#fff);stroke-width:1.6}
+.m3d-marquee{fill:none;stroke:var(--m3d-marquee-stroke,#000);stroke-width:1.6;stroke-dasharray:5 4;
   animation:m3d-ants .5s linear infinite}
 @keyframes m3d-ants{to{stroke-dashoffset:-9}}
 /* Boilerplate COMMUN des anneaux de décoration centrés sur l'ancre du marker
@@ -685,18 +687,20 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move}
 .m3d-lenszone-preview{pointer-events:none;cursor:default}
 .m3d-lenszone-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.m3d-lenszone-fill{fill:var(--m3d-lens-fill,color-mix(in srgb,var(--m3d-accent) 14%,transparent));
-  stroke:var(--m3d-lens-under,color-mix(in srgb,#fff 50%,transparent));stroke-width:1.6}
-.m3d-lenszone-ants{fill:none;stroke:var(--m3d-lens-stroke,var(--m3d-accent));stroke-width:1.6;
+/* Mêmes variables que le marquee de sélection (gris/blanc, thème theme.colors.marquee). */
+.m3d-lenszone-fill{fill:var(--m3d-marquee-fill,rgba(255,255,255,.12));
+  stroke:var(--m3d-marquee-under,#fff);stroke-width:1.6}
+.m3d-lenszone-ants{fill:none;stroke:var(--m3d-marquee-stroke,#000);stroke-width:1.6;
   stroke-dasharray:5 4;animation:m3d-ants .5s linear infinite}
-.m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:1;
-  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;padding:0;
-  background:var(--m3d-accent);color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4)}
-.m3d-lenszone-x:hover{filter:brightness(1.12)}
+/* Croix de fermeture (haut-droite), neutre — pas de pastille pleine « stop ». */
+.m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:2;
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--m3d-border);border-radius:50%;padding:0;
+  background:var(--m3d-panel);color:var(--m3d-text);cursor:pointer;box-shadow:var(--m3d-shadow-sm)}
+.m3d-lenszone-x:hover{background:color-mix(in srgb,var(--m3d-text) 10%,var(--m3d-panel))}
 .m3d-lenszone-h{position:absolute;width:11px;height:11px;box-sizing:border-box;transform:translate(-50%,-50%);
-  background:#fff;border:1.5px solid var(--m3d-accent);border-radius:2px;pointer-events:auto;z-index:1;
+  background:#fff;border:1.5px solid rgba(0,0,0,.65);border-radius:2px;pointer-events:auto;z-index:1;
   box-shadow:0 1px 2px rgba(0,0,0,.4)}
-.m3d-lenszone-h:hover{background:var(--m3d-accent)}
+.m3d-lenszone-h:hover{background:var(--m3d-marquee-stroke,#000)}
 /* Panneau d'inventaire, ancré à droite de la zone (position inline via le hook). */
 .m3d-lenshud{position:absolute;z-index:20;display:flex;flex-direction:column;
   pointer-events:none;max-width:min(60%,360px)}
