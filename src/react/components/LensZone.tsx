@@ -1,6 +1,7 @@
 import { mdiClose } from '@mdi/js'
 import Icon from '@mdi/react'
 import { type CSSProperties, type PointerEvent, useRef } from 'react'
+import { WHEEL_SURFACE_ATTR } from '../../core/MapEngine'
 import type { LensRect } from './lensTypes'
 
 /** Poignée de manipulation : déplacement du corps ou redimensionnement par bord/coin. */
@@ -105,6 +106,8 @@ export function LensZone({ rect, onChange, onClose, closeLabel, preview }: LensZ
     <div
       ref={zoneRef}
       className={`m3d-lenszone${preview ? ' m3d-lenszone-preview' : ''}`}
+      // Surface carte : la molette au-dessus de la zone zoome la carte dessous.
+      {...{ [WHEEL_SURFACE_ATTR]: '' }}
       style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       onPointerDown={begin('move')}
       onPointerMove={move}

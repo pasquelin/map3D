@@ -13,6 +13,7 @@ import {
   type MapTheme,
   type MarkerColor,
   type MarkerData,
+  type MarkerListAction,
   type MenuItem,
   PinnedDock,
   SearchBox,
@@ -142,6 +143,13 @@ const TAG_COLORS: Record<string, string> = {
 
 const ZONE_STROKE = '#2E7CF6'
 
+// Action de démo du menu déroulant d'une ligne, PARTAGÉE par la loupe et le panneau
+// de sélection (même `MarkerList`). Hissée hors du composant : identité stable, donc
+// pas de re-render de la liste à chaque render du parent.
+const SHEET_ACTIONS: MarkerListAction[] = [
+  { id: 'sheet', label: 'Ouvrir la fiche', run: (m) => console.info('fiche', m.id) },
+]
+
 const theme: MapTheme = mergeTheme(defaultTheme, {
   colorScheme: 'dark',
   colors: {
@@ -245,17 +253,15 @@ function MapDemo() {
     }
     return uri
   }
-  // Éléments épinglés : résolus depuis les ids stockés + les données courantes.
-  const pinnedLabel = (m: MarkerData<AnyData>): string =>
-    m.type.startsWith('agent') ? (m.data as Agent).name : (m.data as Alert).title
-  // Titre d'une ligne de marker (nom métier), PARTAGÉ par la loupe et le panneau de
-  // sélection (MarkerList commun). Pastille/avatar + sous-titre (type) sont automatiques.
-  const renderMarkerRow = (m: MarkerData): ReactNode =>
+  // Titre métier d'un marker — source UNIQUE, partagée par les éléments épinglés,
+  // la loupe et le panneau de sélection (`MarkerList` commun, où pastille/avatar et
+  // sous-titre de type sont automatiques).
+  const markerLabel = (m: MarkerData): string =>
     m.type.startsWith('agent') ? (m.data as Agent).name : (m.data as Alert).title
   const pinnedItems = pinnedIds
     .map((id) => allMarkers.find((m) => String(m.id) === id))
     .filter((m): m is MarkerData<AnyData> => !!m)
-    .map((m) => ({ id: m.id, position: m.position, type: m.type, label: pinnedLabel(m), avatar: m.avatar, icon: iconDataUri(m), data: m }))
+    .map((m) => ({ id: m.id, position: m.position, type: m.type, label: markerLabel(m), avatar: m.avatar, icon: iconDataUri(m), data: m }))
   // Icône + libellé par type pour les satellites du cluster (survol = label).
   const CLUSTER_LABEL: Record<string, string> = {
     'alert-critical': 'Critique', 'alert-high': 'Élevée', 'alert-medium': 'Moyenne', 'alert-low': 'Info',
@@ -425,15 +431,15 @@ function MapDemo() {
         <LensLayer<AnyData>
           getId={(m) => m.id}
           markerTypeLabel={clusterTypeLabel}
-          renderItem={renderMarkerRow}
-          actions={[{ id: 'sheet', label: 'Ouvrir la fiche', run: (m) => console.info('fiche', m.id) }]}
+          renderItem={markerLabel}
+          actions={SHEET_ACTIONS}
         >
           <Toolbar extraTools={<LensToolButton />} />
           {/* Badges de sélection : formes groupées + markers en liste (MarkerList partagée). */}
           <SelectionBadges
             markerTypeLabel={clusterTypeLabel}
-            renderMarker={renderMarkerRow}
-            markerActions={[{ id: 'sheet', label: 'Ouvrir la fiche', run: (m) => console.info('fiche', m.id) }]}
+            renderMarker={markerLabel}
+            markerActions={SHEET_ACTIONS}
           />
           <DrawDebug />
         </LensLayer>

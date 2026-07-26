@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, us
 import * as THREE from 'three'
 import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
 import type { ScreenPoint } from '../../core/Projection'
+import { UNRESOLVED_RETRY_FRAMES } from '../../core/resettle'
 import type { MarkerData } from '../../data/types'
 import type { Bounds } from '../../shared'
 import { GAP } from '../../style/panelGeometry'
@@ -16,6 +17,17 @@ import type { LensRect, LensRenderItem } from './lensTypes'
 const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }
 /** Glissé minimal (px) pour qu'un rectangle existe — en deçà, c'est un clic (rien). */
 const MIN_DRAG = 4
+
+/**
+ * Hauteur d'ancre mémoïsée d'un marker, avec la position qui l'a produite.
+ * `resolved: false` = tuile absente au moment du calcul, `h` est le repli : à
+ * retenter, mais à basse cadence (`UNRESOLVED_RETRY_FRAMES`) — sinon un marker en
+ * zone non chargée relance un raycast à chaque passe, soit 1×/frame pendant un pan.
+ */
+type AnchorHeight = { lat: number; lng: number; h: number; resolved: boolean }
+
+/** Clé par défaut d'un marker. Hissée : identité stable → `MarkerList` reste mémoïsée. */
+const defaultGetId = <T,>(m: MarkerData<T>): string | number => m.id
 
 const norm = (x0: number, y0: number, x1: number, y1: number): LensRect => ({
   x: Math.min(x0, x1),
@@ -47,9 +59,11 @@ export type LensLayerProps<T = unknown> = {
  * carte ni aux formes. Le panneau de droite liste 1 ligne par marker, avec une
  * sélection de liste et des actions extensibles.
  *
- * Modèle d'interaction : tant qu'aucune zone n'existe, un glissé sur la carte la
- * trace (pan gelé). Une fois tracée, la carte redevient navigable — la loupe est
- * un overlay écran fixe et la liste se recalcule quand la carte défile dessous.
+ * Modèle d'interaction : tant que l'outil est actif, le glissé sur la carte est
+ * capté par la loupe (pan gelé) — il trace la zone, et retracer remplace la zone
+ * existante ; un clic simple la retire. La carte se navigue à la molette (zoom) et
+ * à la barre espace (pan / rotation), comme pour les outils de dessin. La loupe est
+ * un overlay écran fixe : la liste se recalcule quand la carte défile dessous.
  * Déplacer/redimensionner la zone (poignées) recalcule aussi. La croix la retire.
  *
  * Mutuellement exclusif avec les outils de dessin (activer l'un désactive l'autre).
@@ -58,7 +72,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const { engine, overlay } = useMapContext()
   const labels = useLabels()
   const draw = useContext(DrawingContext)
-  const getId = props.getId ?? ((m: MarkerData<T>) => m.id)
+  const getId = props.getId ?? defaultGetId
   const container = overlay.parentElement as HTMLElement | null
 
   const [active, setActive] = useState(false)
@@ -76,6 +90,22 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const invSigRef = useRef('')
   const scratch = useRef(new THREE.Vector3()).current
   const screenScratch = useRef<ScreenPoint>({ sx: 0, sy: 0, z: 0 }).current
+  /**
+   * Hauteur d'ancre (m) par marker — un marker se projette à la hauteur du sol SOUS
+   * LUI, pas à celle du centre de la zone (sinon décalage écran sur relief, donc
+   * faux positifs/négatifs près des bords). Mémoïsée : `resolveAnchorHeight` fait un
+   * raycast, impensable par marker et par frame.
+   *
+   * L'entrée retient la position qui l'a produite : SEUL un marker qui a bougé est
+   * re-résolu (un flux temps réel ne réinvalide pas toute la zone), et la carte est
+   * reconstruite à chaque passe depuis les markers réellement scannés — elle reste
+   * donc bornée au jeu courant, sans purge séparée. Invalidée en bloc au changement
+   * de régime de hauteur (bascule 2D/3D) via `heightEpoch`.
+   */
+  const heightsRef = useRef(new Map<string | number, AnchorHeight>())
+  const heightEpochRef = useRef(-1)
+  /** Compteur de passes : cadence les retentatives des ancres non résolues. */
+  const retryTickRef = useRef(0)
   const rafRef = useRef(0)
   const draftRef = useRef<{ x0: number; y0: number } | null>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
@@ -118,7 +148,12 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       if (ll.lng < west) west = ll.lng
     }
     let bounds: Bounds
-    if (got < 2) {
+    // Le cadre des coins n'est un MAJORANT de la zone au sol que si les QUATRE
+    // pickent. Dès qu'un seul manque, le rectangle mord le ciel (vue inclinée) : la
+    // portion visible court alors jusqu'à l'horizon, infiniment au-delà des coins
+    // résolus — un cadre bâti sur eux exclurait presque tout. On retombe sur le
+    // monde entier, le test écran exact plus bas fait seul le tri.
+    if (got < corners.length) {
       bounds = WORLD_BOUNDS
     } else {
       // La perspective peut placer un marker « dans » le rect écran mais hors du
@@ -127,15 +162,39 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       const padLng = (east - west) * 0.25 + 1e-4
       bounds = { north: north + padLat, south: south - padLat, east: east + padLng, west: west - padLng }
     }
-    const mid = proj.pickLatLng(r.x + r.w / 2, r.y + r.h / 2, cam) ?? proj.pickEllipsoidLatLng(r.x + r.w / 2, r.y + r.h / 2, cam)
-    const height = mid ? proj.resolveAnchorHeight(mid) ?? proj.surfaceFallbackHeight : proj.surfaceFallbackHeight
+    // Le régime de hauteur a changé (2D ↔ 3D) → les hauteurs mémoïsées sont périmées.
+    const prev = heightsRef.current
+    if (heightEpochRef.current !== proj.heightEpoch) {
+      heightEpochRef.current = proj.heightEpoch
+      prev.clear()
+    }
+    // Carte reconstruite à cette passe : les markers sortis de la zone disparaissent
+    // du cache sans purge explicite.
+    const heights = new Map<string | number, AnchorHeight>()
+    const retry = ++retryTickRef.current % UNRESOLVED_RETRY_FRAMES === 0
 
     const found: MarkerData<T>[] = []
     for (const m of engine.markers.markersInBounds(bounds) as MarkerData<T>[]) {
-      const world = proj.latLngToWorld(m.position, scratch, height)
+      const id = latest.current.getId(m)
+      let e = prev.get(id)
+      if (!e || e.lat !== m.position.lat || e.lng !== m.position.lng) {
+        const h = proj.resolveAnchorHeight(m.position)
+        e = { lat: m.position.lat, lng: m.position.lng, h: h ?? proj.surfaceFallbackHeight, resolved: h !== null }
+      } else if (!e.resolved && retry) {
+        const h = proj.resolveAnchorHeight(m.position)
+        if (h !== null) e = { ...e, h, resolved: true }
+      }
+      heights.set(id, e)
+      const world = proj.latLngToWorld(m.position, scratch, e.h)
       const s = proj.worldToScreen(world, cam, screenScratch)
-      if (s.z <= 1 && s.sx >= r.x && s.sx <= r.x + r.w && s.sy >= r.y && s.sy <= r.y + r.h) found.push(m)
+      if (s.z > 1 || s.sx < r.x || s.sx > r.x + r.w || s.sy < r.y || s.sy > r.y + r.h) continue
+      // Un marker de la face OPPOSÉE du globe se projette dans le rectangle en
+      // traversant la Terre : même test d'horizon que la couche marker, sinon la
+      // loupe inventorie des markers situés à l'autre bout du monde (vue dézoomée).
+      if (!proj.isAboveHorizon(world, cam.position)) continue
+      found.push(m)
     }
+    heightsRef.current = heights
     const sig = found.map((m) => latest.current.getId(m)).join('|')
     if (sig === invSigRef.current) return
     invSigRef.current = sig
@@ -172,6 +231,19 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     schedule()
   }, [rect, schedule])
 
+  /**
+   * Clôt un tracé en cours sans coordonnées de relâché (barre espace maintenue au
+   * moment du `up`) : ce qui a déjà été étiré devient la zone, sauf si c'est sous le
+   * seuil — auquel cas on abandonne, comme pour un clic simple. Idempotent.
+   */
+  const abortDraft = useCallback(() => {
+    if (!draftRef.current) return
+    draftRef.current = null
+    setDrafting(false)
+    const r = rectRef.current
+    if (r && r.w < MIN_DRAG && r.h < MIN_DRAG) setRect(null)
+  }, [])
+
   // ── Tracé du sélecteur : intercepteur actif tant que l'outil loupe est actif.
   // Un simple CLIC ne crée RIEN : le marquee pointillé n'apparaît qu'au glissé
   // (au-delà d'un seuil), et le panneau seulement au relâché. Un nouveau glissé
@@ -179,7 +251,13 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const interceptor = useRef<PointerInterceptor>((phase, _ll, e) => {
     if (!container || !activeRef.current) return false
     // Barre espace : on laisse la molette/le drag à GlobeControls (pan / rotation).
-    if (suspendedRef.current) return false
+    if (suspendedRef.current) {
+      // Le `up` doit tout de même CLORE un tracé en cours : sinon `draftRef` reste
+      // armé et, la barre espace relâchée, le moindre `move` SANS bouton continue
+      // d'étirer le rectangle (bloqué en aperçu, ni poignées ni panneau).
+      if (phase === 'up') abortDraft()
+      return false
+    }
     if (phase === 'down') {
       containerRectRef.current = container.getBoundingClientRect()
       const r0 = containerRectRef.current
@@ -216,8 +294,15 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     engine.setDrawing(true)
     container.classList.add('m3d-lensing')
     return () => {
-      if (engine.inputInterceptor === interceptor) engine.inputInterceptor = null
-      engine.setDrawing(false)
+      // Le slot d'intercepteur est PARTAGÉ avec `DrawLayer`. Quand on passe de la
+      // loupe à un outil de dessin, `setTool()` a déjà pris le slot et rétabli
+      // `setDrawing(true)` AVANT que ce cleanup ne s'exécute (il est déclenché par
+      // le re-render qui suit) : ne relâcher le mode dessin que si on possède
+      // ENCORE le slot, sinon on dégèle le pan sous l'outil de dessin qui démarre.
+      if (engine.inputInterceptor === interceptor) {
+        engine.inputInterceptor = null
+        engine.setDrawing(false)
+      }
       container.classList.remove('m3d-lensing')
     }
   }, [active, engine, container, interceptor])
@@ -318,23 +403,31 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     }
   }, [active, engine, container])
 
-  // Liste affichée = inventaire moins les lignes masquées par leur croix.
-  const displayed = dismissed.size ? inventory.filter((m) => !dismissed.has(getId(m))) : inventory
+  // Liste affichée = inventaire moins les lignes masquées par leur croix. Mémoïsée :
+  // déplacer/redimensionner la zone re-rend ce composant à la cadence du pointeur,
+  // et une nouvelle identité de tableau ferait re-rendre toute la `MarkerList`
+  // (N lignes × icônes) alors que son contenu n'a pas bougé.
+  const displayed = useMemo(
+    () => (dismissed.size ? inventory.filter((m) => !dismissed.has(getId(m))) : inventory),
+    [inventory, dismissed, getId],
+  )
 
   const api = useMemo<LensApi>(
     () => ({ active, activate, deactivate, toggle, shortcut }),
     [active, activate, deactivate, toggle, shortcut],
   )
 
-  // Panneau à droite de la zone, basculé à gauche si le bord droit est trop proche
-  // (le clamp de useDraggablePanel garantit ensuite le maintien à l'écran).
-  // Largeur = .m3d-lenspanel (252) + marge de sécurité.
+  // Panneau à droite de la zone par défaut, basculé à gauche seulement si la droite
+  // ne tient pas ET que la gauche tient (le clamp de useDraggablePanel garantit
+  // ensuite le maintien à l'écran). Largeur = .m3d-lenspanel (252) + marge.
   const PANEL_W = 252 + GAP
   const cw = container?.clientWidth ?? 0
+  const fitsRight = rect != null && rect.x + rect.w + GAP + PANEL_W <= cw
+  const fitsLeft = rect != null && rect.x - GAP - PANEL_W >= 0
   const anchor =
     rect == null
       ? { x: 0, y: 0 }
-      : rect.x + rect.w + GAP + PANEL_W <= cw || rect.x - GAP - PANEL_W < 0
+      : fitsRight || !fitsLeft
         ? { x: rect.x + rect.w + GAP, y: rect.y }
         : { x: rect.x - GAP - PANEL_W, y: rect.y }
 

@@ -47,10 +47,19 @@ export function SelectionBadges(props: SelectionBadgesProps) {
     if (ids) ids.push(d.id)
     else shapeGroups.set(d.kind, [d.id])
   }
-  // Markers sélectionnés → donnée complète (position, avatar…) pour la liste partagée.
-  const markers = markerSelection
-    .map((id) => engine.markers.markerById(id))
-    .filter((m): m is MarkerData => m != null)
+  // Markers sélectionnés → donnée complète (position, avatar…) pour la liste
+  // partagée. On MÉMORISE l'id d'origine : c'est celui du `getId` de `MarkerLayer`
+  // (la sélection et le registre sont clés dessus), pas forcément `m.id`. Le
+  // re-dériver en `m.id` casserait la désélection dès qu'une app fournit un `getId`
+  // custom — et collisionnerait les clés React sur des `m.id` non uniques.
+  const markers: MarkerData[] = []
+  const idOf = new Map<MarkerData, string | number>()
+  for (const id of markerSelection) {
+    const m = engine.markers.markerById(id)
+    if (!m) continue
+    markers.push(m)
+    idOf.set(m, id)
+  }
 
   const rowLabel = (group: string, type: string): string => formatLabel(labels.selection.group, { group, type })
 
@@ -92,7 +101,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
         {markers.length > 0 && (
           <MarkerList
             markers={markers}
-            getId={(m) => m.id}
+            getId={(m) => idOf.get(m) ?? m.id}
             renderItem={props.renderMarker}
             markerTypeLabel={props.markerTypeLabel}
             onRemove={(id) => deselectMarkers([id])}

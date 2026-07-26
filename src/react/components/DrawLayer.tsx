@@ -247,8 +247,12 @@ export function DrawLayer(props: DrawLayerProps) {
       if (e.code === 'Space') return // géré par l'effet barre espace
       if (e.key === 'Enter') coreRef.current?.closeCurrent()
       else if (e.key === 'Escape') {
-        // Cascade : marquee en cours → sélection → sortie de l'outil.
-        if (!coreRef.current?.escape()) setTool(null)
+        // Cascade : marquee en cours → sélection → sortie de l'outil. La garde
+        // `toolRef.current !== null` est CAPITALE : sans outil de dessin actif,
+        // `setTool(null)` reprendrait quand même le slot partagé
+        // `engine.inputInterceptor` (+ `setDrawing(false)`) alors qu'il appartient
+        // à un outil externe (loupe) — celui-ci resterait affiché actif mais mort.
+        if (!coreRef.current?.escape() && toolRef.current !== null) setTool(null)
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         coreRef.current?.deleteSelected()
       } else if (e.key.startsWith('Arrow') && selectionRef.current.length > 0) {
