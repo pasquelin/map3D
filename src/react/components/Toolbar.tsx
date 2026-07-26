@@ -6,12 +6,12 @@ import {
   mdiUndo,
 } from '@mdi/js'
 import Icon from '@mdi/react'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useContext, useEffect, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import 'react-tooltip/dist/react-tooltip.css'
 import { zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
-import { useLabels, useMapContext } from '../context'
+import { LensContext, useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { SELECT_MODE_META, TOOL_ICONS } from './drawControls'
 import { DrawSettingsButton } from './DrawSettingsPanel'
@@ -71,6 +71,9 @@ export function Toolbar({
 }: DrawToolbarProps) {
   const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts } = useDrawing()
   const { engine } = useMapContext()
+  // Un outil externe actif (ex. loupe) doit "éteindre" la main : sinon `tool === null`
+  // surligne Naviguer alors qu'un autre outil est actif (deux items actifs à la fois).
+  const lens = useContext(LensContext)
   const labels = useLabels()
   const [hidden, setHidden] = useState(true)
   useEffect(() => {
@@ -101,7 +104,14 @@ export function Toolbar({
       <div ref={setBar} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
         {slot(
           'navigate',
-          <button {...tip(labels.toolbar.navigate, labels.keys.escape)} className={`m3d-btn${tool === null ? ' m3d-on' : ''} m3d-btn-move`} onClick={() => setTool(null)}>
+          <button
+            {...tip(labels.toolbar.navigate, labels.keys.escape)}
+            className={`m3d-btn${tool === null && !lens?.active ? ' m3d-on' : ''} m3d-btn-move`}
+            onClick={() => {
+              setTool(null)
+              lens?.deactivate() // quitter tout outil externe → la main devient l'outil actif
+            }}
+          >
             <Icon path={mdiHandBackRightOutline} size={ICON_SIZE} />
           </button>,
         )}
