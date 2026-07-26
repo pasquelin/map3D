@@ -708,13 +708,6 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-lenspanel{width:252px;padding:8px;display:flex;flex-direction:column;gap:7px}
 .m3d-lenshead{display:flex;align-items:center;gap:6px;padding:2px 2px 0}
 .m3d-lenstitle{flex:1;font-size:12.5px;font-weight:600}
-.m3d-lenssummary{font-size:11px;color:var(--m3d-muted);padding:0 2px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m3d-lensfoot{border-top:1px solid var(--m3d-border);padding-top:6px;display:flex;flex-wrap:wrap;gap:4px}
-.m3d-lensbtn{display:flex;align-items:center;gap:5px;padding:6px 9px;border:none;border-radius:8px;
-  background:color-mix(in srgb,var(--m3d-text) 6%,transparent);color:var(--m3d-text);cursor:pointer;font-size:11.5px}
-.m3d-lensbtn:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
-.m3d-lensbtn:disabled{opacity:.45;cursor:default}
 .m3d-lensempty{padding:14px 8px;text-align:center;color:var(--m3d-muted);font-size:12px}
 
 /* ── Liste de markers partagée (sélection + loupe) : 1 ligne par marker ──────── */

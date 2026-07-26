@@ -1,4 +1,4 @@
-import { mdiClose, mdiDrag } from '@mdi/js'
+import { mdiClose, mdiDrag, mdiMagnetOn } from '@mdi/js'
 import Icon from '@mdi/react'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -32,18 +32,10 @@ export type LensPanelProps<T = unknown> = {
 export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
   const { markers, getId } = props
   const labels = useLabels()
-  const { panelRef, style, gripProps } = useDraggablePanel(props.anchor)
+  const { panelRef, style, gripProps, pinned, reset } = useDraggablePanel(props.anchor)
 
   const count = markers.length
   const title = formatLabel(count === 1 ? labels.lens.titleSingular : labels.lens.title, { count })
-
-  // Récap par type (dominant en premier) — ex. « 12 Agents · 5 Alertes ».
-  const counts = new Map<string, number>()
-  for (const m of markers) counts.set(m.type, (counts.get(m.type) ?? 0) + 1)
-  const summary = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([type, n]) => `${n} ${props.markerTypeLabel?.(type) ?? type}`)
-    .join(' · ')
 
   return (
     <div ref={panelRef} className="m3d-lenshud" style={style}>
@@ -53,6 +45,11 @@ export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
             <Icon path={mdiDrag} size={0.6} />
           </button>
           <span className="m3d-lenstitle">{title}</span>
+          {pinned && (
+            <button type="button" className="m3d-selrow-x" onClick={reset} title={labels.lens.snapBack} aria-label={labels.lens.snapBack}>
+              <Icon path={mdiMagnetOn} size={0.6} />
+            </button>
+          )}
           <button type="button" className="m3d-selrow-x" onClick={props.onClose} aria-label={labels.lens.remove}>
             <Icon path={mdiClose} size={0.6} />
           </button>
@@ -61,18 +58,15 @@ export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
         {count === 0 ? (
           <div className="m3d-lensempty">{labels.lens.empty}</div>
         ) : (
-          <>
-            {summary && <div className="m3d-lenssummary">{summary}</div>}
-            <MarkerList<T>
-              markers={markers}
-              getId={getId}
-              renderItem={props.renderItem}
-              markerTypeLabel={props.markerTypeLabel}
-              onRemove={props.onRemove}
-              actions={props.actions}
-              targetZoom={props.targetZoom}
-            />
-          </>
+          <MarkerList<T>
+            markers={markers}
+            getId={getId}
+            renderItem={props.renderItem}
+            markerTypeLabel={props.markerTypeLabel}
+            onRemove={props.onRemove}
+            actions={props.actions}
+            targetZoom={props.targetZoom}
+          />
         )}
       </div>
     </div>
