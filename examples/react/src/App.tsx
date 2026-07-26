@@ -433,7 +433,6 @@ function MapDemo() {
           markerTypeLabel={clusterTypeLabel}
           renderItem={renderMarkerRow}
           actions={[{ id: 'sheet', label: 'Ouvrir la fiche', run: (m) => console.info('fiche', m.id) }]}
-          onSelectionChange={(ms) => console.log('[lens] sélection liste', ms.map((m) => m.id))}
         >
           <Toolbar extraTools={<LensToolButton />} />
           {/* Badges de sélection : formes groupées + markers en liste (MarkerList partagée). */}

@@ -52,7 +52,6 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   const markers = markerSelection
     .map((id) => engine.markers.markerById(id))
     .filter((m): m is MarkerData => m != null)
-  const selectedIds = new Set<string | number>(markerSelection)
 
   const rowLabel = (group: string, type: string): string => formatLabel(labels.selection.group, { group, type })
 
@@ -96,9 +95,6 @@ export function SelectionBadges(props: SelectionBadgesProps) {
             markers={markers}
             getId={(m) => m.id}
             renderItem={props.renderMarker}
-            selectable
-            selected={selectedIds}
-            onToggle={(id) => deselectMarkers([id])}
             onRemove={(id) => deselectMarkers([id])}
             actions={props.markerActions}
           />
