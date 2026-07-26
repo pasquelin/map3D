@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import type { PointerInterceptor } from '../../core/MapEngine'
+import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import type { Bounds } from '../../shared'
 import { GAP } from '../../style/panelGeometry'
@@ -76,6 +76,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const rafRef = useRef(0)
   const draftRef = useRef<{ x0: number; y0: number } | null>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
+  /** Barre espace maintenue : l'intercepteur ne consomme plus → la caméra bouge (pan/rotation). */
+  const suspendedRef = useRef(false)
   const latest = useRef({ getId })
   latest.current = { getId }
 
@@ -173,6 +175,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   // remplace la zone existante.
   const interceptor = useRef<PointerInterceptor>((phase, _ll, e) => {
     if (!container || !activeRef.current) return false
+    // Barre espace : on laisse la molette/le drag à GlobeControls (pan / rotation).
+    if (suspendedRef.current) return false
     if (phase === 'down') {
       containerRectRef.current = container.getBoundingClientRect()
       const r0 = containerRectRef.current
@@ -270,6 +274,52 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [shortcut, toggle])
+
+  // Barre espace = pan caméra temporaire (l'intercepteur se suspend) ; Espace+Maj =
+  // rotation. Même geste que les outils de dessin. Relâcher reprend la loupe.
+  useEffect(() => {
+    if (!active) return
+    const inTextInput = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+    }
+    let held: { prevMode: DragMode } | null = null
+    const release = () => {
+      if (!held) return
+      engine.setDrawingSuspended(false)
+      engine.setDragMode(held.prevMode)
+      suspendedRef.current = false
+      container?.classList.remove('m3d-space-pan')
+      held = null
+    }
+    const onDown = (e: KeyboardEvent) => {
+      if (inTextInput(e)) return
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault()
+        if (held) return
+        held = { prevMode: engine.getDragMode() }
+        engine.setDrawingSuspended(true)
+        suspendedRef.current = true
+        container?.classList.add('m3d-space-pan')
+        if (e.shiftKey) engine.setDragMode('rotate')
+      } else if (e.key === 'Shift' && held) {
+        engine.setDragMode('rotate')
+      }
+    }
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') release()
+      else if (e.key === 'Shift' && held) engine.setDragMode(held.prevMode)
+    }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    window.addEventListener('blur', release)
+    return () => {
+      release()
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', release)
+    }
+  }, [active, engine, container])
 
   // Liste affichée = inventaire moins les lignes masquées par leur croix.
   const displayed = dismissed.size ? inventory.filter((m) => !dismissed.has(getId(m))) : inventory
