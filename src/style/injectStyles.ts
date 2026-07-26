@@ -715,9 +715,8 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-mllist{display:flex;flex-direction:column;gap:1px;max-height:44vh;overflow-y:auto;margin:0 -2px;padding:0 2px}
 .m3d-mlrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;color:inherit}
 .m3d-mlrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
-.m3d-mlrow-sel{background:color-mix(in srgb,var(--m3d-accent) 16%,transparent)}
-.m3d-mlrow-sel:hover{background:color-mix(in srgb,var(--m3d-accent) 22%,transparent)}
 .m3d-mlrow:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
+/* Sélection indiquée par la seule case cochée (pas de fond de ligne). */
 .m3d-mlcheck{display:flex;align-items:center;justify-content:center;flex:none;width:22px;height:22px;padding:0;
   border:none;border-radius:50%;background:transparent;color:var(--m3d-muted);cursor:pointer}
 .m3d-mlcheck:hover{color:var(--m3d-text)}
