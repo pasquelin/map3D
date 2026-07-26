@@ -693,6 +693,8 @@ img.m3d-pin-media{object-fit:cover}
   background:#fff;border:1.5px solid var(--m3d-accent);border-radius:2px;pointer-events:auto;
   box-shadow:0 1px 2px rgba(0,0,0,.4)}
 .m3d-lenszone-h:hover{background:var(--m3d-accent)}
+/* Marquee pendant le glissé : simple cadre pointillé, non interactif (aperçu). */
+.m3d-lens-marquee{pointer-events:none;cursor:default}
 /* Panneau d'inventaire, ancré à droite de la zone (position inline via le hook). */
 .m3d-lenshud{position:absolute;z-index:20;display:flex;flex-direction:column;
   pointer-events:none;max-width:min(60%,360px)}
