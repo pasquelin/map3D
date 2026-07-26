@@ -35,5 +35,10 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
   // Optionnelles (thème antérieur valide) : les règles CSS ont leur repli.
   if (c.attention?.sonar) vars['--m3d-sonar-color'] = c.attention.sonar
   if (c.attention?.target) vars['--m3d-target-color'] = c.attention.target
+  if (c.lens) {
+    vars['--m3d-lens-fill'] = c.lens.fill
+    vars['--m3d-lens-stroke'] = c.lens.stroke
+    vars['--m3d-lens-under'] = c.lens.under
+  }
   return vars
 }

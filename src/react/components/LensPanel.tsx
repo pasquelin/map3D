@@ -67,6 +67,7 @@ export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
               markers={markers}
               getId={getId}
               renderItem={props.renderItem}
+              markerTypeLabel={props.markerTypeLabel}
               onRemove={props.onRemove}
               actions={props.actions}
               targetZoom={props.targetZoom}

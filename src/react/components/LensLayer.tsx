@@ -281,13 +281,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   return (
     <LensContext.Provider value={api}>
       {props.children}
-      {/* Pendant le glissé : seulement le marquee pointillé (aucune action encore). */}
-      {active && rect && drafting && (
-        <div
-          className="m3d-lenszone m3d-lens-marquee"
-          style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
-        />
-      )}
+      {/* Pendant le glissé : seulement le cadre (aucune action encore). */}
+      {active && rect && drafting && <LensZone rect={rect} preview />}
       {/* Zone validée (relâché) : poignées, croix et panneau d'inventaire. */}
       {active && rect && !drafting && (
         <>
