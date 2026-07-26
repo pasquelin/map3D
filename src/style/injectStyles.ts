@@ -678,7 +678,7 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-root.m3d-lensing canvas{cursor:crosshair}
 /* Zone : cadre marching-ants (façon marquee de sélection), déplaçable (corps) +
    redimensionnable (poignées). Fenêtre écran 2D. Couleurs pilotées par le thème
-   (theme.colors.lens -> --m3d-lens-*), repli sur l'accent. */
+   (theme.colors.marquee -> --m3d-marquee-*), repli gris/blanc. */
 .m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move}
 .m3d-lenszone-preview{pointer-events:none;cursor:default}
 /* Barre espace maintenue : le rectangle (et ses poignées) devient traversant →

@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
+import type { ScreenPoint } from '../../core/Projection'
 import type { MarkerData } from '../../data/types'
 import type { Bounds } from '../../shared'
 import { GAP } from '../../style/panelGeometry'
@@ -8,6 +9,7 @@ import { DrawingContext, LensContext, type LensApi, useLabels, useMapContext } f
 import { LensPanel } from './LensPanel'
 import { LensZone } from './LensZone'
 import type { MarkerListAction } from './MarkerList'
+import { inTextInput, plainKey } from './shortcuts'
 import type { LensRect, LensRenderItem } from './lensTypes'
 
 /** Cadre géo « monde » — repli quand les coins ne pickent pas (vue vers le ciel). */
@@ -73,6 +75,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   rectRef.current = rect
   const invSigRef = useRef('')
   const scratch = useRef(new THREE.Vector3()).current
+  const screenScratch = useRef<ScreenPoint>({ sx: 0, sy: 0, z: 0 }).current
   const rafRef = useRef(0)
   const draftRef = useRef<{ x0: number; y0: number } | null>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
@@ -130,14 +133,14 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     const found: MarkerData<T>[] = []
     for (const m of engine.markers.markersInBounds(bounds) as MarkerData<T>[]) {
       const world = proj.latLngToWorld(m.position, scratch, height)
-      const s = proj.worldToScreen(world, cam)
+      const s = proj.worldToScreen(world, cam, screenScratch)
       if (s.z <= 1 && s.sx >= r.x && s.sx <= r.x + r.w && s.sy >= r.y && s.sy <= r.y + r.h) found.push(m)
     }
     const sig = found.map((m) => latest.current.getId(m)).join('|')
     if (sig === invSigRef.current) return
     invSigRef.current = sig
     setInventory(found)
-  }, [engine, scratch])
+  }, [engine, scratch, screenScratch])
 
   const schedule = useCallback(() => {
     if (rafRef.current) return
@@ -265,9 +268,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     if (!shortcut) return
     const key = shortcut.toLowerCase()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== key || e.metaKey || e.ctrlKey || e.altKey) return
-      const t = e.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (plainKey(e) !== key) return // modificateurs / champ de saisie exclus
       e.preventDefault()
       toggle()
     }
@@ -279,10 +280,6 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   // rotation. Même geste que les outils de dessin. Relâcher reprend la loupe.
   useEffect(() => {
     if (!active) return
-    const inTextInput = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null
-      return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
-    }
     let held: { prevMode: DragMode } | null = null
     const release = () => {
       if (!held) return
@@ -325,13 +322,14 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const displayed = dismissed.size ? inventory.filter((m) => !dismissed.has(getId(m))) : inventory
 
   const api = useMemo<LensApi>(
-    () => ({ active, hasZone: rect !== null, activate, deactivate, toggle, shortcut }),
-    [active, rect, activate, deactivate, toggle, shortcut],
+    () => ({ active, activate, deactivate, toggle, shortcut }),
+    [active, activate, deactivate, toggle, shortcut],
   )
 
   // Panneau à droite de la zone, basculé à gauche si le bord droit est trop proche
   // (le clamp de useDraggablePanel garantit ensuite le maintien à l'écran).
-  const PANEL_W = 264
+  // Largeur = .m3d-lenspanel (252) + marge de sécurité.
+  const PANEL_W = 252 + GAP
   const cw = container?.clientWidth ?? 0
   const anchor =
     rect == null

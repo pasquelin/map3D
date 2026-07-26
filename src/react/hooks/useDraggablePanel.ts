@@ -107,11 +107,16 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
   }, [pinned])
 
   // Collision avec les bords : la position par défaut (non épinglée, ex. ancrée à
-  // une zone) est ramenée DANS le conteneur, re-mesurée si le panneau grandit
-  // (plus de lignes) ou si le conteneur est redimensionné.
+  // une zone) est ramenée DANS le conteneur. L'observer est créé UNE fois (pas
+  // recréé à chaque changement d'ancre — l'ancre bouge à chaque frame de drag) ;
+  // `defaultPos` est lu via un ref, et le clamp re-mesure au resize panneau/conteneur.
   const [clamped, setClamped] = useState<{ x: number; y: number } | null>(null)
+  const defaultPosRef = useRef(defaultPos)
+  defaultPosRef.current = defaultPos
+  const applyRef = useRef<() => void>(() => {})
+  const hasDefault = defaultPos != null
   useLayoutEffect(() => {
-    if (pinned || !defaultPos) {
+    if (pinned || !hasDefault) {
       setClamped(null)
       return
     }
@@ -119,18 +124,25 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
     const parent = panel?.offsetParent as HTMLElement | null
     if (!panel || !parent) return
     const apply = () => {
+      const dp = defaultPosRef.current
+      if (!dp) return
       const pr = panel.getBoundingClientRect()
       const rr = parent.getBoundingClientRect()
-      const x = clamp(defaultPos.x, EDGE, Math.max(EDGE, rr.width - pr.width - EDGE))
-      const y = clamp(defaultPos.y, EDGE, Math.max(EDGE, rr.height - pr.height - EDGE))
+      const x = clamp(dp.x, EDGE, Math.max(EDGE, rr.width - pr.width - EDGE))
+      const y = clamp(dp.y, EDGE, Math.max(EDGE, rr.height - pr.height - EDGE))
       setClamped((prev) => (prev && prev.x === x && prev.y === y ? prev : { x, y }))
     }
+    applyRef.current = apply
     apply()
     const ro = new ResizeObserver(apply)
     ro.observe(panel)
     ro.observe(parent)
     return () => ro.disconnect()
-  }, [defaultPos?.x, defaultPos?.y, pinned])
+  }, [pinned, hasDefault])
+  // Ré-applique le clamp quand l'ancre bouge — sans recréer l'observer.
+  useLayoutEffect(() => {
+    if (!pinned && hasDefault) applyRef.current()
+  }, [defaultPos?.x, defaultPos?.y, pinned, hasDefault])
 
   const pos = pinned ?? clamped ?? defaultPos ?? null
   // right:auto obligatoire : sans lui, un `right` du CSS s'ajoute au left épinglé

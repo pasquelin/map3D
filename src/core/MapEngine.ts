@@ -306,8 +306,12 @@ export class MapEngine {
     const target = e.target as HTMLElement | null
     if (!target || target === this.canvas) return
     for (let el: HTMLElement | null = target; el && el !== container; el = el.parentElement) {
-      const oy = getComputedStyle(el).overflowY
-      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return
+      // `getComputedStyle` (flush de style) seulement pour un élément qui déborde
+      // réellement — pré-filtre bon marché par le layout déjà calculé.
+      if (el.scrollHeight > el.clientHeight) {
+        const oy = getComputedStyle(el).overflowY
+        if (oy === 'auto' || oy === 'scroll') return
+      }
     }
     e.preventDefault()
     this.canvas.dispatchEvent(

@@ -99,8 +99,6 @@ export const DrawingContext = createContext<DrawingApi | null>(null)
 export type LensApi = {
   /** Outil loupe actif : on peut tracer une zone (ou une zone existe déjà). */
   active: boolean
-  /** Une zone d'inventaire est présente à l'écran. */
-  hasZone: boolean
   activate: () => void
   deactivate: () => void
   toggle: () => void

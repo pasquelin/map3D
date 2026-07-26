@@ -48,10 +48,10 @@ function Swatch<T>({ m, theme }: { m: MarkerData<T>; theme: MapTheme }) {
 
 /**
  * Liste de markers **partagée** par le panneau de sélection et la loupe :
- * 1 ligne par marker, langage visuel commun. Chaque ligne — case à cocher (option),
- * pastille/avatar + libellé, menu d'actions déroulant (« Cibler » + extensions),
- * croix (option). Clic sur la ligne = cibler (vol caméra par défaut). Le menu est
- * rendu en PORTAL dans `.m3d-root` pour ne pas être rogné par le scroll de la liste.
+ * 1 ligne par marker, langage visuel commun. Chaque ligne — pastille/avatar +
+ * titre/sous-titre, menu d'actions déroulant (« Cibler » + extensions), croix
+ * (option). Clic sur la ligne = cibler (vol caméra par défaut). Le menu est rendu
+ * en PORTAL dans `.m3d-root` pour ne pas être rogné par le scroll de la liste.
  */
 export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
   const { markers, getId, onRemove } = props
