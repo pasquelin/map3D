@@ -681,6 +681,10 @@ img.m3d-pin-media{object-fit:cover}
    (theme.colors.lens -> --m3d-lens-*), repli sur l'accent. */
 .m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move}
 .m3d-lenszone-preview{pointer-events:none;cursor:default}
+/* Barre espace maintenue : le rectangle (et ses poignées) devient traversant →
+   le glissé atteint la carte et la déplace, où que soit le curseur. */
+.m3d-root.m3d-space-pan .m3d-lenszone,
+.m3d-root.m3d-space-pan .m3d-lenszone *{pointer-events:none!important}
 .m3d-lenszone-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 /* Mêmes variables que le marquee de sélection (gris/blanc, thème theme.colors.marquee). */
 .m3d-lenszone-fill{fill:var(--m3d-marquee-fill,rgba(255,255,255,.12));
