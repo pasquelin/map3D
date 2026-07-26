@@ -290,16 +290,11 @@ const CSS = `
   background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px)}
 .m3d-btn{width:calc(38px * var(--m3d-bar-scale,1));height:calc(38px * var(--m3d-bar-scale,1));
-  border:none;background:transparent;border-radius:9px;
+  border:none;background:transparent;border-radius:9px;outline:none;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--m3d-text);
   transition:background .14s}
 .m3d-btn:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
 .m3d-btn.m3d-on{background:var(--m3d-accent);color:#fff}
-/* :focus-visible ne s'active qu'au clavier (pas au clic) : indispensable pour
-   naviguer les barres à la tabulation (WCAG 2.4.7). */
-.m3d-btn:focus-visible,.m3d-flyout-item:focus-visible,.m3d-preset:focus-visible,
-.m3d-palette-dot:focus-visible,.m3d-swatch:focus-visible,.m3d-swap:focus-visible,
-.m3d-settings-toolhead:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
 .m3d-btn:disabled{opacity:.35;cursor:default;background:transparent}
 .m3d-btn-move{margin-bottom:calc(4px * var(--m3d-bar-scale,1))}
 .m3d-btn-delete{margin-top:calc(4px * var(--m3d-bar-scale,1)); color:var(--m3d-error)}
