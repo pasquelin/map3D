@@ -286,15 +286,29 @@ export class MapEngine {
     this.stars = this.buildStars()
     this.scene.add(this.stars)
 
-    // Zoom molette actif sur TOUT l'overlay, même curseur sur un marker : on relaie
-    // l'événement `wheel` reçu par l'overlay HTML vers le canvas (écouté par GlobeControls).
-    labelDom.addEventListener('wheel', this.forwardWheel, { passive: false })
+    // Zoom molette actif PARTOUT dans la carte (markers, zone loupe, marquee…) :
+    // on relaie l'événement `wheel` reçu par n'importe quel overlay vers le canvas
+    // (écouté par GlobeControls). Posé sur le conteneur pour couvrir tous les
+    // enfants ; `forwardWheel` laisse passer le canvas natif et les listes scrollables.
+    this.canvas.parentElement?.addEventListener('wheel', this.forwardWheel, { passive: false })
 
     this.bindInput()
   }
 
-  /** Relaie une molette de l'overlay vers le canvas (zoom même au-dessus d'un marker). */
+  /**
+   * Relaie une molette reçue par un overlay vers le canvas (zoom même au-dessus
+   * d'un marker ou de la zone loupe). Deux exceptions : la molette NATIVE du canvas
+   * (déjà gérée par GlobeControls — sinon double zoom), et un conteneur scrollable
+   * sous le curseur (liste, panneau) qu'on laisse défiler normalement.
+   */
   private forwardWheel = (e: WheelEvent): void => {
+    const container = this.canvas.parentElement
+    const target = e.target as HTMLElement | null
+    if (!target || target === this.canvas) return
+    for (let el: HTMLElement | null = target; el && el !== container; el = el.parentElement) {
+      const oy = getComputedStyle(el).overflowY
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return
+    }
     e.preventDefault()
     this.canvas.dispatchEvent(
       new WheelEvent('wheel', {
@@ -1027,7 +1041,7 @@ export class MapEngine {
       this.stars.geometry.dispose()
       ;(this.stars.material as THREE.Material).dispose()
     }
-    this.labelRenderer.domElement.removeEventListener('wheel', this.forwardWheel)
+    this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
   }
 }
