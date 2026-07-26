@@ -11,8 +11,8 @@ import type { LensAction, LensRect, LensRenderItem } from './lensTypes'
 
 /** Cadre géo « monde » — repli quand les coins ne pickent pas (vue vers le ciel). */
 const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }
-/** Drag minimal (px) pour valider une zone — en deçà, c'est un clic (efface). */
-const MIN_DRAW = 6
+/** Glissé minimal (px) pour qu'un rectangle existe — en deçà, c'est un clic (rien). */
+const MIN_DRAG = 4
 
 const norm = (x0: number, y0: number, x1: number, y1: number): LensRect => ({
   x: Math.min(x0, x1),
@@ -58,6 +58,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
 
   const [active, setActive] = useState(false)
   const [rect, setRect] = useState<LensRect | null>(null)
+  /** Glissé en cours : on n'affiche que le marquee pointillé (pas encore le panneau). */
+  const [drafting, setDrafting] = useState(false)
   const [inventory, setInventory] = useState<MarkerData<T>[]>([])
   const [selected, setSelected] = useState<Set<string | number>>(() => new Set())
 
@@ -171,38 +173,43 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     schedule()
   }, [rect, schedule])
 
-  // ── Tracé : intercepteur pointeur, ACTIF seulement tant qu'aucune zone n'existe.
-  // Une fois la zone posée, la carte redevient navigable (overlay écran fixe).
-  const drawing = active && rect === null
-  const drawingRef = useRef(drawing)
-  drawingRef.current = drawing
-
+  // ── Tracé du sélecteur : intercepteur actif tant que l'outil loupe est actif.
+  // Un simple CLIC ne crée RIEN : le marquee pointillé n'apparaît qu'au glissé
+  // (au-delà d'un seuil), et le panneau seulement au relâché. Un nouveau glissé
+  // remplace la zone existante.
   const interceptor = useRef<PointerInterceptor>((phase, _ll, e) => {
-    if (!container || !drawingRef.current) return false
-    const rct = (containerRectRef.current ??= container.getBoundingClientRect())
-    const px = { x: e.clientX - rct.left, y: e.clientY - rct.top }
+    if (!container || !activeRef.current) return false
     if (phase === 'down') {
       containerRectRef.current = container.getBoundingClientRect()
-      draftRef.current = { x0: px.x, y0: px.y }
-      setRect({ x: px.x, y: px.y, w: 0, h: 0 })
-      return true
+      const r0 = containerRectRef.current
+      draftRef.current = { x0: e.clientX - r0.left, y0: e.clientY - r0.top }
+      setDrafting(true)
+      return true // rien affiché tant qu'on n'a pas glissé
     }
+    const rct = containerRectRef.current ?? container.getBoundingClientRect()
+    const x = e.clientX - rct.left
+    const y = e.clientY - rct.top
     if (phase === 'move') {
       const d = draftRef.current
-      if (d) setRect(norm(d.x0, d.y0, px.x, px.y))
+      // Seuil : le marquee n'apparaît qu'à partir d'un vrai glissé (pas un micro-tremblement).
+      if (d && (rectRef.current || Math.abs(x - d.x0) >= MIN_DRAG || Math.abs(y - d.y0) >= MIN_DRAG)) {
+        setRect(norm(d.x0, d.y0, x, y))
+      }
       return true
     }
+    // up : valide la zone si un vrai rectangle a été tracé, sinon rien (clic simple).
     const d = draftRef.current
     draftRef.current = null
+    setDrafting(false)
     if (d) {
-      const r = norm(d.x0, d.y0, px.x, px.y)
-      setRect(r.w < MIN_DRAW && r.h < MIN_DRAW ? null : r)
+      const r = norm(d.x0, d.y0, x, y)
+      setRect(r.w < MIN_DRAG && r.h < MIN_DRAG ? null : r)
     }
     return true
   }).current
 
   useEffect(() => {
-    if (!drawing || !container) return
+    if (!active || !container) return
     engine.inputInterceptor = interceptor
     engine.setDrawing(true)
     container.classList.add('m3d-lensing')
@@ -211,7 +218,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       engine.setDrawing(false)
       container.classList.remove('m3d-lensing')
     }
-  }, [drawing, engine, container, interceptor])
+  }, [active, engine, container, interceptor])
 
   // ── Activation / exclusivité avec le dessin ──
   const clearZone = useCallback(() => {
@@ -276,7 +283,15 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   return (
     <LensContext.Provider value={api}>
       {props.children}
-      {active && rect && (
+      {/* Pendant le glissé : seulement le marquee pointillé (aucune action encore). */}
+      {active && rect && drafting && (
+        <div
+          className="m3d-lenszone m3d-lens-marquee"
+          style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+        />
+      )}
+      {/* Zone validée (relâché) : poignées, croix et panneau d'inventaire. */}
+      {active && rect && !drafting && (
         <>
           <LensZone rect={rect} onChange={setRect} onClose={clearZone} closeLabel={labels.lens.remove} />
           <LensPanel<T>
