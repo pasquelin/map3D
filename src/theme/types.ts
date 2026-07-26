@@ -26,6 +26,10 @@ export type MapTheme = {
     attention?: { sonar?: string; target?: string }
     path: { base: string; casing: string }
     zone: { fill: string; stroke: string }
+    /** Zone de l'outil loupe (marching-ants façon sélection) : `fill` = fond,
+     *  `stroke` = pointillé animé, `under` = trait continu sous le pointillé.
+     *  Optionnel : repli CSS sur l'accent (thème antérieur valide). */
+    lens?: { fill: string; stroke: string; under: string }
   }
   shadows: { sm: string; md: string; lg: string }
   radii: { sm: number; md: number; lg: number; pill: number }

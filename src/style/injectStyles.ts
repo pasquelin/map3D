@@ -679,22 +679,24 @@ img.m3d-pin-media{object-fit:cover}
 /* ── Loupe (LensLayer) : zone d'inspection + panneau d'inventaire ─────────────── */
 /* Curseur de tracé, seulement tant qu'aucune zone n'existe (phase de dessin). */
 .m3d-root.m3d-lensing canvas{cursor:crosshair}
-/* Zone : sélecteur en POINTILLÉS (façon marquee), déplaçable (corps) +
-   redimensionnable (poignées). Fenêtre écran 2D. */
-.m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move;
-  border:1.5px dashed var(--m3d-accent);border-radius:4px;
-  background:color-mix(in srgb,var(--m3d-accent) 14%,transparent);
-  box-shadow:0 0 0 1px color-mix(in srgb,#fff 45%,transparent)}
+/* Zone : cadre marching-ants (façon marquee de sélection), déplaçable (corps) +
+   redimensionnable (poignées). Fenêtre écran 2D. Couleurs pilotées par le thème
+   (theme.colors.lens -> --m3d-lens-*), repli sur l'accent. */
+.m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move}
+.m3d-lenszone-preview{pointer-events:none;cursor:default}
+.m3d-lenszone-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.m3d-lenszone-fill{fill:var(--m3d-lens-fill,color-mix(in srgb,var(--m3d-accent) 14%,transparent));
+  stroke:var(--m3d-lens-under,color-mix(in srgb,#fff 50%,transparent));stroke-width:1.6}
+.m3d-lenszone-ants{fill:none;stroke:var(--m3d-lens-stroke,var(--m3d-accent));stroke-width:1.6;
+  stroke-dasharray:5 4;animation:m3d-ants .5s linear infinite}
 .m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:1;
   display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;padding:0;
   background:var(--m3d-accent);color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .m3d-lenszone-x:hover{filter:brightness(1.12)}
 .m3d-lenszone-h{position:absolute;width:11px;height:11px;box-sizing:border-box;transform:translate(-50%,-50%);
-  background:#fff;border:1.5px solid var(--m3d-accent);border-radius:2px;pointer-events:auto;
+  background:#fff;border:1.5px solid var(--m3d-accent);border-radius:2px;pointer-events:auto;z-index:1;
   box-shadow:0 1px 2px rgba(0,0,0,.4)}
 .m3d-lenszone-h:hover{background:var(--m3d-accent)}
-/* Marquee pendant le glissé : simple cadre pointillé, non interactif (aperçu). */
-.m3d-lens-marquee{pointer-events:none;cursor:default}
 /* Panneau d'inventaire, ancré à droite de la zone (position inline via le hook). */
 .m3d-lenshud{position:absolute;z-index:20;display:flex;flex-direction:column;
   pointer-events:none;max-width:min(60%,360px)}
@@ -718,7 +720,9 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-mlrow:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
 .m3d-mldot{width:10px;height:10px;border-radius:50%;flex:none}
 .m3d-mlavatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex:none;border:1.5px solid var(--m3d-border)}
-.m3d-mllabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.m3d-mltext{flex:1;min-width:0;display:flex;flex-direction:column}
+.m3d-mltitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;line-height:1.3}
+.m3d-mlsub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:1.25;color:var(--m3d-muted)}
 .m3d-mlact,.m3d-mlremove{display:flex;align-items:center;justify-content:center;flex:none;width:22px;height:22px;padding:0;
   border:none;background:transparent;color:var(--m3d-muted);cursor:pointer}
 .m3d-mlact{border-radius:6px}

@@ -95,6 +95,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
             markers={markers}
             getId={(m) => m.id}
             renderItem={props.renderMarker}
+            markerTypeLabel={props.markerTypeLabel}
             onRemove={(id) => deselectMarkers([id])}
             actions={props.markerActions}
           />

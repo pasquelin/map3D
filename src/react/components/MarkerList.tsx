@@ -20,12 +20,12 @@ export type MarkerListAction<T = unknown> = {
 export type MarkerListProps<T = unknown> = {
   markers: MarkerData<T>[]
   getId: (m: MarkerData<T>) => string | number
-  /**
-   * Rendu du **libellé** d'une ligne (après la pastille/avatar, toujours affichée).
-   * Défaut : l'id. Retourner un `<span className="m3d-mllabel">…</span>` pour occuper
-   * la place et ellipser proprement.
-   */
+  /** Rendu du **titre** (1ʳᵉ ligne) — défaut : l'id. */
   renderItem?: (m: MarkerData<T>) => ReactNode
+  /** Rendu du **sous-titre** (2ᵉ ligne, plus petit) — défaut : le type via `markerTypeLabel`. */
+  renderSubtitle?: (m: MarkerData<T>) => ReactNode
+  /** Libellé lisible d'un type (sous-titre par défaut). */
+  markerTypeLabel?: (type: string) => string
   /** Croix de retrait par ligne (masquée si absent) : désélectionne / retire. */
   onRemove?: (id: string | number) => void
   /** Clic sur la ligne / action « Cibler ». Défaut : vol caméra vers le marker. */
@@ -117,7 +117,15 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
             }}
           >
             <Swatch m={m} theme={theme} />
-            {props.renderItem ? props.renderItem(m) : <span className="m3d-mllabel">{idStr}</span>}
+            <div className="m3d-mltext">
+              <span className="m3d-mltitle">{props.renderItem ? props.renderItem(m) : idStr}</span>
+              {(() => {
+                const sub = props.renderSubtitle
+                  ? props.renderSubtitle(m)
+                  : (props.markerTypeLabel?.(m.type) ?? m.type)
+                return sub != null && sub !== '' ? <span className="m3d-mlsub">{sub}</span> : null
+              })()}
+            </div>
             <button
               type="button"
               className="m3d-mlact"

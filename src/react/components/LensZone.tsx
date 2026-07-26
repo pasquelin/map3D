@@ -40,20 +40,46 @@ function applyHandle(id: HandleId, s: LensRect, dx: number, dy: number): LensRec
 
 export type LensZoneProps = {
   rect: LensRect
-  onChange: (rect: LensRect) => void
-  onClose: () => void
-  closeLabel: string
+  onChange?: (rect: LensRect) => void
+  onClose?: () => void
+  closeLabel?: string
+  /** Aperçu (pendant le glissé) : cadre seul, sans poignées ni croix, non interactif. */
+  preview?: boolean
+}
+
+/** Cadre marching-ants (façon marquee de sélection) : fond + trait continu sous
+ *  un pointillé animé. Couleurs pilotées par le thème (`--m3d-lens-*`). */
+function AntsFrame({ rect }: { rect: LensRect }) {
+  const x = 1
+  const y = 1
+  const w = Math.max(0, rect.w - 2)
+  const h = Math.max(0, rect.h - 2)
+  return (
+    <svg className="m3d-lenszone-svg" aria-hidden>
+      <rect className="m3d-lenszone-fill" x={x} y={y} width={w} height={h} rx={4} />
+      <rect className="m3d-lenszone-ants" x={x} y={y} width={w} height={h} rx={4} />
+    </svg>
+  )
 }
 
 /**
  * Rectangle de la loupe : déplaçable (drag du corps), redimensionnable (8
- * poignées), retirable (croix). Rendu en overlay DOM 2D dans `.m3d-root` — pas de
- * drapage 3D : la zone est une fenêtre d'inspection écran, l'inventaire se
- * recalcule quand la carte défile dessous.
+ * poignées), retirable (croix). Cadre marching-ants façon marquee de sélection.
+ * Rendu en overlay DOM 2D dans `.m3d-root` — pas de drapage 3D : la zone est une
+ * fenêtre d'inspection écran, l'inventaire se recalcule quand la carte défile
+ * dessous. `preview` (glissé en cours) n'affiche que le cadre.
  */
-export function LensZone({ rect, onChange, onClose, closeLabel }: LensZoneProps) {
+export function LensZone({ rect, onChange, onClose, closeLabel, preview }: LensZoneProps) {
   const zoneRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ id: HandleId; sx: number; sy: number; start: LensRect } | null>(null)
+
+  if (preview) {
+    return (
+      <div className="m3d-lenszone m3d-lenszone-preview" style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}>
+        <AntsFrame rect={rect} />
+      </div>
+    )
+  }
 
   const begin = (id: HandleId) => (e: PointerEvent<HTMLElement>) => {
     e.stopPropagation()
@@ -64,7 +90,7 @@ export function LensZone({ rect, onChange, onClose, closeLabel }: LensZoneProps)
   const move = (e: PointerEvent<HTMLElement>) => {
     const d = dragRef.current
     if (!d) return
-    onChange(applyHandle(d.id, d.start, e.clientX - d.sx, e.clientY - d.sy))
+    onChange?.(applyHandle(d.id, d.start, e.clientX - d.sx, e.clientY - d.sy))
   }
   const end = (e: PointerEvent<HTMLElement>) => {
     if (!dragRef.current) return
@@ -86,6 +112,7 @@ export function LensZone({ rect, onChange, onClose, closeLabel }: LensZoneProps)
       onPointerUp={end}
       onPointerCancel={end}
     >
+      <AntsFrame rect={rect} />
       <button
         type="button"
         className="m3d-lenszone-x"
