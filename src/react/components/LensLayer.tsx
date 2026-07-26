@@ -7,7 +7,8 @@ import { GAP } from '../../style/panelGeometry'
 import { DrawingContext, LensContext, type LensApi, useLabels, useMapContext } from '../context'
 import { LensPanel } from './LensPanel'
 import { LensZone } from './LensZone'
-import type { LensAction, LensRect, LensRenderItem } from './lensTypes'
+import type { MarkerListAction } from './MarkerList'
+import type { LensRect, LensRenderItem } from './lensTypes'
 
 /** Cadre géo « monde » — repli quand les coins ne pickent pas (vue vers le ciel). */
 const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }
@@ -26,12 +27,16 @@ export type LensLayerProps<T = unknown> = {
   getId?: (m: MarkerData<T>) => string | number
   /** Rendu d'une ligne (défaut : pastille de type + avatar + id). */
   renderItem?: LensRenderItem<T>
-  /** Actions déclaratives supplémentaires (par ligne et globales). */
-  actions?: LensAction<T>[]
+  /** Actions du menu déroulant d'une ligne, en plus de « Cibler » (extensible). */
+  actions?: MarkerListAction<T>[]
   /** Libellé lisible d'un type de marker (récap par type). */
   markerTypeLabel?: (type: string) => string
   /** Notifié quand la sélection dans la liste change. */
   onSelectionChange?: (markers: MarkerData<T>[]) => void
+  /** Raccourci clavier d'activation (lettre unique, insensible à la casse). Défaut `f`. `null` = aucun. */
+  shortcut?: string | null
+  /** Zoom du vol « Cibler » d'une ligne (défaut 17). */
+  targetZoom?: number
   children?: ReactNode
 }
 
@@ -62,6 +67,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const [drafting, setDrafting] = useState(false)
   const [inventory, setInventory] = useState<MarkerData<T>[]>([])
   const [selected, setSelected] = useState<Set<string | number>>(() => new Set())
+  /** Markers retirés de la liste par leur croix (réinitialisé à chaque nouvelle zone). */
+  const [dismissed, setDismissed] = useState<Set<string | number>>(() => new Set())
 
   const activeRef = useRef(active)
   activeRef.current = active
@@ -184,6 +191,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       const r0 = containerRectRef.current
       draftRef.current = { x0: e.clientX - r0.left, y0: e.clientY - r0.top }
       setDrafting(true)
+      setDismissed(new Set()) // nouvelle zone → aucune ligne masquée
       return true // rien affiché tant qu'on n'a pas glissé
     }
     const rct = containerRectRef.current ?? container.getBoundingClientRect()
@@ -224,6 +232,10 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const clearZone = useCallback(() => {
     setRect(null)
     setSelected(new Set())
+    setDismissed(new Set())
+  }, [])
+  const onRemoveRow = useCallback((id: string | number) => {
+    setDismissed((prev) => new Set(prev).add(id))
   }, [])
   const deactivate = useCallback(() => {
     setActive(false)
@@ -256,6 +268,22 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     return () => window.removeEventListener('keydown', onKey)
   }, [active, clearZone, deactivate])
 
+  // Raccourci clavier d'activation (défaut « f ») — ignoré dans un champ de saisie.
+  const shortcut = props.shortcut === undefined ? 'f' : props.shortcut
+  useEffect(() => {
+    if (!shortcut) return
+    const key = shortcut.toLowerCase()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== key || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.preventDefault()
+      toggle()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [shortcut, toggle])
+
   // ── Sélection de liste ──
   const onToggle = useCallback((id: string | number) => {
     setSelected((prev) => {
@@ -265,19 +293,24 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       return next
     })
   }, [])
+  // Liste affichée = inventaire moins les lignes masquées par leur croix.
+  const displayed = dismissed.size ? inventory.filter((m) => !dismissed.has(getId(m))) : inventory
   const onSelectAll = useCallback(() => {
-    setSelected(new Set(inventory.map((m) => latest.current.getId(m))))
-  }, [inventory])
+    setSelected(new Set(displayed.map((m) => latest.current.getId(m))))
+    // displayed est recalculé à chaque render ; la ref `latest` garde getId stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayed])
   const onClearSelection = useCallback(() => setSelected(new Set()), [])
 
   useEffect(() => {
-    const sel = inventory.filter((m) => selected.has(latest.current.getId(m)))
+    const sel = displayed.filter((m) => selected.has(latest.current.getId(m)))
     latest.current.onSelectionChange?.(sel)
-  }, [selected, inventory])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, displayed])
 
   const api = useMemo<LensApi>(
-    () => ({ active, hasZone: rect !== null, activate, deactivate, toggle }),
-    [active, rect, activate, deactivate, toggle],
+    () => ({ active, hasZone: rect !== null, activate, deactivate, toggle, shortcut }),
+    [active, rect, activate, deactivate, toggle, shortcut],
   )
 
   return (
@@ -295,16 +328,18 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
         <>
           <LensZone rect={rect} onChange={setRect} onClose={clearZone} closeLabel={labels.lens.remove} />
           <LensPanel<T>
-            markers={inventory}
+            markers={displayed}
             getId={getId}
             anchor={{ x: rect.x + rect.w + GAP, y: rect.y }}
             selected={selected}
             onToggle={onToggle}
             onSelectAll={onSelectAll}
             onClearSelection={onClearSelection}
+            onRemove={onRemoveRow}
             onClose={clearZone}
             renderItem={props.renderItem}
             actions={props.actions}
+            targetZoom={props.targetZoom}
             markerTypeLabel={props.markerTypeLabel}
           />
         </>

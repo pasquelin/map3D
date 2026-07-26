@@ -111,6 +111,17 @@ export type MapLabels = {
     /** aria-label de la poignée de déplacement du panneau. */
     movePanel: string
   }
+  /** Liste de markers partagée (sélection + loupe) : 1 ligne par marker. */
+  markerList: {
+    /** Action « cibler » (menu + clic sur la ligne). */
+    target: string
+    /** aria-label du bouton de menu d'actions d'une ligne — `{label}`. */
+    actions: string
+    /** aria-label de la case à cocher d'une ligne — `{label}`. */
+    select: string
+    /** aria-label de la croix d'une ligne — `{label}`. */
+    remove: string
+  }
   /** Outil loupe (`<LensLayer>`) : inventaire des markers d'une zone. */
   lens: {
     /** Libellé/aria de l'outil loupe dans la toolbar. */

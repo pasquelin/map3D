@@ -17,6 +17,8 @@ export function boundsContains(b: Bounds, p: LatLng): boolean {
  */
 export type MarkerProvider = {
   markersInBounds(bounds: Bounds): MarkerData[]
+  /** Résout la donnée complète d'un marker par id (position, avatar, data…), ou null. */
+  markerById(id: string | number): MarkerData | null
 }
 
 /**
@@ -44,6 +46,15 @@ export class MarkerRegistry {
     const out: MarkerData[] = []
     for (const p of this.providers) out.push(...p.markersInBounds(bounds))
     return out
+  }
+
+  /** Donnée complète d'un marker par id (1er fournisseur qui le connaît), ou null. */
+  markerById(id: string | number): MarkerData | null {
+    for (const p of this.providers) {
+      const m = p.markerById(id)
+      if (m) return m
+    }
+    return null
   }
 
   /** Le jeu de markers a changé (données, filtre tags…) → recalcul côté loupe. */

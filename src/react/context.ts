@@ -104,6 +104,8 @@ export type LensApi = {
   activate: () => void
   deactivate: () => void
   toggle: () => void
+  /** Raccourci clavier d'activation (lettre) ou `null` — affiché dans le tooltip. */
+  shortcut: string | null
 }
 
 export const LensContext = createContext<LensApi | null>(null)
