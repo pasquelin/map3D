@@ -1,0 +1,38 @@
+/**
+ * Socle des registres de providers partagés sur `MapEngine` (`engine.selectables`,
+ * `engine.markers`, `engine.tags`…) : des couches s'enregistrent comme fournisseurs,
+ * un outil les interroge, et les couches ne se connaissent jamais entre elles.
+ *
+ * Seule la mécanique commune vit ici — inscription, désinscription, diffusion du
+ * « le jeu d'éléments a changé ». Chaque registre concret n'ajoute que SES méthodes
+ * de requête (positions écran, cadre géo…). Écrite une fois : un changement de la
+ * mécanique (ordre de notification, désabonnement) ne peut plus diverger d'un
+ * registre à l'autre.
+ */
+export class ProviderRegistry<P> {
+  protected readonly providers = new Set<P>()
+  private readonly changeListeners = new Set<() => void>()
+
+  /** Inscrit un fournisseur ; la fonction rendue le retire. Notifie dans les deux sens. */
+  register(p: P): () => void {
+    this.providers.add(p)
+    this.itemsChanged()
+    return () => {
+      this.providers.delete(p)
+      this.itemsChanged()
+    }
+  }
+
+  /** S'abonne au changement du jeu d'éléments (données, filtre tags…). */
+  onItemsChanged(cb: () => void): () => void {
+    this.changeListeners.add(cb)
+    return () => {
+      this.changeListeners.delete(cb)
+    }
+  }
+
+  /** Signale que le jeu d'éléments a changé (appelé par les fournisseurs). */
+  itemsChanged(): void {
+    for (const cb of this.changeListeners) cb()
+  }
+}

@@ -1,12 +1,13 @@
 import { mdiClose, mdiCrosshairsGps, mdiDotsHorizontal } from '@mdi/js'
 import Icon from '@mdi/react'
-import { type ReactNode, useEffect, useState } from 'react'
+import { memo, type ReactNode, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import type { MapTheme } from '../../theme/types'
 import { useLabels, useMapContext } from '../context'
+import { useNudgeInside } from './panelFit'
 
 /** Action du menu déroulant d'une ligne (extensible). */
 export type MarkerListAction<T = unknown> = {
@@ -53,12 +54,13 @@ function Swatch<T>({ m, theme }: { m: MarkerData<T>; theme: MapTheme }) {
  * (option). Clic sur la ligne = cibler (vol caméra par défaut). Le menu est rendu
  * en PORTAL dans `.m3d-root` pour ne pas être rogné par le scroll de la liste.
  */
-export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
+function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
   const { markers, getId, onRemove } = props
   const { engine, theme, overlay } = useMapContext()
   const labels = useLabels()
   const root = overlay.parentElement
   const [menu, setMenu] = useState<{ id: string | number; left: number; top: number } | null>(null)
+  const [, setMenuEl] = useNudgeInside()
 
   const target = (m: MarkerData<T>) => {
     if (props.onTarget) {
@@ -71,18 +73,35 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
     )
   }
 
-  // Clic ailleurs / molette : ferme le menu ouvert.
+  // Clic ailleurs / molette / Échap : ferme le menu ouvert. Échap est capté en
+  // CAPTURE et stoppé net : sinon il traverse jusqu'aux raccourcis globaux (sortie
+  // d'outil, retrait de la zone loupe) alors que l'utilisateur ne visait que le menu.
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setMenu(null)
+    }
     window.addEventListener('pointerdown', close)
     window.addEventListener('wheel', close, { passive: true })
+    window.addEventListener('keydown', onKey, true)
     return () => {
       window.removeEventListener('pointerdown', close)
       window.removeEventListener('wheel', close)
+      window.removeEventListener('keydown', onKey, true)
     }
   }, [menu])
 
+  const actionsFor = (): MarkerListAction<T>[] => [
+    { id: 'target', label: labels.markerList.target, icon: mdiCrosshairsGps, run: target },
+    ...(props.actions ?? []),
+  ]
+
+  // Ouvert sous le bouton ; `useNudgeInside` le rabat DANS le conteneur après
+  // rendu, sur sa hauteur RÉELLE mesurée — pas sur une estimation calée sur le CSS
+  // des items, qui dériverait au moindre changement de padding ou de police.
   const openMenu = (id: string | number, btn: HTMLElement) => {
     const rr = root?.getBoundingClientRect()
     if (!rr) return
@@ -91,11 +110,6 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
     const left = Math.min(r.right - rr.left - width, rr.width - width - 8)
     setMenu({ id, left: Math.max(8, left), top: r.bottom - rr.top + 2 })
   }
-
-  const actionsFor = (): MarkerListAction<T>[] => [
-    { id: 'target', label: labels.markerList.target, icon: mdiCrosshairsGps, run: target },
-    ...(props.actions ?? []),
-  ]
 
   return (
     <div className="m3d-mllist">
@@ -158,11 +172,16 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
               root &&
               createPortal(
                 <div
+                  ref={setMenuEl}
                   className="m3d-menu-panel m3d-mlmenu"
                   role="menu"
                   style={{ left: menu.left, top: menu.top }}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
+                  // Le portail est DOM-détaché mais reste enfant de la ligne dans
+                  // l'arbre React : sans cette barrière, le clavier du menu remonte
+                  // au `onKeyDown` de la ligne (qui cible le marker).
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
                   {actionsFor().map((a) => (
                     <div
@@ -175,10 +194,12 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
                         setMenu(null)
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          a.run(m)
-                          setMenu(null)
-                        }
+                        if (e.key !== 'Enter' && e.key !== ' ') return
+                        // `preventDefault` : Espace ferait défiler la liste.
+                        e.preventDefault()
+                        e.stopPropagation()
+                        a.run(m)
+                        setMenu(null)
                       }}
                     >
                       {a.icon && (
@@ -198,3 +219,15 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
     </div>
   )
 }
+
+/**
+ * Mémoïsée : la zone de la loupe se déplace/redimensionne à la cadence du pointeur
+ * et re-rend son panneau à chaque frame, alors que la liste (N lignes × icônes) ne
+ * change que quand l'inventaire change. Le `as typeof MarkerListInner` préserve le
+ * paramètre de type, que `memo()` effacerait.
+ *
+ * Corollaire pour les appelants : passer des props d'identité STABLE
+ * (`markers` mémoïsé, `getId`/`onRemove`/`actions` hissés ou en `useCallback`),
+ * sinon le memo ne retient rien.
+ */
+export const MarkerList = memo(MarkerListInner) as typeof MarkerListInner

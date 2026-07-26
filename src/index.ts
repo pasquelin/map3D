@@ -7,6 +7,9 @@ export type { LatLng, Bounds, SearchResult } from './shared'
 
 // ── Core ──
 export { MapEngine, altitudeForZoom, zoomForAltitude } from './core/MapEngine'
+// À poser sur un overlay carte custom pour que la molette y zoome la carte
+// (les barres et panneaux d'UI, eux, ne le portent pas).
+export { WHEEL_SURFACE_ATTR } from './core/MapEngine'
 export type {
   MapEngineOptions,
   MapMode,

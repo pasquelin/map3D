@@ -91,6 +91,17 @@ export const altitudeForZoom = (zoom: number): number => EARTH_CIRCUMFERENCE / M
 export const zoomForAltitude = (alt: number): number => Math.log2(EARTH_CIRCUMFERENCE / Math.max(1, alt))
 
 /**
+ * Attribut marquant une **surface carte** : un overlay au-dessus du canvas dont la
+ * molette doit zoomer la carte (markers, formes/marquee, zone de la loupe…). Les
+ * barres d'outils et panneaux ne le portent PAS — leur molette ne zoome pas.
+ *
+ * C'est une DONNÉE PORTÉE PAR L'ÉLÉMENT, pas une liste de classes connue du moteur :
+ * une nouvelle surface se déclare elle-même en posant l'attribut, sans toucher au
+ * core (et renommer une classe CSS ne casse rien).
+ */
+export const WHEEL_SURFACE_ATTR = 'data-m3d-wheel-surface'
+
+/**
  * Cœur du moteur : scène Three, `TilesRenderer` (Google Photorealistic 3D Tiles
  * ou tileset custom), `GlobeControls` (navigation façon Google Earth), globe
  * ellipsoïde de repli, et boucle de rendu. Le repère est géocentrique (ECEF),
@@ -234,6 +245,7 @@ export class MapEngine {
     this.labelRenderer = new CSS2DRenderer()
     const labelDom = this.labelRenderer.domElement
     labelDom.className = 'm3d-css2d'
+    labelDom.setAttribute(WHEEL_SURFACE_ATTR, '') // molette sur un marker = zoom carte
     labelDom.style.position = 'absolute'
     labelDom.style.top = '0'
     labelDom.style.left = '0'
@@ -286,25 +298,29 @@ export class MapEngine {
     this.stars = this.buildStars()
     this.scene.add(this.stars)
 
-    // Zoom molette actif PARTOUT dans la carte (markers, zone loupe, marquee…) :
-    // on relaie l'événement `wheel` reçu par n'importe quel overlay vers le canvas
-    // (écouté par GlobeControls). Posé sur le conteneur pour couvrir tous les
-    // enfants ; `forwardWheel` laisse passer le canvas natif et les listes scrollables.
+    // Zoom molette actif au-dessus des SURFACES CARTE (markers, formes/marquee,
+    // zone loupe) : on relaie l'événement `wheel` qu'elles reçoivent vers le canvas
+    // (écouté par GlobeControls). Le listener est posé sur le conteneur pour couvrir
+    // ces surfaces où qu'elles soient dans l'arbre ; c'est `forwardWheel` qui décide
+    // (les barres et panneaux d'UI, eux, ne doivent PAS zoomer la carte).
     this.canvas.parentElement?.addEventListener('wheel', this.forwardWheel, { passive: false })
 
     this.bindInput()
   }
 
   /**
-   * Relaie une molette reçue par un overlay vers le canvas (zoom même au-dessus
-   * d'un marker ou de la zone loupe). Deux exceptions : la molette NATIVE du canvas
-   * (déjà gérée par GlobeControls — sinon double zoom), et un conteneur scrollable
-   * sous le curseur (liste, panneau) qu'on laisse défiler normalement.
+   * Relaie une molette reçue par une surface carte vers le canvas (zoom même
+   * au-dessus d'un marker ou de la zone loupe). Trois exceptions : une cible hors
+   * des surfaces carte (UI), la molette NATIVE du canvas (déjà gérée par
+   * GlobeControls — sinon double zoom), et un conteneur scrollable sous le curseur
+   * (liste, panneau) qu'on laisse défiler normalement.
    */
   private forwardWheel = (e: WheelEvent): void => {
     const container = this.canvas.parentElement
     const target = e.target as HTMLElement | null
-    if (!target || target === this.canvas) return
+    // Le canvas ne porte pas l'attribut : le test couvre aussi son cas (sa molette
+    // native va déjà à GlobeControls).
+    if (!target?.closest?.(`[${WHEEL_SURFACE_ATTR}]`)) return
     for (let el: HTMLElement | null = target; el && el !== container; el = el.parentElement) {
       // `getComputedStyle` (flush de style) seulement pour un élément qui déborde
       // réellement — pré-filtre bon marché par le layout déjà calculé.

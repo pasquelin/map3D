@@ -1,3 +1,5 @@
+import { ProviderRegistry } from './ProviderRegistry'
+
 /** Position écran (px canvas) d'un élément sélectionnable externe (ex. marker). */
 export type SelectableScreenItem = { id: string | number; x: number; y: number }
 
@@ -34,24 +36,12 @@ export type SelectableConsumer = { pick(id: string | number, modifiers: PickModi
  * providers, l'outil sélection du DrawLayer le consomme. Les couches ne se
  * connaissent jamais entre elles.
  */
-export class SelectableRegistry {
+export class SelectableRegistry extends ProviderRegistry<SelectableProvider> {
   /**
    * Posé par la couche de sélection quand son outil est actif : les providers
    * lui routent alors les clics au lieu de leur comportement propre (popup…).
    */
   consumer: SelectableConsumer | null = null
-
-  private readonly providers = new Set<SelectableProvider>()
-  private readonly changeListeners = new Set<() => void>()
-
-  register(p: SelectableProvider): () => void {
-    this.providers.add(p)
-    this.itemsChanged()
-    return () => {
-      this.providers.delete(p)
-      this.itemsChanged()
-    }
-  }
 
   /** Positions écran de tous les sélectionnables visibles (concat des providers). */
   items(): SelectableScreenItem[] {
@@ -75,15 +65,5 @@ export class SelectableRegistry {
 
   has(id: string | number): boolean {
     return this.info(id) !== null
-  }
-
-  /** Le jeu d'éléments a changé (données, filtre tags…) → prune côté sélection. */
-  onItemsChanged(cb: () => void): () => void {
-    this.changeListeners.add(cb)
-    return () => this.changeListeners.delete(cb)
-  }
-
-  itemsChanged(): void {
-    for (const cb of this.changeListeners) cb()
   }
 }

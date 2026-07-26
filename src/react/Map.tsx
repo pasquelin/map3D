@@ -1,6 +1,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { CameraState } from '../core/Camera'
-import { MapEngine } from '../core/MapEngine'
+import { MapEngine, WHEEL_SURFACE_ATTR } from '../core/MapEngine'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { Viewport } from '../data/types'
 import type { LatLng } from '../shared'
@@ -143,7 +143,8 @@ export function Map(props: MapProps) {
       style={style}
     >
       <canvas ref={canvasRef} />
-      <div ref={overlayRef} className="m3d-overlay" />
+      {/* Surface carte : la molette au-dessus des formes/du marquee zoome la carte. */}
+      <div ref={overlayRef} className="m3d-overlay" {...{ [WHEEL_SURFACE_ATTR]: '' }} />
       {engine && overlayRef.current && (
         <MapContext.Provider value={{ engine, overlay: overlayRef.current, theme }}>
           {props.children}

@@ -1,5 +1,6 @@
 import type { MarkerData } from '../data/types'
 import type { Bounds, LatLng } from '../shared'
+import { ProviderRegistry } from './ProviderRegistry'
 
 /**
  * Un point est-il DANS un cadre géo ? La latitude est un simple encadrement ;
@@ -17,30 +18,26 @@ export function boundsContains(b: Bounds, p: LatLng): boolean {
  */
 export type MarkerProvider = {
   markersInBounds(bounds: Bounds): MarkerData[]
-  /** Résout la donnée complète d'un marker par id (position, avatar, data…), ou null. */
+  /**
+   * Résout la donnée complète d'un marker par id (position, avatar, data…), ou null.
+   *
+   * CONTRAT : renvoie l'objet SOURCE, pas une copie — deux résolutions du même id
+   * sur des données inchangées rendent la même référence. Les appelants s'appuient
+   * dessus pour ré-associer un marker à l'id qui l'a produit (`SelectionBadges`),
+   * l'id du registre pouvant être un `getId` custom et non `m.id`.
+   */
   markerById(id: string | number): MarkerData | null
 }
 
 /**
- * Registre d'inventaire de markers partagé sur `MapEngine` (même motif que
- * `SelectableRegistry`/`engine.tags`) : les couches marker s'enregistrent comme
- * fournisseurs, l'outil loupe le consomme. Contrairement à `SelectableRegistry`
- * (positions ÉCRAN des seuls markers visibles, clusters exclus), ce registre part
- * des **données sources** — un marker agrégé dans un cluster reste inventorié.
+ * Registre d'inventaire de markers partagé sur `MapEngine` : les couches marker
+ * s'enregistrent comme fournisseurs, l'outil loupe le consomme. Contrairement à
+ * `SelectableRegistry` (positions ÉCRAN des seuls markers visibles, clusters
+ * exclus), ce registre part des **données sources** — un marker agrégé dans un
+ * cluster reste inventorié. La mécanique register/notify vient de
+ * `ProviderRegistry`, commune à tous les registres du moteur.
  */
-export class MarkerRegistry {
-  private readonly providers = new Set<MarkerProvider>()
-  private readonly changeListeners = new Set<() => void>()
-
-  register(p: MarkerProvider): () => void {
-    this.providers.add(p)
-    this.itemsChanged()
-    return () => {
-      this.providers.delete(p)
-      this.itemsChanged()
-    }
-  }
-
+export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
   /** Tous les markers d'un cadre géo (concat des fournisseurs). */
   markersInBounds(bounds: Bounds): MarkerData[] {
     const out: MarkerData[] = []
@@ -55,15 +52,5 @@ export class MarkerRegistry {
       if (m) return m
     }
     return null
-  }
-
-  /** Le jeu de markers a changé (données, filtre tags…) → recalcul côté loupe. */
-  onItemsChanged(cb: () => void): () => void {
-    this.changeListeners.add(cb)
-    return () => this.changeListeners.delete(cb)
-  }
-
-  itemsChanged(): void {
-    for (const cb of this.changeListeners) cb()
   }
 }
