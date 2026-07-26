@@ -26,9 +26,13 @@ export type MapTheme = {
     attention?: { sonar?: string; target?: string }
     path: { base: string; casing: string }
     zone: { fill: string; stroke: string }
-    /** Marching-ants **partagé** par le marquee de sélection ET la zone de la loupe :
-     *  `fill` = voile de fond, `stroke` = pointillé animé, `under` = trait continu
-     *  dessous. Optionnel : repli CSS gris/blanc (thème antérieur valide). */
+    /** Marching-ants **partagé** par les trois surfaces de sélection : contour des
+     *  formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la
+     *  loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme
+     *  reste creux), `stroke` = pointillé animé, `under` = trait continu dessous.
+     *  `stroke` et `under` doivent CONTRASTER l'un avec l'autre : c'est leur
+     *  alternance qui rend la sélection lisible sur n'importe quel fond de carte
+     *  (satellite, eau, neige). Optionnel : repli CSS blanc/noir. */
     marquee?: { fill: string; stroke: string; under: string }
   }
   shadows: { sm: string; md: string; lg: string }

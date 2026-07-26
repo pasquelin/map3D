@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
-import type { FrameContext, Layer } from '../core/Layer'
+import type { FrameContext } from '../core/Layer'
 import type { Projection } from '../core/Projection'
-import { DrapeSync } from '../core/resettle'
-import { circlePoints, clearGroup, disposeObject3D, fillGeo, fillMaterial, ribbon, strokeMaterial } from '../core/geometry'
+import { circlePoints, fillGeo, fillMaterial, ribbon, strokeMaterial } from '../core/geometry'
 import type { LatLng } from '../shared'
+import { type Drape, DrapedLayer } from './DrapedLayer'
 
 /** `width`/`casingWidth` : épaisseurs de trait en **pixels écran** (constantes au zoom). */
 export type PathData = {
@@ -26,82 +26,51 @@ export type PathLayerDefaults = {
 
 type Head = { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial }
 
-type PathDrape = {
-  enu: THREE.Group
-  anchor: LatLng
-  /** null = non résolue (tuiles absentes au build) — repli utilisé, re-résolue via resettle. */
-  height: number | null
-  mpp: number
-  path: PathData
-  head: Head | null
-}
+/** Drape d'un tracé : le groupe standard, plus la tête animée du point courant. */
+type PathDrape = Drape<PathData> & { head: Head | null }
 
-/** Tracés/parcours drapés sur le globe (ENU) avec point courant animé (trace GPS). */
-export class PathLayer implements Layer {
-  readonly group = new THREE.Group()
+/**
+ * Tracés/parcours drapés sur le globe (ENU) avec point courant animé (trace GPS).
+ * Le protocole de drapage vient de `DrapedLayer` ; il ne reste ici que la géométrie
+ * du ruban et l'animation de la tête.
+ */
+export class PathLayer extends DrapedLayer<PathData, PathDrape> {
   private paths: PathData[] = []
   private time = 0
-  // Groupes drapés auto-porteurs (ancre, hauteur de drapage, résolution m/px au build,
-  // tracé source, tête animée) : synchronisés par le protocole partagé DrapeSync
-  // (raffinement LOD, bande d'épaisseur avec rebuild individuel, bases au rebase).
-  private readonly drapes: PathDrape[] = []
-  /** Protocole partagé : raffinement LOD, bande d'épaisseur, bases ENU (cf. core/resettle). */
-  private readonly sync: DrapeSync
-  private lastCamera: THREE.Camera | null = null
-  private viewH = 1
 
   constructor(
-    /** Parent — utiliser `engine.annotations` pour hériter du masquage pendant l'intro. */
-    private readonly scene: THREE.Object3D,
-    private readonly projection: Projection,
+    scene: THREE.Object3D,
+    projection: Projection,
     private defaults: PathLayerDefaults,
     private animateHead = true,
   ) {
-    this.group.name = 'm3d-paths'
-    this.scene.add(this.group)
-    this.sync = new DrapeSync(projection, {
-      count: () => this.drapes.length,
-      getHeight: (i) => this.drapes[i]!.height,
-      setHeight: (i, h) => {
-        this.drapes[i]!.height = h
-      },
-      resolve: (i) => this.projection.resolveAnchorHeight(this.drapes[i]!.anchor),
-      mppRatio: (i) => {
-        const d = this.drapes[i]!
-        return this.mpp(d.anchor, d.height ?? this.projection.surfaceFallbackHeight) / d.mpp
-      },
-      rebuild: (i) => this.rebuildDrape(i),
-      remove: (i) => {
-        this.drapes.splice(i, 1)
-      },
-      applyBasis: (i) => {
-        const d = this.drapes[i]!
-        this.projection.enuBasisFor(d.anchor, d.enu.matrix, d.height ?? this.projection.surfaceFallbackHeight)
-        d.enu.matrixWorldNeedsUpdate = true
-      },
-    })
+    super(scene, projection, 'm3d-paths')
   }
 
   setPaths(paths: PathData[]): void {
     this.paths = paths
-    this.rebuild()
+    this.rebuildAll(this.paths)
   }
 
   setAnimateHead(v: boolean): void {
     this.animateHead = v
-    this.rebuild()
+    this.rebuildAll(this.paths)
   }
 
   setDefaults(d: Partial<PathLayerDefaults>): void {
     this.defaults = { ...this.defaults, ...d }
-    this.rebuild()
+    this.rebuildAll(this.paths)
+  }
+
+  protected anchorOf(path: PathData): LatLng {
+    return path.points[0] ?? { lat: 0, lng: 0 }
   }
 
   /** Construit le groupe drapé d'un tracé (casing + trait + tête animée). */
-  private buildDrape(path: PathData, height: number | null): PathDrape | null {
+  protected buildDrape(path: PathData, height: number | null): PathDrape | null {
     if (path.points.length < 2) return null
-    const anchor = path.points[0]!
-    const h = height ?? this.projection.surfaceFallbackHeight
+    const anchor = this.anchorOf(path)
+    const h = this.heightOr(height)
     const frame = new EnuFrame(this.projection, anchor, h)
     const pts = path.points.map((p) => frame.local(p))
     // Épaisseurs de trait : px écran → mètres monde à la résolution courante.
@@ -138,47 +107,11 @@ export class PathLayer implements Layer {
         head = { mesh, mat }
       }
     }
-    return { enu, anchor, height, mpp, path, head }
+    return { enu, anchor, height, mpp, item: path, head }
   }
 
-  private rebuild(): void {
-    clearGroup(this.group)
-    this.drapes.length = 0
-    if (!this.projection.isReady()) return
-    for (const path of this.paths) {
-      const anchor = path.points[0]
-      const d = anchor ? this.buildDrape(path, this.projection.resolveAnchorHeight(anchor)) : null
-      if (!d) continue
-      this.drapes.push(d)
-      this.group.add(d.enu)
-    }
-    // Les tuiles fines de la zone arrivent en streaming : re-échantillonnage à suivre.
-    this.sync.invalidate()
-  }
-
-  /** Reconstruit UN tracé (bande d'épaisseur franchie) en réutilisant sa hauteur mémoïsée. */
-  private rebuildDrape(i: number): boolean {
-    const old = this.drapes[i]!
-    disposeObject3D(old.enu)
-    this.group.remove(old.enu)
-    const d = this.buildDrape(old.path, old.height)
-    if (!d) return false
-    this.drapes[i] = d
-    this.group.add(d.enu)
-    return true
-  }
-
-  /** Résolution courante (m/px) à l'ancre — 1 tant que la caméra est inconnue. */
-  private mpp(anchor: LatLng, height: number): number {
-    if (!this.lastCamera) return 1
-    return this.projection.metersPerPixel(anchor, this.lastCamera, this.viewH, height)
-  }
-
-  update(ctx: FrameContext): void {
-    this.lastCamera = ctx.camera
-    this.viewH = ctx.size.height
-    if (this.projection.isReady()) this.sync.update(ctx.cameraState)
-    // Animation des têtes (point courant) — indépendante du drapage.
+  /** Pulsation des têtes (point courant) — indépendante du drapage. */
+  protected onUpdate(ctx: FrameContext): void {
     this.time += ctx.dt
     const t = (this.time % 1.6) / 1.6
     const scale = 1 + t * 1.4
@@ -188,13 +121,5 @@ export class PathLayer implements Layer {
       d.head.mesh.scale.set(scale, scale, scale)
       d.head.mat.opacity = opacity
     }
-  }
-
-  project(_ctx: FrameContext): void {}
-
-  dispose(): void {
-    clearGroup(this.group)
-    this.drapes.length = 0
-    this.scene.remove(this.group)
   }
 }

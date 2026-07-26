@@ -101,8 +101,6 @@ export type MapLabels = {
     title: string
     /** Nom de la catégorie formes dans une rangée. */
     shapesGroup: string
-    /** Nom de la catégorie markers dans une rangée. */
-    markersGroup: string
     /** Gabarit du libellé d'une rangée — `{group}`, `{type}` (compteur séparé). */
     group: string
     /** aria-label de la croix d'une rangée — `{label}` = libellé de la rangée. */
@@ -182,6 +180,56 @@ export type MapLabels = {
   measure: {
     kilometers: string
     meters: string
+  }
+  /** Durée de trajet — `{value}`, ou `{h}`/`{m}` au-delà de l'heure. */
+  duration: {
+    seconds: string
+    minutes: string
+    /** Heures pleines (minutes nulles) — `{h}`. */
+    hours: string
+    /** Heures et minutes — `{h}`, `{m}`. */
+    hoursMinutes: string
+  }
+  /** Moteur de relations (`<RelationLayer>`) : liens vers les markers voisins. */
+  relations: {
+    /** Titre de la section ajoutée au menu contextuel d'un marker. */
+    menuRoot: string
+    /** Étiquette d'un lien tant que le temps réel n'est pas revenu. */
+    pending: string
+    /** Étiquette d'un lien dont le temps réel n'a pas pu être obtenu. */
+    unavailable: string
+    /** Étiquette nominale d'un lien — `{distance}`, `{duration}` déjà formatés. */
+    linkLabel: string
+    /** Titre du bloc de presets par rapidité. */
+    fastestGroup: string
+    /** Preset par rapidité — `{count}`. */
+    fastest: string
+    /** Titre du bloc de presets par rayon. */
+    radiusGroup: string
+    /** Preset par rayon — `{radius}` déjà formaté. */
+    radius: string
+    /** Indice d'un preset : nombre de cibles retenues — `{count}`. */
+    targetCount: string
+    /** Indice d'un preset dont la sélection dépasse le plafond de calcul — `{count}`. */
+    tooWide: string
+    /** Indice d'un preset sans aucune cible. */
+    noTargets: string
+    /** Étiquette agrégée d'un cluster trop fourni pour l'éventail — `{count}`. */
+    clusterAggregate: string
+    /** Barre d'état : relation active — `{source}`, `{targets}`. */
+    statusRelation: string
+    /** Barre d'état : effacer la relation (libellé du bouton, visible et aria-label). */
+    clear: string
+    /** aria-label de la croix d'une étiquette d'itinéraire (referme le tracé). */
+    removeRoute: string
+    /** Noms des modes de transport (segment cliquable de la barre d'état). */
+    modes: {
+      DRIVE: string
+      WALK: string
+      BICYCLE: string
+      TWO_WHEELER: string
+      TRANSIT: string
+    }
   }
   /** Dock des favoris épinglés (`<PinnedDock>`). */
   pinned: {

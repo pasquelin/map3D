@@ -1,0 +1,374 @@
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import { zoomForAltitude } from '../../core/MapEngine'
+import { markerTags, type MarkerData } from '../../data/types'
+import { LinkLayer as CoreLinkLayer } from '../../layers/LinkLayer'
+import { makeLinkLabelFormatter } from '../../labels/measure'
+import { RelationEngine } from '../../relations/core/engine'
+import { boundsAround } from '../../relations/core/geo'
+import type { MapPoint, RelationRule, TravelMode } from '../../relations/core/types'
+import type { RoutingProvider } from '../../relations/providers/RoutingProvider'
+import { buildRelationMenu } from '../../relations/relationMenu'
+import {
+  buildRelationVisuals,
+  HUB_PREFIX,
+  RelationGeometryCache,
+  type RelationVisualStyle,
+} from '../../relations/visuals'
+import { RelationContext, type RelationApi, useLabels, useMapContext } from '../context'
+import { useLayer, useLayerSync } from '../hooks/useLayer'
+import { useRelationInteraction } from '../hooks/useRelationInteraction'
+import type { MenuItem } from './ContextMenu'
+
+export type RelationLayerProps = {
+  /** Règles de relation — c'est ici que l'application injecte son vocabulaire. */
+  rules: readonly RelationRule[]
+  /**
+   * Fournisseur de routage (Google Routes, ou un proxy serveur, ou un factice).
+   *
+   * Doit être STABLE d'un rendu à l'autre (`useMemo`) : il détermine l'identité du
+   * moteur, donc le passer construit en ligne (`provider={createX({…})}`) le
+   * recréerait à chaque rendu et effacerait les relations ouvertes.
+   *
+   * En production, préférer un proxy serveur à un appel direct : les web services
+   * Google (Routes v2) n'acceptent PAS les restrictions de clé par référent HTTP —
+   * seulement par IP — donc une clé embarquée dans un bundle web est utilisable par
+   * un tiers. Le contrat `RoutingProvider` est là pour ça : le core n'en dépend pas.
+   */
+  provider: RoutingProvider
+  /** Épaisseur du trait des liens, en pixels écran. */
+  width?: number
+  /** Couleur des règles qui n'en déclarent pas — jaune, lisible sur satellite comme sur plan. */
+  defaultColor?: string
+  /**
+   * Couleur de l'itinéraire réel : distincte des liens, c'est un autre objet.
+   * Violet façon navigation plutôt qu'un bleu — sur imagerie satellite un tracé
+   * bleu se confond avec les fleuves et les bassins qu'il longe.
+   */
+  routeColor?: string
+  /**
+   * Facteur d'assombrissement du trait survolé (< 1 = plus sombre). On assombrit la
+   * couleur de la famille plutôt que d'en imposer une autre : la teinte porte le
+   * sens (quelle famille de tags), le survol ne doit pas le brouiller.
+   */
+  hoverDarken?: number
+  /**
+   * Rayon du socle posé à plat sous le marker source, en pixels écran. C'est lui
+   * qui matérialise la relation et porte la croix qui l'efface : trop petit, la
+   * commande devient un jeu d'adresse.
+   */
+  hubRadius?: number
+  /** Contour sombre sous le trait (lisibilité sur imagerie satellite). 0 pour l'ôter. */
+  casingWidth?: number
+  /** Couleur du contour (défaut : celle des tracés du thème). */
+  casingColor?: string
+  /** Opacité du lien le moins bien classé — plancher de lisibilité du dégradé de rang. */
+  minOpacity?: number
+  /**
+   * Dérive d'une extrémité au-delà de laquelle temps et itinéraires sont refaits. En
+   * dessous, le trait suit le marker mais les chiffres restent : un agent qui avance
+   * de 20 m ne justifie pas un appel de routage. 0 pour ne jamais relancer.
+   */
+  staleMeters?: number
+  /**
+   * Intervalle minimal entre deux recalculs d'une même relation. Combiné à
+   * `staleMeters`, il plafonne le débit d'appels : un véhicule rapide ne peut pas
+   * déclencher plus d'un appel par intervalle, quelle que soit sa vitesse.
+   */
+  refreshIntervalMs?: number
+  /**
+   * Enfants montés dans le contexte de relations. La forme FONCTION reçoit l'API
+   * directement : greffer l'entrée de menu sur une couche marker déclarée au même
+   * niveau n'oblige alors pas à extraire un composant juste pour `useRelations()`.
+   */
+  children?: ReactNode | ((api: RelationApi) => ReactNode)
+}
+
+/** Un id de marker numérique doit être retenté en nombre auprès du registre. */
+const NUMERIC_ID = /^-?\d+$/
+
+const toMapPoint = (m: MarkerData): MapPoint => ({
+  id: String(m.id),
+  lat: m.position.lat,
+  lng: m.position.lng,
+  tags: markerTags(m),
+})
+
+/**
+ * Moteur de relations : relie un marker à ses voisins par tags, avec distances et
+ * durées routières réelles. Monte la couche de rendu, tient l'état, et expose
+ * l'API consommée par le menu marker et la barre d'état.
+ *
+ * Plusieurs markers peuvent porter une relation simultanément ; relancer sur le même
+ * marker remplace la sienne sans toucher aux autres.
+ */
+export function RelationLayer({
+  rules,
+  provider,
+  width = 6,
+  defaultColor = '#ffd400',
+  routeColor = '#7c4dff',
+  hoverDarken = 0.72,
+  hubRadius = 26,
+  casingWidth = 3,
+  casingColor,
+  minOpacity = 1,
+  staleMeters = 150,
+  refreshIntervalMs = 15_000,
+  children,
+}: RelationLayerProps) {
+  const { engine, overlay, theme } = useMapContext()
+  const labels = useLabels()
+
+  // Le moteur survit aux re-rendus : c'est lui qui porte l'état, pas React.
+  const relationEngine = useMemo(() => new RelationEngine(provider), [provider])
+  const version = useSyncExternalStore(relationEngine.subscribe, () => relationEngine.version)
+  const snapshots = relationEngine.snapshots
+
+  // Requêtes en vol au démontage : sans cet arrêt, elles se poursuivent, sont
+  // facturées par le fournisseur de routage, et retiennent le moteur en mémoire.
+  useEffect(() => () => relationEngine.clear(), [relationEngine])
+
+  /** Géométries mémoïsées, validées par leurs extrémités (cf. `RelationGeometryCache`). */
+  const geometry = useRef(new RelationGeometryCache())
+  /** Dernier appel réseau par relation/itinéraire — plafonne le débit de rafraîchissement. */
+  const lastRefresh = useRef(new Map<string, number>())
+
+  // Palier de zoom courant. Le clustering est stable à zoom entier constant (cf.
+  // `ClusterEngine`) : on ne recalcule donc le regroupement visuel qu'au changement
+  // de palier, pas à chaque frame d'un mouvement caméra.
+  const camRef = useRef({ zoom: 14, step: 14 })
+  const [clusterTick, bumpCluster] = useReducer((x: number) => x + 1, 0)
+  useEffect(() => {
+    return engine.on('camera', (state) => {
+      const zoom = zoomForAltitude(state.altitude)
+      const step = Math.round(zoom)
+      // La bande de 0,3 évite que des pattes dimensionnées en pixels ne dérivent
+      // visiblement entre deux paliers entiers.
+      if (step === camRef.current.step && Math.abs(zoom - camRef.current.zoom) < 0.3) return
+      camRef.current = { zoom, step }
+      bumpCluster()
+    })
+  }, [engine])
+
+  /**
+   * Conteneurs DOM des socles, ancrés à la carte par la couche. La barre d'état de
+   * chaque relation s'y monte en portail : elle suit alors son marker sans qu'aucune
+   * position ne transite par React — c'est le même patron que les nœuds de marker.
+   */
+  const [hubHosts, setHubHosts] = useState<ReadonlyMap<string, HTMLElement>>(new Map())
+
+  const layerRef = useLayer(
+    () =>
+      new CoreLinkLayer(
+        engine.annotations,
+        engine.projection,
+        overlay,
+        {
+          renderOrder: 2,
+          casingWidth,
+          casingColor: casingColor ?? theme.colors.path.casing,
+          hoverDarken,
+        },
+        (id, el) =>
+          setHubHosts((prev) => new Map(prev).set(id.slice(HUB_PREFIX.length), el)),
+        (id) =>
+          setHubHosts((prev) => {
+            const next = new Map(prev)
+            next.delete(id.slice(HUB_PREFIX.length))
+            return next
+          }),
+        // Les ancres vivent dans la surface des markers, pas dans l'overlay : c'est le
+        // seul moyen de passer devant eux sans réordonner toutes les couches (cf.
+        // `slotHost`). Un cluster ne peut plus recouvrir la barre qu'il jouxte.
+        engine.labelRenderer.domElement,
+      ),
+  )
+  // Sans ce resync, thème et libellés resteraient figés sur leur valeur au montage :
+  // changer de thème ou de langue ne repeindrait pas les liens. La valeur RÉSOLUE est
+  // la clé de synchro, jamais la source : `useLayerSync` ne réagit qu'à `value`, donc
+  // synchroniser sur `theme` seul laissait un changement de `casingColor` sans effet.
+  useLayerSync(layerRef, casingColor ?? theme.colors.path.casing, (layer, c) =>
+    layer.setDefaults({ casingColor: c }),
+  )
+  useLayerSync(layerRef, hoverDarken, (layer, v) => layer.setDefaults({ hoverDarken: v }))
+  useLayerSync(layerRef, casingWidth, (layer, v) => layer.setDefaults({ casingWidth: v }))
+
+  const formatLink = useMemo(() => makeLinkLabelFormatter(labels), [labels])
+
+  // Couleur résolue une fois pour toutes : le moteur et le menu reçoivent des règles
+  // complètes, aucun repli n'a donc à être refait plus bas dans la chaîne.
+  const resolvedRules = useMemo(
+    () => rules.map((r) => (r.color ? r : { ...r, color: defaultColor })),
+    [rules, defaultColor],
+  )
+
+  /** Portée maximale toutes règles confondues — ne dépend pas de la source. */
+  const reach = useMemo(() => Math.max(...resolvedRules.map((r) => r.selection.maxMeters), 0), [resolvedRules])
+
+  /** Voisinage interrogeable autour d'un point, clusters inclus (registre d'inventaire). */
+  const candidatesAround = useCallback(
+    (source: MapPoint): MapPoint[] => {
+      // La source n'est pas exclue ici : `selectTargets` le fait déjà, et le refaire
+      // coûterait un second passage sur tout le voisinage.
+      return engine.markers.markersInBounds(boundsAround(source, reach)).map(toMapPoint)
+    },
+    [engine, reach],
+  )
+
+  const run = useCallback(
+    (source: MapPoint, rule: RelationRule) => {
+      void relationEngine.open(source, rule, candidatesAround(source))
+    },
+    [relationEngine, candidatesAround],
+  )
+
+  const menuFor = useCallback(
+    (marker: MarkerData): MenuItem[] => {
+      const source = toMapPoint(marker)
+      return buildRelationMenu({
+        source,
+        candidates: candidatesAround(source),
+        rules: resolvedRules,
+        labels,
+        onRun: (rule) => run(source, rule),
+      })
+    },
+    [candidatesAround, resolvedRules, labels, run],
+  )
+
+  /**
+   * Résout un point par son id. Le core normalise les ids en `string` alors que le
+   * registre les indexe tels quels : une clé numérique doit être retentée en nombre,
+   * sinon un marker à `id: 3` deviendrait introuvable et son lien disparaîtrait.
+   */
+  const resolvePoint = useCallback(
+    (id: string): MapPoint | null => {
+      const found =
+        engine.markers.markerById(id) ?? (NUMERIC_ID.test(id) ? engine.markers.markerById(Number(id)) : null)
+      return found ? toMapPoint(found) : null
+    },
+    [engine],
+  )
+
+  // Les markers vivent : un lien doit rester accroché à ses deux extrémités. Sans
+  // cela, un marker qui se déplace laisse derrière lui un trait figé dont on ne sait
+  // plus à qui il s'adresse.
+  useEffect(() => {
+    return engine.markers.onItemsChanged(() => {
+      const { moved, staleSources, staleTraces } = relationEngine.syncPositions(resolvePoint, staleMeters)
+      if (!moved) return
+
+      // Rafraîchissement plafonné : la dérive déclenche, l'intervalle borne le débit.
+      // Sans cette seconde condition, un véhicule sur voie rapide franchirait le seuil
+      // toutes les quelques secondes et lancerait un appel à chaque fois.
+      const now = Date.now()
+      const due = (key: string): boolean => {
+        if (now - (lastRefresh.current.get(key) ?? 0) < refreshIntervalMs) return false
+        lastRefresh.current.set(key, now)
+        return true
+      }
+      // Refaire la matrice d'une relation dont on regarde justement l'itinéraire est
+      // du gaspillage : le tracé porte la donnée que l'utilisateur a sous les yeux, et
+      // la matrice repartira au prochain franchissement de seuil.
+      const tracedSources = new Set(staleTraces.map((id) => relationEngine.sourceOf(id)))
+      for (const sourceId of staleSources) {
+        if (tracedSources.has(sourceId)) continue
+        const state = relationEngine.snapshotFor(sourceId)
+        if (state && due(`matrix:${sourceId}`)) run(state.source, state.rule)
+      }
+      for (const id of staleTraces) {
+        if (due(`route:${id}`)) void relationEngine.trace(id, true)
+      }
+      // Les relations disparues emportent leur compteur de débit : sans cette purge,
+      // la table accumule une entrée par source et par lien vus depuis le montage.
+      if (lastRefresh.current.size > 0) {
+        const live = new Set<string>()
+        for (const s of relationEngine.snapshots) {
+          live.add(`matrix:${s.source.id}`)
+          for (const l of s.links) live.add(`route:${l.id}`)
+        }
+        for (const key of lastRefresh.current.keys()) {
+          if (!live.has(key)) lastRefresh.current.delete(key)
+        }
+      }
+    })
+  }, [engine, relationEngine, resolvePoint, staleMeters, refreshIntervalMs, run])
+
+  const visualStyle = useMemo(
+    (): RelationVisualStyle => ({ width, defaultColor, routeColor, hubRadius, minOpacity }),
+    [width, defaultColor, routeColor, hubRadius, minOpacity],
+  )
+
+  const visualNodeOf = useCallback((id: string) => engine.markers.visualNodeOf(id), [engine])
+
+  // Gestes (survol, clic, Échap) : le composant orchestre le moteur et le rendu, le
+  // hook traduit les entrées en intentions.
+  const hoveredId = useRelationInteraction(engine, overlay, layerRef, relationEngine)
+
+  // Traduction état → visuels. Le diff par id de `LinkLayer` absorbe ce qui n'a pas
+  // bougé, et le cache de géométrie garantit l'identité des tableaux de points — sans
+  // elle, ce diff conclurait « géométrie changée » à chaque passe.
+  const visuals = useMemo(
+    () =>
+      buildRelationVisuals(
+        snapshots,
+        {
+          style: visualStyle,
+          labels,
+          formatLink,
+          hoveredId,
+          zoom: camRef.current.zoom,
+          visualNodeOf,
+        },
+        geometry.current,
+      ),
+    // `version` et `clusterTick` sont les dépendances réelles restantes : le moteur
+    // mute ses instantanés en place, et le regroupement visuel dépend du palier de zoom.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version, clusterTick, hoveredId, snapshots, visualStyle, labels, formatLink, visualNodeOf],
+  )
+
+  useLayerSync(layerRef, visuals, (layer, v) => layer.setLinks(v))
+
+  // La règle (« un tracé survit au changement de mode ») vit dans le moteur : ici on
+  // ne fait que lui fournir le voisinage, qu'il n'a aucun moyen de résoudre seul.
+  const setMode = useCallback(
+    (sourceId: string, mode: TravelMode) => {
+      const state = relationEngine.snapshotFor(sourceId)
+      if (state) relationEngine.setMode(sourceId, mode, candidatesAround(state.source))
+    },
+    [relationEngine, candidatesAround],
+  )
+
+  const api = useMemo(
+    (): RelationApi => ({
+      rules: resolvedRules,
+      menuFor,
+      run,
+      snapshots,
+      setMode,
+      hubHosts,
+      routeColor,
+      untrace: (id) => relationEngine.untrace(id),
+      clear: (sourceId) => relationEngine.clear(sourceId),
+    }),
+    // `version` : le moteur mute ses instantanés en place, l'API doit suivre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolvedRules, menuFor, run, snapshots, setMode, hubHosts, routeColor, relationEngine, version],
+  )
+
+  return (
+    <RelationContext.Provider value={api}>
+      {typeof children === 'function' ? children(api) : children}
+    </RelationContext.Provider>
+  )
+}

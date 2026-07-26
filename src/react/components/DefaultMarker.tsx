@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { MapTheme } from '../../theme/types'
 
@@ -18,19 +19,13 @@ export function DefaultMarker({ marker, theme, label }: DefaultMarkerProps) {
   return (
     <div
       className="m3d-marker"
-      style={{
-        width: size,
-        height: size,
-        marginLeft: -r,
-        marginTop: -r,
-        cursor: 'pointer',
-        position: 'relative',
-      }}
+      // Boîte, centrage et curseur sont en CSS (`.m3d-marker`) : seule la taille varie.
+      style={{ '--m3d-sprite': `${size}px` } as CSSProperties}
       tabIndex={0}
       role="button"
       aria-label={label ?? String(marker.id)}
     >
-      <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: '100%', overflow: 'visible', display: 'block' }}>
+      <svg viewBox={`0 0 ${size} ${size}`}>
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={color.accent} />

@@ -1,6 +1,6 @@
-import { mdiClose, mdiDrag, mdiSelectionOff } from '@mdi/js'
+import { mdiClose, mdiSelectionOff } from '@mdi/js'
 import Icon from '@mdi/react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { DrawTool } from '../../layers/DrawLayer'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -8,6 +8,7 @@ import { useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
 import { TOOL_ICONS } from './drawControls'
+import { FloatingPanel } from './FloatingPanel'
 import { MarkerList, type MarkerListAction } from './MarkerList'
 
 export type SelectionBadgesProps = {
@@ -34,7 +35,44 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   const { tool, selection, markerSelection, selectionDetails, select, deselectMarkers, clearSelection } = useDrawing()
 
   // Panneau flottant déplaçable — mécanique partagée (drag clampé, re-clamp resize).
-  const { panelRef, style, gripProps } = useDraggablePanel()
+  // Le hook vit ICI, pas dans `FloatingPanel` : ce composant reste monté quand la
+  // sélection se vide (il rend `null`), donc la position choisie par l'utilisateur
+  // survit à une désélection au lieu de repartir du coin par défaut.
+  const panel = useDraggablePanel()
+
+  // Version des données markers : la liste doit refléter un flux temps réel
+  // (position, avatar) même à sélection CONSTANTE — sans ce signal, la mémoïsation
+  // ci-dessous figerait des lignes périmées.
+  const [dataRev, bumpData] = useReducer((x: number) => x + 1, 0)
+  useEffect(() => engine.markers.onItemsChanged(bumpData), [engine])
+
+  // Markers sélectionnés → donnée complète (position, avatar…) pour la liste
+  // partagée. On MÉMORISE l'id d'origine : c'est celui du `getId` de `MarkerLayer`
+  // (la sélection et le registre sont clés dessus), pas forcément `m.id`. Le
+  // re-dériver en `m.id` casserait la désélection dès qu'une app fournit un `getId`
+  // custom — et collisionnerait les clés React sur des `m.id` non uniques.
+  //
+  // Mémoïsé : `MarkerList` est `memo()` et ne retient RIEN si `markers`/`getId`/
+  // `onRemove` changent d'identité à chaque render (cf. son corollaire d'appel) —
+  // toute la liste (N lignes × icônes) se re-rendait alors à chaque mutation.
+  const { markers, idOf } = useMemo(() => {
+    const markers: MarkerData[] = []
+    const idOf = new Map<MarkerData, string | number>()
+    for (const id of markerSelection) {
+      const m = engine.markers.markerById(id)
+      if (!m) continue
+      markers.push(m)
+      idOf.set(m, id)
+    }
+    return { markers, idOf }
+  }, [markerSelection, engine, dataRev])
+  const getId = useCallback((m: MarkerData) => idOf.get(m) ?? m.id, [idOf])
+  // `deselectMarkers` est recréé à chaque révision de l'API de dessin : passer par
+  // un ref donne au callback une identité DÉFINITIVE, seule façon de ne pas
+  // invalider le memo à chaque mutation du core.
+  const deselectRef = useRef(deselectMarkers)
+  deselectRef.current = deselectMarkers
+  const onRemoveMarker = useCallback((id: string | number) => deselectRef.current([id]), [])
 
   // La sélection n'existe que pendant l'outil sélection (vidée à la sortie).
   const total = selection.length + markerSelection.length
@@ -47,33 +85,18 @@ export function SelectionBadges(props: SelectionBadgesProps) {
     if (ids) ids.push(d.id)
     else shapeGroups.set(d.kind, [d.id])
   }
-  // Markers sélectionnés → donnée complète (position, avatar…) pour la liste
-  // partagée. On MÉMORISE l'id d'origine : c'est celui du `getId` de `MarkerLayer`
-  // (la sélection et le registre sont clés dessus), pas forcément `m.id`. Le
-  // re-dériver en `m.id` casserait la désélection dès qu'une app fournit un `getId`
-  // custom — et collisionnerait les clés React sur des `m.id` non uniques.
-  const markers: MarkerData[] = []
-  const idOf = new Map<MarkerData, string | number>()
-  for (const id of markerSelection) {
-    const m = engine.markers.markerById(id)
-    if (!m) continue
-    markers.push(m)
-    idOf.set(m, id)
-  }
 
   const rowLabel = (group: string, type: string): string => formatLabel(labels.selection.group, { group, type })
 
   return (
-    <div ref={panelRef} className="m3d-selhud" style={style}>
-      <div className="m3d-panel m3d-selpanel">
-        <div className="m3d-selhead">
-          {/* Pas de tooltip sur la poignée : il resterait affiché pendant le drag. */}
-          <button type="button" className="m3d-selgrip" {...gripProps} aria-label={labels.selection.movePanel}>
-            <Icon path={mdiDrag} size={0.6} />
-          </button>
-          <span>{labels.selection.title} {total}</span>
-        </div>
-
+    <FloatingPanel
+      panel={panel}
+      title={`${labels.selection.title} ${total}`}
+      moveLabel={labels.selection.movePanel}
+      hudClassName="m3d-selhud"
+      panelClassName="m3d-selpanel"
+    >
+      <>
         {shapeGroups.size > 0 && (
           <div className="m3d-taglist">
             {[...shapeGroups].map(([kind, ids]) => {
@@ -101,10 +124,10 @@ export function SelectionBadges(props: SelectionBadgesProps) {
         {markers.length > 0 && (
           <MarkerList
             markers={markers}
-            getId={(m) => idOf.get(m) ?? m.id}
+            getId={getId}
             renderItem={props.renderMarker}
             markerTypeLabel={props.markerTypeLabel}
-            onRemove={(id) => deselectMarkers([id])}
+            onRemove={onRemoveMarker}
             actions={props.markerActions}
           />
         )}
@@ -123,7 +146,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
             <kbd className="m3d-kbd">{labels.keys.altOrCmd}</kbd>
           </div>
         </div>
-      </div>
-    </div>
+      </>
+    </FloatingPanel>
   )
 }

@@ -7,7 +7,7 @@ import {
   type SelectMode,
 } from '../../layers/DrawLayer'
 import { DrawSettings, type ToolSettings } from '../../layers/draw/DrawSettings'
-import { makeDistanceFormatter } from '../../layers/DrawLayer'
+import { makeDistanceFormatter } from '../../labels/measure'
 import { SELECT_MODE_META } from './drawControls'
 import { type DrawAction, DrawingContext, type DrawingApi, useLabels, useMapContext } from '../context'
 import { inTextInput, plainKey } from './shortcuts'

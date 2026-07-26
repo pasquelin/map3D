@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
 import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLayer'
 import { useMapContext } from '../context'
+import { useLayer, useLayerSync } from '../hooks/useLayer'
 
 export type PathLayerProps = {
   paths: PathData[]
@@ -10,41 +10,28 @@ export type PathLayerProps = {
 /** Tracés / parcours (ruban + casing, épaisseur en mètres, tête animée). */
 export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
   const { engine, theme } = useMapContext()
-  const ref = useRef<CorePathLayer | null>(null)
 
-  useEffect(() => {
-    const layer = new CorePathLayer(
-      engine.annotations,
-      engine.projection,
-      {
-        color: theme.colors.path.base,
-        casingColor: theme.colors.path.casing,
-        width: 6,
-        casingWidth: 3,
-        renderOrder: 1,
-      },
-      animateHead,
-    )
-    engine.addLayer(layer)
-    ref.current = layer
-    return () => {
-      engine.removeLayer(layer)
-      ref.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine])
+  const ref = useLayer(
+    () =>
+      new CorePathLayer(
+        engine.annotations,
+        engine.projection,
+        {
+          color: theme.colors.path.base,
+          casingColor: theme.colors.path.casing,
+          width: 6,
+          casingWidth: 3,
+          renderOrder: 1,
+        },
+        animateHead,
+      ),
+  )
 
-  useEffect(() => {
-    ref.current?.setDefaults({ color: theme.colors.path.base, casingColor: theme.colors.path.casing })
-  }, [theme])
-
-  useEffect(() => {
-    ref.current?.setPaths(paths)
-  }, [paths])
-
-  useEffect(() => {
-    ref.current?.setAnimateHead(animateHead)
-  }, [animateHead])
+  useLayerSync(ref, theme, (layer, t) =>
+    layer.setDefaults({ color: t.colors.path.base, casingColor: t.colors.path.casing }),
+  )
+  useLayerSync(ref, paths, (layer, p) => layer.setPaths(p))
+  useLayerSync(ref, animateHead, (layer, v) => layer.setAnimateHead(v))
 
   return null
 }

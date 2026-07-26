@@ -12,16 +12,16 @@ import {
   mdiVideo2d,
   mdiVideo3d,
 } from '@mdi/js'
-import Icon from '@mdi/react'
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
-import 'react-tooltip/dist/react-tooltip.css'
 import type { MapMode } from '../../core/MapEngine'
 import { useLabels, useMapContext } from '../context'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
+import { resolveSlots, type SlotConfig } from './slots'
 import { TagFilterControl } from './TagFilterControl'
-import { ICON_SIZE, useTip } from './tooltip'
+import { ToolButton } from './ToolButton'
+import { useTip } from './tooltip'
 
 export type MapControlAction =
   | 'north'
@@ -52,12 +52,13 @@ export type MapControlButton =
   | 'plan'
   | 'traffic'
 
+/** Groupes de la barre — l'unité du grain GROUPE (masquage, remplacement, ordre). */
+export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'layers' | 'fullscreen'
+
 export type MapControlsProps = {
   position?: 'left' | 'right'
   /** Grain GROUPE : masquer (`false`) ou remplacer (ReactNode) un groupe entier de la barre. */
-  components?: Partial<
-    Record<'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'layers' | 'fullscreen', boolean | ReactNode>
-  >
+  components?: SlotConfig<ControlGroup>
   /**
    * Grain BOUTON : `false` masque un bouton précis (ex. `{ rotate: false, zoomOut: false }`).
    * Un groupe dont tous les boutons sont masqués disparaît, et le raccourci
@@ -95,9 +96,8 @@ const DEFAULT_SHORTCUTS: Record<MapControlAction, string | false> = {
   traffic: false,
 }
 
-function isNode(v: boolean | ReactNode | undefined): v is ReactNode {
-  return v !== undefined && typeof v !== 'boolean'
-}
+/** Sections de la barre (grain GROUPE) — clés de `MapControlsProps.components`. */
+type Slot = keyof NonNullable<MapControlsProps['components']>
 
 /** Contrôles de navigation : déplacement/rotation du drag, boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
 export function MapControls({ position = 'right', components = {}, buttons = {}, shortcuts, tagLabel }: MapControlsProps) {
@@ -132,22 +132,20 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
     else document.exitFullscreen?.()
   }, [engine])
 
-  type Slot = keyof NonNullable<MapControlsProps['components']>
-  /** Le groupe PAR DÉFAUT est-il rendu ? (ni masqué, ni remplacé par un nœud custom)
-   *  — même vérité pour le rendu et l'activation des raccourcis : un slot customisé
-   *  ne garde pas d'action clavier fantôme. */
-  //  Le fond 2D est un service Google : sans clé, le groupe n'existe pas — même
-  //  vérité pour le rendu, le clavier et la non-vacuité, plutôt que trois tests.
-  const defaultShown = (key: Slot) =>
-    !isNode(components[key]) && components[key] !== false && (key !== 'basemap' || engine.supportsBasemap2d)
+  // Sections configurables : convention partagée avec `Toolbar` (cf. `slots.ts`).
+  const { slot, isDefault } = resolveSlots<Slot>(components)
+  /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
+   *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier
+   *  fantôme. S'ajoute au prédicat partagé : le fond 2D est un service Google, sans
+   *  clé le groupe n'existe pas (une seule vérité, pas trois tests séparés). */
+  const defaultShown = (key: Slot) => isDefault(key) && (key !== 'basemap' || engine.supportsBasemap2d)
   /** Ce bouton précis est-il visible ? (grain fin `buttons`, dans un groupe rendu) */
   const btn = (b: MapControlButton) => buttons[b] !== false
   const keys = { ...DEFAULT_SHORTCUTS, ...shortcuts }
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (sans effet si elle est à l'opposé).
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
-  const tipBase = useTip(TIP_ID)
-  const tip = (label: string, action?: MapControlAction) => tipBase(label, action && keys[action])
+  const tip = useTip(TIP_ID)
 
   // Raccourcis : listener monté UNE fois (les props sont lues via ref au moment de
   // la frappe — un littéral `shortcuts={{...}}` inline ne recrée pas le listener).
@@ -187,138 +185,121 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
 
   return (
     <div ref={setBar} className={`m3d-controls m3d-${position}`}>
-      {isNode(components.drag)
-        ? components.drag
-        : defaultShown('drag') && (btn('pan') || btn('rotate')) && (
-            <div className="m3d-controls-group">
-              {btn('pan') && (
-                <button
-                  className={`m3d-btn${dragMode === 'pan' ? ' m3d-on' : ''}`}
-                  {...tip(labels.controls.pan)}
-                  onClick={() => engine.setDragMode('pan')}
-                >
-                  <Icon path={mdiCursorMove} size={ICON_SIZE} />
-                </button>
-              )}
-              {btn('rotate') && (
-                <button
-                  className={`m3d-btn${dragMode === 'rotate' ? ' m3d-on' : ''}`}
-                  {...tip(labels.controls.rotate)}
-                  onClick={() => engine.setDragMode('rotate')}
-                >
-                  <Icon path={mdiRotateOrbit} size={ICON_SIZE} />
-                </button>
-              )}
-            </div>
-          )}
+      {slot(
+        'drag',
+        (btn('pan') || btn('rotate')) && (
+          <div className="m3d-controls-group">
+            {btn('pan') && (
+              <ToolButton icon={mdiCursorMove} label={labels.controls.pan} tip={tip} active={dragMode === 'pan'} onClick={() => engine.setDragMode('pan')} />
+            )}
+            {btn('rotate') && (
+              <ToolButton icon={mdiRotateOrbit} label={labels.controls.rotate} tip={tip} active={dragMode === 'rotate'} onClick={() => engine.setDragMode('rotate')} />
+            )}
+          </div>
+        ),
+      )}
 
-      {isNode(components.compass)
-        ? components.compass
-        : defaultShown('compass') && btn('compass') && (
-            <div className="m3d-controls-group">
-              <button className="m3d-btn" {...tip(labels.controls.north, 'north')} onClick={topDown}>
-                <Icon path={mdiCompassOutline} size={ICON_SIZE} />
-              </button>
-            </div>
-          )}
+      {slot(
+        'compass',
+        btn('compass') && (
+          <div className="m3d-controls-group">
+            <ToolButton icon={mdiCompassOutline} label={labels.controls.north} tip={tip} shortcut={keys.north} onClick={topDown} />
+          </div>
+        ),
+      )}
 
-      {isNode(components.zoom)
-        ? components.zoom
-        : defaultShown('zoom') && (btn('zoomIn') || btn('zoomOut')) && (
-            <div className="m3d-controls-group">
-              {btn('zoomIn') && (
-                <button className="m3d-btn" {...tip(labels.controls.zoomIn, 'zoomIn')} onClick={() => zoomBy(0.5)}>
-                  <Icon path={mdiPlus} size={ICON_SIZE} />
-                </button>
-              )}
-              {btn('zoomOut') && (
-                <button className="m3d-btn" {...tip(labels.controls.zoomOut, 'zoomOut')} onClick={() => zoomBy(2)}>
-                  <Icon path={mdiMinus} size={ICON_SIZE} />
-                </button>
-              )}
-            </div>
-          )}
+      {slot(
+        'zoom',
+        (btn('zoomIn') || btn('zoomOut')) && (
+          <div className="m3d-controls-group">
+            {btn('zoomIn') && (
+              <ToolButton icon={mdiPlus} label={labels.controls.zoomIn} tip={tip} shortcut={keys.zoomIn} onClick={() => zoomBy(0.5)} />
+            )}
+            {btn('zoomOut') && (
+              <ToolButton icon={mdiMinus} label={labels.controls.zoomOut} tip={tip} shortcut={keys.zoomOut} onClick={() => zoomBy(2)} />
+            )}
+          </div>
+        ),
+      )}
 
-      {isNode(components.view)
-        ? components.view
-        : defaultShown('view') && (btn('tilt') || btn('topDown') || btn('globe')) && (
-            <div className="m3d-controls-group">
-              {btn('tilt') && (
-                <button className="m3d-btn" {...tip(labels.controls.tilt, 'tilt')} onClick={tiltUp}>
-                  <Icon path={mdiVideo3d} size={ICON_SIZE} />
-                </button>
-              )}
-              {btn('topDown') && (
-                <button className="m3d-btn" {...tip(labels.controls.topDown, 'topDown')} onClick={topDown}>
-                  <Icon path={mdiVideo2d} size={ICON_SIZE} />
-                </button>
-              )}
-              {btn('globe') && (
-                <button className="m3d-btn" {...tip(labels.controls.globe, 'globe')} onClick={globe}>
-                  <Icon path={mdiEarth} size={ICON_SIZE} />
-                </button>
-              )}
-            </div>
-          )}
+      {slot(
+        'view',
+        (btn('tilt') || btn('topDown') || btn('globe')) && (
+          <div className="m3d-controls-group">
+            {btn('tilt') && (
+              <ToolButton icon={mdiVideo3d} label={labels.controls.tilt} tip={tip} shortcut={keys.tilt} onClick={tiltUp} />
+            )}
+            {btn('topDown') && (
+              <ToolButton icon={mdiVideo2d} label={labels.controls.topDown} tip={tip} shortcut={keys.topDown} onClick={topDown} />
+            )}
+            {btn('globe') && (
+              <ToolButton icon={mdiEarth} label={labels.controls.globe} tip={tip} shortcut={keys.globe} onClick={globe} />
+            )}
+          </div>
+        ),
+      )}
 
-      {/* Fond de carte : le groupe entier disparaît sans clé Google (`defaultShown`),
-          les modes 2D et le trafic étant des services Google. La visibilité du
-          bouton trafic dépend de l'ÉTAT (pas seulement de la config) : elle entre
-          donc dans le test de non-vacuité, sinon le groupe se rendrait vide. */}
-      {isNode(components.basemap)
-        ? components.basemap
-        : defaultShown('basemap') &&
+      {/* Fond de carte : le groupe entier disparaît sans clé Google (les modes 2D et
+          le trafic sont des services Google). La visibilité du bouton trafic dépend
+          de l'ÉTAT (pas seulement de la config) : elle entre donc dans le test de
+          non-vacuité, sinon le groupe se rendrait vide. */}
+      {slot(
+        'basemap',
+        engine.supportsBasemap2d &&
           (btn('mode3d') || btn('plan') || (btn('traffic') && basemap.trafficAvailable)) && (
             <div className="m3d-controls-group">
               {btn('mode3d') && (
-                <button
-                  className={`m3d-btn${basemap.mode === '3d' ? ' m3d-on' : ''}`}
+                <ToolButton
+                  icon={mdiCubeOutline}
+                  label={labels.controls.mode3d}
+                  tip={tip}
                   // Le raccourci bascule : ne l'annoncer que sur le bouton vers
                   // lequel il mène, sinon « Vue 3D (B) » s'affiche en étant déjà en 3D.
-                  {...tip(labels.controls.mode3d, basemap.mode === '3d' ? undefined : 'basemap')}
+                  shortcut={basemap.mode === '3d' ? undefined : keys.basemap}
+                  active={basemap.mode === '3d'}
                   onClick={() => engine.setMapMode('3d')}
-                >
-                  <Icon path={mdiCubeOutline} size={ICON_SIZE} />
-                </button>
+                />
               )}
               {btn('plan') && (
-                <button
-                  className={`m3d-btn${basemap.mode === 'plan' ? ' m3d-on' : ''}`}
-                  {...tip(labels.controls.plan, basemap.mode === '3d' ? 'basemap' : undefined)}
+                <ToolButton
+                  icon={mdiMapOutline}
+                  label={labels.controls.plan}
+                  tip={tip}
+                  shortcut={basemap.mode === '3d' ? keys.basemap : undefined}
+                  active={basemap.mode === 'plan'}
                   onClick={() => engine.setMapMode('plan')}
-                >
-                  <Icon path={mdiMapOutline} size={ICON_SIZE} />
-                </button>
+                />
               )}
               {btn('traffic') && basemap.trafficAvailable && (
-                <button
-                  className={`m3d-btn${basemap.traffic ? ' m3d-on' : ''}`}
-                  {...tip(labels.controls.traffic, 'traffic')}
-                  onClick={() => engine.setTrafficVisible(!basemap.traffic)}
-                >
-                  <Icon path={mdiTrafficLight} size={ICON_SIZE} />
-                </button>
+                <ToolButton icon={mdiTrafficLight} label={labels.controls.traffic} tip={tip} shortcut={keys.traffic} active={basemap.traffic} onClick={() => engine.setTrafficVisible(!basemap.traffic)} />
               )}
             </div>
-          )}
+          ),
+      )}
 
-      {isNode(components.layers)
-        ? components.layers
-        : defaultShown('layers') && btn('layers') && (
-            <TagFilterControl position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
-          )}
+      {slot(
+        'layers',
+        btn('layers') && <TagFilterControl position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />,
+      )}
 
-      {isNode(components.fullscreen)
-        ? components.fullscreen
-        : defaultShown('fullscreen') && btn('fullscreen') && (
-            <div className="m3d-controls-group">
-              <button className="m3d-btn" {...tip(labels.controls.fullscreen, 'fullscreen')} onClick={toggleFs}>
-                <Icon path={mdiFullscreen} size={ICON_SIZE} />
-              </button>
-            </div>
-          )}
+      {slot(
+        'fullscreen',
+        btn('fullscreen') && (
+          <div className="m3d-controls-group">
+            <ToolButton icon={mdiFullscreen} label={labels.controls.fullscreen} tip={tip} shortcut={keys.fullscreen} onClick={toggleFs} />
+          </div>
+        ),
+      )}
 
-      <Tooltip id={TIP_ID} place={position === 'right' ? 'left' : 'right'} />
+      {/* Apparence pilotée par `.m3d-tip` (thème) : le style « base » du paquet est
+          coupé, son « core » (position/opacité/transitions) reste injecté. */}
+      <Tooltip
+        id={TIP_ID}
+        place={position === 'right' ? 'left' : 'right'}
+        className="m3d-tip"
+        classNameArrow="m3d-tip-arrow"
+        disableStyleInjection
+      />
     </div>
   )
 }

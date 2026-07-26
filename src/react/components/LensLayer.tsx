@@ -1,11 +1,11 @@
 import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { AnchorHeightCache } from '../../core/AnchorHeightCache'
 import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
 import type { ScreenPoint } from '../../core/Projection'
-import { UNRESOLVED_RETRY_FRAMES } from '../../core/resettle'
 import type { MarkerData } from '../../data/types'
 import type { Bounds } from '../../shared'
-import { GAP } from '../../style/panelGeometry'
+import { GAP, LENS_PANEL_W } from '../../style/panelGeometry'
 import { DrawingContext, LensContext, type LensApi, useLabels, useMapContext } from '../context'
 import { LensPanel } from './LensPanel'
 import { LensZone } from './LensZone'
@@ -17,14 +17,6 @@ import type { LensRect, LensRenderItem } from './lensTypes'
 const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }
 /** Glissé minimal (px) pour qu'un rectangle existe — en deçà, c'est un clic (rien). */
 const MIN_DRAG = 4
-
-/**
- * Hauteur d'ancre mémoïsée d'un marker, avec la position qui l'a produite.
- * `resolved: false` = tuile absente au moment du calcul, `h` est le repli : à
- * retenter, mais à basse cadence (`UNRESOLVED_RETRY_FRAMES`) — sinon un marker en
- * zone non chargée relance un raycast à chaque passe, soit 1×/frame pendant un pan.
- */
-type AnchorHeight = { lat: number; lng: number; h: number; resolved: boolean }
 
 /** Clé par défaut d'un marker. Hissée : identité stable → `MarkerList` reste mémoïsée. */
 const defaultGetId = <T,>(m: MarkerData<T>): string | number => m.id
@@ -91,21 +83,15 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const scratch = useRef(new THREE.Vector3()).current
   const screenScratch = useRef<ScreenPoint>({ sx: 0, sy: 0, z: 0 }).current
   /**
-   * Hauteur d'ancre (m) par marker — un marker se projette à la hauteur du sol SOUS
+   * Hauteurs d'ancre des markers — un marker se projette à la hauteur du sol SOUS
    * LUI, pas à celle du centre de la zone (sinon décalage écran sur relief, donc
-   * faux positifs/négatifs près des bords). Mémoïsée : `resolveAnchorHeight` fait un
-   * raycast, impensable par marker et par frame.
-   *
-   * L'entrée retient la position qui l'a produite : SEUL un marker qui a bougé est
-   * re-résolu (un flux temps réel ne réinvalide pas toute la zone), et la carte est
-   * reconstruite à chaque passe depuis les markers réellement scannés — elle reste
-   * donc bornée au jeu courant, sans purge séparée. Invalidée en bloc au changement
-   * de régime de hauteur (bascule 2D/3D) via `heightEpoch`.
+   * faux positifs/négatifs près des bords). Mémoïsation, retentatives et
+   * invalidation 2D/3D sont portées par le cache partagé ; ici on l'exploite en
+   * **mode passe** : le jeu de markers scannés change à chaque recalcul (la zone
+   * bouge), donc le cache se borne tout seul au jeu courant.
    */
-  const heightsRef = useRef(new Map<string | number, AnchorHeight>())
-  const heightEpochRef = useRef(-1)
-  /** Compteur de passes : cadence les retentatives des ancres non résolues. */
-  const retryTickRef = useRef(0)
+  const heights = useRef<AnchorHeightCache | null>(null)
+  heights.current ??= new AnchorHeightCache(engine.projection)
   const rafRef = useRef(0)
   const draftRef = useRef<{ x0: number; y0: number } | null>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
@@ -162,30 +148,14 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       const padLng = (east - west) * 0.25 + 1e-4
       bounds = { north: north + padLat, south: south - padLat, east: east + padLng, west: west - padLng }
     }
-    // Le régime de hauteur a changé (2D ↔ 3D) → les hauteurs mémoïsées sont périmées.
-    const prev = heightsRef.current
-    if (heightEpochRef.current !== proj.heightEpoch) {
-      heightEpochRef.current = proj.heightEpoch
-      prev.clear()
-    }
-    // Carte reconstruite à cette passe : les markers sortis de la zone disparaissent
-    // du cache sans purge explicite.
-    const heights = new Map<string | number, AnchorHeight>()
-    const retry = ++retryTickRef.current % UNRESOLVED_RETRY_FRAMES === 0
+    // Ouvre la passe : purge d'epoch (bascule 2D/3D) et cadence des retentatives.
+    const cache = heights.current!
+    cache.beginPass()
 
     const found: MarkerData<T>[] = []
     for (const m of engine.markers.markersInBounds(bounds) as MarkerData<T>[]) {
       const id = latest.current.getId(m)
-      let e = prev.get(id)
-      if (!e || e.lat !== m.position.lat || e.lng !== m.position.lng) {
-        const h = proj.resolveAnchorHeight(m.position)
-        e = { lat: m.position.lat, lng: m.position.lng, h: h ?? proj.surfaceFallbackHeight, resolved: h !== null }
-      } else if (!e.resolved && retry) {
-        const h = proj.resolveAnchorHeight(m.position)
-        if (h !== null) e = { ...e, h, resolved: true }
-      }
-      heights.set(id, e)
-      const world = proj.latLngToWorld(m.position, scratch, e.h)
+      const world = proj.latLngToWorld(m.position, scratch, cache.height(id, m.position))
       const s = proj.worldToScreen(world, cam, screenScratch)
       if (s.z > 1 || s.sx < r.x || s.sx > r.x + r.w || s.sy < r.y || s.sy > r.y + r.h) continue
       // Un marker de la face OPPOSÉE du globe se projette dans le rectangle en
@@ -194,7 +164,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       if (!proj.isAboveHorizon(world, cam.position)) continue
       found.push(m)
     }
-    heightsRef.current = heights
+    // Adopte le cache de la passe : les markers sortis de la zone en tombent.
+    cache.endPass()
     const sig = found.map((m) => latest.current.getId(m)).join('|')
     if (sig === invSigRef.current) return
     invSigRef.current = sig
@@ -419,8 +390,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
 
   // Panneau à droite de la zone par défaut, basculé à gauche seulement si la droite
   // ne tient pas ET que la gauche tient (le clamp de useDraggablePanel garantit
-  // ensuite le maintien à l'écran). Largeur = .m3d-lenspanel (252) + marge.
-  const PANEL_W = 252 + GAP
+  // ensuite le maintien à l'écran). Largeur partagée avec la feuille de styles.
+  const PANEL_W = LENS_PANEL_W + GAP
   const cw = container?.clientWidth ?? 0
   const fitsRight = rect != null && rect.x + rect.w + GAP + PANEL_W <= cw
   const fitsLeft = rect != null && rect.x - GAP - PANEL_W >= 0

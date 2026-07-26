@@ -9,7 +9,8 @@ import { useDrawSettings } from '../hooks/useDrawSettings'
 import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
 import { useAnchoredPanel } from './panelFit'
 import { modKey } from './shortcuts'
-import { ICON_SIZE, formatKey } from './tooltip'
+import { ToolButton } from './ToolButton'
+import { formatKey } from './tooltip'
 import { useDismiss } from './useDismiss'
 
 const SHAPE_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure']
@@ -99,13 +100,14 @@ export function DrawSettingsButton({
 
   return (
     <div ref={rootRef} className="m3d-settingswrap">
-      <button
-        {...tip(labels.settings.title)}
-        className={`m3d-btn${open ? ' m3d-on' : ''}`}
+      <ToolButton
+        icon={mdiCog}
+        label={labels.settings.title}
+        tip={tip}
+        active={open}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-      >
-        <Icon path={mdiCog} size={ICON_SIZE} />
-      </button>
+      />
       {open && (
         <div ref={setPanel} className={`m3d-panel m3d-settings m3d-${panelSide}`}>
           <div className="m3d-settings-head">

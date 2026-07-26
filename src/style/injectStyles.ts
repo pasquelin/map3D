@@ -1,5 +1,5 @@
 import { mdiRotateRight } from '@mdi/js'
-import { BAR_INSET, GAP } from './panelGeometry'
+import { BAR_INSET, GAP, LENS_PANEL_W, SELECTION_PANEL_W } from './panelGeometry'
 
 const STYLE_ID = 'm3d-styles'
 
@@ -33,13 +33,28 @@ export function injectStyles(doc: Document = document): void {
 // HMR (dev) : re-synchronise la feuille dès que ce module change, sinon les
 // styles ne suivraient qu'au prochain montage de `<Map>` (il faut sinon un reload
 // complet à chaque retouche CSS). No-op en build : `import.meta.hot` est absent.
-const hot = (import.meta as ImportMeta & { hot?: { accept: (cb: () => void) => void } }).hot
-if (hot) hot.accept(() => injectStyles())
+//
+// C'est le module NEUF qu'on appelle, jamais `injectStyles` directement : ce
+// callback appartient à l'ancien module, sa closure capture donc l'ANCIENNE
+// constante `CSS`. L'appeler réécrivait la feuille d'avant la modification —
+// autrement dit le HMR annulait précisément ce qu'il devait propager, et le
+// symptôme (« mon CSS ne bouge pas ») semblait venir du navigateur.
+type StyleModule = { injectStyles: (doc?: Document) => void }
+const hot = (import.meta as ImportMeta & { hot?: { accept: (cb: (mod?: StyleModule) => void) => void } }).hot
+if (hot) hot.accept((mod) => mod?.injectStyles())
 
 const CSS = `
 .m3d-root{position:relative;width:100%;height:100%;overflow:hidden;
   font-family:var(--m3d-font);color:var(--m3d-text);background:var(--m3d-bg);
-  -webkit-font-smoothing:antialiased}
+  -webkit-font-smoothing:antialiased;
+  /* Poignées de manipulation, définies UNE fois pour les deux implémentations :
+     .m3d-handle (rect SVG, sélection géo-ancrée) et .m3d-lenszone-h (span DOM,
+     zone écran de la loupe). Les propriétés diffèrent par force (fill/stroke vs
+     background/border), les VALEURS non — ces tokens sont l'unique source. */
+  --m3d-handle-bg:#fff;
+  --m3d-handle-line:rgba(0,0,0,.65);
+  --m3d-handle-line-w:1.2px;
+  --m3d-handle-shadow:0 1px 2px rgba(0,0,0,.45)}
 /* width/height:100% : un <canvas> est un élément remplacé ; sans taille CSS
    explicite il garde sa largeur intrinsèque (attribut = ×devicePixelRatio) et
    s'affiche 2× trop grand. On force la taille d'affichage = conteneur. */
@@ -67,6 +82,17 @@ const CSS = `
 .m3d-marker-node{pointer-events:none}
 .m3d-marker-node > *{pointer-events:auto}
 
+/* Sprite d'ancre — PARTAGÉ par le marker et le cluster par défaut : carré centré
+   sur son point d'ancrage (marges négatives), dont seule la TAILLE varie. Elle
+   arrive par --m3d-sprite, posée en inline par le composant (même convention que
+   --m3d-tiplift et --m3d-selring) : le reste n'a plus à être répété en JS.
+   Le SVG interne reste en overflow visible : halos, anneaux et satellites
+   débordent volontairement de la boîte. */
+.m3d-marker,.m3d-cluster{position:relative;cursor:pointer;
+  width:var(--m3d-sprite);height:var(--m3d-sprite);
+  margin:calc(var(--m3d-sprite) / -2) 0 0 calc(var(--m3d-sprite) / -2)}
+.m3d-marker > svg,.m3d-cluster > svg{width:100%;height:100%;display:block;overflow:visible}
+
 .m3d-marker-node{position:absolute;left:0;top:0}
 /* Leader line : le badge est relevé de --m3d-leader-lift px et relié par un fil
    vertical à un point d'ancrage posé au sol EXACT. L'alerte reste toujours visible
@@ -79,8 +105,6 @@ const CSS = `
   background:linear-gradient(to top,rgba(17,24,39,.5),rgba(17,24,39,.12));pointer-events:none}
 .m3d-marker-dot{position:absolute;left:0;top:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
   border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(17,24,39,.5);pointer-events:none}
-/* Zone de clic invisible alignée sur le sprite WebGL (le visuel du marker). */
-.m3d-hit{cursor:pointer;border-radius:50%;background:transparent}
 /* Avatar de marker (MarkerData.avatar) : photo ronde cerclée de la couleur du
    type (border-color inline) + liseré blanc — prioritaire sur l'icône custom. */
 .m3d-marker-img{max-width:none;max-height:none}
@@ -103,25 +127,125 @@ const CSS = `
   border-radius:var(--m3d-radius-pill);white-space:nowrap;box-shadow:var(--m3d-shadow-sm);
   pointer-events:none}
 
+/* Étiquette d'un lien de relation : même gabarit que le label de la règle — un
+   chiffre posé sur la carte doit se lire pareil quelle que soit sa provenance. */
+.m3d-link-label{position:absolute;left:0;top:0;background:var(--m3d-panel);
+  color:var(--m3d-text);border:1px solid var(--m3d-border);backdrop-filter:blur(12px);
+  font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;padding:3px 9px;
+  border-radius:var(--m3d-radius-pill);white-space:nowrap;box-shadow:var(--m3d-shadow-sm);
+  display:flex;align-items:center;
+  /* Interactive : elle porte la croix de fermeture. Le reste du texte ne capte
+     rien d'utile, mais laisser l'étiquette transparente aux clics empêcherait
+     d'atteindre le bouton. */
+  pointer-events:auto}
+/* ── Bouton « supprimer » PARTAGÉ (cf. core/removeButton + <RemoveButton>) ──
+   Rouge partout : socle de relation, pastilles du dock, indice de retrait au drag.
+   Une seule définition — le style ne peut pas diverger d'un usage à l'autre. */
+.m3d-remove{display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  padding:0;border:none;border-radius:var(--m3d-radius-pill);cursor:pointer;
+  font:inherit;font-size:11.5px;font-weight:600;line-height:1;white-space:nowrap;
+  background:var(--m3d-error);color:#fff;
+  transition:background-color .12s ease,transform .12s ease,opacity .12s ease}
+/* Survol : le MÊME rouge, assombri. Un filter brightness ternirait aussi l'icône
+   et le texte blancs ; en n'assombrissant que le fond, le contraste est préservé.
+   Dérivé de --m3d-error, donc un thème qui redéfinit le rouge emporte le survol. */
+.m3d-remove:hover{background:color-mix(in srgb,var(--m3d-error) 78%,#000)}
+.m3d-remove svg{width:14px;height:14px;flex:none;display:block}
+/* Libellé masqué quand vide : le même bouton sert en icône seule ou avec texte. */
+.m3d-remove .m3d-remove-text:empty{display:none}
+.m3d-remove:not(:has(.m3d-remove-text:empty)){padding:4px 10px 4px 7px}
+.m3d-remove:has(.m3d-remove-text:empty){width:22px;height:22px}
+
+/* Curseur de sélection dès qu'un trait est sous le pointeur : c'est le signal qui
+   rend les liens découvrables comme cliquables. */
+.m3d-hover-link canvas{cursor:pointer}
+/* Badge de rang : le classement se lit en clair, il n'est jamais encodé dans le trait. */
+.m3d-link-rank{display:inline-flex;align-items:center;justify-content:center;
+  min-width:15px;height:15px;padding:0 3px;border-radius:var(--m3d-radius-pill);
+  background:color-mix(in srgb,var(--m3d-text) 12%,transparent);font-size:9.5px;margin-right:8px;}
+
+/* Conteneur d'un socle en mode slot : un POINT, exactement au centre du disque.
+   Largeur et hauteur nulles ASSUMÉES — son contenu déborde symétriquement grâce au
+   flex centré. C'est ce qui le rend utilisable comme ancre : un conteneur à la taille
+   de son contenu fausserait le calcul de place disponible, et la barre basculerait de
+   côté sans raison.
+   Le retrait hors de l'emprise du marker est porté ICI, en padding, et non par une
+   marge du contenu : le padding entre dans le clientWidth de l'ancre, donc le calcul
+   de place disponible du hook le voit. Posé sur le contenu, il aurait été ignoré, et
+   la barre aurait basculé de côté en croyant manquer de place. */
+.m3d-link-anchor{position:absolute;left:0;top:0;width:0;height:0;
+  padding:0 0 0 var(--m3d-hub-offset,26px);
+  display:flex;align-items:center;overflow:visible;pointer-events:none;
+  /* Montée dans la surface des markers (cf. LinkLayer.slotHost), l'ancre partage leur
+     contexte d'empilement. CSS2DRenderer y écrit un z-index de 1 à N (N = nombre de
+     markers rendus) pour les trier par profondeur : un plafond franc met la barre
+     devant eux quel qu'en soit le nombre, là où toute valeur proche de N dépendrait
+     de la densité de la carte. */
+  z-index:9999}
+/* Seul le contenu est cliquable : l'ancre elle-même ne doit rien intercepter. */
+.m3d-link-anchor > *{pointer-events:auto}
+
+/* Barre d'état d'une relation : ancrée au socle de SON marker source, à la place
+   qu'occupait la croix de suppression. La commande se trouve ainsi là où le regard
+   est déjà, et chaque barre dit sans ambiguïté de quelle relation elle parle — ce
+   qu'une barre unique flottant dans un coin ne pouvait pas faire.
+   Les segments sont des boutons — la barre informe ET pilote. */
+.m3d-relbar{position:relative;z-index:6;
+  display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;
+  /* Enfant d'une ancre de largeur nulle : sans cela le flex la comprimerait. */
+  flex:none;
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);backdrop-filter:blur(12px);
+  border-radius:var(--m3d-radius-pill);box-shadow:var(--m3d-shadow-sm);
+  font-size:12px;color:var(--m3d-text);white-space:nowrap}
+/* Pas la place à droite : la barre passe de l'autre côté du socle plutôt que d'être
+   coupée par le bord du conteneur. Le hook de placement (useNudgeInside) en décide
+   sur la place réelle autour de l'ANCRE — jamais sur la position courante, qui
+   oscillerait — et écrit par ailleurs la marge corrective verticale. */
+.m3d-relbar.m3d-flip{transform:translateX(calc(-100% - 2 * var(--m3d-hub-offset,26px)))}
+.m3d-relbar-swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.m3d-relbar-text{font-weight:600}
+.m3d-relbar-scope{color:var(--m3d-muted)}
+/* Le menu est le FRÈRE du bouton, jamais son enfant : un menuitem focusable dans un
+   <button> est du HTML invalide, et le contenu du menu entrerait dans le nom
+   accessible du bouton. C'est donc le wrapper qui porte le repère de position. */
+.m3d-relbar-segwrap{position:relative;display:inline-flex}
+.m3d-relbar-seg{font:inherit;color:inherit;cursor:pointer;
+  padding:3px 9px;border:1px solid var(--m3d-border);border-radius:var(--m3d-radius-pill);
+  background:color-mix(in srgb,var(--m3d-text) 5%,transparent)}
+.m3d-relbar-seg:hover{background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
+/* Le menu d'un segment s'ouvre VERS LE HAUT : la barre est collée au bas de la carte. */
+.m3d-relbar-menu{position:absolute;left:0;bottom:100%;margin-bottom:6px;
+  display:block;text-align:left;cursor:default}
+/* La barre n'a plus de bouton propre : effacer une relation passe par le bouton
+   partagé (.m3d-remove), comme sur le socle et dans la dock. */
+
 /* Overlay SVG de l'outil sélection : contours marching-ants, bbox, marquee/lasso.
    pointer-events:none — le SVG n'intercepte rien, seules les poignées (plus tard)
    réactivent les événements. Tout est en px écran, resynchronisé chaque frame. */
 .m3d-edit-svg{position:absolute;inset:0;width:100%;height:100%;z-index:15;
   pointer-events:none!important;overflow:visible}
-/* Marching ants noir/blanc (Photoshop) : blanc plein dessous + tirets noirs animés
-   dessus = alternance N/B visible sur tout fond (satellite, eau, toits, neige). */
-.m3d-ants-under{fill:none;stroke:#fff;stroke-width:1.6}
-.m3d-ants-over{fill:none;stroke:#000;stroke-width:1.6;stroke-dasharray:5 4;
-  animation:m3d-ants .5s linear infinite}
+/* Marching ants (Photoshop) — langage visuel UNIQUE de la sélection : deux traits
+   superposés, trait plein clair dessous + tirets sombres animés dessus, dont
+   l'alternance reste lisible sur tout fond (satellite, eau, toits, neige).
+   Employé par les TROIS surfaces qui « pointillent » à l'écran :
+     .m3d-ants-*      contour des formes sélectionnées (SelectionOverlay, <path>)
+     .m3d-marquee*    tracé du sélecteur rect/poly/lasso (SelectionOverlay, <path>)
+     .m3d-lenszone-*  → réutilise .m3d-marquee* (zone de la loupe, LensZone, <rect>)
+   Mêmes règles pour tous : la dérive entre outils est structurellement impossible.
+   Couleurs pilotées par le thème (theme.colors.marquee -> --m3d-marquee-*), repli
+   blanc/noir — c'est donc au thème de préserver l'alternance clair/sombre. */
+.m3d-ants-under,.m3d-marquee-under{stroke:var(--m3d-marquee-under,#fff);stroke-width:1.6}
+.m3d-ants-over,.m3d-marquee{fill:none;stroke:var(--m3d-marquee-stroke,#000);stroke-width:1.6;
+  stroke-dasharray:5 4;animation:m3d-ants .5s linear infinite}
+/* Voile de fond : seules les surfaces FERMÉES du sélecteur/de la loupe le portent —
+   un contour de forme doit rester creux (il cerne, il ne remplit pas). */
+.m3d-ants-under{fill:none}
+.m3d-marquee-under{fill:var(--m3d-marquee-fill,rgba(255,255,255,.12))}
+/* Bbox englobante : volontairement PLUS discrète que le marquee (trait fin, tirets
+   serrés, défilement plus lent) — elle informe de l'étendue, elle n'appelle pas
+   l'action. Reste en dur : c'est un repère technique, pas une surface de thème. */
 .m3d-selbox{fill:none;stroke:#fff;stroke-width:1;stroke-dasharray:4 4;opacity:.9;
   filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9));animation:m3d-ants .6s linear infinite}
-/* Marquee : double trait marching ants (blanc plein dessous + tirets sombres
-   animés dessus) + voile translucide. Couleurs partagées avec la zone de la loupe
-   via --m3d-marquee-* (thème : theme.colors.marquee), repli gris/blanc. */
-.m3d-marquee-under{fill:var(--m3d-marquee-fill,rgba(255,255,255,.12));
-  stroke:var(--m3d-marquee-under,#fff);stroke-width:1.6}
-.m3d-marquee{fill:none;stroke:var(--m3d-marquee-stroke,#000);stroke-width:1.6;stroke-dasharray:5 4;
-  animation:m3d-ants .5s linear infinite}
 @keyframes m3d-ants{to{stroke-dashoffset:-9}}
 /* Boilerplate COMMUN des anneaux de décoration centrés sur l'ancre du marker
    (multi-sélection, sonar, viseur) : chaque variante ne définit plus que son
@@ -206,14 +330,56 @@ const CSS = `
 .m3d-markertip-urgent .m3d-markertip-title{color:var(--m3d-target-color,#ff3b30)}
 @keyframes m3d-tip-in{from{opacity:0;transform:translate(-50%,calc(-100% - var(--m3d-tiplift,32px) + 4px))}}
 
+/* APPARENCE des infobulles de barre (react-tooltip), au langage visuel de
+   .m3d-markertip (panneau thémé) plutôt qu'au gris #222 par défaut du paquet.
+   Répartition des responsabilités, à ne pas confondre :
+   — react-tooltip injecte LUI-MÊME, au runtime, ses styles « core » (position,
+     opacité 0 → show, transitions, variables --rt-*). On les garde : c'est le
+     COMPORTEMENT, et il n'est pas à nous.
+   — les <Tooltip> passent disableStyleInjection pour couper son style « base »
+     (couleurs, radius, padding). Sans ça, ses variants entreraient en concurrence
+     avec les règles ci-dessous à spécificité égale — l'apparence dépendrait alors
+     de l'ORDRE d'insertion des balises <style>, donc de l'ordre de montage.
+   L'import de react-tooltip/dist/react-tooltip.css a été retiré : redondant avec
+   l'injection runtime, et Vite l'extrayait en dist/map3d.css — un fichier que le
+   champ "exports" du package.json ne déclare pas, donc un artefact mort.
+   On ne cible QUE les classes d'état STABLES (react-tooltip__show, __closing,
+   __place-*), jamais les classes CSS-modules hashées
+   (core-styles-module_tooltip__xxxxx), dont le hash change à chaque version. */
+.m3d-tip{z-index:90;width:max-content;max-width:260px;padding:6px 9px;
+  background:var(--m3d-panel);color:var(--m3d-text);
+  border:1px solid var(--m3d-border);border-radius:var(--m3d-radius-md);
+  box-shadow:var(--m3d-shadow-lg);backdrop-filter:blur(12px);
+  font-size:11.5px;font-weight:500;line-height:1.35}
+/* Deux classes = spécificité supérieure au « show » du core (opacité .9) : opaque
+   franc, comme les autres surfaces de la lib. */
+.m3d-tip.react-tooltip__show{opacity:1}
+/* Flèche : carré hérité du fond, tourné de 45° vers le bord ancré (le core lui
+   donne déjà position, background:inherit et le z-index qui la glisse SOUS le
+   corps — seuls ses deux côtés extérieurs restent visibles). */
+.m3d-tip-arrow{width:8px;height:8px;border:1px solid var(--m3d-border)}
+[class*='react-tooltip__place-top']>.m3d-tip-arrow{transform:rotate(45deg)}
+[class*='react-tooltip__place-right']>.m3d-tip-arrow{transform:rotate(135deg)}
+[class*='react-tooltip__place-bottom']>.m3d-tip-arrow{transform:rotate(225deg)}
+[class*='react-tooltip__place-left']>.m3d-tip-arrow{transform:rotate(315deg)}
+
 /* HUD de sélection : badges par groupe (catégorie · type, compteur, croix de
    désélection, tout désélectionner) + hint des modificateurs. Par défaut en haut
    à droite, décalé de la barre de contrôles ; déplaçable par la poignée (le
    composant bascule alors en left/top inline, clampé au conteneur). */
-.m3d-selhud{position:absolute;top:14px;right:82px;z-index:20;
-  display:flex;flex-direction:column;align-items:flex-end;gap:7px;pointer-events:none;
-  max-width:min(70%,640px)}
-.m3d-selhud > *{pointer-events:auto}
+/* Surfaces flottantes déplaçables — squelette PARTAGÉ par le panneau de sélection
+   et celui de la loupe (cf. le composant FloatingPanel). Chaque variante ne définit
+   plus que ses écarts : sa position par défaut et sa largeur (--m3d-panel-w).
+   pointer-events:none sur le conteneur + auto sur ses enfants : le HUD ne capte
+   jamais un clic destiné à la carte entre ses cartes. */
+.m3d-floathud{position:absolute;z-index:20;display:flex;flex-direction:column;pointer-events:none}
+.m3d-floathud > *{pointer-events:auto}
+.m3d-floatpanel{width:var(--m3d-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
+.m3d-floathead{display:flex;align-items:center;gap:6px;padding:2px 2px 0;font-size:12.5px;font-weight:600}
+.m3d-floathead-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Panneau de sélection : ancré en haut-droite, dégagé des barres verticales. */
+.m3d-selhud{top:14px;right:82px;align-items:flex-end;gap:7px;max-width:min(70%,640px)}
+.m3d-selpanel{--m3d-panel-w:${SELECTION_PANEL_W}px}
 /* Poignée de déplacement du HUD (drag & drop). touch-action:none : le drag
    pointer ne doit pas être avalé par le scroll tactile. */
 .m3d-selgrip{display:flex;align-items:center;justify-content:center;width:20px;height:22px;
@@ -223,10 +389,6 @@ const CSS = `
 .m3d-selgrip:active{cursor:grabbing}
 /* Panneau liste : mêmes classes que le panneau « Couches » (m3d-taglist/-tagrow/
    -taglabel/-tagdot/-tagcount/-tagclear) — seuls les deltas sont scopés ici. */
-.m3d-selpanel{width:236px;padding:8px;display:flex;flex-direction:column;gap:7px}
-.m3d-selhead{display:flex;align-items:center;gap:6px;padding:2px 2px 0;
-  font-size:12.5px;font-weight:600}
-.m3d-selhead span{flex:1}
 /* Rangées non cliquables (seule la croix agit) + liste bornée. */
 .m3d-selpanel .m3d-taglist{max-height:40vh}
 .m3d-selpanel .m3d-tagrow{cursor:default}
@@ -238,10 +400,12 @@ const CSS = `
 /* Pied du panneau : rappel des modificateurs — vit et meurt avec la liste. */
 .m3d-selfoot{border-top:1px solid var(--m3d-border);padding-top:6px;
   display:flex;flex-direction:column;gap:3px}
-/* Poignées : blanches à bord sombre (Figma/Illustrator) — lisibles partout. */
-.m3d-handle{fill:#fff;stroke:rgba(0,0,0,.65);stroke-width:1.2;pointer-events:all;
-  filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
-.m3d-handle:hover{fill:var(--m3d-accent);stroke:#fff}
+/* Poignées : blanches à bord sombre (Figma/Illustrator) — lisibles partout.
+   Valeurs via --m3d-handle-* (cf. .m3d-root) : partagées avec .m3d-lenszone-h. */
+.m3d-handle{fill:var(--m3d-handle-bg);stroke:var(--m3d-handle-line);
+  stroke-width:var(--m3d-handle-line-w);pointer-events:all;
+  filter:drop-shadow(var(--m3d-handle-shadow))}
+.m3d-handle:hover{fill:var(--m3d-accent);stroke:var(--m3d-handle-bg)}
 .m3d-vhandle{stroke:rgba(0,0,0,.75)}
 .m3d-lockflash{animation:m3d-lockflash .8s ease-out forwards}
 .m3d-lockflash path:first-child{fill:none;stroke:var(--m3d-muted);stroke-width:2}
@@ -301,7 +465,8 @@ const CSS = `
    gardent leur anneau. */
 .m3d-flyout-item:focus-visible,.m3d-preset:focus-visible,
 .m3d-palette-dot:focus-visible,.m3d-swatch:focus-visible,.m3d-swap:focus-visible,
-.m3d-settings-toolhead:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
+.m3d-settings-toolhead:focus-visible,.m3d-relbar-seg:focus-visible,
+.m3d-remove:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
 .m3d-btn:disabled{opacity:.35;cursor:default;background:transparent}
 .m3d-btn-move{margin-bottom:calc(4px * var(--m3d-bar-scale,1))}
 .m3d-btn-delete{margin-top:calc(4px * var(--m3d-bar-scale,1)); color:var(--m3d-error)}
@@ -532,6 +697,20 @@ const CSS = `
 .m3d-menu-item .m3d-menu-icon{width:17px;text-align:center;flex:none}
 .m3d-menu-item .m3d-menu-label{flex:1}
 .m3d-menu-item .m3d-menu-arrow{font-size:10px;color:var(--m3d-muted)}
+/* Indice secondaire (compteur, valeur atteinte) : lisible mais jamais concurrent
+   du libellé — c'est le libellé qui porte l'action. */
+.m3d-menu-item .m3d-menu-hint{font-size:11.5px;color:var(--m3d-muted);flex:none;margin-left:8px}
+/* Pastille de famille : occupe le slot d'icône, même gabarit pour un alignement
+   identique qu'un item porteur d'icône. */
+.m3d-menu-swatch{display:block;width:9px;height:9px;border-radius:50%;margin:0 auto;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--m3d-text) 18%,transparent)}
+/* Item inerte : visible (il informe qu'aucune cible ne correspond) mais insensible. */
+.m3d-menu-item[aria-disabled='true']{opacity:.45;cursor:default}
+.m3d-menu-item[aria-disabled='true']:hover{background:none}
+.m3d-menu-item:focus-visible{outline:none;background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
+/* En-tête d'un menu contextuel (titre de la cible) — était le seul style STRUCTUREL
+   écrit en inline du projet, donc hors du thème et non surchargeable. */
+.m3d-menu-header{padding:8px 10px 9px;border-bottom:1px solid var(--m3d-border);margin-bottom:4px}
 .m3d-menu-sep{height:1px;background:var(--m3d-border);margin:4px 6px}
 /* Sous-menu : à droite du parent, ou à gauche (m3d-flip, posé par useNudgeInside)
    quand le bord du conteneur est trop proche. Le panneau ne prend NI overflow NI
@@ -649,19 +828,19 @@ img.m3d-pin-media{object-fit:cover}
   0%,12%{transform:translateX(0)}
   88%,100%{transform:translateX(min(0px,calc(100cqw - 100% - 34px)))}}
 /* Croix de retrait : dans le coin haut-droit à 6px, révélée au survol/focus. */
-.m3d-pin-x{position:absolute;top:6px;right:6px;width:20px;height:20px;padding:0;
-  display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;
-  background:color-mix(in srgb,#000 55%,transparent);color:#fff;cursor:pointer;
-  backdrop-filter:blur(4px);opacity:0;transform:scale(.6);
-  transition:opacity .12s,transform .12s,background .12s}
+/* Le fond rouge, l'icône et la taille viennent de .m3d-remove (partagé) : ici
+   seuls le placement sur la pastille et sa révélation au survol. */
+.m3d-pin-x{position:absolute;top:6px;right:6px;opacity:0;transform:scale(.6);
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+  transition:opacity .12s,transform .12s}
 .m3d-pin:hover .m3d-pin-x,.m3d-pin:focus-within .m3d-pin-x{opacity:1;transform:scale(1)}
-.m3d-pin-x:hover{background:var(--m3d-error)}
 /* Ghost d'une pastille en cours de retrait : tooltip « Supprimer » au-dessus,
    visible UNIQUEMENT hors d'une cible acceptée (façon dock macOS). */
+/* L'indice porte le MÊME bouton que partout ailleurs (RemoveButton withText) :
+   il n'apporte donc que le placement au-dessus du ghost et son apparition. */
 .m3d-pin-remove-hint{position:absolute;left:50%;top:0;transform:translate(-50%,calc(-100% - 8px));
-  padding:3px 10px;border-radius:7px;background:var(--m3d-error);color:#fff;
-  font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.35);
   opacity:0;transition:opacity .12s;pointer-events:none}
+.m3d-pin-remove-hint .m3d-remove{box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .m3d-drag-ghost:not(.m3d-drag-over) .m3d-pin-remove-hint{opacity:1}
 
 /* Infobulle au survol d'une pastille : rendue en PORTAL dans .m3d-root (hors du
@@ -683,9 +862,10 @@ img.m3d-pin-media{object-fit:cover}
 /* ── Loupe (LensLayer) : zone d'inspection + panneau d'inventaire ─────────────── */
 /* Curseur de tracé, seulement tant qu'aucune zone n'existe (phase de dessin). */
 .m3d-root.m3d-lensing canvas{cursor:crosshair}
-/* Zone : cadre marching-ants (façon marquee de sélection), déplaçable (corps) +
-   redimensionnable (poignées). Fenêtre écran 2D. Couleurs pilotées par le thème
-   (theme.colors.marquee -> --m3d-marquee-*), repli gris/blanc. */
+/* Zone : cadre marching-ants déplaçable (corps) + redimensionnable (poignées).
+   Fenêtre écran 2D. Le cadre lui-même réutilise les classes partagées
+   .m3d-marquee-under / .m3d-marquee du sélecteur (voir plus haut) — la loupe ne
+   définit donc que sa géométrie et ses affordances propres. */
 .m3d-lenszone{position:absolute;z-index:16;box-sizing:border-box;pointer-events:auto;cursor:move}
 .m3d-lenszone-preview{pointer-events:none;cursor:default}
 /* Barre espace maintenue : le rectangle (et ses poignées) devient traversant →
@@ -693,27 +873,22 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-root.m3d-space-pan .m3d-lenszone,
 .m3d-root.m3d-space-pan .m3d-lenszone *{pointer-events:none!important}
 .m3d-lenszone-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-/* Mêmes variables que le marquee de sélection (gris/blanc, thème theme.colors.marquee). */
-.m3d-lenszone-fill{fill:var(--m3d-marquee-fill,rgba(255,255,255,.12));
-  stroke:var(--m3d-marquee-under,#fff);stroke-width:1.6}
-.m3d-lenszone-ants{fill:none;stroke:var(--m3d-marquee-stroke,#000);stroke-width:1.6;
-  stroke-dasharray:5 4;animation:m3d-ants .5s linear infinite}
 /* Croix de fermeture (haut-droite), neutre — pas de pastille pleine « stop ». */
 .m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:2;
   display:flex;align-items:center;justify-content:center;border:1px solid var(--m3d-border);border-radius:50%;padding:0;
   background:var(--m3d-panel);color:var(--m3d-text);cursor:pointer;box-shadow:var(--m3d-shadow-sm)}
 .m3d-lenszone-x:hover{background:color-mix(in srgb,var(--m3d-text) 10%,var(--m3d-panel))}
+/* Poignées : mêmes tokens --m3d-handle-* que .m3d-handle (le sélecteur), y compris
+   au survol — seules les PROPRIÉTÉS diffèrent (span DOM ici, rect SVG là-bas). */
 .m3d-lenszone-h{position:absolute;width:11px;height:11px;box-sizing:border-box;transform:translate(-50%,-50%);
-  background:#fff;border:1.5px solid rgba(0,0,0,.65);border-radius:2px;pointer-events:auto;z-index:1;
-  box-shadow:0 1px 2px rgba(0,0,0,.4)}
-.m3d-lenszone-h:hover{background:var(--m3d-marquee-stroke,#000)}
+  background:var(--m3d-handle-bg);border:var(--m3d-handle-line-w) solid var(--m3d-handle-line);
+  border-radius:2px;pointer-events:auto;z-index:1;box-shadow:var(--m3d-handle-shadow)}
+.m3d-lenszone-h:hover{background:var(--m3d-accent);border-color:var(--m3d-handle-bg)}
 /* Panneau d'inventaire, ancré à droite de la zone (position inline via le hook). */
-.m3d-lenshud{position:absolute;z-index:20;display:flex;flex-direction:column;
-  pointer-events:none;max-width:min(60%,360px)}
-.m3d-lenshud > *{pointer-events:auto}
-.m3d-lenspanel{width:252px;padding:8px;display:flex;flex-direction:column;gap:7px}
-.m3d-lenshead{display:flex;align-items:center;gap:6px;padding:2px 2px 0}
-.m3d-lenstitle{flex:1;font-size:12.5px;font-weight:600}
+/* Panneau de la loupe : position posée en inline (il suit la zone), d'où l'absence
+   de top/right ici — seules sa largeur et sa borne de débordement le distinguent. */
+.m3d-lenshud{max-width:min(60%,360px)}
+.m3d-lenspanel{--m3d-panel-w:${LENS_PANEL_W}px}
 .m3d-lensempty{padding:14px 8px;text-align:center;color:var(--m3d-muted);font-size:12px}
 
 /* ── Liste de markers partagée (sélection + loupe) : 1 ligne par marker ──────── */
