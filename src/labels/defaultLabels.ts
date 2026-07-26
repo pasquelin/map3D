@@ -86,7 +86,6 @@ export const defaultLabels: MapLabels = {
   markerList: {
     target: 'Cibler',
     actions: 'Actions pour {label}',
-    select: 'Sélectionner {label}',
     remove: 'Retirer {label}',
   },
   lens: {
@@ -97,9 +96,6 @@ export const defaultLabels: MapLabels = {
     remove: 'Retirer la loupe',
     movePanel: 'Déplacer le panneau',
     snapBack: 'Rattacher le panneau à la zone',
-    selectAll: 'Tout sélectionner',
-    clearSelection: 'Tout désélectionner',
-    selectItem: 'Sélectionner {label}',
   },
   settings: {
     title: 'Réglages des outils',

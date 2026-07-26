@@ -24,10 +24,9 @@ export type SelectionBadgesProps = {
 /**
  * Panneau de sélection (haut-droite par défaut, monté dans `<DrawLayer>`). Les
  * **markers** sont listés **1 ligne par marker** via `MarkerList` — le composant
- * de liste **partagé avec la loupe** (case à cocher, menu « Cibler », croix). Les
- * **formes** dessinées restent regroupées par kind (compteur + croix). Déplaçable
- * par sa poignée. Une ligne de marker cochée = sélectionnée ; la décocher ou sa
- * croix la désélectionne.
+ * de liste **partagé avec la loupe** (pastille + titre/sous-titre, menu « Cibler »,
+ * croix). Les **formes** dessinées restent regroupées par kind (compteur + croix).
+ * Déplaçable par sa poignée. La croix d'une ligne de marker la désélectionne.
  */
 export function SelectionBadges(props: SelectionBadgesProps) {
   const { engine } = useMapContext()

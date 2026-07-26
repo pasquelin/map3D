@@ -117,8 +117,6 @@ export type MapLabels = {
     target: string
     /** aria-label du bouton de menu d'actions d'une ligne — `{label}`. */
     actions: string
-    /** aria-label de la case à cocher d'une ligne — `{label}`. */
-    select: string
     /** aria-label de la croix d'une ligne — `{label}`. */
     remove: string
   }
@@ -138,12 +136,6 @@ export type MapLabels = {
     movePanel: string
     /** aria-label/tooltip du bouton qui ré-aimante le panneau à la zone (après déplacement). */
     snapBack: string
-    /** Bouton « tout sélectionner » (sélection dans la liste). */
-    selectAll: string
-    /** Bouton « désélectionner tout ». */
-    clearSelection: string
-    /** aria-label de la case de sélection d'une ligne — `{label}`. */
-    selectItem: string
   }
   /** Panneau « Réglages des outils ». */
   settings: {
