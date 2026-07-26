@@ -1,4 +1,4 @@
-import { mdiClose, mdiDrag, mdiSelectionOff } from '@mdi/js'
+import { mdiClose, mdiDrag } from '@mdi/js'
 import Icon from '@mdi/react'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -12,10 +12,6 @@ export type LensPanelProps<T = unknown> = {
   getId: (m: MarkerData<T>) => string | number
   /** Position par défaut (px conteneur) — le panneau suit la zone tant qu'il n'est pas déplacé. */
   anchor: { x: number; y: number }
-  selected: ReadonlySet<string | number>
-  onToggle: (id: string | number) => void
-  onSelectAll: () => void
-  onClearSelection: () => void
   /** Croix d'une ligne : retire le marker de la liste affichée. */
   onRemove: (id: string | number) => void
   onClose: () => void
@@ -30,11 +26,11 @@ export type LensPanelProps<T = unknown> = {
 /**
  * Panneau d'inventaire de la loupe, ancré à droite de la zone : en-tête fixe
  * (compteur + récap par type + fermer), corps = `MarkerList` **partagée** avec le
- * panneau de sélection (1 ligne par marker, case à cocher, menu « Cibler », croix),
- * pied « tout sélectionner / désélectionner ». Réutilise `useDraggablePanel`.
+ * panneau de sélection (1 ligne par marker, pastille couleur, menu « Cibler »,
+ * croix de retrait). Réutilise `useDraggablePanel`.
  */
 export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
-  const { markers, getId, selected } = props
+  const { markers, getId } = props
   const labels = useLabels()
   const { panelRef, style, gripProps } = useDraggablePanel(props.anchor)
 
@@ -71,27 +67,10 @@ export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
               markers={markers}
               getId={getId}
               renderItem={props.renderItem}
-              selectable
-              selected={selected}
-              onToggle={props.onToggle}
               onRemove={props.onRemove}
               actions={props.actions}
               targetZoom={props.targetZoom}
             />
-            <div className="m3d-lensfoot">
-              <button type="button" className="m3d-lensbtn" onClick={props.onSelectAll}>
-                {labels.lens.selectAll}
-              </button>
-              <button
-                type="button"
-                className="m3d-lensbtn"
-                onClick={props.onClearSelection}
-                disabled={selected.size === 0}
-              >
-                <Icon path={mdiSelectionOff} size={0.55} />
-                {labels.lens.clearSelection}
-              </button>
-            </div>
           </>
         )}
       </div>

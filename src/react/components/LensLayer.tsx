@@ -31,8 +31,6 @@ export type LensLayerProps<T = unknown> = {
   actions?: MarkerListAction<T>[]
   /** Libellé lisible d'un type de marker (récap par type). */
   markerTypeLabel?: (type: string) => string
-  /** Notifié quand la sélection dans la liste change. */
-  onSelectionChange?: (markers: MarkerData<T>[]) => void
   /** Raccourci clavier d'activation (lettre unique, insensible à la casse). Défaut `f`. `null` = aucun. */
   shortcut?: string | null
   /** Zoom du vol « Cibler » d'une ligne (défaut 17). */
@@ -66,7 +64,6 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   /** Glissé en cours : on n'affiche que le marquee pointillé (pas encore le panneau). */
   const [drafting, setDrafting] = useState(false)
   const [inventory, setInventory] = useState<MarkerData<T>[]>([])
-  const [selected, setSelected] = useState<Set<string | number>>(() => new Set())
   /** Markers retirés de la liste par leur croix (réinitialisé à chaque nouvelle zone). */
   const [dismissed, setDismissed] = useState<Set<string | number>>(() => new Set())
 
@@ -79,8 +76,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const rafRef = useRef(0)
   const draftRef = useRef<{ x0: number; y0: number } | null>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
-  const latest = useRef({ getId, onSelectionChange: props.onSelectionChange })
-  latest.current = { getId, onSelectionChange: props.onSelectionChange }
+  const latest = useRef({ getId })
+  latest.current = { getId }
 
   // ── Inventaire : rect écran → cadre géo grossier → markers sources → test écran ──
   const recompute = useCallback(() => {
@@ -138,16 +135,6 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     if (sig === invSigRef.current) return
     invSigRef.current = sig
     setInventory(found)
-    // La sélection de liste ne garde que les markers encore présents.
-    setSelected((prev) => {
-      if (prev.size === 0) return prev
-      const alive = new Set<string | number>()
-      for (const m of found) {
-        const id = latest.current.getId(m)
-        if (prev.has(id)) alive.add(id)
-      }
-      return alive.size === prev.size ? prev : alive
-    })
   }, [engine, scratch])
 
   const schedule = useCallback(() => {
@@ -231,7 +218,6 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   // ── Activation / exclusivité avec le dessin ──
   const clearZone = useCallback(() => {
     setRect(null)
-    setSelected(new Set())
     setDismissed(new Set())
   }, [])
   const onRemoveRow = useCallback((id: string | number) => {
@@ -284,29 +270,8 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     return () => window.removeEventListener('keydown', onKey)
   }, [shortcut, toggle])
 
-  // ── Sélection de liste ──
-  const onToggle = useCallback((id: string | number) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
   // Liste affichée = inventaire moins les lignes masquées par leur croix.
   const displayed = dismissed.size ? inventory.filter((m) => !dismissed.has(getId(m))) : inventory
-  const onSelectAll = useCallback(() => {
-    setSelected(new Set(displayed.map((m) => latest.current.getId(m))))
-    // displayed est recalculé à chaque render ; la ref `latest` garde getId stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayed])
-  const onClearSelection = useCallback(() => setSelected(new Set()), [])
-
-  useEffect(() => {
-    const sel = displayed.filter((m) => selected.has(latest.current.getId(m)))
-    latest.current.onSelectionChange?.(sel)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, displayed])
 
   const api = useMemo<LensApi>(
     () => ({ active, hasZone: rect !== null, activate, deactivate, toggle, shortcut }),
@@ -331,10 +296,6 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
             markers={displayed}
             getId={getId}
             anchor={{ x: rect.x + rect.w + GAP, y: rect.y }}
-            selected={selected}
-            onToggle={onToggle}
-            onSelectAll={onSelectAll}
-            onClearSelection={onClearSelection}
             onRemove={onRemoveRow}
             onClose={clearZone}
             renderItem={props.renderItem}

@@ -1,4 +1,4 @@
-import { mdiCheckboxBlankCircleOutline, mdiCheckCircle, mdiClose, mdiCrosshairsGps, mdiDotsHorizontal } from '@mdi/js'
+import { mdiClose, mdiCrosshairsGps, mdiDotsHorizontal } from '@mdi/js'
 import Icon from '@mdi/react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -26,11 +26,7 @@ export type MarkerListProps<T = unknown> = {
    * la place et ellipser proprement.
    */
   renderItem?: (m: MarkerData<T>) => ReactNode
-  /** Cases à cocher (sélection multiple). */
-  selectable?: boolean
-  selected?: ReadonlySet<string | number>
-  onToggle?: (id: string | number) => void
-  /** Croix de retrait par ligne (masquée si absent). */
+  /** Croix de retrait par ligne (masquée si absent) : désélectionne / retire. */
   onRemove?: (id: string | number) => void
   /** Clic sur la ligne / action « Cibler ». Défaut : vol caméra vers le marker. */
   onTarget?: (m: MarkerData<T>) => void
@@ -58,7 +54,7 @@ function Swatch<T>({ m, theme }: { m: MarkerData<T>; theme: MapTheme }) {
  * rendu en PORTAL dans `.m3d-root` pour ne pas être rogné par le scroll de la liste.
  */
 export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
-  const { markers, getId, selected, onToggle, onRemove } = props
+  const { markers, getId, onRemove } = props
   const { engine, theme, overlay } = useMapContext()
   const labels = useLabels()
   const root = overlay.parentElement
@@ -105,12 +101,11 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
     <div className="m3d-mllist">
       {markers.map((m) => {
         const id = getId(m)
-        const isSel = selected?.has(id) ?? false
         const idStr = String(id)
         return (
           <div
             key={id}
-            className={`m3d-mlrow${isSel ? ' m3d-mlrow-sel' : ''}`}
+            className="m3d-mlrow"
             role="button"
             tabIndex={0}
             onClick={() => target(m)}
@@ -121,21 +116,6 @@ export function MarkerList<T = unknown>(props: MarkerListProps<T>) {
               }
             }}
           >
-            {props.selectable && (
-              <button
-                type="button"
-                className="m3d-mlcheck"
-                aria-label={formatLabel(labels.markerList.select, { label: idStr })}
-                aria-pressed={isSel}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggle?.(id)
-                }}
-              >
-                <Icon path={isSel ? mdiCheckCircle : mdiCheckboxBlankCircleOutline} size={0.7} />
-              </button>
-            )}
             <Swatch m={m} theme={theme} />
             {props.renderItem ? props.renderItem(m) : <span className="m3d-mllabel">{idStr}</span>}
             <button

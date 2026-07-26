@@ -716,11 +716,6 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-mlrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;color:inherit}
 .m3d-mlrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-mlrow:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
-/* Sélection indiquée par la seule case cochée (pas de fond de ligne). */
-.m3d-mlcheck{display:flex;align-items:center;justify-content:center;flex:none;width:22px;height:22px;padding:0;
-  border:none;border-radius:50%;background:transparent;color:var(--m3d-muted);cursor:pointer}
-.m3d-mlcheck:hover{color:var(--m3d-text)}
-.m3d-mlrow-sel .m3d-mlcheck{color:var(--m3d-accent)}
 .m3d-mldot{width:10px;height:10px;border-radius:50%;flex:none}
 .m3d-mlavatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex:none;border:1.5px solid var(--m3d-border)}
 .m3d-mllabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
