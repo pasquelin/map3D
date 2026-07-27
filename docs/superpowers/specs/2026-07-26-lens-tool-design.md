@@ -157,19 +157,33 @@ drag clampé au conteneur via poignée, re-clamp au resize via `ResizeObserver`)
 
 ### 4.5 Intégration `Toolbar`
 
-`Toolbar` itère aujourd'hui sur `tools: DrawTool[]`. La loupe n'étant pas un
-`DrawTool`, on ajoute un **mécanisme léger d'« outils externes »** : un item principal
-déclaré hors de l'union `DrawTool`, avec son propre état actif/toggle et son icône (loupe,
-ex. `mdiMagnify`). Cela :
-- garde le modèle `Drawing`/export/undo pur ;
-- est **extensible** à de futurs outils non-dessin sans nouvelle plomberie.
+> **Révisé (26/07/2026).** Le premier jet passait par le mécanisme d'« outils
+> externes » (`extraTools`), donc par un assemblage côté application. La loupe est
+> depuis un **outil natif de la barre**, au même titre que les symboles : `Toolbar`
+> rend elle-même `<LensToolButton>` via une section `'lens'` (masquable par
+> `components={{ lens: false }}`), et le bouton s'efface tout seul si la carte est
+> montée sans loupe. `extraTools` reste, mais pour ce à quoi il sert vraiment : les
+> outils *de l'application*.
 
-### 4.6 Wrapper React `<LensLayer>`
+`Toolbar` itère sur `tools: DrawTool[]` ; la loupe n'étant pas un `DrawTool`, elle est
+rendue hors de cette boucle, juste après elle — le modèle `Drawing`/export/undo reste pur.
 
-Composant de montage (à l'image de `<MarkerLayer>` / `<DrawLayer>`) qui instancie la
-couche et le panneau, et expose les props publiques : `renderItem`, `actions`
-(supplémentaires), `labels`, éventuels réglages (taille max du panneau…). Contrôlé,
-i18n via le système `labels`.
+### 4.6 Montage : `<Map lens>`
+
+> **Révisé (26/07/2026).** `<LensLayer>` n'est plus monté par l'application.
+
+`<Map>` monte la couche lui-même et l'expose par une prop unique : `lens={false}` la
+retire, `lens={{ … }}` la règle (`getId`, `renderItem`, `actions`, `markerTypeLabel`,
+`shortcut`, `targetZoom` — tous facultatifs, type `LensOptions<T>`). C'est le patron
+`<DrawLayer symbols>` transposé : **actif par défaut, configurable, désactivable**.
+
+Conséquence sur l'exclusivité (§2.2) : `<LensLayer>` enveloppant désormais tout l'arbre,
+c'est `<DrawLayer>` — monté **sous** elle — qui porte la règle, en observant
+`LensContext` (activer un outil de dessin désactive la loupe, et réciproquement). La
+loupe ne connaît donc plus rien du dessin, et fonctionne sur une carte qui n'en a pas.
+
+`<LensLayer>` reste exporté pour un montage manuel (barre maison) ; il suppose alors
+`<Map lens={false}>`, sinon deux loupes cohabitent.
 
 ## 5. Flux de données (résumé)
 
@@ -221,7 +235,8 @@ LensLayer: inventaire courant  ──émet──▶  LensPanel (liste + actions)
 ## 9. Critères d'acceptation
 
 - L'item loupe apparaît comme **outil principal** dans `Toolbar` et s'active/désactive
-  en exclusion des outils de dessin.
+  en exclusion des outils de dessin, **sans que l'application ait rien monté** :
+  `<Map>` seul suffit, `<Map lens={false}>` fait disparaître outil et raccourci.
 - Tracer une zone au-dessus d'un cluster liste **tous** ses markers individuels.
 - Les formes géométriques n'apparaissent **jamais** dans la liste.
 - La zone est déplaçable et redimensionnable, la liste se recalcule en direct ; un pan/zoom

@@ -11,10 +11,20 @@ const CAP = 50
  */
 type Entry = { snap: Drawing[]; json: string }
 
-const toEntry = (state: readonly Drawing[]): Entry => ({
-  snap: structuredClone(state) as Drawing[],
-  json: JSON.stringify(state),
-})
+const toEntry = (state: readonly Drawing[]): Entry => {
+  try {
+    return { snap: structuredClone(state) as Drawing[], json: JSON.stringify(state) }
+  } catch (cause) {
+    // Seul `meta` (opaque, fourni par l'app hôte) peut contenir une valeur non
+    // clonable. Le `DataCloneError` brut ne désignerait pas le coupable, et il
+    // surviendrait au premier geste de dessin — loin de la ligne fautive.
+    throw new Error(
+      'map3d: une forme porte des `meta` non sérialisables (fonction, Symbol, nœud DOM). ' +
+        'Voir `ShapeMeta` : stockez un identifiant plutôt qu’une valeur vivante. ' +
+        `Cause : ${String(cause)}`,
+    )
+  }
+}
 
 export class History {
   private past: Entry[] = []

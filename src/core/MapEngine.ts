@@ -7,7 +7,7 @@ import type { Bounds, LatLng } from '../shared'
 import { Camera, type CameraState } from './Camera'
 import { GoogleTileSource, TILE_SIZE } from './googleTiles'
 import type { FrameContext, Layer, MapView } from './Layer'
-import { clamp, DEG2RAD, EARTH_CIRCUMFERENCE } from './math'
+import { altitudeForZoom, clamp, DEG2RAD, EARTH_CIRCUMFERENCE, zoomForAltitude } from './math'
 import { DragRegistry } from './DragRegistry'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
@@ -40,6 +40,16 @@ export type MapEngineOptions = {
   cesiumIonToken?: string
   /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
   cesiumIonAssetId?: string
+  /**
+   * Type de carte au démarrage. Défaut : `'plan'` dès qu'une clé Google fournit le
+   * fond 2D (plus lisible pour lire des positions), sinon `'3d'`. Sans clé, `'plan'`
+   * est ignoré — comme `setMapMode`.
+   *
+   * NB coût : le fond 2D consomme le quota **Map Tiles API de votre clé Google**, là
+   * où la 3D via `cesiumIonToken` est servie par Cesium Ion. Démarrer en 2D déplace
+   * donc la facture, il ne la supprime pas.
+   */
+  mapMode?: MapMode
   /** Affiche un globe ellipsoïde uni de repli quand aucune tuile n'est disponible. */
   fallbackGlobe: boolean
   /** Erreur d'écran cible (screen-space error) — qualité/perf. */
@@ -65,6 +75,20 @@ export type MapEngineOptions = {
 /** Mode du drag gauche : 'pan' (déplacer la carte, défaut) ou 'rotate' (pivoter la vue, = Maj maintenu). */
 export type DragMode = 'pan' | 'rotate'
 
+/**
+ * Degré d'interactivité de la carte.
+ *
+ * - `true` (défaut) — tout est actif.
+ * - `'view'` — **caméra figée** (ni pan, ni rotation, ni zoom molette) mais la carte
+ *   reste vivante : markers cliquables, sélection, infobulles. Le cas d'un aperçu
+ *   qu'on consulte sans pouvoir le déplacer.
+ * - `false` — image inerte : plus aucun clic n'atteint la carte ni les markers.
+ *
+ * Dans les deux modes figés, les outils (dessin, loupe) sont neutralisés : leur
+ * intercepteur n'est plus appelé.
+ */
+export type InteractiveMode = boolean | 'view'
+
 /** Fond de carte affiché et calques optionnels qui en dépendent. */
 export type BasemapState = {
   mode: MapMode
@@ -83,12 +107,22 @@ export type MapEvents = {
   click: { latLng: LatLng; originalEvent: PointerEvent }
   dragmode: DragMode
   basemap: BasemapState
+  /**
+   * La carte est **exploitable** : la projection résout des hauteurs, et un
+   * `fitBounds`/`flyTo` vise le sol réel plutôt que l'ellipsoïde nu.
+   *
+   * À ne pas confondre avec « le moteur existe » — ça, c'est `useMap()`, disponible
+   * immédiatement. `ready` attend en plus le terrain (3D) et la file de tuiles
+   * vidée. Émis **une seule fois**, et rejoué aussitôt pour qui s'abonne après coup.
+   */
+  ready: MapEngine
 }
 
 type Listener<E extends keyof MapEvents> = (payload: MapEvents[E]) => void
 
-export const altitudeForZoom = (zoom: number): number => EARTH_CIRCUMFERENCE / Math.pow(2, zoom)
-export const zoomForAltitude = (alt: number): number => Math.log2(EARTH_CIRCUMFERENCE / Math.max(1, alt))
+// Définies dans `core/math` (avec l'échelle dont elles dérivent), ré-exportées ici :
+// c'est de `MapEngine` que la lib les expose depuis toujours.
+export { altitudeForZoom, zoomForAltitude }
 
 /**
  * Attribut marquant une **surface carte** : un overlay au-dessus du canvas dont la
@@ -155,8 +189,10 @@ export class MapEngine {
     click: new Set(),
     dragmode: new Set(),
     basemap: new Set(),
+    ready: new Set(),
   }
   private dragMode: DragMode = 'pan'
+  private interactiveMode: InteractiveMode = true
   private fallback: THREE.Object3D | null = null
   private size = { width: 1, height: 1 }
   private raf = 0
@@ -321,6 +357,12 @@ export class MapEngine {
     this.canvas.parentElement?.addEventListener('wheel', this.forwardWheel, { passive: false })
 
     this.bindInput()
+
+    // Mode de départ, en DERNIER (setMapMode touche controls, projection et l'intro,
+    // tous construits au-dessus) : 2D par défaut dès que le fond Google existe. Passe
+    // par setMapMode pour ne pas dupliquer les règles de bascule ; sans clé, sa garde
+    // ramène au mode 3D.
+    this.setMapMode(opts.mapMode ?? (this.basemap2d ? 'plan' : '3d'))
   }
 
   /**
@@ -403,6 +445,9 @@ export class MapEngine {
     if (this.running || this.disposed) return
     this.running = true
     this.lastTime = performance.now()
+    // Origine du garde-fou de `ready` : le temps passé AVANT le démarrage (montage
+    // React, création du moteur) ne doit pas entamer le délai d'attente des tuiles.
+    if (!this.readyEmitted) this.startedAt = this.lastTime
     const loop = (t: number) => {
       if (!this.running) return
       this.raf = requestAnimationFrame(loop)
@@ -456,6 +501,9 @@ export class MapEngine {
 
   on<E extends keyof MapEvents>(event: E, cb: Listener<E>): () => void {
     this.listeners[event].add(cb)
+    // `ready` ne se produit qu'une fois : un abonné monté après coup (couche ajoutée
+    // tardivement, vue remontée) attendrait sinon un event définitivement passé.
+    if (event === 'ready' && this.readyEmitted) (cb as Listener<'ready'>)(this)
     return () => this.listeners[event].delete(cb)
   }
 
@@ -472,7 +520,30 @@ export class MapEngine {
   setDrawing(active: boolean): void {
     this.drawingMode = active
     this.drawingSuspended = false
-    this.controls.enabled = true
+    // Le mode figé PRIME : monter une couche de dessin sur une carte non
+    // interactive ne doit pas lui rendre la navigation dans le dos de l'hôte.
+    this.controls.enabled = this.interactiveMode === true
+  }
+
+  /**
+   * Fige (ou libère) l'interaction — cf. `InteractiveMode`.
+   *
+   * Passe par `controls.enabled` et une garde en amont des events, **pas** par
+   * `inputInterceptor` : ce slot est unique et déjà disputé entre le dessin et la
+   * loupe ; le lui voler laisserait l'outil affiché actif mais mort.
+   */
+  setInteractive(mode: InteractiveMode): void {
+    if (this.interactiveMode === mode) return
+    this.interactiveMode = mode
+    this.controls.enabled = mode === true
+    // Les markers sont du DOM qui réactive `pointer-events` élément par élément :
+    // seule une règle descendante peut les recouvrir (le `pointer-events:none` du
+    // conteneur CSS2D ne suffit pas, c'est justement ce qui les rend cliquables).
+    this.canvas.parentElement?.classList.toggle('m3d-inert', mode === false)
+  }
+
+  get interactive(): InteractiveMode {
+    return this.interactiveMode
   }
 
   /**
@@ -635,6 +706,41 @@ export class MapEngine {
     return this.intro !== null
   }
 
+  private readyEmitted = false
+  /** Horodatage de `start()` — origine du garde-fou d'attente de `ready`. */
+  private startedAt = 0
+
+  /** La carte est-elle exploitable ? (cf. l'event `ready`) */
+  get ready(): boolean {
+    return this.readyEmitted
+  }
+
+  /**
+   * Attente max avant d'émettre `ready` quand même (ms). Une source de tuiles en
+   * échec (403, token invalide, réseau coupé) ne doit jamais laisser l'application
+   * bloquée à attendre un event qui n'arrivera pas — même raison d'être que
+   * `INTRO_MAX_WAIT_MS`, dont il reprend la valeur.
+   */
+  private static readonly READY_MAX_WAIT_MS = 8000
+
+  /**
+   * Émet `ready` dès que la carte est exploitable, ou au bout du garde-fou.
+   *
+   * En 3D, « exploitable » veut dire que le terrain a été touché au moins une fois
+   * et que la file de tuiles est vidée — c'est exactement la condition qui décide
+   * du décollage de l'intro, et c'est le seuil à partir duquel un cadrage vise le
+   * sol réel. En 2D il n'y a pas de terrain à attendre : la projection suffit.
+   */
+  private checkReady(now: number): void {
+    if (this.readyEmitted) return
+    const usable =
+      this.projection.isReady() &&
+      (this.mapMode !== '3d' || (this.terrainKnown && this.tiles.loadProgress >= 1))
+    if (!usable && now - this.startedAt < MapEngine.READY_MAX_WAIT_MS) return
+    this.readyEmitted = true
+    this.emit('ready', this)
+  }
+
   private readonly cancelIntro = (): void => {
     // N'annule QUE le vol d'intro : un vol de recherche/suivi qui a pris la main
     // n'est jamais tué par une interaction destinée à stopper l'intro.
@@ -763,7 +869,7 @@ export class MapEngine {
    * et non l'altitude seule, sinon flou), et emprise **centrée sur la vue** dimensionnée
    * à l'écran (évite les bounds gonflés par l'inclinaison → compte de tuiles raisonnable).
    */
-  private updateBasemap(state: CameraState): void {
+  private updateBasemap(state: CameraState, refine: boolean): void {
     if (!this.basemap2d) return
     // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
     // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
@@ -779,7 +885,7 @@ export class MapEngine {
     // Résolution Web Mercator au zoom 0 (m/px à l'équateur) = circonférence / taille tuile.
     const equatorMetersPerPixel = EARTH_CIRCUMFERENCE / TILE_SIZE
     const zoom = Math.log2((equatorMetersPerPixel * Math.cos(state.lat * DEG2RAD)) / metersPerPixel)
-    this.basemap2d.update(view.bounds, zoom)
+    this.basemap2d.update(view.bounds, zoom, refine)
   }
 
   // ── Boucle ──
@@ -807,6 +913,7 @@ export class MapEngine {
     // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
     if (this.mapMode === '3d') this.trackTerrainElevation()
     this.updateIntro(now)
+    this.checkReady(now)
 
     // État caméra calculé UNE fois par frame (chaque getState = inversion de matrice)
     // et réutilisé par updateNearFar/computeView/ctx.
@@ -824,7 +931,10 @@ export class MapEngine {
     }
 
     // Mode 2D : alimente le globe tuilé chaque frame (raffinement incrémental fluide).
-    if (this.mapMode !== '3d') this.updateBasemap(state)
+    // Pendant un vol/suivi (`controlling`), on NE demande PAS les niveaux traversés :
+    // ils défileraient sans être vus et coûteraient des centaines de tuiles Google
+    // par descente d'intro. Le raffinement reprend à l'atterrissage.
+    if (this.mapMode !== '3d') this.updateBasemap(state, !controlling)
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
     // aucun layer ne le lit par frame, seul l'event 'viewport' et getView() le forcent.
@@ -1040,14 +1150,36 @@ export class MapEngine {
     this.canvas.removeEventListener('wheel', this.cancelIntro)
   }
 
-  private pickAt(e: PointerEvent): LatLng | null {
+  /**
+   * Coordonnées **client** (celles d'un `PointerEvent`, repère fenêtre) → lat/lng.
+   * Public : toute couche DOM externe (overlay custom, poignée d'édition, symbole
+   * déplaçable) en a besoin et n'a pas accès au canvas.
+   *
+   * `fallbackToEllipsoid` rend un point même quand le curseur ne touche aucune
+   * tuile (ciel, zone non chargée) : indispensable à un geste en cours, qui ne doit
+   * pas se figer parce que le pointeur a débordé.
+   */
+  pickLatLngAtClient(clientX: number, clientY: number, fallbackToEllipsoid = false): LatLng | null {
     const rect = this.canvas.getBoundingClientRect()
-    return this.projection.pickLatLng(e.clientX - rect.left, e.clientY - rect.top, this.threeCamera)
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+    const hit = this.projection.pickLatLng(x, y, this.threeCamera)
+    if (hit || !fallbackToEllipsoid) return hit
+    return this.projection.pickEllipsoidLatLng(x, y, this.threeCamera)
+  }
+
+  private pickAt(e: PointerEvent): LatLng | null {
+    return this.pickLatLngAtClient(e.clientX, e.clientY)
+  }
+
+  /** Les outils (dessin, loupe) ne reçoivent rien tant que la carte est figée. */
+  private get toolsActive(): boolean {
+    return this.interactiveMode === true
   }
 
   private onPointerDown = (e: PointerEvent): void => {
     this.pointerDrag = { x: e.clientX, y: e.clientY, moved: 0 }
-    if (this.inputInterceptor && e.button === 0) {
+    if (this.toolsActive && this.inputInterceptor && e.button === 0) {
       this.inputInterceptor('down', this.pickAt(e), e)
     }
   }
@@ -1056,7 +1188,7 @@ export class MapEngine {
     if (this.pointerDrag) this.pointerDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
     // Transmet le survol (pointer up) à l'outil aussi : indispensable au mode clic
     // du polygone (élastique + aimant de fermeture entre deux clics).
-    if (this.inputInterceptor) {
+    if (this.toolsActive && this.inputInterceptor) {
       this.inputInterceptor('move', this.pickAt(e), e)
     }
   }
@@ -1066,7 +1198,10 @@ export class MapEngine {
     this.pointerDrag = null
     // L'interceptor rend un booléen « consommé » : false (ex. dessin suspendu par
     // la barre espace) → l'événement reste au moteur, le `click` doit être émis.
-    if (this.inputInterceptor?.('up', this.pickAt(e), e)) return
+    if (this.toolsActive && this.inputInterceptor?.('up', this.pickAt(e), e)) return
+    // Carte totalement inerte : aucun clic n'en sort. En `'view'` il passe — c'est
+    // ce qui distingue « consultable » de « image ».
+    if (this.interactiveMode === false) return
     // Clic « propre » (peu de mouvement) → événement de sélection carte.
     if (drag && drag.moved < 6) {
       const ll = this.pickAt(e)

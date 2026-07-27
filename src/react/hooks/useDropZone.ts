@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DragPayload } from '../../core/DragRegistry'
+import type { DragPayload, DropPoint } from '../../core/DragRegistry'
 import { useMapContext } from '../context'
 
 export type UseDropZoneOptions = {
@@ -7,8 +7,8 @@ export type UseDropZoneOptions = {
   id: string
   /** Charges recevables (absent = tout accepter). */
   accept?: (payload: DragPayload) => boolean
-  /** Dépôt validé sur la zone. */
-  onDrop: (payload: DragPayload) => void
+  /** Dépôt validé sur la zone, avec le point écran du relâchement (px client). */
+  onDrop: (payload: DragPayload, point: DropPoint) => void
 }
 
 /**
@@ -33,7 +33,7 @@ export function useDropZone(opts: UseDropZoneOptions): {
     const id = latest.current.id
     return engine.drag.registerZone(id, {
       accept: (p) => (latest.current.accept ? latest.current.accept(p) : true),
-      onDrop: (p) => latest.current.onDrop(p),
+      onDrop: (p, point) => latest.current.onDrop(p, point),
     })
   }, [engine, opts.id])
 

@@ -1,4 +1,5 @@
 import {
+  mdiShapePlusOutline,
   mdiArrowTopRight,
   mdiCircleOutline,
   mdiCursorDefaultOutline,
@@ -21,6 +22,7 @@ import { useLabels } from '../context'
 
 /** Icône de chaque outil (toolbar, panneau Réglages) — libellés dans `labels.tools`. */
 export const TOOL_ICONS: Record<DrawTool, string> = {
+  symbol: mdiShapePlusOutline,
   select: mdiCursorDefaultOutline,
   line: mdiVectorLine,
   polygon: mdiVectorPolygon,

@@ -3,6 +3,7 @@ import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels } from '../context'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
 import { FloatingPanel } from './FloatingPanel'
+import type { MenuItem } from './ContextMenu'
 import { MarkerList, type MarkerListAction } from './MarkerList'
 import type { LensRenderItem } from './lensTypes'
 
@@ -17,6 +18,8 @@ export type LensPanelProps<T = unknown> = {
   renderItem?: LensRenderItem<T>
   /** Actions du menu déroulant d'une ligne (en plus de « Cibler »). */
   actions?: MarkerListAction<T>[]
+  /** Menu d'une ligne, même forme que `<MarkerLayer menu>` — prime sur `actions`. */
+  menu?: (m: MarkerData<T>) => MenuItem[]
   targetZoom?: number
   /** Libellé lisible d'un type de marker (récap par type). */
   markerTypeLabel?: (type: string) => string
@@ -57,6 +60,7 @@ export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
           markerTypeLabel={props.markerTypeLabel}
           onRemove={props.onRemove}
           actions={props.actions}
+          menu={props.menu}
           targetZoom={props.targetZoom}
         />
       )}

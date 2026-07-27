@@ -11,6 +11,9 @@ importers:
       3d-tiles-renderer:
         specifier: ^0.5.0
         version: 0.5.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.169.0)
+      '@armyc2.c5isr.renderer/mil-sym-ts-web':
+        specifier: ^2.9.2
+        version: 2.9.2
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -85,6 +88,9 @@ packages:
         optional: true
       three:
         optional: true
+
+  '@armyc2.c5isr.renderer/mil-sym-ts-web@2.9.2':
+    resolution: {integrity: sha512-gGMRGhGDfWfd9bJ+3jAa4m/k9l4ACQAHrCDeGpBjOc3pO4KIxtRtNOdgvNhZ4IsE2EfCGv22bFE5KMGw4EqPSQ==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -1106,6 +1112,8 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       three: 0.169.0
+
+  '@armyc2.c5isr.renderer/mil-sym-ts-web@2.9.2': {}
 
   '@babel/code-frame@7.29.7':
     dependencies:

@@ -1,15 +1,27 @@
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type Ref, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { CameraState } from '../core/Camera'
-import { MapEngine, WHEEL_SURFACE_ATTR } from '../core/MapEngine'
+import { type InteractiveMode, MapEngine, type MapMode, WHEEL_SURFACE_ATTR } from '../core/MapEngine'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { Viewport } from '../data/types'
 import type { LatLng } from '../shared'
 import { injectStyles } from '../style/injectStyles'
 import { themeToVars } from '../style/themeToVars'
+import type { PartialLabels } from '../labels/types'
+import type { ThemeInput } from '../theme/types'
+import { MapProvider } from './MapProvider'
 import { DragOverlay } from './components/DragOverlay'
 import { MapContext, useTheme } from './context'
+import type { MapHandle, MapSurfaces } from './mapConfig'
+import {
+  type BridgedApis,
+  LensHost,
+  type MarkerMenuOf,
+  MapSurfaces as MapSurfacesHost,
+  RelationsHost,
+  lensOf,
+} from './MapSurfaces'
 
-export type MapProps = {
+export type MapProps<T = unknown, TPin = unknown> = {
   center: LatLng
   zoom: number
   /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
@@ -18,6 +30,12 @@ export type MapProps = {
   cesiumIonToken?: string
   /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
   cesiumIonAssetId?: string
+  /**
+   * Type de carte au démarrage. Défaut : `'plan'` (fond 2D Google) dès que
+   * `googleMapsApiKey` est fourni, sinon `'3d'`. `'3d'` explicite pour démarrer sur
+   * les tuiles photoréalistes.
+   */
+  mapMode?: MapMode
   /** Globe ellipsoïde uni de repli quand aucune tuile n'est disponible (défaut: true). */
   fallbackGlobe?: boolean
   /** Erreur d'écran cible (qualité/perf). */
@@ -36,12 +54,41 @@ export type MapProps = {
    * distincte par carte si plusieurs `<Map>` cohabitent). Défaut : `m3d:tag-filter`.
    */
   tagStorageKey?: string | null
+  /**
+   * Interactivité (défaut `true`). `'view'` fige la caméra en gardant markers et
+   * sélection vivants ; `false` rend la carte inerte. Dans les deux cas figés les
+   * outils (dessin, loupe) sont neutralisés. Overlays, markers, formes et tracés
+   * restent RENDUS — c'est bien une carte, pas une capture d'écran.
+   */
+  interactive?: InteractiveMode
+  /**
+   * La carte est **exploitable** : la projection résout des hauteurs, un `fitBounds`
+   * vise le sol réel. Appelé une seule fois, et immédiatement si la carte l'était
+   * déjà. Pour simplement récupérer le moteur, `useMap()` suffit — il est
+   * disponible dès le montage, sans attendre les tuiles.
+   */
+  onReady?: (engine: MapEngine) => void
   onViewportChange?: (viewport: Viewport) => void
   onCameraChange?: (camera: CameraState) => void
   className?: string
   style?: CSSProperties
-  children?: ReactNode
-}
+  /**
+   * Poignée impérative de la carte (cf. `MapHandle`) : de quoi cadrer, dessiner ou
+   * interroger **depuis l'extérieur**, sans écrire de composant enfant pour
+   * atteindre un hook.
+   */
+  ref?: Ref<MapHandle>
+  /**
+   * Thème : un thème unique, un couple `{ light, dark }`, ou rien (thème neutre).
+   * Déclaré ici, la carte monte sa propre racine de thème — pas de `<MapProvider>`
+   * à poser autour.
+   */
+  theme?: ThemeInput
+  /** `'auto'` (défaut) suit `prefers-color-scheme` et se met à jour en direct. */
+  colorScheme?: 'dark' | 'light' | 'auto'
+  /** Traductions (merge profond sur `defaultLabels`) — cf. LABELS.md. */
+  labels?: PartialLabels
+} & MapSurfaces<T, TPin>
 
 type StoredPosition = { lat: number; lng: number; altitude: number }
 
@@ -52,16 +99,49 @@ const readStoredPosition = (key: string): StoredPosition | null => {
     : null
 }
 
-/** Monte le canvas + overlay, crée le MapEngine (3D Tiles + GlobeControls). */
-export function Map(props: MapProps) {
+/**
+ * Carte 3D complète : canvas, moteur, interface et couches — tout se règle en props.
+ *
+ * Monte sa propre racine de thème dès qu'on lui passe `theme`, `colorScheme` ou
+ * `labels`, ce qui dispense d'un `<MapProvider>` autour. Ce dernier reste exporté
+ * pour le cas où PLUSIEURS cartes doivent partager un thème, ou pour des composants
+ * hors carte qui lisent le thème : monté au-dessus, il continue de s'appliquer.
+ */
+export function Map<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
+  const { theme, colorScheme, labels } = props
+  // Structure conditionnelle assumée : passer de « avec thème » à « sans thème » sur
+  // une carte montée remonterait l'arbre. Personne ne fait ça — un thème est un choix
+  // de départ, et la bascule clair/sombre passe par `colorScheme`, pas par sa présence.
+  if (theme !== undefined || colorScheme !== undefined || labels !== undefined) {
+    return (
+      <MapProvider theme={theme} colorScheme={colorScheme} labels={labels}>
+        <MapBody {...props} />
+      </MapProvider>
+    )
+  }
+  return <MapBody {...props} />
+}
+
+/** Corps de la carte — sous la racine de thème, qu'elle vienne de nous ou de l'hôte. */
+function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   const theme = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const [engine, setEngine] = useState<MapEngine | null>(null)
 
-  const cbRef = useRef({ onViewportChange: props.onViewportChange, onCameraChange: props.onCameraChange })
-  cbRef.current = { onViewportChange: props.onViewportChange, onCameraChange: props.onCameraChange }
+  // Écrit UNE fois (cf. `MarkerLayer`) : deux littéraux jumeaux se désynchronisent
+  // en silence dès qu'on ajoute un callback à l'un sans penser à l'autre.
+  const cbs = {
+    onViewportChange: props.onViewportChange,
+    onCameraChange: props.onCameraChange,
+    onReady: props.onReady,
+  }
+  const cbRef = useRef(cbs)
+  cbRef.current = cbs
+  const interactive = props.interactive ?? true
+  const interactiveRef = useRef(interactive)
+  interactiveRef.current = interactive
 
   // Recrée le moteur si la source de tuiles change.
   useEffect(() => {
@@ -82,6 +162,7 @@ export function Map(props: MapProps) {
       googleMapsApiKey: props.googleMapsApiKey,
       cesiumIonToken: props.cesiumIonToken,
       cesiumIonAssetId: props.cesiumIonAssetId,
+      mapMode: props.mapMode,
       fallbackGlobe: props.fallbackGlobe ?? true,
       errorTarget: props.errorTarget,
       intro: stored ? false : props.intro,
@@ -89,15 +170,23 @@ export function Map(props: MapProps) {
     })
     eng.camera.flyDuration = theme.animations.flyDuration
     eng.camera.flyEasing = theme.animations.flyEasing
+    // Appliqué AVANT `start()` : une carte montée figée ne doit pas être navigable,
+    // même une frame (l'effet de synchro plus bas ne tourne qu'après le rendu).
+    if (interactiveRef.current !== true) eng.setInteractive(interactiveRef.current)
     if (stored) eng.camera.jumpTo(stored, stored.altitude)
 
     const rect = container.getBoundingClientRect()
     eng.setSize(rect.width || 800, rect.height || 600)
     eng.start()
 
+    const offReady = eng.on('ready', (e) => cbRef.current.onReady?.(e))
     const offCam = eng.on('camera', (s) => cbRef.current.onCameraChange?.(s))
     const offVp = eng.on('viewport', (v) =>
-      cbRef.current.onViewportChange?.({ bounds: v.bounds, center: v.center, zoom: v.zoom }),
+      cbRef.current.onViewportChange?.({
+        bounds: v.bounds,
+        center: v.center,
+        zoom: v.zoom,
+      }),
     )
     // Mémorise la position stabilisée (debounce). La garde s'évalue à l'ÉCRITURE :
     // pendant l'intro rien n'est mémorisé, et la frame d'atterrissage (émise alors
@@ -109,7 +198,11 @@ export function Map(props: MapProps) {
           saveTimer = window.setTimeout(() => {
             if (eng.introActive) return
             const s = eng.camera.getState()
-            writeStoredJSON(posKey, { lat: s.lat, lng: s.lng, altitude: s.altitude })
+            writeStoredJSON(posKey, {
+              lat: s.lat,
+              lng: s.lng,
+              altitude: s.altitude,
+            })
           }, 400)
         })
       : null
@@ -127,6 +220,7 @@ export function Map(props: MapProps) {
 
     setEngine(eng)
     return () => {
+      offReady()
       offCam()
       offVp()
       offSave?.()
@@ -138,8 +232,48 @@ export function Map(props: MapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.googleMapsApiKey, props.cesiumIonToken, props.cesiumIonAssetId])
 
+  // Bascule à chaud (une vue qui passe en lecture seule sans se démonter).
+  useEffect(() => {
+    engine?.setInteractive(interactive)
+  }, [engine, interactive])
+
   const vars = useMemo(() => themeToVars(theme), [theme])
   const style: CSSProperties = { ...(vars as CSSProperties), ...props.style }
+  // Options de loupe extraites de la barre (`toolbar.lens`) : c'est la carte qui la
+  // monte, parce qu'elle seule enveloppe tout l'arbre.
+  const lens = lensOf(props.toolbar)
+
+  // APIs qui vivent dans les contextes internes, recopiées par `ApiBridge`.
+  const apis = useRef<BridgedApis>({
+    drawing: null,
+    lens: null,
+    relations: null,
+  })
+  // Accesseurs plutôt que valeurs figées : la poignée est créée avec le moteur, mais
+  // le dessin et la loupe se montent après elle — les capturer maintenant les
+  // gèlerait à `null` pour toute la vie de la carte.
+  useImperativeHandle(
+    props.ref,
+    // `null` tant que le moteur n'existe pas (premier rendu) : la poignée n'a rien à
+    // offrir avant, et mentir avec un objet vide masquerait un appel trop précoce.
+    () =>
+      (engine
+        ? {
+            engine,
+            camera: engine.camera,
+            get drawing() {
+              return apis.current.drawing
+            },
+            get lens() {
+              return apis.current.lens
+            },
+            get relations() {
+              return apis.current.relations
+            },
+          }
+        : null) as MapHandle,
+    [engine],
+  )
 
   return (
     <div
@@ -153,7 +287,21 @@ export function Map(props: MapProps) {
       <div ref={overlayRef} className="m3d-overlay" {...{ [WHEEL_SURFACE_ATTR]: '' }} />
       {engine && overlayRef.current && (
         <MapContext.Provider value={{ engine, overlay: overlayRef.current, theme }}>
-          {props.children}
+          {/* La loupe enveloppe l'arbre : elle FOURNIT son contexte (bouton de barre,
+              `useLens()`) et les couches montées dessous — dessin compris — le
+              consomment. C'est ce sens de lecture qui permet à `<DrawLayer>` de
+              porter seul l'exclusivité des outils. Ses options viennent de
+              `toolbar.lens` : la loupe se règle là où son bouton apparaît, mais son
+              montage reste ici, seul endroit qui enveloppe tout l'arbre. */}
+          {/* Les relations enveloppent TOUT, loupe comprise : c'est ce qui permet à
+              l'inventaire de la loupe et au panneau de sélection d'offrir le même
+              menu qu'un marker, entrées de relations comprises. `LensHost` monte
+              la loupe dessous et lui lie ce menu (un hook, donc pas ici). */}
+          <RelationsHost relations={props.relations}>
+            <LensHost<T> lens={lens} markerMenu={props.markerMenu as MarkerMenuOf}>
+              <MapSurfacesHost {...props} apis={apis} />
+            </LensHost>
+          </RelationsHost>
           <DragOverlay />
         </MapContext.Provider>
       )}

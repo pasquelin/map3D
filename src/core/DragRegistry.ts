@@ -10,15 +10,20 @@ export type DragPayload<T = unknown> = {
   data?: T
 }
 
+/** Position écran (px client) où le dépôt a eu lieu. */
+export type DropPoint = { x: number; y: number }
+
 /**
  * Zone de dépôt enregistrée par un consommateur (via `useDropZone`). `accept`
  * filtre les charges recevables (absent = tout accepter) ; `onDrop` reçoit la
- * charge validée au relâchement. Le retour visuel de survol passe par `onChange`
- * + `overZone` (pas de callback dédié).
+ * charge validée au relâchement **et le point écran** du dépôt — une zone
+ * étendue (la carte) en a besoin pour savoir *où* dans la zone, là où une dock
+ * l'ignore simplement. Le retour visuel de survol passe par `onChange` +
+ * `overZone` (pas de callback dédié).
  */
 export type DropZone = {
   accept?: (payload: DragPayload) => boolean
-  onDrop: (payload: DragPayload) => void
+  onDrop: (payload: DragPayload, point: DropPoint) => void
 }
 
 /** État d'un drag en cours (source de vérité, lu par l'overlay et les zones). */
@@ -59,6 +64,7 @@ export class DragRegistry {
   private state: DragState | null = null
   private readonly changeListeners = new Set<() => void>()
   private readonly endListeners = new Set<(end: DragEnd) => void>()
+  private readonly zonesListeners = new Set<() => void>()
 
   /** Drag en cours, ou `null` au repos. */
   get active(): DragState | null {
@@ -68,9 +74,37 @@ export class DragRegistry {
   /** Enregistre une zone de dépôt sous un id unique ; renvoie le désabonnement. */
   registerZone(id: string, zone: DropZone): () => void {
     this.zones.set(id, zone)
+    this.emitZones()
     return () => {
-      if (this.zones.get(id) === zone) this.zones.delete(id)
+      if (this.zones.get(id) === zone) {
+        this.zones.delete(id)
+        this.emitZones()
+      }
     }
+  }
+
+  /**
+   * Une zone accepterait-elle cette charge **maintenant** ?
+   *
+   * Permet à une source de saisie de ne pas s'armer dans le vide : sans dock montée,
+   * un marker « saisissable » produirait un fantôme sous le curseur et un
+   * relâchement sans effet — un geste qui n'aboutit jamais, ce qui se lit comme une
+   * panne. Le `type` de la charge suffit le plus souvent à répondre, d'où l'appel
+   * possible avant même que le geste commence.
+   */
+  acceptsAny(payload: DragPayload): boolean {
+    for (const [id] of this.zones) if (this.accepts(id, payload)) return true
+    return false
+  }
+
+  /**
+   * Notifié à chaque zone ajoutée ou retirée — donc quand la réponse d'`acceptsAny`
+   * peut changer. Une source de saisie s'y abonne pour s'allumer ou s'éteindre au
+   * montage de sa cible, sans que les deux se connaissent.
+   */
+  onZonesChange(cb: () => void): () => void {
+    this.zonesListeners.add(cb)
+    return () => this.zonesListeners.delete(cb)
   }
 
   /** Changement d'état (début, mouvement, survol de zone, fin). */
@@ -115,8 +149,11 @@ export class DragRegistry {
     const s = this.state
     if (!s) return
     const droppedZone = s.overZone
+    // Point capturé AVANT de vider l'état : `onDrop` ne peut plus lire `active`
+    // (déjà null, pour qu'aucun consommateur ne croie le drag encore en cours).
+    const point: DropPoint = { x: s.x, y: s.y }
     this.state = null
-    if (droppedZone) this.zones.get(droppedZone)?.onDrop(s.payload)
+    if (droppedZone) this.zones.get(droppedZone)?.onDrop(s.payload, point)
     this.emitChange()
     this.emitEnd({ payload: s.payload, droppedZone })
   }
@@ -138,6 +175,10 @@ export class DragRegistry {
 
   private emitChange(): void {
     for (const cb of this.changeListeners) cb()
+  }
+
+  private emitZones(): void {
+    for (const cb of this.zonesListeners) cb()
   }
 
   private emitEnd(end: DragEnd): void {

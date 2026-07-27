@@ -46,6 +46,11 @@ type Gesture = {
 const MIN_SCALE = 0.02
 const VERTEX_KINDS = new Set(['polygon', 'line', 'measure', 'arrow'])
 
+/** Formes stockées en quad de 4 coins : repère propre, 8 poignées, homothétie. */
+function isQuad(kind: string): boolean {
+  return kind === 'rect'
+}
+
 /**
  * Transformations des formes sélectionnées, calculées dans un plan ENU commun
  * ancré à la 1ʳᵉ forme : déplacement (drag du corps), rotation (Maj pendant le
@@ -100,7 +105,7 @@ export class EditController {
     // Normalisation : un rect encore stocké en 2 points diagonaux passe en 4 coins
     // (les transformations libres — rotation, scale oblique — exigent 4 sommets).
     for (const d of ds) {
-      if (d.kind === 'rect' && d.points.length < 4) this.normalizeRect(d)
+      if (isQuad(d.kind) && d.points.length < 4) this.normalizeRect(d)
     }
     const ref = ds[0]!
     const frame = new EnuFrame(this.projection, ref.points[0]!, this.host.anchorHeight(ref))
@@ -265,8 +270,8 @@ export class EditController {
 
 function computeBasis(targets: readonly Target[]): Basis {
   const first = targets[0]!
-  if (targets.length === 1 && first.d.kind === 'rect' && first.orig.length >= 4) {
-    // Axes propres du rect (possiblement tourné) : le resize suit ses arêtes.
+  if (targets.length === 1 && isQuad(first.d.kind) && first.orig.length >= 4) {
+    // Axes propres du quad (possiblement tourné) : le resize suit ses arêtes.
     const [p0, p1, , p3] = first.orig as [Pt, Pt, Pt, Pt]
     const w = Math.max(Math.hypot(p1.x - p0.x, p1.z - p0.z), 1e-6)
     const h = Math.max(Math.hypot(p3.x - p0.x, p3.z - p0.z), 1e-6)

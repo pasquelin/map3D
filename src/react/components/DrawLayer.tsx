@@ -1,7 +1,10 @@
-import { type ReactNode, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
+import { type ReactNode, type RefObject, useCallback, useContext, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
 import type { MapEngine } from '../../core/MapEngine'
 import {
   DrawLayer as CoreDrawLayer,
+  type DrawConstraints,
+  type DrawnShape,
+  type DrawRejectReason,
   type DrawTool,
   type GeoJSONFeatureCollection,
   type SelectMode,
@@ -9,8 +12,14 @@ import {
 import { DrawSettings, type ToolSettings } from '../../layers/draw/DrawSettings'
 import { makeDistanceFormatter } from '../../labels/measure'
 import { SELECT_MODE_META } from './drawControls'
-import { type DrawAction, DrawingContext, type DrawingApi, useLabels, useMapContext } from '../context'
+import { type DrawAction, DrawingContext, type DrawingApi, LensContext, useLabels, useMapContext } from '../context'
 import { inTextInput, plainKey } from './shortcuts'
+import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/milSym'
+import type { LatLng } from '../../shared'
+import { useMapDropZone } from '../hooks/useMapDropZone'
+import { SYMBOL_DRAG_TYPE } from './SymbolPaletteButton'
+import { SymbolMarkers } from './SymbolMarkers'
+import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 
 export type DrawLayerProps = {
   tools?: DrawTool[]
@@ -23,6 +32,33 @@ export type DrawLayerProps = {
   onChange?: (geojson: GeoJSONFeatureCollection) => void
   /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
   onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
+  /**
+   * Events **par forme** — pour une app qui fait du CRUD par identité (une mutation
+   * par zone). Émis au moment du changement, sans la coalescence de `onChange` qui
+   * sérialise toute la collection 1×/frame. Les deux peuvent cohabiter.
+   */
+  onShapeAdd?: (shape: DrawnShape) => void
+  onShapeUpdate?: (shape: DrawnShape) => void
+  onShapeDelete?: (shape: DrawnShape) => void
+  /** Double-clic sur une forme : intention d'ouvrir une fiche — rien n'a changé. */
+  onShapeEdit?: (shape: DrawnShape) => void
+  /**
+   * Règles métier du dessin **utilisateur** : périmètres autorisés, aire maximale.
+   * Les mutations programmatiques n'y sont pas soumises.
+   */
+  constraints?: DrawConstraints
+  /** Forme refusée — à brancher sur votre toast (la lib n'affiche rien d'elle-même). */
+  onReject?: (reason: DrawRejectReason, shape: DrawnShape) => void
+  /**
+   * Outil **Symboles** de la barre : actif par défaut avec le catalogue
+   * MIL-STD-2525D et son renderer (SDK chargé en import dynamique à la première
+   * ouverture de la palette). `enabled: false` retire l'outil ; `catalog`/`renderer`
+   * remplacent la symbologie fournie par la vôtre.
+   *
+   * Les textes (bouton, catégories, affiliations) ne passent PAS par ici : ils sont
+   * dans `labels.symbols` et se traduisent via `<MapProvider labels>`.
+   */
+  symbols?: { enabled?: boolean; catalog?: SymbolCatalog; renderer?: SymbolRenderer }
   children?: ReactNode
 }
 
@@ -39,8 +75,27 @@ const DEFAULT_SHORTCUTS: Record<DrawTool | DrawAction, string> = {
   arrow: 'a',
   measure: 'm',
   erase: 'e',
+  symbol: 'y',
 }
 
+
+/**
+ * Une surface concurrente (loupe, palette de symboles) prend la main : l'outil de
+ * tracé l'abandonne. Deux boutons allumés dans la barre ne diraient plus lequel des
+ * deux reçoit le prochain geste.
+ *
+ * La garde `toolRef.current !== null` est CAPITALE — sans outil actif, `setTool(null)`
+ * reprendrait quand même le slot `engine.inputInterceptor` (et `setDrawing(false)`)
+ * que la surface vient de prendre : elle resterait affichée active mais morte. Même
+ * piège que la cascade Échap. Elle est ici écrite UNE fois, au lieu d'être recopiée
+ * par surface concurrente — la troisième aurait recopié le piège avec.
+ */
+function useYieldsTool(taken: boolean, toolRef: RefObject<DrawTool | null>, setTool: (t: DrawTool | null) => void) {
+  useEffect(() => {
+    if (taken && toolRef.current !== null) setTool(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taken, setTool])
+}
 
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */
 export function DrawLayer(props: DrawLayerProps) {
@@ -51,6 +106,8 @@ export function DrawLayer(props: DrawLayerProps) {
   // Re-render à chaque mutation du core (canUndo/canRedo, sélection…) ; `rev`
   // sert aussi de clé de mémoïsation à l'objet de contexte.
   const [rev, bump] = useReducer((x: number) => x + 1, 0)
+  /** Passe à `true` une fois la couche core créée (le renderer y est alors posé). */
+  const [coreReady, setCoreReady] = useState(false)
   // Dernière collection émise par le core : en usage contrôlé (value/onChange),
   // ré-importer notre propre écho créerait une boucle infinie.
   const lastEmittedRef = useRef<GeoJSONFeatureCollection | null>(null)
@@ -65,6 +122,21 @@ export function DrawLayer(props: DrawLayerProps) {
   onChangeRef.current = props.onChange
   const onSelectionChangeRef = useRef(props.onSelectionChange)
   onSelectionChangeRef.current = props.onSelectionChange
+  // Via ref comme les autres callbacks : le core n'est créé qu'une fois, un handler
+  // redéfini à chaque rendu ne doit pas le recréer. Écrit UNE fois (cf. `MarkerLayer`) :
+  // deux littéraux jumeaux se désynchronisent en silence dès qu'on ajoute un callback
+  // à l'un sans penser à l'autre.
+  const shapeCbs = {
+    add: props.onShapeAdd,
+    update: props.onShapeUpdate,
+    remove: props.onShapeDelete,
+    edit: props.onShapeEdit,
+    reject: props.onReject,
+  }
+  const shapeCbRef = useRef(shapeCbs)
+  shapeCbRef.current = shapeCbs
+  const constraintsRef = useRef(props.constraints)
+  constraintsRef.current = props.constraints
   const [selection, setSelection] = useState<readonly string[]>([])
   const [markerSelection, setMarkerSelection] = useState<ReadonlyArray<string | number>>([])
   const [selectMode, setSelectModeState] = useState<SelectMode>('rect')
@@ -73,6 +145,11 @@ export function DrawLayer(props: DrawLayerProps) {
   const selectionRef = useRef(selection)
   selectionRef.current = selection
   const tagSource = useId()
+  // Outil loupe, s'il est monté (`<Map lens>`) : via ref pour que `setTool` — mémoïsé
+  // sur le moteur — n'ait pas à se reconstruire à chaque bascule de la loupe.
+  const lens = useContext(LensContext)
+  const lensRef = useRef(lens)
+  lensRef.current = lens
 
   const setSelectMode = (m: SelectMode) => {
     coreRef.current?.setSelectMode(m)
@@ -125,6 +202,12 @@ export function DrawLayer(props: DrawLayerProps) {
       setMarkerSelection(markerIds)
       onSelectionChangeRef.current?.(ids, markerIds)
     }
+    core.onShapeAdd = (s) => shapeCbRef.current.add?.(s)
+    core.onShapeUpdate = (s) => shapeCbRef.current.update?.(s)
+    core.onShapeDelete = (s) => shapeCbRef.current.remove?.(s)
+    core.onShapeEdit = (s) => shapeCbRef.current.edit?.(s)
+    core.onReject = (reason, s) => shapeCbRef.current.reject?.(reason, s)
+    core.constraints = constraintsRef.current ?? null
     // Registre des sélectionnables externes (markers) : le core gère tout le
     // cycle de vie (prune, routage des clics) — débranché par son dispose().
     core.setExternalSelectables(engine.selectables)
@@ -135,6 +218,7 @@ export function DrawLayer(props: DrawLayerProps) {
     core.formatDistance = (m) => makeDistanceFormatter(labelsRef.current.measure)(m)
     engine.addLayer(core)
     coreRef.current = core
+    setCoreReady(true)
     // Un core recréé (engine/overlay changés) repart vide : on rejoue l'import
     // contrôlé — sinon les dessins de l'hôte disparaissent de la carte.
     if (valueRef.current) core.fromGeoJSON(valueRef.current)
@@ -153,9 +237,16 @@ export function DrawLayer(props: DrawLayerProps) {
       // Pas de curseur fantôme (crosshair/flèche/main) après démontage outil actif.
       overlay.parentElement?.classList.remove('m3d-drawing', 'm3d-selecting', 'm3d-space-pan')
       coreRef.current = null
+      setCoreReady(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, overlay])
+
+  // Contraintes appliquées à chaud : les périmètres arrivent le plus souvent APRÈS
+  // le montage (chargement API), et la carte doit s'y conformer sans être remontée.
+  useEffect(() => {
+    if (coreRef.current) coreRef.current.constraints = props.constraints ?? null
+  }, [props.constraints])
 
   // Applique les defaults quand ils changent.
   useEffect(() => {
@@ -177,6 +268,12 @@ export function DrawLayer(props: DrawLayerProps) {
       // sinon moteur (dé-suspendu par setDrawing) et core divergent : tout gèle.
       releaseSpaceRef.current()
       const next = t && allowed.includes(t) ? t : null
+      // Exclusivité avec les outils NON-dessin (loupe) : ils partagent le slot
+      // unique `engine.inputInterceptor`. C'est CETTE couche qui porte la règle,
+      // parce qu'elle est montée SOUS `<LensLayer>` et voit donc son contexte —
+      // l'inverse n'est pas vrai. Un `next` nul ne désactive rien : quitter le
+      // dessin n'a pas à fermer la loupe.
+      if (next) lensRef.current?.deactivate()
       // setTool() gère aussi le routage des clics markers (consumer du registre).
       core.setTool(next)
       engine.inputInterceptor = next ? core.interceptor : null
@@ -189,6 +286,10 @@ export function DrawLayer(props: DrawLayerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [engine, overlay, allowed.join(',')],
   )
+
+  // Réciproque de l'exclusivité : la loupe activée abandonne l'outil de dessin.
+  const lensActive = lens?.active ?? false
+  useYieldsTool(lensActive, toolRef, setTool)
 
   // Barre espace = pan caméra temporaire (le dessin/geste en cours est gelé, pas
   // perdu) ; Espace+Maj = rotation caméra. Relâcher = reprise exacte de l'outil.
@@ -304,9 +405,102 @@ export function DrawLayer(props: DrawLayerProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const selectionDetails = useMemo(() => coreRef.current?.selectionDetails() ?? [], [selection])
 
+  // ── Symboles ──
+  const symbolsEnabled = props.symbols?.enabled ?? true
+  const symbolCatalog = props.symbols?.catalog ?? MILSYM_CATALOG
+  const providedRenderer = props.symbols?.renderer
+  const lazyRenderer = useRef<SymbolRenderer | null>(null)
+  const [symbolsReady, setSymbolsReady] = useState(false)
+  const [affiliation, setAffiliation] = useState('friendly')
+  // Palette ouverte, publiée par le bouton (cf. `paletteOpen`) : la barre en a
+  // besoin pour son exclusivité visuelle, et c'est l'un des deux déclencheurs du
+  // chargement de la symbologie.
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Même exclusivité que la loupe : ouvrir la palette abandonne l'outil de tracé.
+  // On ne dessine pas un rectangle en posant un symbole, et deux boutons allumés
+  // dans la barre ne diraient plus lequel des deux reçoit le prochain geste.
+  useYieldsTool(paletteOpen, toolRef, setTool)
+  // Le SDK, une fois chargé, le reste : refermer la palette ne doit pas démonter la
+  // couche de symboles ni relancer un téléchargement à la réouverture.
+  const graphicsWanted = useRef(false)
+  if (paletteOpen) graphicsWanted.current = true
+
+  // Symboles posés. La dépendance est la SIGNATURE des symboles, pas `rev` : ce
+  // dernier bumpe à chaque frame d'un tracé en cours, ce qui reconstruisait la liste
+  // (et re-diffait toute la couche marker) 60 fois par seconde sans qu'aucun symbole
+  // ne bouge.
+  const symbolsVersion = coreRef.current?.symbolsVersion() ?? ''
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const symbolShapes = useMemo(() => coreRef.current?.symbolShapes() ?? [], [symbolsVersion])
+
+  // Callback STABLE : `<SymbolMarkers>` le transmet à `onReposition`, qui est dans les
+  // deps du `useMemo` des portails. En flèche inline, chaque frame d'un tracé en cours
+  // reconstruisait les portails de tous les symboles affichés.
+  const moveSymbol = useCallback((id: string, at: LatLng) => coreRef.current?.moveSymbol(id, at), [])
+
+  /**
+   * Y a-t-il quelque chose à dessiner en symboles ? Le renderer n'est instancié
+   * qu'à cette condition, et c'est tout l'enjeu : `createMilSymRenderer()` lance
+   * l'`import()` du SDK MIL-STD (~9 Mo) dans son constructeur. L'appeler depuis le
+   * corps du composant — ou depuis un effet sans condition — le téléchargerait au
+   * montage de <DrawLayer>, pour toute carte, y compris celles qui n'afficheront
+   * jamais un symbole.
+   *
+   * Les deux déclencheurs légitimes : l'utilisateur ouvre la palette, ou la
+   * collection contient déjà des symboles (import GeoJSON, restauration d'état).
+   */
+  const needsRenderer = symbolsEnabled && (graphicsWanted.current || symbolShapes.length > 0)
+  const renderer = needsRenderer ? (providedRenderer ?? (lazyRenderer.current ??= createMilSymRenderer())) : null
+
+  // Disponibilité du graphisme. L'abonnement porte sur le renderer EFFECTIF, celui
+  // fourni compris : `SymbolRenderer.ready` est un contrat public, et un catalogue
+  // custom asynchrone doit obtenir le rendu qui suit sa résolution comme le
+  // catalogue par défaut. Sans lui, ses vignettes resteraient vides indéfiniment.
+  useEffect(() => {
+    if (!renderer) return
+    if (!renderer.ready) {
+      setSymbolsReady(true)
+      return
+    }
+    let alive = true
+    void renderer.ready.then(() => {
+      if (alive) setSymbolsReady(true)
+    })
+    return () => {
+      alive = false
+    }
+  }, [renderer])
+
+  // Le core en a besoin dès qu'une forme `symbol` existe (import GeoJSON compris).
+  useEffect(() => {
+    if (coreRef.current) coreRef.current.symbolRenderer = renderer
+    // `coreReady` couvre la première création du core, postérieure au premier rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderer, coreReady])
+
+  // Dépôt d'une vignette de palette sur la carte → forme `kind: 'symbol'` posée à
+  // la coordonnée visée. Le hook lit ses callbacks par ref : la zone n'est pas
+  // ré-enregistrée à chaque rendu.
+  const placeRef = useRef<(key: string, at: LatLng) => void>(() => {})
+  placeRef.current = (key, at) => {
+    if (symbolsEnabled) coreRef.current?.placeSymbol(key, at, affiliation)
+  }
+  useMapDropZone({
+    accept: (p) => symbolsEnabled && p.type === SYMBOL_DRAG_TYPE,
+    onDrop: (p, latLng) => {
+      const key =
+        typeof (p.data as { key?: unknown } | undefined)?.key === 'string'
+          ? (p.data as { key: string }).key
+          : typeof p.id === 'string'
+            ? p.id
+            : null
+      if (key) placeRef.current(key, latLng)
+    },
+  })
+
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
   // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const api: DrawingApi = useMemo(() => ({
     tool,
     setTool,
@@ -360,10 +554,51 @@ export function DrawLayer(props: DrawLayerProps) {
     clear: () => coreRef.current?.clear(),
     toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
     fromGeoJSON: (fc) => coreRef.current?.fromGeoJSON(fc),
+    getShapes: () => coreRef.current?.getShapes() ?? [],
+    getShape: (id) => coreRef.current?.getShape(id) ?? null,
+    getLastShape: () => coreRef.current?.getLastShape() ?? null,
+    addShape: (shape, opts) => coreRef.current?.addShape(shape, opts),
+    updateShape: (id, patch, opts) => coreRef.current?.updateShape(id, patch, opts) ?? false,
+    removeShape: (id, opts) => coreRef.current?.removeShape(id, opts) ?? false,
+    replaceShapes: (shapes, opts) => coreRef.current?.replaceShapes(shapes, opts),
     // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips.
     shortcuts: { ...DEFAULT_SHORTCUTS, ...props.shortcuts },
+    symbols: {
+      enabled: symbolsEnabled,
+      catalog: symbolCatalog,
+      // `null` tant que le renderer n'est pas acquis ou pas prêt : c'est le contrat
+      // de `SymbolRenderer.render`, et l'appelant affiche déjà un placeholder.
+      render: (key, opts) => renderer?.render(key, { variant: affiliation, ...opts }) ?? null,
+      // Reflète le renderer EFFECTIF. Le forcer à `true` sur la simple présence d'un
+      // renderer fourni mentirait : le sien peut encore être en cours de chargement.
+      ready: symbolsReady,
+      affiliation,
+      setAffiliation,
+      paletteOpen,
+      setPaletteOpen,
+      place: (key, at, variant) =>
+        symbolsEnabled ? (coreRef.current?.placeSymbol(key, at, variant ?? affiliation) ?? null) : null,
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tool, selectMode, selection, selectionDetails, markerSelection, rev, settings, setTool, props.shortcuts])
+  }), [tool, selectMode, selection, selectionDetails, markerSelection, rev, settings, setTool, props.shortcuts, affiliation, symbolsReady, symbolsEnabled, symbolCatalog, renderer, paletteOpen])
 
-  return <DrawingContext.Provider value={api}>{props.children}</DrawingContext.Provider>
+  return (
+    <DrawingContext.Provider value={api}>
+      {/* Rendu des symboles posés : montée par la couche elle-même, donc rien à
+          câbler côté application. Leur état reste dans la collection de dessin.
+          Monté seulement quand il y a des symboles ET un renderer — c'est ce qui
+          garde la symbologie hors du chargement initial d'une carte qui n'en
+          affiche pas. */}
+      {renderer && symbolShapes.length > 0 && (
+        <SymbolMarkers
+          shapes={symbolShapes}
+          catalog={symbolCatalog}
+          renderer={renderer}
+          ready={symbolsReady}
+          onMove={moveSymbol}
+        />
+      )}
+      {props.children}
+    </DrawingContext.Provider>
+  )
 }

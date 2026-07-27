@@ -9,6 +9,7 @@ import { useDrawing } from '../hooks/useDrawing'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
 import { TOOL_ICONS } from './drawControls'
 import { FloatingPanel } from './FloatingPanel'
+import type { MenuItem } from './ContextMenu'
 import { MarkerList, type MarkerListAction } from './MarkerList'
 
 export type SelectionBadgesProps = {
@@ -20,6 +21,8 @@ export type SelectionBadgesProps = {
   renderMarker?: (m: MarkerData) => ReactNode
   /** Actions du menu déroulant d'une ligne, en plus de « Cibler ». */
   markerActions?: MarkerListAction[]
+  /** Menu d'une ligne, même forme que `<MarkerLayer menu>` — prime sur `markerActions`. */
+  markerMenu?: (m: MarkerData) => MenuItem[]
 }
 
 /**
@@ -129,6 +132,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
             markerTypeLabel={props.markerTypeLabel}
             onRemove={onRemoveMarker}
             actions={props.markerActions}
+            menu={props.markerMenu}
           />
         )}
 

@@ -22,6 +22,8 @@ export type MapLabels = {
     topDown: string
     globe: string
     fullscreen: string
+    /** Bouton « revenir à la cible » — n'apparaît qu'avec `MapControls target`. */
+    target: string
     /** Fond de carte : tuiles 3D photoréalistes. */
     mode3d: string
     /** Fond de carte : plan 2D Google. */
@@ -38,6 +40,27 @@ export type MapLabels = {
     /** La recherche ne matche aucun tag. */
     noMatch: string
     showAll: string
+  }
+  /**
+   * Outil **Symboles** de la barre de dessin : palette d'icônes posables au
+   * glisser-déposer. Tout est traduisible ici — y compris les catégories du
+   * catalogue et les affiliations — pour qu'aucun texte n'ait à passer en prop.
+   */
+  symbols: {
+    button: string
+    searchPlaceholder: string
+    /** Consigne d'usage affichée en tête du panneau. */
+    dragHint: string
+    /** La recherche ne matche aucune entrée du catalogue. */
+    noMatch: string
+    /** Titre de la section de choix d'affiliation. */
+    affiliation: string
+    /** Graphique multi-points : posé par clics successifs, pas par dépôt. */
+    multiPointHint: string
+    /** Libellé par catégorie du catalogue (clé du catalogue → texte affiché). */
+    categories: Record<string, string>
+    /** Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). */
+    affiliations: Record<string, string>
   }
   /** `<SearchBox>` (le prop `placeholder` du composant reste prioritaire). */
   search: {

@@ -1,7 +1,9 @@
 import * as THREE from 'three'
-import type { LatLng } from '../shared'
+import type { Bounds, LatLng } from '../shared'
+import { type AltitudeForBoundsOptions, altitudeForBounds, centerOfBounds } from './bounds'
+import { EnuFrame } from './enu'
 import type { Projection } from './Projection'
-import { clamp, easeInOutCubic } from './math'
+import { altitudeForZoom, clamp, easeInOutCubic, metersPerPixelAt, zoomForAltitude } from './math'
 
 export type CameraState = {
   lat: number
@@ -19,6 +21,24 @@ export type FlyOptions = {
    *  `'intro'` est RÉSERVÉ au moteur (vol de démarrage, re-ciblé/annulé par lui). */
   tag?: string
 }
+
+/**
+ * Marge en **pixels** autour du contenu cadré. Un nombre s'applique aux 4 côtés.
+ * La forme détaillée existe parce que l'app hôte superpose souvent des panneaux à
+ * la carte : le contenu doit alors être centré dans la zone RESTÉE visible.
+ */
+export type FitPadding = number | { top?: number; right?: number; bottom?: number; left?: number }
+
+export type FitBoundsOptions = AltitudeForBoundsOptions & {
+  padding?: FitPadding
+  /** Durée du vol en secondes ; `0` = repositionnement instantané. */
+  duration?: number
+}
+
+const resolvePadding = (p: FitPadding | undefined): { top: number; right: number; bottom: number; left: number } =>
+  typeof p === 'number'
+    ? { top: p, right: p, bottom: p, left: p }
+    : { top: p?.top ?? 0, right: p?.right ?? 0, bottom: p?.bottom ?? 0, left: p?.left ?? 0 }
 
 type Fly = {
   fromPos: THREE.Vector3
@@ -172,6 +192,76 @@ export class Camera {
   /** Interrompt le vol en cours (la caméra reste où elle est). */
   cancelFly(): void {
     this.fly = null
+  }
+
+  // ── Cadrage et recentrage ──
+
+  /**
+   * Cadre un ensemble géographique : la caméra se place à la verticale du centre,
+   * à l'altitude qui fait tenir le cadre à l'écran.
+   *
+   * Le `padding` agit en deux temps — il réduit la surface utile (donc recule la
+   * caméra), et **décale le centre visé** quand il est asymétrique, pour que le
+   * contenu soit centré dans la zone restée visible et non dans le viewport entier.
+   */
+  fitBounds(bounds: Bounds, opts: FitBoundsOptions = {}): void {
+    const center = centerOfBounds(bounds)
+    const pad = resolvePadding(opts.padding)
+    const { width, height } = this.projection.viewportSize
+    // Surface utile après déduction des marges. Un padding absurde (plus large que
+    // le viewport) est ramené à une bande minimale plutôt que de diviser par ~0.
+    const usableW = Math.max(1, width - pad.left - pad.right)
+    const usableH = Math.max(1, height - pad.top - pad.bottom)
+    const zoomOut = Math.max(width / usableW, height / usableH)
+    let altitude = altitudeForBounds(bounds, opts) * zoomOut
+
+    // Décalage du centre : le milieu de la zone utile n'est le milieu de l'écran
+    // que si les marges opposées sont égales.
+    const dxPx = (pad.left - pad.right) / 2
+    const dyPx = (pad.top - pad.bottom) / 2
+    let target = center
+    if (dxPx !== 0 || dyPx !== 0) {
+      // Vue nadir : la hauteur au sol couverte vaut 2·altitude·tan(fov/2), donc la
+      // résolution se déduit de l'altitude visée — pas de la position actuelle.
+      const mpp = metersPerPixelAt(altitude, this.camera.fov, height)
+      // Caméra décalée à l'OPPOSÉ en est (le contenu glisse vers la droite quand la
+      // caméra va à gauche), et dans le même sens en nord (l'écran descend au sud).
+      const frame = new EnuFrame(this.projection, center, 0)
+      target = frame.toLatLng({ x: -dxPx * mpp, z: dyPx * mpp })
+    }
+
+    altitude = this.clampAltitude(target, altitude)
+    if (opts.duration === 0) this.jumpTo(target, altitude)
+    else this.flyTo(target, { altitude, duration: opts.duration })
+  }
+
+  /**
+   * Recentre sur un point en **conservant l'altitude courante** (équivalent de
+   * `setCenter`). Instantané ; `panTo` en est la version animée.
+   */
+  setCenter(p: LatLng): void {
+    this.jumpTo(p, this.getState().altitude)
+  }
+
+  /** Recentre en douceur, altitude inchangée (équivalent de `panTo`). */
+  panTo(p: LatLng, opts: FlyOptions = {}): void {
+    this.flyTo(p, { duration: 0.5, ...opts })
+  }
+
+  /**
+   * Niveau de zoom façon carte 2D (l'échelle Google : 0 = monde, ~20 = rue),
+   * converti en altitude. Le point visé ne bouge pas.
+   */
+  setZoom(zoom: number, opts: { duration?: number } = {}): void {
+    const s = this.getState()
+    const altitude = altitudeForZoom(zoom)
+    if (opts.duration === 0) this.jumpTo({ lat: s.lat, lng: s.lng }, altitude)
+    else this.flyTo({ lat: s.lat, lng: s.lng }, { altitude, duration: opts.duration ?? 0.4 })
+  }
+
+  /** Zoom courant sur la même échelle que `setZoom`. */
+  getZoom(): number {
+    return zoomForAltitude(this.getState().altitude)
   }
 
   follow(getPos: () => LatLng | null): () => void {

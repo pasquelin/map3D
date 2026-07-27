@@ -28,6 +28,7 @@ import { MapProvider } from '@gosecure/map3d'
 | Clé | Défaut |
 |---|---|
 | `controls.pan` | `Déplacer la carte` |
+| `controls.target` | `Revenir à la cible` |
 | `controls.rotate` | `Pivoter la vue (MAJ)` |
 | `controls.north` | `Nord / vue du dessus` |
 | `controls.zoomIn` | `Zoom avant` |

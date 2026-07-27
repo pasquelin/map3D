@@ -1,5 +1,5 @@
 import { mdiChevronLeft, mdiChevronRight, mdiPin } from '@mdi/js'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { DragPayload } from '../../core/DragRegistry'
@@ -23,6 +23,12 @@ export type PinnedItem<T = unknown> = {
   position?: LatLng
   /** Type/catégorie → couleur du carré par défaut (`theme.colors.marker[type]`). */
   type?: string
+  /**
+   * Couleur explicite du carré, prioritaire sur celle déduite du `type`. Pour un
+   * élément dont la couleur ne vient pas du thème de la carte — la catégorie d'un
+   * symbole de catalogue, par exemple.
+   */
+  color?: string
   /** Libellé accessible + initiale de la pastille par défaut. */
   label?: string
   /** Photo/avatar : remplit le carré (object-fit cover) dans le rendu par défaut. */
@@ -39,6 +45,12 @@ export type PinnedDockProps<T = unknown> = {
   onPin: (payload: DragPayload<T>) => void
   /** Un épinglé a été **retiré** (croix, ou glissé hors de la dock). */
   onUnpin: (id: string | number) => void
+  /**
+   * Nouvel ordre après qu'un épinglé a été glissé À L'INTÉRIEUR de la dock. Reçoit
+   * la liste complète des ids dans l'ordre voulu — à répercuter dans votre stockage,
+   * la dock restant contrôlée. Absent : les pastilles ne se réordonnent pas.
+   */
+  onReorder?: (ids: Array<string | number>) => void
   /** Clic sur une pastille — émis **en plus** de l'action par défaut (flyTo). */
   onPinClick?: (item: PinnedItem<T>) => void
   /** `flyTo` vers l'élément au clic (défaut `true`). `false` = seul `onPinClick` est émis. */
@@ -86,11 +98,70 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
   const addLabel = labels.pinned.add
   const removeLabel = labels.pinned.remove
 
+  // Props lues au vol par les callbacks (zone de dépôt, fin de drag) : leurs
+  // abonnements restent stables alors qu'ils voient toujours l'état courant.
+  const latest = useRef(props)
+  latest.current = props
+
+  const listRef = useRef<HTMLDivElement>(null)
   const { dropProps, isOver } = useDropZone({
     id: zoneId,
     accept: (p) => (props.accept ? props.accept(p) : p.type === 'marker'),
-    onDrop: (p) => props.onPin(p as DragPayload<T>),
+    onDrop: (p, point) => {
+      const items = latest.current.items
+      const deja = items.findIndex((it) => String(it.id) === String(p.id))
+      // Charge venue d'ailleurs (un marker de la carte) : c'est un ajout.
+      if (deja < 0) {
+        latest.current.onPin(p as DragPayload<T>)
+        return
+      }
+      // Déjà épinglé et relâché dans la dock : c'est un déplacement dans l'ordre.
+      const reorder = latest.current.onReorder
+      if (!reorder) return
+      const raw = insertionIndex(pinCenters(listRef.current), point.x)
+      if (raw === null) return
+      const cible = finalIndex(raw, deja)
+      if (cible === deja) return
+      const ids = items.map((it) => it.id)
+      const [bouge] = ids.splice(deja, 1)
+      ids.splice(cible, 0, bouge!)
+      reorder(ids)
+    },
   })
+
+  /**
+   * Réordonnancement en cours : index visuel où la pastille sera insérée, et id de
+   * celle qu'on déplace. Sert à ouvrir un ESPACE à la destination — sans ce retour,
+   * on relâche à l'aveugle.
+   */
+  const [reorder, setReorder] = useState<{ index: number; id: string | number } | null>(null)
+  const centersRef = useRef<number[]>([])
+  useEffect(() => {
+    return engine.drag.onChange(() => {
+      const st = engine.drag.active
+      const items = latest.current.items
+      if (!st || st.overZone !== zoneId || !latest.current.onReorder) {
+        setReorder(null)
+        centersRef.current = []
+        return
+      }
+      const from = items.findIndex((it) => String(it.id) === String(st.payload.id))
+      if (from < 0) {
+        setReorder(null)
+        return
+      }
+      if (centersRef.current.length === 0) centersRef.current = pinCenters(listRef.current)
+      const raw = insertionIndex(centersRef.current, st.x)
+      // Mise à jour SEULEMENT si l'index change : un objet neuf à chaque
+      // `pointermove` re-rendrait la dock en continu, React ne pouvant pas
+      // court-circuiter sur une nouvelle référence.
+      setReorder((prev) => {
+        if (raw === null) return prev === null ? prev : null
+        const id = st.payload.id
+        return prev && prev.index === raw && prev.id === id ? prev : { index: raw, id }
+      })
+    })
+  }, [engine, zoneId])
 
   // Dock vide : masquée au repos, révélée UNIQUEMENT pendant un drag (cible pour
   // le tout premier marker). Dès qu'un favori existe, elle reste visible.
@@ -104,8 +175,6 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
   // Glisser-hors = retrait : un épinglé relâché ailleurs que sur la dock est
   // retiré. Un drop SUR la dock (`droppedZone === zoneId`) est un re-épinglage
   // no-op. Valeurs lues au vol (refs) → abonnement stable.
-  const latest = useRef(props)
-  latest.current = props
   useEffect(() => {
     return engine.drag.onEnd((end) => {
       if (end.droppedZone === zoneId) return
@@ -149,11 +218,13 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
         <span className="m3d-pindock-addlabel">{addLabel}</span>
       </div>
       {props.items.length > 0 && (
-        <div className="m3d-pindock-items">
-          {props.items.map((item) => (
-            <PinnedPin
-              key={item.id}
+        <div className="m3d-pindock-items" ref={listRef}>
+          {props.items.map((item, i) => (
+            <Fragment key={item.id}>
+              {reorder?.index === i && <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />}
+              <PinnedPin
               item={item}
+              dimmed={reorder != null && String(reorder.id) === String(item.id)}
               size={size}
               render={props.renderPin}
               tooltip={props.tooltip}
@@ -167,7 +238,11 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
                 props.onPinClick?.(item)
               }}
             />
+            </Fragment>
           ))}
+          {reorder != null && reorder.index >= props.items.length && (
+            <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />
+          )}
         </div>
       )}
       <button
@@ -192,10 +267,45 @@ type PinnedPinProps<T> = {
   removeLabel: string
   onUnpin: (id: string | number) => void
   onActivate: () => void
+  /** Pastille en cours de déplacement dans la dock : atténuée, sa place étant montrée ailleurs. */
+  dimmed?: boolean
 }
 
+/**
+ * Abscisses des MILIEUX des pastilles. Relevées une seule fois par geste : les lire
+ * à chaque `pointermove` forcerait un recalcul de layout par pastille et par
+ * mouvement, alors que les positions ne bougent pas pendant le déplacement.
+ */
+function pinCenters(list: HTMLElement | null): number[] {
+  if (!list) return []
+  return [...list.querySelectorAll<HTMLElement>('.m3d-pin')].map((el) => {
+    const r = el.getBoundingClientRect()
+    return r.left + r.width / 2
+  })
+}
+
+/**
+ * Index d'insertion d'une pastille relâchée à l'abscisse `x`, d'après la position
+ * réelle des pastilles à l'écran : on compte celles dont le MILIEU est à gauche du
+ * point de dépôt. L'index de départ est retiré du compte par l'appelant, sinon
+ * glisser une pastille d'un cran vers la droite la laisserait sur place.
+ */
+function insertionIndex(centers: readonly number[], x: number): number | null {
+  if (centers.length === 0) return null
+  let index = 0
+  for (let i = 0; i < centers.length; i++) if (x > centers[i]!) index = i + 1
+  return index
+}
+
+/**
+ * Index FINAL dans la collection, une fois l'élément déplacé retiré de sa place.
+ * Sans cette correction, glisser une pastille d'un seul cran vers la droite la
+ * laisserait exactement où elle était.
+ */
+const finalIndex = (raw: number, from: number): number => (raw > from ? raw - 1 : raw)
+
 /** Carré épinglé : cliquable (retrouver) + saisissable (glisser-hors = retrait) + croix + infobulle au survol. */
-function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onActivate }: PinnedPinProps<T>) {
+function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onActivate, dimmed }: PinnedPinProps<T>) {
   const { engine, overlay, theme } = useMapContext()
   const pinRef = useRef<HTMLDivElement>(null)
   const [tipPos, setTipPos] = useState<{ left: number; top: number } | null>(null)
@@ -250,7 +360,7 @@ function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onAct
   return (
     <div
       ref={pinRef}
-      className={`m3d-pin ${drag.className}`}
+      className={`m3d-pin ${drag.className}${dimmed ? ' m3d-pin-moving' : ''}`}
       style={{ width: size, height: size }}
       onPointerDown={drag.onPointerDown}
       onClick={onActivate}
@@ -288,7 +398,12 @@ function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onAct
 function DefaultPin<T>({ item, theme }: { item: PinnedItem<T>; theme: MapTheme }) {
   if (item.avatar) return <img className="m3d-pin-media" src={item.avatar} alt="" draggable={false} />
   const color = theme.colors.marker[item.type ?? 'default'] ?? theme.colors.marker.default!
-  const bg = `linear-gradient(180deg, ${color.accent}, ${color.base})`
+  // Couleur explicite : dégradé ASSOMBRI à partir d'elle. Le contenu posé dessus
+  // porte souvent la même teinte (un symbole MIL-STD est coloré par son affiliation) ;
+  // un fond clair de cette teinte le rendrait invisible.
+  const bg = item.color
+    ? `linear-gradient(180deg, ${item.color}, color-mix(in srgb, ${item.color} 45%, #000))`
+    : `linear-gradient(180deg, ${color.accent}, ${color.base})`
   if (item.icon) {
     return (
       <span className="m3d-pin-media m3d-pin-badge" style={{ background: bg }}>

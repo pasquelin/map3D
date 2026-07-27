@@ -19,9 +19,42 @@ export function clamp(x: number, min: number, max: number): number {
   return x < min ? min : x > max ? max : x
 }
 
+/**
+ * Échelle de zoom PUBLIQUE de la lib (façon carte 2D : 0 = monde, ~20 = rue) ↔
+ * altitude caméra. SOURCE UNIQUE : `MapEngine` les ré-exporte pour la compatibilité,
+ * et `Camera.setZoom`/`getZoom` les appellent — les avoir réécrites là-bas laissait
+ * deux définitions de l'échelle publique libres de diverger.
+ */
+export const altitudeForZoom = (zoom: number): number => EARTH_CIRCUMFERENCE / Math.pow(2, zoom)
+export const zoomForAltitude = (alt: number): number => Math.log2(EARTH_CIRCUMFERENCE / Math.max(1, alt))
+
+/**
+ * Résolution (m/px) d'une vue perspective à `distance` mètres du point visé.
+ * Partagée par `Projection.metersPerPixel` (distance caméra→point courante) et
+ * `Camera.fitBounds` (altitude VISÉE, pas encore atteinte).
+ */
+export function metersPerPixelAt(distance: number, fovDeg: number, viewportHeight: number): number {
+  return (2 * distance * Math.tan((fovDeg * DEG2RAD) / 2)) / Math.max(1, viewportHeight)
+}
+
 /** Plus court delta angulaire (degrés) de `from` vers `to`, dans [-180, 180]. */
 export function shortestLngDelta(from: number, to: number): number {
   return (((to - from + 540) % 360) - 180)
+}
+
+/** Ramène une longitude dans [-180, 180). SOURCE UNIQUE de la convention d'antiméridien. */
+export function normalizeLng(lng: number): number {
+  return ((((lng + 180) % 360) + 360) % 360) - 180
+}
+
+/**
+ * Ramène `lng` à moins de 180° de `ref`, quitte à sortir de [-180, 180] — c'est le
+ * « déroulé continu » qui permet de comparer des longitudes de part et d'autre de
+ * l'antiméridien. En une opération plutôt qu'en boucle : une valeur aberrante
+ * (donnée corrompue) ferait sinon tourner des millions d'itérations.
+ */
+export function unwrapLng(lng: number, ref: number): number {
+  return lng - 360 * Math.round((lng - ref) / 360)
 }
 
 /** Interpolation lissée cubique C1 symétrique (t ∈ [0,1]). */

@@ -37,16 +37,36 @@ export type MarkerListProps<T = unknown> = {
   targetZoom?: number
   /** Actions du menu déroulant, en plus de « Cibler ». */
   actions?: MarkerListAction<T>[]
+  /**
+   * Menu d'une ligne, dans la MÊME forme que `<MarkerLayer menu>` : c'est ce qui
+   * permet au bouton « … » d'une ligne d'offrir exactement le menu du marker sur la
+   * carte, sous-menus et séparateurs compris. Fourni, il l'emporte sur `actions`.
+   *
+   * « Cibler » reste ajouté en tête par la liste — ne le remettez pas ici.
+   */
+  menu?: (m: MarkerData<T>) => MenuItem[]
 }
 
-/** Pastille de couleur du type (ou avatar cerclé) — toujours présente sur une ligne. */
+/**
+ * Repère visuel d'une ligne, toujours présent : photo > icône > pastille de type.
+ *
+ * L'icône est affichée ENTIÈRE (et non recadrée comme une photo) : un pictogramme
+ * rogné en rond perd ce qui le distingue, alors que c'est précisément lui qui
+ * identifie la ligne — le cas d'un symbole, dont le type (`'symbol'`) ne dit rien.
+ */
 function Swatch<T>({ m, theme }: { m: MarkerData<T>; theme: MapTheme }) {
   const color = theme.colors.marker[m.type] ?? theme.colors.marker.default!
-  return m.avatar ? (
-    <img className="m3d-mlavatar" src={m.avatar} alt="" draggable={false} style={{ borderColor: color.base }} />
-  ) : (
-    <span className="m3d-mldot" style={{ background: color.base }} />
-  )
+  if (m.avatar) {
+    return <img className="m3d-mlavatar" src={m.avatar} alt="" draggable={false} style={{ borderColor: color.base }} />
+  }
+  if (m.icon) {
+    return (
+      <span className="m3d-mlicon" style={{ borderColor: color.base }}>
+        <img src={m.icon} alt="" draggable={false} />
+      </span>
+    )
+  }
+  return <span className="m3d-mldot" style={{ background: color.base }} />
 }
 
 /**
@@ -89,22 +109,36 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
   useDismiss(menuRef, menu !== null, closeMenu, { wheel: true, captureEscape: true })
 
   /**
-   * Actions d'une ligne traduites en items de `<ContextMenu>` — qui porte déjà le
-   * clavier complet (roving tabindex, flèches, Entrée/Espace), l'ARIA et les
-   * sous-menus. Ce menu était auparavant réimplémenté ici avec les mêmes classes
-   * CSS mais un clavier au rabais.
+   * Items du menu d'une ligne, pour `<ContextMenu>` — qui porte déjà le clavier
+   * complet (roving tabindex, flèches, Entrée/Espace), l'ARIA et les sous-menus.
    *
-   * `MarkerListAction` reste l'API publique (son `icon` est un chemin @mdi, plus
-   * simple à fournir qu'un nœud) : la conversion vit ici, pas chez l'appelant.
+   * « Cibler » est TOUJOURS en tête : c'est l'action propre à la liste (sur la carte,
+   * le marker est déjà sous les yeux — pas besoin d'y voler). Le reste vient soit de
+   * `menu`, soit d'`actions`.
+   *
+   * Les deux sources coexistent volontairement. `menu` rend exactement ce que rend le
+   * menu du marker (sous-menus, séparateurs, `hint`, `swatch`) : c'est ce qu'il faut
+   * pour que les deux surfaces proposent la MÊME chose. `MarkerListAction` reste pour
+   * un menu plat, où un chemin @mdi est plus simple à fournir qu'un nœud ; il ne peut
+   * pas, lui, exprimer « Assigner un agent › ».
    */
-  const menuItemsFor = (m: MarkerData<T>): MenuItem[] =>
-    [{ id: 'target', label: labels.markerList.target, icon: mdiCrosshairsGps, run: target }, ...(props.actions ?? [])].map(
-      (a) => ({
+  const menuItemsFor = (m: MarkerData<T>): MenuItem[] => {
+    const targetItem: MenuItem = {
+      label: labels.markerList.target,
+      icon: <Icon path={mdiCrosshairsGps} size={0.7} />,
+      onSelect: () => target(m),
+    }
+    const provided = props.menu?.(m)
+    if (provided) return provided.length > 0 ? [targetItem, { separator: true }, ...provided] : [targetItem]
+    return [
+      targetItem,
+      ...(props.actions ?? []).map((a) => ({
         label: a.label,
         icon: a.icon ? <Icon path={a.icon} size={0.7} /> : undefined,
         onSelect: () => a.run(m),
-      }),
-    )
+      })),
+    ]
+  }
 
   // Ouvert sous le bouton ; `useNudgeInside` le rabat DANS le conteneur après
   // rendu, sur sa hauteur RÉELLE mesurée — pas sur une estimation calée sur le CSS

@@ -12,6 +12,10 @@ const MARGIN = 1 // tuiles de marge autour du viewport (prefetch)
 // Budget max de tuiles pour le niveau cible (assez pour couvrir un plein écran en 1:1 ;
 // au-delà, le zoom cible est réduit d'un cran). ~ (largeur/256)·(hauteur/256) + marge.
 const MAX_REQUEST = 140
+/** Essais par tuile avant abandon (le 1er inclus). */
+const MAX_ATTEMPTS = 3
+/** Attente avant le n-ième réessai (ms) — le quota Google se libère à la seconde. */
+const RETRY_DELAYS = [1000, 4000]
 
 type TileState = 'queued' | 'loading' | 'ready' | 'error'
 
@@ -24,6 +28,10 @@ interface Tile {
   img: HTMLImageElement | null
   mesh: THREE.Mesh | null
   lastUsed: number
+  /** Tentatives de téléchargement déjà consommées. */
+  attempts: number
+  /** Date (ms) avant laquelle la file n'a pas le droit de relancer cette tuile. */
+  retryAt: number
   // Emprise géographique (constante pour la durée de vie de la tuile) — mémoïsée pour
   // éviter de recalculer exp/atan (tileYToLat) à chaque test de vue par frame.
   west: number
@@ -108,8 +116,14 @@ export class TiledGlobeLayer {
    * la vue), affiche celles qui sont prêtes (toutes zooms confondus → fallback flou
    * pendant le chargement), puis fait tourner la file et l'éviction. Coût par frame
    * faible (quelques dizaines de tuiles).
+   *
+   * `refine = false` ne demande QUE le niveau de base : à utiliser pendant un vol
+   * caméra, où les niveaux intermédiaires défilent trop vite pour être vus. Sans
+   * cela, une descente d'intro (zoom 3 → 14) réclame les onze niveaux traversés,
+   * soit plus d'un millier de tuiles jamais regardées — de quoi épuiser le quota
+   * Google Map Tiles à chaque chargement de page.
    */
-  update(bounds: Bounds, zoom: number): void {
+  update(bounds: Bounds, zoom: number, refine = true): void {
     if (this.disposed) return
     this.frame++
 
@@ -119,7 +133,7 @@ export class TiledGlobeLayer {
     this.requestLevel(BASE_Z, { west: -180, east: 180, north: 85, south: -85 }, 0)
     let targetZ = clamp(Math.round(zoom), BASE_Z, MAX_Z)
     while (targetZ > BASE_Z && tileCount(bounds, targetZ, MARGIN) > MAX_REQUEST) targetZ--
-    if (targetZ > BASE_Z) this.requestLevel(targetZ, bounds, MARGIN)
+    if (refine && targetZ > BASE_Z) this.requestLevel(targetZ, bounds, MARGIN)
 
     // Rendu : toute tuile prête qui intersecte la vue (base incluse), la plus fine
     // au-dessus (renderOrder + polygonOffset par zoom).
@@ -153,6 +167,7 @@ export class TiledGlobeLayer {
     if (!t) {
       t = {
         z, x, y, key, state: 'queued', img: null, mesh: null, lastUsed: this.frame,
+        attempts: 0, retryAt: 0,
         west: tileXToLng(x, z), east: tileXToLng(x + 1, z),
         north: tileYToLat(y, z), south: tileYToLat(y + 1, z),
       }
@@ -164,28 +179,62 @@ export class TiledGlobeLayer {
 
   /** Lance des chargements tant qu'il reste des créneaux de concurrence. */
   private pump(): void {
-    while (this.inflight < MAX_INFLIGHT && this.queue.length > 0) {
+    const now = Date.now()
+    // `skipped` fait avancer la boucle quand la tête de file est en attente de
+    // réessai : la tuile repart en queue, la longueur ne bouge pas — sans ce
+    // compteur, une file entièrement en backoff tournerait à l'infini.
+    let skipped = 0
+    while (this.inflight < MAX_INFLIGHT && this.queue.length > skipped) {
       const t = this.queue.shift()!
-      if (t.state === 'queued' && this.tiles.has(t.key)) void this.load(t)
+      if (t.state !== 'queued' || !this.tiles.has(t.key)) continue
+      if (t.retryAt > now) {
+        this.queue.push(t)
+        skipped++
+        continue
+      }
+      void this.load(t)
     }
   }
 
   private async load(t: Tile): Promise<void> {
     t.state = 'loading'
+    t.attempts++
     this.inflight++
     try {
       await this.source.ensureSession(this.traffic) // mémoïsé/coalescé
       if (this.disposed || !this.tiles.has(t.key)) return
       const img = await loadImage(this.source.tileUrl(t.z, t.x, t.y))
       if (this.disposed || !this.tiles.has(t.key)) return
-      t.img = img
-      t.state = img ? 'ready' : 'error'
+      if (img) {
+        t.img = img
+        t.state = 'ready'
+      } else {
+        this.retryOrFail(t)
+      }
     } catch {
-      t.state = 'error'
+      this.retryOrFail(t)
     } finally {
       this.inflight--
       if (!this.disposed) this.pump()
     }
+  }
+
+  /**
+   * Replanifie une tuile en échec, ou l'abandonne au bout de `MAX_ATTEMPTS`.
+   *
+   * `<img>` ne donne pas le code HTTP : un 429 (quota, temporaire) est
+   * indistinguable d'un 404 (tuile inexistante, définitif). On réessaie donc
+   * quelques fois avec du recul — sans quoi un simple dépassement de quota laissait
+   * des trous DÉFINITIFS dans la carte, la tuile n'étant jamais redemandée.
+   */
+  private retryOrFail(t: Tile): void {
+    if (t.attempts >= MAX_ATTEMPTS) {
+      t.state = 'error'
+      return
+    }
+    t.state = 'queued'
+    t.retryAt = Date.now() + (RETRY_DELAYS[t.attempts - 1] ?? RETRY_DELAYS.at(-1)!)
+    this.queue.push(t)
   }
 
   /** Construit la géométrie (grille projetée sur l'ellipsoïde) + texture d'une tuile. */
