@@ -305,7 +305,13 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     let casing: THREE.MeshBasicMaterial | null = null
 
     if (visual.disc) {
-      const geo = fillGeo(circlePoints(frame.local(visual.disc.center), visual.disc.radiusPx * mpp, this.config.performance.circleSegments))
+      const geo = fillGeo(
+        circlePoints(
+          frame.local(visual.disc.center),
+          visual.disc.radiusPx * mpp,
+          this.config.performance.circleSegments,
+        ),
+      )
       if (!geo) return null
       const material = fillMaterial(visual.color, visual.opacity)
       const mesh = new THREE.Mesh(geo, material)
@@ -331,8 +337,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     const width = visual.width * mpp
     // Seul le trait porte l'abscisse curviligne : le casing, toujours plein, n'en a
     // pas l'usage — et il est reconstruit aussi souvent que lui.
-    const build = (w: number, withDistance = false): THREE.BufferGeometry | null =>
-      ribbon(pts, w, false, withDistance)
+    const build = (w: number, withDistance = false): THREE.BufferGeometry | null => ribbon(pts, w, false, withDistance)
     const geometry = build(width, !!visual.dash)
     if (!geometry) return null
 
@@ -519,7 +524,8 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       const world = this.projection.latLngToWorld(disc.center, this.scratch, this.heightOf(d))
       const s = this.projection.worldToScreen(world, camera, this.screen)
       if (s.z > 1) continue
-      if (Math.hypot(screenX - s.sx, screenY - s.sy) <= disc.radiusPx + this.config.interaction.hubHitTolerancePx) return d.item.id
+      if (Math.hypot(screenX - s.sx, screenY - s.sy) <= disc.radiusPx + this.config.interaction.hubHitTolerancePx)
+        return d.item.id
     }
     return null
   }

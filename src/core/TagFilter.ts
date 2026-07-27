@@ -9,8 +9,18 @@ export type TagEntry = { tag: string; count: number }
  * `theme.colors.tags` (prioritaire).
  */
 const TAG_PALETTE = [
-  '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981',
-  '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#84cc16',
+  '#22c55e',
+  '#10b981',
+  '#06b6d4',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#d946ef',
+  '#ec4899',
 ]
 
 /** Couleur de repli d'un tag (hash djb2 → palette, stable entre sessions). */
@@ -25,7 +35,10 @@ export function tagColor(tag: string): string {
  * par les couches pour alimenter `report`). Le sélecteur évite d'allouer un
  * tableau intermédiaire de listes de tags à chaque tick de flux temps réel.
  */
-export function countTags<T>(items: Iterable<T>, getTags: (item: T) => readonly string[] | undefined): Map<string, number> {
+export function countTags<T>(
+  items: Iterable<T>,
+  getTags: (item: T) => readonly string[] | undefined,
+): Map<string, number> {
   const counts = new Map<string, number>()
   for (const item of items) {
     const tags = getTags(item)
@@ -106,8 +119,7 @@ export class TagFilter {
    */
   all(): TagEntry[] {
     const counts = new Map<string, number>()
-    for (const src of this.sources.values())
-      for (const [tag, n] of src) counts.set(tag, (counts.get(tag) ?? 0) + n)
+    for (const src of this.sources.values()) for (const [tag, n] of src) counts.set(tag, (counts.get(tag) ?? 0) + n)
     for (const tag of this.selection) if (!counts.has(tag)) counts.set(tag, 0)
     return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => a.tag.localeCompare(b.tag))
   }

@@ -229,7 +229,9 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
           <div className="m3d-pindock-items" ref={listRef}>
             {props.items.map((item, i) => (
               <Fragment key={item.id}>
-                {reorder?.index === i && <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />}
+                {reorder?.index === i && (
+                  <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />
+                )}
                 <PinnedPin
                   item={item}
                   dimmed={reorder != null && String(reorder.id) === String(item.id)}
@@ -240,8 +242,12 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
                   onUnpin={props.onUnpin}
                   onActivate={() => {
                     if (props.flyOnClick !== false && item.position) {
-                      const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? config.interaction.pinnedFlyZoom)
-                      engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: theme.animations.target })
+                      const alt =
+                        props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? config.interaction.pinnedFlyZoom)
+                      engine.camera.flyTo(
+                        { lat: item.position.lat, lng: item.position.lng, altitude: alt },
+                        { duration: theme.animations.target },
+                      )
                     }
                     props.onPinClick?.(item)
                   }}

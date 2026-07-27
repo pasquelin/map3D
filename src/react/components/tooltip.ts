@@ -3,7 +3,6 @@
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels } from '../context'
 
-
 /** Affichage d'une touche : lettre seule en capitale, combo tel quel. */
 export const formatKey = (key: string): string => (key.length === 1 ? key.toUpperCase() : key)
 

@@ -188,7 +188,10 @@ export class SelectionManager {
     // Marquee polygone en cours : chaque clic pose un sommet, clic près du 1er ferme.
     if (this.marqueePts && this.marqueeKind === 'poly') {
       const first = this.marqueePts[0]!
-      if (this.marqueePts.length > 3 && Math.hypot(s.x - first.x, s.y - first.y) < this.host.interaction().closeSnapPx) {
+      if (
+        this.marqueePts.length > 3 &&
+        Math.hypot(s.x - first.x, s.y - first.y) < this.host.interaction().closeSnapPx
+      ) {
         this.finalizeMarquee()
       } else {
         this.marqueePts.push(s)
@@ -214,7 +217,10 @@ export class SelectionManager {
 
   private onMove(s: ScreenPt, latLng: LatLng | null, e: PointerEvent): boolean {
     if (this.pressed) {
-      if (!this.pressed.dragging && Math.hypot(s.x - this.pressed.start.x, s.y - this.pressed.start.y) > this.host.interaction().clickSlopPx) {
+      if (
+        !this.pressed.dragging &&
+        Math.hypot(s.x - this.pressed.start.x, s.y - this.pressed.start.y) > this.host.interaction().clickSlopPx
+      ) {
         this.pressed.dragging = true
         // Drag du corps : sélectionne la forme si besoin puis délègue à l'édition.
         if (!this.pressed.additive && !this.sel.has(this.pressed.id) && this.write([this.pressed.id], []))

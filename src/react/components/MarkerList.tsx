@@ -79,7 +79,11 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
       return
     }
     engine.camera.flyTo(
-      { lat: m.position.lat, lng: m.position.lng, altitude: altitudeForZoom(props.targetZoom ?? config.interaction.targetZoom) },
+      {
+        lat: m.position.lat,
+        lng: m.position.lng,
+        altitude: altitudeForZoom(props.targetZoom ?? config.interaction.targetZoom),
+      },
       { duration: theme.animations.target },
     )
   }
@@ -165,9 +169,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
                 {props.renderItem ? props.renderItem(m) : (m.title ?? idStr)}
               </span>
               {(() => {
-                const sub = props.renderSubtitle
-                  ? props.renderSubtitle(m)
-                  : (props.markerTypeLabel?.(m.type) ?? m.type)
+                const sub = props.renderSubtitle ? props.renderSubtitle(m) : (props.markerTypeLabel?.(m.type) ?? m.type)
                 return sub != null && sub !== '' ? <span className="m3d-mlsub">{sub}</span> : null
               })()}
             </div>

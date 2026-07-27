@@ -54,9 +54,7 @@ export function ToolButton({
   const labels = useLabels()
   // Sans tooltip, l'`aria-label` est reconstruit avec le même gabarit : le nom
   // accessible ne dépend pas de la présence d'une infobulle.
-  const naming = tip
-    ? tip(label, shortcut)
-    : { 'aria-label': withShortcut(label, shortcut, labels.format.shortcut) }
+  const naming = tip ? tip(label, shortcut) : { 'aria-label': withShortcut(label, shortcut, labels.format.shortcut) }
   return (
     <button
       type="button"

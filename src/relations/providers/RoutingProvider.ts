@@ -9,8 +9,7 @@ import type { MapPoint, TravelMode } from '../core/types'
 
 /** Une case de la matrice. `error` = pas d'itinéraire pour ce couple (jamais 0 par défaut). */
 export type MatrixEntry =
-  | { toId: string; distanceMeters: number; durationSeconds: number; error?: false }
-  | { toId: string; error: true }
+  { toId: string; distanceMeters: number; durationSeconds: number; error?: false } | { toId: string; error: true }
 
 /** Un itinéraire tracé (principal ou alternatif). */
 export type ProviderRoute = { distanceMeters: number; durationSeconds: number; path: LatLng[] }

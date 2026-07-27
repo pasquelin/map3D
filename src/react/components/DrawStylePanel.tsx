@@ -61,7 +61,12 @@ export function DrawStylePanel({ position = 'left' }: DrawStylePanelProps) {
         onTarget={setTarget}
         title={
           editsSelection
-            ? formatCount(labels.style.selectionCount, labels.style.selectionCountPlural, selection.length, labels.plural)
+            ? formatCount(
+                labels.style.selectionCount,
+                labels.style.selectionCountPlural,
+                selection.length,
+                labels.plural,
+              )
             : undefined
         }
         showRadius={tool === 'rect' || (editsSelection && selectionHasRect)}

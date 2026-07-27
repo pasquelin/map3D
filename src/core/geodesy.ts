@@ -132,11 +132,7 @@ export function predicateSegments(renderSegments: number): number {
  * ramener cercles et rayons au même modèle que les polygones, pour que les
  * prédicats n'aient qu'un seul type d'entrée à traiter.
  */
-export function circleRing(
-  center: LatLng,
-  radiusMeters: number,
-  segments = PREDICATE_CIRCLE_SEGMENTS,
-): LatLng[] {
+export function circleRing(center: LatLng, radiusMeters: number, segments = PREDICATE_CIRCLE_SEGMENTS): LatLng[] {
   // `M_PER_DEG` et non `EARTH_RADIUS` : c'est la conversion qu'emploie
   // `boundsOfCircle` pour le MÊME cercle. Deux rayons de référence différents
   // feraient sortir l'anneau de son propre cadre englobant (~0.1 % d'écart).

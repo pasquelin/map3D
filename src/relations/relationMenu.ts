@@ -80,12 +80,7 @@ const heading = (label: string): MenuItem => ({ label, disabled: true })
  * Construit un item de preset. Le `hint` est le résultat de la sélection RÉELLE :
  * c'est ce qui garantit que le menu et la carte comptent la même chose.
  */
-function presetItem(
-  label: string,
-  derived: RelationRule,
-  ctx: RelationMenuContext,
-  isDefault: boolean,
-): MenuItem {
+function presetItem(label: string, derived: RelationRule, ctx: RelationMenuContext, isDefault: boolean): MenuItem {
   const count = selectTargets(ctx.source, derived, ctx.candidates, ctx.fastestOversample).length
   const { relations } = ctx.labels
   if (count === 0) return { label, hint: relations.noTargets, disabled: true }

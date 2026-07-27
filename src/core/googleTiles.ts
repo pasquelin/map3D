@@ -138,10 +138,7 @@ export class GoogleTileSource {
 
   /** URL d'une tuile (session doit être établie). */
   tileUrl(z: number, x: number, y: number): string {
-    const base = this.cfg.tileUrl
-      .replace('{z}', String(z))
-      .replace('{x}', String(x))
-      .replace('{y}', String(y))
+    const base = this.cfg.tileUrl.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
     if (this.signsItself) {
       return base.replace('{session}', this.session ?? '').replace('{key}', this.apiKey)
     }

@@ -351,7 +351,13 @@ export class Projection {
   }
 
   /** Matrice de base monde d'un plan tangent (x→est, y→haut, z→nord). */
-  enuBasis(origin: THREE.Vector3, east: THREE.Vector3, north: THREE.Vector3, up: THREE.Vector3, out = new THREE.Matrix4()): THREE.Matrix4 {
+  enuBasis(
+    origin: THREE.Vector3,
+    east: THREE.Vector3,
+    north: THREE.Vector3,
+    up: THREE.Vector3,
+    out = new THREE.Matrix4(),
+  ): THREE.Matrix4 {
     out.makeBasis(east, up, north)
     out.setPosition(origin)
     return out

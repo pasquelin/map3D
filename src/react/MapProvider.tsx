@@ -43,7 +43,13 @@ function useMediaQuery(query: string, fallback: boolean, enabled = true): boolea
 }
 
 /** Racine de thème, libellés et réglages. Résout clair/sombre et `prefers-reduced-motion`. */
-export function MapProvider({ theme = defaultTheme, colorScheme = 'auto', labels, config, children }: MapProviderProps) {
+export function MapProvider({
+  theme = defaultTheme,
+  colorScheme = 'auto',
+  labels,
+  config,
+  children,
+}: MapProviderProps) {
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)', true, colorScheme === 'auto')
   const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)', false)
 

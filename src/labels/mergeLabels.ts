@@ -19,12 +19,7 @@ export function formatLabel(template: string, params: Record<string, string | nu
  * dur redupliquerait la règle française de `defaultLabels`, soit deux sources pour la
  * même décision — exactement ce que ce module cherche à éviter.
  */
-export function formatCount(
-  one: string,
-  other: string,
-  count: number,
-  plural: (n: number) => 'one' | 'other',
-): string {
+export function formatCount(one: string, other: string, count: number, plural: (n: number) => 'one' | 'other'): string {
   return formatLabel(plural(count) === 'other' ? other : one, { count })
 }
 

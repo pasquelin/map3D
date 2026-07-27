@@ -39,10 +39,7 @@ export function useDropZone(opts: UseDropZoneOptions): {
 
   // `isOver` dérivé de l'état courant : setOver ne re-render que sur transition
   // (React court-circuite une valeur identique), même si `onChange` est fréquent.
-  useEffect(
-    () => engine.drag.onChange(() => setOver(engine.drag.active?.overZone === latest.current.id)),
-    [engine],
-  )
+  useEffect(() => engine.drag.onChange(() => setOver(engine.drag.active?.overZone === latest.current.id)), [engine])
 
   return { dropProps: { 'data-m3d-drop': opts.id }, isOver }
 }

@@ -1,10 +1,4 @@
-import {
-  mdiCursorDefaultOutline,
-  mdiHandBackRightOutline,
-  mdiRedo,
-  mdiTrashCanOutline,
-  mdiUndo,
-} from '@mdi/js'
+import { mdiCursorDefaultOutline, mdiHandBackRightOutline, mdiRedo, mdiTrashCanOutline, mdiUndo } from '@mdi/js'
 import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
@@ -26,15 +20,7 @@ import { useTip } from './tooltip'
 
 /** Sections optionnelles de la barre : `false` pour masquer, ReactNode pour remplacer. */
 export type DrawToolbarSection =
-  | 'navigate'
-  | 'select'
-  | 'symbol'
-  | 'lens'
-  | 'stylePanel'
-  | 'settings'
-  | 'undo'
-  | 'redo'
-  | 'clear'
+  'navigate' | 'select' | 'symbol' | 'lens' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
 
 export type DrawToolbarProps = {
   /** Côté d'ancrage de la barre. */
@@ -125,8 +111,7 @@ export function Toolbar({
   const labels = useLabels()
   const [hidden, setHidden] = useState(true)
   useEffect(() => {
-    const below = (altitude: number) =>
-      zoomForAltitude(Math.max(1, altitude - engine.terrainHeight)) < minZoom
+    const below = (altitude: number) => zoomForAltitude(Math.max(1, altitude - engine.terrainHeight)) < minZoom
     setHidden(below(engine.camera.getState().altitude))
     return engine.on('camera', (s) => setHidden(below(s.altitude)))
   }, [engine, minZoom])
@@ -213,7 +198,15 @@ export function Toolbar({
             // l'ordre de `tools`, comme n'importe quel autre outil.
             slot('symbol', <SymbolPaletteButton key={t} position={position} />)
           ) : (
-            <ToolButton key={t} icon={TOOL_ICONS[t]} label={labels.tools[t]} tip={tip} shortcut={shortcuts[t]} active={tool === t} onClick={() => toggle(t)} />
+            <ToolButton
+              key={t}
+              icon={TOOL_ICONS[t]}
+              label={labels.tools[t]}
+              tip={tip}
+              shortcut={shortcuts[t]}
+              active={tool === t}
+              onClick={() => toggle(t)}
+            />
           ),
         )}
         {/* Loupe : outil natif de la barre au même titre que les symboles. Le bouton
@@ -222,16 +215,36 @@ export function Toolbar({
         {extraTools}
         {slot(
           'undo',
-          <ToolButton icon={mdiUndo} label={labels.toolbar.undo} tip={tip} shortcut={undoKey} onClick={undo} disabled={!canUndo} />,
+          <ToolButton
+            icon={mdiUndo}
+            label={labels.toolbar.undo}
+            tip={tip}
+            shortcut={undoKey}
+            onClick={undo}
+            disabled={!canUndo}
+          />,
         )}
         {slot(
           'redo',
-          <ToolButton icon={mdiRedo} label={labels.toolbar.redo} tip={tip} shortcut={redoKey} onClick={redo} disabled={!canRedo} />,
+          <ToolButton
+            icon={mdiRedo}
+            label={labels.toolbar.redo}
+            tip={tip}
+            shortcut={redoKey}
+            onClick={redo}
+            disabled={!canRedo}
+          />,
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
         {slot(
           'clear',
-          <ToolButton icon={mdiTrashCanOutline} label={labels.toolbar.clearAll} tip={tip} className="m3d-btn-delete" onClick={clear} />,
+          <ToolButton
+            icon={mdiTrashCanOutline}
+            label={labels.toolbar.clearAll}
+            tip={tip}
+            className="m3d-btn-delete"
+            onClick={clear}
+          />,
         )}
       </div>
       {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}

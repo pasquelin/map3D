@@ -1,4 +1,12 @@
-import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useConfig, useLabels } from '../context'
 import { type PanelRef, useFitColumns, useMergedRefs, useNudgeInside } from './panelFit'
 

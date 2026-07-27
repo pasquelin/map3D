@@ -25,11 +25,7 @@ export function useLiveData<T>(
   const controllerRef = useRef<ViewportController<T> | null>(null)
 
   useEffect(() => {
-    const controller = new ViewportController<T>(
-      { debounce: opts.debounce ?? viewportDebounceMs },
-      setData,
-      setLoading,
-    )
+    const controller = new ViewportController<T>({ debounce: opts.debounce ?? viewportDebounceMs }, setData, setLoading)
     controllerRef.current = controller
     // Amorce avec la vue courante.
     const v = engine.getView()

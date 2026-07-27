@@ -47,7 +47,9 @@ export type UseDraggableOptions<T = unknown> = {
  * `touch-action` normaux. Sinon l'utilisateur obtiendrait un fantôme sous le
  * curseur et un relâchement sans effet, c'est-à-dire un geste qui a l'air cassé.
  */
-export function useDraggable<T = unknown>(opts: UseDraggableOptions<T>): {
+export function useDraggable<T = unknown>(
+  opts: UseDraggableOptions<T>,
+): {
   onPointerDown: (e: ReactPointerEvent) => void
   className: string
 } {

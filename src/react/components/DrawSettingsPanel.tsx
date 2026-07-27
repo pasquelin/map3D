@@ -25,7 +25,6 @@ import { useCloseWhenHidden, useDismiss } from './useDismiss'
  */
 const UNSTYLED_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['select', 'erase', 'symbol'])
 
-
 /** Entrées du panneau ouvrant un sous-panneau latéral : un outil ou le récap raccourcis. */
 type SubKey = DrawTool | 'shortcuts'
 
@@ -61,8 +60,14 @@ export function DrawSettingsButton({
 
   // Placement : le panneau est calé sur le BAS du bouton (il grandit vers le haut),
   // le sous-panneau sur la ligne survolée — les deux clampés au conteneur.
-  const [panelSide, setPanel] = useAnchoredPanel(position, { edge: 'bottom', maxHeight: theme.sizing.panelMaxHeight.settings })
-  const [subSide, setSubEl] = useAnchoredPanel(position, { desiredTop: subTop, maxHeight: theme.sizing.panelMaxHeight.settingsSub })
+  const [panelSide, setPanel] = useAnchoredPanel(position, {
+    edge: 'bottom',
+    maxHeight: theme.sizing.panelMaxHeight.settings,
+  })
+  const [subSide, setSubEl] = useAnchoredPanel(position, {
+    desiredTop: subTop,
+    maxHeight: theme.sizing.panelMaxHeight.settingsSub,
+  })
 
   // Fermeture différée : le pointeur doit pouvoir traverser l'écart ligne →
   // sous-panneau sans que celui-ci se referme (même rôle que le pont ::before
@@ -217,7 +222,9 @@ function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
     <svg className="m3d-settings-preview" viewBox="0 0 34 18" aria-hidden>
       {tool === 'line' && <line x1="2" y1="14" x2="32" y2="4" {...line} />}
       {tool === 'polygon' && <polygon points="4,15 17,2 30,15" {...filled} />}
-      {tool === 'rect' && <rect x="3" y="3" width="28" height="12" rx={((s.radius ?? 0) / maxRadius) * 6} {...filled} />}
+      {tool === 'rect' && (
+        <rect x="3" y="3" width="28" height="12" rx={((s.radius ?? 0) / maxRadius) * 6} {...filled} />
+      )}
       {tool === 'circle' && <ellipse cx="17" cy="9" rx="13" ry="7" {...filled} />}
       {tool === 'freehand' && <path d="M2 12 C8 2 14 16 20 8 S30 4 32 10" {...line} />}
       {tool === 'arrow' && (

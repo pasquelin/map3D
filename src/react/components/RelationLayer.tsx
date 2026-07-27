@@ -285,8 +285,7 @@ export function RelationLayer({
           casingColor: casingColor ?? theme.colors.path.casing,
           hoverDarken,
         },
-        (id, el) =>
-          setHubHosts((prev) => new Map(prev).set(id.slice(HUB_PREFIX.length), el)),
+        (id, el) => setHubHosts((prev) => new Map(prev).set(id.slice(HUB_PREFIX.length), el)),
         (id) =>
           setHubHosts((prev) => {
             const next = new Map(prev)
@@ -303,9 +302,7 @@ export function RelationLayer({
   // changer de thème ou de langue ne repeindrait pas les liens. La valeur RÉSOLUE est
   // la clé de synchro, jamais la source : `useLayerSync` ne réagit qu'à `value`, donc
   // synchroniser sur `theme` seul laissait un changement de `casingColor` sans effet.
-  useLayerSync(layerRef, casingColor ?? theme.colors.path.casing, (layer, c) =>
-    layer.setDefaults({ casingColor: c }),
-  )
+  useLayerSync(layerRef, casingColor ?? theme.colors.path.casing, (layer, c) => layer.setDefaults({ casingColor: c }))
   useLayerSync(layerRef, hoverDarken, (layer, v) => layer.setDefaults({ hoverDarken: v }))
   useLayerSync(layerRef, casingWidth, (layer, v) => layer.setDefaults({ casingWidth: v }))
 

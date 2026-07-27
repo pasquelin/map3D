@@ -126,10 +126,7 @@ export function useMapDropZone<T = unknown>(opts: UseMapDropZoneOptions<T>): { i
     })
   }, [engine, overlay, zoneId])
 
-  useEffect(
-    () => engine.drag.onChange(() => setOver(engine.drag.active?.overZone === zoneId)),
-    [engine, zoneId],
-  )
+  useEffect(() => engine.drag.onChange(() => setOver(engine.drag.active?.overZone === zoneId)), [engine, zoneId])
 
   return { isOver }
 }
