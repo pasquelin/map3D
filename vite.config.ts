@@ -30,6 +30,15 @@ export default defineConfig({
       ],
       output: {
         globals: { react: 'React', 'react-dom': 'ReactDOM', three: 'THREE' },
+        // Directive « client » sur le POINT D'ENTRÉE : la carte est intrinsèquement
+        // cliente (WebGL, hooks, DOM). Sans elle, un simple `import` depuis un React
+        // Server Component (Next App Router) casse le build serveur. Le banner Rollup
+        // est posé AVANT les imports, seul endroit où Next/RSC la reconnaît.
+        //
+        // L'entrée seule : un chunk chargé dynamiquement (le catalogue de symboles,
+        // ~9 Mo) l'est déjà par elle, et marquer tous les chunks empêcherait d'exposer
+        // un jour un sous-chemin server-safe sans revoir la règle.
+        banner: (chunk) => (chunk.isEntry ? "'use client';" : ''),
       },
     },
     sourcemap: true,

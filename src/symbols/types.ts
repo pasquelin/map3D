@@ -23,6 +23,15 @@ export type SymbolEntry = {
   minPoints?: number
   /** Couleur de référence (graphiques tactiques surtout) — indicative. */
   color?: string
+  /**
+   * Zoom en deçà duquel ce symbole POSÉ disparaît (cf. `MarkerData.static`), à la
+   * place du seuil de la couche ou de `config.markers.staticMinZoom`.
+   *
+   * C'est au CATALOGUE de le savoir : un poste de commandement structure une région
+   * et doit se voir de loin, un point de contrôle n'a de sens qu'une fois sur zone.
+   * Le seuil suit donc le genre d'objet, comme la couleur et les tags.
+   */
+  minZoom?: number
   /** Tags du symbole posé. Défaut : `['symbol', category]`. */
   tags?: string[]
 }

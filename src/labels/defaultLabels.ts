@@ -119,6 +119,10 @@ export const defaultLabels: MapLabels = {
     clearAll: 'Tout désélectionner',
     movePanel: 'Déplacer le panneau',
   },
+  clusters: {
+    label: 'Groupe de {count} marqueurs',
+    labelSingular: 'Groupe de {count} marqueur',
+  },
   markerList: {
     target: 'Cibler',
     actions: 'Actions pour {label}',

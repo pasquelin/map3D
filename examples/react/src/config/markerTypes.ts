@@ -10,7 +10,7 @@
    fichiers dont quatre échoueraient en silence. */
 
 /** Pictogramme intérieur d'un type. Rendu en SVG sur les sprites, en JSX ailleurs. */
-export type Glyph = 'shield' | 'dot' | 'warning' | 'info'
+export type Glyph = 'shield' | 'dot' | 'warning' | 'info' | 'heart'
 
 export type MarkerTypeSpec = {
   color: string
@@ -27,6 +27,16 @@ export const MARKER_TYPES = {
   'agent-available': { color: '#22c55e', label: ['Agent disponible', 'Agents disponibles'], glyph: 'shield' },
   'agent-enroute': { color: '#06b6d4', label: ['Agent en route', 'Agents en route'], glyph: 'shield' },
   'agent-onsite': { color: '#8b5cf6', label: ['Agent sur place', 'Agents sur place'], glyph: 'dot' },
+  // Décor FIXE (`static: true` côté donnée, cf. `data/defibs.ts`) : il ne demande
+  // aucune action, il sert de repère une fois qu'on est sur zone. D'où le
+  // comportement que ce type démontre — masqué sous `markers.staticMinZoom`, et
+  // par ailleurs un type comme un autre (cluster, part de camembert, filtre).
+  defib: { color: '#0d9488', label: ['Défibrillateur', 'Défibrillateurs'], glyph: 'heart' },
+  // Type porté par la LIB (tout symbole posé vaut `type: 'symbol'`), déclaré ici parce
+  // que le regroupement est commun à la carte : une pastille mélange les markers de
+  // l'app et les symboles de la couche de dessin, et une part sans nom ni couleur
+  // afficherait « symbol » sur fond gris de repli.
+  symbol: { color: '#64748b', label: ['Symbole', 'Symboles'], glyph: 'dot' },
 } satisfies Record<string, MarkerTypeSpec>
 
 const REGISTRY: Record<string, MarkerTypeSpec> = MARKER_TYPES

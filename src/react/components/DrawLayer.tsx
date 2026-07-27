@@ -1,4 +1,15 @@
-import { type ReactNode, type RefObject, useCallback, useContext, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import { boundsOfLatLngs, centerOfBounds } from '../../core/bounds'
 import type { MapEngine } from '../../core/MapEngine'
 import { type Hit, NO_MATCH, normalizeSearch, proximityRank, rankHits, scoreMatch } from '../../search/match'
@@ -30,7 +41,7 @@ import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/mi
 import type { Bounds, LatLng } from '../../shared'
 import { useMapDropZone } from '../hooks/useMapDropZone'
 import { SYMBOL_DRAG_TYPE } from './SymbolPaletteButton'
-import { SymbolMarkers } from './SymbolMarkers'
+import { SymbolMarkers, type SymbolMarkersProps } from './SymbolMarkers'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
 import { useMergedByContent } from '../hooks/useMergedByContent'
@@ -91,12 +102,18 @@ export type DrawLayerProps = {
    * Les textes (bouton, catégories, affiliations) ne passent PAS par ici : ils sont
    * dans `labels.symbols` et se traduisent via `<MapProvider labels>`.
    */
-  symbols?: { enabled?: boolean; catalog?: SymbolCatalog; renderer?: SymbolRenderer }
+  symbols?: {
+    enabled?: boolean
+    catalog?: SymbolCatalog
+    renderer?: SymbolRenderer
+    /** Regroupement des symboles entre eux — cf. `SymbolMarkersProps.cluster`. */
+    cluster?: SymbolMarkersProps['cluster']
+    /** Zoom en deçà duquel les symboles posés disparaissent — cf. `SymbolMarkersProps.minZoom`. */
+    minZoom?: number
+  }
   /** Monté dans le contexte de dessin — y placer barre et panneaux. */
   children?: ReactNode
 }
-
-
 
 /**
  * Une surface concurrente (loupe, palette de symboles) prend la main : l'outil de
@@ -222,20 +239,13 @@ export function DrawLayer(props: DrawLayerProps) {
   useEffect(() => settings.onChange(bump), [settings])
 
   useEffect(() => {
-    const core = new CoreDrawLayer(
-      engine.annotations,
-      engine.projection,
-      overlay,
-      base,
-      4,
-      (fc) => {
-        lastEmittedRef.current = fc
-        onChangeRef.current?.(fc)
-        // Registre du panneau « Couches » : à chaque ajout/suppression de dessin.
-        engine.tags.report(tagSource, core.tagCounts())
-        bump()
-      },
-    )
+    const core = new CoreDrawLayer(engine.annotations, engine.projection, overlay, base, 4, (fc) => {
+      lastEmittedRef.current = fc
+      onChangeRef.current?.(fc)
+      // Registre du panneau « Couches » : à chaque ajout/suppression de dessin.
+      engine.tags.report(tagSource, core.tagCounts())
+      bump()
+    })
     core.onSelectionChange = (ids, markerIds) => {
       setSelection(ids)
       setMarkerSelection(markerIds)
@@ -611,106 +621,127 @@ export function DrawLayer(props: DrawLayerProps) {
 
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
   // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
-  const api: DrawingApi = useMemo(() => ({
-    tool,
-    setTool,
-    selectMode,
-    setSelectMode,
-    selection,
-    markerSelection,
-    selectionDetails,
-    select: (ids) => coreRef.current?.select(ids),
-    deselectMarkers: (ids) => coreRef.current?.deselectExternal(ids),
-    clearSelection: () => coreRef.current?.clearSelection(),
-    deleteSelection: () => coreRef.current?.deleteSelected(),
-    selectAll: () => {
-      coreRef.current?.selectAll()
-      setTool('select')
-    },
-    duplicateSelection: () => coreRef.current?.duplicateSelected(),
-    setStyle: (patch) => {
-      const core = coreRef.current
-      if (!core) return
-      if (core.getSelection().length > 0) {
-        core.setStyleForSelection(patch)
-      } else if (tool && tool !== 'select' && tool !== 'erase') {
-        // Pas de sélection : le style devient le réglage persisté de l'outil actif.
-        settings.set(tool, patch)
-      }
-    },
-    currentStyle: (() => {
-      const sel = coreRef.current?.styleOfSelection()
-      if (sel) return sel
-      const t = tool && tool !== 'select' && tool !== 'erase' ? tool : 'line'
-      const d = settings.get(t)
-      return {
-        color: d.color,
-        fillColor: d.fillColor,
-        width: d.width,
-        fillOpacity: d.fillOpacity,
-        strokeOpacity: d.strokeOpacity ?? 0.95,
-        stroke: d.stroke,
-        radius: d.radius ?? 0,
-      }
-    })(),
-    selectionHasRect: coreRef.current?.selectionHas('rect') ?? false,
-    settings,
-    lock: (ids) => coreRef.current?.setLocked(ids, true),
-    unlock: (ids) => coreRef.current?.setLocked(ids, false),
-    undo: () => coreRef.current?.undo(),
-    redo: () => coreRef.current?.redo(),
-    canUndo: coreRef.current?.canUndo ?? false,
-    canRedo: coreRef.current?.canRedo ?? false,
-    clear: () => coreRef.current?.clear(),
-    toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
-    fromGeoJSON: (fc) => coreRef.current?.fromGeoJSON(fc),
-    getShapes: () => coreRef.current?.getShapes() ?? [],
-    getShape: (id) => coreRef.current?.getShape(id) ?? null,
-    getLastShape: () => coreRef.current?.getLastShape() ?? null,
-    addShape: (shape, opts) => coreRef.current?.addShape(shape, opts),
-    updateShape: (id, patch, opts) => coreRef.current?.updateShape(id, patch, opts) ?? false,
-    removeShape: (id, opts) => coreRef.current?.removeShape(id, opts) ?? false,
-    replaceShapes: (shapes, opts) => coreRef.current?.replaceShapes(shapes, opts),
-    // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips.
-    shortcuts: { ...drawKeys, ...props.shortcuts },
-    tools: allowed,
-    symbols: {
-      enabled: symbolsEnabled,
-      catalog: symbolCatalog,
-      // `null` tant que le renderer n'est pas acquis ou pas prêt : c'est le contrat
-      // de `SymbolRenderer.render`, et l'appelant affiche déjà un placeholder.
-      render: (key, opts) => renderer?.render(key, { variant: affiliation, ...opts }) ?? null,
-      // Reflète le renderer EFFECTIF. Le forcer à `true` sur la simple présence d'un
-      // renderer fourni mentirait : le sien peut encore être en cours de chargement.
-      ready: symbolsReady,
-      affiliation,
-      setAffiliation,
-      paletteOpen,
-      setPaletteOpen,
-      place: (key, at, variant) =>
-        symbolsEnabled ? (coreRef.current?.placeSymbol(key, at, variant ?? affiliation) ?? null) : null,
-    },
+  const api: DrawingApi = useMemo(
+    () => ({
+      tool,
+      setTool,
+      selectMode,
+      setSelectMode,
+      selection,
+      markerSelection,
+      selectionDetails,
+      select: (ids) => coreRef.current?.select(ids),
+      deselectMarkers: (ids) => coreRef.current?.deselectExternal(ids),
+      clearSelection: () => coreRef.current?.clearSelection(),
+      deleteSelection: () => coreRef.current?.deleteSelected(),
+      selectAll: () => {
+        coreRef.current?.selectAll()
+        setTool('select')
+      },
+      duplicateSelection: () => coreRef.current?.duplicateSelected(),
+      setStyle: (patch) => {
+        const core = coreRef.current
+        if (!core) return
+        if (core.getSelection().length > 0) {
+          core.setStyleForSelection(patch)
+        } else if (tool && tool !== 'select' && tool !== 'erase') {
+          // Pas de sélection : le style devient le réglage persisté de l'outil actif.
+          settings.set(tool, patch)
+        }
+      },
+      currentStyle: (() => {
+        const sel = coreRef.current?.styleOfSelection()
+        if (sel) return sel
+        const t = tool && tool !== 'select' && tool !== 'erase' ? tool : 'line'
+        const d = settings.get(t)
+        return {
+          color: d.color,
+          fillColor: d.fillColor,
+          width: d.width,
+          fillOpacity: d.fillOpacity,
+          strokeOpacity: d.strokeOpacity ?? 0.95,
+          stroke: d.stroke,
+          radius: d.radius ?? 0,
+        }
+      })(),
+      selectionHasRect: coreRef.current?.selectionHas('rect') ?? false,
+      settings,
+      lock: (ids) => coreRef.current?.setLocked(ids, true),
+      unlock: (ids) => coreRef.current?.setLocked(ids, false),
+      undo: () => coreRef.current?.undo(),
+      redo: () => coreRef.current?.redo(),
+      canUndo: coreRef.current?.canUndo ?? false,
+      canRedo: coreRef.current?.canRedo ?? false,
+      clear: () => coreRef.current?.clear(),
+      toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
+      fromGeoJSON: (fc) => coreRef.current?.fromGeoJSON(fc),
+      getShapes: () => coreRef.current?.getShapes() ?? [],
+      getShape: (id) => coreRef.current?.getShape(id) ?? null,
+      getLastShape: () => coreRef.current?.getLastShape() ?? null,
+      addShape: (shape, opts) => coreRef.current?.addShape(shape, opts),
+      updateShape: (id, patch, opts) => coreRef.current?.updateShape(id, patch, opts) ?? false,
+      removeShape: (id, opts) => coreRef.current?.removeShape(id, opts) ?? false,
+      replaceShapes: (shapes, opts) => coreRef.current?.replaceShapes(shapes, opts),
+      // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips.
+      shortcuts: { ...drawKeys, ...props.shortcuts },
+      tools: allowed,
+      symbols: {
+        enabled: symbolsEnabled,
+        catalog: symbolCatalog,
+        // `null` tant que le renderer n'est pas acquis ou pas prêt : c'est le contrat
+        // de `SymbolRenderer.render`, et l'appelant affiche déjà un placeholder.
+        render: (key, opts) => renderer?.render(key, { variant: affiliation, ...opts }) ?? null,
+        // Reflète le renderer EFFECTIF. Le forcer à `true` sur la simple présence d'un
+        // renderer fourni mentirait : le sien peut encore être en cours de chargement.
+        ready: symbolsReady,
+        affiliation,
+        setAffiliation,
+        paletteOpen,
+        setPaletteOpen,
+        place: (key, at, variant) =>
+          symbolsEnabled ? (coreRef.current?.placeSymbol(key, at, variant ?? affiliation) ?? null) : null,
+      },
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tool, selectMode, selection, selectionDetails, markerSelection, rev, settings, setTool, props.shortcuts, affiliation, symbolsReady, symbolsEnabled, symbolCatalog, renderer, paletteOpen])
+    [
+      tool,
+      selectMode,
+      selection,
+      selectionDetails,
+      markerSelection,
+      rev,
+      settings,
+      setTool,
+      props.shortcuts,
+      affiliation,
+      symbolsReady,
+      symbolsEnabled,
+      symbolCatalog,
+      renderer,
+      paletteOpen,
+    ],
+  )
 
   return (
     <DrawingContext.Provider value={api}>
       <DrawPresetsContext.Provider value={presets}>
-      {/* Rendu des symboles posés : montée par la couche elle-même, donc rien à
+        {/* Rendu des symboles posés : montée par la couche elle-même, donc rien à
           câbler côté application. Leur état reste dans la collection de dessin.
           Monté seulement quand il y a des symboles ET un renderer — c'est ce qui
           garde la symbologie hors du chargement initial d'une carte qui n'en
           affiche pas. */}
-      {renderer && symbolShapes.length > 0 && (
-        <SymbolMarkers
-          shapes={symbolShapes}
-          catalog={symbolCatalog}
-          renderer={renderer}
-          ready={symbolsReady}
-          onMove={moveSymbol}
-        />
-      )}
-      {props.children}
+        {renderer && symbolShapes.length > 0 && (
+          <SymbolMarkers
+            shapes={symbolShapes}
+            catalog={symbolCatalog}
+            renderer={renderer}
+            ready={symbolsReady}
+            cluster={props.symbols?.cluster}
+            minZoom={props.symbols?.minZoom}
+            onMove={moveSymbol}
+          />
+        )}
+        {props.children}
       </DrawPresetsContext.Provider>
     </DrawingContext.Provider>
   )

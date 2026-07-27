@@ -25,7 +25,7 @@ export type FrameContext = {
  * Couche de rendu. `update` avance l'état 3D (géométrie), `project` écrit les
  * overlays DOM (passe d'écriture pure, après toutes les lectures).
  */
-export interface Layer {
+export type Layer = {
   update(ctx: FrameContext): void
   project(ctx: FrameContext): void
   dispose(): void

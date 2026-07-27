@@ -1,5 +1,9 @@
 node_modules
 dist
+
+# Un seul gestionnaire : pnpm (pnpm-lock.yaml). Empêche la régénération d'un
+# lockfile npm concurrent qui rendrait les installs non reproductibles.
+package-lock.json
 examples/react/dist
 *.tsbuildinfo
 .DS_Store

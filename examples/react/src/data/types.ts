@@ -27,8 +27,23 @@ export type Agent = {
   position: LatLng
 }
 
-/** Alertes et agents vivent dans un SEUL layer : leur donnée est cette union. */
-export type AnyData = Alert | Agent
+/**
+ * Défibrillateur : DÉCOR de la carte. Il ne bouge pas, ne demande rien, et sert de
+ * repère une fois qu'on est sur zone — c'est ce que dit `static: true` sur son
+ * marker (cf. `data/defibs.ts`).
+ */
+export type Defib = {
+  id: string
+  /** Même champ que `Alert.title` : `markerLabel` les lit tous les deux ainsi. */
+  title: string
+  address: string
+  /** Accès public, ou intérieur d'un bâtiment aux heures d'ouverture. */
+  access: 'public' | 'intérieur'
+  city: CityId
+}
+
+/** Alertes, agents et décor vivent dans un SEUL layer : leur donnée est cette union. */
+export type AnyData = Alert | Agent | Defib
 
 /**
  * Discrimination par la DONNÉE, pas par le nom du type : `type.startsWith('agent')`
@@ -38,3 +53,7 @@ export type AnyData = Alert | Agent
  */
 export const isAgentMarker = (m: MarkerData<unknown>): m is MarkerData<Agent> =>
   typeof m.data === 'object' && m.data !== null && 'status' in m.data
+
+/** Même principe pour le décor — discriminé par `access`, propre au défibrillateur. */
+export const isDefibMarker = (m: MarkerData<unknown>): m is MarkerData<Defib> =>
+  typeof m.data === 'object' && m.data !== null && 'access' in m.data

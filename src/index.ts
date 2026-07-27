@@ -77,7 +77,7 @@ export * as MapMath from './core/math'
 export { setGeometryWarner } from './core/geometry'
 
 // ── Data (viewport-driven / temps réel) ──
-export type { Viewport, DataSource, MarkerData } from './data/types'
+export type { Viewport, DataSource, MarkerData, StaticMarker } from './data/types'
 export { ViewportController } from './data/ViewportController'
 export { diffById } from './data/diff'
 export type { DiffResult } from './data/diff'
@@ -119,13 +119,7 @@ export {
   milSymSidc,
 } from './symbols/providers/milSym'
 export type { MilSymAffiliation, MilSymEntry, MilSymRendererOptions } from './symbols/providers/milSym'
-export type {
-  SymbolCatalog,
-  SymbolEntry,
-  SymbolRenderer,
-  SymbolRenderOptions,
-  RenderedSymbol,
-} from './symbols/types'
+export type { SymbolCatalog, SymbolEntry, SymbolRenderer, SymbolRenderOptions, RenderedSymbol } from './symbols/types'
 export { DrawSettings } from './layers/draw/DrawSettings'
 export type { ToolSettings } from './layers/draw/DrawSettings'
 
@@ -154,6 +148,7 @@ export type {
   GroundSampleConfig,
   InteractionConfig,
   MapConfig,
+  MarkersConfig,
   PartialConfig,
   PerformanceConfig,
   PlacesConfig,
@@ -216,6 +211,12 @@ export { useMap, useTheme, useLabels, useConfig } from './react/context'
 export type { DrawingApi, DrawAction, LensApi } from './react/context'
 export { useCamera } from './react/hooks/useCamera'
 export { useViewport } from './react/hooks/useViewport'
+/** Gate de zoom booléen — ce qui masque les markers `static` sous un seuil. */
+export { useZoomGate } from './react/hooks/useZoomGate'
+/** Surface de regroupement commune — montée par `<Map cluster>`. */
+export { ClusterSurface } from './react/components/ClusterSurface'
+export type { ClusterChrome, ClusterSurfaceProps } from './react/components/ClusterSurface'
+export type { ClusterContributor, ClusterPlacement, ClusterPoint } from './core/ClusterRegistry'
 export { useLiveData } from './react/hooks/useLiveData'
 export { useDrawing } from './react/hooks/useDrawing'
 export { useLens } from './react/hooks/useLens'

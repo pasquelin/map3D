@@ -196,15 +196,39 @@ having to inventory them.
 
 ```ts
 type MarkerProvider = {
-  markersInBounds(bounds: Bounds): MarkerData[]
-  markerById(id): MarkerData | null
+  markersInBounds?(bounds: Bounds): MarkerData[]
+  markerById?(id): MarkerData | null
   visualNodeOf?(id): VisualNode | null   // the cluster aggregating this marker, or itself
 }
 ```
 
+All three methods are **optional**: a provider only declares what it knows.
+`<ClusterSurface>` knows no source data but is the only one that knows which chip
+aggregates what, so it declares `visualNodeOf` alone.
+
 `visualNodeOf` answers from the **already computed** clustering state: querying triggers
 no recomputation and never changes the zoom. That is what lets relation links target a
 cluster without bursting it.
+
+### `ClusterRegistry` (`engine.clusters`)
+
+```ts
+type ClusterContributor = {
+  key: string                              // STABLE key of the layer (`useId()`)
+  points(): readonly MarkerData[]          // what the layer would display
+  idOf(m: MarkerData): string | number     // its key, as the layer sees it
+  place(placement: ClusterPlacement): void // what it must place, and where
+}
+```
+
+The contract is two gestures: the layer **gives** its points, and **places** what the
+surface hands back (`absorbed`: aggregated into a chip, not to be placed; `moved`:
+detached by the fan-out). It knows neither the other layers nor the chips.
+
+`key` prefixes the registry's uids: two layers may carry the same business id, and a rank
+assigned at registration would change on every remount — hence every uid, the index's leaf
+cache and the chips' DOM keys. `place` is called only when THIS layer's placement actually
+changed.
 
 ### `SelectableRegistry` (`engine.selectables`)
 

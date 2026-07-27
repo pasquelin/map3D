@@ -15,9 +15,15 @@ export function boundsContains(b: Bounds, p: LatLng): boolean {
 /**
  * Fournisseur d'inventaire de markers : répond « quels markers (données sources,
  * clusters inclus) sont dans ce cadre géo ». Rempli par la couche marker.
+ *
+ * Les trois méthodes sont FACULTATIVES : un fournisseur ne déclare que ce qu'il sait.
+ * La surface de regroupement, par exemple, ne connaît aucune donnée source mais est
+ * seule à savoir quelle pastille agrège quoi (`visualNodeOf`) — l'obliger à déclarer
+ * un inventaire vide n'apprenait rien à personne et faisait traverser un fournisseur
+ * creux à chaque requête de la loupe.
  */
 export type MarkerProvider = {
-  markersInBounds(bounds: Bounds): MarkerData[]
+  markersInBounds?(bounds: Bounds): MarkerData[]
   /**
    * Résout la donnée complète d'un marker par id (position, avatar, data…), ou null.
    *
@@ -26,7 +32,7 @@ export type MarkerProvider = {
    * dessus pour ré-associer un marker à l'id qui l'a produit (`SelectionBadges`),
    * l'id du registre pouvant être un `getId` custom et non `m.id`.
    */
-  markerById(id: string | number): MarkerData | null
+  markerById?(id: string | number): MarkerData | null
   /**
    * Nœud VISUEL portant ce marker : lui-même s'il est isolé, ou le cluster qui
    * l'agrège. Optionnel — une couche sans clustering n'a rien à déclarer, et ses
@@ -60,14 +66,17 @@ export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
   /** Tous les markers d'un cadre géo (concat des fournisseurs). */
   markersInBounds(bounds: Bounds): MarkerData[] {
     const out: MarkerData[] = []
-    for (const p of this.providers) out.push(...p.markersInBounds(bounds))
+    for (const p of this.providers) {
+      const found = p.markersInBounds?.(bounds)
+      if (found) out.push(...found)
+    }
     return out
   }
 
   /** Donnée complète d'un marker par id (1er fournisseur qui le connaît), ou null. */
   markerById(id: string | number): MarkerData | null {
     for (const p of this.providers) {
-      const m = p.markerById(id)
+      const m = p.markerById?.(id)
       if (m) return m
     }
     return null

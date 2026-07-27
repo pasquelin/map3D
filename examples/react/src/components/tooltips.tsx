@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { typeColor } from '../config/colors'
 import { STATUS_LABEL, clusterTypeLabel, markerLabel } from '../config/labels'
 import { CONTROL_POINT_ID } from '../data/alerts'
-import { type Agent, type Alert, type AnyData, isAgentMarker } from '../data/types'
+import { type Agent, type Alert, type AnyData, isAgentMarker, isDefibMarker } from '../data/types'
 
 /** Ce qu'attend `tooltip` / `clusterTooltip` : titre et contenu, tous deux optionnels. */
 type TipContent = { title?: ReactNode; content?: ReactNode }
@@ -76,6 +76,21 @@ export const markerTip = (m: MarkerData<AnyData>): TipContent | null => {
     }
   }
 
+  // Décor : ce qu'on veut savoir d'un défibrillateur tient en deux lignes — où il
+  // est, et s'il est accessible sans passer une porte.
+  if (isDefibMarker(m)) {
+    const d = m.data
+    return {
+      title: d.title,
+      content: (
+        <>
+          <TipRow color={color}>{d.access === 'public' ? 'Accès libre' : 'À l’intérieur'}</TipRow>
+          <TipRow>{d.address}</TipRow>
+        </>
+      ),
+    }
+  }
+
   const al = m.data as Alert
   // Sévérité basse : titre + adresse. Sinon on ajoute sévérité, urgence et état.
   if (al.severity === 'low') return { title: al.title, content: <TipRow>{al.address}</TipRow> }
@@ -92,8 +107,15 @@ export const markerTip = (m: MarkerData<AnyData>): TipContent | null => {
   }
 }
 
-/** Infobulle de CLUSTER : liste le contenu réel (feuilles fournies par la lib). */
-export const clusterTip = (c: ClusterInfo, members: MarkerData<AnyData>[], segmentType?: string): TipContent => {
+/**
+ * Infobulle de CLUSTER : liste le contenu réel (feuilles fournies par la lib).
+ *
+ * `members` est en `MarkerData` NU, sans donnée typée : une pastille agrège ce qui se
+ * superpose à l'écran, donc potentiellement des markers de plusieurs couches — ici les
+ * alertes/agents de l'app ET les symboles posés dans la couche de dessin. Rien ne
+ * garantit un `data` commun ; on ne lit donc que ce que porte tout marker.
+ */
+export const clusterTip = (c: ClusterInfo, members: MarkerData[], segmentType?: string): TipContent => {
   const n = segmentType ? (c.counts[segmentType] ?? members.length) : c.total
   const label = segmentType ? clusterTypeLabel(segmentType, n) : n > 1 ? 'éléments' : 'élément'
   return {

@@ -231,6 +231,8 @@ export const defaultConfig: MapConfig = {
   // Valeurs reprises à l'identique.
   clustering: { radius: 60, minPoints: 2, maxZoom: 18, levelQuantization: 1, spiderfyZoom: 19 },
 
+  markers: { staticMinZoom: 13 },
+
   data: {
     viewportDebounceMs: 500,
     positionSaveDebounceMs: 400,

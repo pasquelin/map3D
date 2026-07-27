@@ -42,6 +42,7 @@ import { SearchBox } from './components/SearchBox'
 import { SelectionBadges, type SelectionBadgesProps } from './components/SelectionBadges'
 import { ShapeLayer } from './components/ShapeLayer'
 import { Toolbar, type DrawToolbarProps } from './components/Toolbar'
+import { ClusterSurface } from './components/ClusterSurface'
 import type { LayerSpec, MapSurfaces as Surfaces, MarkersSpec, RelationsConfig } from './mapConfig'
 
 /** Clé React d'une couche : son `id` si fourni, son rang sinon. */
@@ -195,13 +196,7 @@ function Layers({
  * Panneau de sélection, avec le menu commun lié aux relations. Même raison d'être
  * que `LensHost` : le liage réclame un hook, donc un composant sous le provider.
  */
-function SelectionBadgesHost({
-  config,
-  markerMenu,
-}: {
-  config: SelectionBadgesProps
-  markerMenu?: MarkerMenu
-}) {
+function SelectionBadgesHost({ config, markerMenu }: { config: SelectionBadgesProps; markerMenu?: MarkerMenu }) {
   const bound = useMenuWithRelations(markerMenu)
   return <SelectionBadges {...config} markerMenu={config.markerMenu ?? (bound as SelectionBadgesProps['markerMenu'])} />
 }
@@ -242,6 +237,7 @@ export function MapSurfaces<T, TPin>({
   dock,
   draw,
   layers,
+  cluster,
   markerMenu,
   children,
   apis,
@@ -269,6 +265,9 @@ export function MapSurfaces<T, TPin>({
   return (
     <>
       {drawEnabled ? <DrawLayer {...drawProps}>{inner}</DrawLayer> : inner}
+      {/* APRÈS les couches : elles se sont inscrites au registre, la surface n'a plus
+          qu'à regrouper. Elle rend les pastilles ; chaque couche rend ses markers. */}
+      {cluster !== false && <ClusterSurface {...(cluster ?? {})} />}
       {controls !== false && <MapControls {...(controls ?? {})} />}
       {search ? <SearchBox {...(search === true ? {} : search)} /> : null}
       {dock && <PinnedDock<TPin> {...dock} />}

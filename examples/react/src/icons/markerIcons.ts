@@ -26,6 +26,10 @@ const GLYPHS: Record<Glyph, string> = {
   dot: '<circle cx="40" cy="40" r="7.5" fill="#ffffff"/>',
   warning: text('!'),
   info: text('i'),
+  // Cœur barré d'un éclair : le pictogramme d'un défibrillateur, pas un « j'aime ».
+  heart:
+    '<path d="M40 54c-8-5.4-13-10.8-13-16.8 0-4.4 3.2-7.6 7.2-7.6 2.8 0 5 1.5 5.8 3.6.8-2.1 3-3.6 5.8-3.6 4 0 7.2 3.2 7.2 7.6 0 6-5 11.4-13 16.8z" fill="#ffffff"/>' +
+    '<path d="M41.4 34.5l-5.2 6.6h3.6l-1.4 5.4 5.4-6.9h-3.6z" fill="#0d9488"/>',
 }
 
 /**
