@@ -48,12 +48,21 @@ export const defaultLabels: MapLabels = {
     },
   },
   search: {
-    placeholder: 'Rechercher un lieu…',
+    placeholder: 'Rechercher sur la carte…',
     inputLabel: 'Recherche',
     noResults: 'Aucun résultat',
+    noResultsInGroup: 'Aucun résultat dans « {group} »',
     historyTitle: 'Recherches récentes',
     clearHistory: 'Effacer l’historique',
     clearInput: 'Effacer la recherche',
+    scopeAll: 'Tout',
+    scopeLabel: 'Restreindre la recherche',
+    groups: {
+      shape: 'Zones',
+      draw: 'Dessins',
+      symbol: 'Symboles',
+      place: 'Lieux',
+    },
   },
   toolbar: {
     navigate: 'Naviguer',

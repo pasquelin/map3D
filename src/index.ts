@@ -223,8 +223,10 @@ export type {
 } from './react/components/MapControls'
 export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
-export { Toolbar } from './react/components/Toolbar'
-export type { DrawToolbarProps, DrawToolbarSection } from './react/components/Toolbar'
+export { Toolbar, useToolbar } from './react/components/Toolbar'
+export type { DrawToolbarProps, DrawToolbarSection, ToolbarApi } from './react/components/Toolbar'
+/** Referme la surface d'un outil quand la barre qui le porte se replie (cf. `useToolbarRetracted`). */
+export { useCloseWhenHidden } from './react/components/useDismiss'
 /** Bouton de barre (icône + état + tooltip) — pour peupler `extraTools` / `components`
  *  avec le même langage visuel que les boutons natifs. */
 export { ToolButton } from './react/components/ToolButton'
@@ -252,6 +254,20 @@ export { SearchBox } from './react/components/SearchBox'
 export type { SearchBoxProps } from './react/components/SearchBox'
 export { createGooglePlacesSearch } from './search/googlePlaces'
 export type { GooglePlacesOptions } from './search/googlePlaces'
+/** Repère visuel d'une ligne de liste (photo > icône > pastille), partagé loupe/sélection/recherche. */
+export { Swatch } from './react/components/Swatch'
+export type { SwatchProps } from './react/components/Swatch'
+
+// ── Recherche : registre alimenté par les couches, consommé par `<SearchBox>` ──
+// À n'utiliser QUE pour brancher une source qui n'est pas une couche de la carte
+// (un annuaire métier, un référentiel distant) : markers, formes, dessins et
+// symboles s'y inscrivent déjà tout seuls.
+export { SearchRegistry, markerGroupId, SHAPE_GROUP, DRAW_GROUP, PLACE_GROUP } from './search/registry'
+export type { SearchEntry, SearchGroup, SearchProvider, SearchQueryOptions, SearchQueryResult } from './search/types'
+export { normalizeSearch, scoreMatch, proximityRank, rankHits, NO_MATCH } from './search/match'
+export type { Hit } from './search/match'
+/** SVG (markup) → data-URI, idempotent — utile dès qu'une icône sort de la carte. */
+export { svgToDataUri } from './react/components/MarkerLayer'
 /** Bouton « supprimer » partagé (socle de relation, dock, indice de drag). */
 export { RemoveButton } from './react/components/RemoveButton'
 export type { RemoveButtonProps } from './react/components/RemoveButton'

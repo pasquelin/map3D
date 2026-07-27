@@ -11,6 +11,7 @@ import { altitudeForZoom, clamp, DEG2RAD, EARTH_CIRCUMFERENCE, zoomForAltitude }
 import { DragRegistry } from './DragRegistry'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
+import { SearchRegistry } from '../search/registry'
 import { MarkerRegistry } from './MarkerQuery'
 import { TagFilter } from './TagFilter'
 
@@ -152,6 +153,8 @@ export class MapEngine {
   readonly selectables = new SelectableRegistry()
   /** Registre d'inventaire des markers (données sources, clusters inclus) consommé par l'outil loupe. */
   readonly markers = new MarkerRegistry()
+  /** Registre des sources cherchables (markers, formes, dessins) consommé par la boîte de recherche. */
+  readonly search = new SearchRegistry()
   /**
    * Registre du drag-and-drop générique (markers → dock favoris, et tout futur
    * usage) : source de vérité de l'état, zones de dépôt, diffusion. Piloté par la

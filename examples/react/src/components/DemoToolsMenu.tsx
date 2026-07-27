@@ -9,7 +9,7 @@ import {
   mdiMapMarkerRadiusOutline,
 } from '@mdi/js'
 import Icon from '@mdi/react'
-import { ContextMenu, type InteractiveMode, type MapHandle, type MenuItem, ToolButton, altitudeForZoom, boundsOfMarkers, boundsOfShapes } from 'map3d'
+import { ContextMenu, type InteractiveMode, type MapHandle, type MenuItem, ToolButton, altitudeForZoom, boundsOfMarkers, boundsOfShapes, useCloseWhenHidden, useToolbar } from 'map3d'
 import { type RefObject, useState } from 'react'
 
 import { ALERTS } from '../data/alerts'
@@ -36,6 +36,11 @@ type DemoToolsMenuProps = {
  */
 export function DemoToolsMenu({ map, interactive, onCycleInteractive, volumeHeight, onVolumeHeight }: DemoToolsMenuProps) {
   const [open, setOpen] = useState(false)
+  // Branché comme les outils natifs, dans les deux sens : ce menu se referme quand la
+  // barre se replie (dézoom) OU qu'un outil natif prend la main, et il éteint les
+  // autres en s'ouvrant. Sans ça, son bouton restait allumé à côté de la loupe.
+  const bar = useToolbar()
+  useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
 
   // Construites À L'OUVERTURE : le composant est re-rendu au rythme du flux temps
   // réel, et ces entrées (8 objets, autant d'icônes React) n'existent que le temps
@@ -103,7 +108,15 @@ export function DemoToolsMenu({ map, interactive, onCycleInteractive, volumeHeig
 
   return (
     <div style={{ position: 'relative' }}>
-      <ToolButton icon={mdiBugOutline} label="Banc de test (cadrage, interactivité, volumes)" active={open} onClick={() => setOpen((v) => !v)} />
+      <ToolButton
+        icon={mdiBugOutline}
+        label="Banc de test (cadrage, interactivité, volumes)"
+        active={open}
+        onClick={() => {
+          if (!open) bar.claim()
+          setOpen(!open)
+        }}
+      />
       {open && (
         <ContextMenu
           items={buildItems()}

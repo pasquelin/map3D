@@ -50,3 +50,18 @@ export function useDismiss(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, wheel, captureEscape])
 }
+
+/**
+ * Referme une surface quand la barre qui la porte se replie (hors zoom, vue quittée).
+ *
+ * Un flyout laissé ouvert glisse hors écran avec sa barre — invisible mais toujours
+ * ouvert — puis réapparaît déplié au retour, sur un état que l'utilisateur avait
+ * quitté depuis longtemps. Il ne s'agit donc pas d'un « dismiss » de plus : c'est la
+ * barre qui relâche ce qu'elle possède, comme elle relâche l'outil actif.
+ */
+export function useCloseWhenHidden(hidden: boolean | undefined, close: (open: false) => void): void {
+  useEffect(() => {
+    if (hidden) close(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden])
+}

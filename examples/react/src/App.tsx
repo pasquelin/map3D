@@ -1,4 +1,4 @@
-import { type InteractiveMode, Map, type MapHandle, type MarkerData, createGoogleRoutesProvider, markersLayer, shapesLayer } from 'map3d'
+import { type InteractiveMode, Map, type MapHandle, type MarkerData, createGoogleRoutesProvider, markerGroupId, markersLayer, shapesLayer } from 'map3d'
 import { useMemo, useRef, useState } from 'react'
 
 import { DemoToolsMenu } from './components/DemoToolsMenu'
@@ -110,9 +110,15 @@ export function App() {
           position: 'right',
           target: { position: TEST_POINT, label: 'Revenir au point de contrôle', onlyWhenOutOfView: true },
         }}
-        // `search` seul = Google Places via la clé de `googleMapsApiKey`. Un objet
-        // permettrait d'injecter un autre fournisseur.
-        search
+        // Recherche UNIFIÉE. Les rubriques carte (alertes, agents, zones, dessins,
+        // symboles) ne se déclarent pas : les couches s'inscrivent d'elles-mêmes dès
+        // qu'un élément porte un `title`. Ne restent ici que les réglages de la boîte
+        // — le géocodeur (Google Places par défaut, via `googleMapsApiKey`) et
+        // l'ordre des rubriques carte. « Lieux » ouvre toujours la liste.
+        search={{
+          groupOrder: ['agent-available', 'agent-enroute', 'agent-onsite'].map(markerGroupId),
+          onSelect: (entry) => console.log('[search] choisi', entry.group, entry.id, entry.title),
+        }}
         // Favoris : long-press sur un marker → glisser dans la barre du bas. Clic sur
         // une pastille = vol caméra + sélection. × ou glisser-hors = retrait.
         // SANS cette prop, plus aucune zone n'accepte un marker : les markers cessent
@@ -153,7 +159,13 @@ export function App() {
           onShapeAdd: (s) => {
             console.log('[draw] + forme', s.id, s.kind, s.points.length, 'pts')
             const uuid = `zone-${s.id}`
-            map.current?.drawing?.updateShape(s.id, { meta: { uuid, title: `Zone ${s.kind}` } }, { silent: true })
+            // `title` est un champ de la forme (pas de `meta`) : c'est lui qui la
+            // rend cherchable sous la rubrique « Dessins », dès qu'elle est tracée.
+            map.current?.drawing?.updateShape(
+              s.id,
+              { title: `Zone ${s.kind} ${s.id}`, meta: { uuid } },
+              { silent: true },
+            )
             console.log('[draw]   uuid rattaché :', map.current?.drawing?.getShape(s.id)?.meta)
           },
           onShapeUpdate: (s) => console.log('[draw] ~ forme', s.id, s.meta),
@@ -220,7 +232,13 @@ export function App() {
               onReposition(latLng)
             },
             clusterTypeIcon: clusterTypeIcon,
-            clusterTypeLabel: clusterTypeLabel,
+            // Nomme un type UNE fois : rubriques de la recherche, satellites de
+            // cluster, vignettes de sélection. `clusterTypeLabel` n'est plus à
+            // fournir séparément — il retombe dessus.
+            typeLabel: clusterTypeLabel,
+            // `tooltip` reste ici parce que ces infobulles sont RICHES (avatar,
+            // badges, statut). Un marker qui se contente d'un titre n'a besoin de
+            // rien : `MarkerData.title` suffit à le rendre survolable ET cherchable.
             tooltip: markerTip,
             clusterTooltip: clusterTip,
           }),

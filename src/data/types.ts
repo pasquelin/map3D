@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { boundsOfLatLngs } from '../core/bounds'
 import type { Bounds, LatLng } from '../shared'
 
@@ -31,6 +32,20 @@ export type MarkerData<T = unknown> = {
   position: LatLng
   /** Type/catégorie → couleur via `theme.colors.marker[type]`. */
   type: string
+  /**
+   * Nom lisible de l'élément. Point de vérité UNIQUE : titre de l'infobulle, des
+   * lignes de liste (loupe, panneau de sélection, dock) et **texte indexé par la
+   * recherche**. Absent, ces surfaces retombent sur l'id — lisible pour personne.
+   *
+   * Volontairement `string` et non `ReactNode` : un nom doit pouvoir être comparé,
+   * trié et cherché, ce qu'un arbre React ne permet pas. Pour un titre mis en forme,
+   * `titleColor` couvre le cas courant et `MarkerLayer.tooltip` reste la surcharge.
+   */
+  title?: string
+  /** Teinte du titre (alerte critique, statut d'agent) — sans quoi il faudrait du JSX. */
+  titleColor?: string
+  /** Corps de l'infobulle : tout ReactNode (badges, avatar, mini-tableau). */
+  content?: ReactNode
   /** Tags de filtrage (panneau « Couches »), ex. `['user', 'move']`. */
   tags?: string[]
   /**

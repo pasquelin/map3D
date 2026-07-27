@@ -6,7 +6,7 @@ import {
   mdiUndo,
 } from '@mdi/js'
 import Icon from '@mdi/react'
-import { type ReactNode, useContext, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import { zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
@@ -17,6 +17,7 @@ import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
 import { useAnchoredPanel, useFitColumns } from './panelFit'
+import { useCloseWhenHidden } from './useDismiss'
 import { modKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
 import { SymbolPaletteButton } from './SymbolPaletteButton'
@@ -56,6 +57,47 @@ export type DrawToolbarProps = {
 
 /** Id du `<Tooltip>` partagé de la barre — réutilisable par les outils externes. */
 export const TIP_ID = 'm3d-draw-tip'
+
+/**
+ * Ce qu'un outil doit savoir de la barre qui le porte. Consommé par les outils natifs
+ * ET par ceux que l'application pose dans `extraTools` / `components` : sans ça, un
+ * outil applicatif ne peut ni se refermer quand la barre se replie, ni participer à
+ * l'exclusivité — d'où deux boutons allumés à la fois, et une barre qui ne dit plus
+ * où on en est.
+ */
+export type ToolbarApi = {
+  /** La barre est repliée (hors zoom, cf. `minZoom`) : plus rien n'y est atteignable. */
+  retracted: boolean
+  /** Une surface NATIVE tient la main : outil de tracé, loupe ou palette de symboles. */
+  nativeActive: boolean
+  /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
+  claim: () => void
+}
+
+const ToolbarContext = createContext<ToolbarApi>({
+  retracted: false,
+  nativeActive: false,
+  claim: () => {},
+})
+
+/**
+ * État de la barre d'outils, pour un outil qui y vit.
+ *
+ * Le contrat d'un outil applicatif est celui des outils natifs, en deux lignes :
+ *
+ * ```tsx
+ * const bar = useToolbar()
+ * const [open, setOpen] = useState(false)
+ * // se refermer quand la barre se replie OU qu'un outil natif prend la main
+ * useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
+ * // …et éteindre les autres en s'ouvrant
+ * <ToolButton active={open} onClick={() => { if (!open) bar.claim(); setOpen(!open) }} />
+ * ```
+ *
+ * Hors d'une `<Toolbar>`, tout est inerte : un bouton monté seul n'a personne à qui
+ * céder la main.
+ */
+export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
 
 const DEFAULT_TOOLS: DrawTool[] = [
   'select',
@@ -97,6 +139,44 @@ export function Toolbar({
     return engine.on('camera', (s) => setHidden(below(s.altitude)))
   }, [engine, minZoom])
 
+  // La barre qui se retire RELÂCHE tout ce qu'elle pilote, et revient à la main.
+  //
+  // Se replier n'est pas qu'une affaire d'affichage : un outil resté armé continue
+  // d'intercepter les gestes (`engine.inputInterceptor`), si bien qu'en dézoomant on
+  // se retrouve à tracer des formes sur une carte où plus aucun bouton ne permet d'en
+  // sortir. Même chose pour la loupe. Les flyouts, eux, rouvriraient tels quels au
+  // retour. C'est la règle déjà appliquée au panneau de style plus bas, étendue à
+  // tout ce que la barre possède.
+  // Sur la TRANSITION seulement : `hidden` démarre à `true`, donc agir sur la valeur
+  // relâcherait l'outil et la loupe au montage de toute carte — y compris une carte
+  // montée déjà zoomée, ou un outil pré-armé par l'hôte.
+  const wasHidden = useRef(hidden)
+  useEffect(() => {
+    const justRetracted = hidden && !wasHidden.current
+    wasHidden.current = hidden
+    if (!justRetracted) return
+    setTool(null)
+    lens?.deactivate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden])
+
+  // Ce que la barre offre à ses outils. `nativeActive` est la MÊME condition que le
+  // bouton Naviguer plus bas (inversée) : un outil applicatif s'éteint exactement
+  // quand la main se rallumerait, donc il ne peut plus rester allumé à côté d'elle.
+  const nativeActive = tool !== null || !!lens?.active || symbols.paletteOpen
+  const bar = useMemo<ToolbarApi>(
+    () => ({
+      retracted: hidden,
+      nativeActive,
+      claim: () => {
+        setTool(null)
+        lens?.deactivate()
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hidden, nativeActive, setTool, lens],
+  )
+
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
   // La largeur publiée sert au panneau de style, posé juste à côté de la barre : en
@@ -109,7 +189,7 @@ export function Toolbar({
   const { slot } = resolveSlots<DrawToolbarSection>(components)
 
   return (
-    <>
+    <ToolbarContext.Provider value={bar}>
       <div ref={setBar} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
         {slot(
           'navigate',
@@ -170,7 +250,7 @@ export function Toolbar({
         classNameArrow="m3d-tip-arrow"
         disableStyleInjection
       />
-    </>
+    </ToolbarContext.Provider>
   )
 }
 
@@ -185,6 +265,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
   const tip = useTip(TIP_ID)
   const [open, setOpen] = useState(false)
   const [side, setFlyout] = useAnchoredPanel(position, { clampHeight: false })
+  useCloseWhenHidden(useToolbar().retracted, setOpen)
 
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META

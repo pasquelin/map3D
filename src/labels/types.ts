@@ -67,13 +67,33 @@ export type MapLabels = {
     placeholder: string
     /** aria-label du champ. */
     inputLabel: string
-    /** Requête sans résultat. */
+    /** Requête sans résultat, toutes rubriques confondues. */
     noResults: string
+    /**
+     * Requête sans résultat dans une rubrique restreinte — `{group}` reçoit son nom.
+     * Distinct de `noResults` pour que l'utilisateur voie que c'est la PORTÉE qui
+     * filtre, et pas la carte qui est vide.
+     */
+    noResultsInGroup: string
     /** Titre de la section historique (champ vide focalisé). */
     historyTitle: string
     clearHistory: string
     /** aria-label du bouton ✕ qui vide le champ. */
     clearInput: string
+    /** Sélecteur de portée : bouton, valeur « toutes rubriques », aria-label. */
+    scopeAll: string
+    scopeLabel: string
+    /**
+     * Nom des rubriques que la LIB produit elle-même. Celles issues d'une couche de
+     * markers sont nommées par son `typeLabel`, l'application seule sachant qu'un
+     * type `'agent'` s'appelle « Agents ».
+     */
+    groups: {
+      shape: string
+      draw: string
+      symbol: string
+      place: string
+    }
   }
   /** Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). */
   toolbar: {

@@ -20,6 +20,7 @@ export function useEditablePin(): { pinMarker: MarkerData<AnyData>; onReposition
     pinMarker: {
       id: 'pin-editable',
       type: PIN_TYPE,
+      title: 'Position à définir (déplaçable)',
       tags: ['pin'],
       selectedColor: typeColor(PIN_TYPE),
       position,

@@ -1,6 +1,7 @@
 import { mdiInformationOutline, mdiMagnify } from '@mdi/js'
 import Icon from '@mdi/react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { normalizeSearch } from '../../search/match'
 import type { SymbolEntry } from '../../symbols/types'
 import { useLabels } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
@@ -9,8 +10,8 @@ import { TOOL_ICONS } from './drawControls'
 import { useAnchoredPanel } from './panelFit'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
-import { TIP_ID } from './Toolbar'
-import { useDismiss } from './useDismiss'
+import { TIP_ID, useToolbar } from './Toolbar'
+import { useCloseWhenHidden, useDismiss } from './useDismiss'
 
 /** Type de charge d'un drag venant de la palette (consommé par la zone carte). */
 export const SYMBOL_DRAG_TYPE = 'm3d-symbol'
@@ -40,6 +41,7 @@ export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' |
   const tip = useTip(TIP_ID)
 
   useDismiss(rootRef, open, () => setOpen(false))
+  useCloseWhenHidden(useToolbar().retracted, setOpen)
 
   // L'ouverture est PUBLIÉE (la barre éteint la main, la symbologie se charge), et
   // publiée depuis un EFFET : `open` reste l'état local qui commande l'affichage.
@@ -79,16 +81,18 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
   const [query, setQuery] = useState('')
   const [side, setPanel] = useAnchoredPanel(position, { maxHeight: PANEL_MAX_HEIGHT })
 
-  const q = query.trim().toLowerCase()
+  // `normalizeSearch` et non un `toLowerCase` : « etat-major » doit trouver
+  // « État-major », comme la recherche de la carte.
+  const q = normalizeSearch(query)
   // Les entrées multi-points sont listées mais non saisissables (leur mode de pose
   // n'existe pas encore) : les masquer ferait croire à un catalogue incomplet.
   const groups = useMemo(() => {
     const matching = q
       ? symbols.catalog.entries.filter(
           (e) =>
-            e.label.toLowerCase().includes(q) ||
-            e.description?.toLowerCase().includes(q) ||
-            e.keywords?.some((k) => k.toLowerCase().includes(q)),
+            normalizeSearch(e.label).includes(q) ||
+            (e.description !== undefined && normalizeSearch(e.description).includes(q)) ||
+            e.keywords?.some((k) => normalizeSearch(k).includes(q)),
         )
       : symbols.catalog.entries
     const byCategory = new Map<string, SymbolEntry[]>()

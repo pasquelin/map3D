@@ -3,6 +3,7 @@ import type { MarkerData } from '../../data/types'
 import type { ShapeSymbol } from '../../layers/DrawLayer'
 import type { LatLng } from '../../shared'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
+import { useLabels } from '../context'
 import { MarkerLayer, svgToDataUri } from './MarkerLayer'
 
 /** Symbole posé, tel que le fournit la couche de dessin. */
@@ -64,6 +65,10 @@ const PLACEHOLDER_SVG =
  */
 export function SymbolMarkers({ shapes, catalog, renderer, size = 40, ready, onMove }: SymbolMarkersProps) {
   const byKey = useMemo(() => new Map(catalog.entries.map((e) => [e.key, e])), [catalog])
+  // Tous les symboles portent le type `'symbol'` : leur rubrique de recherche est
+  // unique, et son nom vient de la lib (l'application n'a pas déclaré ce type).
+  const symbolsLabel = useLabels().search.groups.symbol
+  const symbolTypeLabel = useCallback(() => symbolsLabel, [symbolsLabel])
 
   // Data-URI par graphisme, mémoïsé sur la DURÉE DE VIE du composant : encoder un
   // SVG MIL-STD n'est pas gratuit, et plusieurs symboles partagent le même dessin
@@ -89,6 +94,11 @@ export function SymbolMarkers({ shapes, catalog, renderer, size = 40, ready, onM
           id: s.id,
           position: s.at,
           type: 'symbol',
+          // Le libellé de catalogue (déjà traduit) EST l'identité du symbole : titre
+          // au survol, en liste, et texte indexé par la recherche — un seul champ
+          // sert les trois, là où un `tooltip` dédié n'aurait servi que le survol.
+          title: entry?.label,
+          content: entry?.description,
           tags: [...s.tags],
           // Déplaçable : le drapeau vit sur la donnée, comme pour tout marker éditable.
           repositionable: true,
@@ -118,15 +128,6 @@ export function SymbolMarkers({ shapes, catalog, renderer, size = 40, ready, onM
   // renderer par marker — c'est le même rendu, payé une fois.
   const icon = useCallback((m: MarkerData<PlacedSymbolShape>) => m.data.svg ?? PLACEHOLDER_SVG, [])
 
-  // Le libellé du catalogue sert de titre au survol — il est déjà traduit.
-  const tooltip = useCallback(
-    (m: MarkerData<PlacedSymbolShape>) => {
-      const entry = byKey.get(m.data.symbol.key)
-      return entry ? { title: entry.label, content: entry.description } : null
-    },
-    [byKey],
-  )
-
   const reposition = useCallback(
     (m: MarkerData<PlacedSymbolShape>, at: LatLng) => onMove(m.data.id, at),
     [onMove],
@@ -138,7 +139,7 @@ export function SymbolMarkers({ shapes, catalog, renderer, size = 40, ready, onM
       getId={getSymbolId}
       size={size}
       icon={icon}
-      tooltip={tooltip}
+      typeLabel={symbolTypeLabel}
       // Deux gestes distincts et complémentaires : l'ICÔNE se saisit au long-press
       // vers la dock (comme tout marker), le POINT AU SOL se glisse pour repositionner.
       draggable

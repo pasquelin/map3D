@@ -55,12 +55,23 @@ import { MapProvider } from '@gosecure/map3d'
 
 | Clé | Défaut |
 |---|---|
-| `search.placeholder` | `Rechercher un lieu…` (le prop `placeholder` du composant reste prioritaire) |
+| `search.placeholder` | `Rechercher sur la carte…` (le prop `placeholder` du composant reste prioritaire) |
 | `search.inputLabel` | `Recherche` (aria-label du champ) |
 | `search.noResults` | `Aucun résultat` |
+| `search.noResultsInGroup` | `Aucun résultat dans « {group} »` (portée restreinte ; `{group}` = nom de la rubrique) |
 | `search.historyTitle` | `Recherches récentes` |
 | `search.clearHistory` | `Effacer l’historique` |
 | `search.clearInput` | `Effacer la recherche` (aria du bouton ✕) |
+| `search.scopeAll` | `Tout` (valeur « toutes rubriques » du sélecteur de portée) |
+| `search.scopeLabel` | `Restreindre la recherche` (aria du sélecteur) |
+| `search.groups.shape` | `Zones` |
+| `search.groups.draw` | `Dessins` |
+| `search.groups.symbol` | `Symboles` |
+| `search.groups.place` | `Lieux` |
+
+Les rubriques issues d'une couche de markers ne sont **pas** nommées ici : leur
+libellé vient de `<MarkerLayer typeLabel>` (`'agent'` → « Agents »), l'application
+seule sachant ce que ses types signifient.
 
 ### `toolbar` — boutons de `<Toolbar>` hors outils
 

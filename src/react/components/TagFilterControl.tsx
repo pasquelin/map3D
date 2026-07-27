@@ -1,6 +1,7 @@
 import { mdiFilterRemoveOutline, mdiLayersOutline, mdiMagnify } from '@mdi/js'
 import Icon from '@mdi/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { normalizeSearch } from '../../search/match'
 import { useLabels, useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
 import { useAnchoredPanel } from './panelFit'
@@ -105,9 +106,13 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tags.registryVersion, tags.selectionVersion],
   )
-  const q = query.trim().toLowerCase()
+  // `normalizeSearch` et non un `toLowerCase` : un tag « Réseau » doit se trouver en
+  // tapant « reseau », comme partout ailleurs dans la carte.
+  const q = normalizeSearch(query)
   const shown = q
-    ? entries.filter((e) => labelOf(e.tag).toLowerCase().includes(q) || e.tag.toLowerCase().includes(q))
+    ? entries.filter(
+        (e) => normalizeSearch(labelOf(e.tag)).includes(q) || normalizeSearch(e.tag).includes(q),
+      )
     : entries
   const active = tags.selected.size
 
