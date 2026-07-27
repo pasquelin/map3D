@@ -1,6 +1,16 @@
 import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
-import { circlePoints, disposeObject3D, fillGeo, fillMaterial, ribbon, strokeMaterial } from '../core/geometry'
+import {
+  circlePoints,
+  type DashedMaterial,
+  dashedStrokeMaterial,
+  disposeObject3D,
+  fillGeo,
+  fillMaterial,
+  ribbon,
+  setDashColors,
+  strokeMaterial,
+} from '../core/geometry'
 import type { FrameContext } from '../core/Layer'
 import type { Projection, ScreenPoint } from '../core/Projection'
 import { segDistPx } from './draw/hitTest'
@@ -23,6 +33,17 @@ export type LinkVisual = {
   disc?: { center: LatLng; radiusPx: number }
   points: LatLng[]
   color: string
+  /**
+   * Couleurs parcourues par les tirets successifs, quand PLUSIEURS sources se
+   * partagent le même trait (deux relations qui relient le même couple de markers
+   * dessinent exactement le même arc). Un seul trait est alors dessiné, et ses tirets
+   * alternent les couleurs : on voit à qui il appartient sans superposer deux
+   * maillages — c'est même un maillage de moins.
+   *
+   * Absent, ou d'un seul élément : trait uni de `color`. Exige un `dash` (c'est son
+   * motif qui découpe les tirets à colorer) et plafonné à `MAX_DASH_COLORS`.
+   */
+  colors?: readonly string[]
   /** Porte le RANG (1 = le plus rapide), jamais la durée. */
   opacity: number
   /** Épaisseur en pixels écran, constante au zoom. */
@@ -44,7 +65,33 @@ export type LinkVisual = {
   hovered?: boolean
   /** Itinéraire actif : son étiquette reçoit `m3d-traced` pour se distinguer. */
   traced?: boolean
+  /**
+   * Pointillé DÉFILANT (« marching ants »), en pixels écran comme `width` :
+   * `length` = tiret, `gap` = espace, `speed` = vitesse de défilement du motif vers
+   * la destination. Absent = trait plein.
+   *
+   * `gapOpacity` : ce qui reste dans l'espace entre deux tirets, en fraction de
+   * l'opacité du trait. Le trait garde ainsi un corps continu — on voit toujours ce
+   * qu'il relie — dans SA couleur : c'est elle qui porte le sens, un contour d'une
+   * autre teinte le brouillerait.
+   *
+   * Un visuel pointillé ne reçoit PAS de contour (`casingWidth`) : ce liseré continu
+   * d'une autre couleur redevenait, entre les tirets, la seule chose visible — le
+   * trait se lisait alors dans la couleur du contour, pas dans la sienne.
+   */
+  dash?: DashStyle
 }
+
+/**
+ * Motif pointillé d'un trait, en PIXELS ÉCRAN (comme `LinkVisual.width`) : `length` =
+ * tiret, `gap` = espace, `speed` = défilement en px/s vers la destination,
+ * `gapOpacity` = ce qui subsiste entre deux tirets, en fraction de l'opacité du trait.
+ *
+ * Type nommé plutôt que littéral recopié : il traverse la couche de rendu, la
+ * traduction des visuels et les props React, et un champ renommé dans un seul des
+ * trois passait inaperçu du typage structurel.
+ */
+export type DashStyle = { length: number; gap: number; speed: number; gapOpacity: number }
 
 /** Réglages de la COUCHE. Couleur et épaisseur n'y figurent pas : elles sont
  *  portées par chaque `LinkVisual`, qui les rend obligatoires — un repli global
@@ -72,6 +119,11 @@ type LinkDrape = Drape<LinkVisual> & {
   /** Matériau du casing — son opacité suit celle du trait, sinon un lien estompé
    *  garderait un contour plein et paraîtrait plus présent que le rang ne le dit. */
   casing: THREE.MeshBasicMaterial | null
+  /**
+   * Motif défilant du trait, en unités MONDE (converties depuis les pixels écran à
+   * la résolution du build, comme l'épaisseur). `null` = trait plein.
+   */
+  dash: { material: DashedMaterial; speed: number } | null
   label: HTMLDivElement | null
 }
 
@@ -163,9 +215,12 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
         continue
       }
       // Chemin chaud : seuls le style et le texte bougent.
-      this.applyColor(drape.material, visual)
+      this.applyColor(drape, visual)
       drape.material.opacity = visual.opacity
       if (drape.casing) drape.casing.opacity = visual.opacity * CASING_OPACITY_RATIO
+      // Régler le motif ne demande PAS de rebuild : ses longueurs sont des uniformes,
+      // l'abscisse curviligne du ruban ne dépend pas d'elles.
+      if (drape.dash && visual.dash) this.applyDash(drape, visual.dash)
       drape.item = visual
       this.syncLabel(drape)
     }
@@ -176,10 +231,38 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     if (added) this.invalidateDrapes()
   }
 
-  /** Couleur effective d'un visuel : celle de sa famille, assombrie s'il est survolé. */
-  private applyColor(material: THREE.MeshBasicMaterial, visual: LinkVisual): void {
-    material.color.set(visual.color)
-    if (visual.hovered) material.color.multiplyScalar(this.defaults.hoverDarken)
+  /**
+   * Pose le motif d'un drape pointillé, pixels écran → unités monde à la résolution
+   * de SON build (comme l'épaisseur). Point de conversion UNIQUE, partagé par la
+   * construction et le chemin chaud : la formule s'y écrivait deux fois, sans rien
+   * pour rappeler de corriger la seconde.
+   */
+  private applyDash(drape: LinkDrape, style: DashStyle): void {
+    if (!drape.dash) return
+    const { dash, gap, gapOpacity } = drape.dash.material.dash
+    dash.value = style.length * drape.mpp
+    gap.value = style.gap * drape.mpp
+    gapOpacity.value = style.gapOpacity
+    drape.dash.speed = style.speed * drape.mpp
+  }
+
+  /**
+   * Couleur(s) effective(s) d'un visuel, assombries s'il est survolé.
+   *
+   * Un trait pointillé porte ses teintes dans un tableau d'uniformes, et son
+   * `material.color` n'est plus qu'un MULTIPLICATEUR : le survol s'y applique en un
+   * scalaire, sans avoir à réécrire les N couleurs à chaque entrée/sortie du pointeur.
+   * On assombrit plutôt qu'on ne remplace : la teinte porte le sens (à qui appartient
+   * ce trait), le survol ne doit pas le brouiller.
+   */
+  private applyColor(drape: LinkDrape, visual: LinkVisual): void {
+    const darken = visual.hovered ? this.defaults.hoverDarken : 1
+    if (drape.dash) {
+      setDashColors(drape.dash.material, visual.colors?.length ? visual.colors : [visual.color])
+      drape.material.color.setScalar(darken)
+      return
+    }
+    drape.material.color.set(visual.color).multiplyScalar(darken)
   }
 
   /**
@@ -191,12 +274,16 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
    * y met un tableau littéral, donc jamais la même référence, et le socle était
    * reconstruit à chaque recalcul des visuels : survol, tick temps réel, palier de
    * zoom. Soit 48 segments retriangulés pour un disque qui n'avait pas bougé.
+   *
+   * L'APPARITION d'un pointillé en fait partie, alors que ses longueurs non : le
+   * ruban ne porte l'abscisse curviligne (`aDist`) que s'il est construit pour, et
+   * sans elle le shader du pointillé n'a rien à découper.
    */
   private static geometryChanged(a: LinkVisual, b: LinkVisual): boolean {
     if (a.disc || b.disc) {
       return a.disc?.center !== b.disc?.center || a.disc?.radiusPx !== b.disc?.radiusPx
     }
-    return a.points !== b.points || a.width !== b.width
+    return a.points !== b.points || a.width !== b.width || !a.dash !== !b.dash
   }
 
   /** Point d'ancrage d'un visuel : centre du disque, ou premier point du tracé. */
@@ -221,22 +308,39 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       const geo = fillGeo(circlePoints(frame.local(visual.disc.center), visual.disc.radiusPx * mpp, 48))
       if (!geo) return null
       const material = fillMaterial(visual.color, visual.opacity)
-      this.applyColor(material, visual)
       const mesh = new THREE.Mesh(geo, material)
       mesh.renderOrder = order
       enu.add(mesh)
-      const drape: LinkDrape = { enu, anchor, height, mpp, item: visual, material, casing, label: reuseLabel }
+      const drape: LinkDrape = {
+        enu,
+        anchor,
+        height,
+        mpp,
+        item: visual,
+        material,
+        casing,
+        dash: null,
+        label: reuseLabel,
+      }
+      this.applyColor(drape, visual)
       this.syncLabel(drape)
       return drape
     }
 
     const pts = visual.points.map((p) => frame.local(p))
     const width = visual.width * mpp
-    const build = (w: number): THREE.BufferGeometry | null => ribbon(pts, w, false)
-    const geometry = build(width)
+    // Seul le trait porte l'abscisse curviligne : le casing, toujours plein, n'en a
+    // pas l'usage — et il est reconstruit aussi souvent que lui.
+    const build = (w: number, withDistance = false): THREE.BufferGeometry | null =>
+      ribbon(pts, w, false, withDistance)
+    const geometry = build(width, !!visual.dash)
     if (!geometry) return null
 
-    if (this.defaults.casingWidth > 0) {
+    // Pas de contour sous un pointillé : entre deux tirets il resterait seul visible,
+    // et le trait se lirait dans la couleur du contour au lieu de la sienne. Ce que
+    // le contour apporte — un corps continu, lisible sur imagerie satellite — est
+    // repris par `gapOpacity`, dans la couleur du trait.
+    if (this.defaults.casingWidth > 0 && !visual.dash) {
       const cg = build(width + this.defaults.casingWidth * mpp)
       if (cg) {
         casing = strokeMaterial(this.defaults.casingColor, visual.opacity * CASING_OPACITY_RATIO)
@@ -246,15 +350,48 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       }
     }
 
-    const material = strokeMaterial(visual.color, visual.opacity)
-    this.applyColor(material, visual)
+    let dash: LinkDrape['dash'] = null
+    let material: THREE.MeshBasicMaterial
+    if (visual.dash) {
+      // Longueurs posées juste après par `applyDash` (point de conversion unique) ;
+      // les couleurs le sont par `applyColor`.
+      const dashed = dashedStrokeMaterial([visual.color], visual.opacity, 0, 0, visual.dash.gapOpacity)
+      // Le motif reprend là où le précédent en était : sans ce report, chaque rebuild
+      // (palier de zoom, hauteur de drapage résolue) ferait sauter le pointillé.
+      if (previous?.dash) dashed.dash.offset.value = previous.dash.material.dash.offset.value
+      dash = { material: dashed, speed: 0 }
+      material = dashed
+    } else {
+      material = strokeMaterial(visual.color, visual.opacity)
+    }
     const mesh = new THREE.Mesh(geometry, material)
     mesh.renderOrder = order + 1
     enu.add(mesh)
 
-    const drape: LinkDrape = { enu, anchor, height, mpp, item: visual, material, casing, label: reuseLabel }
+    const drape: LinkDrape = { enu, anchor, height, mpp, item: visual, material, casing, dash, label: reuseLabel }
+    if (visual.dash) this.applyDash(drape, visual.dash)
+    this.applyColor(drape, visual)
     this.syncLabel(drape)
     return drape
+  }
+
+  /**
+   * Fait défiler les pointillés. Un simple décalage d'uniforme : aucune géométrie
+   * n'est touchée, et les traits pleins ne coûtent rien du tout.
+   */
+  protected onUpdate(ctx: FrameContext): void {
+    for (const d of this.drapes) {
+      if (!d.dash) continue
+      const { dash, gap, offset, count } = d.dash.material.dash
+      // Le cycle est la période fois le nombre de COULEURS : c'est au bout de N tirets
+      // que le motif se répète vraiment. Reboucler sur une seule période ferait sauter
+      // le trait d'une couleur à l'autre à chaque tour.
+      const cycle = (dash.value + gap.value) * count.value
+      if (!(cycle > 0)) continue
+      // Remis dans le cycle à chaque tour : un décalage qui croît sans fin finit par
+      // perdre sa précision en float 32 bits côté GPU, et le motif se met à saccader.
+      offset.value = (offset.value + d.dash.speed * ctx.dt) % cycle
+    }
   }
 
   /** Crée, met à jour ou retire l'étiquette d'un lien selon son `label` courant. */

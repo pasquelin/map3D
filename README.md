@@ -124,7 +124,7 @@ const RULES: RelationRule[] = [
     label: 'Agents',              // libellé du niveau 2 du menu
     from: { any: ['alert'] },     // le marker source doit satisfaire ce sélecteur
     to: { any: ['user'], none: ['onsite'] }, // les cibles candidates aussi
-    color: '#22c55e',             // omis → `defaultColor` de la couche
+    color: '#22c55e',             // pastille de la famille ; omise → couleur du tag visé
     mode: 'DRIVE',
     selection: { mode: 'fastest', count: 3, maxMeters: 15000 },
     limit: { compute: 15, render: 10 },
@@ -153,6 +153,12 @@ const provider = useMemo(() => createGoogleRoutesProvider({ apiKey, region: 'fr'
 
 **Sélection** — `fastest` retient les `count` plus rapides (le plus proche à vol d'oiseau n'est pas le plus rapide : on sur-échantillonne, c'est la **durée** qui tranche) ; `radius` retient tout ce qui est sous `radiusMeters`. `maxMeters` est le garde-fou de coût appliqué **avant** tout appel réseau, et `limit.compute` / `limit.render` plafonnent respectivement les points envoyés au routage et les liens dessinés.
 
+**Couleur des traits et des pastilles** — deux questions différentes, deux couleurs. Le **trait** répond « ce faisceau part de qui ? » : il porte la couleur de **son marker source** (`theme.colors.marker[type].base`, exactement celle de sa pastille), traits et socle compris, et elle est résolue **à chaque passe** — un agent qui change de statut change aussi la couleur de ses traits, sans rouvrir la relation. La **pastille de famille** (menu du marker, bascule de la barre d'état) répond « cette famille vise quoi ? » : elle porte la couleur du **tag visé** par la règle, résolue comme au panneau « Couches » (`theme.colors.tags`, puis la palette hashée de `tagColor`) — rien de plus à déclarer, la table de tags donnée au thème sert les deux surfaces. Le tag retenu est le dernier de `to.all` (le plus restrictif : `{ all: ['alert', 'critical'] }` → « critiques »), sinon le premier de `to.any` (cf. `familyTag`). `rule.color`, si elle est déclarée, l'emporte sur les deux ; `defaultColor` est le dernier repli.
+
+Les traits de **recherche** sont en **pointillé défilant** (le marching-ants de la sélection, transposé au ruban 3D : `<RelationLayer linkDash={{ length, gap, speed, gapOpacity }}>` en pixels écran, `false` pour un trait plein). L'espace entre deux tirets n'est pas vide : il garde la couleur du trait à `gapOpacity` près, ce qui lui laisse un corps continu sans lui imposer un contour d'une autre teinte (un trait pointillé ne reçoit donc pas de `casingWidth`). L'itinéraire **tracé**, lui, reste plein, garde son contour et prend `routeColor` : le pointillé dit « candidat en cours d'évaluation », le trait plein dit « voilà le trajet ».
+
+**Un seul trait par couple de markers.** Deux relations opposées — l'agent vers ses alertes, l'alerte vers ses agents — décrivent le même arc et se superposaient au pixel près, le second masquant le premier. Un seul trait est désormais dessiné, et ses **tirets successifs alternent les couleurs** de toutes les relations concernées (jusqu'à `MAX_DASH_COLORS`) : un maillage de moins, et l'appartenance visible. Le trait revient à la **dernière relation ouverte** — c'est elle qui porte l'étiquette, le survol et le clic. Sans pointillé (`linkDash={false}`) il n'y a plus de tirets à colorer : le trait reste uni, dans la couleur de cette même relation.
+
 **Ce qui s'affiche** — un socle à plat sous le marker source, un trait par cible avec son rang et son étiquette `2,4 km · 9 min`, et l'itinéraire réel au clic sur un lien. Le socle porte la **barre d'état de sa relation** : elle s'ancre juste à côté du marker, suit ses déplacements, et bascule de l'autre côté du socle quand le bord du conteneur est trop proche. Chaque relation ouverte a donc sa propre barre, à l'endroit où le regard se trouve déjà.
 
 La barre décrit **ce qui est réellement à l'écran**, et change avec lui :
@@ -172,10 +178,10 @@ Le sélecteur de famille disparaît une fois la cible arrêtée — il proposera
 
 | Export | Rôle |
 | --- | --- |
-| `<RelationLayer rules provider width defaultColor routeColor hubRadius casingWidth minOpacity staleMeters refreshIntervalMs>` | Monte la couche, tient l'état, fournit le contexte. `provider` doit être stable (`useMemo`). |
+| `<RelationLayer rules provider width defaultColor linkDash routeColor hubRadius casingWidth minOpacity staleMeters refreshIntervalMs>` | Monte la couche, tient l'état, fournit le contexte. `provider` doit être stable (`useMemo`). |
 | `<RelationStatusBar nameOf>` | Barres d'état — **une par relation**, ancrée au socle de son marker source : segments cliquables (famille de tags, mode de transport) et effacement. Se replace seule contre les bords. |
-| `useRelations()` | `{ rules, menuFor, run, snapshots, setMode, untrace, clear }` — lève hors d'un `<RelationLayer>`. |
-| `RelationEngine` `selectTargets` `matchesSelector` `buildRelationMenu` | Core **headless** (ni Three, ni React, ni `fetch`) : utilisable côté serveur ou en test avec un fournisseur factice. |
+| `useRelations()` | `{ rules, menuFor, run, snapshots, setMode, routeColor, familyColor, untrace, clear }` — lève hors d'un `<RelationLayer>`. |
+| `RelationEngine` `selectTargets` `matchesSelector` `familyTag` `buildRelationMenu` | Core **headless** (ni Three, ni React, ni `fetch`) : utilisable côté serveur ou en test avec un fournisseur factice. |
 | `createGoogleRoutesProvider({ apiKey, language, region })` `RoutingProvider` | Fournisseur Google Routes v2, ou le contrat à implémenter pour le vôtre. |
 | `LinkLayer` `haversineMeters` `greatCirclePoints` `decodePolyline` `RouteCache` | Briques réutilisables (rendu des liens drapés, géométrie sphérique, polylignes encodées, cache TTL + position). |
 

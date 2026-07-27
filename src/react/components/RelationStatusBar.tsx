@@ -60,7 +60,7 @@ type BarProps = {
 
 function RelationBar({ snapshot, nameOf }: BarProps) {
   const labels = useLabels()
-  const { rules, setMode, clear, untrace, run, routeColor } = useRelations()
+  const { rules, setMode, clear, untrace, run, routeColor, familyColor } = useRelations()
   const { source, rule, links } = snapshot
   /**
    * Lien dont l'itinéraire est affiché. Sa présence change ce que la barre DÉCRIT :
@@ -100,11 +100,13 @@ function RelationBar({ snapshot, nameOf }: BarProps) {
     (): MenuItem[] =>
       rules.map((r) => ({
         label: r.label,
-        swatch: r.color,
+        // Couleur de la FAMILLE, comme les pastilles du menu du marker — pas celle du
+        // trait : ces entrées distinguent des familles entre elles.
+        swatch: familyColor(r),
         ...(r.id === rule.id ? { icon: '✓' } : {}),
         onSelect: () => run(source, { ...r, mode: rule.mode, selection: rule.selection }),
       })),
-    [rules, rule, run, source],
+    [rules, rule, run, source, familyColor],
   )
 
   const nameFor = (p: MapPoint): string => (nameOf ? nameOf(p) : p.id)
@@ -171,7 +173,7 @@ function RelationBar({ snapshot, nameOf }: BarProps) {
           famille tant qu'on voit ses liens, celle de l'itinéraire dès qu'il est tracé.
           Sinon elle continue d'annoncer une famille alors que le tracé, lui, a changé
           de couleur — et rien ne relie plus la barre à ce qu'elle décrit. */}
-      <span className="m3d-relbar-swatch" style={{ background: traced ? routeColor : rule.color }} />
+      <span className="m3d-relbar-swatch" style={{ background: traced ? routeColor : familyColor(rule) }} />
       {/* Région live restreinte au TEXTE d'état : la poser sur toute la barre faisait
           réannoncer les boutons et le menu ouvert à chaque changement de relation. */}
       <span className="m3d-relbar-text" role="status">

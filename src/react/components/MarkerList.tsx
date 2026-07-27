@@ -10,6 +10,7 @@ import { useLabels, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { useMergedRefs, useNudgeInside } from './panelFit'
 import { useDismiss } from './useDismiss'
+import { markerColorOf } from '../../theme/colors'
 
 /** Action du menu déroulant d'une ligne (extensible). */
 export type MarkerListAction<T = unknown> = {
@@ -55,7 +56,7 @@ export type MarkerListProps<T = unknown> = {
  * identifie la ligne — le cas d'un symbole, dont le type (`'symbol'`) ne dit rien.
  */
 function Swatch<T>({ m, theme }: { m: MarkerData<T>; theme: MapTheme }) {
-  const color = theme.colors.marker[m.type] ?? theme.colors.marker.default!
+  const color = markerColorOf(theme, m.type)
   if (m.avatar) {
     return <img className="m3d-mlavatar" src={m.avatar} alt="" draggable={false} style={{ borderColor: color.base }} />
   }

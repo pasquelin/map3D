@@ -67,17 +67,45 @@ function rejected(where: string): null {
  * Ruban plat (plan Y=0) d'épaisseur `width` (unités monde) : un quad par
  * segment plus un disque à chaque sommet pour des joints arrondis. `closed`
  * referme le tracé. Reproduit la construction validée du prototype.
+ *
+ * `withDistance` ajoute l'attribut `aDist` : l'abscisse curviligne (unités monde)
+ * de chaque sommet le long du tracé. C'est ce que consomme `dashedStrokeMaterial`
+ * pour découper un pointillé DANS le fragment shader — sans lui, animer un tiret
+ * imposerait de re-trianguler le ruban à chaque frame. Omis par défaut : un
+ * attribut inutilisé se retrouverait sur toutes les formes de la carte.
  */
-export function ribbon(points: readonly Pt[], width: number, closed: boolean): THREE.BufferGeometry | null {
+export function ribbon(
+  points: readonly Pt[],
+  width: number,
+  closed: boolean,
+  withDistance = false,
+): THREE.BufferGeometry | null {
   // `width` est aussi vérifié : il vaut `style.width * metersPerPixel`, donc il est
   // NaN dès que la caméra est dégénérée — et `half = width / 2` contaminerait alors
   // TOUTES les positions, sommets finis compris.
   if (points.length < 2 || !Number.isFinite(width) || !allFinite(points)) return rejected('ribbon')
   const pos: number[] = []
   const idx: number[] = []
+  const dst: number[] = []
   const half = width / 2
   let v = 0
   const list = closed ? [...points, points[0]!] : points
+  // Abscisses curvilignes précalculées : le motif de tirets est CONTINU le long du
+  // tracé, donc un sommet doit porter sa distance depuis l'origine — pas depuis le
+  // début de son segment. Cumulée sur TOUS les segments, y compris ceux qu'on écarte
+  // plus bas comme dégénérés : sauter leur longueur décalerait le motif de l'aval.
+  const dists: number[] = []
+  if (withDistance) {
+    let acc = 0
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i]!
+      if (i > 0) {
+        const q = list[i - 1]!
+        acc += Math.hypot(p.x - q.x, p.z - q.z)
+      }
+      dists.push(acc)
+    }
+  }
   for (let i = 0; i < list.length - 1; i++) {
     const a = list[i]!
     const b = list[i + 1]!
@@ -89,22 +117,29 @@ export function ribbon(points: readonly Pt[], width: number, closed: boolean): T
     const nz = (dx / len) * half
     pos.push(a.x + nx, 0, a.z + nz, a.x - nx, 0, a.z - nz, b.x + nx, 0, b.z + nz, b.x - nx, 0, b.z - nz)
     idx.push(v, v + 1, v + 2, v + 1, v + 3, v + 2)
+    if (withDistance) dst.push(dists[i]!, dists[i]!, dists[i + 1]!, dists[i + 1]!)
     v += 4
   }
   const seg = 8
-  for (const p of list) {
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i]!
     const c = v
     pos.push(p.x, 0, p.z)
+    // Tout le disque de joint porte la distance de SON sommet : il est donc gardé ou
+    // écarté d'un bloc par le pointillé, et n'apparaît jamais coupé en deux.
+    if (withDistance) dst.push(dists[i]!)
     v++
     for (let s = 0; s <= seg; s++) {
       const a = (s / seg) * Math.PI * 2
       pos.push(p.x + Math.cos(a) * half, 0, p.z + Math.sin(a) * half)
+      if (withDistance) dst.push(dists[i]!)
       v++
       if (s > 0) idx.push(c, c + s, c + s + 1)
     }
   }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  if (withDistance) g.setAttribute('aDist', new THREE.Float32BufferAttribute(dst, 1))
   g.setIndex(idx)
   return g
 }
@@ -322,6 +357,123 @@ function flatMaterial(color: THREE.ColorRepresentation, opacity: number): THREE.
 /** Matériau de trait plaqué au sol. */
 export function strokeMaterial(color: THREE.ColorRepresentation, opacity = 0.95): THREE.MeshBasicMaterial {
   return flatMaterial(color, opacity)
+}
+
+/**
+ * Trait pointillé, dont le motif DÉFILE — le « marching ants » de la sélection,
+ * transposé à un ruban 3D.
+ *
+ * Le pointillé est découpé dans le fragment shader à partir de l'abscisse curviligne
+ * (`ribbon(…, withDistance)`), et l'animation n'est qu'un décalage d'uniforme. Les
+ * deux alternatives ont été écartées :
+ * — `dashPattern()` (découpe géométrique) ne s'anime qu'en re-triangulant le ruban à
+ *   chaque frame, pour chaque trait ;
+ * — `LineDashedMaterial` rend un trait d'un pixel (WebGL ignore `linewidth`) et ne
+ *   sait pas s'épaissir en mètres monde.
+ *
+ * L'espace entre deux tirets n'est pas VIDE : il garde la couleur du trait, à
+ * `gapOpacity` près. Le trait reste ainsi une ligne continue — on voit encore ce
+ * qu'il relie — et cette continuité ne coûte ni second maillage ni contour d'une
+ * autre couleur, qui trancherait sur la teinte porteuse de sens.
+ *
+ * Longueurs en UNITÉS MONDE (mètres), comme l'épaisseur du ruban : c'est l'appelant
+ * qui convertit ses pixels écran à la résolution courante.
+ */
+export type DashedMaterial = THREE.MeshBasicMaterial & {
+  /** Uniformes vivants du motif — mutables par frame, sans recompiler le programme. */
+  readonly dash: {
+    dash: { value: number }
+    gap: { value: number }
+    offset: { value: number }
+    gapOpacity: { value: number }
+    /** Couleurs parcourues par les tirets successifs — tableau de taille fixe. */
+    colors: { value: THREE.Color[] }
+    /** Combien de ces couleurs sont réellement utilisées (1 = trait uni). */
+    count: { value: number }
+  }
+}
+
+/**
+ * Couleurs qu'un même trait peut alterner. Fixe, parce que la taille du tableau est
+ * compilée DANS le shader : la faire varier recompilerait un programme par cardinal.
+ * Au-delà, le motif reboucle sur les huit premières — huit relations ouvertes sur un
+ * même couple de markers n'ont déjà plus rien de lisible.
+ */
+export const MAX_DASH_COLORS = 8
+
+export function dashedStrokeMaterial(
+  colors: readonly THREE.ColorRepresentation[],
+  opacity: number,
+  dash: number,
+  gap: number,
+  gapOpacity: number,
+): DashedMaterial {
+  // `color` du matériau = MULTIPLICATEUR, pas la teinte : la teinte vient du tableau
+  // d'uniformes. C'est ce qui laisse `applyColor` assombrir un trait survolé sans
+  // avoir à réécrire toutes ses couleurs (blanc = intact).
+  const material = flatMaterial(0xffffff, opacity) as DashedMaterial
+  const uniforms = {
+    dash: { value: dash },
+    gap: { value: gap },
+    offset: { value: 0 },
+    gapOpacity: { value: gapOpacity },
+    colors: { value: Array.from({ length: MAX_DASH_COLORS }, () => new THREE.Color()) },
+    count: { value: 1 },
+  }
+  Object.defineProperty(material, 'dash', { value: uniforms })
+  setDashColors(material, colors)
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uDash = uniforms.dash
+    shader.uniforms.uGap = uniforms.gap
+    shader.uniforms.uOffset = uniforms.offset
+    shader.uniforms.uGapOpacity = uniforms.gapOpacity
+    shader.uniforms.uColors = uniforms.colors
+    shader.uniforms.uCount = uniforms.count
+    shader.vertexShader = `attribute float aDist;\nvarying float vDist;\n${shader.vertexShader}`.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\n  vDist = aDist;',
+    )
+    shader.fragmentShader =
+      'varying float vDist;\nuniform float uDash;\nuniform float uGap;\nuniform float uOffset;\n' +
+      `uniform float uGapOpacity;\nuniform vec3 uColors[${MAX_DASH_COLORS}];\nuniform int uCount;\n${shader.fragmentShader}`.replace(
+        // Greffé sur `color_fragment`, donc juste après la déclaration de
+        // `diffuseColor`.
+        //
+        // L'espace entre deux tirets est ATTÉNUÉ, jamais écarté (`discard`) : le
+        // trait garderait sinon des trous, et redeviendrait une file de tirets
+        // flottants sans rien qui relie ses extrémités. L'atténuation est relative,
+        // donc un lien estompé par son rang estompe aussi ses espaces.
+        //
+        // Les tirets SUCCESSIFS parcourent le tableau de couleurs : c'est ainsi qu'un
+        // trait unique porte les N relations qui relient le même couple de markers.
+        // Le cycle vaut donc N périodes, et l'indice se lit dans le même modulo que
+        // la phase — un seul reste à calculer pour les deux.
+        '#include <color_fragment>',
+        '#include <color_fragment>\n' +
+          '  float m3dPeriod = uDash + uGap;\n' +
+          '  if (m3dPeriod > 0.0) {\n' +
+          '    float m3dT = mod(vDist - uOffset, m3dPeriod * float(uCount));\n' +
+          '    float m3dIdx = floor(m3dT / m3dPeriod);\n' +
+          '    if (m3dT - m3dIdx * m3dPeriod > uDash) diffuseColor.a *= uGapOpacity;\n' +
+          `    for (int i = 0; i < ${MAX_DASH_COLORS}; i++) {\n` +
+          '      if (float(i) == m3dIdx) diffuseColor.rgb *= uColors[i];\n' +
+          '    }\n' +
+          '  }\n',
+      )
+  }
+  // Sans clé distincte, Three réutilise le programme du matériau plein compilé avant
+  // lui (même signature de matériau) et le pointillé n'apparaît jamais. Constante :
+  // TOUS les traits pointillés de la carte partagent alors UN seul programme compilé.
+  material.customProgramCacheKey = () => 'm3d-dashed'
+  return material
+}
+
+/** Réécrit les couleurs parcourues par un trait — sans toucher au programme compilé. */
+export function setDashColors(material: DashedMaterial, colors: readonly THREE.ColorRepresentation[]): void {
+  const { colors: slots, count } = material.dash
+  const n = Math.min(Math.max(colors.length, 1), MAX_DASH_COLORS)
+  for (let i = 0; i < n; i++) slots.value[i]!.set(colors[i] ?? 0xffffff)
+  count.value = n
 }
 
 /**

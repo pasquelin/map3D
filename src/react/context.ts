@@ -201,6 +201,16 @@ export type RelationApi = {
    * c'est un itinéraire qui est à l'écran.
    */
   routeColor: string
+  /**
+   * Couleur d'une FAMILLE : `rule.color`, sinon celle du tag qu'elle vise (résolue
+   * comme dans le panneau « Couches » : `theme.colors.tags`, puis palette hashée),
+   * sinon `RelationLayer.defaultColor`.
+   *
+   * C'est ce que portent les pastilles de famille — elles nomment une famille de
+   * cibles, pas le trait qui en sortira : celui-ci prend la couleur du marker source
+   * dès que la règle laisse la question ouverte.
+   */
+  familyColor: (rule: RelationRule) => string
   /** Referme l'itinéraire d'une relation (id de lien ou de source) ; tous si omis. */
   untrace: (linkOrSourceId?: string) => void
   /** Efface la relation d'un marker source, ou toutes si l'id est omis. */

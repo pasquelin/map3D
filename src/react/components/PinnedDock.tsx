@@ -10,6 +10,7 @@ import { useDraggable } from '../hooks/useDraggable'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { RemoveButton } from './RemoveButton'
 import { useDropZone } from '../hooks/useDropZone'
+import { markerColorOf } from '../../theme/colors'
 
 /**
  * Élément épinglé à afficher dans la dock. **Résolu par le consommateur** depuis
@@ -397,7 +398,7 @@ function PinnedPin<T>({ item, size, render, tooltip, removeLabel, onUnpin, onAct
 /** Rendu par défaut d'un carré : avatar (rempli) > icône sur fond du type > initiale. */
 function DefaultPin<T>({ item, theme }: { item: PinnedItem<T>; theme: MapTheme }) {
   if (item.avatar) return <img className="m3d-pin-media" src={item.avatar} alt="" draggable={false} />
-  const color = theme.colors.marker[item.type ?? 'default'] ?? theme.colors.marker.default!
+  const color = markerColorOf(theme, item.type ?? 'default')
   // Couleur explicite : dégradé ASSOMBRI à partir d'elle. Le contenu posé dessus
   // porte souvent la même teinte (un symbole MIL-STD est coloré par son affiliation) ;
   // un fond clair de cette teinte le rendrait invisible.

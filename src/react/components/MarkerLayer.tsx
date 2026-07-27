@@ -26,6 +26,7 @@ import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { DefaultMarker } from './DefaultMarker'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { useDismiss } from './useDismiss'
+import { markerColorOf } from '../../theme/colors'
 
 export type MarkerLayerProps<T> = {
   points?: MarkerData<T>[]
@@ -752,7 +753,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
             ? <img
                 className="m3d-marker-img m3d-marker-avatar"
                 src={entry.marker.avatar}
-                style={{ ...imgStyle, borderColor: (theme.colors.marker[entry.marker.type] ?? theme.colors.marker.default!).base }}
+                style={{ ...imgStyle, borderColor: markerColorOf(theme, entry.marker.type).base }}
                 draggable={false}
                 alt=""
                 // Avatar introuvable (404, chemin cassé) → repli sur l'icône du type,
