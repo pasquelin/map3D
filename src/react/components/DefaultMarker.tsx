@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { MapTheme } from '../../theme/types'
+import { markerColorOf } from '../../theme/colors'
 
 export type DefaultMarkerProps = {
   marker: MarkerData
@@ -10,7 +11,7 @@ export type DefaultMarkerProps = {
 
 /** Rendu de marker par défaut : pastille dégradée + anneau + halo radar optionnel. */
 export function DefaultMarker({ marker, theme, label }: DefaultMarkerProps) {
-  const color = theme.colors.marker[marker.type] ?? theme.colors.marker.default!
+  const color = markerColorOf(theme, marker.type)
   const size = theme.markers.size
   const halo = theme.animations.enabled && theme.animations.halo !== false
   const r = size / 2

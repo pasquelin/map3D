@@ -10,7 +10,7 @@
 
 import { metersPerPixelAtZoom } from '../core/math'
 import type { VisualNode } from '../core/MarkerQuery'
-import type { LinkVisual } from '../layers/LinkLayer'
+import type { DashStyle, LinkVisual } from '../layers/LinkLayer'
 import { formatLabel } from '../labels/mergeLabels'
 import type { MapLabels } from '../labels/types'
 import type { RelationSnapshot } from './core/engine'
@@ -42,10 +42,16 @@ export const HUB_PREFIX = 'hub:'
 /** Réglages visuels de la couche, résolus une fois par l'appelant. */
 export type RelationVisualStyle = {
   width: number
-  defaultColor: string
   routeColor: string
   hubRadius: number
   minOpacity: number
+  /**
+   * Pointillé défilant des traits de RECHERCHE, en pixels écran (`gapOpacity` en
+   * fraction). `null` = trait plein. L'itinéraire tracé n'en porte jamais : il est la
+   * réponse, pas un candidat en cours d'évaluation — c'est cette différence de forme
+   * qui distingue les deux états.
+   */
+  dash: DashStyle | null
 }
 
 export type RelationVisualContext = {
@@ -59,6 +65,14 @@ export type RelationVisualContext = {
   zoom: number
   /** Nœud visuel agrégeant une cible, ou `null` si elle est isolée. */
   visualNodeOf: (id: string) => VisualNode | null
+  /**
+   * Couleur des traits d'une relation. Résolue par l'HÔTE, et à chaque passe : elle
+   * dépend du marker source (donc du thème et du type courant de ce marker), que ce
+   * module n'a aucun moyen d'atteindre. La calculer ici depuis `rule.color` la figerait
+   * à l'ouverture de la relation — un agent qui change de statut garderait la couleur
+   * qu'il avait au clic.
+   */
+  colorOf: (snapshot: RelationSnapshot) => string
 }
 
 /** Opacité d'un lien selon son rang. Un lien sans rang (temps indisponible) reste discret. */
@@ -123,6 +137,86 @@ export class RelationGeometryCache {
 }
 
 /**
+ * Couple de markers, indépendamment du sens : deux relations opposées (l'agent vers
+ * l'alerte, l'alerte vers l'agent) décrivent le MÊME arc, seulement parcouru à
+ * l'envers. C'est cette clé qui les réunit.
+ */
+const pairKey = (link: Link): string => (link.from.id < link.to.id ? `${link.from.id}|${link.to.id}` : `${link.to.id}|${link.from.id}`)
+
+/**
+ * Couple relié par PLUSIEURS relations : les couleurs à parcourir, et le lien qui
+ * dessine le trait pour tout le monde.
+ */
+type SharedPair = { colors: string[]; owner: string }
+
+/**
+ * Répartit les liens affichés d'une relation : arcs DIRECTS d'un côté, groupes
+ * d'éventail de l'autre (cibles agrégées dans un même cluster). Extrait parce que le
+ * repérage des couples partagés doit trancher exactement comme le rendu — un lien
+ * réputé direct ici mais dessiné en patte d'éventail là ferait disparaître la patte.
+ */
+function partitionLinks(
+  links: readonly Link[],
+  ctx: RelationVisualContext,
+): { direct: Link[]; fans: { node: VisualNode; links: Link[] }[] } {
+  const groups = new Map<string, { node: VisualNode; links: Link[] }>()
+  const direct: Link[] = []
+  for (const link of links) {
+    const node = ctx.visualNodeOf(link.to.id)
+    if (!node || node.memberIds.length <= 1) {
+      direct.push(link)
+      continue
+    }
+    const group = groups.get(node.key)
+    if (group) group.links.push(link)
+    else groups.set(node.key, { node, links: [link] })
+  }
+  const fans: { node: VisualNode; links: Link[] }[] = []
+  // Un groupe d'UN seul lien n'a pas d'éventail à ouvrir : c'est un arc direct.
+  for (const group of groups.values()) {
+    if (group.links.length === 1) direct.push(group.links[0]!)
+    else fans.push(group)
+  }
+  return { direct, fans }
+}
+
+/** Liens réellement dessinés par une relation — le moteur en calcule davantage. */
+const shownLinks = (snapshot: RelationSnapshot): Link[] => snapshot.links.slice(0, shownCount(snapshot))
+
+/**
+ * Couples de markers reliés par plusieurs relations à la fois.
+ *
+ * Deux relations opposées produisent deux traits EXACTEMENT superposés : le second
+ * masquait le premier, et rien ne disait qu'ils étaient deux. On n'en dessine plus
+ * qu'un, dont les tirets alternent les couleurs de toutes les relations concernées —
+ * un maillage de moins, et l'information gagnée.
+ *
+ * Le trait revient à la DERNIÈRE relation ouverte (les instantanés sont dans leur
+ * ordre d'ouverture) : c'est elle qui porte l'étiquette, le survol et le clic, donc
+ * la plus récemment demandée — celle que l'utilisateur regarde.
+ */
+function sharedPairs(snapshots: readonly RelationSnapshot[], ctx: RelationVisualContext): Map<string, SharedPair> {
+  const seen = new Map<string, SharedPair>()
+  for (const snapshot of snapshots) {
+    // Une relation dont l'itinéraire est tracé ne dessine plus ses traits directs.
+    if (snapshot.tracedLinkId) continue
+    const color = ctx.colorOf(snapshot)
+    for (const link of partitionLinks(shownLinks(snapshot), ctx).direct) {
+      const key = pairKey(link)
+      const entry = seen.get(key)
+      if (entry) {
+        entry.colors.push(color)
+        entry.owner = link.id
+      } else seen.set(key, { colors: [color], owner: link.id })
+    }
+  }
+  for (const [key, entry] of seen) {
+    if (entry.colors.length < 2) seen.delete(key)
+  }
+  return seen
+}
+
+/**
  * Visuels de toutes les relations affichées. Ouvre et referme une passe de cache :
  * les géométries des liens disparus en sortent d'elles-mêmes.
  */
@@ -132,8 +226,9 @@ export function buildRelationVisuals(
   cache: RelationGeometryCache,
 ): LinkVisual[] {
   cache.begin()
+  const shared = sharedPairs(snapshots, ctx)
   const out: LinkVisual[] = []
-  for (const snapshot of snapshots) out.push(...visualsForRelation(snapshot, ctx, cache))
+  for (const snapshot of snapshots) out.push(...visualsForRelation(snapshot, ctx, cache, shared))
   cache.end()
   return out
 }
@@ -142,12 +237,17 @@ function visualsForRelation(
   snapshot: RelationSnapshot,
   ctx: RelationVisualContext,
   cache: RelationGeometryCache,
+  shared: ReadonlyMap<string, SharedPair>,
 ): LinkVisual[] {
   const { source, tracedLinkId } = snapshot
   const { style, hoveredId } = ctx
   // Le moteur classe TOUT le pool calculé ; on ne dessine que la tête demandée.
   const links = snapshot.links.slice(0, shownCount(snapshot))
   const total = links.length
+  // UNE couleur pour toute la relation — celle de son marker source. Le socle, les
+  // traits et le tronc d'un éventail la partagent : c'est ce qui fait lire le faisceau
+  // comme appartenant à un marker plutôt que comme des traits sans propriétaire.
+  const color = ctx.colorOf(snapshot)
 
   // Socle de la relation, à plat sous le marker source : il rassemble les traits qui
   // en partent et sert d'ANCRE à sa barre d'état — c'est là que se pilote la relation,
@@ -158,7 +258,7 @@ function visualsForRelation(
     id: hubId,
     disc: { center: source, radiusPx: style.hubRadius },
     points: cache.single(hubId, source),
-    color: snapshot.rule.color ?? style.defaultColor,
+    color,
     opacity: hoveredId === hubId ? HUB_OPACITY_HOVER : HUB_OPACITY,
     width: 0,
     label: null,
@@ -198,41 +298,41 @@ function visualsForRelation(
   // Regroupement par nœud VISUEL : plusieurs cibles agrégées dans un même cluster
   // partagent un tronc et s'ouvrent en éventail. Le cluster n'est jamais éclaté — on
   // ne fait qu'interroger l'état de clustering déjà affiché.
-  const groups = new Map<string, { node: VisualNode; links: Link[] }>()
-  const solo: Link[] = []
-  for (const link of links) {
-    const node = ctx.visualNodeOf(link.to.id)
-    if (!node || node.memberIds.length <= 1) {
-      solo.push(link)
-      continue
-    }
-    const group = groups.get(node.key)
-    if (group) group.links.push(link)
-    else groups.set(node.key, { node, links: [link] })
-  }
-  for (const group of groups.values()) {
-    if (group.links.length === 1) solo.push(group.links[0]!)
-    else result.push(...fanVisuals(snapshot, group.node, group.links, total, ctx, cache))
-  }
+  const { direct, fans } = partitionLinks(links, ctx)
+  for (const group of fans) result.push(...fanVisuals(snapshot, group.node, group.links, total, color, ctx, cache))
 
-  for (const link of solo) {
-    result.push(linkVisual(link, cache.arc(link.id, link.from, link.to), total, ctx))
+  for (const link of direct) {
+    const pair = shared.get(pairKey(link))
+    // Couple déjà porté par une autre relation : son trait dessine les deux, celui-ci
+    // n'a rien à ajouter. Sans ce retrait, les deux se superposeraient au pixel près.
+    if (pair && pair.owner !== link.id) continue
+    result.push(linkVisual(link, cache.arc(link.id, link.from, link.to), total, color, ctx, pair?.colors))
   }
   return result
 }
 
 /** Visuel d'un lien : la seule forme, partagée par le trait direct et la patte
  *  d'éventail — ils ne diffèrent que par leur géométrie. */
-function linkVisual(link: Link, points: LatLng[], total: number, ctx: RelationVisualContext): LinkVisual {
+function linkVisual(
+  link: Link,
+  points: LatLng[],
+  total: number,
+  color: string,
+  ctx: RelationVisualContext,
+  /** Couleurs de toutes les relations qui se partagent ce trait, s'il est partagé. */
+  colors?: readonly string[],
+): LinkVisual {
   return {
     id: link.id,
     points,
-    color: link.color,
+    color,
+    colors,
     hovered: ctx.hoveredId === link.id,
     opacity: opacityForRank(link.rank, total, ctx.style.minOpacity),
     width: ctx.style.width,
     label: ctx.formatLink(link.distanceMeters, link.durationSeconds, link.status === 'unavailable'),
     rank: link.rank,
+    dash: ctx.style.dash ?? undefined,
   }
 }
 
@@ -251,6 +351,7 @@ function fanVisuals(
   node: VisualNode,
   groupLinks: Link[],
   total: number,
+  color: string,
   ctx: RelationVisualContext,
   cache: RelationGeometryCache,
 ): LinkVisual[] {
@@ -270,11 +371,12 @@ function fanVisuals(
       {
         id: `agg:${source.id}:${node.key}`,
         points: trunk,
-        color: best.color,
+        color,
         opacity,
         width: style.width,
         label: formatLabel(labels.relations.clusterAggregate, { count: ordered.length }),
         rank: best.rank,
+        dash: style.dash ?? undefined,
       },
     ]
   }
@@ -283,18 +385,19 @@ function fanVisuals(
     {
       id: trunkKey,
       points: trunk,
-      color: best.color,
+      color,
       opacity,
       width: style.width,
       // Le tronc ne porte pas d'étiquette : les chiffres vivent sur les pattes, une
       // par cible, sinon deux durées se disputeraient le même endroit.
       label: null,
+      dash: style.dash ?? undefined,
     },
   ]
   const azimuths = fanLegs(bearingDeg(source, node.position), ordered.length, FAN_SPREAD_DEG)
   ordered.forEach((link, i) => {
     const end = destinationPoint(node.position, azimuths[i] ?? 0, FAN_LEG_PX * mpp)
-    legs.push(linkVisual(link, cache.segment(`leg:${link.id}`, node.position, end), total, ctx))
+    legs.push(linkVisual(link, cache.segment(`leg:${link.id}`, node.position, end), total, color, ctx))
   })
   return legs
 }

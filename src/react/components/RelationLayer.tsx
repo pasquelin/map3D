@@ -10,10 +10,11 @@ import {
 } from 'react'
 import { zoomForAltitude } from '../../core/MapEngine'
 import { markerTags, type MarkerData } from '../../data/types'
-import { LinkLayer as CoreLinkLayer } from '../../layers/LinkLayer'
+import { LinkLayer as CoreLinkLayer, type DashStyle } from '../../layers/LinkLayer'
 import { makeLinkLabelFormatter } from '../../labels/measure'
 import { RelationEngine } from '../../relations/core/engine'
 import { boundsAround } from '../../relations/core/geo'
+import { familyTag } from '../../relations/core/selection'
 import type { MapPoint, RelationRule, TravelMode } from '../../relations/core/types'
 import type { RoutingProvider } from '../../relations/providers/RoutingProvider'
 import { buildRelationMenu } from '../../relations/relationMenu'
@@ -23,6 +24,7 @@ import {
   RelationGeometryCache,
   type RelationVisualStyle,
 } from '../../relations/visuals'
+import { markerColorOf, tagColorOf } from '../../theme/colors'
 import { RelationContext, type RelationApi, useLabels, useMapContext } from '../context'
 import { useLayer, useLayerSync } from '../hooks/useLayer'
 import { useRelationInteraction } from '../hooks/useRelationInteraction'
@@ -46,8 +48,31 @@ export type RelationLayerProps = {
   provider: RoutingProvider
   /** Épaisseur du trait des liens, en pixels écran. */
   width?: number
-  /** Couleur des règles qui n'en déclarent pas — jaune, lisible sur satellite comme sur plan. */
+  /**
+   * Dernier repli de couleur : sert aux relations dont NI la règle ni le marker source
+   * ne donnent de couleur (source hors registre, type absent du thème). Jaune, lisible
+   * sur satellite comme sur plan.
+   *
+   * L'ordre est `rule.color` → couleur du marker source → ce repli. Une règle qui
+   * déclare sa couleur garde donc le dernier mot (elle exprime un choix explicite de
+   * l'application) ; sinon le faisceau prend la couleur du marker d'où il part, ce qui
+   * rattache les traits à leur propriétaire sans rien avoir à configurer.
+   */
   defaultColor?: string
+  /**
+   * Pointillé défilant des traits de RECHERCHE — l'équivalent 3D du marching-ants de
+   * la sélection. Longueurs et vitesse en pixels écran (`speed` = px/s vers la cible).
+   * `false` pour un trait plein.
+   *
+   * `gapOpacity` : ce qui subsiste entre deux tirets, en fraction de l'opacité du
+   * trait — même couleur, simplement effacée. Le trait garde un corps continu, dans
+   * SA couleur, et n'a donc pas besoin du contour : un trait pointillé n'en reçoit
+   * pas (cf. `casingWidth`).
+   *
+   * L'itinéraire tracé n'est jamais pointillé : le pointillé dit « candidat en cours
+   * d'évaluation », le trait plein dit « voilà le trajet ».
+   */
+  linkDash?: DashStyle | false
   /**
    * Couleur de l'itinéraire réel : distincte des liens, c'est un autre objet.
    * Violet façon navigation plutôt qu'un bleu — sur imagerie satellite un tracé
@@ -95,6 +120,17 @@ export type RelationLayerProps = {
 /** Un id de marker numérique doit être retenté en nombre auprès du registre. */
 const NUMERIC_ID = /^-?\d+$/
 
+/**
+ * Motif par défaut des traits de recherche, en pixels écran. Tiret un peu plus long
+ * que l'espace (le trait doit rester une ligne, pas une file de points) et défilement
+ * lent : c'est un signal d'attente, il ne doit pas capter le regard plus que le marker
+ * qu'il désigne. `gapOpacity` à 10 % : l'espace entre deux tirets reste juste assez
+ * présent pour tenir la ligne, sans concurrencer les tirets. Hissé hors du composant —
+ * un littéral par défaut serait une nouvelle référence à chaque rendu, et referait
+ * tous les visuels de la couche.
+ */
+const DEFAULT_DASH: DashStyle = { length: 20, gap: 8, speed: 16, gapOpacity: 0.3 }
+
 const toMapPoint = (m: MarkerData): MapPoint => ({
   id: String(m.id),
   lat: m.position.lat,
@@ -113,8 +149,9 @@ const toMapPoint = (m: MarkerData): MapPoint => ({
 export function RelationLayer({
   rules,
   provider,
-  width = 6,
+  width = 8,
   defaultColor = '#ffd400',
+  linkDash = DEFAULT_DASH,
   routeColor = '#7c4dff',
   hoverDarken = 0.72,
   hubRadius = 26,
@@ -204,15 +241,60 @@ export function RelationLayer({
 
   const formatLink = useMemo(() => makeLinkLabelFormatter(labels), [labels])
 
-  // Couleur résolue une fois pour toutes : le moteur et le menu reçoivent des règles
-  // complètes, aucun repli n'a donc à être refait plus bas dans la chaîne.
-  const resolvedRules = useMemo(
-    () => rules.map((r) => (r.color ? r : { ...r, color: defaultColor })),
-    [rules, defaultColor],
+  /**
+   * Marker du registre par son id. Le core normalise les ids en `string` alors que le
+   * registre les indexe tels quels : une clé numérique doit être retentée en nombre,
+   * sinon un marker à `id: 3` devient introuvable.
+   */
+  const findMarker = useCallback(
+    (id: string): MarkerData | null =>
+      engine.markers.markerById(id) ?? (NUMERIC_ID.test(id) ? engine.markers.markerById(Number(id)) : null),
+    [engine],
+  )
+
+  /**
+   * Couleur effective des TRAITS d'une relation : celle de son marker source, telle
+   * que le thème la donne à son type — donc EXACTEMENT celle de sa pastille, des parts
+   * de cluster et des lignes de liste (`markerColorOf`, résolveur unique de la lib).
+   *
+   * Résolue À LA DEMANDE, jamais figée dans la règle remise au moteur : un marker qui
+   * change de type (un agent qui passe « en route ») change de couleur, et son faisceau
+   * doit suivre sans qu'on ait à rouvrir la relation.
+   */
+  const colorFor = useCallback(
+    (rule: RelationRule, sourceId: string): string => {
+      if (rule.color) return rule.color
+      const marker = findMarker(sourceId)
+      return marker ? markerColorOf(theme, marker.type).base : defaultColor
+    },
+    [findMarker, theme, defaultColor],
+  )
+
+  /**
+   * Couleur d'une FAMILLE — celle de ses pastilles (menu du marker, bascule de la
+   * barre d'état). Répond à « cette famille vise quoi ? », là où la couleur d'un trait
+   * répond à « ce faisceau part de qui ? » (`colorFor`).
+   *
+   * À défaut de `rule.color`, elle vient du TAG visé par la règle, résolu exactement
+   * comme dans le panneau « Couches » (`tagColorOf`). L'application n'a donc rien à
+   * déclarer de plus : la table de couleurs
+   * de tags qu'elle donne déjà au thème sert les deux surfaces, et une famille
+   * « Alertes » porte la même pastille que le tag `alert` du panneau.
+   *
+   * Sans cela, toutes les familles d'un même marker tombaient sur `defaultColor` — un
+   * même jaune répété, qui ne distinguait plus rien.
+   */
+  const familyColor = useCallback(
+    (rule: RelationRule): string => {
+      if (rule.color) return rule.color
+      const tag = familyTag(rule.to)
+      return tag === null ? defaultColor : tagColorOf(theme, tag)
+    },
+    [theme, defaultColor],
   )
 
   /** Portée maximale toutes règles confondues — ne dépend pas de la source. */
-  const reach = useMemo(() => Math.max(...resolvedRules.map((r) => r.selection.maxMeters), 0), [resolvedRules])
+  const reach = useMemo(() => Math.max(...rules.map((r) => r.selection.maxMeters), 0), [rules])
 
   /** Voisinage interrogeable autour d'un point, clusters inclus (registre d'inventaire). */
   const candidatesAround = useCallback(
@@ -237,12 +319,19 @@ export function RelationLayer({
       return buildRelationMenu({
         source,
         candidates: candidatesAround(source),
-        rules: resolvedRules,
+        rules,
         labels,
+        // La pastille du menu désigne une FAMILLE de cibles, pas le trait qui en
+        // sortira : elle porte donc la couleur de la famille, jamais celle du marker
+        // source — qui rendrait les familles d'un même marker toutes identiques.
+        // Passée à part, jamais écrite dans la règle : celle remise au moteur doit
+        // rester telle que l'application l'a déclarée, sinon la couleur du marker
+        // source n'aurait plus la main sur les traits.
+        colorOf: familyColor,
         onRun: (rule) => run(source, rule),
       })
     },
-    [candidatesAround, resolvedRules, labels, run],
+    [candidatesAround, rules, labels, run, familyColor],
   )
 
   /**
@@ -252,11 +341,10 @@ export function RelationLayer({
    */
   const resolvePoint = useCallback(
     (id: string): MapPoint | null => {
-      const found =
-        engine.markers.markerById(id) ?? (NUMERIC_ID.test(id) ? engine.markers.markerById(Number(id)) : null)
+      const found = findMarker(id)
       return found ? toMapPoint(found) : null
     },
-    [engine],
+    [findMarker],
   )
 
   // Les markers vivent : un lien doit rester accroché à ses deux extrémités. Sans
@@ -304,8 +392,8 @@ export function RelationLayer({
   }, [engine, relationEngine, resolvePoint, staleMeters, refreshIntervalMs, run])
 
   const visualStyle = useMemo(
-    (): RelationVisualStyle => ({ width, defaultColor, routeColor, hubRadius, minOpacity }),
-    [width, defaultColor, routeColor, hubRadius, minOpacity],
+    (): RelationVisualStyle => ({ width, routeColor, hubRadius, minOpacity, dash: linkDash || null }),
+    [width, routeColor, hubRadius, minOpacity, linkDash],
   )
 
   const visualNodeOf = useCallback((id: string) => engine.markers.visualNodeOf(id), [engine])
@@ -328,13 +416,19 @@ export function RelationLayer({
           hoveredId,
           zoom: camRef.current.zoom,
           visualNodeOf,
+          colorOf: (snapshot) => colorFor(snapshot.rule, snapshot.source.id),
         },
         geometry.current,
       ),
     // `version` et `clusterTick` sont les dépendances réelles restantes : le moteur
     // mute ses instantanés en place, et le regroupement visuel dépend du palier de zoom.
+    //
+    // `colorFor` en fait désormais partie, et elle dépend du thème : recomposer le thème
+    // à chaque rendu (objet littéral passé à `<MapProvider theme>`) referait TOUS les
+    // visuels de TOUTES les relations à chaque rendu de l'hôte. `MapProvider` le mémoïse,
+    // donc l'invariant tient — c'est lui qu'il faut préserver, pas ce tableau.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [version, clusterTick, hoveredId, snapshots, visualStyle, labels, formatLink, visualNodeOf],
+    [version, clusterTick, hoveredId, snapshots, visualStyle, labels, formatLink, visualNodeOf, colorFor],
   )
 
   useLayerSync(layerRef, visuals, (layer, v) => layer.setLinks(v))
@@ -351,19 +445,20 @@ export function RelationLayer({
 
   const api = useMemo(
     (): RelationApi => ({
-      rules: resolvedRules,
+      rules,
       menuFor,
       run,
       snapshots,
       setMode,
       hubHosts,
       routeColor,
+      familyColor,
       untrace: (id) => relationEngine.untrace(id),
       clear: (sourceId) => relationEngine.clear(sourceId),
     }),
     // `version` : le moteur mute ses instantanés en place, l'API doit suivre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [resolvedRules, menuFor, run, snapshots, setMode, hubHosts, routeColor, relationEngine, version],
+    [rules, menuFor, run, snapshots, setMode, hubHosts, routeColor, familyColor, relationEngine, version],
   )
 
   return (

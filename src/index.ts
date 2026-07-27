@@ -42,6 +42,10 @@ export { EnuFrame } from './core/enu'
 // `components.layers`) doit pouvoir reproduire les couleurs de repli, et un
 // intégrateur vanilla (core sans React) nourrir `engine.tags.report`.
 export { tagColor, countTags } from './core/TagFilter'
+// Résolveurs de couleur du thème — ce que la lib elle-même consulte pour peindre un
+// marker ou un tag. Publics pour qu'un marker, une liste ou un panneau écrits par
+// l'hôte s'accordent avec ceux de la lib au lieu de refaire la chaîne de repli.
+export { markerColorOf, tagColorOf } from './theme/colors'
 export type { TagFilter, TagEntry } from './core/TagFilter'
 export type { Layer, FrameContext, MapView } from './core/Layer'
 // Registre des sélectionnables externes (`engine.selectables`) : un intégrateur
@@ -267,7 +271,7 @@ export { useRelations } from './react/hooks/useRelations'
 export type { RelationApi } from './react/context'
 export { RelationEngine } from './relations/core/engine'
 export type { RelationSnapshot } from './relations/core/engine'
-export { selectTargets, matchesSelector } from './relations/core/selection'
+export { selectTargets, matchesSelector, familyTag } from './relations/core/selection'
 export { buildRelationMenu } from './relations/relationMenu'
 export type { RelationMenuContext } from './relations/relationMenu'
 export { haversineMeters, bearingDeg, greatCirclePoints, fanLegs, boundsAround } from './relations/core/geo'

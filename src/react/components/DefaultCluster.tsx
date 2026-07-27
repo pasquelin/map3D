@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { clamp, RAD2DEG } from '../../core/math'
 import type { ClusterInfo } from '../../layers/ClusterLayer'
 import type { MapTheme } from '../../theme/types'
+import { markerColorOf } from '../../theme/colors'
 
 export type DefaultClusterProps = {
   cluster: ClusterInfo
@@ -23,6 +24,9 @@ type Tip = { x: number; y: number; below: boolean; label: string; count: number;
 
 const RING_W = 30
 
+/** Contour blanc des parts — il déborde du rayon extérieur de sa moitié. */
+const STROKE_W = 2.5
+
 /** Rayon extérieur (px) du donut par défaut — l'ancrage de l'infobulle de
  *  cluster le lit pour ne jamais recouvrir le camembert. */
 export const defaultClusterRadius = (total: number): number => Math.min(28, 19 + Math.sqrt(total)) + RING_W
@@ -37,14 +41,25 @@ export const defaultClusterRadius = (total: number): number => Math.min(28, 19 +
 export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteTip = true, onSegmentHover }: DefaultClusterProps) {
   const { total, counts, types } = cluster
   const [tip, setTip] = useState<Tip | null>(null)
-  const box = 150
-  const C = 75
   // Parts TOUJOURS égales (360° / nombre de types) — le compte est le chiffre, pas la taille.
 
-  const colorOf = (type: string) => theme.colors.marker[type] ?? theme.colors.marker.default!
+  const colorOf = (type: string) => markerColorOf(theme, type)
   const core = theme.colors.cluster // couleur PROPRE du cluster (indépendante des types)
 
   const ro = defaultClusterRadius(total)
+  /**
+   * Boîte du sprite : le donut, et RIEN d'autre (demi-trait de contour compris).
+   *
+   * Elle était figée à 150 px — la taille du plus gros donut possible — alors que le
+   * rayon, lui, dépend du nombre de points : il restait jusqu'à 25 px de vide tout
+   * autour. Ce vide n'est pas neutre, c'est la boîte qui porte le survol : l'infobulle
+   * s'ouvrait avant que le pointeur n'ait atteint le camembert, et le curseur
+   * `pointer` s'allumait dans le vide. Dimensionner la boîte au dessin fait
+   * disparaître le problème à sa source, plutôt que de rattraper le test de survol
+   * après coup (découpe CSS, retrait du conteneur du test…).
+   */
+  const box = Math.ceil(2 * (ro + STROKE_W / 2))
+  const C = box / 2
   const cr = ro - RING_W // cœur compact
   const rm = (cr + ro) / 2
   const gap = types.length > 1 ? 0.045 : 0
@@ -101,9 +116,9 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
               }}
             >
               {segs.length === 1 ? (
-                <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke="#fff" strokeWidth={2.5} />
+                <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke="#fff" strokeWidth={STROKE_W} />
               ) : (
-                <path d={sector(s.a0, s.a1)} fill={s.col.base} stroke="#fff" strokeWidth={2.5} strokeLinejoin="round" />
+                <path d={sector(s.a0, s.a1)} fill={s.col.base} stroke="#fff" strokeWidth={STROKE_W} strokeLinejoin="round" />
               )}
               <g transform={`translate(${x(rm, s.am)}, ${y(rm, s.am)}) rotate(${rot})`} style={{ pointerEvents: 'none' }}>
                 {typeIcon ? (
@@ -127,7 +142,7 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
           )
         })}
         <g className="m3d-cluster-core" style={{ pointerEvents: 'none' }}>
-          <circle cx={C} cy={C} r={cr + 2.5} fill={core.ring} />
+          <circle cx={C} cy={C} r={cr + STROKE_W} fill={core.ring} />
           <circle cx={C} cy={C} r={cr} fill={core.core} />
           <text
             x={C}

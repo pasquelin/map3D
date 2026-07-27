@@ -1,7 +1,6 @@
 import { mdiFilterRemoveOutline, mdiLayersOutline, mdiMagnify } from '@mdi/js'
 import Icon from '@mdi/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { tagColor } from '../../core/TagFilter'
 import { useLabels, useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
 import { useAnchoredPanel } from './panelFit'
@@ -9,6 +8,7 @@ import { plainKey } from './shortcuts'
 import { ToolButton } from './ToolButton'
 import { useDismiss } from './useDismiss'
 import { useTip } from './tooltip'
+import { tagColorOf } from '../../theme/colors'
 
 /** Hauteur maximale souhaitée du panneau quand le conteneur le permet (px). */
 const PANEL_MAX_HEIGHT = 380
@@ -126,7 +126,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
         {shown.map(({ tag, count }) => (
           <label key={tag} className="m3d-tagrow">
             <input type="checkbox" checked={tags.selected.has(tag)} onChange={() => tags.toggle(tag)} />
-            <span className="m3d-tagdot" style={{ background: theme.colors.tags?.[tag] ?? tagColor(tag) }} />
+            <span className="m3d-tagdot" style={{ background: tagColorOf(theme, tag) }} />
             <span className="m3d-taglabel">{labelOf(tag)}</span>
             <span className="m3d-tagcount">{count}</span>
           </label>

@@ -175,7 +175,7 @@ export const defaultLabels: MapLabels = {
     radiusGroup: 'Dans un rayon',
     radius: 'Dans {radius}',
     targetCount: '{count}',
-    tooWide: '{count} — trop large',
+    tooWide: '{count} !',
     noTargets: 'aucun',
     clusterAggregate: '{count} éléments',
     statusRelation: '{source} → {targets}',

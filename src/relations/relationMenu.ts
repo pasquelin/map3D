@@ -19,6 +19,12 @@ export type RelationMenuContext = {
   candidates: readonly MapPoint[]
   rules: readonly RelationRule[]
   labels: MapLabels
+  /**
+   * Couleur de la pastille d'une famille. Résolue par l'appelant : une règle sans
+   * couleur prend celle du marker SOURCE, que ce module n'a aucun moyen de connaître.
+   * Omise, la pastille retombe sur la couleur déclarée par la règle.
+   */
+  colorOf?: (rule: RelationRule) => string | undefined
   /** Reçoit la règle DÉRIVÉE (preset appliqué), prête à être exécutée. */
   onRun: (rule: RelationRule) => void
 }
@@ -110,7 +116,7 @@ export function buildRelationMenu(ctx: RelationMenuContext): MenuItem[] {
     heading(ctx.labels.relations.menuRoot),
     ...applicable.map((rule) => ({
       label: rule.label,
-      swatch: rule.color,
+      swatch: ctx.colorOf ? ctx.colorOf(rule) : rule.color,
       children: () => presetsFor(rule, ctx),
     })),
   ]

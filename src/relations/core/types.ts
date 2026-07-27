@@ -32,8 +32,14 @@ export type RelationRule = {
   /** Les cibles candidates doivent le satisfaire. */
   to: TagSelector
   /**
-   * Couleur de la famille — SEULE variable visuelle porteuse de sens avec le rang.
-   * Omise, la couche applique sa couleur par défaut (`RelationLayer.defaultColor`).
+   * Couleur de la FAMILLE — celle de ses pastilles (menu du marker, bascule de la
+   * barre d'état). Omise, la couche prend celle du tag visé par `to` (cf. `familyTag`,
+   * résolu dans `theme.colors.tags` comme au panneau « Couches »), puis, à défaut,
+   * `RelationLayer.defaultColor`.
+   *
+   * Elle ne décide PAS de la couleur des traits : ceux-ci portent celle du marker
+   * source, sauf si cette couleur-ci est déclarée — auquel dernier cas le choix
+   * explicite de l'application l'emporte.
    */
   color?: string
   mode: TravelMode

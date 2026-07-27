@@ -15,6 +15,25 @@ export function matchesSelector(tags: readonly string[], sel: TagSelector): bool
 }
 
 /**
+ * Tag qui NOMME la famille visée par un sélecteur — celui dont la couleur peut la
+ * représenter quand la règle n'en déclare pas (`RelationRule.color`).
+ *
+ * `all` d'abord, et son DERNIER tag : chaque tag d'un `all` restreint les précédents,
+ * donc le dernier est le plus spécifique — `{ all: ['alert', 'critical'] }` est une
+ * famille de « critiques », pas d'« alertes ». Sinon le premier de `any`, où les tags
+ * sont des alternatives équivalentes et où l'ordre écrit est le seul ordre disponible.
+ * `none` ne nomme jamais rien : il dit ce que la famille EXCLUT.
+ *
+ * `null` si le sélecteur ne nomme aucun tag (`none` seul, ou sélecteur vide) : à
+ * l'appelant de retomber sur sa couleur de repli.
+ */
+export function familyTag(sel: TagSelector): string | null {
+  if (sel.all && sel.all.length > 0) return sel.all[sel.all.length - 1]!
+  if (sel.any && sel.any.length > 0) return sel.any[0]!
+  return null
+}
+
+/**
  * Facteur de sur-échantillonnage du mode `fastest` : le plus proche à vol d'oiseau
  * n'est pas le plus rapide (sens uniques, fleuve à contourner, voie rapide). On
  * envoie plus de candidats à la matrice qu'on n'affichera de liens, et c'est la
