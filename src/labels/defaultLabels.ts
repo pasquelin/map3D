@@ -194,6 +194,7 @@ export const defaultLabels: MapLabels = {
     remove: 'Supprimer',
     collapse: 'Réduire',
     expand: 'Développer',
+    title: 'Favoris',
   },
   errors: {
     outsideMap: 'Ce composant doit être utilisé à l’intérieur de <Map>',

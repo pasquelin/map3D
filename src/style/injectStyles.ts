@@ -798,33 +798,64 @@ const CSS = `
 .m3d-drag-ghost-pin.m3d-drag-over{transform:translate(-50%,-50%) scale(1.3)}
 
 /* ── Dock des favoris épinglés (PinnedDock) ────────────────────────────────
-   Barre ancrée en bas à gauche (largeur bornée, même marge des deux côtés) ;
-   repliable en une pastille compacte. Chaque état (barre / pastille) apparaît
-   avec un petit « pop » — l'animation se rejoue à la bascule (élément remonté). */
-.m3d-pindock{position:absolute;left:16px;bottom:16px;z-index:998;max-width:calc(100% - 32px);
+   Barre ancrée en bas AU CENTRE, largeur au contenu (bornée, elle grandit
+   symétriquement de part et d'autre de l'axe). Repliée, elle coulisse sous le bord
+   de la carte ; seule la poignée ronde reste, et c'est par elle qu'on la rappelle.
+
+   Le conteneur ne bouge JAMAIS : il fait la taille de la barre et sert de repère aux
+   deux mouvements (la barre qui descend, la poignée qui la suit). C'est ce qui rend
+   la transition continue là où deux éléments échangés ne pouvaient que sauter. */
+.m3d-pindock-wrap{position:absolute;left:50%;bottom:16px;z-index:998;
+  max-width:calc(100% - 32px);transform:translateX(-50%)}
+.m3d-pindock{position:relative;
   display:flex;align-items:center;gap:10px;padding:10px;overflow:visible;box-sizing:border-box;
   background:var(--m3d-panel);border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);backdrop-filter:blur(20px);
-  transform-origin:bottom left;animation:m3d-pindock-in .24s cubic-bezier(.32,1.25,.5,1) backwards}
+  transform-origin:bottom center;
+  animation:m3d-pindock-in .24s cubic-bezier(.32,1.25,.5,1) backwards;
+  transition:transform .34s cubic-bezier(.4,0,.2,1),opacity .22s ease}
 @keyframes m3d-pindock-in{from{opacity:0;transform:translateY(8px) scale(.9)}}
+/* Repliée : la barre sort par le bas (sa hauteur + la marge du bord), pas une
+   remise à l'échelle — ce qui disparaît doit sortir du cadre, pas rétrécir. */
+/* L'animation d'apparition est coupée ici : montée déjà repliée (defaultCollapsed),
+   la barre jouerait sinon son « pop » avant de redescendre — un aller-retour pour
+   rien. ATTENTION : ce CSS est un template literal, aucun accent grave dans les
+   commentaires, il fermerait la chaîne. */
+.m3d-collapsed .m3d-pindock{transform:translateY(calc(100% + 24px));opacity:0;pointer-events:none;animation:none}
 /* Cible de dépôt active : liseré accent en pointillé + voile teinté. */
-.m3d-pindock-over{border-color:var(--m3d-accent);border-style:dashed;
+.m3d-pindock-over .m3d-pindock{border-color:var(--m3d-accent);border-style:dashed;
   background:color-mix(in srgb,var(--m3d-accent) 14%,var(--m3d-panel))}
-/* Bouton « réduire » à droite de la barre déployée. */
-.m3d-pindock-toggle{flex:none;align-self:stretch;display:flex;align-items:center;justify-content:center;
-  width:20px;padding:0;border:none;background:transparent;cursor:pointer;
-  color:var(--m3d-muted);border-radius:10px;transition:background .14s,color .14s}
-.m3d-pindock-toggle:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
-.m3d-pindock-toggle:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
-/* Repliée : pastille compacte (épingle + compteur + chevron), cliquable. */
-.m3d-pindock-collapsed{-webkit-appearance:none;appearance:none;font:inherit;cursor:pointer;
-  gap:7px;padding:9px 12px;color:var(--m3d-text)}
-.m3d-pindock-collapsed:hover{background:color-mix(in srgb,var(--m3d-text) 6%,var(--m3d-panel))}
-.m3d-pindock-collapsed:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
-.m3d-pindock-count{min-width:18px;height:18px;padding:0 5px;border-radius:9px;
-  background:var(--m3d-accent);color:#fff;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+.m3d-pindock-over .m3d-pindock-toggle{border-color:var(--m3d-accent);color:var(--m3d-accent)}
+/* Poignée ronde, à cheval sur le bord haut de la barre (moitié dehors). Repliée,
+   elle glisse jusqu'au bas du conteneur : c'est le décalage haut qui s'anime, donc
+   elle accompagne la barre au lieu de se téléporter. */
+.m3d-pindock-toggle{position:absolute;left:50%;top:0;transform:translate(-50%,-70%);z-index:2;
+  min-width:34px;height:34px;padding:0;border-radius:17px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font:inherit;
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);
+  box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px);color:var(--m3d-muted);
+  transition:top .14s cubic-bezier(.4,0,.2,1),padding .28s cubic-bezier(.4,0,.2,1),
+    background .14s,color .14s,border-color .14s}
+.m3d-collapsed .m3d-pindock-toggle{top:calc(100% - 17px);padding:0 13px 0 7px}
+.m3d-pindock-toggle:hover{background:color-mix(in srgb,var(--m3d-text) 6%,var(--m3d-panel));color:var(--m3d-text)}
+.m3d-pindock-toggle:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+/* Un seul chevron pour les deux sens : il pointe vers le haut au repos (« rouvrir »)
+   et pivote quand la barre est déployée (« refermer »). */
+.m3d-pindock-chev{transition:transform .34s cubic-bezier(.4,0,.2,1)}
+.m3d-pindock-wrap:not(.m3d-collapsed) .m3d-pindock-chev{transform:rotate(180deg)}
+/* Compteur et nom : dépliés AVEC la poignée. Toujours dans le DOM, ils sont réduits
+   à une largeur nulle quand la barre est ouverte — c'est ce qui permet à la poignée
+   de passer du rond à la pilule d'un seul mouvement, sans mesure ni saut. */
+.m3d-pindock-count,.m3d-pindock-name{max-width:0;opacity:0;overflow:hidden;white-space:nowrap;
+  transition:max-width .28s cubic-bezier(.4,0,.2,1),opacity .18s ease,margin-left .28s cubic-bezier(.4,0,.2,1)}
+.m3d-collapsed .m3d-pindock-count{max-width:40px;opacity:1;margin-left:5px}
+.m3d-collapsed .m3d-pindock-name{max-width:160px;opacity:1;margin-left:7px}
+.m3d-pindock-count{flex:none;box-sizing:content-box;height:17px;border-radius:9px;
+  background:var(--m3d-accent);color:#fff;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
   display:flex;align-items:center;justify-content:center}
-.m3d-pindock-chev{color:var(--m3d-muted)}
+/* Le padding suit la largeur : à largeur nulle il ne doit rien occuper. */
+.m3d-collapsed .m3d-pindock-count{padding:0 5px;min-width:7px}
+.m3d-pindock-name{font-size:12.5px;font-weight:600;color:var(--m3d-text);line-height:1}
 /* Languette d'invite : carré pointillé « + Ajouter un marqueur », le libellé
    revient à la ligne. Léger grossissement au survol. */
 .m3d-pindock-add{flex:none;box-sizing:border-box;

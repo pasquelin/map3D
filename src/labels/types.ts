@@ -264,6 +264,11 @@ export type MapLabels = {
     collapse: string
     /** aria-label du bouton/pastille qui redéploie la dock. */
     expand: string
+    /**
+     * Nom de la dock, affiché SUR la poignée quand elle est repliée : c'est alors
+     * le seul élément visible, et un chevron seul ne dit pas ce qu'il rouvre.
+     */
+    title: string
   }
   /** Messages d'erreur développeur. */
   errors: {
