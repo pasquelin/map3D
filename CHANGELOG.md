@@ -10,6 +10,16 @@ Introduction de `MapConfig` : les valeurs qui pilotaient le comportement de la c
 depuis des littéraux dispersés dans le code deviennent un arbre de réglages unique,
 surchargeable par `<Map config>` et documenté dans `docs/CONFIG.md`.
 
+### Robustesse de publication
+
+- Le bundle porte désormais la directive `'use client'` (banner Rollup, avant les
+  imports) : `import` depuis un React Server Component (Next App Router) ne casse plus
+  le build serveur. La carte étant intrinsèquement cliente (WebGL, hooks, DOM), tout
+  le paquet est marqué client.
+- `engines.node` fixé à `>=18` (aligné sur la chaîne de build Vite 6).
+- Suppression du `package-lock.json` concurrent : un seul gestionnaire, **pnpm**
+  (`pnpm-lock.yaml`), et ajout au `.gitignore` pour éviter sa régénération.
+
 ### ⚠️ Ruptures
 
 #### `labels.measure` — renommage et nouveaux champs
@@ -52,6 +62,44 @@ Un jeu impérial ne demande désormais aucune modification du code :
 Idem pour les durées : `duration.minorThreshold` et `duration.majorThreshold` rendent
 réglables les deux bascules (secondes → minutes → heures), jusque-là en dur.
 
+#### Le regroupement passe de la couche à la carte
+
+Chaque `<MarkerLayer>` regroupait **ses** points dans son coin. Deux couches
+produisaient donc deux jeux de pastilles qui s'ignoraient : un symbole posé restait
+affiché seul à côté — voire par-dessus — la pastille de la couche voisine, qui pour lui
+n'existait pas. Le regroupement est désormais un service de la carte (`engine.clusters`
++ une surface unique), alimenté par toutes les couches.
+
+Réglages et apparence se déclarent donc **une fois**, sur la carte : un même nœud
+agrège les points de plusieurs couches, il ne peut pas prendre deux apparences
+contradictoires.
+
+```diff
+ markersLayer({
+   points: allMarkers,
+-  cluster: { enabled: true, maxZoom: 18 },
+-  clusterTypeIcon,
+-  clusterTypeLabel,
+-  clusterTooltip: clusterTip,
+ })
++<Map
++  config={{ clustering: { maxZoom: 18 } }}
++  cluster={{ typeIcon: clusterTypeIcon, typeLabel: clusterTypeLabel, tooltip: clusterTip }}
++/>
+```
+
+`cluster: { enabled: false }` sur une couche l'exclut du regroupement. La signature de
+l'infobulle passe de `MarkerData<T>[]` à `MarkerData[]` : une pastille agrège
+potentiellement plusieurs couches, aucun `data` commun n'est garanti.
+
+`clusterTypeIcon` et `clusterTypeLabel` étaient restés **déclarés sur
+`MarkerLayerProps` mais plus lus** : les passer ne faisait plus rien, en silence. Ils
+sont supprimés du type — un appel resté en arrière obtient donc une erreur de
+compilation, et non une prop ignorée. Leur remplacement est
+`<Map cluster={{ typeIcon, typeLabel }}>`, comme ci-dessus. `typeLabel` reste sur la
+couche : il y nomme un type pour la **recherche** et les lignes de liste, ce qui n'a
+rien à voir avec une part de camembert.
+
 #### `theme.camera` → `config.camera`
 
 Les bornes de navigation (zoom min/max, inclinaison, pas de zoom, vitesse de glissé,
@@ -79,6 +127,20 @@ refacturé pour un simple entier modifié.
 
 ### Ajouté
 
+- **Markers statiques (le décor)** — `MarkerData.static` marque ce qui ne demande
+  aucune action et sert de repère : symbole posé, défibrillateur, borne. Ces markers
+  disparaissent en dessous de `config.markers.staticMinZoom` (défaut `13`, `0` pour
+  désactiver), là où une carte dézoomée se couvrait de pictogrammes illisibles
+  masquant les alertes. `static: { minZoom }` impose un seuil **propre au marker** —
+  tout le décor ne se lit pas à la même distance. Un statique masqué reste **trouvé
+  par la recherche et la loupe** (un seuil de zoom dit ce qui est lisible, pas ce
+  qu'on a le droit de trouver) et le marker sélectionné ou suivi échappe au seuil.
+  Au-dessus, c'est un marker ordinaire : il se regroupe et prend sa part de camembert.
+- **Regroupement et seuil des symboles posés** — la couche de symboles clusterise
+  désormais (`<DrawLayer symbols={{ cluster: { enabled: false } }}>` pour revenir en arrière) et
+  ses points sont `static` d'office. Le seuil suit une cascade du plus général au plus
+  précis : `config.markers.staticMinZoom`, puis `symbols.minZoom` pour la couche, puis
+  `minZoom` sur l'entrée de catalogue quand il dépend du genre de symbole.
 - **`<Map config>`** — arbre de réglages complet : fournisseurs tiers (endpoints,
   FieldMasks, langue, quotas), seuils de geste, budgets de calcul, cadence de
   chargement, échelle d'empilement CSS. Merge profond sur `defaultConfig`.

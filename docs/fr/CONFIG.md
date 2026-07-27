@@ -1,5 +1,7 @@
 # `MapConfig` — référence
 
+**Français** · [English](../en/CONFIG.md) · [↑ Index](README.md)
+
 Toutes les valeurs réglables de la carte, leur rôle et leur défaut.
 
 Généré depuis `src/config/defaultConfig.ts` (valeurs) et `src/config/types.ts`
@@ -230,6 +232,12 @@ partiel est une erreur de compilation.
 | `clustering.maxZoom` | Zoom au-delà duquel le regroupement géographique s'arrête. | `18` |
 | `clustering.levelQuantization` | Quantification du zoom pour la stabilité des paliers de cluster. | `1` |
 | `clustering.spiderfyZoom` | Zoom à partir duquel un cluster inséparable (points confondus) éclate en éventail au clic — le zoom max UTILE de la caméra, au-delà duquel elle entre dans le bâti 3D. `19` ≈ 76 m d'altitude. | `19` |
+
+## `markers` — Seuils de lisibilité
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `markers.staticMinZoom` | Zoom en dessous duquel les markers `static` (symboles posés, défibrillateurs) disparaissent de la carte. `0` désactive le masquage. Ils restent dans la RECHERCHE et la loupe : ce seuil dit ce qui est lisible, pas ce que l'utilisateur a choisi de masquer — c'est le rôle du filtre de tags. C'est le seuil PAR DÉFAUT : un marker qui déclare `static: { minZoom }` impose le sien. | `13` |
 
 ## `data` — Cadence de chargement, stockage, recherche
 

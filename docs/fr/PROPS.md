@@ -1,5 +1,7 @@
 # Props des composants — référence
 
+**Français** · [English](../en/PROPS.md) · [↑ Index](README.md)
+
 Ce que chaque composant accepte, ce que ça fait, et son défaut.
 
 Un défaut noté `config.x` ou `theme.x` signifie que la prop **surcharge** ce
@@ -40,6 +42,42 @@ Racine — monte le moteur et toutes les surfaces.
 | `labels` | Traductions (merge profond sur `defaultLabels`) — cf. LABELS.md. | — |
 | `config` | Réglages : fournisseurs tiers (endpoints, langue, quotas), seuils de geste, budgets de calcul, cadence de chargement. Merge profond sur `defaultConfig` — ne fournir que ce qui change. Cf. `MapConfig`. ```tsx <Map config={{ providers: { tiles: { language:… | — |
 
+### Surfaces de `<Map>`
+
+En plus des props ci-dessus, `<Map>` accepte les surfaces déclaratives de
+`MapSurfaces` : elles montent barre, contrôles, recherche, dock, dessin, relations,
+couches et regroupement **dans le bon ordre d'imbrication**.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `toolbar` | Barre d'outils de dessin, **loupe comprise** (`toolbar.lens`). `false` = pas de barre — et pas de loupe. | *(défauts)* |
+| `controls` | Contrôles de navigation. `false` = aucun contrôle. | *(défauts)* |
+| `search` | Recherche unifiée : `true` pour les défauts, un objet pour la régler. Absente = pas de boîte. | *(absent)* |
+| `dock` | Dock des favoris — sa présence l'active (et rend les markers saisissables). | *(absent)* |
+| `draw` | Couche de dessin (+ `selectionBadges`). `false` retire le dessin ET la barre. | *(défauts)* |
+| `relations` | Moteur de relations par tags (+ `statusBar`) — sa présence l'active. | *(absent)* |
+| `layers` | Couches de données, dans l'ordre de rendu (`markersLayer`, `shapesLayer`). | `[]` |
+| `cluster` | Surface de regroupement de la carte (cf. `<ClusterSurface>`). `false` coupe le regroupement. | *(défauts)* |
+| `markerMenu` | Menu d'un marker, **partagé** par la carte, la loupe et le panneau de sélection. | *(absent)* |
+| `children` | Vos composants montés dans la carte (`useMap()`, panneaux maison…). | *(absent)* |
+
+## `<ClusterSurface>`
+
+Regroupement **de la carte** — montée par `<Map cluster>`. Elle tient l'index unique
+alimenté par toutes les couches (`engine.clusters`) et rend les pastilles ; chaque
+couche continue de rendre ses propres markers.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `enabled` | Coupe le regroupement pour toute la carte. | `true` |
+| `size` | Diamètre (px) d'une pastille. | `theme.markers.size × 1.18` |
+| `icon` | Icône **SVG** (markup) d'une pastille, à la place du camembert. | — |
+| `typeIcon` | Icône d'un type (fragment SVG viewBox `0 0 24 24`, `currentColor`) dans sa part. | — |
+| `typeLabel` | Nom lisible d'un type, pour l'infobulle d'une part. | — |
+| `tooltip` | Infobulle d'une pastille — `(cluster, members, segmentType?)`. `segmentType` est renseigné quand le survol porte sur UNE part. `null` = pas d'infobulle. | — |
+
+L'algorithme (rayon, seuils, éventail) se règle à part, dans `config.clustering`.
+
 ## `<MapProvider>`
 
 Fournit thème, libellés et config à un sous-arbre.
@@ -61,14 +99,10 @@ Markers, clustering, sélection, drag.
 | `points` | Markers à afficher. Exclusif avec `source`, qui les charge selon la vue. | — |
 | `source` | Source viewport-driven (rechargée au déplacement, gate `minZoom`). | — |
 | `getId` | Clé stable d'un marker (défaut `p.id`) : elle décide de l'identité, donc du tween. | `((p: MarkerData<T>) => p.id)` |
-| `cluster` | Regroupement des markers proches. `radius`, `maxZoom` et `spiderfyZoom` surchargent les valeurs du thème pour CETTE couche : deux cartes de la même app n'ont pas forcément la même densité de points. `maxZoom` = zoom au-delà duquel le regroupement… | — |
+| `cluster` | `{ enabled: boolean }` — participation de CETTE couche au regroupement de la carte (défaut : elle participe). L'algorithme se règle dans `config.clustering`, l'apparence sur `<Map cluster>` : un cluster est une propriété de la carte, pas d'une couche. | `{ enabled: true }` |
 | `icon` | Icône **SVG** (markup) d'un marker, rendue en `<img>` DOM ancrée à la carte. | — |
-| `clusterIcon` | Icône **SVG** (markup) d'un cluster. | — |
-| `clusterTypeIcon` | Icône d'un type (fragment SVG viewBox `0 0 24 24`, `currentColor`) pour les satellites du cluster. | — |
-| `typeLabel` | Libellé lisible d'un type (`'agent'` → « Agents ») : **nom de rubrique dans la recherche**, et repli de `clusterTypeLabel`. Un type se nomme ici, une fois. | — |
-| `clusterTypeLabel` | Libellé d'un type pour l'infobulle d'un satellite de cluster. Défaut : `typeLabel`. | — |
+| `typeLabel` | Libellé lisible d'un type (`'agent'` → « Agents ») : **nom de rubrique dans la recherche** et sous-titre des lignes de liste. Un type se nomme ici, une fois. Le nom d'un type dans une **pastille** de cluster vient de `<Map cluster={{ typeLabel }}>` — une pastille peut agréger plusieurs couches. | — |
 | `tooltip` | Infobulle au survol d'un marker : `title` et `content` acceptent tout ReactNode (texte, HTML, composants — avatar, badges…). `null` = pas d'infobulle pour ce marker. L'info vit AU SURVOL — le clic est réservé aux actions (menu contextuel, sélection).… | — |
-| `clusterTooltip` | Infobulle au survol d'un CLUSTER : reçoit l'agrégat ET la liste des markers contenus (feuilles, fusion écran comprise) — permet de lister leurs infos. Au survol d'une PART du donut, `members` est restreint aux markers du type survolé et `segmentType` le… | — |
 | `menu` | Menu contextuel d'un marker (clic droit, et bouton « … » des listes). | — |
 | `selectedId` | Marker sélectionné — **contrôlé** : la couche ne le change jamais d'elle-même. | — |
 | `followId` | Marker suivi par la caméra ; elle reste centrée dessus tant qu'il est fourni. | — |
@@ -81,6 +115,7 @@ Markers, clustering, sélection, drag.
 | `onRepositionMove` | Position suivie en continu pendant le geste (aperçu live, champ de formulaire). | — |
 | `leaderLine` | Tige verticale + point au sol, le contenu étant soulevé au-dessus de la position (défaut `true`) : un badge d'alerte reste lisible sans masquer le point qu'il marque. À passer à `false` quand l'icône DOIT coïncider avec sa coordonnée — c'est le cas des… | — |
 | `cullMargin` | Marge (px écran) au-delà du cadre au-delà de laquelle un marker est **masqué** (`display:none`) : le navigateur cesse d'en calculer le style, la mise en page et la composition. Défaut : 200 px. `0` désactive le cull. Un marker déjà affiché n'est pas… | — |
+| `staticMinZoom` | Zoom en deçà duquel les markers `static` de CETTE couche disparaissent, à la place de `config.markers.staticMinZoom` — une couche de décor et une couche d'alertes n'ont pas le même horizon de lisibilité. Un marker qui déclare `static: { minZoom }`… | `config.markers.staticMinZoom` |
 
 ## `<DrawLayer>`
 
