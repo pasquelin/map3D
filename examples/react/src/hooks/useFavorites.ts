@@ -1,5 +1,5 @@
 import type { DragPayload, MarkerData, PinnedItem, PlacedSymbolShape } from 'map3d'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { markerLabel } from '../config/labels'
 import type { AnyData } from '../data/types'
@@ -33,6 +33,10 @@ const readIds = (): string[] => {
   }
 }
 
+/** Aucun favori : une référence STABLE, pour que la prop `dock.items` ne bouge pas au
+ *  rythme du flux temps réel tant que rien n'est épinglé — le cas au démarrage. */
+const NO_ITEMS: PinnedItem<MarkerData<AnyData>>[] = []
+
 /**
  * Favoris épinglés : la lib ne persiste rien, la dock est un composant CONTRÔLÉ.
  * Ce hook tient les ids (localStorage), résout les markers connus et mémorise les
@@ -41,6 +45,11 @@ const readIds = (): string[] => {
 export function useFavorites(markers: MarkerData<AnyData>[]): Favorites {
   const [ids, setIds] = useState<string[]>(readIds)
   const [foreign, setForeign] = useState<PinnedItem<MarkerData<AnyData>>[]>([])
+  // Latest ref : `onPin` a besoin de la scène COURANTE pour savoir si l'élément déposé
+  // lui est étranger, mais en dépendre le rendrait instable trois fois par seconde —
+  // or il n'est lu qu'au dépôt (cf. le motif documenté de la lib).
+  const markersRef = useRef(markers)
+  markersRef.current = markers
 
   // La persistance SUIT l'état plutôt que d'accompagner chaque geste : les
   // mutations passent toutes par la forme fonctionnelle de `setIds` (deux
@@ -55,63 +64,73 @@ export function useFavorites(markers: MarkerData<AnyData>[]): Favorites {
    * que nos données ne connaissent pas. Les concaténer après les markers les
    * collerait en fin de liste, et `onReorder` n'aurait alors aucun effet visible.
    */
-  const items = ids
-    .map((id): PinnedItem<MarkerData<AnyData>> | undefined => {
-      const m = markers.find((x) => String(x.id) === id)
-      if (!m) return foreign.find((p) => String(p.id) === id)
-      return {
-        id: m.id,
-        position: m.position,
-        type: m.type,
-        label: markerLabel(m),
-        avatar: m.avatar,
-        icon: iconDataUri(m.type),
-        data: m,
-      }
-    })
-    .filter((p): p is PinnedItem<MarkerData<AnyData>> => !!p)
+  const items = useMemo(() => {
+    // Sans favori, il n'y a rien à résoudre : on rend la MÊME liste vide plutôt qu'une
+    // neuve — sinon la dock se resynchroniserait à chaque tick du flux pour rien.
+    if (ids.length === 0) return NO_ITEMS
+    return ids
+      .map((id): PinnedItem<MarkerData<AnyData>> | undefined => {
+        const m = markers.find((x) => String(x.id) === id)
+        if (!m) return foreign.find((p) => String(p.id) === id)
+        return {
+          id: m.id,
+          position: m.position,
+          type: m.type,
+          label: markerLabel(m),
+          avatar: m.avatar,
+          icon: iconDataUri(m.type),
+          data: m,
+        }
+      })
+      .filter((p): p is PinnedItem<MarkerData<AnyData>> => !!p)
+  }, [ids, markers, foreign])
 
-  const isPinned = (id: string | number) => ids.includes(String(id))
-  const pin = (id: string | number) => setIds((prev) => [...new Set([...prev, String(id)])])
-  const unpin = (id: string | number) => setIds((prev) => prev.filter((x) => x !== String(id)))
+  // Callbacks STABLES : ils traversent `dock` et le menu d'un marker, que `App`
+  // mémoïse — une identité neuve à chaque render y annulerait toute la mémoïsation.
+  const isPinned = useCallback((id: string | number) => ids.includes(String(id)), [ids])
+  const pin = useCallback((id: string | number) => setIds((prev) => [...new Set([...prev, String(id)])]), [])
+  const unpin = useCallback((id: string | number) => setIds((prev) => prev.filter((x) => x !== String(id))), [])
 
-  const onPin = (payload: DragPayload<unknown>) => {
-    pin(payload.id)
-    if (markers.some((m) => String(m.id) === String(payload.id))) return
-    // La couche symboles embarque son SVG et son libellé dans la donnée — c'est le
-    // contrat public `PlacedSymbolShape` : la pastille affiche donc le vrai
-    // pictogramme, pas une initiale.
-    const m = payload.data as MarkerData<PlacedSymbolShape> | undefined
-    const svg = m?.data?.svg
-    setForeign((prev) =>
-      prev.some((x) => String(x.id) === String(payload.id))
-        ? prev
-        : [
-            ...prev,
-            {
-              id: payload.id,
-              position: m?.position,
-              // La pastille prend la couleur de la CATÉGORIE du symbole : le type
-              // du marker ('symbol') n'en dirait rien.
-              type: m?.data?.category ?? m?.type ?? 'symbol',
-              color: m?.data?.color,
-              label: m?.data?.label ?? String(payload.id),
-              icon: svg ? svgToDataUri(svg) : undefined,
-            },
-          ],
-    )
-  }
+  const onPin = useCallback(
+    (payload: DragPayload<unknown>) => {
+      pin(payload.id)
+      if (markersRef.current.some((m) => String(m.id) === String(payload.id))) return
+      // La couche symboles embarque son SVG et son libellé dans la donnée — c'est le
+      // contrat public `PlacedSymbolShape` : la pastille affiche donc le vrai
+      // pictogramme, pas une initiale.
+      const m = payload.data as MarkerData<PlacedSymbolShape> | undefined
+      const svg = m?.data?.svg
+      setForeign((prev) =>
+        prev.some((x) => String(x.id) === String(payload.id))
+          ? prev
+          : [
+              ...prev,
+              {
+                id: payload.id,
+                position: m?.position,
+                // La pastille prend la couleur de la CATÉGORIE du symbole : le type
+                // du marker ('symbol') n'en dirait rien.
+                type: m?.data?.category ?? m?.type ?? 'symbol',
+                color: m?.data?.color,
+                label: m?.data?.label ?? String(payload.id),
+                icon: svg ? svgToDataUri(svg) : undefined,
+              },
+            ],
+      )
+    },
+    [pin],
+  )
 
-  return {
-    items,
-    onPin,
-    onUnpin: unpin,
-    // Glisser une pastille entre deux autres réordonne les favoris. La dock fournit
-    // la liste complète : c'est le seul cas où l'état n'est pas dérivé du précédent.
-    onReorder: (next) => setIds(next.map(String)),
-    isPinned,
-    // Un marker de la carte n'a rien à mémoriser dans `foreign` : il est déjà
-    // résolu par `items`, seul son id compte.
-    togglePin: (id) => (isPinned(id) ? unpin(id) : pin(id)),
-  }
+  // Glisser une pastille entre deux autres réordonne les favoris. La dock fournit la
+  // liste complète : c'est le seul cas où l'état n'est pas dérivé du précédent.
+  const onReorder = useCallback((next: Array<string | number>) => setIds(next.map(String)), [])
+
+  // Un marker de la carte n'a rien à mémoriser dans `foreign` : il est déjà résolu par
+  // `items`, seul son id compte.
+  const togglePin = useCallback((id: string | number) => (isPinned(id) ? unpin(id) : pin(id)), [isPinned, pin, unpin])
+
+  return useMemo(
+    () => ({ items, onPin, onUnpin: unpin, onReorder, isPinned, togglePin }),
+    [items, onPin, unpin, onReorder, isPinned, togglePin],
+  )
 }

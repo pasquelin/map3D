@@ -47,5 +47,3 @@ const REGISTRY: Record<string, MarkerTypeSpec> = MARKER_TYPES
  * qu'elle est seule à savoir formuler.
  */
 export const markerTypeSpec = (type: string): MarkerTypeSpec | undefined => REGISTRY[type]
-
-export const MARKER_TYPE_IDS = Object.keys(MARKER_TYPES)

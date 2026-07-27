@@ -48,7 +48,9 @@ const footprint = (center: LatLng, lengthM: number, widthM: number, headingDeg: 
       [-1, -1],
       [-1, 1],
     ] as const
-  ).map(([a, b]) => offsetMeters(center, a * halfL * axis.e + b * halfW * side.e, a * halfL * axis.n + b * halfW * side.n))
+  ).map(([a, b]) =>
+    offsetMeters(center, a * halfL * axis.e + b * halfW * side.e, a * halfL * axis.n + b * halfW * side.n),
+  )
 }
 
 type BuildingSeed = {
@@ -76,7 +78,14 @@ const BUILDING_SEEDS: BuildingSeed[] = [
   { id: 'bld-gare-nice-ville', center: { lat: 43.7045, lng: 7.262 }, length: 160, width: 70, heading: 90, height: 24 },
   { id: 'bld-acropolis', center: { lat: 43.7031, lng: 7.276 }, length: 180, width: 85, heading: 30, height: 28 },
   // ── Vernon
-  { id: 'bld-collegiale-vernon', center: { lat: 49.0937, lng: 1.4855 }, length: 60, width: 24, heading: 85, height: 30 },
+  {
+    id: 'bld-collegiale-vernon',
+    center: { lat: 49.0937, lng: 1.4855 },
+    length: 60,
+    width: 24,
+    heading: 85,
+    height: 30,
+  },
   { id: 'bld-mairie-vernon', center: { lat: 49.0941, lng: 1.4826 }, length: 48, width: 28, heading: 0, height: 18 },
   { id: 'bld-gare-vernon', center: { lat: 49.0908, lng: 1.4747 }, length: 90, width: 22, heading: 105, height: 12 },
   { id: 'bld-hopital-vernon', center: { lat: 49.0885, lng: 1.4885 }, length: 110, width: 55, heading: 20, height: 24 },
@@ -84,9 +93,27 @@ const BUILDING_SEEDS: BuildingSeed[] = [
 
 /** Bâtiments ronds : arènes et tours, où un rectangle mentirait sur la forme. */
 const ROUND_BUILDINGS: ShapeData[] = [
-  { id: 'bld-stade-de-france', kind: 'circle', center: { lat: 48.9245, lng: 2.3601 }, radiusMeters: 115, extrudeHeight: 45 },
-  { id: 'bld-allianz-riviera', kind: 'circle', center: { lat: 43.7052, lng: 7.1925 }, radiusMeters: 105, extrudeHeight: 40 },
-  { id: 'bld-tourelles-vernon', kind: 'circle', center: { lat: 49.0916, lng: 1.479 }, radiusMeters: 15, extrudeHeight: 22 },
+  {
+    id: 'bld-stade-de-france',
+    kind: 'circle',
+    center: { lat: 48.9245, lng: 2.3601 },
+    radiusMeters: 115,
+    extrudeHeight: 45,
+  },
+  {
+    id: 'bld-allianz-riviera',
+    kind: 'circle',
+    center: { lat: 43.7052, lng: 7.1925 },
+    radiusMeters: 105,
+    extrudeHeight: 40,
+  },
+  {
+    id: 'bld-tourelles-vernon',
+    kind: 'circle',
+    center: { lat: 49.0916, lng: 1.479 },
+    radiusMeters: 15,
+    extrudeHeight: 22,
+  },
 ]
 
 /**
@@ -98,14 +125,12 @@ const ROUND_BUILDINGS: ShapeData[] = [
  * géométrie, quelle que soit leur forme.
  */
 export const BUILDINGS: ShapeData[] = [
-  ...BUILDING_SEEDS.map(
-    (b): ShapeData => ({
-      id: b.id,
-      kind: 'polygon',
-      points: footprint(b.center, b.length, b.width, b.heading),
-      extrudeHeight: b.height,
-    }),
-  ),
+  ...BUILDING_SEEDS.map((b): ShapeData => ({
+    id: b.id,
+    kind: 'polygon',
+    points: footprint(b.center, b.length, b.width, b.heading),
+    extrudeHeight: b.height,
+  })),
   ...ROUND_BUILDINGS,
 ].map((s) => ({ ...s, color: BUILDING_COLOR, fillOpacity: 0.22 }))
 

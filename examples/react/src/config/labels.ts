@@ -12,7 +12,8 @@ import { markerTypeSpec } from './markerTypes'
  * Nom d'un type de marker, accordé en nombre. Les deux formes viennent de la même
  * entrée du registre : impossible d'en ajouter une sans l'autre.
  */
-export const clusterTypeLabel = (type: string, count = 1): string => markerTypeSpec(type)?.label[count > 1 ? 1 : 0] ?? type
+export const clusterTypeLabel = (type: string, count = 1): string =>
+  markerTypeSpec(type)?.label[count > 1 ? 1 : 0] ?? type
 
 export const STATUS_LABEL: Record<AgentStatus, string> = {
   available: 'Disponible',

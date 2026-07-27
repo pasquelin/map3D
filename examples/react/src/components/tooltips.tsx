@@ -12,7 +12,13 @@ type TipContent = { title?: ReactNode; content?: ReactNode }
 /** Nombre de membres listés dans l'infobulle d'un cluster avant le « +N autres ». */
 const CLUSTER_TIP_MAX = 6
 
-const dotStyle = (color: string): CSSProperties => ({ width: 7, height: 7, borderRadius: '50%', background: color, flex: 'none' })
+const dotStyle = (color: string): CSSProperties => ({
+  width: 7,
+  height: 7,
+  borderRadius: '50%',
+  background: color,
+  flex: 'none',
+})
 
 /** Une info par ligne (classe `m3d-markertip-row` de la lib), pastille optionnelle. */
 function TipRow({ color, children }: { color?: string; children: ReactNode }) {

@@ -9,7 +9,9 @@ import { MARKER_TYPES, markerTypeSpec } from './markerTypes'
  */
 
 /** Couleur par TYPE de marker (`alert-*`, `agent-*`). */
-export const TYPE_COLORS: Record<string, string> = Object.fromEntries(Object.entries(MARKER_TYPES).map(([type, spec]) => [type, spec.color]))
+export const TYPE_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(MARKER_TYPES).map(([type, spec]) => [type, spec.color]),
+)
 
 /** Couleur d'un type, avec repli neutre pour un type inconnu (symbole posé, etc.). */
 export const typeColor = (type: string): string => markerTypeSpec(type)?.color ?? '#64748b'

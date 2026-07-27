@@ -3,7 +3,15 @@ import type { ReactNode } from 'react'
 import { type Glyph, markerTypeSpec } from '../config/markerTypes'
 
 const text = (s: string): ReactNode => (
-  <text x={12} y={12.5} textAnchor="middle" dominantBaseline="central" fontSize={17} fontWeight={800} fill="currentColor">
+  <text
+    x={12}
+    y={12.5}
+    textAnchor="middle"
+    dominantBaseline="central"
+    fontSize={17}
+    fontWeight={800}
+    fill="currentColor"
+  >
     {s}
   </text>
 )
@@ -13,7 +21,12 @@ const GLYPHS: Record<Glyph, ReactNode> = {
   dot: <circle cx={12} cy={12} r={4} fill="currentColor" />,
   warning: text('!'),
   info: text('i'),
-  heart: <path d="M12 18c-2.9-2-4.7-3.9-4.7-6.1 0-1.6 1.2-2.8 2.6-2.8 1 0 1.8.5 2.1 1.3.3-.8 1.1-1.3 2.1-1.3 1.4 0 2.6 1.2 2.6 2.8 0 2.2-1.8 4.1-4.7 6.1z" fill="currentColor" />,
+  heart: (
+    <path
+      d="M12 18c-2.9-2-4.7-3.9-4.7-6.1 0-1.6 1.2-2.8 2.6-2.8 1 0 1.8.5 2.1 1.3.3-.8 1.1-1.3 2.1-1.3 1.4 0 2.6 1.2 2.6 2.8 0 2.2-1.8 4.1-4.7 6.1z"
+      fill="currentColor"
+    />
+  ),
 }
 
 /**

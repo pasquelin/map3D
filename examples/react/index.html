@@ -1,10 +1,59 @@
 <!doctype html>
-<html lang="fr" style="overflow: hidden">
+<html lang="fr" data-scheme="dark" style="overflow: hidden">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>map3D — démo</title>
-    <style>html, body, #root { margin: 0; padding: 0; height: 100%; }</style>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+
+      /* Le clair/sombre ne s'arrête pas au canvas : la page et la colonne du banc
+         d'essai l'encadrent. `data-scheme` est posé sur la racine par `App` (il résout
+         `auto` comme le fait `MapProvider`), et tout ce qui n'est pas la carte en
+         dérive ici — y compris les variables de Tweakpane, dont le thème natif est
+         sombre de bout en bout.
+
+         En CSS et non dans le JS : le fond doit être bon dès le premier paint, avant
+         que le bundle ne soit évalué. La valeur par défaut de l'attribut porte le
+         schéma initial de `defaultMapProps`, donc aucun flash au chargement. */
+      :root[data-scheme='dark'] {
+        --tp-base-background-color: #28292e;
+        background-color: var(--tp-base-background-color);
+      }
+
+      :root[data-scheme='light'] {
+        /* Accordé au fond clair de la carte (cf. `config/theme.ts`) : gris légèrement
+           bleuté plutôt que blanc pur, qui ferait un flash avant les tuiles. */
+        --tp-base-background-color: #e6ecee;
+        --tp-base-shadow-color: rgba(15, 23, 42, 0.1);
+        --tp-button-background-color: rgba(15, 23, 42, 0.1);
+        --tp-button-background-color-active: rgba(15, 23, 42, 0.25);
+        --tp-button-background-color-focus: rgba(15, 23, 42, 0.2);
+        --tp-button-background-color-hover: rgba(15, 23, 42, 0.15);
+        --tp-button-foreground-color: #0f172a;
+        --tp-container-background-color: rgba(15, 23, 42, 0.06);
+        --tp-container-background-color-active: rgba(15, 23, 42, 0.18);
+        --tp-container-background-color-focus: rgba(15, 23, 42, 0.14);
+        --tp-container-background-color-hover: rgba(15, 23, 42, 0.1);
+        --tp-container-foreground-color: #0f172a;
+        --tp-groove-foreground-color: rgba(15, 23, 42, 0.1);
+        --tp-input-background-color: rgba(15, 23, 42, 0.1);
+        --tp-input-background-color-active: rgba(15, 23, 42, 0.22);
+        --tp-input-background-color-focus: rgba(15, 23, 42, 0.18);
+        --tp-input-background-color-hover: rgba(15, 23, 42, 0.14);
+        --tp-input-foreground-color: #0f172a;
+        --tp-label-foreground-color: #5b6b7a;
+        --tp-monitor-background-color: rgba(15, 23, 42, 0.1);
+        --tp-monitor-foreground-color: #5b6b7a;
+        background-color: var(--tp-base-background-color);
+      }
+    </style>
   </head>
   <body style="overflow: hidden">
     <div id="root"></div>

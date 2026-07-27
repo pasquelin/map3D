@@ -5,8 +5,14 @@ import type { MarkerData, MenuItem } from 'map3d'
 import { type Agent, type Alert, type AnyData, isAgentMarker } from '../data/types'
 
 type MarkerMenuOptions = {
-  /** Pour l'entrée « Assigner un agent » : la liste des noms, pas des markers. */
-  agents: Agent[]
+  /**
+   * Pour l'entrée « Assigner un agent » : la liste des noms, pas des markers.
+   *
+   * Une FONCTION et non un tableau : l'effectif change trois fois par seconde, et le
+   * capturer obligerait à refabriquer le menu — donc la prop `markerMenu` de `<Map>` —
+   * au même rythme. Il n'est lu qu'à l'ouverture du menu, comme `centerOfView`.
+   */
+  agents: () => Agent[]
   isPinned: (id: string | number) => boolean
   togglePin: (id: string | number) => void
 }
@@ -20,7 +26,11 @@ type MarkerMenuOptions = {
  * long-press vers la dock, et il doit se lire pareil sur une alerte et sur un agent.
  * Le reste du menu dépend du type.
  */
-export function createMarkerMenu({ agents, isPinned, togglePin }: MarkerMenuOptions): (m: MarkerData<AnyData>) => MenuItem[] {
+export function createMarkerMenu({
+  agents,
+  isPinned,
+  togglePin,
+}: MarkerMenuOptions): (m: MarkerData<AnyData>) => MenuItem[] {
   const pinItem = (m: MarkerData<AnyData>): MenuItem => {
     const pinned = isPinned(m.id)
     return {
@@ -37,7 +47,7 @@ export function createMarkerMenu({ agents, isPinned, togglePin }: MarkerMenuOpti
     {
       icon: '⇢',
       label: 'Assigner un agent',
-      children: agents.map((a) => ({ label: a.name, onSelect: () => console.info('assign', a.id) })),
+      children: agents().map((a) => ({ label: a.name, onSelect: () => console.info('assign', a.id) })),
     },
     { icon: '⚑', label: 'Signaler', children: [{ label: 'N’existe plus' }, { label: 'Mauvaise position' }] },
   ]

@@ -23,3 +23,22 @@ export const offsetMeters = (from: LatLng, eastM: number, northM: number): LatLn
 /** Composantes (est, nord) d'un déplacement de `distanceM` suivant un cap en radians. */
 export const moveAlong = (from: LatLng, headingRad: number, distanceM: number): LatLng =>
   offsetMeters(from, Math.sin(headingRad) * distanceM, Math.cos(headingRad) * distanceM)
+
+/**
+ * Angle d'or (rad) : la suite des caps `i × GOLDEN` ne se referme jamais sur elle-même,
+ * donc deux points générés ne se superposent pas, quel que soit leur nombre.
+ */
+export const GOLDEN = 2.399963
+
+/**
+ * `index`-ième point d'une spirale de Vogel autour d'`origin`.
+ *
+ * Rayon en √index — la densité reste CONSTANTE à mesure que la couronne grandit, là où
+ * un rayon linéaire tasserait tout au centre puis n'y mettrait plus rien.
+ *
+ * Partagée par les renforts d'agents et les points de renfort de `data/generate` : les
+ * deux avaient recopié la même recette (angle d'or + √), avec leur propre littéral
+ * `2.399963` et leur propre copie du commentaire qui l'explique.
+ */
+export const vogel = (origin: LatLng, index: number, spacingM: number): LatLng =>
+  moveAlong(origin, index * GOLDEN, spacingM * Math.sqrt(index + 1))

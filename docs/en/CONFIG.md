@@ -15,6 +15,12 @@ An override is **partial and deep**: provide only what changes, `mergeConfig` fi
 the rest. Arrays and tuples, however, are replaced wholesale — a partial tuple is a
 compile error.
 
+> **Try before you write.** `pnpm dev:example` mounts, to the right of the map, a
+> settings bench (Tweakpane) exposing THIS whole table, live. Its “Copy the
+> `PartialConfig`” button yields the delta from the defaults in the exact shape to paste
+> into `config={{ … }}`. Settings flagged ❄ are read when the engine is constructed:
+> they only take effect once the map is remounted.
+
 > **Translated by hand.** The source of truth is the French version, extracted from the
 > code's JSDoc: check [fr/CONFIG.md](../fr/CONFIG.md) if a default looks out of date.
 
