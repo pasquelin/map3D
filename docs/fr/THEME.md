@@ -1,5 +1,7 @@
 # `MapTheme` — référence
 
+**Français** · [English](../en/THEME.md) · [↑ Index](README.md)
+
 Tout ce qui se VOIT : couleurs, tailles, rythme. Le pendant de `MapConfig`, qui
 règle les comportements.
 

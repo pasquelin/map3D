@@ -157,7 +157,7 @@ export type DrawingApi = {
   updateShape: (id: string, patch: ShapePatch, opts?: MutateOptions) => boolean
   removeShape: (id: string, opts?: MutateOptions) => boolean
   replaceShapes: (shapes: readonly NewShape[], opts?: MutateOptions) => void
-  /** Raccourcis effectifs (outils + actions, `false` = désactivé) — affichés par `DrawToolbar` dans ses tooltips. */
+  /** Raccourcis effectifs (outils + actions, `false` = désactivé) — affichés par `Toolbar` dans ses tooltips. */
   shortcuts: Record<DrawTool | DrawAction, string | false>
   /**
    * Outils réellement activés (`<DrawLayer tools>`), dans l'ordre de la barre.

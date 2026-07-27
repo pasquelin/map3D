@@ -107,7 +107,7 @@ export type MapLabels = {
       place: string
     }
   }
-  /** Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). */
+  /** Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). */
   toolbar: {
     navigate: string
     undo: string

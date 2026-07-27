@@ -1,0 +1,178 @@
+# `MapTheme` — reference
+
+[Français](../fr/THEME.md) · **English** · [↑ Index](README.md)
+
+Everything you SEE: colours, sizes, rhythm. The counterpart of `MapConfig`, which
+configures behaviour.
+
+```tsx
+<MapProvider theme={{ colors: { ui: { accent: '#0af' } } }}>
+```
+
+Partial, deep override, like the config. A `{ light, dark }` pair lets the theme follow
+the host application's mode.
+
+Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
+
+> **Translated by hand.** The source of truth is the French version, extracted from the
+> code's JSDoc: check [fr/THEME.md](../fr/THEME.md) if a default looks out of date.
+
+💰 = Google billing impact · 🌍 = locale/i18n impact
+
+## `colorScheme` — Default mode
+
+| Key | Description | Default |
+|---|---|---|
+| `colorScheme` | The theme's default mode (a `{light, dark}` pair makes it automatic). | `'dark'` |
+
+## `colors` — Palette
+
+| Key | Description | Default |
+|---|---|---|
+| `colors.background` | Canvas background, visible before tiles load. | `'#0d1415'` |
+| `colors.marker.default.base` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#2E7CF6'` |
+| `colors.marker.default.accent` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#78BEFF'` |
+| `colors.marker.default.contrast` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#ffffff'` |
+| `colors.cluster.core` | Donut core. | `'#1e293b'` |
+| `colors.cluster.satellite` | Reserved for satellites (legacy model). | `'#6344F0'` |
+| `colors.cluster.text` | Total displayed in the centre. | `'#ffffff'` |
+| `colors.cluster.ring` | Separating ring between core and slices. | `'#ffffff'` |
+| `colors.draw.palette` | Palette offered by the drawing colour picker. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
+| `colors.draw.default` | Colour of a newly drawn shape. | `'#2E7CF6'` |
+| `colors.ui.panel` | Panel and bar background (translucent). | `'rgba(20,26,30,0.92)'` |
+| `colors.ui.text` | Primary text. | `'#f8fafc'` |
+| `colors.ui.muted` | Secondary text, discreet labels. | `'#94a3b8'` |
+| `colors.ui.accent` | Accent colour: active state, focus, selection. | `'#2E7CF6'` |
+| `colors.ui.error` | Errors and destructive actions. | `'#d11a01'` |
+| `colors.ui.border` | Borders and separators. | `'rgba(255,255,255,0.10)'` |
+| `colors.attention.sonar` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ffd60a'` |
+| `colors.attention.target` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ff3b30'` |
+| `colors.path.base` | Colour of a path. | `'#2E7CF6'` |
+| `colors.path.casing` | Path casing (legibility on satellite imagery). | `'#ffffff'` |
+| `colors.zone.fill` | Zone fill. | `'#079A7D'` |
+| `colors.zone.stroke` | Zone stroke. | `'#079A7D'` |
+| `colors.marquee.fill` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'rgba(255,255,255,0.12)'` |
+| `colors.marquee.stroke` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#000000'` |
+| `colors.marquee.under` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#ffffff'` |
+
+## `shadows` — Shadows
+
+| Key | Description | Default |
+|---|---|---|
+| `shadows.sm` | Resting elements (swatches, chips). | `'0 1px 2px rgba(0,0,0,0.3)'` |
+| `shadows.md` | Buttons and small surfaces. | `'0 3px 8px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.3)'` |
+| `shadows.lg` | Floating panels and menus. | `'0 10px 26px rgba(0,0,0,0.45),0 3px 8px rgba(0,0,0,0.3)'` |
+
+## `radii` — Corner radii (px)
+
+| Key | Description | Default |
+|---|---|---|
+| `radii.sm` | Small elements: toolbar buttons, handles. | `6` |
+| `radii.md` | Panels and menus. | `10` |
+| `radii.lg` | Large surfaces. | `14` |
+| `radii.pill` | Pill shape (deliberately huge value). | `999` |
+
+## `typography` — Typography
+
+| Key | Description | Default |
+|---|---|---|
+| `typography.fontFamily` | Font stack for the whole map UI. | `'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'` |
+| `typography.sizes.xs` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `10.5` |
+| `typography.sizes.sm` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `12.5` |
+| `typography.sizes.md` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `13.5` |
+| `typography.sizes.lg` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `16` |
+| `typography.weights.normal` | Weights, published as `--m3d-weight-*`. | `400` |
+| `typography.weights.medium` | Weights, published as `--m3d-weight-*`. | `500` |
+| `typography.weights.semibold` | Weights, published as `--m3d-weight-*`. | `600` |
+| `typography.weights.bold` | Weights, published as `--m3d-weight-*`. | `700` |
+
+## `markers` — Markers
+
+| Key | Description | Default |
+|---|---|---|
+| `markers.size` | Sprite diameter (px). | `44` |
+| `markers.ringWidth` | Ring thickness (px). | `3` |
+| `markers.gradient` | Gradient on the marker body. | `true` |
+| `markers.gloss` | Gloss highlight on the chip. | `true` |
+| `markers.icon` | Default content of a marker: nothing, the type icon, its rank, or a node. | `'type'` |
+| `markers.moveTween.duration` | Position tween (animated agent movement). | `500` |
+| `markers.moveTween.easing` | Position tween (animated agent movement). | *(function)* |
+
+## `clusters` — Default cluster geometry (donut)
+
+| Key | Description | Default |
+|---|---|---|
+| `clusters.coreRadius` | Core radius (px) as a function of the total number of points. | *(function)* |
+| `clusters.ringWidth` | Thickness of the segmented ring (px). | `30` |
+| `clusters.strokeWidth` | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5` |
+| `clusters.segmentGap` | Angular gap between two slices (rad); `0` makes them contiguous. | `0.045` |
+| `clusters.startAngle` | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom. | `3.141592653589793` |
+
+## `animations` — Animation and camera-flight rhythm
+
+| Key | Description | Default |
+|---|---|---|
+| `animations.enabled` | Turns off ALL JS animations (CSS has its own `prefers-reduced-motion` rule). | `true` |
+| `animations.pulse.duration` | Pulse of a marker to signal. `false` turns it off. | `2000` |
+| `animations.pulse.easing` | Pulse of a marker to signal. `false` turns it off. | `'ease-out'` |
+| `animations.pulse.scale` | Pulse of a marker to signal. `false` turns it off. | `1.16` |
+| `animations.halo.duration` | Halo expanding away from a marker (`maxScale` = final magnification). | `2600` |
+| `animations.halo.easing` | Halo expanding away from a marker (`maxScale` = final magnification). | `'cubic-bezier(.2,.6,.35,1)'` |
+| `animations.halo.maxScale` | Halo expanding away from a marker (`maxScale` = final magnification). | `2.1` |
+| `animations.bob.duration` | Slight vertical bobbing (`amplitude` in px). | `2400` |
+| `animations.bob.amplitude` | Slight vertical bobbing (`amplitude` in px). | `4` |
+| `animations.markerEnter.duration` | Marker entrance (`stagger` = delay between two appearances, ms). | `460` |
+| `animations.markerEnter.easing` | Marker entrance (`stagger` = delay between two appearances, ms). | `'cubic-bezier(.32,1.5,.5,1)'` |
+| `animations.markerEnter.stagger` | Marker entrance (`stagger` = delay between two appearances, ms). | `30` |
+| `animations.clusterEnter.duration` | Cluster entrance. | `460` |
+| `animations.clusterEnter.easing` | Cluster entrance. | `'cubic-bezier(.32,1.5,.5,1)'` |
+| `animations.clusterEnter.stagger` | Cluster entrance. | `55` |
+| `animations.menuOpen.duration` | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`. | `200` |
+| `animations.menuOpen.easing` | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`. | `'cubic-bezier(.32,1.3,.5,1)'` |
+| `animations.flyDuration` | Duration of an ordinary camera flight (s) — `flyTo`, `fitBounds`. | `1` |
+| `animations.flyEasing` | Easing curve of camera flights. | *(function)* |
+| `animations.pan` | Lateral movement. | `0.5` |
+| `animations.zoom` | Zoom change via a button. | `0.4` |
+| `animations.moveTo` | “Instant” recentring (`useCamera().moveTo`). | `0.4` |
+| `animations.target` | Targeting flight from a listing or a pinned favourite. | `0.8` |
+| `animations.clusterOpen` | Opening a cluster (zoom to its extent). | `0.6` |
+| `animations.topDown` | Switch to top-down view. | `0.5` |
+| `animations.globe` | Pull back to globe view. | `1` |
+
+## `spacing` — Spacing of floating surfaces (px)
+
+| Key | Description | Default |
+|---|---|---|
+| `spacing.gap` | Gap between an anchored surface and its anchor. | `12` |
+| `spacing.edge` | Minimum margin between a surface and the container edge. | `8` |
+| `spacing.barInset` | Inset of the vertical bars from the edge. | `16` |
+
+## `sizing` — Surface and icon dimensions
+
+| Key | Description | Default |
+|---|---|---|
+| `sizing.lensPanelW` | Width of the lens inventory panel (px). | `252` |
+| `sizing.selectionPanelW` | Width of the selection panel (px). | `236` |
+| `sizing.panelMaxHeight.tags` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `380` |
+| `sizing.panelMaxHeight.symbols` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `420` |
+| `sizing.panelMaxHeight.search` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `340` |
+| `sizing.panelMaxHeight.settings` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `560` |
+| `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `520` |
+| `sizing.iconSize` | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out. | `0.8` |
+
+## `tiles` — Colour treatment of the basemap (dark mode)
+
+| Key | Description | Default |
+|---|---|---|
+| `tiles.filter.brightness` | `1` = unchanged; `< 1` darkens. | `0.85` |
+| `tiles.filter.saturation` | `1` = unchanged; `< 1` desaturates. | `0.9` |
+| `tiles.filter.contrast` | `1` = unchanged. | `1.05` |
+
+## `globe` — Globe and atmosphere
+
+| Key | Description | Default |
+|---|---|---|
+| `globe.atmosphere` | Atmospheric halo around the globe. | `true` |
+| `globe.background` | Background behind the globe (space). | `'#070C16'` |
+| `globe.oceanColor` | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles. | `'#0F2942'` |
+| `globe.landColor` | Landmasses of the fallback globe. | `'#4F7A45'` |

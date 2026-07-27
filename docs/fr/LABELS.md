@@ -1,5 +1,7 @@
 # `MapLabels` — référence
 
+**Français** · [English](../en/LABELS.md) · [↑ Index](README.md)
+
 Tous les textes de l'interface, et les règles de formatage qui en dépendent
 (unités, pluriel, gabarits). Aucune chaîne visible ne doit vivre hors de cet arbre.
 
@@ -9,6 +11,11 @@ Tous les textes de l'interface, et les règles de formatage qui en dépendent
 
 Les `{accolades}` sont des variables substituées par `formatLabel`. Pour passer en
 impérial, `imperialMeasure` remplace le bloc `measure` d'un coup.
+
+Helpers exportés : `formatLabel(gabarit, params)` (interpolation), `formatCount(n,
+singulier, pluriel, labels)` (dénombrable, via `labels.plural`), `mergeLabels`,
+`symbolText` (libellé d'une entrée de catalogue), et les fabriques de formatage
+`makeDistanceFormatter`, `makeDurationFormatter`, `makeLinkLabelFormatter`.
 
 Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 
@@ -86,10 +93,10 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `toolbar.navigate` | Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). | `'Naviguer'` |
-| `toolbar.undo` | Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). | `'Annuler'` |
-| `toolbar.redo` | Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). | `'Rétablir'` |
-| `toolbar.clearAll` | Boutons de `<DrawToolbar>` hors outils (navigation, historique, effacement). | `'Tout effacer'` |
+| `toolbar.navigate` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Naviguer'` |
+| `toolbar.undo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Annuler'` |
+| `toolbar.redo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Rétablir'` |
+| `toolbar.clearAll` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Tout effacer'` |
 
 ## `tools` — Noms des outils
 
@@ -283,6 +290,22 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `relations.modes.BICYCLE` | Noms des modes de transport (segment cliquable de la barre d'état). | `'À vélo'` |
 | `relations.modes.TWO_WHEELER` | Noms des modes de transport (segment cliquable de la barre d'état). | `'En deux-roues'` |
 | `relations.modes.TRANSIT` | Noms des modes de transport (segment cliquable de la barre d'état). | `'En transports'` |
+
+## `pinned` — Dock des favoris
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `pinned.add` | Invite de la languette d'ajout. | `'Ajouter un marqueur'` |
+| `pinned.remove` | Tooltip affiché en glissant une pastille hors de la dock. | `'Supprimer'` |
+| `pinned.collapse` | aria-label du bouton qui replie la dock. | `'Réduire'` |
+| `pinned.expand` | aria-label du bouton/pastille qui redéploie la dock. | `'Développer'` |
+| `pinned.title` | Nom de la dock, affiché SUR la poignée quand elle est repliée : c'est alors le seul élément visible, et un chevron seul ne dit pas ce qu'il rouvre. | `'Favoris'` |
+
+## `plural` — 🌍 Choix de la forme grammaticale
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `plural` | Fonction `(count: number) => 'one' \| 'other'`. ⚠️ Le défaut est la règle **française** (`n > 1`) : elle est **fausse pour l'anglais**, où `0` est pluriel, et insuffisante pour le polonais ou le russe (trois formes). Renvoyer l'une des deux formes que la lib sait rendre, ou brancher `Intl.PluralRules`. | `(n) => (n > 1 ? 'other' : 'one')` |
 
 ## `errors` — Messages d'erreur (développeur)
 

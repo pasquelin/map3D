@@ -1,4 +1,4 @@
-/** Conventions partagées des barres d'outils (MapControls, DrawToolbar, TagFilterControl). */
+/** Conventions partagées des barres d'outils (MapControls, Toolbar, TagFilterControl). */
 
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels } from '../context'
