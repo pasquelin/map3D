@@ -34,7 +34,6 @@ export function familyTag(sel: TagSelector): string | null {
   return null
 }
 
-
 /**
  * Cibles candidates d'une relation, triées par distance croissante à vol d'oiseau.
  * Le tri définitif (par durée réelle) n'a lieu qu'après la matrice — cet ordre-ci

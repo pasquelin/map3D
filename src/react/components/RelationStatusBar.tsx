@@ -49,11 +49,7 @@ export function RelationStatusBar({ nameOf, modes = DEFAULT_MODES }: RelationSta
         // Le socle n'est pas encore monté (première frame après l'ouverture) : la
         // barre apparaîtra au rendu suivant, avec son ancre.
         if (!host) return null
-        return createPortal(
-          <RelationBar snapshot={snapshot} nameOf={nameOf} modes={modes} />,
-          host,
-          snapshot.source.id,
-        )
+        return createPortal(<RelationBar snapshot={snapshot} nameOf={nameOf} modes={modes} />, host, snapshot.source.id)
       })}
     </>
   )
@@ -76,9 +72,7 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
    * d'afficher le sélecteur de famille et le nombre de cibles proposerait alors de
    * refaire un choix déjà fait.
    */
-  const traced = snapshot.tracedLinkId
-    ? (snapshot.links.find((l) => l.id === snapshot.tracedLinkId) ?? null)
-    : null
+  const traced = snapshot.tracedLinkId ? (snapshot.links.find((l) => l.id === snapshot.tracedLinkId) ?? null) : null
   const [open, setOpen] = useState<OpenSegment>(null)
   const barRef = useRef<HTMLDivElement>(null)
   // `captureEscape` est indispensable ici : `RelationLayer` écoute Échap au niveau

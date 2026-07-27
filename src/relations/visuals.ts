@@ -163,7 +163,8 @@ export class RelationGeometryCache {
  * l'alerte, l'alerte vers l'agent) décrivent le MÊME arc, seulement parcouru à
  * l'envers. C'est cette clé qui les réunit.
  */
-const pairKey = (link: Link): string => (link.from.id < link.to.id ? `${link.from.id}|${link.to.id}` : `${link.to.id}|${link.from.id}`)
+const pairKey = (link: Link): string =>
+  link.from.id < link.to.id ? `${link.from.id}|${link.to.id}` : `${link.to.id}|${link.from.id}`
 
 /**
  * Couple relié par PLUSIEURS relations : les couleurs à parcourir, et le lien qui
@@ -386,7 +387,9 @@ function fanVisuals(
   const ordered = [...groupLinks].sort((a, b) => (a.durationSeconds ?? Infinity) - (b.durationSeconds ?? Infinity))
   const best = ordered[0]!
   const screenDistance = haversineMeters(source, node.position) / mpp
-  const collapsed = ordered.length > (ctx.fanMaxLegs ?? defaultConfig.performance.relations.fanMaxLegs) || screenDistance < FAN_COLLAPSE_PX
+  const collapsed =
+    ordered.length > (ctx.fanMaxLegs ?? defaultConfig.performance.relations.fanMaxLegs) ||
+    screenDistance < FAN_COLLAPSE_PX
   const opacity = opacityForRank(best.rank, total, style.minOpacity)
 
   if (collapsed) {

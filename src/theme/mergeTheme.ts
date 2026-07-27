@@ -29,11 +29,7 @@ export type MergeOptions = { prefersReducedMotion?: boolean }
  * respecté automatiquement **sauf** si l'override force explicitement
  * `animations.enabled`.
  */
-export function mergeTheme(
-  base: MapTheme,
-  override?: PartialTheme,
-  opts?: MergeOptions,
-): MapTheme {
+export function mergeTheme(base: MapTheme, override?: PartialTheme, opts?: MergeOptions): MapTheme {
   const merged = deepMerge(base, override)
   if (opts?.prefersReducedMotion && override?.animations?.enabled === undefined) {
     // Copie, jamais d'affectation sur `merged` : sans override, `deepMerge` renvoie

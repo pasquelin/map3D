@@ -308,7 +308,12 @@ export class Camera {
       // Plancher sol aussi en suivi (terrain haut : montagne, plateau) — le
       // cache d'échantillon absorbe l'appel par frame d'une cible mobile.
       const follow = this.config.camera.followAltitude
-      this.placeNadir(p, this.clampAltitude(p, clamp(altitude, follow.min, follow.max)), this.followPos, this.followQuat)
+      this.placeNadir(
+        p,
+        this.clampAltitude(p, clamp(altitude, follow.min, follow.max)),
+        this.followPos,
+        this.followQuat,
+      )
       this.camera.position.copy(this.followPos)
       this.camera.quaternion.copy(this.followQuat)
       return true

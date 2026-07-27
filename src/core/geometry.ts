@@ -21,8 +21,7 @@ export type Pt = { x: number; z: number }
  * forme en silence. `null` est déjà le contrat de retour de ces fonctions, géré par
  * tous les appelants — seul l'objet concerné disparaît.
  */
-const allFinite = (points: readonly Pt[]): boolean =>
-  points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.z))
+const allFinite = (points: readonly Pt[]): boolean => points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.z))
 
 /**
  * Origines déjà signalées : le rejet doit laisser UNE trace, pas un flux. Les
@@ -330,9 +329,15 @@ export function arrowHead(points: readonly Pt[], width: number): THREE.BufferGeo
   const px = -uz
   const pz = ux
   const pos = [
-    b.x, 0, b.z,
-    b.x - ux * hl + px * hw, 0, b.z - uz * hl + pz * hw,
-    b.x - ux * hl - px * hw, 0, b.z - uz * hl - pz * hw,
+    b.x,
+    0,
+    b.z,
+    b.x - ux * hl + px * hw,
+    0,
+    b.z - uz * hl + pz * hw,
+    b.x - ux * hl - px * hw,
+    0,
+    b.z - uz * hl - pz * hw,
   ]
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
@@ -647,11 +652,7 @@ export function clearGroup(group: THREE.Object3D): void {
  * pour un même objet visuel selon la couche qui le dessinait. Ne pas confondre avec
  * `PREDICATE_CIRCLE_SEGMENTS` (geodesy), qui gouverne les calculs d'inclusion.
  */
-export function circlePoints(
-  center: Pt,
-  radius: number,
-  segments = defaultConfig.performance.circleSegments,
-): Pt[] {
+export function circlePoints(center: Pt, radius: number, segments = defaultConfig.performance.circleSegments): Pt[] {
   // Coupé à la source : sinon chaque sommet naît NaN et le rejet n'aurait lieu
   // qu'en aval, une fois `segments` points inutiles construits.
   if (!Number.isFinite(radius) || !Number.isFinite(center.x) || !Number.isFinite(center.z)) {

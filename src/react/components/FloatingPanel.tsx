@@ -66,7 +66,13 @@ export function FloatingPanel({
           <span className="m3d-floathead-title">{title}</span>
           {actions}
           {snapBackLabel && pinned && (
-            <button type="button" className="m3d-selrow-x" onClick={reset} title={snapBackLabel} aria-label={snapBackLabel}>
+            <button
+              type="button"
+              className="m3d-selrow-x"
+              onClick={reset}
+              title={snapBackLabel}
+              aria-label={snapBackLabel}
+            >
               <UiIcon path={mdiMagnetOn} />
             </button>
           )}

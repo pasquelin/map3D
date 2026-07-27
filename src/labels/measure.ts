@@ -21,9 +21,9 @@ export function makeDistanceFormatter(measure: MapLabels['measure']): (meters: n
   return (m) =>
     m >= measure.majorThreshold
       ? formatLabel(measure.major, { value: major.format(m / measure.majorFactor) })
-      // `minorFactor` et non la valeur brute : sans lui, la petite unité restait le
-      // mètre quoi qu'annonce le gabarit — des « pieds » qui valaient des mètres.
-      : formatLabel(measure.minor, { value: minor.format(m / measure.minorFactor) })
+      : // `minorFactor` et non la valeur brute : sans lui, la petite unité restait le
+        // mètre quoi qu'annonce le gabarit — des « pieds » qui valaient des mètres.
+        formatLabel(measure.minor, { value: minor.format(m / measure.minorFactor) })
 }
 
 /**

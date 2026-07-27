@@ -14,7 +14,6 @@ export const HEIGHT_EPSILON = 0.5
 /** Réglages de re-échantillonnage — cf. `performance.resettle`. */
 export type ResettleConfig = PerformanceConfig['resettle']
 
-
 /**
  * Fenêtre de re-échantillonnage des hauteurs drapées, calquée sur celle des
  * markers (`MarkerLayer.settleStatic`) : la surface photogrammétrique **change**

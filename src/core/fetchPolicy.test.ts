@@ -77,8 +77,8 @@ describe('fetchWithPolicy', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    await expect(fetchWithPolicy('https://x', {}, policy({ timeoutMs: 20, retries: 0 }), undefined, 'svc')).rejects.toThrow(
-      /délai dépassé/,
-    )
+    await expect(
+      fetchWithPolicy('https://x', {}, policy({ timeoutMs: 20, retries: 0 }), undefined, 'svc'),
+    ).rejects.toThrow(/délai dépassé/)
   })
 })

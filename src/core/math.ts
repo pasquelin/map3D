@@ -56,7 +56,7 @@ export function metersPerPixelAt(distance: number, fovDeg: number, viewportHeigh
 
 /** Plus court delta angulaire (degrés) de `from` vers `to`, dans [-180, 180]. */
 export function shortestLngDelta(from: number, to: number): number {
-  return (((to - from + 540) % 360) - 180)
+  return ((to - from + 540) % 360) - 180
 }
 
 /** Ramène une longitude dans [-180, 180). SOURCE UNIQUE de la convention d'antiméridien. */

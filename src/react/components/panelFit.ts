@@ -318,74 +318,80 @@ export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOpti
   // compactage n'absorbe donc qu'un léger dépassement — au-delà, ce sont les
   // colonnes qui prennent le relais, jamais un rapetissement agressif.
   const barMinScale = useConfig().interaction.barMinScale
-  return usePlacement((el, root) => {
-    const scope = root ?? document
-    const fit = () => {
-      const b = boundsOf(root)
-      let top = b.top + edgeGap
-      const bottom = b.bottom - edgeGap
+  return usePlacement(
+    (el, root) => {
+      const scope = root ?? document
+      const fit = () => {
+        const b = boundsOf(root)
+        let top = b.top + edgeGap
+        const bottom = b.bottom - edgeGap
 
-      // Re-résolu à chaque passe : l'obstacle peut être monté après la barre, et un
-      // `querySelector` est négligeable devant les mesures qui suivent.
-      const obstacle = avoid !== undefined ? scope.querySelector(avoid) : null
-      if (obstacle) {
-        const o = obstacle.getBoundingClientRect()
-        // `layoutBox` et non le rect : masquée, la drawbar est translatée hors
-        // écran (`m3d-hidden`) et paraîtrait ne croiser personne.
-        const box = layoutBox(el)
-        // Obstacle pris en compte seulement s'il croise la barre horizontalement :
-        // celle du bord opposé n'est jamais gênée.
-        if (o.right > box.left && o.left < box.right && o.bottom > top) top = o.bottom + edgeGap
-      }
-
-      const avail = Math.max(0, bottom - top)
-      // Retour à l'état de référence (une colonne, échelle 1) avant de mesurer :
-      // la hauteur naturelle n'est pas déductible d'une surface déjà contrainte.
-      el.style.removeProperty('--m3d-bar-scale')
-      el.style.removeProperty('flex-wrap')
-      el.style.removeProperty('max-height')
-      const natural = el.offsetHeight
-
-      if (natural > avail) {
-        el.style.setProperty('--m3d-bar-scale', String(Math.round(clamp(avail / natural, barMinScale, 1) * 1000) / 1000))
-        // Bordures et marges fixes ne se compactent pas : la hauteur réelle peut
-        // rester au-dessus de la cible même à l'échelle calculée.
-        if (el.offsetHeight > avail) {
-          // Colonnes ÉQUILIBRÉES : `flex-wrap` remplit gloutonnement, ce qui donnerait
-          // une colonne pleine et une avec un seul item. Viser `hauteur / nb colonnes`
-          // répartit les items à parts égales.
-          el.style.flexWrap = 'wrap'
-          const height = el.offsetHeight
-          const columns = Math.max(2, Math.ceil(height / avail))
-          // `fitHeight` et non un `max-height` brut : sans la correction box-sizing,
-          // le padding et la bordure débordent encore de la zone.
-          fitHeight(el, Math.min(avail, Math.ceil(height / columns)))
+        // Re-résolu à chaque passe : l'obstacle peut être monté après la barre, et un
+        // `querySelector` est négligeable devant les mesures qui suivent.
+        const obstacle = avoid !== undefined ? scope.querySelector(avoid) : null
+        if (obstacle) {
+          const o = obstacle.getBoundingClientRect()
+          // `layoutBox` et non le rect : masquée, la drawbar est translatée hors
+          // écran (`m3d-hidden`) et paraîtrait ne croiser personne.
+          const box = layoutBox(el)
+          // Obstacle pris en compte seulement s'il croise la barre horizontalement :
+          // celle du bord opposé n'est jamais gênée.
+          if (o.right > box.left && o.left < box.right && o.bottom > top) top = o.bottom + edgeGap
         }
-      }
 
-      // Recentrage APRÈS le compactage : la hauteur à placer est celle qu'on vient
-      // d'obtenir, pas la naturelle.
-      //
-      // La cible est le milieu du CONTENEUR, pas celui de la zone libre : amputer la
-      // zone d'un obstacle en haut (la boîte de recherche) sans obstacle en bas
-      // descendait la barre de la moitié de cet obstacle — visiblement désalignée de
-      // la colonne opposée, qui n'est jamais gênée et reste, elle, au centre. On ne
-      // s'écarte du centre que si la barre ne tient pas : le `clamp` ne mord alors
-      // que de ce qu'il faut pour dégager l'obstacle.
-      if (recenter) {
-        const half = el.offsetHeight / 2
-        const center = clamp((b.top + b.bottom) / 2, top + half, Math.max(top + half, bottom - half))
-        const wanted = `${Math.round(center - b.top)}px`
-        // Le CSS pose `translateY(-50%)` : cette valeur est un CENTRE, pas un bord.
-        if (el.style.top !== wanted) el.style.top = wanted
+        const avail = Math.max(0, bottom - top)
+        // Retour à l'état de référence (une colonne, échelle 1) avant de mesurer :
+        // la hauteur naturelle n'est pas déductible d'une surface déjà contrainte.
+        el.style.removeProperty('--m3d-bar-scale')
+        el.style.removeProperty('flex-wrap')
+        el.style.removeProperty('max-height')
+        const natural = el.offsetHeight
+
+        if (natural > avail) {
+          el.style.setProperty(
+            '--m3d-bar-scale',
+            String(Math.round(clamp(avail / natural, barMinScale, 1) * 1000) / 1000),
+          )
+          // Bordures et marges fixes ne se compactent pas : la hauteur réelle peut
+          // rester au-dessus de la cible même à l'échelle calculée.
+          if (el.offsetHeight > avail) {
+            // Colonnes ÉQUILIBRÉES : `flex-wrap` remplit gloutonnement, ce qui donnerait
+            // une colonne pleine et une avec un seul item. Viser `hauteur / nb colonnes`
+            // répartit les items à parts égales.
+            el.style.flexWrap = 'wrap'
+            const height = el.offsetHeight
+            const columns = Math.max(2, Math.ceil(height / avail))
+            // `fitHeight` et non un `max-height` brut : sans la correction box-sizing,
+            // le padding et la bordure débordent encore de la zone.
+            fitHeight(el, Math.min(avail, Math.ceil(height / columns)))
+          }
+        }
+
+        // Recentrage APRÈS le compactage : la hauteur à placer est celle qu'on vient
+        // d'obtenir, pas la naturelle.
+        //
+        // La cible est le milieu du CONTENEUR, pas celui de la zone libre : amputer la
+        // zone d'un obstacle en haut (la boîte de recherche) sans obstacle en bas
+        // descendait la barre de la moitié de cet obstacle — visiblement désalignée de
+        // la colonne opposée, qui n'est jamais gênée et reste, elle, au centre. On ne
+        // s'écarte du centre que si la barre ne tient pas : le `clamp` ne mord alors
+        // que de ce qu'il faut pour dégager l'obstacle.
+        if (recenter) {
+          const half = el.offsetHeight / 2
+          const center = clamp((b.top + b.bottom) / 2, top + half, Math.max(top + half, bottom - half))
+          const wanted = `${Math.round(center - b.top)}px`
+          // Le CSS pose `translateY(-50%)` : cette valeur est un CENTRE, pas un bord.
+          if (el.style.top !== wanted) el.style.top = wanted
+        }
+        // Largeur publiée après placement : les colonnes l'ont peut-être doublée.
+        if (widthVar) root?.style.setProperty(widthVar, `${Math.round(el.offsetWidth)}px`)
       }
-      // Largeur publiée après placement : les colonnes l'ont peut-être doublée.
-      if (widthVar) root?.style.setProperty(widthVar, `${Math.round(el.offsetWidth)}px`)
-    }
-    // L'obstacle présent au montage est observé : la liste de résultats qui s'ouvre
-    // agrandit la boîte de recherche, la barre doit se recaler.
-    return { run: fit, targets: [avoid !== undefined ? scope.querySelector(avoid) : null] }
-  }, [recenter, avoid, widthVar, edgeGap, barMinScale])
+      // L'obstacle présent au montage est observé : la liste de résultats qui s'ouvre
+      // agrandit la boîte de recherche, la barre doit se recaler.
+      return { run: fit, targets: [avoid !== undefined ? scope.querySelector(avoid) : null] }
+    },
+    [recenter, avoid, widthVar, edgeGap, barMinScale],
+  )
 }
 
 /**

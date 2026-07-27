@@ -107,9 +107,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
   // tapant « reseau », comme partout ailleurs dans la carte.
   const q = normalizeSearch(query)
   const shown = q
-    ? entries.filter(
-        (e) => normalizeSearch(labelOf(e.tag)).includes(q) || normalizeSearch(e.tag).includes(q),
-      )
+    ? entries.filter((e) => normalizeSearch(labelOf(e.tag)).includes(q) || normalizeSearch(e.tag).includes(q))
     : entries
   const active = tags.selected.size
 
@@ -134,9 +132,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
           </label>
         ))}
         {shown.length === 0 && (
-          <div className="m3d-tagempty">
-            {entries.length === 0 ? labels.tags.empty : labels.tags.noMatch}
-          </div>
+          <div className="m3d-tagempty">{entries.length === 0 ? labels.tags.empty : labels.tags.noMatch}</div>
         )}
       </div>
       <button className="m3d-tagclear" onClick={() => tags.clear()} disabled={active === 0}>

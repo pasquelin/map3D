@@ -39,7 +39,14 @@ export const defaultClusterRadius = (total: number, theme: MapTheme): number =>
  * l'icône du type + son compte, et une **infobulle stylée** au survol (clampée aux
  * bords de la fenêtre).
  */
-export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteTip = true, onSegmentHover }: DefaultClusterProps) {
+export function DefaultCluster({
+  cluster,
+  theme,
+  typeIcon,
+  typeLabel,
+  satelliteTip = true,
+  onSegmentHover,
+}: DefaultClusterProps) {
   const { total, counts, types } = cluster
   const labels = useLabels()
   const [tip, setTip] = useState<Tip | null>(null)
@@ -94,7 +101,14 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
 
   const showTip = (e: { clientX: number; clientY: number }, type: string, count: number, color: string) => {
     if (!satelliteTip) return
-    setTip({ x: e.clientX, y: e.clientY, below: e.clientY < tipCfg.flipBelowPx, label: typeLabel?.(type) ?? type, count, color })
+    setTip({
+      x: e.clientX,
+      y: e.clientY,
+      below: e.clientY < tipCfg.flipBelowPx,
+      label: typeLabel?.(type) ?? type,
+      count,
+      color,
+    })
   }
 
   return (
@@ -124,9 +138,18 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
               {segs.length === 1 ? (
                 <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke="#fff" strokeWidth={STROKE_W} />
               ) : (
-                <path d={sector(s.a0, s.a1)} fill={s.col.base} stroke="#fff" strokeWidth={STROKE_W} strokeLinejoin="round" />
+                <path
+                  d={sector(s.a0, s.a1)}
+                  fill={s.col.base}
+                  stroke="#fff"
+                  strokeWidth={STROKE_W}
+                  strokeLinejoin="round"
+                />
               )}
-              <g transform={`translate(${x(rm, s.am)}, ${y(rm, s.am)}) rotate(${rot})`} style={{ pointerEvents: 'none' }}>
+              <g
+                transform={`translate(${x(rm, s.am)}, ${y(rm, s.am)}) rotate(${rot})`}
+                style={{ pointerEvents: 'none' }}
+              >
                 {typeIcon ? (
                   <g transform="translate(-9, 0) scale(0.82) translate(-12, -12)" style={{ color: s.col.contrast }}>
                     {typeIcon(s.type)}
@@ -164,41 +187,42 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
         </g>
       </svg>
 
-      {tip && createPortal(
-            <div
-              style={{
-                position: 'fixed',
-                // Clampe horizontalement pour ne jamais sortir de la fenêtre (bords du canvas).
-                left: clamp(tip.x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx),
-                top: tip.below ? tip.y + tipCfg.offsetBelowPx : tip.y - tipCfg.offsetAbovePx,
-                transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '6px 10px',
-                borderRadius: 8,
-                background: 'rgba(17,24,39,0.96)',
-                color: '#fff',
-                font: '600 12px/1 system-ui, -apple-system, sans-serif',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
-                pointerEvents: 'none',
-                // Palier `style.zIndex.menu`, comme `.m3d-menu`. Lu ici en JS et non
-                // via `--m3d-z-menu` : cette vignette est le seul portail de la lib
-                // vers `document.body`, hors de `.m3d-root` où `configToVars` pose
-                // ses variables. Le z-index maximal (2147483647) qu'elle portait la
-                // faisait passer devant les modales de l'application hôte —
-                // au-dessus de la carte, pas au-dessus de l'app.
-                zIndex: zIndex.menu,
-              }}
-            >
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: tip.color, flex: '0 0 auto' }} />
-              <span>{tip.label}</span>
-              <span style={{ opacity: 0.6 }}>{labels.glyphs.separator}</span>
-              <span style={{ fontWeight: 800 }}>{tip.count}</span>
-            </div>,
-            document.body,
-          )}
+      {tip &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              // Clampe horizontalement pour ne jamais sortir de la fenêtre (bords du canvas).
+              left: clamp(tip.x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx),
+              top: tip.below ? tip.y + tipCfg.offsetBelowPx : tip.y - tipCfg.offsetAbovePx,
+              transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: 'rgba(17,24,39,0.96)',
+              color: '#fff',
+              font: '600 12px/1 system-ui, -apple-system, sans-serif',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              pointerEvents: 'none',
+              // Palier `style.zIndex.menu`, comme `.m3d-menu`. Lu ici en JS et non
+              // via `--m3d-z-menu` : cette vignette est le seul portail de la lib
+              // vers `document.body`, hors de `.m3d-root` où `configToVars` pose
+              // ses variables. Le z-index maximal (2147483647) qu'elle portait la
+              // faisait passer devant les modales de l'application hôte —
+              // au-dessus de la carte, pas au-dessus de l'app.
+              zIndex: zIndex.menu,
+            }}
+          >
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: tip.color, flex: '0 0 auto' }} />
+            <span>{tip.label}</span>
+            <span style={{ opacity: 0.6 }}>{labels.glyphs.separator}</span>
+            <span style={{ fontWeight: 800 }}>{tip.count}</span>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

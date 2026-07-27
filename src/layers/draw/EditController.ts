@@ -8,8 +8,7 @@ import type { ScreenPt } from './hitTest'
 
 /** Poignée : coin/arête de la boîte de transformation, ou sommet d'une polyligne. */
 export type HandleId =
-  | { type: 'scale'; u: 0 | 0.5 | 1; v: 0 | 0.5 | 1 }
-  | { type: 'vertex'; shapeId: string; index: number }
+  { type: 'scale'; u: 0 | 0.5 | 1; v: 0 | 0.5 | 1 } | { type: 'vertex'; shapeId: string; index: number }
 
 export type HandleSpec = { id: HandleId; x: number; y: number; kind: 'scale' | 'vertex'; cursor: string }
 
@@ -247,7 +246,13 @@ export class EditController {
       for (let i = 0; i < ref.points.length; i++) {
         const s = this.host.toScreen(ref.points[i]!, height)
         if (!s) continue
-        specs.push({ id: { type: 'vertex', shapeId: ref.id, index: i }, x: s.x, y: s.y, kind: 'vertex', cursor: 'move' })
+        specs.push({
+          id: { type: 'vertex', shapeId: ref.id, index: i },
+          x: s.x,
+          y: s.y,
+          kind: 'vertex',
+          cursor: 'move',
+        })
       }
     }
     return specs

@@ -1,4 +1,12 @@
-import { mdiChevronDown, mdiClose, mdiDotsHorizontal, mdiHistory, mdiMagnify, mdiMapMarkerOutline, mdiTrashCanOutline } from '@mdi/js'
+import {
+  mdiChevronDown,
+  mdiClose,
+  mdiDotsHorizontal,
+  mdiHistory,
+  mdiMagnify,
+  mdiMapMarkerOutline,
+  mdiTrashCanOutline,
+} from '@mdi/js'
 import { UiIcon } from './UiIcon'
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -157,9 +165,7 @@ export function SearchBox({
   const [rowMenu, setRowMenu] = useState<{ key: string; left: number; top: number } | null>(null)
   /** null = aucune réponse aboutie du géocodeur pour la requête courante. */
   const [placeEntries, setPlaceEntries] = useState<SearchEntry[] | null>(null)
-  const [history, setHistory] = useState<HistoryItem[]>(() =>
-    historyStorageKey ? loadHistory(historyStorageKey) : [],
-  )
+  const [history, setHistory] = useState<HistoryItem[]>(() => (historyStorageKey ? loadHistory(historyStorageKey) : []))
   /** Bump à chaque changement d'inventaire d'une couche (ajout, retrait, filtre tags). */
   const [itemsRev, bumpItems] = useReducer((x: number) => x + 1, 0)
 
@@ -321,8 +327,7 @@ export function SearchBox({
   const hasStale = local.entries.length > 0 || placeEntries !== null
   // Exclusion mutuelle avec le sélecteur : les deux panneaux s'ouvrent au même
   // endroit, sous le champ — empilés, aucun des deux n'est lisible.
-  const showPanel =
-    open && !scopeOpen && (showingHistory ? history.length > 0 : settled || hasStale)
+  const showPanel = open && !scopeOpen && (showingHistory ? history.length > 0 : settled || hasStale)
 
   const goTo = useCallback(
     (position: { lat: number; lng: number }, bounds?: SearchEntry['bounds']) => {
@@ -447,9 +452,7 @@ export function SearchBox({
   // particulier, et une teinte neutre se lirait comme une rubrique de plus.
   const scopeColor = scopeGroup === null ? null : groupById.get(scopeGroup)?.color
   const emptyMessage =
-    scopeGroup === null
-      ? labels.search.noResults
-      : formatLabel(labels.search.noResultsInGroup, { group: scopeName })
+    scopeGroup === null ? labels.search.noResults : formatLabel(labels.search.noResultsInGroup, { group: scopeName })
 
   return (
     <div className="m3d-search" ref={rootRef}>

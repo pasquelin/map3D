@@ -59,28 +59,32 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
     this.scene.add(this.group)
     // Accesseur et non valeur figée : `setConfig` remplace l'arbre, et le protocole
     // de drapage relit ses budgets à chaque frame.
-    this.sync = new DrapeSync(projection, {
-      count: () => this.drapes.length,
-      getHeight: (i) => this.drapes[i]!.height,
-      setHeight: (i, h) => {
-        this.drapes[i]!.height = h
+    this.sync = new DrapeSync(
+      projection,
+      {
+        count: () => this.drapes.length,
+        getHeight: (i) => this.drapes[i]!.height,
+        setHeight: (i, h) => {
+          this.drapes[i]!.height = h
+        },
+        resolve: (i) => this.projection.resolveAnchorHeight(this.drapes[i]!.anchor),
+        mppRatio: (i) => {
+          const d = this.drapes[i]!
+          return this.mpp(d.anchor, this.heightOf(d)) / d.mpp
+        },
+        rebuild: (i) => this.rebuildDrape(i),
+        remove: (i) => {
+          this.onDropDrape?.(this.drapes[i]!)
+          this.drapes.splice(i, 1)
+        },
+        applyBasis: (i) => {
+          const d = this.drapes[i]!
+          this.projection.enuBasisFor(d.anchor, d.enu.matrix, this.heightOf(d))
+          d.enu.matrixWorldNeedsUpdate = true
+        },
       },
-      resolve: (i) => this.projection.resolveAnchorHeight(this.drapes[i]!.anchor),
-      mppRatio: (i) => {
-        const d = this.drapes[i]!
-        return this.mpp(d.anchor, this.heightOf(d)) / d.mpp
-      },
-      rebuild: (i) => this.rebuildDrape(i),
-      remove: (i) => {
-        this.onDropDrape?.(this.drapes[i]!)
-        this.drapes.splice(i, 1)
-      },
-      applyBasis: (i) => {
-        const d = this.drapes[i]!
-        this.projection.enuBasisFor(d.anchor, d.enu.matrix, this.heightOf(d))
-        d.enu.matrixWorldNeedsUpdate = true
-      },
-    }, () => this.config)
+      () => this.config,
+    )
   }
 
   /**

@@ -166,7 +166,11 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
                 // Le bouton actif porte la couleur de SON affiliation, pas l'accent
                 // générique de l'UI : c'est cette couleur qui identifie l'affiliation
                 // sur la carte, l'écho doit être immédiat.
-                style={actif && couleur ? { background: couleur, borderColor: couleur, color: lisibleSur(couleur) } : undefined}
+                style={
+                  actif && couleur
+                    ? { background: couleur, borderColor: couleur, color: lisibleSur(couleur) }
+                    : undefined
+                }
               >
                 <span className="m3d-tagdot" style={{ background: couleur ?? 'currentColor' }} />
                 {labels.symbols.affiliations[value]}
@@ -190,7 +194,13 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
             </h4>
             <div className="m3d-symgrid">
               {entries.map((entry) => (
-                <PaletteItem key={entry.key} entry={entry} svg={vignettes.get(entry.key)} hint={labels.symbols.multiPointHint} text={textes.get(entry.key)!} />
+                <PaletteItem
+                  key={entry.key}
+                  entry={entry}
+                  svg={vignettes.get(entry.key)}
+                  hint={labels.symbols.multiPointHint}
+                  text={textes.get(entry.key)!}
+                />
               ))}
             </div>
           </section>
@@ -260,11 +270,7 @@ const PaletteItem = memo(function PaletteItem({
  */
 function SymbolGlyph({ svg, size }: { svg: string; size: number }) {
   return (
-    <span
-      className="m3d-symglyph"
-      style={{ width: size, height: size }}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <span className="m3d-symglyph" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: svg }} />
   )
 }
 
@@ -274,7 +280,13 @@ function SymbolGlyph({ svg, size }: { svg: string; size: number }) {
  */
 function lisibleSur(hex: string): string {
   const v = hex.replace('#', '')
-  const n = v.length === 3 ? v.split('').map((c) => c + c).join('') : v
+  const n =
+    v.length === 3
+      ? v
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : v
   const r = parseInt(n.slice(0, 2), 16) / 255
   const g = parseInt(n.slice(2, 4), 16) / 255
   const b = parseInt(n.slice(4, 6), 16) / 255
