@@ -8,10 +8,22 @@ import type { MapLabels } from './types'
 
 /** Formateur de distance de l'outil règle ET des étiquettes de liens. */
 export function makeDistanceFormatter(measure: MapLabels['measure']): (meters: number) => string {
+  // Seuil, diviseur et décimales viennent des labels : le système métrique était
+  // câblé en dur (bascule à 1000, division par 1000), ce qui rendait tout affichage
+  // impérial impossible même en traduisant les gabarits.
+  // `Intl.NumberFormat` et non `toFixed` : ce dernier impose le point décimal quelle
+  // que soit la locale — la lib affichait « 2.40 km » sous des libellés français qui
+  // promettent « 2,4 km » — et conserve les zéros de fin. `maximumFractionDigits`
+  // seul (sans minimum) supprime aussi le « ,00 » d'un compte rond.
+  const locale = measure.numberLocale === 'auto' ? undefined : measure.numberLocale
+  const major = new Intl.NumberFormat(locale, { maximumFractionDigits: measure.majorDecimals })
+  const minor = new Intl.NumberFormat(locale, { maximumFractionDigits: measure.minorDecimals })
   return (m) =>
-    m >= 1000
-      ? formatLabel(measure.kilometers, { value: (m / 1000).toFixed(2) })
-      : formatLabel(measure.meters, { value: Math.round(m) })
+    m >= measure.majorThreshold
+      ? formatLabel(measure.major, { value: major.format(m / measure.majorFactor) })
+      // `minorFactor` et non la valeur brute : sans lui, la petite unité restait le
+      // mètre quoi qu'annonce le gabarit — des « pieds » qui valaient des mètres.
+      : formatLabel(measure.minor, { value: minor.format(m / measure.minorFactor) })
 }
 
 /**
@@ -21,9 +33,11 @@ export function makeDistanceFormatter(measure: MapLabels['measure']): (meters: n
 export function makeDurationFormatter(duration: MapLabels['duration']): (seconds: number) => string {
   return (s) => {
     const total = Math.max(0, Math.round(s))
-    if (total < 60) return formatLabel(duration.seconds, { value: total })
+    if (total < duration.minorThreshold) return formatLabel(duration.seconds, { value: total })
+    // 60 s/min et 60 min/h restent des invariants : seuls les SEUILS de bascule
+    // sont des choix d'affichage, et eux seuls sont réglables.
     const minutes = Math.round(total / 60)
-    if (minutes < 60) return formatLabel(duration.minutes, { value: minutes })
+    if (minutes < duration.majorThreshold) return formatLabel(duration.minutes, { value: minutes })
     const h = Math.floor(minutes / 60)
     const m = minutes % 60
     return m === 0 ? formatLabel(duration.hours, { h }) : formatLabel(duration.hoursMinutes, { h, m })

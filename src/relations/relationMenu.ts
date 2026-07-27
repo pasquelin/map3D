@@ -6,6 +6,8 @@
 // que fera le calcul réel. Un second chemin d'estimation finirait par annoncer un
 // nombre de liens que la carte ne trace pas.
 
+import { defaultConfig } from '../config/defaultConfig'
+import type { RoutingPresets } from '../config/types'
 import { formatLabel } from '../labels/mergeLabels'
 import { makeDistanceFormatter } from '../labels/measure'
 import type { MapLabels } from '../labels/types'
@@ -27,12 +29,34 @@ export type RelationMenuContext = {
   colorOf?: (rule: RelationRule) => string | undefined
   /** Reçoit la règle DÉRIVÉE (preset appliqué), prête à être exécutée. */
   onRun: (rule: RelationRule) => void
+  /** Paliers proposés — défauts de la lib si absent. */
+  presets?: RelationMenuPresets
+  /**
+   * Sur-échantillonnage employé par le calcul réel — **doit** être celui de la carte.
+   *
+   * Le préambule de ce fichier promet que « tous les compteurs affichés proviennent de
+   * `selectTargets`, exactement l'appel que fera le calcul réel ». La promesse était
+   * tenue à un argument près : `presetItem` omettait celui-ci et comptait donc avec le
+   * défaut, quand le moteur comptait avec la valeur réglée. Dès qu'elles différaient,
+   * l'avertissement « sélection trop large » — le seul garde-fou de coût visible par
+   * l'utilisateur — se déclenchait au mauvais seuil.
+   */
+  fastestOversample?: number
 }
 
-/** Presets du bloc « les plus rapides » — nombre de liens conservés au final. */
-const FASTEST_PRESETS: readonly number[] = [3, 5, 10]
-/** Presets du bloc « dans un rayon » (mètres). */
-const RADIUS_PRESETS: readonly number[] = [500, 1000, 3000]
+/**
+ * Presets proposés par le menu d'une famille. Ce sont des choix MÉTIER — « les 3 plus
+ * proches » n'a pas le même sens pour une flotte de camions que pour des capteurs
+ * dans un bâtiment — d'où leur surcharge possible par `<Map relations={{ menu }}>`.
+ *
+ * Les paliers vivent dans `providers.routing.presets` : ce sont des valeurs à impact
+ * facturation (un palier « 10 » à un sur-échantillonnage de 3 fait 30 origines en un
+ * clic), donc leur place est avec le reste des réglages du fournisseur.
+ *
+ * Le type local et la constante `DEFAULT_RELATION_PRESETS` qui vivaient ici en
+ * étaient un second exemplaire, exporté publiquement et libre de diverger.
+ */
+export type RelationMenuPresets = RoutingPresets
 
 const withFastest = (rule: RelationRule, count: number): RelationRule => ({
   ...rule,
@@ -62,7 +86,7 @@ function presetItem(
   ctx: RelationMenuContext,
   isDefault: boolean,
 ): MenuItem {
-  const count = selectTargets(ctx.source, derived, ctx.candidates).length
+  const count = selectTargets(ctx.source, derived, ctx.candidates, ctx.fastestOversample).length
   const { relations } = ctx.labels
   if (count === 0) return { label, hint: relations.noTargets, disabled: true }
   const hint =
@@ -74,7 +98,7 @@ function presetItem(
     hint,
     // Le preset par défaut de la règle est marqué, pas présélectionné : rien ne
     // part tant que l'utilisateur n'a pas cliqué.
-    ...(isDefault ? { icon: '✓' } : {}),
+    ...(isDefault ? { icon: ctx.labels.glyphs.check } : {}),
     onSelect: () => ctx.onRun(derived),
   }
 }
@@ -82,14 +106,15 @@ function presetItem(
 /** Presets d'une famille de tags (niveau 3). */
 function presetsFor(rule: RelationRule, ctx: RelationMenuContext): MenuItem[] {
   const { relations } = ctx.labels
+  const presets = ctx.presets ?? defaultConfig.providers.routing.presets
   const distance = makeDistanceFormatter(ctx.labels.measure)
   const items: MenuItem[] = [heading(relations.fastestGroup)]
-  for (const count of FASTEST_PRESETS) {
+  for (const count of presets.fastest) {
     const isDefault = rule.selection.mode === 'fastest' && rule.selection.count === count
     items.push(presetItem(formatLabel(relations.fastest, { count }), withFastest(rule, count), ctx, isDefault))
   }
   items.push({ separator: true }, heading(relations.radiusGroup))
-  for (const meters of RADIUS_PRESETS) {
+  for (const meters of presets.radius) {
     const isDefault = rule.selection.mode === 'radius' && rule.selection.radiusMeters === meters
     const label = formatLabel(relations.radius, { radius: distance(meters) })
     items.push(presetItem(label, withRadius(rule, meters), ctx, isDefault))

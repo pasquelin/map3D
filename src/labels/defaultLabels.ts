@@ -46,6 +46,9 @@ export const defaultLabels: MapLabels = {
       neutral: 'Neutre',
       unknown: 'Inconnu',
     },
+    // Vide : les textes du catalogue par défaut SONT en français. Une application
+    // anglophone y met ses traductions, clé par clé.
+    catalog: {},
   },
   search: {
     placeholder: 'Rechercher sur la carte…',
@@ -150,6 +153,8 @@ export const defaultLabels: MapLabels = {
     addToSelection: 'Ajouter à la sélection',
     markersOnly: 'Marqueurs seuls (tracé)',
   },
+  glyphs: { submenu: '›', check: '✓', none: '∅', separator: '·' },
+  modKey: { mac: '⌘', other: 'Ctrl+' },
   keys: {
     escape: 'Échap',
     space: 'Espace',
@@ -160,15 +165,29 @@ export const defaultLabels: MapLabels = {
     backspace: '⌫',
     shiftClick: 'Maj + clic',
     altOrCmd: 'Alt / ⌘',
+    /** Glyphe Maj seul, pour composer un raccourci affiché (⇧Z). */
+    shift: '⇧',
   },
   format: {
     shortcut: '{label} ({key})',
   },
+  // Système métrique. Pour de l'impérial, `imperialMeasure` ci-dessous s'y substitue
+  // d'un bloc — il n'y a pas de conversion à refaire côté application.
   measure: {
-    kilometers: '{value} km',
-    meters: '{value} m',
+    major: '{value} km',
+    minor: '{value} m',
+    majorThreshold: 1000,
+    majorFactor: 1000,
+    minorFactor: 1,
+    majorDecimals: 2,
+    minorDecimals: 0,
+    numberLocale: 'auto',
   },
   duration: {
+    // Les deux bascules sexagésimales étaient en dur, contrairement à celles de
+    // distance : une locale ne pouvait pas préférer « 90 min » à « 1 h 30 ».
+    minorThreshold: 60,
+    majorThreshold: 60,
     seconds: '{value} s',
     minutes: '{value} min',
     hours: '{h} h',
@@ -205,7 +224,36 @@ export const defaultLabels: MapLabels = {
     expand: 'Développer',
     title: 'Favoris',
   },
+  // Règle française : 0 et 1 au singulier. `Intl.PluralRules` n'est pas utilisé par
+  // défaut — il exige une locale, que la lib n'a pas à deviner à la place de l'hôte.
+  plural: (count) => (count > 1 ? 'other' : 'one'),
   errors: {
     outsideMap: 'Ce composant doit être utilisé à l’intérieur de <Map>',
+    drawingRequired: 'useDrawing nécessite le dessin : il est retiré par <Map draw={false}>',
+    lensRequired: 'useLens nécessite la loupe : elle est retirée par <Map toolbar={{ lens: false }}>',
   },
+}
+
+/**
+ * Jeu de mesures **impérial**, à substituer en bloc :
+ *
+ * ```tsx
+ * <MapProvider labels={{ measure: imperialMeasure }}>
+ * ```
+ *
+ * Les gabarits restent traduisibles (`'{value} mi'` devient `'{value} milles'` en
+ * français canadien) : ce bloc ne fixe que le système d'unités, pas la langue.
+ *
+ * Bascule à 1 mile — en dessous on lit des pieds, au-dessus des miles. Les valeurs
+ * d'entrée sont en mètres, comme toujours : `1609.344 m = 1 mi`, `0.3048 m = 1 ft`.
+ */
+export const imperialMeasure: MapLabels['measure'] = {
+  major: '{value} mi',
+  minor: '{value} ft',
+  majorThreshold: 1609.344,
+  majorFactor: 1609.344,
+  minorFactor: 0.3048,
+  majorDecimals: 1,
+  minorDecimals: 0,
+  numberLocale: 'auto',
 }

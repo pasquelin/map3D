@@ -1,5 +1,5 @@
 import { mdiChevronDown, mdiClose, mdiDotsHorizontal, mdiHistory, mdiMagnify, mdiMapMarkerOutline, mdiTrashCanOutline } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../../core/storage'
@@ -9,7 +9,7 @@ import { PLACE_GROUP } from '../../search/registry'
 import type { SearchEntry } from '../../search/types'
 import { createGooglePlacesSearch } from '../../search/googlePlaces'
 import type { SearchResult } from '../../shared'
-import { useLabels, useMapContext } from '../context'
+import { useConfig, useLabels, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { useFitHeight, useMergedRefs, useNudgeInside } from './panelFit'
 import { Swatch } from './Swatch'
@@ -49,13 +49,20 @@ export type SearchBoxProps = {
    * courant.
    */
   groupOrder?: string[]
+  /**
+   * Longueur minimale de la saisie avant d'interroger quoi que ce soit (défaut 2).
+   *
+   * À abaisser à 1 pour un jeu de données dont les libellés sont courts (codes,
+   * numéros de tournée) ; à relever pour épargner un fournisseur facturé à l'appel.
+   */
+  minQuery?: number
+  /**
+   * Anti-rebond de la frappe, en ms (défaut 250). Chaque saisie déclenche un appel au
+   * fournisseur de lieux : le relever réduit directement la facture.
+   */
+  debounceMs?: number
 }
 
-/** Longueur mini de requête avant d'interroger quoi que ce soit. */
-const MIN_QUERY = 2
-const DEBOUNCE_MS = 250
-/** Hauteur maximale de la liste de résultats quand la place le permet (px). */
-const RESULTS_MAX_HEIGHT = 340
 /** Idem pour le menu de portée, plus court (une ligne par rubrique). */
 const SCOPE_MAX_HEIGHT = 280
 
@@ -101,22 +108,45 @@ export function SearchBox({
   onSelect,
   search,
   placeholder,
-  flyAltitude = 2500,
-  historyStorageKey = 'm3d:search-history',
-  historySize = 8,
-  limitPerGroup = 6,
+  flyAltitude: flyAltitudeProp,
+  historyStorageKey: historyStorageKeyProp,
+  historySize: historySizeProp,
+  limitPerGroup: limitPerGroupProp,
   scope = true,
   groupOrder,
+  minQuery: minQueryProp,
+  debounceMs: debounceMsProp,
 }: SearchBoxProps) {
   const { engine, overlay, theme } = useMapContext()
   const labels = useLabels()
+  // Contexte et non `engine.config` : au render, le moteur porte encore les réglages
+  // de la frame précédente (cf. `useConfig`).
+  const config = useConfig()
   const root = overlay.parentElement
+
+  // Les sept réglages de la boîte prennent leur défaut dans la config plutôt que
+  // dans des littéraux : `debounceMs` décide du nombre d'appels Places facturés, et
+  // `historyStorageKey` doit pouvoir être distinguée quand deux cartes partagent un
+  // origin — comme les deux autres clés de stockage, désormais au même endroit.
+  const searchCfg = config.data.search
+  const flyAltitude = flyAltitudeProp ?? searchCfg.flyAltitude
+  const historyStorageKey = historyStorageKeyProp ?? config.data.storageKeys.searchHistory
+  const historySize = historySizeProp ?? searchCfg.historySize
+  const limitPerGroup = limitPerGroupProp ?? searchCfg.limitPerGroup
+  const minQuery = minQueryProp ?? searchCfg.minQuery
+  const debounceMs = debounceMsProp ?? searchCfg.debounceMs
 
   const places = useMemo(() => {
     if (search === false) return undefined
     if (search) return search
-    return engine.googleMapsApiKey ? createGooglePlacesSearch({ apiKey: engine.googleMapsApiKey }) : undefined
-  }, [search, engine])
+    // La config du moteur est transmise au provider par défaut : sans elle, régler
+    // `providers.places` (endpoint, FieldMask, langue, timeout) resterait sans effet
+    // dès lors qu'on laisse la lib fabriquer le géocodeur — c'est-à-dire presque
+    // toujours. Un `search` fourni par l'hôte reste seul maître du sien.
+    return engine.googleMapsApiKey
+      ? createGooglePlacesSearch({ apiKey: engine.googleMapsApiKey, config: config.providers.places })
+      : undefined
+  }, [search, engine, config.providers.places])
 
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -146,7 +176,7 @@ export function SearchBox({
   useDismiss(rootRef, open, () => setOpen(false))
   useDismiss(scopeRef, scopeOpen, () => setScopeOpen(false))
   useDismiss(menuRef, rowMenu !== null, closeRowMenu, { wheel: true, captureEscape: true })
-  const setResultsPanel = useFitHeight('dropdown', RESULTS_MAX_HEIGHT)
+  const setResultsPanel = useFitHeight('dropdown', theme.sizing.panelMaxHeight.search)
   // Le menu de portée est un déroulant comme un autre : sur une carte courte, la place
   // restante sous le champ est sa vraie borne — pas un plafond figé dans le CSS.
   const setScopePanel = useFitHeight('dropdown', SCOPE_MAX_HEIGHT)
@@ -155,7 +185,7 @@ export function SearchBox({
 
   const q = query.trim()
   /** Sous la longueur minimale, le champ ne cherche pas : il propose l'historique. */
-  const showingHistory = q.length < MIN_QUERY
+  const showingHistory = q.length < minQuery
 
   // Débounce de la SAISIE, pas des résultats : la liste précédente reste affichée
   // pendant la frappe (pas de clignotement), et les deux sources — balayage local et
@@ -165,7 +195,7 @@ export function SearchBox({
       setDebounced('')
       return
     }
-    const timer = setTimeout(() => setDebounced(q), DEBOUNCE_MS)
+    const timer = setTimeout(() => setDebounced(q), debounceMs)
     return () => clearTimeout(timer)
   }, [q, showingHistory])
 
@@ -298,7 +328,7 @@ export function SearchBox({
     (position: { lat: number; lng: number }, bounds?: SearchEntry['bounds']) => {
       // Une emprise se CADRE (une zone, une ville se regardent en entier) ; un point
       // seul se survole à l'altitude de repli.
-      if (bounds) engine.camera.fitBounds(bounds, { padding: 60 })
+      if (bounds) engine.camera.fitBounds(bounds, { padding: searchCfg.fitPadding })
       else engine.camera.flyTo({ ...position, altitude: flyAltitude })
     },
     [engine, flyAltitude],
@@ -331,7 +361,7 @@ export function SearchBox({
   const resolveFresh = useCallback(
     (group: string, id: string, title: string): SearchEntry | undefined =>
       engine.search
-        .query(normalizeSearch(title), { group, limit: 20 })
+        .query(normalizeSearch(title), { group, limit: searchCfg.resolveLimit })
         .entries.find((e) => String(e.id) === id),
     [engine],
   )
@@ -424,7 +454,7 @@ export function SearchBox({
   return (
     <div className="m3d-search" ref={rootRef}>
       <div className="m3d-search-box">
-        <Icon path={mdiMagnify} size={0.75} className="m3d-search-icon" />
+        <UiIcon path={mdiMagnify} className="m3d-search-icon" />
         <input
           ref={inputRef}
           type="search"
@@ -452,7 +482,7 @@ export function SearchBox({
               inputRef.current?.focus()
             }}
           >
-            <Icon path={mdiClose} size={0.6} />
+            <UiIcon path={mdiClose} />
           </button>
         )}
         {/* En DERNIER : on saisit un nom, puis on restreint. La loupe et le champ
@@ -472,7 +502,7 @@ export function SearchBox({
             >
               {scopeColor && <i className="m3d-search-scopedot" style={{ background: scopeColor }} />}
               <span>{scopeName}</span>
-              <Icon path={mdiChevronDown} size={0.55} />
+              <UiIcon path={mdiChevronDown} />
             </button>
             {scopeOpen && (
               <div ref={setScopePanel} className="m3d-search-scopemenu m3d-panel" role="listbox">
@@ -523,7 +553,7 @@ export function SearchBox({
               {history.map((h, i) => (
                 <SearchRow
                   key={`${h.group}-${h.id}`}
-                  leading={<Icon path={mdiHistory} size={0.7} className="m3d-search-icon" />}
+                  leading={<UiIcon path={mdiHistory} className="m3d-search-icon" />}
                   title={h.title}
                   subtitle={groupLabelOf(h.group)}
                   active={i === highlight}
@@ -532,7 +562,7 @@ export function SearchBox({
                 />
               ))}
               <button type="button" className="m3d-tagclear" onClick={clearHistory}>
-                <Icon path={mdiTrashCanOutline} size={0.6} />
+                <UiIcon path={mdiTrashCanOutline} />
                 {labels.search.clearHistory}
               </button>
             </>
@@ -555,7 +585,7 @@ export function SearchBox({
                         e.avatar || e.icon || e.color ? (
                           <Swatch avatar={e.avatar} icon={e.icon} color={e.color ?? 'currentColor'} />
                         ) : (
-                          <Icon path={mdiMapMarkerOutline} size={0.7} className="m3d-search-icon" />
+                          <UiIcon path={mdiMapMarkerOutline} className="m3d-search-icon" />
                         )
                       }
                       title={e.title}
@@ -579,7 +609,7 @@ export function SearchBox({
                                 else openRowMenu(key, ev.currentTarget)
                               }}
                             >
-                              <Icon path={mdiDotsHorizontal} size={0.7} />
+                              <UiIcon path={mdiDotsHorizontal} />
                             </button>
                             {rowMenu?.key === key &&
                               root &&

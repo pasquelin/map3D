@@ -1,5 +1,5 @@
 import { mdiFilterRemoveOutline, mdiLayersOutline, mdiMagnify } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { normalizeSearch } from '../../search/match'
 import { useLabels, useMapContext } from '../context'
@@ -10,9 +10,6 @@ import { ToolButton } from './ToolButton'
 import { useDismiss } from './useDismiss'
 import { useTip } from './tooltip'
 import { tagColorOf } from '../../theme/colors'
-
-/** Hauteur maximale souhaitée du panneau quand le conteneur le permet (px). */
-const PANEL_MAX_HEIGHT = 380
 
 export type TagFilterControlProps = {
   /** Côté de la barre hôte : le panneau s'ouvre du côté opposé. */
@@ -96,7 +93,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
   // Le bouton « Couches » est bas dans la barre : sans clamp, un panneau bien
   // rempli déborde sous le conteneur et sa moitié basse (liste + « Tout
   // afficher ») devient inatteignable.
-  const [side, setPanel] = useAnchoredPanel(position, { maxHeight: PANEL_MAX_HEIGHT })
+  const [side, setPanel] = useAnchoredPanel(position, { maxHeight: theme.sizing.panelMaxHeight.tags })
 
   // Fusion+tri seulement quand registre ou sélection changent — pas à chaque
   // frappe dans la recherche. (La sélection compte : un tag fantôme sélectionné
@@ -119,7 +116,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
   return (
     <div ref={setPanel} className={`m3d-panel m3d-tagpanel m3d-${side}`}>
       <div className="m3d-tagsearch">
-        <Icon path={mdiMagnify} size={0.6} />
+        <UiIcon path={mdiMagnify} />
         <input
           autoFocus
           value={query}
@@ -143,7 +140,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
         )}
       </div>
       <button className="m3d-tagclear" onClick={() => tags.clear()} disabled={active === 0}>
-        <Icon path={mdiFilterRemoveOutline} size={0.6} />
+        <UiIcon path={mdiFilterRemoveOutline} />
         {labels.tags.showAll}
       </button>
     </div>

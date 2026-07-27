@@ -1,3 +1,5 @@
+import { defaultConfig } from '../../config/defaultConfig'
+
 /**
  * Neutralise le prochain `click` synthétisé après le `pointerup` d'un geste (saisie
  * au long-press, repositionnement) pour qu'il n'ouvre pas la fiche du marker qu'on
@@ -11,12 +13,12 @@
  * Partagé par `useDraggable` et `useRepositionable` : les deux gestes se terminent
  * de la même façon, et la version recopiée devait être corrigée deux fois.
  */
-export function suppressNextClick(el: HTMLElement): void {
+export function suppressNextClick(el: HTMLElement, timeoutMs = defaultConfig.interaction.clickSuppressMs): void {
   const suppress = (e: MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
     el.removeEventListener('click', suppress, true)
   }
   el.addEventListener('click', suppress, true)
-  window.setTimeout(() => el.removeEventListener('click', suppress, true), 400)
+  window.setTimeout(() => el.removeEventListener('click', suppress, true), timeoutMs)
 }

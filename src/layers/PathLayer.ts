@@ -97,7 +97,10 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     }
     if (this.animateHead) {
       const last = pts[pts.length - 1]!
-      const ring = fillGeo(circlePoints({ x: 0, z: 0 }, width * 1.6, 24))
+      // Densité prise sur la config comme partout ailleurs (`ShapeLayer`, `LinkLayer`,
+      // `DrawLayer`) : ce `24` était le seul littéral survivant et produisait une tête
+      // visiblement plus facettée que les autres disques de la carte.
+      const ring = fillGeo(circlePoints({ x: 0, z: 0 }, width * 1.6, this.config.performance.circleSegments))
       if (ring) {
         const mat = fillMaterial(color, 0.5)
         const mesh = new THREE.Mesh(ring, mat)

@@ -10,22 +10,62 @@ export type AnimationSpec<T> = T | false
  * mode clair/sombre synchronisé avec l'app hôte.
  */
 export type MapTheme = {
+  /** Mode par défaut du thème (un couple `{light, dark}` le rend automatique). */
   colorScheme: 'dark' | 'light'
   colors: {
+    /** Fond du canvas, visible avant le chargement des tuiles. */
     background: string
     /** Couleur par type de marker (ex. 'alert-critical', 'agent-available'). */
     marker: Record<string, MarkerColor>
     /** Couleur de repérage par tag (panneau « Couches ») ; tag/champ absent → palette hashée de la lib.
      *  Optionnel : un thème complet écrit avant cet ajout reste valide (et ne crashe pas le panneau). */
     tags?: Record<string, string>
-    cluster: { core: string; satellite: string; text: string; ring: string }
-    draw: { palette: string[]; default: string }
-    ui: { panel: string; text: string; muted: string; accent: string; error: string; border: string }
+    /** Couleurs PROPRES au cluster, indépendantes des types qu'il agrège. */
+    cluster: {
+      /** Cœur du donut. */
+      core: string
+      /** Réservée aux satellites (modèle historique). */
+      satellite: string
+      /** Total affiché au centre. */
+      text: string
+      /** Anneau de séparation cœur/parts. */
+      ring: string
+    }
+    draw: {
+      /** Palette proposée par le sélecteur de couleur du dessin. */
+      palette: string[]
+      /** Couleur d'une forme nouvellement tracée. */
+      default: string
+    }
+    ui: {
+      /** Fond des panneaux et barres (translucide). */
+      panel: string
+      /** Texte principal. */
+      text: string
+      /** Texte secondaire, libellés discrets. */
+      muted: string
+      /** Couleur d'accent : état actif, focus, sélection. */
+      accent: string
+      /** Erreurs et actions destructrices. */
+      error: string
+      /** Bordures et séparateurs. */
+      border: string
+    }
     /** Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels,
      *  couleurs volontairement très voyantes. Optionnel : thème antérieur valide. */
     attention?: { sonar?: string; target?: string }
-    path: { base: string; casing: string }
-    zone: { fill: string; stroke: string }
+    path: {
+      /** Couleur d'un tracé. */
+      base: string
+      /** Contour du tracé (lisibilité sur imagerie satellite). */
+      casing: string
+    }
+    zone: {
+      /** Remplissage d'une zone. */
+      fill: string
+      /** Contour d'une zone. */
+      stroke: string
+    }
     /** Marching-ants **partagé** par les trois surfaces de sélection : contour des
      *  formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la
      *  loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme
@@ -35,90 +75,222 @@ export type MapTheme = {
      *  (satellite, eau, neige). Optionnel : repli CSS blanc/noir. */
     marquee?: { fill: string; stroke: string; under: string }
   }
-  shadows: { sm: string; md: string; lg: string }
-  radii: { sm: number; md: number; lg: number; pill: number }
+  /** Ombres portées, de la plus discrète à la plus marquée. */
+  shadows: {
+    /** Éléments posés (swatches, pastilles). */
+    sm: string
+    /** Boutons et petites surfaces. */
+    md: string
+    /** Panneaux flottants et menus. */
+    lg: string
+  }
+  /** Rayons d'angle (px). */
+  radii: {
+    /** Petits éléments : boutons de barre, poignées. */
+    sm: number
+    /** Panneaux et menus. */
+    md: number
+    /** Grandes surfaces. */
+    lg: number
+    /** Forme pilule (valeur volontairement énorme). */
+    pill: number
+  }
   typography: {
+    /** Pile de polices de toute l'UI de la carte. */
     fontFamily: string
+    /**
+     * Échelle typographique (px). Publiée en `--m3d-size-*`.
+     *
+     * ⚠️ Ne couvre pas encore toute la feuille de styles : 26 tailles accidentelles
+     * (9.5 à 22 px) y restent littérales, faute de palier correspondant.
+     */
     sizes: Record<string, number>
+    /** Graisses, publiées en `--m3d-weight-*`. */
     weights: Record<string, number>
   }
   markers: {
+    /** Diamètre du sprite (px). */
     size: number
+    /** Épaisseur de l'anneau (px). */
     ringWidth: number
+    /** Dégradé du corps du marker. */
     gradient: boolean
+    /** Reflet sur la pastille. */
     gloss: boolean
+    /** Contenu par défaut d'un marker : rien, l'icône du type, son rang, ou un nœud. */
     icon: 'none' | 'type' | 'number' | ReactNode
     /** Tween de position (déplacement animé des agents). */
     moveTween: { duration: number; easing: (t: number) => number }
   }
+  /**
+   * Géométrie du cluster par défaut, en **donut** : un cœur portant le total,
+   * entouré d'un anneau segmenté par type.
+   *
+   * ⚠️ Ces clés décrivaient jusqu'ici un modèle « cœur + satellites en arc »
+   * (`satelliteRadius`, `arcSpan`, `maxSatellites`) qui n'existe plus : le composant
+   * a été réécrit en donut, sans que le thème suive. Aucune des cinq n'avait donc de
+   * consommateur — un hôte pouvait les régler sans que rien ne bouge. Elles sont
+   * remplacées par la géométrie réellement dessinée.
+   */
   clusters: {
+    /** Rayon du cœur (px) selon le nombre total de points. */
     coreRadius: (total: number) => number
-    satelliteRadius: (count: number) => number
-    arcSpan: number
+    /** Épaisseur de l'anneau segmenté (px). */
+    ringWidth: number
+    /** Contour clair des parts (px) — il déborde du rayon extérieur de sa moitié. */
+    strokeWidth: number
+    /** Écart angulaire entre deux parts (rad) ; `0` les rend jointives. */
+    segmentGap: number
+    /** Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas. */
     startAngle: number
-    maxSatellites: number
   }
   animations: {
+    /** Coupe TOUTES les animations JS (le CSS a sa propre règle `prefers-reduced-motion`). */
     enabled: boolean
+    /** Pulsation d'un marker à signaler. `false` la coupe. */
     pulse: AnimationSpec<{ duration: number; easing: string; scale: number }>
+    /** Halo qui s'écarte d'un marker (`maxScale` = agrandissement final). */
     halo: AnimationSpec<{ duration: number; easing: string; maxScale: number }>
+    /** Léger flottement vertical (`amplitude` en px). */
     bob: AnimationSpec<{ duration: number; amplitude: number }>
+    /** Entrée d'un marker (`stagger` = décalage entre deux apparitions, ms). */
     markerEnter: { duration: number; easing: string; stagger: number }
+    /** Entrée d'un cluster. */
     clusterEnter: { duration: number; easing: string; stagger: number }
+    /** Ouverture des menus, flyouts et panneaux. Publiée en `--m3d-menu-dur`. */
     menuOpen: { duration: number; easing: string }
-    /** Unique coefficient de lissage caméra (0..1). */
-    cameraSmoothing: number
+    /** Durée d'un vol caméra ordinaire (s) — `flyTo`, `fitBounds`. */
     flyDuration: number
+    /** Courbe d'accélération des vols caméra. */
     flyEasing: (t: number) => number
-    flyArcHeight: number
+    /**
+     * Durées (s) des déplacements caméra qui ne sont pas des vols ordinaires.
+     *
+     * Elles étaient écrites en littéral dans huit fichiers — `0.4` ici, `0.8` là,
+     * `0.6` ailleurs — si bien que « recentrer sur un marker » et « ouvrir un
+     * cluster » n'avaient pas le même rythme sans qu'aucune intention ne le dise, et
+     * qu'aucune application ne pouvait ralentir l'ensemble d'un coup.
+     */
+    /** Déplacement latéral. */
+    pan: number
+    /** Changement de zoom par bouton. */
+    zoom: number
+    /** Recentrage « immédiat » (`useCamera().moveTo`). */
+    moveTo: number
+    /** Vol de ciblage depuis un listing ou un favori épinglé. */
+    target: number
+    /** Ouverture d'un cluster (zoom sur son emprise). */
+    clusterOpen: number
+    /** Bascule en vue du dessus. */
+    topDown: number
+    /** Recul en vue globe. */
+    globe: number
   }
-  camera: {
-    minZoom: number
-    maxZoom: number
-    maxTilt: number
-    zoomStep: number
-    dragSpeed: { min: number; max: number }
+  /**
+   * Espacements des surfaces flottantes (px).
+   *
+   * `MapTheme` n'en avait aucun : ces valeurs vivaient dans `style/panelGeometry`,
+   * source unique côté code mais hors de portée d'une charte graphique. Elles sont
+   * aussi publiées en variables CSS (`--m3d-gap`…), pour que la feuille de styles et
+   * les calculs de placement partagent toujours le même nombre.
+   */
+  spacing: {
+    /** Écart entre une surface ancrée et son ancre. */
+    gap: number
+    /** Marge minimale entre une surface et le bord du conteneur. */
+    edge: number
+    /** Retrait des barres verticales par rapport au bord. */
+    barInset: number
   }
-  clustering: {
-    radius: number
-    minPoints: number
-    maxZoom: number
-    levelQuantization: number
-    /** Zoom à partir duquel un cluster inséparable (points confondus) éclate en
-     *  éventail au clic — le zoom max UTILE de la caméra (au-delà elle entre
-     *  dans le bâti 3D). Optionnel : 19 (~76 m d'altitude). */
-    spiderfyZoom?: number
+  /** Dimensions des surfaces flottantes et des icônes. */
+  sizing: {
+    /** Largeur du panneau d'inventaire de la loupe (px). */
+    lensPanelW: number
+    /** Largeur du panneau de sélection (px). */
+    selectionPanelW: number
+    /**
+     * Hauteurs maximales des panneaux quand la place le permet (px). Elles
+     * divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520).
+     */
+    panelMaxHeight: {
+      tags: number
+      symbols: number
+      search: number
+      settings: number
+      settingsSub: number
+    }
+    /**
+     * Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là
+     * où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue.
+     */
+    iconSize: number
   }
-  tiles: {
-    cacheSize: number
-    uploadsPerFrame: number
-    parentFallback: boolean
-    priorityByDistance: boolean
+  /**
+   * Traitement colorimétrique du fond de carte — le seul aspect des tuiles qui soit
+   * réellement une affaire d'apparence.
+   *
+   * ⚠️ Ce bloc portait aussi `cacheSize`, `uploadsPerFrame`, `parentFallback` et
+   * `priorityByDistance` : des budgets mémoire GPU et CPU, donc de la config. Aucun
+   * n'avait de consommateur, et `cacheSize` (256) doublonnait
+   * `providers.tiles.maxTiles` (500) — deux noms, deux valeurs, un seul effet, et pas
+   * celui du thème. Ils sont retirés au profit de `providers.tiles`.
+   */
+  tiles?: {
+    /**
+     * Traitement colorimétrique du fond de carte, appliqué au canvas WebGL.
+     *
+     * C'est le levier du mode sombre : les tuiles Google sont produites claires, et
+     * rien dans leur API ne fournit de variante sombre. Les assombrir ici est la
+     * seule façon qu'une carte s'accorde à une UI sombre.
+     *
+     * ⚠️ Le filtre porte sur le CANVAS, donc sur tout ce qui y est rendu : tuiles,
+     * mais aussi formes dessinées et tracés. Markers, panneaux et barres vivent dans
+     * l'overlay DOM et n'en sont pas affectés. Un filtre marqué (`invert`) rend donc
+     * les zones dessinées atypiques — à réserver aux réglages doux.
+     *
+     * Omis ou vide : aucun filtre, les tuiles telles que le fournisseur les rend.
+     */
     filter?: {
+      /** `1` = inchangé ; `< 1` assombrit. */
       brightness?: number
+      /** `1` = inchangé ; `< 1` désature. */
       saturation?: number
+      /** `1` = inchangé. */
       contrast?: number
+      /** `0` = inchangé ; `1` inverse — spectaculaire mais rarement lisible. */
       invert?: number
+      /** Rotation de teinte, en degrés. */
       hueRotate?: number
     }
   }
   globe: {
-    tileSurface: 'flat-handoff' | 'sphere-quadtree'
-    transitionZoom: number
+    /** Halo atmosphérique autour du globe. */
     atmosphere: boolean
+    /** Fond derrière le globe (espace). */
     background: string
+    /** Océan des globes de repli — celui de secours et celui sous les tuiles 2D. */
     oceanColor: string
+    /** Terres émergées du globe de repli. */
     landColor: string
+    /** Texture de substitution du globe de repli. */
     textureUrl?: string
   }
 }
 
+/**
+ * Rend récursivement optionnel. Fonctions ET tableaux restent atomiques : un tableau
+ * ne se fusionne pas élément par élément (`deepMerge` le remplace en bloc), donc en
+ * rendre les indices optionnels décrirait un merge qui n'existe pas — et laisserait
+ * passer `{ palette: { 0: '#fff' } }`.
+ */
 export type DeepPartial<T> = {
-  [K in keyof T]?: T[K] extends (...args: never[]) => unknown
+  [K in keyof T]?: T[K] extends readonly unknown[]
     ? T[K]
-    : T[K] extends object
-      ? DeepPartial<T[K]>
-      : T[K]
+    : T[K] extends (...args: never[]) => unknown
+      ? T[K]
+      : T[K] extends object
+        ? DeepPartial<T[K]>
+        : T[K]
 }
 
 export type PartialTheme = DeepPartial<MapTheme>

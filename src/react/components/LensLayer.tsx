@@ -5,8 +5,7 @@ import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
 import type { ScreenPoint } from '../../core/Projection'
 import type { MarkerData } from '../../data/types'
 import type { Bounds } from '../../shared'
-import { GAP, LENS_PANEL_W } from '../../style/panelGeometry'
-import { LensContext, type LensApi, useLabels, useMapContext } from '../context'
+import { LensContext, type LensApi, useConfig, useLabels, useMapContext } from '../context'
 import { LensPanel } from './LensPanel'
 import { LensZone } from './LensZone'
 import type { MenuItem } from './ContextMenu'
@@ -16,8 +15,6 @@ import type { LensRect, LensRenderItem } from './lensTypes'
 
 /** Cadre géo « monde » — repli quand les coins ne pickent pas (vue vers le ciel). */
 const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }
-/** Glissé minimal (px) pour qu'un rectangle existe — en deçà, c'est un clic (rien). */
-const MIN_DRAG = 4
 
 /** Clé par défaut d'un marker. Hissée : identité stable → `MarkerList` reste mémoïsée. */
 const defaultGetId = <T,>(m: MarkerData<T>): string | number => m.id
@@ -81,7 +78,11 @@ export type LensLayerProps<T = unknown> = LensOptions<T> & {
  * sinon deux loupes cohabitent (deux raccourcis, deux zones).
  */
 export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
-  const { engine, overlay } = useMapContext()
+  const { engine, overlay, theme } = useMapContext()
+  // Glissé minimal pour qu'un geste compte comme un tracé de zone : en deçà, c'est un
+  // clic, qui ne doit RIEN créer.
+  const config = useConfig()
+  const minDrag = config.interaction.lens.minDragPx
   const labels = useLabels()
   const getId = props.getId ?? defaultGetId
   const container = overlay.parentElement as HTMLElement | null
@@ -110,7 +111,10 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
    * bouge), donc le cache se borne tout seul au jeu courant.
    */
   const heights = useRef<AnchorHeightCache | null>(null)
-  heights.current ??= new AnchorHeightCache(engine.projection)
+  // Cadence de retentative prise sur la config de la carte : sans cet argument le
+  // cache retombait sur `defaultConfig`, et régler `performance.resettle.retryFrames`
+  // n'avait aucun effet ici — c'est le seul site de construction de la classe.
+  heights.current ??= new AnchorHeightCache(engine.projection, config.performance.resettle.retryFrames)
   const rafRef = useRef(0)
   const draftRef = useRef<{ x0: number; y0: number } | null>(null)
   const containerRectRef = useRef<DOMRect | null>(null)
@@ -231,7 +235,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     draftRef.current = null
     setDrafting(false)
     const r = rectRef.current
-    if (r && r.w < MIN_DRAG && r.h < MIN_DRAG) setRect(null)
+    if (r && r.w < minDrag && r.h < minDrag) setRect(null)
   }, [])
 
   // ── Tracé du sélecteur : intercepteur actif tant que l'outil loupe est actif.
@@ -262,7 +266,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     if (phase === 'move') {
       const d = draftRef.current
       // Seuil : le marquee n'apparaît qu'à partir d'un vrai glissé (pas un micro-tremblement).
-      if (d && (rectRef.current || Math.abs(x - d.x0) >= MIN_DRAG || Math.abs(y - d.y0) >= MIN_DRAG)) {
+      if (d && (rectRef.current || Math.abs(x - d.x0) >= minDrag || Math.abs(y - d.y0) >= minDrag)) {
         setRect(norm(d.x0, d.y0, x, y))
       }
       return true
@@ -273,7 +277,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     setDrafting(false)
     if (d) {
       const r = norm(d.x0, d.y0, x, y)
-      setRect(r.w < MIN_DRAG && r.h < MIN_DRAG ? null : r)
+      setRect(r.w < minDrag && r.h < minDrag ? null : r)
     }
     return true
   }).current
@@ -328,8 +332,9 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   }, [active, clearZone, deactivate])
 
   // Raccourci clavier d'activation (défaut « x » — « f » est pris par le plein écran).
-  // Ignoré dans un champ de saisie.
-  const shortcut = props.shortcut === undefined ? 'x' : props.shortcut
+  // `false` (config) et `null` (prop) disent la même chose : pas de raccourci.
+  const shortcutCfg = config.interaction.shortcuts.lens.toggle
+  const shortcut = props.shortcut === undefined ? (shortcutCfg === false ? null : shortcutCfg) : props.shortcut
   useEffect(() => {
     if (!shortcut) return
     const key = shortcut.toLowerCase()
@@ -400,8 +405,11 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
 
   // Panneau à droite de la zone par défaut, basculé à gauche seulement si la droite
   // ne tient pas ET que la gauche tient (le clamp de useDraggablePanel garantit
-  // ensuite le maintien à l'écran). Largeur partagée avec la feuille de styles.
-  const PANEL_W = LENS_PANEL_W + GAP
+  // ensuite le maintien à l'écran). Largeur et écart viennent du thème, qui les
+  // publie AUSSI en variables CSS : le calcul et la feuille de styles ne peuvent pas
+  // diverger sur la place que le panneau occupe réellement.
+  const GAP = theme.spacing.gap
+  const PANEL_W = theme.sizing.lensPanelW + GAP
   const cw = container?.clientWidth ?? 0
   const fitsRight = rect != null && rect.x + rect.w + GAP + PANEL_W <= cw
   const fitsLeft = rect != null && rect.x - GAP - PANEL_W >= 0

@@ -133,13 +133,56 @@ export type { ToolSettings } from './layers/draw/DrawSettings'
 export type { MapTheme, MarkerColor, PartialTheme, ThemeInput, DeepPartial } from './theme/types'
 export { defaultTheme } from './theme/defaultTheme'
 export { mergeTheme } from './theme/mergeTheme'
-export { themeToVars } from './style/themeToVars'
+export { themeToVars, tilesFilterCss } from './style/themeToVars'
+export { configToVars } from './style/configToVars'
 export { injectStyles } from './style/injectStyles'
+
+// ── Réglages (fournisseurs tiers, gestes, budgets) ──
+export type {
+  AutoLocale,
+  CameraConfig,
+  CameraMoveEpsilon,
+  ClusteringConfig,
+  ControlShortcuts,
+  DrawToolShortcuts,
+  EditShortcut,
+  EditShortcuts,
+  ShortcutsConfig,
+  ZIndexConfig,
+  DataConfig,
+  FetchPolicy,
+  GroundSampleConfig,
+  InteractionConfig,
+  MapConfig,
+  PartialConfig,
+  PerformanceConfig,
+  PlacesConfig,
+  ProvidersConfig,
+  RoutingCacheConfig,
+  RoutingConfig,
+  RoutingPresets,
+  Tiles3dConfig,
+  DataSearchConfig,
+  StartupConfig,
+  StorageKeysConfig,
+  SymbolsProviderConfig,
+  TileMapType,
+  TilesConfig,
+} from './config/types'
+export { defaultConfig } from './config/defaultConfig'
+export { mergeConfig, resolveLocale, resolveRegion } from './config/mergeConfig'
+export { fetchWithPolicy, HttpError } from './core/fetchPolicy'
+/** Constantes à source unique — cf. l'audit des valeurs dupliquées. */
+export { CAMERA_FOV, TILE_SIZE } from './core/math'
+export { DEFAULT_STROKE_OPACITY, MEASURE_STROKE_OPACITY } from './core/geometry'
+export { PREDICATE_CIRCLE_SEGMENTS, predicateSegments } from './core/geodesy'
+export { DEFAULT_DRAW_PRESETS, type DrawPresets, maxRadiusOf } from './react/components/drawPresets'
+export type { RelationMenuPresets } from './relations/relationMenu'
 
 // ── Libellés (traduction) ──
 export type { MapLabels, PartialLabels } from './labels/types'
-export { defaultLabels } from './labels/defaultLabels'
-export { mergeLabels, formatLabel, formatCount } from './labels/mergeLabels'
+export { defaultLabels, imperialMeasure } from './labels/defaultLabels'
+export { symbolText, mergeLabels, formatLabel, formatCount } from './labels/mergeLabels'
 export { makeDistanceFormatter, makeDurationFormatter, makeLinkLabelFormatter } from './labels/measure'
 
 // ── React ──
@@ -169,7 +212,7 @@ export type {
 // données d'un marker comme `unknown`. Ces fonctions rendent le type à l'écriture —
 // `markersLayer<Agent>({…})` type `icon`, `menu` et `tooltip` sur vos données.
 export { markersLayer, shapesLayer } from './react/mapConfig'
-export { useMap, useTheme, useLabels } from './react/context'
+export { useMap, useTheme, useLabels, useConfig } from './react/context'
 export type { DrawingApi, DrawAction, LensApi } from './react/context'
 export { useCamera } from './react/hooks/useCamera'
 export { useViewport } from './react/hooks/useViewport'

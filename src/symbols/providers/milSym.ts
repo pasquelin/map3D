@@ -1,3 +1,4 @@
+import { defaultConfig } from '../../config/defaultConfig'
 import type { SymbolCatalog, SymbolEntry, SymbolRenderer, SymbolRenderOptions, RenderedSymbol } from '../types'
 
 /**
@@ -183,6 +184,12 @@ export type MilSymRendererOptions = {
   size?: number
   /** Notifiée si le SDK ne charge pas — sinon l'échec est silencieux (placeholders). */
   onError?: (error: unknown) => void
+  /**
+   * Plafond du cache de vignettes rendues (défaut `providers.symbols.cacheMaxEntries`).
+   * `0` = illimité — l'ancien comportement, à n'utiliser que sur un catalogue borné
+   * affiché à taille fixe.
+   */
+  cacheMaxEntries?: number
 }
 
 /**
@@ -196,6 +203,13 @@ export type MilSymRendererOptions = {
 export function createMilSymRenderer(opts: MilSymRendererOptions = {}): SymbolRenderer {
   const defaultAffiliation = opts.affiliation ?? 'friendly'
   const defaultSize = opts.size ?? 40
+  const maxEntries = opts.cacheMaxEntries ?? defaultConfig.providers.symbols.cacheMaxEntries
+  /**
+   * `Map` = ordre d'insertion garanti : la première clé itérée est la plus ancienne.
+   * Le plafond est nécessaire — la clé combine SIDC ET taille, or la taille varie avec
+   * le zoom pour les vignettes : sans borne, la table croissait indéfiniment, chaque
+   * entrée retenant un SVG rendu.
+   */
   const cache = new Map<string, RenderedSymbol>()
   let mod: MilSymModule | null = null
 
@@ -218,7 +232,13 @@ export function createMilSymRenderer(opts: MilSymRendererOptions = {}): SymbolRe
 
       const cacheKey = `${sidc}/${size}`
       const cached = cache.get(cacheKey)
-      if (cached) return cached
+      if (cached) {
+        // Réinsertion = promotion : l'éviction est un vrai LRU, pas un FIFO qui
+        // jetterait l'entrée la plus ancienne même si c'est la plus consultée.
+        cache.delete(cacheKey)
+        cache.set(cacheKey, cached)
+        return cached
+      }
 
       try {
         const attributes = new Map<string, string>([[mod.MilStdAttributes.PixelSize, String(size)]])
@@ -232,6 +252,10 @@ export function createMilSymRenderer(opts: MilSymRendererOptions = {}): SymbolRe
           info.getImageBounds().getHeight(),
         )
         cache.set(cacheKey, rendered)
+        if (maxEntries > 0 && cache.size > maxEntries) {
+          const oldest = cache.keys().next()
+          if (!oldest.done) cache.delete(oldest.value)
+        }
         return rendered
       } catch (error) {
         opts.onError?.(error)

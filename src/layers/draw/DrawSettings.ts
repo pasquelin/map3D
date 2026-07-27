@@ -1,3 +1,5 @@
+import { defaultConfig } from '../../config/defaultConfig'
+import { MEASURE_STROKE_OPACITY } from '../../core/geometry'
 import type { DrawTool, StrokeStyle } from '../DrawLayer'
 
 /** Réglages complets d'un outil de dessin (défauts des prochaines formes). */
@@ -13,7 +15,6 @@ export type ToolSettings = {
   radius?: number
 }
 
-const STORAGE_KEY = 'm3d:draw-settings'
 const STORAGE_VERSION = 1
 
 type Overrides = Partial<Record<DrawTool, Partial<ToolSettings>>>
@@ -21,7 +22,7 @@ type Overrides = Partial<Record<DrawTool, Partial<ToolSettings>>>
 /** Particularités par outil, SOUS les overrides utilisateur — unique point de vérité
  *  (la règle est une cote fine et discrète, pas un trait de dessin). */
 const TOOL_BASE: Overrides = {
-  measure: { width: 2, strokeOpacity: 0.85 },
+  measure: { width: 2, strokeOpacity: MEASURE_STROKE_OPACITY },
 }
 
 /**
@@ -40,6 +41,8 @@ export class DrawSettings {
   constructor(
     private base: ToolSettings,
     private readonly storage: Storage | null,
+    /** Clé de persistance — à distinguer si plusieurs cartes cohabitent. */
+    private readonly storageKey: string = defaultConfig.data.storageKeys.drawSettings,
   ) {
     this.load()
   }
@@ -87,7 +90,7 @@ export class DrawSettings {
 
   private persist(): void {
     try {
-      this.storage?.setItem(STORAGE_KEY, JSON.stringify({ v: STORAGE_VERSION, tools: this.overrides }))
+      this.storage?.setItem(this.storageKey, JSON.stringify({ v: STORAGE_VERSION, tools: this.overrides }))
     } catch {
       // Stockage indisponible (quota, navigation privée) : réglages non persistés.
     }
@@ -95,7 +98,7 @@ export class DrawSettings {
 
   private load(): void {
     try {
-      const raw = this.storage?.getItem(STORAGE_KEY)
+      const raw = this.storage?.getItem(this.storageKey)
       if (!raw) return
       const data = JSON.parse(raw) as { v: number; tools: Overrides }
       if (data.v === STORAGE_VERSION && data.tools && typeof data.tools === 'object') {

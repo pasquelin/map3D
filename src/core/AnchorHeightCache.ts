@@ -1,5 +1,5 @@
 import type { Projection } from './Projection'
-import { UNRESOLVED_RETRY_FRAMES } from './resettle'
+import { defaultConfig } from '../config/defaultConfig'
 import type { LatLng } from '../shared'
 
 /** Entrée mémoïsée : hauteur + position qui l'a produite (détection de mouvement). */
@@ -20,7 +20,7 @@ type Entry = {
  *    échantillonne la surface photogrammétrique. D'où la mémoïsation.
  * 2. **Une hauteur non résolue n'est jamais définitive** : tuile absente = repli
  *    utilisé, entrée marquée `resolved: false` et retentée à basse cadence
- *    (`UNRESOLVED_RETRY_FRAMES`) — sinon un élément en zone non chargée relance un
+ *    (`performance.resettle.retryFrames`) — sinon un élément en zone non chargée relance un
  *    raycast à CHAQUE passe, soit 1×/frame pendant un pan.
  * 3. **Le régime de hauteur change** (bascule 2D/3D) : `Projection.heightEpoch`
  *    invalide alors tout le cache en bloc, sans quoi les hauteurs mémoïsées
@@ -46,7 +46,7 @@ export class AnchorHeightCache {
   constructor(
     private readonly projection: Projection,
     /** Cadence (passes) de retentative des ancres non résolues. */
-    private readonly retryFrames = UNRESOLVED_RETRY_FRAMES,
+    private readonly retryFrames = defaultConfig.performance.resettle.retryFrames,
   ) {}
 
   /**

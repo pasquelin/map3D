@@ -1,21 +1,13 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
+import { defaultConfig } from '../config/defaultConfig'
+import type { TilesConfig } from '../config/types'
 import { GoogleTileSource, latToTileY, lngToTileX, tileXToLng, tileYToLat } from '../core/googleTiles'
 import { clamp, DEG2RAD } from '../core/math'
 import type { Bounds } from '../shared'
 
 const BASE_Z = 2 // niveau de base (globe entier), toujours chargé → couverture totale
 const MAX_Z = 22 // zoom max des tuiles Google roadmap 2D
-const MAX_TILES = 500 // plafond du cache (LRU)
-const MAX_INFLIGHT = 12 // téléchargements simultanés
-const MARGIN = 1 // tuiles de marge autour du viewport (prefetch)
-// Budget max de tuiles pour le niveau cible (assez pour couvrir un plein écran en 1:1 ;
-// au-delà, le zoom cible est réduit d'un cran). ~ (largeur/256)·(hauteur/256) + marge.
-const MAX_REQUEST = 140
-/** Essais par tuile avant abandon (le 1er inclus). */
-const MAX_ATTEMPTS = 3
-/** Attente avant le n-ième réessai (ms) — le quota Google se libère à la seconde. */
-const RETRY_DELAYS = [1000, 4000]
 
 type TileState = 'queued' | 'loading' | 'ready' | 'error'
 
@@ -73,6 +65,14 @@ export class TiledGlobeLayer {
     private readonly parent: THREE.Object3D,
     private readonly ellipsoid: Ellipsoid,
     private readonly source: GoogleTileSource,
+    private cfg: TilesConfig = defaultConfig.providers.tiles,
+    /**
+     * Océan de repli sous les tuiles. Vient de `theme.globe.oceanColor`, comme celui
+     * du globe de secours : le bleu clair écrit ici était le second des deux
+     * littéraux qui décidaient d'une couleur que le thème exposait déjà sans qu'elle
+     * soit lue nulle part.
+     */
+    private readonly oceanColor: string = '#0F2942',
   ) {
     this.group.name = 'm3d-tiled-globe'
     this.group.visible = false
@@ -83,6 +83,26 @@ export class TiledGlobeLayer {
 
   setVisible(visible: boolean): void {
     this.group.visible = visible
+  }
+
+  /**
+   * Réglages à chaud. Le cache existant est CONSERVÉ : les budgets ne changent que
+   * les prochaines demandes, et l'éviction ramènera d'elle-même la table sous un
+   * nouveau plafond plus bas. Un `mapType` ou une langue différents changent en
+   * revanche les URLs, donc le cache est vidé — sinon des tuiles de l'ancienne
+   * session resteraient affichées.
+   */
+  setConfig(cfg: TilesConfig): void {
+    const prev = this.cfg
+    this.cfg = cfg
+    this.source.setConfig(cfg)
+    const urlChanged =
+      prev.mapType !== cfg.mapType ||
+      prev.language !== cfg.language ||
+      prev.region !== cfg.region ||
+      prev.tileUrl !== cfg.tileUrl ||
+      prev.sessionUrl !== cfg.sessionUrl
+    if (urlChanged) this.clearTiles()
   }
 
   /**
@@ -132,8 +152,8 @@ export class TiledGlobeLayer {
     // sauter → il y a toujours quelque chose de plus net que la base).
     this.requestLevel(BASE_Z, { west: -180, east: 180, north: 85, south: -85 }, 0)
     let targetZ = clamp(Math.round(zoom), BASE_Z, MAX_Z)
-    while (targetZ > BASE_Z && tileCount(bounds, targetZ, MARGIN) > MAX_REQUEST) targetZ--
-    if (refine && targetZ > BASE_Z) this.requestLevel(targetZ, bounds, MARGIN)
+    while (targetZ > BASE_Z && tileCount(bounds, targetZ, this.cfg.margin) > this.cfg.maxRequest) targetZ--
+    if (refine && targetZ > BASE_Z) this.requestLevel(targetZ, bounds, this.cfg.margin)
 
     // Rendu : toute tuile prête qui intersecte la vue (base incluse), la plus fine
     // au-dessus (renderOrder + polygonOffset par zoom).
@@ -184,7 +204,7 @@ export class TiledGlobeLayer {
     // réessai : la tuile repart en queue, la longueur ne bouge pas — sans ce
     // compteur, une file entièrement en backoff tournerait à l'infini.
     let skipped = 0
-    while (this.inflight < MAX_INFLIGHT && this.queue.length > skipped) {
+    while (this.inflight < this.cfg.maxInflight && this.queue.length > skipped) {
       const t = this.queue.shift()!
       if (t.state !== 'queued' || !this.tiles.has(t.key)) continue
       if (t.retryAt > now) {
@@ -228,12 +248,14 @@ export class TiledGlobeLayer {
    * des trous DÉFINITIFS dans la carte, la tuile n'étant jamais redemandée.
    */
   private retryOrFail(t: Tile): void {
-    if (t.attempts >= MAX_ATTEMPTS) {
+    if (t.attempts >= this.cfg.maxAttempts) {
       t.state = 'error'
       return
     }
     t.state = 'queued'
-    t.retryAt = Date.now() + (RETRY_DELAYS[t.attempts - 1] ?? RETRY_DELAYS.at(-1)!)
+    const delays = this.cfg.retryDelays
+    // Dernier délai reconduit au-delà de la liste ; liste vide = réessai immédiat.
+    t.retryAt = Date.now() + (delays[t.attempts - 1] ?? delays.at(-1) ?? 0)
     this.queue.push(t)
   }
 
@@ -299,7 +321,7 @@ export class TiledGlobeLayer {
     // au-dessus et la repeignent (peintre) ; l'océan ne comble que pôles/gaps.
     geo.scale(r.x, r.y, r.z)
     // Peint en premier (sous toutes les tuiles), au-dessus des étoiles, sans depth test.
-    const mat = new THREE.MeshBasicMaterial({ color: 0xaad3ff, side: THREE.FrontSide, depthTest: false, depthWrite: false })
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(this.oceanColor), side: THREE.FrontSide, depthTest: false, depthWrite: false })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = -0.9
     return mesh
@@ -314,12 +336,12 @@ export class TiledGlobeLayer {
    *  de O(n log n) chaque frame pendant un pan soutenu au plafond), MAIS on force
    *  l'éviction dès qu'on déborde franchement → pic mémoire (textures GPU) borné. */
   private evict(): void {
-    if (this.tiles.size <= MAX_TILES) return
-    if (this.frame % 10 !== 0 && this.tiles.size < MAX_TILES + 200) return
+    if (this.tiles.size <= this.cfg.maxTiles) return
+    if (this.frame % 10 !== 0 && this.tiles.size < this.cfg.maxTiles + 200) return
     const candidates = [...this.tiles.values()]
       .filter((t) => t.z !== BASE_Z && t.lastUsed !== this.frame)
       .sort((a, b) => a.lastUsed - b.lastUsed)
-    let over = this.tiles.size - MAX_TILES
+    let over = this.tiles.size - this.cfg.maxTiles
     for (const t of candidates) {
       if (over <= 0) break
       this.disposeTile(t)

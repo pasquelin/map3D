@@ -7,7 +7,7 @@ import {
   useRef,
 } from 'react'
 import type { DragPayload } from '../../core/DragRegistry'
-import { useMapContext } from '../context'
+import { useConfig, useMapContext } from '../context'
 import { suppressNextClick } from './suppressNextClick'
 
 export type UseDraggableOptions<T = unknown> = {
@@ -19,9 +19,13 @@ export type UseDraggableOptions<T = unknown> = {
   ghostClassName?: string
   /** Désactive la prise (l'élément reste cliquable normalement). */
   disabled?: boolean
-  /** Durée d'appui maintenu avant d'armer le drag (ms). Défaut 250. */
+  /** Durée d'appui maintenu avant d'armer le drag (ms). Défaut `interaction.longPressMs`. */
   longPressMs?: number
-  /** Déplacement max toléré (px) pendant l'attente avant d'annuler l'armement. Défaut 8. */
+  /**
+   * Déplacement max toléré (px) pendant l'attente avant d'annuler l'armement.
+   * Défaut `interaction.dragSlopPx` — réglable pour toute la carte à la fois, ce qui
+   * évite d'avoir à le repasser sur chaque appel en contexte tactile.
+   */
   slop?: number
 }
 
@@ -50,6 +54,7 @@ export function useDraggable<T = unknown>(opts: UseDraggableOptions<T>): {
   const { engine } = useMapContext()
   const latest = useRef(opts)
   latest.current = opts
+  const interaction = useConfig().interaction
 
   // Les zones se montent et se démontent indépendamment de cette source : il faut
   // réévaluer à chaque changement du registre, sinon la prise resterait éteinte
@@ -88,7 +93,7 @@ export function useDraggable<T = unknown>(opts: UseDraggableOptions<T>): {
       const startY = e.clientY
       let x = startX
       let y = startY
-      const slop = o.slop ?? 8
+      const slop = o.slop ?? interaction.dragSlopPx
 
       const disarm = () => {
         window.clearTimeout(timer.current)
@@ -116,11 +121,11 @@ export function useDraggable<T = unknown>(opts: UseDraggableOptions<T>): {
       timer.current = window.setTimeout(() => {
         cleanup.current?.() // DragOverlay (listeners permanents) prend le relais.
         cleanup.current = null
-        suppressNextClick(el)
+        suppressNextClick(el, interaction.clickSuppressMs)
         engine.drag.begin(o.payload, o.ghost, x, y, o.ghostClassName)
-      }, o.longPressMs ?? 250)
+      }, o.longPressMs ?? interaction.longPressMs)
     },
-    [engine],
+    [engine, interaction.clickSuppressMs, interaction.dragSlopPx, interaction.longPressMs],
   )
 
   // Pas de classe quand rien n'accepte : `touch-action:none` empêcherait le scroll

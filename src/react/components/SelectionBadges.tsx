@@ -1,5 +1,5 @@
 import { mdiClose, mdiSelectionOff } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { DrawTool } from '../../layers/DrawLayer'
@@ -112,11 +112,11 @@ export function SelectionBadges(props: SelectionBadgesProps) {
               }
               return (
                 <div key={`shape:${kind}`} className="m3d-tagrow">
-                  <Icon path={TOOL_ICONS[kind]} size={0.55} />
+                  <UiIcon path={TOOL_ICONS[kind]} />
                   <span className="m3d-taglabel">{text}</span>
                   <span className="m3d-tagcount">{ids.length}</span>
                   <button type="button" className="m3d-selrow-x" onClick={deselectGroup} aria-label={aria}>
-                    <Icon path={mdiClose} size={0.55} />
+                    <UiIcon path={mdiClose} />
                   </button>
                 </div>
               )
@@ -137,7 +137,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
         )}
 
         <button type="button" className="m3d-tagclear" onClick={clearSelection}>
-          <Icon path={mdiSelectionOff} size={0.55} />
+          <UiIcon path={mdiSelectionOff} />
           {labels.selection.clearAll}
         </button>
         <div className="m3d-selfoot">

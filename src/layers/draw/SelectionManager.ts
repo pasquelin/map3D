@@ -1,3 +1,4 @@
+import type { InteractionConfig } from '../../config/types'
 import type { PointerPhase } from '../../core/MapEngine'
 import type { SelectableScreenItem } from '../../core/Selectables'
 import type { LatLng } from '../../shared'
@@ -22,11 +23,13 @@ export type SelectHost = {
   beginBodyDrag?(latLng: LatLng | null): boolean
   /** Sélectionnables externes (markers) visibles, en px canvas — lu au finalize. */
   externalItems?(): SelectableScreenItem[]
+  /**
+   * Seuils de geste courants. Lu à CHAQUE usage plutôt que capturé au montage : la
+   * config change à chaud (bascule souris ↔ tactile), et une valeur figée à la
+   * construction survivrait au changement.
+   */
+  interaction(): InteractionConfig
 }
-
-const CLICK_SLOP_PX = 4
-const CLOSE_SNAP_PX = 16
-const LASSO_MIN_STEP_PX = 3
 
 /**
  * Sélection des dessins ET des sélectionnables externes (markers) : clic simple
@@ -185,7 +188,7 @@ export class SelectionManager {
     // Marquee polygone en cours : chaque clic pose un sommet, clic près du 1er ferme.
     if (this.marqueePts && this.marqueeKind === 'poly') {
       const first = this.marqueePts[0]!
-      if (this.marqueePts.length > 3 && Math.hypot(s.x - first.x, s.y - first.y) < CLOSE_SNAP_PX) {
+      if (this.marqueePts.length > 3 && Math.hypot(s.x - first.x, s.y - first.y) < this.host.interaction().closeSnapPx) {
         this.finalizeMarquee()
       } else {
         this.marqueePts.push(s)
@@ -211,7 +214,7 @@ export class SelectionManager {
 
   private onMove(s: ScreenPt, latLng: LatLng | null, e: PointerEvent): boolean {
     if (this.pressed) {
-      if (!this.pressed.dragging && Math.hypot(s.x - this.pressed.start.x, s.y - this.pressed.start.y) > CLICK_SLOP_PX) {
+      if (!this.pressed.dragging && Math.hypot(s.x - this.pressed.start.x, s.y - this.pressed.start.y) > this.host.interaction().clickSlopPx) {
         this.pressed.dragging = true
         // Drag du corps : sélectionne la forme si besoin puis délègue à l'édition.
         if (!this.pressed.additive && !this.sel.has(this.pressed.id) && this.write([this.pressed.id], []))
@@ -228,7 +231,7 @@ export class SelectionManager {
       this.marqueePts = [a, { x: s.x, y: a.y }, s, { x: a.x, y: s.y }]
     } else if (this.marqueeKind === 'lasso') {
       const last = this.marqueePts[this.marqueePts.length - 1]!
-      if (Math.hypot(s.x - last.x, s.y - last.y) > LASSO_MIN_STEP_PX) this.marqueePts.push(s)
+      if (Math.hypot(s.x - last.x, s.y - last.y) > this.host.interaction().lassoMinStepPx) this.marqueePts.push(s)
     } else {
       // poly : le dernier sommet est l'élastique qui suit le curseur.
       this.marqueePts[this.marqueePts.length - 1] = s

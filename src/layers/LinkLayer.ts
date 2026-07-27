@@ -305,7 +305,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     let casing: THREE.MeshBasicMaterial | null = null
 
     if (visual.disc) {
-      const geo = fillGeo(circlePoints(frame.local(visual.disc.center), visual.disc.radiusPx * mpp, 48))
+      const geo = fillGeo(circlePoints(frame.local(visual.disc.center), visual.disc.radiusPx * mpp, this.config.performance.circleSegments))
       if (!geo) return null
       const material = fillMaterial(visual.color, visual.opacity)
       const mesh = new THREE.Mesh(geo, material)
@@ -519,7 +519,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       const world = this.projection.latLngToWorld(disc.center, this.scratch, this.heightOf(d))
       const s = this.projection.worldToScreen(world, camera, this.screen)
       if (s.z > 1) continue
-      if (Math.hypot(screenX - s.sx, screenY - s.sy) <= disc.radiusPx) return d.item.id
+      if (Math.hypot(screenX - s.sx, screenY - s.sy) <= disc.radiusPx + this.config.interaction.hubHitTolerancePx) return d.item.id
     }
     return null
   }

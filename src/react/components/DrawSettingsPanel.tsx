@@ -1,24 +1,30 @@
 import { mdiChevronRight, mdiCog, mdiKeyboardOutline, mdiRestore } from '@mdi/js'
-import Icon from '@mdi/react'
-import { useRef, useState } from 'react'
+import { UiIcon } from './UiIcon'
+import { useMemo, useRef, useState } from 'react'
+import type { EditShortcut } from '../../config/types'
+import { DEFAULT_STROKE_OPACITY } from '../../core/geometry'
 import type { DrawTool } from '../../layers/DrawLayer'
 import type { ToolSettings } from '../../layers/draw/DrawSettings'
-import { useLabels, useTheme } from '../context'
+import { useConfig, useDrawPresets, useLabels, useTheme } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDrawSettings } from '../hooks/useDrawSettings'
 import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
+import { maxRadiusOf } from './drawPresets'
 import { useAnchoredPanel } from './panelFit'
-import { modKey } from './shortcuts'
+import { formatEdit } from './shortcuts'
 import { useToolbar } from './Toolbar'
 import { ToolButton } from './ToolButton'
 import { formatKey } from './tooltip'
 import { useCloseWhenHidden, useDismiss } from './useDismiss'
 
-const SHAPE_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure']
+/**
+ * Outils SANS réglage de style : `select` ne dessine rien, `erase` supprime, et les
+ * symboles portent leur propre graphisme. Tout le reste de la barre est réglable —
+ * la liste des outils vient donc de `useDrawing().tools`, jamais d'une table figée
+ * qui divergerait de `<DrawLayer tools>`.
+ */
+const UNSTYLED_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['select', 'erase', 'symbol'])
 
-/** Hauteurs maximales souhaitées quand le conteneur le permet (px). */
-const PANEL_MAX_HEIGHT = 560
-const SUB_MAX_HEIGHT = 520
 
 /** Entrées du panneau ouvrant un sous-panneau latéral : un outil ou le récap raccourcis. */
 type SubKey = DrawTool | 'shortcuts'
@@ -41,6 +47,9 @@ export function DrawSettingsButton({
   const settings = useDrawSettings()
   const theme = useTheme()
   const labels = useLabels()
+  const submenuCloseMs = useConfig().interaction.menu.submenuCloseMs
+  const { tools } = useDrawing()
+  const styleableTools = useMemo(() => tools.filter((t) => !UNSTYLED_TOOLS.has(t)), [tools])
   const [open, setOpen] = useState(false)
   const [openSub, setOpenSub] = useState<SubKey | null>(null)
   /** Offset vertical du sous-panneau = ligne survolée (repère : panneau). */
@@ -52,8 +61,8 @@ export function DrawSettingsButton({
 
   // Placement : le panneau est calé sur le BAS du bouton (il grandit vers le haut),
   // le sous-panneau sur la ligne survolée — les deux clampés au conteneur.
-  const [panelSide, setPanel] = useAnchoredPanel(position, { edge: 'bottom', maxHeight: PANEL_MAX_HEIGHT })
-  const [subSide, setSubEl] = useAnchoredPanel(position, { desiredTop: subTop, maxHeight: SUB_MAX_HEIGHT })
+  const [panelSide, setPanel] = useAnchoredPanel(position, { edge: 'bottom', maxHeight: theme.sizing.panelMaxHeight.settings })
+  const [subSide, setSubEl] = useAnchoredPanel(position, { desiredTop: subTop, maxHeight: theme.sizing.panelMaxHeight.settingsSub })
 
   // Fermeture différée : le pointeur doit pouvoir traverser l'écart ligne →
   // sous-panneau sans que celui-ci se referme (même rôle que le pont ::before
@@ -65,10 +74,17 @@ export function DrawSettingsButton({
   }
   const scheduleClose = () => {
     cancelClose()
-    closeTimer.current = setTimeout(() => setOpenSub(null), 140)
+    closeTimer.current = setTimeout(() => setOpenSub(null), submenuCloseMs)
   }
-  const openFor = (key: SubKey, row: HTMLElement) => {
+  const openFor = (key: SubKey, row: HTMLElement | null) => {
     cancelClose()
+    // Tolère l'absence de ligne plutôt que de l'affirmer par un cast : le sous-panneau
+    // s'ouvre alors sans calage vertical, ce qui reste utilisable — là où un `as` aurait
+    // fait planter le handler sur un `getBoundingClientRect` de `null`.
+    if (!row) {
+      setOpenSub(key)
+      return
+    }
     // Le panneau est un ancêtre de la ligne : `closest` évite d'en garder une ref.
     const panel = row.closest('.m3d-settings')
     if (panel) setSubTop(Math.round(row.getBoundingClientRect().top - panel.getBoundingClientRect().top))
@@ -87,12 +103,12 @@ export function DrawSettingsButton({
         type="button"
         className={`m3d-settings-toolhead${openSub === key ? ' m3d-on' : ''}`}
         aria-expanded={openSub === key}
-        onClick={(e) => openFor(key, e.currentTarget.parentElement as HTMLElement)}
+        onClick={(e) => openFor(key, e.currentTarget.parentElement)}
       >
-        <Icon path={icon} size={0.62} />
+        <UiIcon path={icon} />
         <span className="m3d-settings-toolname">{name}</span>
         {extra}
-        <Icon path={mdiChevronRight} size={0.55} rotate={position === 'right' ? 180 : 0} />
+        <UiIcon path={mdiChevronRight} rotate={position === 'right' ? 180 : 0} />
       </button>
     </div>
   )
@@ -121,11 +137,11 @@ export function DrawSettingsButton({
               title={labels.settings.resetAll}
               onClick={() => settings.reset()}
             >
-              <Icon path={mdiRestore} size={0.6} />
+              <UiIcon path={mdiRestore} />
             </button>
           </div>
           <div className="m3d-settings-list">
-            {SHAPE_TOOLS.map((t) =>
+            {styleableTools.map((t) =>
               row(
                 t,
                 TOOL_ICONS[t],
@@ -152,7 +168,7 @@ export function DrawSettingsButton({
                   <StyleEditor
                     style={{
                       ...openedSettings,
-                      strokeOpacity: openedSettings.strokeOpacity ?? 0.95,
+                      strokeOpacity: openedSettings.strokeOpacity ?? DEFAULT_STROKE_OPACITY,
                       radius: openedSettings.radius ?? 0,
                     }}
                     onPatch={(patch) => settings.set(openedTool, patch)}
@@ -184,12 +200,15 @@ export function DrawSettingsButton({
 
 /** Aperçu live d'un outil avec ses réglages courants (couleurs, épaisseur, trait). */
 function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
+  // Échelle dérivée des presets et non d'un `50` littéral : régler `presets.radii`
+  // faussait sinon cet aperçu, qui montrait un arrondi sans rapport avec le tracé.
+  const maxRadius = maxRadiusOf(useDrawPresets())
   const sw = Math.max(s.width > 0 ? 1 : 0, Math.min(s.width * 0.45, 5))
   const dash = s.stroke === 'dashed' ? '5 3' : s.stroke === 'dotted' ? '1.5 2.5' : undefined
   const line = {
     stroke: s.color,
     strokeWidth: sw,
-    strokeOpacity: s.strokeOpacity ?? 0.95,
+    strokeOpacity: s.strokeOpacity ?? DEFAULT_STROKE_OPACITY,
     strokeDasharray: dash,
     fill: 'none' as string,
   }
@@ -198,13 +217,13 @@ function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
     <svg className="m3d-settings-preview" viewBox="0 0 34 18" aria-hidden>
       {tool === 'line' && <line x1="2" y1="14" x2="32" y2="4" {...line} />}
       {tool === 'polygon' && <polygon points="4,15 17,2 30,15" {...filled} />}
-      {tool === 'rect' && <rect x="3" y="3" width="28" height="12" rx={((s.radius ?? 0) / 50) * 6} {...filled} />}
+      {tool === 'rect' && <rect x="3" y="3" width="28" height="12" rx={((s.radius ?? 0) / maxRadius) * 6} {...filled} />}
       {tool === 'circle' && <ellipse cx="17" cy="9" rx="13" ry="7" {...filled} />}
       {tool === 'freehand' && <path d="M2 12 C8 2 14 16 20 8 S30 4 32 10" {...line} />}
       {tool === 'arrow' && (
         <>
           <line x1="3" y1="14" x2="25" y2="6" {...line} />
-          <polygon points="32,3 23,5 27,10" fill={s.color} fillOpacity={s.strokeOpacity ?? 0.95} />
+          <polygon points="32,3 23,5 27,10" fill={s.color} fillOpacity={s.strokeOpacity ?? DEFAULT_STROKE_OPACITY} />
         </>
       )}
       {tool === 'measure' && (
@@ -225,15 +244,19 @@ function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
 function ShortcutsList() {
   const { shortcuts } = useDrawing()
   const labels = useLabels()
+  const edit = useConfig().interaction.shortcuts.edit
+  const fmt = (s: EditShortcut) => formatEdit(s, labels.modKey, labels.keys.shift)
   const rows: Array<[string, string]> = [
     [labels.actions.panMap, labels.keys.space],
     [labels.actions.rotateCamera, labels.keys.spaceShift],
     [labels.actions.rotateShape, labels.keys.shiftDrag],
-    [labels.actions.undoRedo, `${modKey}Z / ${modKey}⇧Z`],
-    [labels.actions.selectAll, `${modKey}A`],
+    // Composés à partir des raccourcis EFFECTIFS : ces trois lignes annonçaient les
+    // touches d'origine même après remappage.
+    [labels.actions.undoRedo, `${fmt(edit.undo)} / ${fmt(edit.redo)}`],
+    [labels.actions.selectAll, fmt(edit.selectAll) ?? ''],
     [labels.actions.addToSelection, labels.keys.shiftClick],
     [labels.actions.markersOnly, labels.keys.altOrCmd],
-    [labels.actions.duplicate, `${modKey}D`],
+    [labels.actions.duplicate, fmt(edit.duplicate) ?? ''],
     [labels.actions.delete, labels.keys.backspace],
     [labels.actions.moveSelection, labels.keys.arrows],
     [labels.actions.closePolygon, labels.keys.enter],

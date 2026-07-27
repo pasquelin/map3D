@@ -14,24 +14,52 @@ import {
 } from '../../layers/DrawLayer'
 import { DrawSettings, type ToolSettings } from '../../layers/draw/DrawSettings'
 import { makeDistanceFormatter } from '../../labels/measure'
-import { SELECT_MODE_META } from './drawControls'
-import { type DrawAction, DrawingContext, type DrawingApi, LensContext, useLabels, useMapContext } from '../context'
-import { inTextInput, plainKey } from './shortcuts'
+import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META } from './drawControls'
+import {
+  type DrawAction,
+  DrawingContext,
+  type DrawingApi,
+  DrawPresetsContext,
+  LensContext,
+  useConfig,
+  useLabels,
+  useMapContext,
+} from '../context'
+import { inTextInput, matchesEdit, plainKey } from './shortcuts'
 import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/milSym'
 import type { Bounds, LatLng } from '../../shared'
 import { useMapDropZone } from '../hooks/useMapDropZone'
 import { SYMBOL_DRAG_TYPE } from './SymbolPaletteButton'
 import { SymbolMarkers } from './SymbolMarkers'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
+import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
+import { useMergedByContent } from '../hooks/useMergedByContent'
 
 export type DrawLayerProps = {
+  /** Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. */
   tools?: DrawTool[]
   /** Raccourci par outil/action — `false` pour en désactiver un, autre touche pour remapper. */
   shortcuts?: Partial<Record<DrawTool | DrawAction, string | false>>
+  /** Style d'une forme nouvellement tracée, avant tout réglage utilisateur. */
   defaults?: { color?: string; width?: number; fillOpacity?: number }
+  /**
+   * Paliers proposés par les palettes de style (épaisseurs, opacités, rayons
+   * d'angle). Fusionnés sur les défauts : ne fournir que ce qu'on change.
+   */
+  presets?: Partial<DrawPresets>
   /** Persistance des réglages par outil : localStorage (défaut) ou aucune. */
   settingsStorage?: 'local' | 'none'
+  /**
+   * Clé localStorage des réglages par outil. Défaut `m3d:draw-settings`.
+   *
+   * À distinguer dès que DEUX cartes cohabitent sur le même origin : sans clé
+   * propre, elles écrivent au même endroit et la dernière à changer un réglage
+   * l'impose à l'autre. Même précaution que `positionStorageKey` / `tagStorageKey`.
+   */
+  settingsStorageKey?: string
+  /** Collection **contrôlée** (GeoJSON) : fournie, elle fait autorité sur le dessin. */
   value?: GeoJSONFeatureCollection
+  /** Collection entière après chaque mutation, coalescée à 1×/frame. */
   onChange?: (geojson: GeoJSONFeatureCollection) => void
   /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
   onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
@@ -41,7 +69,9 @@ export type DrawLayerProps = {
    * sérialise toute la collection 1×/frame. Les deux peuvent cohabiter.
    */
   onShapeAdd?: (shape: DrawnShape) => void
+  /** Forme modifiée (déplacement, redimensionnement, style). */
   onShapeUpdate?: (shape: DrawnShape) => void
+  /** Forme supprimée. */
   onShapeDelete?: (shape: DrawnShape) => void
   /** Double-clic sur une forme : intention d'ouvrir une fiche — rien n'a changé. */
   onShapeEdit?: (shape: DrawnShape) => void
@@ -62,24 +92,10 @@ export type DrawLayerProps = {
    * dans `labels.symbols` et se traduisent via `<MapProvider labels>`.
    */
   symbols?: { enabled?: boolean; catalog?: SymbolCatalog; renderer?: SymbolRenderer }
+  /** Monté dans le contexte de dessin — y placer barre et panneaux. */
   children?: ReactNode
 }
 
-const DEFAULT_SHORTCUTS: Record<DrawTool | DrawAction, string> = {
-  select: 'v',
-  selectRect: '1',
-  selectPoly: '2',
-  selectLasso: '3',
-  line: 'l',
-  polygon: 'p',
-  rect: 'r',
-  circle: 'c',
-  freehand: 'd',
-  arrow: 'a',
-  measure: 'm',
-  erase: 'e',
-  symbol: 'y',
-}
 
 
 /**
@@ -104,6 +120,15 @@ function useYieldsTool(taken: boolean, toolRef: RefObject<DrawTool | null>, setT
 export function DrawLayer(props: DrawLayerProps) {
   const { engine, overlay, theme } = useMapContext()
   const labels = useLabels()
+  const config = useConfig()
+  /**
+   * Touches des outils, prises dans la config. `satisfies` verrouille l'alignement
+   * avec `DrawTool | DrawAction` : ajouter un outil sans lui donner de raccourci
+   * casse la compilation, exactement comme le faisait la table de module qu'il
+   * remplace — mais la valeur est maintenant réglable par l'application.
+   */
+  const drawKeys = config.interaction.shortcuts.draw satisfies Record<DrawTool | DrawAction, string | false>
+  const editKeys = config.interaction.shortcuts.edit
   const coreRef = useRef<CoreDrawLayer | null>(null)
   const [tool, setToolState] = useState<DrawTool | null>(null)
   // Re-render à chaque mutation du core (canUndo/canRedo, sélection…) ; `rev`
@@ -119,8 +144,15 @@ export function DrawLayer(props: DrawLayerProps) {
   /** Relâche la suspension barre-espace (posée par l'effet dédié plus bas). */
   const releaseSpaceRef = useRef<() => void>(() => {})
 
-  const allowed =
-    props.tools ?? ['select', 'line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure', 'erase']
+  const allowed = props.tools ?? DEFAULT_DRAW_TOOLS
+  // Fusion sur les défauts : `presets={{ widths: [...] }}` ne doit pas vider les trois
+  // autres tables. Mémoïsé sur le CONTENU et non l'identité — le pattern documenté
+  // est le littéral inline, qui recrée l'objet à chaque rendu : une mémoïsation par
+  // identité invaliderait le contexte, donc les quatre palettes, à chaque tick.
+  const presets = useMergedByContent<Partial<DrawPresets>, DrawPresets>(props.presets, (p) => ({
+    ...DEFAULT_DRAW_PRESETS,
+    ...p,
+  }))
   const onChangeRef = useRef(props.onChange)
   onChangeRef.current = props.onChange
   const onSelectionChangeRef = useRef(props.onSelectionChange)
@@ -170,9 +202,13 @@ export function DrawLayer(props: DrawLayerProps) {
   // Réglages par outil, persistés (localStorage) : base < overrides utilisateur.
   const settings = useMemo(
     () =>
-      new DrawSettings(base, props.settingsStorage === 'none' || typeof localStorage === 'undefined' ? null : localStorage),
+      new DrawSettings(
+        base,
+        props.settingsStorage === 'none' || typeof localStorage === 'undefined' ? null : localStorage,
+        props.settingsStorageKey,
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.settingsStorage],
+    [props.settingsStorage, props.settingsStorageKey],
   )
   useEffect(() => {
     settings.setBase(base)
@@ -345,11 +381,11 @@ export function DrawLayer(props: DrawLayerProps) {
 
   // Raccourcis clavier (configurables) + Entrée/Échap/Ctrl+Z.
   useEffect(() => {
-    const table = { ...DEFAULT_SHORTCUTS, ...props.shortcuts }
+    const table = { ...drawKeys, ...props.shortcuts }
     const onKey = (e: KeyboardEvent) => {
       if (inTextInput(e)) return
       if (e.code === 'Space') return // géré par l'effet barre espace
-      if (e.key === 'Enter') coreRef.current?.closeCurrent()
+      if (editKeys.closePolygon !== false && e.key === editKeys.closePolygon) coreRef.current?.closeCurrent()
       else if (e.key === 'Escape') {
         // Cascade : marquee en cours → sélection → sortie de l'outil. La garde
         // `toolRef.current !== null` est CAPITALE : sans outil de dessin actif,
@@ -357,29 +393,30 @@ export function DrawLayer(props: DrawLayerProps) {
         // `engine.inputInterceptor` (+ `setDrawing(false)`) alors qu'il appartient
         // à un outil externe (loupe) — celui-ci resterait affiché actif mais mort.
         if (!coreRef.current?.escape() && toolRef.current !== null) setTool(null)
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      } else if (editKeys.delete.includes(e.key)) {
         coreRef.current?.deleteSelected()
       } else if (e.key.startsWith('Arrow') && selectionRef.current.length > 0) {
-        // Nudge : 1 px écran, Maj = 10 px.
+        // Nudge, en pixels écran ; Maj prend le pas rapide.
         e.preventDefault()
-        const step = e.shiftKey ? 10 : 1
+        const step = e.shiftKey ? editKeys.nudgeFastPx : editKeys.nudgePx
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         coreRef.current?.nudgeSelection(dx, dy)
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        if (e.shiftKey) coreRef.current?.redo()
-        else coreRef.current?.undo()
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'y') {
+        // `redo` AVANT `undo` : au défaut les deux portent la même touche et ne se
+        // distinguent que par Maj, donc le plus spécifique doit être testé d'abord.
+      } else if (matchesEdit(e, editKeys.redo) || matchesEdit(e, editKeys.redoAlt)) {
         e.preventDefault()
         coreRef.current?.redo()
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && toolRef.current !== null) {
+      } else if (matchesEdit(e, editKeys.undo)) {
+        e.preventDefault()
+        coreRef.current?.undo()
+      } else if (matchesEdit(e, editKeys.selectAll) && toolRef.current !== null) {
         // Tout sélectionner — seulement quand un outil de la carte est actif
         // (sinon on laisse le ⌘A natif de la page).
         e.preventDefault()
         coreRef.current?.selectAll()
         if (toolRef.current !== 'select') setTool('select')
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectionRef.current.length > 0) {
+      } else if (matchesEdit(e, editKeys.duplicate) && selectionRef.current.length > 0) {
         e.preventDefault()
         coreRef.current?.duplicateSelected()
       } else {
@@ -517,7 +554,15 @@ export function DrawLayer(props: DrawLayerProps) {
    * collection contient déjà des symboles (import GeoJSON, restauration d'état).
    */
   const needsRenderer = symbolsEnabled && (graphicsWanted.current || symbolShapes.length > 0)
-  const renderer = needsRenderer ? (providedRenderer ?? (lazyRenderer.current ??= createMilSymRenderer())) : null
+  // Le plafond du cache de vignettes vient de la config : sans l'argument, le
+  // renderer retombait sur `defaultConfig`, donc `providers.symbols.cacheMaxEntries`
+  // n'avait aucun effet sur le chemin par défaut — le seul emprunté en pratique.
+  const renderer = needsRenderer
+    ? (providedRenderer ??
+      (lazyRenderer.current ??= createMilSymRenderer({
+        cacheMaxEntries: config.providers.symbols.cacheMaxEntries,
+      })))
+    : null
 
   // Disponibilité du graphisme. L'abonnement porte sur le renderer EFFECTIF, celui
   // fourni compris : `SymbolRenderer.ready` est un contrat public, et un catalogue
@@ -542,7 +587,6 @@ export function DrawLayer(props: DrawLayerProps) {
   useEffect(() => {
     if (coreRef.current) coreRef.current.symbolRenderer = renderer
     // `coreReady` couvre la première création du core, postérieure au premier rendu.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderer, coreReady])
 
   // Dépôt d'une vignette de palette sur la carte → forme `kind: 'symbol'` posée à
@@ -628,7 +672,8 @@ export function DrawLayer(props: DrawLayerProps) {
     removeShape: (id, opts) => coreRef.current?.removeShape(id, opts) ?? false,
     replaceShapes: (shapes, opts) => coreRef.current?.replaceShapes(shapes, opts),
     // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips.
-    shortcuts: { ...DEFAULT_SHORTCUTS, ...props.shortcuts },
+    shortcuts: { ...drawKeys, ...props.shortcuts },
+    tools: allowed,
     symbols: {
       enabled: symbolsEnabled,
       catalog: symbolCatalog,
@@ -650,6 +695,7 @@ export function DrawLayer(props: DrawLayerProps) {
 
   return (
     <DrawingContext.Provider value={api}>
+      <DrawPresetsContext.Provider value={presets}>
       {/* Rendu des symboles posés : montée par la couche elle-même, donc rien à
           câbler côté application. Leur état reste dans la collection de dessin.
           Monté seulement quand il y a des symboles ET un renderer — c'est ce qui
@@ -665,6 +711,7 @@ export function DrawLayer(props: DrawLayerProps) {
         />
       )}
       {props.children}
+      </DrawPresetsContext.Provider>
     </DrawingContext.Provider>
   )
 }

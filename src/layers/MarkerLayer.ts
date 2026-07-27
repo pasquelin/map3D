@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { Projection, ScreenPoint } from '../core/Projection'
 import type { SelectableScreenItem } from '../core/Selectables'
@@ -87,7 +89,7 @@ export class MarkerLayer implements Layer {
    * La marge n'est pas cosmétique : un cull au ras du cadre fait clignoter les markers
    * du bord pendant un pan, le temps que la caméra rattrape la frame.
    */
-  cullMargin = 200
+  cullMargin = defaultConfig.performance.markerCullMarginPx
 
   private readonly nodes = new Map<string | number, Node>()
 
@@ -122,6 +124,14 @@ export class MarkerLayer implements Layer {
   private resettleFrames = 0
   private readonly lastCam = { lat: 0, lng: 0, alt: 0 }
 
+  /**
+   * Réglages de la carte. Cette couche n'en recevait aucun — d'où ses budgets de
+   * re-échantillonnage écrits en dur, dont un lot de `6` là où
+   * `performance.resettle.batch` (4) joue exactement ce rôle pour les couches
+   * drapées. Relu à chaque frame : la config change à chaud (`MapEngine.setConfig`).
+   */
+  private config: MapConfig = defaultConfig
+
   constructor(
     private readonly group: THREE.Object3D,
     private readonly ellipsoid: Ellipsoid,
@@ -129,6 +139,10 @@ export class MarkerLayer implements Layer {
     private readonly onMount: (id: string | number, el: HTMLDivElement) => void,
     private readonly onUnmount: (id: string | number) => void,
   ) {}
+
+  setConfig(config: MapConfig): void {
+    this.config = config
+  }
 
   /** Écrit la position ECEF **locale** (repère de `tiles.group`) à une hauteur donnée. */
   private writePosition(obj: CSS2DObject, p: LatLng, height: number): void {
@@ -161,19 +175,20 @@ export class MarkerLayer implements Layer {
     const list: Node[] = []
     for (const n of this.nodes.values()) if (n.t >= 1) list.push(n)
     if (list.length === 0) return
-    const k = Math.min(6, list.length)
+    const k = Math.min(this.config.performance.resettle.batch, list.length)
     for (let i = 0; i < k; i++) this.settle(list[(this.settleCursor + i) % list.length]!)
     this.settleCursor = (this.settleCursor + k) % list.length
   }
 
   /** Ouvre la fenêtre de re-échantillonnage si la caméra a bougé (streaming imminent). */
   private noteCamera(cam: { lat: number; lng: number; altitude: number }): void {
+    const eps = this.config.performance.cameraMoveEpsilon
     const moved =
-      Math.abs(cam.lat - this.lastCam.lat) > 1e-6 ||
-      Math.abs(cam.lng - this.lastCam.lng) > 1e-6 ||
-      Math.abs(cam.altitude - this.lastCam.alt) > Math.max(1, cam.altitude * 1e-3)
+      Math.abs(cam.lat - this.lastCam.lat) > eps.deg ||
+      Math.abs(cam.lng - this.lastCam.lng) > eps.deg ||
+      Math.abs(cam.altitude - this.lastCam.alt) > Math.max(eps.altitudeMinMeters, cam.altitude * eps.altitudeRatio)
     if (moved) {
-      this.resettleFrames = Math.max(this.resettleFrames, 90)
+      this.resettleFrames = Math.max(this.resettleFrames, this.config.performance.resettle.windowFrames)
       this.lastCam.lat = cam.lat
       this.lastCam.lng = cam.lng
       this.lastCam.alt = cam.altitude
@@ -243,7 +258,7 @@ export class MarkerLayer implements Layer {
         // puis recalage pendant la fenêtre de re-échantillonnage (le temps que les
         // tuiles de la zone se chargent).
         this.settle(node)
-        this.resettleFrames = Math.max(this.resettleFrames, 150)
+        this.resettleFrames = Math.max(this.resettleFrames, this.config.performance.resettle.spawnWindowFrames)
         this.nodes.set(item.id, node)
         // Restaure le z-order si ce marker est déjà sélectionné/relevé : un nœud
         // recréé (marker → cluster → marker avec menu ouvert) repart à renderOrder 0,

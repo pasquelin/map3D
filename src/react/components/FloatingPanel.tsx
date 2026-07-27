@@ -1,5 +1,5 @@
 import { mdiClose, mdiDrag, mdiMagnetOn } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import type { ReactNode } from 'react'
 import type { DraggablePanel } from '../hooks/useDraggablePanel'
 
@@ -61,18 +61,18 @@ export function FloatingPanel({
         <div className="m3d-floathead">
           {/* Pas de tooltip sur la poignée : il resterait affiché pendant le drag. */}
           <button type="button" className="m3d-selgrip" {...gripProps} aria-label={moveLabel}>
-            <Icon path={mdiDrag} size={0.6} />
+            <UiIcon path={mdiDrag} />
           </button>
           <span className="m3d-floathead-title">{title}</span>
           {actions}
           {snapBackLabel && pinned && (
             <button type="button" className="m3d-selrow-x" onClick={reset} title={snapBackLabel} aria-label={snapBackLabel}>
-              <Icon path={mdiMagnetOn} size={0.6} />
+              <UiIcon path={mdiMagnetOn} />
             </button>
           )}
           {onClose && (
             <button type="button" className="m3d-selrow-x" onClick={onClose} aria-label={closeLabel}>
-              <Icon path={mdiClose} size={0.6} />
+              <UiIcon path={mdiClose} />
             </button>
           )}
         </div>

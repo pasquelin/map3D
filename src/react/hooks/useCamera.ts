@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Camera, CameraState, FitBoundsOptions, FlyOptions } from '../../core/Camera'
 import type { Bounds, LatLng } from '../../shared'
-import { useMap } from '../context'
+import { useMap, useTheme } from '../context'
 
 export type UseCameraResult = {
   state: CameraState
@@ -23,6 +23,7 @@ export type UseCameraResult = {
 /** État caméra réactif + commandes (vol, suivi, cadrage, recentrage) sur le globe. */
 export function useCamera(): UseCameraResult {
   const engine = useMap()
+  const theme = useTheme()
   const [state, setState] = useState<CameraState>(() => engine.camera.getState())
 
   useEffect(() => engine.on('camera', (s) => setState({ ...s })), [engine])
@@ -31,7 +32,7 @@ export function useCamera(): UseCameraResult {
     state,
     flyTo: (dest, opts) => engine.camera.flyTo(dest, opts),
     follow: (getPos) => engine.camera.follow(getPos),
-    moveTo: (dest, opts) => engine.camera.flyTo(dest, { duration: 0.4, ...opts }),
+    moveTo: (dest, opts) => engine.camera.flyTo(dest, { duration: theme.animations.moveTo, ...opts }),
     fitBounds: (bounds, opts) => engine.camera.fitBounds(bounds, opts),
     setCenter: (p) => engine.camera.setCenter(p),
     panTo: (p, opts) => engine.camera.panTo(p, opts),

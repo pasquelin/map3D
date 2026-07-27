@@ -1,14 +1,12 @@
 import { mdiClose } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import { type CSSProperties, type PointerEvent, useRef } from 'react'
 import { WHEEL_SURFACE_ATTR } from '../../core/MapEngine'
+import { useConfig } from '../context'
 import type { LensRect } from './lensTypes'
 
 /** Poignée de manipulation : déplacement du corps ou redimensionnement par bord/coin. */
 type HandleId = 'move' | 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'se' | 'sw'
-
-/** Côté minimal de la zone (px) — en deçà, le redimensionnement est bloqué. */
-const MIN = 28
 
 const HANDLES: { id: HandleId; left: number; top: number; cursor: string }[] = [
   { id: 'nw', left: 0, top: 0, cursor: 'nwse-resize' },
@@ -22,18 +20,18 @@ const HANDLES: { id: HandleId; left: number; top: number; cursor: string }[] = [
 ]
 
 /** Applique un geste (delta px depuis la prise) au rectangle — bord opposé figé,
- *  côté minimal garanti (pas de retournement). */
-function applyHandle(id: HandleId, s: LensRect, dx: number, dy: number): LensRect {
+ *  côté minimal garanti (`min`, cf. `interaction.lens.minSizePx`) : pas de retournement. */
+function applyHandle(id: HandleId, s: LensRect, dx: number, dy: number, min: number): LensRect {
   if (id === 'move') return { x: s.x + dx, y: s.y + dy, w: s.w, h: s.h }
   let { x, y, w, h } = s
-  if (id.includes('e')) w = Math.max(MIN, s.w + dx)
+  if (id.includes('e')) w = Math.max(min, s.w + dx)
   if (id.includes('w')) {
-    w = Math.max(MIN, s.w - dx)
+    w = Math.max(min, s.w - dx)
     x = s.x + (s.w - w)
   }
-  if (id.includes('s')) h = Math.max(MIN, s.h + dy)
+  if (id.includes('s')) h = Math.max(min, s.h + dy)
   if (id.includes('n')) {
-    h = Math.max(MIN, s.h - dy)
+    h = Math.max(min, s.h - dy)
     y = s.y + (s.h - h)
   }
   return { x, y, w, h }
@@ -80,6 +78,7 @@ function AntsFrame({ rect }: { rect: LensRect }) {
 export function LensZone({ rect, onChange, onClose, closeLabel, preview }: LensZoneProps) {
   const zoneRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ id: HandleId; sx: number; sy: number; start: LensRect } | null>(null)
+  const minSize = useConfig().interaction.lens.minSizePx
 
   const begin = (id: HandleId) => (e: PointerEvent<HTMLElement>) => {
     e.stopPropagation()
@@ -90,7 +89,7 @@ export function LensZone({ rect, onChange, onClose, closeLabel, preview }: LensZ
   const move = (e: PointerEvent<HTMLElement>) => {
     const d = dragRef.current
     if (!d) return
-    onChange?.(applyHandle(d.id, d.start, e.clientX - d.sx, e.clientY - d.sy))
+    onChange?.(applyHandle(d.id, d.start, e.clientX - d.sx, e.clientY - d.sy, minSize))
   }
   const end = (e: PointerEvent<HTMLElement>) => {
     if (!dragRef.current) return
@@ -126,7 +125,7 @@ export function LensZone({ rect, onChange, onClose, closeLabel, preview }: LensZ
             onClick={onClose}
             aria-label={closeLabel}
           >
-            <Icon path={mdiClose} size={0.6} />
+            <UiIcon path={mdiClose} />
           </button>
           {HANDLES.map((hd) => {
             const style: CSSProperties = { left: `${hd.left}%`, top: `${hd.top}%`, cursor: hd.cursor }

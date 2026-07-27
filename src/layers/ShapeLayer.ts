@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
 import type { Projection } from '../core/Projection'
 import { boundsOfCircle, boundsOfLatLngs, unionBounds } from '../core/bounds'
-import { circleRing } from '../core/geodesy'
+import { circleRing, PREDICATE_CIRCLE_SEGMENTS } from '../core/geodesy'
 import {
   type Pt,
   circlePoints,
@@ -61,7 +61,7 @@ export type ShapeLayerDefaults = { color: string; width: number; fillOpacity: nu
  * lat/lng — les prédicats géométriques n'ont ainsi qu'un seul type d'entrée.
  * Les cercles sont polygonisés, les rectangles développés en 4 coins.
  */
-export function ringOfShape(s: ShapeData, circleSegments = 48): LatLng[] {
+export function ringOfShape(s: ShapeData, circleSegments = PREDICATE_CIRCLE_SEGMENTS): LatLng[] {
   if (s.kind === 'circle') return circleRing(s.center, s.radiusMeters, circleSegments)
   if (s.kind === 'rect') {
     const b = s.bounds
@@ -145,7 +145,7 @@ export class ShapeLayer extends DrapedLayer<ShapeData> {
       }
       case 'circle': {
         const c = frame.local(shape.center)
-        return { points: circlePoints(c, shape.radiusMeters, 64), closed: true }
+        return { points: circlePoints(c, shape.radiusMeters, this.config.performance.circleSegments), closed: true }
       }
     }
   }

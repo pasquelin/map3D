@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react'
 import { clamp } from '../../core/math'
-import { EDGE } from '../../style/panelGeometry'
+import { useTheme } from '../context'
 
 /** Poignée de déplacement d'un panneau flottant (à épandre sur le bouton grip). */
 export type GripProps = {
@@ -46,6 +46,8 @@ export type DraggablePanel<E extends HTMLElement = HTMLDivElement> = {
 export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
   defaultPos?: { x: number; y: number } | null,
 ): DraggablePanel<E> {
+  /** Marge conservée entre le panneau saisi et le bord du conteneur (`theme.spacing`). */
+  const EDGE = useTheme().spacing.edge
   const panelRef = useRef<E | null>(null)
   /** Géométrie capturée à la prise : plus AUCUNE lecture de layout par pointermove. */
   const dragRef = useRef<{ dx: number; dy: number; maxX: number; maxY: number; parentRect: DOMRect } | null>(null)

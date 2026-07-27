@@ -1,3 +1,5 @@
+import { defaultConfig } from '../config/defaultConfig'
+import type { InteractionConfig } from '../config/types'
 import Supercluster from 'supercluster'
 import type { Bounds, LatLng } from '../shared'
 import { clamp, DEG2RAD, M_PER_DEG, metersPerPixelAtZoom, RAD2DEG } from '../core/math'
@@ -54,12 +56,21 @@ export type SpiderfySlot = { position: LatLng; angleDeg: number; radiusPx: numbe
  * `center`. Rayon en px écran (pastilles sans chevauchement) converti en offsets
  * GÉO au zoom courant — au zoom max, l'écart réel reste de l'ordre de ~10 m.
  */
-export function spiderfyLayout(count: number, center: LatLng, zoom: number, ringPx: number): SpiderfySlot[] {
+export function spiderfyLayout(
+  count: number,
+  center: LatLng,
+  zoom: number,
+  ringPx: number,
+  /** Géométrie de l'éventail — cf. `interaction.spiderfy`. */
+  cfg: InteractionConfig['spiderfy'] = defaultConfig.interaction.spiderfy,
+): SpiderfySlot[] {
   // Une PAIRE : décalage MINIMAL (les deux markers juste séparés, côte à côte), pas
   // une couronne — au zoom max il s'agit seulement de « décoller » deux markers
   // confondus. Au-delà, couronne dimensionnée pour éviter tout chevauchement.
   const radiusPx =
-    count === 2 ? ringPx * 0.1 : Math.max(ringPx * 1.15, (count * (ringPx + 8)) / (2 * Math.PI))
+    count === 2
+      ? ringPx * cfg.pairRadiusRatio
+      : Math.max(ringPx * cfg.minRingRatio, (count * (ringPx + cfg.gapPx)) / (2 * Math.PI))
   const cosLat = Math.cos(center.lat * DEG2RAD)
   const meters = radiusPx * metersPerPixelAtZoom(zoom, center.lat)
   // Paire à l'horizontale (côte à côte) ; au-delà, premier satellite en haut (−90°).

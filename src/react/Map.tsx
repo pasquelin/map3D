@@ -6,11 +6,13 @@ import type { Viewport } from '../data/types'
 import type { LatLng } from '../shared'
 import { injectStyles } from '../style/injectStyles'
 import { themeToVars } from '../style/themeToVars'
+import { configToVars } from '../style/configToVars'
+import type { PartialConfig } from '../config/types'
 import type { PartialLabels } from '../labels/types'
-import type { ThemeInput } from '../theme/types'
+import type { MapTheme, ThemeInput } from '../theme/types'
 import { MapProvider } from './MapProvider'
 import { DragOverlay } from './components/DragOverlay'
-import { MapContext, useTheme } from './context'
+import { MapContext, useConfig, useTheme } from './context'
 import type { MapHandle, MapSurfaces } from './mapConfig'
 import {
   type BridgedApis,
@@ -22,7 +24,9 @@ import {
 } from './MapSurfaces'
 
 export type MapProps<T = unknown, TPin = unknown> = {
+  /** Position initiale. Une position mémorisée (`positionStorageKey`) la remplace. */
   center: LatLng
+  /** Zoom initial (échelle Web Mercator : 0 = monde, ~21 = niveau rue). */
   zoom: number
   /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
   googleMapsApiKey?: string
@@ -68,9 +72,13 @@ export type MapProps<T = unknown, TPin = unknown> = {
    * disponible dès le montage, sans attendre les tuiles.
    */
   onReady?: (engine: MapEngine) => void
+  /** Cadre visible après stabilisation de la caméra — à brancher sur un refetch. */
   onViewportChange?: (viewport: Viewport) => void
+  /** Position caméra à chaque mouvement (haute fréquence : ne pas y faire de réseau). */
   onCameraChange?: (camera: CameraState) => void
+  /** Classe du conteneur racine, en plus de `m3d-root`. */
   className?: string
+  /** Styles du conteneur racine. La carte remplit 100 % de son parent. */
   style?: CSSProperties
   /**
    * Poignée impérative de la carte (cf. `MapHandle`) : de quoi cadrer, dessiner ou
@@ -88,6 +96,17 @@ export type MapProps<T = unknown, TPin = unknown> = {
   colorScheme?: 'dark' | 'light' | 'auto'
   /** Traductions (merge profond sur `defaultLabels`) — cf. LABELS.md. */
   labels?: PartialLabels
+  /**
+   * Réglages : fournisseurs tiers (endpoints, langue, quotas), seuils de geste,
+   * budgets de calcul, cadence de chargement. Merge profond sur `defaultConfig` —
+   * ne fournir que ce qui change. Cf. `MapConfig`.
+   *
+   * ```tsx
+   * <Map config={{ providers: { tiles: { language: 'en-GB', region: 'GB' } },
+   *                interaction: { dragSlopPx: 16, longPressMs: 400 } }} />
+   * ```
+   */
+  config?: PartialConfig
 } & MapSurfaces<T, TPin>
 
 type StoredPosition = { lat: number; lng: number; altitude: number }
@@ -107,14 +126,28 @@ const readStoredPosition = (key: string): StoredPosition | null => {
  * pour le cas où PLUSIEURS cartes doivent partager un thème, ou pour des composants
  * hors carte qui lisent le thème : monté au-dessus, il continue de s'appliquer.
  */
+/**
+ * Rythme des déplacements caméra, posé depuis `theme.animations`. Appliqué à la
+ * création du moteur ET à chaque thème remplacé à chaud (bascule clair/sombre,
+ * charte chargée après coup) : un seul point pour que les deux ne divergent pas.
+ */
+const applyAnimations = (eng: MapEngine, a: MapTheme['animations']): void => {
+  eng.camera.flyDuration = a.flyDuration
+  eng.camera.flyEasing = a.flyEasing
+  eng.camera.panDuration = a.pan
+  eng.camera.zoomDuration = a.zoom
+  eng.topDownDuration = a.topDown
+  eng.globeDuration = a.globe
+}
+
 export function Map<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
-  const { theme, colorScheme, labels } = props
+  const { theme, colorScheme, labels, config } = props
   // Structure conditionnelle assumée : passer de « avec thème » à « sans thème » sur
   // une carte montée remonterait l'arbre. Personne ne fait ça — un thème est un choix
   // de départ, et la bascule clair/sombre passe par `colorScheme`, pas par sa présence.
-  if (theme !== undefined || colorScheme !== undefined || labels !== undefined) {
+  if (theme !== undefined || colorScheme !== undefined || labels !== undefined || config !== undefined) {
     return (
-      <MapProvider theme={theme} colorScheme={colorScheme} labels={labels}>
+      <MapProvider theme={theme} colorScheme={colorScheme} labels={labels} config={config}>
         <MapBody {...props} />
       </MapProvider>
     )
@@ -125,6 +158,7 @@ export function Map<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
 /** Corps de la carte — sous la racine de thème, qu'elle vienne de nous ou de l'hôte. */
 function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   const theme = useTheme()
+  const config = useConfig()
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -142,6 +176,11 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   const interactive = props.interactive ?? true
   const interactiveRef = useRef(interactive)
   interactiveRef.current = interactive
+  // La config sert à la CRÉATION du moteur (effet ci-dessous, volontairement non
+  // dépendant d'elle : la recréer sur un changement de seuil rechargerait toutes les
+  // tuiles). Les mises à jour à chaud passent par `setConfig`, plus bas.
+  const configRef = useRef(config)
+  configRef.current = config
 
   // Recrée le moteur si la source de tuiles change.
   useEffect(() => {
@@ -159,6 +198,7 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       center: props.center,
       zoom: props.zoom,
       background: theme.colors.background,
+      oceanColor: theme.globe.oceanColor,
       googleMapsApiKey: props.googleMapsApiKey,
       cesiumIonToken: props.cesiumIonToken,
       cesiumIonAssetId: props.cesiumIonAssetId,
@@ -167,16 +207,20 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       errorTarget: props.errorTarget,
       intro: stored ? false : props.intro,
       tagStorageKey: props.tagStorageKey,
+      config: configRef.current,
+      fov: config.camera.fov,
     })
-    eng.camera.flyDuration = theme.animations.flyDuration
-    eng.camera.flyEasing = theme.animations.flyEasing
+    applyAnimations(eng, theme.animations)
     // Appliqué AVANT `start()` : une carte montée figée ne doit pas être navigable,
     // même une frame (l'effet de synchro plus bas ne tourne qu'après le rendu).
     if (interactiveRef.current !== true) eng.setInteractive(interactiveRef.current)
     if (stored) eng.camera.jumpTo(stored, stored.altitude)
 
     const rect = container.getBoundingClientRect()
-    eng.setSize(rect.width || 800, rect.height || 600)
+    // Repli quand le conteneur n'est pas encore mesuré : il fixe le premier aspect
+    // de la caméra, donc la première projection (cf. `startup.fallbackSize`).
+    const [fw, fh] = configRef.current.startup.fallbackSize
+    eng.setSize(rect.width || fw, rect.height || fh)
     eng.start()
 
     const offReady = eng.on('ready', (e) => cbRef.current.onReady?.(e))
@@ -203,7 +247,7 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
               lng: s.lng,
               altitude: s.altitude,
             })
-          }, 400)
+          }, configRef.current.data.positionSaveDebounceMs)
         })
       : null
     const ro = new ResizeObserver(() => {
@@ -237,7 +281,22 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
     engine?.setInteractive(interactive)
   }, [engine, interactive])
 
-  const vars = useMemo(() => themeToVars(theme), [theme])
+  // Réglages à chaud : un passage souris → tactile, un quota revu, un budget de
+  // tuiles ajusté n'ont aucune raison de reconstruire la scène.
+  useEffect(() => {
+    engine?.setConfig(config)
+  }, [engine, config])
+
+  // Rythme des déplacements caméra. Posé aussi à la création (l'effet du moteur ne
+  // dépend pas du thème), mais un thème remplacé à chaud — bascule clair/sombre,
+  // charte chargée après coup — doit se propager sans remonter la carte.
+  useEffect(() => {
+    if (engine) applyAnimations(engine, theme.animations)
+  }, [engine, theme.animations])
+
+  // Thème ET config : l'échelle d'empilement vient de la seconde (contrainte
+  // d'intégration, pas d'apparence — cf. `configToVars`).
+  const vars = useMemo(() => ({ ...themeToVars(theme), ...configToVars(config) }), [theme, config])
   const style: CSSProperties = { ...(vars as CSSProperties), ...props.style }
   // Options de loupe extraites de la barre (`toolbar.lens`) : c'est la carte qui la
   // monte, parce qu'elle seule enveloppe tout l'arbre.

@@ -18,7 +18,7 @@ import { Tooltip } from 'react-tooltip'
 import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
 import { boundsContains } from '../../core/MarkerQuery'
 import type { LatLng } from '../../shared'
-import { useLabels, useMapContext } from '../context'
+import { useConfig, useLabels, useMapContext } from '../context'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
@@ -61,6 +61,7 @@ export type MapControlButton =
 export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'target' | 'layers' | 'fullscreen'
 
 export type MapControlsProps = {
+  /** Côté d'ancrage de la barre. */
   position?: 'left' | 'right'
   /** Grain GROUPE : masquer (`false`) ou remplacer (ReactNode) un groupe entier de la barre. */
   components?: SlotConfig<ControlGroup>
@@ -74,7 +75,7 @@ export type MapControlsProps = {
    * Raccourcis clavier par action — `false` pour en désactiver un, une autre
    * touche pour le remapper si elle est déjà prise ailleurs dans l'app. Lettres
    * SEULES (pas de ⌘/Ctrl : les navigateurs réservent ⌘T/⌘N/⌘W…), identiques
-   * Mac/PC, affichées dans les tooltips. Défauts : voir `DEFAULT_SHORTCUTS`
+   * Mac/PC, affichées dans les tooltips. Défauts : `interaction.shortcuts.controls`
    * (README « Raccourcis clavier ») — sans collision avec les outils de dessin.
    */
   shortcuts?: Partial<Record<MapControlAction, string | false>>
@@ -106,31 +107,16 @@ export type MapControlTarget = {
   onlyWhenOutOfView?: boolean
 }
 
-/** Pas d'inclinaison par clic (rad). */
-const TILT_STEP = Math.PI * 0.11
 const TIP_ID = 'm3d-tooltip'
 
-const DEFAULT_SHORTCUTS: Record<MapControlAction, string | false> = {
-  north: 'n',
-  zoomIn: '+',
-  zoomOut: '-',
-  tilt: 'i',
-  /** N (nord) fait déjà la vue du dessus — pas de 2e touche par défaut. */
-  topDown: false,
-  globe: 'g',
-  layers: 't',
-  fullscreen: 'f',
-  basemap: 'b',
-  /** Le bouton n'existe qu'en mode plan : un raccourci global serait déroutant. */
-  traffic: false,
-}
 
 /** Sections de la barre (grain GROUPE) — clés de `MapControlsProps.components`. */
 type Slot = keyof NonNullable<MapControlsProps['components']>
 
 /** Contrôles de navigation : déplacement/rotation du drag, boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
 export function MapControls({ position = 'right', components = {}, buttons = {}, shortcuts, tagLabel, target }: MapControlsProps) {
-  const { engine } = useMapContext()
+  const { engine, theme } = useMapContext()
+  const config = useConfig()
   const labels = useLabels()
 
   // Cible hors de la vue ? Recalculé sur `viewport` (la vue stabilisée), pas sur
@@ -173,12 +159,12 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
   const zoomBy = useCallback(
     (factor: number) => {
       const s = engine.camera.getState()
-      engine.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: s.altitude * factor }, { duration: 0.4 })
+      engine.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: s.altitude * factor }, { duration: theme.animations.zoom })
     },
-    [engine],
+    [engine, theme.animations.zoom],
   )
   const topDown = useCallback(() => engine.flyToTopDown(), [engine])
-  const tiltUp = useCallback(() => engine.tiltBy(TILT_STEP), [engine])
+  const tiltUp = useCallback(() => engine.tiltBy(config.camera.tiltStep), [engine, config.camera.tiltStep])
   const globe = useCallback(() => engine.flyToGlobe(), [engine])
   const toggleFs = useCallback(() => {
     const root = engine.renderer.domElement.parentElement
@@ -195,7 +181,10 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
   const defaultShown = (key: Slot) => isDefault(key) && (key !== 'basemap' || engine.supportsBasemap2d)
   /** Ce bouton précis est-il visible ? (grain fin `buttons`, dans un groupe rendu) */
   const btn = (b: MapControlButton) => buttons[b] !== false
-  const keys = { ...DEFAULT_SHORTCUTS, ...shortcuts }
+  // Défauts pris dans la config : les dix touches vivaient dans une table de module,
+  // donc remappables par prop mais invisibles depuis `<Map config>`. L'assertion
+  // `satisfies` garde les deux ensembles de clés alignés.
+  const keys = { ...(config.interaction.shortcuts.controls satisfies Record<MapControlAction, string | false>), ...shortcuts }
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (sans effet si elle est à l'opposé).
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
@@ -219,8 +208,8 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
       const bm = engine.getBasemap()
       const to: MapMode = bm.mode === '3d' ? 'plan' : '3d'
       if (hit('compass', 'compass', 'north') || hit('view', 'topDown', 'topDown')) topDown()
-      else if (hit('zoom', 'zoomIn', 'zoomIn')) zoomBy(0.5)
-      else if (hit('zoom', 'zoomOut', 'zoomOut')) zoomBy(2)
+      else if (hit('zoom', 'zoomIn', 'zoomIn')) zoomBy(config.camera.zoomFactor.in)
+      else if (hit('zoom', 'zoomOut', 'zoomOut')) zoomBy(config.camera.zoomFactor.out)
       else if (hit('view', 'tilt', 'tilt')) tiltUp()
       else if (hit('view', 'globe', 'globe')) globe()
       else if (hit('fullscreen', 'fullscreen', 'fullscreen')) toggleFs()
@@ -267,10 +256,10 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
         (btn('zoomIn') || btn('zoomOut')) && (
           <div className="m3d-controls-group">
             {btn('zoomIn') && (
-              <ToolButton icon={mdiPlus} label={labels.controls.zoomIn} tip={tip} shortcut={keys.zoomIn} onClick={() => zoomBy(0.5)} />
+              <ToolButton icon={mdiPlus} label={labels.controls.zoomIn} tip={tip} shortcut={keys.zoomIn} onClick={() => zoomBy(config.camera.zoomFactor.in)} />
             )}
             {btn('zoomOut') && (
-              <ToolButton icon={mdiMinus} label={labels.controls.zoomOut} tip={tip} shortcut={keys.zoomOut} onClick={() => zoomBy(2)} />
+              <ToolButton icon={mdiMinus} label={labels.controls.zoomOut} tip={tip} shortcut={keys.zoomOut} onClick={() => zoomBy(config.camera.zoomFactor.out)} />
             )}
           </div>
         ),

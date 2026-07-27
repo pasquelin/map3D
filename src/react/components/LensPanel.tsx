@@ -1,5 +1,5 @@
 import type { MarkerData } from '../../data/types'
-import { formatLabel } from '../../labels/mergeLabels'
+import { formatCount } from '../../labels/mergeLabels'
 import { useLabels } from '../context'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
 import { FloatingPanel } from './FloatingPanel'
@@ -37,7 +37,9 @@ export function LensPanel<T = unknown>(props: LensPanelProps<T>) {
   const panel = useDraggablePanel(props.anchor)
 
   const count = markers.length
-  const title = formatLabel(count === 1 ? labels.lens.titleSingular : labels.lens.title, { count })
+  // Via `labels.plural` comme les autres dénombrables : `count === 1` traitait 0 au
+  // pluriel (correct en français) mais figeait la règle pour toutes les langues.
+  const title = formatCount(labels.lens.titleSingular, labels.lens.title, count, labels.plural)
 
   return (
     <FloatingPanel

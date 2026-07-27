@@ -4,6 +4,7 @@ import { clamp, RAD2DEG } from '../../core/math'
 import type { ClusterInfo } from '../../layers/ClusterLayer'
 import type { MapTheme } from '../../theme/types'
 import { markerColorOf } from '../../theme/colors'
+import { useConfig, useLabels } from '../context'
 
 export type DefaultClusterProps = {
   cluster: ClusterInfo
@@ -22,14 +23,14 @@ export type DefaultClusterProps = {
 
 type Tip = { x: number; y: number; below: boolean; label: string; count: number; color: string }
 
-const RING_W = 30
-
-/** Contour blanc des parts — il déborde du rayon extérieur de sa moitié. */
-const STROKE_W = 2.5
-
-/** Rayon extérieur (px) du donut par défaut — l'ancrage de l'infobulle de
- *  cluster le lit pour ne jamais recouvrir le camembert. */
-export const defaultClusterRadius = (total: number): number => Math.min(28, 19 + Math.sqrt(total)) + RING_W
+/** Rayon extérieur (px) du donut — l'ancrage de l'infobulle de cluster le lit pour
+ *  ne jamais recouvrir le camembert.
+ *
+ *  Prend le thème en argument depuis que la géométrie y vit : les trois constantes
+ *  de module qui la portaient (`RING_W`, `STROKE_W`, et la formule de rayon)
+ *  doublaient `theme.clusters`, qui n'avait alors aucun consommateur. */
+export const defaultClusterRadius = (total: number, theme: MapTheme): number =>
+  theme.clusters.coreRadius(total) + theme.clusters.ringWidth
 
 /**
  * Cluster par défaut, en **donut** : un cœur portant le **nombre total** (couleur
@@ -40,13 +41,18 @@ export const defaultClusterRadius = (total: number): number => Math.min(28, 19 +
  */
 export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteTip = true, onSegmentHover }: DefaultClusterProps) {
   const { total, counts, types } = cluster
+  const labels = useLabels()
   const [tip, setTip] = useState<Tip | null>(null)
+  const config = useConfig()
+  const tipCfg = config.interaction.tooltip
+  const zIndex = config.style.zIndex
   // Parts TOUJOURS égales (360° / nombre de types) — le compte est le chiffre, pas la taille.
 
   const colorOf = (type: string) => markerColorOf(theme, type)
   const core = theme.colors.cluster // couleur PROPRE du cluster (indépendante des types)
 
-  const ro = defaultClusterRadius(total)
+  const { ringWidth: RING_W, strokeWidth: STROKE_W, segmentGap, startAngle } = theme.clusters
+  const ro = defaultClusterRadius(total, theme)
   /**
    * Boîte du sprite : le donut, et RIEN d'autre (demi-trait de contour compris).
    *
@@ -62,7 +68,7 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
   const C = box / 2
   const cr = ro - RING_W // cœur compact
   const rm = (cr + ro) / 2
-  const gap = types.length > 1 ? 0.045 : 0
+  const gap = types.length > 1 ? segmentGap : 0
 
   const x = (r: number, a: number) => C + r * Math.cos(a)
   const y = (r: number, a: number) => C + r * Math.sin(a)
@@ -75,7 +81,7 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
     )
   }
 
-  let acc = Math.PI // départ à 9h → 2 parts haut/bas, dominante en haut
+  let acc = startAngle // cf. `theme.clusters.startAngle` (défaut 9h → 2 parts haut/bas)
   const segs = types.map((type) => {
     const count = counts[type] ?? 0
     const sweep = (Math.PI * 2) / types.length
@@ -88,7 +94,7 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
 
   const showTip = (e: { clientX: number; clientY: number }, type: string, count: number, color: string) => {
     if (!satelliteTip) return
-    setTip({ x: e.clientX, y: e.clientY, below: e.clientY < 76, label: typeLabel?.(type) ?? type, count, color })
+    setTip({ x: e.clientX, y: e.clientY, below: e.clientY < tipCfg.flipBelowPx, label: typeLabel?.(type) ?? type, count, color })
   }
 
   return (
@@ -163,8 +169,8 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
               style={{
                 position: 'fixed',
                 // Clampe horizontalement pour ne jamais sortir de la fenêtre (bords du canvas).
-                left: clamp(tip.x, 78, window.innerWidth - 78),
-                top: tip.below ? tip.y + 18 : tip.y - 14,
+                left: clamp(tip.x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx),
+                top: tip.below ? tip.y + tipCfg.offsetBelowPx : tip.y - tipCfg.offsetAbovePx,
                 transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
                 display: 'flex',
                 alignItems: 'center',
@@ -177,12 +183,18 @@ export function DefaultCluster({ cluster, theme, typeIcon, typeLabel, satelliteT
                 whiteSpace: 'nowrap',
                 boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
                 pointerEvents: 'none',
-                zIndex: 2147483647,
+                // Palier `style.zIndex.menu`, comme `.m3d-menu`. Lu ici en JS et non
+                // via `--m3d-z-menu` : cette vignette est le seul portail de la lib
+                // vers `document.body`, hors de `.m3d-root` où `configToVars` pose
+                // ses variables. Le z-index maximal (2147483647) qu'elle portait la
+                // faisait passer devant les modales de l'application hôte —
+                // au-dessus de la carte, pas au-dessus de l'app.
+                zIndex: zIndex.menu,
               }}
             >
               <span style={{ width: 9, height: 9, borderRadius: '50%', background: tip.color, flex: '0 0 auto' }} />
               <span>{tip.label}</span>
-              <span style={{ opacity: 0.6 }}>·</span>
+              <span style={{ opacity: 0.6 }}>{labels.glyphs.separator}</span>
               <span style={{ fontWeight: 800 }}>{tip.count}</span>
             </div>,
             document.body,

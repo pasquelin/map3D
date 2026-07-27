@@ -3,6 +3,7 @@
 // Substituer un proxy serveur à l'appel Google direct (pour ne plus exposer la
 // clé côté client) ne demandera donc aucune modification du core.
 
+import type { RoutingConfig } from '../../config/types'
 import type { LatLng } from '../../shared'
 import type { MapPoint, TravelMode } from '../core/types'
 
@@ -27,4 +28,19 @@ export type RoutingProvider = {
   ): Promise<MatrixEntry[]>
   /** Itinéraire détaillé d'un seul couple, alternatifs compris (index 0 = principal). */
   route(from: MapPoint, to: MapPoint, mode: TravelMode, signal?: AbortSignal): Promise<ProviderRoute[]>
+  /**
+   * Reçoit `providers.routing` de la carte, à la première frame puis à chaque
+   * changement.
+   *
+   * Pourquoi ce point d'entrée : un provider est construit par l'application
+   * **avant** que la carte n'existe, donc il ne peut pas lire `engine.config` à sa
+   * création. Sans lui, tout le bloc `providers.routing` (endpoints, FieldMasks,
+   * `routingPreference`, timeouts, locale) restait figé sur `defaultConfig` — un
+   * hôte qui visait un palier de routage moins cher depuis `<Map config>` n'avait
+   * aucun effet, alors que ces valeurs décident de la facture.
+   *
+   * Optionnel : un provider tiers qui porte ses propres réglages (proxy serveur,
+   * mock de test) l'omet et garde la main.
+   */
+  setConfig?(config: RoutingConfig): void
 }

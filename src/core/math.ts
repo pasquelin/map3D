@@ -9,10 +9,27 @@ export const EARTH_CIRCUMFERENCE = 40_075_016
 /** Mètres par degré de latitude (approx. équirectangulaire, suffisant < 1 km). */
 export const M_PER_DEG = 111_320
 
+/**
+ * Côté d'une tuile Web Mercator (px). Imposé par le protocole Google 2D Tiles — ce
+ * n'est pas un réglage. Défini ICI parce que `metersPerPixelAtZoom` en dépend :
+ * l'avoir laissé dans `googleTiles` obligeait ce module à réécrire `256` en littéral,
+ * malgré le commentaire « SOURCE UNIQUE » juste au-dessus. `googleTiles` le
+ * ré-exporte pour ne pas déplacer son point d'import public.
+ */
+export const TILE_SIZE = 256
+
+/**
+ * FOV vertical (degrés) de la caméra perspective. SOURCE UNIQUE : `MapEngine` la
+ * passe à Three, `Projection` s'en sert de repli quand la caméra reçue n'est pas une
+ * perspective. Les deux étaient écrites en littéral — divergentes, tous les calculs
+ * mètres/pixel de la lib se seraient faussés en silence.
+ */
+export const CAMERA_FOV = 60
+
 /** Résolution sol Web-Mercator (m/px, tuiles 256 px) à un zoom et une latitude —
  *  SOURCE UNIQUE de la constante ~156543 : ne pas la réécrire en littéral. */
 export function metersPerPixelAtZoom(zoom: number, latDeg: number): number {
-  return ((EARTH_CIRCUMFERENCE / 256) * Math.cos(latDeg * DEG2RAD)) / 2 ** zoom
+  return ((EARTH_CIRCUMFERENCE / TILE_SIZE) * Math.cos(latDeg * DEG2RAD)) / 2 ** zoom
 }
 
 export function clamp(x: number, min: number, max: number): number {

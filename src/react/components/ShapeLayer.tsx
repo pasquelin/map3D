@@ -8,6 +8,7 @@ import { useLabels, useMapContext } from '../context'
 import { useLayer, useLayerSync } from '../hooks/useLayer'
 
 export type ShapeLayerProps = {
+  /** Zones à afficher (cercles, rectangles, polygones), drapées sur le relief. */
   shapes: ShapeData[]
 }
 

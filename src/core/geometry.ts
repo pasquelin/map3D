@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { defaultConfig } from '../config/defaultConfig'
 
 export type Pt = { x: number; z: number }
 
@@ -354,8 +355,24 @@ function flatMaterial(color: THREE.ColorRepresentation, opacity: number): THREE.
   })
 }
 
+/**
+ * Opacité de bordure par défaut d'une forme dessinée.
+ *
+ * SOURCE UNIQUE : cette valeur était réécrite en littéral à cinq endroits
+ * (`strokeMaterial`, `DrawLayer.strokeOpacityOf`, et trois aperçus de
+ * `DrawSettingsPanel`). Un défaut produit changé à un seul de ces endroits laissait
+ * l'aperçu du panneau mentir sur ce que le tracé allait réellement donner.
+ */
+export const DEFAULT_STROKE_OPACITY = 0.95
+
+/** La règle de mesure est volontairement plus discrète que les autres tracés. */
+export const MEASURE_STROKE_OPACITY = 0.85
+
 /** Matériau de trait plaqué au sol. */
-export function strokeMaterial(color: THREE.ColorRepresentation, opacity = 0.95): THREE.MeshBasicMaterial {
+export function strokeMaterial(
+  color: THREE.ColorRepresentation,
+  opacity = DEFAULT_STROKE_OPACITY,
+): THREE.MeshBasicMaterial {
   return flatMaterial(color, opacity)
 }
 
@@ -622,8 +639,19 @@ export function clearGroup(group: THREE.Object3D): void {
   }
 }
 
-/** Convertit un cercle centre+rayon en polygone. */
-export function circlePoints(center: Pt, radius: number, segments = 48): Pt[] {
+/**
+ * Convertit un cercle centre+rayon en polygone, pour le **rendu**.
+ *
+ * Le défaut vient de `performance.circleSegments`. Trois appelants écrivaient leur
+ * propre littéral (48 ici et là, 64 pour les zones), donc trois lissés différents
+ * pour un même objet visuel selon la couche qui le dessinait. Ne pas confondre avec
+ * `PREDICATE_CIRCLE_SEGMENTS` (geodesy), qui gouverne les calculs d'inclusion.
+ */
+export function circlePoints(
+  center: Pt,
+  radius: number,
+  segments = defaultConfig.performance.circleSegments,
+): Pt[] {
   // Coupé à la source : sinon chaque sommet naît NaN et le rejet n'aurait lieu
   // qu'en aval, une fois `segments` points inutiles construits.
   if (!Number.isFinite(radius) || !Number.isFinite(center.x) || !Number.isFinite(center.z)) {

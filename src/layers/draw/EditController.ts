@@ -1,3 +1,4 @@
+import type { InteractionConfig } from '../../config/types'
 import { EnuFrame } from '../../core/enu'
 import { type Pt, diagonalToCorners } from '../../core/geometry'
 import type { Projection } from '../../core/Projection'
@@ -24,6 +25,8 @@ export type EditHost = {
   afterMutate(changed: readonly Drawing[]): void
   /** Fin de geste : invalidation hauteurs/mpp + rebuild final + émission. */
   commit(changed: readonly Drawing[]): void
+  /** Seuils de geste courants — relu à l'usage, la config changeant à chaud. */
+  interaction(): InteractionConfig
 }
 
 /** Repère de transformation : orienté (axes propres d'un rect seul) ou aligné ENU. */
@@ -43,7 +46,6 @@ type Gesture = {
   rotating: boolean
 }
 
-const MIN_SCALE = 0.02
 const VERTEX_KINDS = new Set(['polygon', 'line', 'measure', 'arrow'])
 
 /** Formes stockées en quad de 4 coins : repère propre, 8 poignées, homothétie. */
@@ -163,8 +165,8 @@ export class EditController {
     const [cu, cv] = toUV(g.basis, cur)
     const au = h.u === 0.5 ? 0.5 : 1 - h.u
     const av = h.v === 0.5 ? 0.5 : 1 - h.v
-    let su = h.u === 0.5 ? 1 : clampScale((cu - au) / (h.u - au))
-    let sv = h.v === 0.5 ? 1 : clampScale((cv - av) / (h.v - av))
+    let su = h.u === 0.5 ? 1 : clampScale((cu - au) / (h.u - au), this.host.interaction().minScale)
+    let sv = h.v === 0.5 ? 1 : clampScale((cv - av) / (h.v - av), this.host.interaction().minScale)
     if (shift && h.u !== 0.5 && h.v !== 0.5) {
       // Homothétie : le facteur dominant s'applique aux deux axes.
       const s = Math.abs(su - 1) > Math.abs(sv - 1) ? su : sv
@@ -330,9 +332,9 @@ function rotate(p: Pt, c: Pt, ang: number): Pt {
   return { x: c.x + dx * cos - dz * sin, z: c.z + dx * sin + dz * cos }
 }
 
-function clampScale(s: number): number {
+function clampScale(s: number, min: number): number {
   if (!Number.isFinite(s)) return 1
-  if (Math.abs(s) < MIN_SCALE) return s < 0 ? -MIN_SCALE : MIN_SCALE
+  if (Math.abs(s) < min) return s < 0 ? -min : min
   return s
 }
 

@@ -88,6 +88,19 @@ export class RelationEngine {
   private linkOwners = new Map<string, string>()
   private rev = 0
 
+  /**
+   * 💰 Nombre de candidats interrogés par lien affiché, en mode « les plus rapides » :
+   * il multiplie directement la taille de la matrice facturée.
+   *
+   * Champ mutable et non paramètre de constructeur : c'est un réglage de VOLUME
+   * d'appels, qu'un hôte doit pouvoir revoir sur une carte vivante. Le passer au
+   * constructeur obligeait à reconstruire le moteur pour le changer, donc à jeter
+   * tous les instantanés — les liens affichés disparaissaient et leur calcul était
+   * refacturé pour un simple entier. Il n'est lu qu'au prochain `run`, si bien qu'un
+   * changement en cours de requête ne corrompt rien.
+   */
+  fastestOversample?: number
+
   constructor(
     private readonly provider: RoutingProvider,
     private readonly cache: RouteCache = new RouteCache(),
@@ -146,7 +159,7 @@ export class RelationEngine {
     }
 
     // LE plafond d'appels au fournisseur de routage, appliqué avant `provider.matrix`.
-    const targets = selectTargets(source, rule, candidates).slice(0, rule.limit.compute)
+    const targets = selectTargets(source, rule, candidates, this.fastestOversample).slice(0, rule.limit.compute)
     // Valeurs déjà connues des liens en place : une relance (marker déplacé,
     // changement de mode) ne doit pas faire clignoter en `…` ce qui reste affichable
     // jusqu'à l'arrivée des nouveaux temps.

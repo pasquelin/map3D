@@ -2,12 +2,14 @@ import * as THREE from 'three'
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 import { GlobeControls, TilesRenderer } from '3d-tiles-renderer'
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/plugins'
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig } from '../config/types'
 import { TiledGlobeLayer } from '../layers/TiledGlobeLayer'
 import type { Bounds, LatLng } from '../shared'
 import { Camera, type CameraState } from './Camera'
 import { GoogleTileSource, TILE_SIZE } from './googleTiles'
 import type { FrameContext, Layer, MapView } from './Layer'
-import { altitudeForZoom, clamp, DEG2RAD, EARTH_CIRCUMFERENCE, zoomForAltitude } from './math'
+import { altitudeForZoom, CAMERA_FOV, clamp, DEG2RAD, EARTH_CIRCUMFERENCE, zoomForAltitude } from './math'
 import { DragRegistry } from './DragRegistry'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
@@ -26,15 +28,19 @@ export type PointerInterceptor = (
 /** Type de carte : 3D photoréaliste (Ion) ou fond 2D Google (plan). */
 export type MapMode = '3d' | 'plan'
 
-/** Inclinaison max en 2D (rad, mesurée depuis le nadir : 0 = vue du dessus). ~36° max
- *  → la vue ne plonge pas vers l'horizon → couverture de tuiles bornée. Défaut lib 0.45π. */
-const TWO_D_MAX_ALTITUDE = Math.PI * 0.2
-
 export type MapEngineOptions = {
   canvas: HTMLCanvasElement
   center: LatLng
   zoom: number
   background: string
+  /**
+   * Couleur de l'océan des globes de repli (`theme.globe.oceanColor`).
+   *
+   * Elle existait dans le thème sans aucun consommateur, pendant que DEUX littéraux
+   * différents la décidaient : `#1b3b5f` mélangé au fond ici, `0xaad3ff` dans
+   * `TiledGlobeLayer` — deux océans de teintes opposées selon le globe affiché.
+   */
+  oceanColor: string
   /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
   googleMapsApiKey?: string
   /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
@@ -71,6 +77,16 @@ export type MapEngineOptions = {
    * `<Map>` cohabitent sur le même origin. Défaut : `m3d:tag-filter`.
    */
   tagStorageKey?: string | null
+  /**
+   * Réglages complets (cf. `MapConfig`). Optionnel : le moteur retombe sur
+   * `defaultConfig`, si bien qu'il reste utilisable seul, hors React.
+   */
+  config?: MapConfig
+  /**
+   * Champ de vision vertical (degrés, défaut `CAMERA_FOV`). Fourni par `<Map>` depuis
+   * `theme.camera.fov`. Lu une seule fois — cf. la construction de la caméra.
+   */
+  fov?: number
 }
 
 /** Mode du drag gauche : 'pan' (déplacer la carte, défaut) ou 'rotate' (pivoter la vue, = Maj maintenu). */
@@ -216,23 +232,65 @@ export class MapEngine {
   private drawingSuspended = false
   /** Globe 2D Google tuilé (LOD/cache/prefetch), null si pas de clé. */
   private basemap2d: TiledGlobeLayer | null = null
-  /** Inclinaison max d'origine de GlobeControls (rétablie en sortie de mode 2D). */
-  private defaultMaxAltitude = 0.45 * Math.PI
   /** Distance max caméra↔centre Terre (limite de dézoom). 0 = illimité. */
   private maxCameraDistance = 0
   private readonly clampScratch = new THREE.Vector3()
+  /**
+   * Réglages courants. Publics en lecture pour les couches, qui n'ont pas de contexte
+   * React : `layer.engine.config.performance.…` est leur seul accès. Remplacés en bloc
+   * par `setConfig` — jamais mutés en place, pour qu'une comparaison d'identité
+   * suffise à détecter un changement.
+   *
+   * ⚠️ **Réservé au core.** Un composant ou un hook React lit `useConfig()`, JAMAIS
+   * ceci. `<Map>` pose la config sur le moteur depuis un effet, et les effets d'un
+   * enfant s'exécutent AVANT ceux de son parent : au render où `<Map config>` change,
+   * ce champ porte encore la valeur précédente, et rien ne re-rendra l'enfant qui
+   * l'aurait lue. Le contexte est la source de vérité React ; ce champ est son reflet
+   * pour le code qui n'a pas accès aux hooks.
+   */
+  config: MapConfig
+
+  /**
+   * Durées (s) des recadrages de la barre de contrôles. Posées par `<Map>` depuis
+   * `theme.animations`, comme celles de `Camera` : le rythme de la carte est une
+   * question de thème, pas de moteur.
+   */
+  topDownDuration = 0.5
+  globeDuration = 1.0
+
+  /**
+   * (Ré)applique les bornes de navigation de `config.camera` : dézoom max, plafond
+   * d'altitude, inclinaison selon le mode courant.
+   *
+   * Appelée à la construction ET depuis `setConfig` : ces bornes sont recopiées dans
+   * `GlobeControls`, qui ne les relit pas — sans cet appel, une config changée à chaud
+   * laisserait la carte avec les limites de l'ancienne.
+   */
+  private applyCameraLimits(): void {
+    const c = this.config.camera
+    const R = this.tiles.ellipsoid.radius.x
+    this.maxCameraDistance = R * c.maxDistanceFactor
+    this.camera.maxAltitude = R * c.maxAltitudeFactor
+    this.controls.maxDistance = R * c.maxAltitudeFactor
+    this.controls.maxAltitude = this.mapMode === 'plan' ? c.maxTilt2d : c.maxTilt3d
+  }
 
   constructor(opts: MapEngineOptions) {
     this.canvas = opts.canvas
+    this.config = opts.config ?? defaultConfig
+    this.projection.setConfig(this.config)
     this.googleMapsApiKey = opts.googleMapsApiKey
     this.tags = new TagFilter(opts.tagStorageKey)
-    this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: true })
-    // pixelRatio = 1 imposé : le canvas fait EXACTEMENT la taille du parent (aucun
-    // ×2 DPR, ni sur le backing store ni sur l'affichage).
-    this.renderer.setPixelRatio(1)
+    this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: this.config.performance.antialias })
+    // DPR configurable (`performance.pixelRatio`, défaut 1) : à 1 le canvas fait
+    // EXACTEMENT la taille du parent, sans ×2 rétine sur le backing store.
+    this.renderer.setPixelRatio(this.config.performance.pixelRatio)
     this.renderer.setClearColor(new THREE.Color(opts.background), 1)
 
-    this.threeCamera = new THREE.PerspectiveCamera(60, 1, 1, 1e8)
+    // FOV lu une seule fois : il gouverne toutes les conversions mètres↔pixels de la
+    // lib, largement mémoïsées. Le changer sur une carte montée laisserait des
+    // résolutions périmées un peu partout — d'où l'absence de setter.
+    this.threeCamera = new THREE.PerspectiveCamera(opts.fov ?? CAMERA_FOV, 1, 1, 1e8)
     this.threeCamera.position.set(0, 0, 2e7)
 
     // Source de tuiles 3D : Cesium Ion (token) en priorité, sinon Google Maps Platform
@@ -245,7 +303,7 @@ export class MapEngine {
       this.tiles.registerPlugin(
         new CesiumIonAuthPlugin({
           apiToken: opts.cesiumIonToken,
-          assetId: opts.cesiumIonAssetId ?? '2275207',
+          assetId: opts.cesiumIonAssetId ?? this.config.providers.tiles3d.cesiumIonAssetId,
           autoRefreshToken: true,
         }),
       )
@@ -274,7 +332,9 @@ export class MapEngine {
       this.basemap2d = new TiledGlobeLayer(
         this.tiles.group,
         this.tiles.ellipsoid,
-        new GoogleTileSource(opts.googleMapsApiKey),
+        new GoogleTileSource(opts.googleMapsApiKey, this.config.providers.tiles),
+        this.config.providers.tiles,
+        opts.oceanColor,
       )
     }
 
@@ -294,7 +354,7 @@ export class MapEngine {
     this.canvas.parentElement?.appendChild(labelDom)
 
     if (opts.fallbackGlobe && !hasCustomTiles) {
-      this.fallback = this.buildFallbackGlobe(opts.background)
+      this.fallback = this.buildFallbackGlobe(opts.oceanColor)
       this.tiles.group.add(this.fallback)
     }
 
@@ -318,11 +378,11 @@ export class MapEngine {
     this.controls.setCamera(this.threeCamera)
     this.controls.setEllipsoid(this.tiles.ellipsoid, this.tiles.group)
     ;(this.controls as unknown as { tilesRenderer: TilesRenderer }).tilesRenderer = this.tiles
-    this.controls.enableDamping = true
-    this.defaultMaxAltitude = this.controls.maxAltitude
+    this.controls.enableDamping = this.config.interaction.damping
     this.controls.attach(this.canvas)
 
     this.camera = new Camera(this.threeCamera, this.projection)
+    this.camera.setConfig(this.config)
     if (opts.intro === false) {
       // Sans intro : survol nadir direct à l'altitude déduite du zoom (NB : comptée
       // depuis l'ellipsoïde, le terrain n'étant pas encore streamé).
@@ -330,7 +390,7 @@ export class MapEngine {
     } else {
       // Intro : vue globe au-dessus de la cible ; le vol part quand le terrain est
       // connu (cf. intro dans tick). Départ déterministe, jamais sous le terrain.
-      this.camera.jumpTo(opts.center, this.tiles.ellipsoid.radius.x)
+      this.camera.jumpTo(opts.center, this.tiles.ellipsoid.radius.x * this.config.startup.introAltitudeFactor)
       this.intro = {
         center: opts.center,
         altitude: altitudeForZoom(opts.zoom),
@@ -342,10 +402,7 @@ export class MapEngine {
 
     // Limite de dézoom : la Terre reste bien visible avec une petite marge d'espace,
     // jamais réduite à un point. maxCameraDistance = distance caméra↔centre Terre.
-    const R = this.tiles.ellipsoid.radius.x
-    this.maxCameraDistance = R * 2.5
-    this.camera.maxAltitude = R * 1.5
-    this.controls.maxDistance = R * 1.5
+    this.applyCameraLimits()
 
     // Fond étoilé : ajouté à la scène, rendu en premier (renderOrder -1, sans
     // écrire le depth) → toujours derrière la carte, sans altérer le pipeline.
@@ -495,6 +552,9 @@ export class MapEngine {
 
   addLayer(layer: Layer): void {
     this.layers.add(layer)
+    // Config poussée à l'ajout : une couche montée après un `setConfig` doit partir
+    // avec les réglages courants, pas avec ses défauts.
+    layer.setConfig?.(this.config)
   }
 
   removeLayer(layer: Layer): void {
@@ -526,6 +586,33 @@ export class MapEngine {
     // Le mode figé PRIME : monter une couche de dessin sur une carte non
     // interactive ne doit pas lui rendre la navigation dans le dos de l'hôte.
     this.controls.enabled = this.interactiveMode === true
+  }
+
+  /**
+   * Remplace les réglages à chaud. Ce qui se règle sans reconstruire est appliqué
+   * immédiatement (DPR, inertie, budgets de tuiles) ; le reste est relu à l'usage,
+   * puisque les consommateurs lisent `engine.config` à chaque frame.
+   *
+   * Ce qui NE peut pas changer à chaud est volontairement ignoré ici : le FOV est
+   * figé à la construction de la caméra Three, et le changer invaliderait toutes les
+   * résolutions mémoïsées.
+   */
+  setConfig(config: MapConfig): void {
+    if (this.config === config) return
+    const prev = this.config
+    this.config = config
+    if (prev.performance.pixelRatio !== config.performance.pixelRatio) {
+      this.renderer.setPixelRatio(config.performance.pixelRatio)
+      this.renderer.setSize(this.size.width, this.size.height, false)
+    }
+    this.controls.enableDamping = config.interaction.damping
+    this.basemap2d?.setConfig(config.providers.tiles)
+    this.camera.setConfig(config)
+    this.projection.setConfig(config)
+    for (const layer of this.layers) layer.setConfig?.(config)
+    // Bornes de navigation : recopiées dans `GlobeControls`, qui ne les relit pas.
+    if (prev.camera !== config.camera) this.applyCameraLimits()
+    this.viewDirty = true
   }
 
   /**
@@ -561,13 +648,16 @@ export class MapEngine {
   /** Recentre en vue du dessus (nadir) à l'altitude courante. */
   flyToTopDown(): void {
     const s = this.camera.getState()
-    this.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: s.altitude }, { duration: 0.5 })
+    this.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: s.altitude }, { duration: this.topDownDuration })
   }
 
   /** Recule jusqu'à voir tout le globe (vue monde), au-dessus du point courant. */
   flyToGlobe(): void {
     const s = this.camera.getState()
-    this.camera.flyTo({ lat: s.lat, lng: s.lng, altitude: this.tiles.ellipsoid.radius.x }, { duration: 1.0 })
+    this.camera.flyTo(
+      { lat: s.lat, lng: s.lng, altitude: this.tiles.ellipsoid.radius.x },
+      { duration: this.globeDuration },
+    )
   }
 
   /**
@@ -588,7 +678,7 @@ export class MapEngine {
 
     const tiltFromNadir = (): number => up.angleTo(back.set(0, 0, 1).transformDirection(cam.matrixWorld))
     const current = tiltFromNadir()
-    const max = Math.min(this.controls.maxAltitude, Math.PI * 0.44)
+    const max = Math.min(this.controls.maxAltitude, this.config.camera.maxTilt3d)
     const target = clamp(current + step, 0, max)
     const delta = target - current
     if (Math.abs(delta) < 1e-4) return
@@ -671,7 +761,7 @@ export class MapEngine {
     // basemap) — pas les tuiles 3D invisibles ; en 3D, retour à la surface réelle.
     this.projection.setFlatHeight(in2d ? this.terrainElevation : null)
     // Limite l'inclinaison en 2D (borne la couverture de tuiles), libre en 3D.
-    this.controls.maxAltitude = in2d ? TWO_D_MAX_ALTITUDE : this.defaultMaxAltitude
+    this.controls.maxAltitude = in2d ? this.config.camera.maxTilt2d : this.config.camera.maxTilt3d
     // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
     this.setTiles3DVisible(!in2d)
     this.basemap2d?.setVisible(in2d)
@@ -719,14 +809,6 @@ export class MapEngine {
   }
 
   /**
-   * Attente max avant d'émettre `ready` quand même (ms). Une source de tuiles en
-   * échec (403, token invalide, réseau coupé) ne doit jamais laisser l'application
-   * bloquée à attendre un event qui n'arrivera pas — même raison d'être que
-   * `INTRO_MAX_WAIT_MS`, dont il reprend la valeur.
-   */
-  private static readonly READY_MAX_WAIT_MS = 8000
-
-  /**
    * Émet `ready` dès que la carte est exploitable, ou au bout du garde-fou.
    *
    * En 3D, « exploitable » veut dire que le terrain a été touché au moins une fois
@@ -739,7 +821,7 @@ export class MapEngine {
     const usable =
       this.projection.isReady() &&
       (this.mapMode !== '3d' || (this.terrainKnown && this.tiles.loadProgress >= 1))
-    if (!usable && now - this.startedAt < MapEngine.READY_MAX_WAIT_MS) return
+    if (!usable && now - this.startedAt < this.config.startup.readyMaxWaitMs) return
     this.readyEmitted = true
     this.emit('ready', this)
   }
@@ -778,12 +860,9 @@ export class MapEngine {
     }
   }
 
-  /** Durée du vol d'intro (s). */
-  private static readonly INTRO_DURATION = 3.0
-  /** Attente max des tuiles avant de partir quand même (ms) — source de tuiles en
-   *  échec (403, token invalide, réseau) : la carte ne reste jamais bloquée en vue
-   *  globe avec les overlays masqués. */
-  private static readonly INTRO_MAX_WAIT_MS = 8000
+  // Durée du vol d'intro et attente max des tuiles : `startup.introDuration` /
+  // `startup.introMaxWaitMs`. Le garde-fou évite qu'une source en échec (403, token
+  // invalide, réseau) laisse la carte bloquée en vue globe, overlays masqués.
 
   /** Lance la descente de l'intro vers la cible, au-dessus du sol connu. */
   private startIntroFlight(): void {
@@ -791,7 +870,7 @@ export class MapEngine {
     this.intro.flying = true
     this.camera.flyTo(
       { ...this.intro.center, altitude: this.terrainElevation + this.intro.altitude },
-      { duration: MapEngine.INTRO_DURATION, tag: 'intro' },
+      { duration: this.config.startup.introDuration, tag: 'intro' },
     )
   }
 
@@ -817,7 +896,7 @@ export class MapEngine {
       // délai max (tuiles en échec), on part quand même avec la meilleure hauteur
       // connue — même arrivée que l'ancien placement direct, jamais de blocage.
       const ready = this.terrainKnown && this.tiles.loadProgress >= 1
-      if (!ready && now - intro.startedAt < MapEngine.INTRO_MAX_WAIT_MS) return
+      if (!ready && now - intro.startedAt < this.config.startup.introMaxWaitMs) return
       this.startIntroFlight()
       return
     }
@@ -930,7 +1009,7 @@ export class MapEngine {
       this.settleFrames = 0
     } else {
       this.settleFrames++
-      if (this.settleFrames === 4) this.emit('viewport', this.computeView(state))
+      if (this.settleFrames === this.config.performance.viewportSettleFrames) this.emit('viewport', this.computeView(state))
     }
 
     // Mode 2D : alimente le globe tuilé chaque frame (raffinement incrémental fluide).
@@ -941,6 +1020,10 @@ export class MapEngine {
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
     // aucun layer ne le lit par frame, seul l'event 'viewport' et getView() le forcent.
+    // Alias nécessaire : `this` dans le getter ci-dessous désignerait `ctx`, pas le
+    // moteur. Une flèche ne peut pas être un getter, et lier la méthode calculerait
+    // la vue à chaque frame — ce que ce getter paresseux existe justement pour éviter.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const engine = this
     const ctx: FrameContext = {
       camera: this.threeCamera,
@@ -991,10 +1074,14 @@ export class MapEngine {
   private hasMoved(state: CameraState): boolean {
     const p = this.lastState
     if (!p) return true
+    // Même seuil que les couches (`HeightResettle`, `MarkerLayer`) : il était dix
+    // fois plus fin ici, si bien que le moteur émettait `camera` pour un mouvement
+    // que les couches jugeaient nul — elles ne re-échantillonnaient donc pas.
+    const eps = this.config.performance.cameraMoveEpsilon
     return (
-      Math.abs(p.lat - state.lat) > 1e-7 ||
-      Math.abs(p.lng - state.lng) > 1e-7 ||
-      Math.abs(p.altitude - state.altitude) > Math.max(1, state.altitude * 1e-4)
+      Math.abs(p.lat - state.lat) > eps.deg ||
+      Math.abs(p.lng - state.lng) > eps.deg ||
+      Math.abs(p.altitude - state.altitude) > Math.max(eps.altitudeMinMeters, state.altitude * eps.altitudeRatio)
     )
   }
 
@@ -1029,7 +1116,9 @@ export class MapEngine {
     // markers lointains (haut de l'écran), qui « disparaîtraient » alors qu'ils sont
     // à l'écran. Un échantillonnage 5×5 capte la bande de sol proche de l'horizon,
     // donc la bbox couvre tout le trapèze visible. Pick ellipsoïde = bon marché.
-    const N = 5
+    // Densité réglable (`performance.boundsPickGrid`) : le coût est en n².
+    // Plancher à 2 — en dessous, `N - 1` diviserait par zéro.
+    const N = Math.max(2, Math.round(this.config.performance.boundsPickGrid))
     let north = -90
     let south = 90
     let east = -180
@@ -1059,8 +1148,11 @@ export class MapEngine {
     }
     // Marge de sécurité : la bbox axis-aligned n'épouse pas exactement le trapèze de
     // vue ; on l'élargit un peu pour ne jamais masquer un marker réellement visible.
-    const padLat = (north - south) * 0.15 + 1e-4
-    const padLng = (east - west) * 0.15 + 1e-4
+    // Réglable (`performance.boundsMargin`) — c'est elle qui décide combien de données
+    // l'application charge à chaque déplacement.
+    const pad = this.config.performance.boundsMargin
+    const padLat = (north - south) * pad + 1e-4
+    const padLng = (east - west) * pad + 1e-4
     return {
       north: north + padLat,
       south: south - padLat,
@@ -1069,12 +1161,12 @@ export class MapEngine {
     }
   }
 
-  private buildFallbackGlobe(background: string): THREE.Group {
+  private buildFallbackGlobe(oceanColor: string): THREE.Group {
     const group = new THREE.Group()
     const r = this.tiles.ellipsoid.radius
     const geo = new THREE.SphereGeometry(1, 96, 64)
     geo.scale(r.x, r.y, r.z)
-    const ocean = new THREE.Color(background).lerp(new THREE.Color('#1b3b5f'), 0.7)
+    const ocean = new THREE.Color(oceanColor)
     const mat = new THREE.MeshBasicMaterial({ color: ocean })
     group.add(new THREE.Mesh(geo, mat))
 
@@ -1206,7 +1298,7 @@ export class MapEngine {
     // ce qui distingue « consultable » de « image ».
     if (this.interactiveMode === false) return
     // Clic « propre » (peu de mouvement) → événement de sélection carte.
-    if (drag && drag.moved < 6) {
+    if (drag && drag.moved < this.config.interaction.cleanClickPx) {
       const ll = this.pickAt(e)
       if (ll) this.emit('click', { latLng: ll, originalEvent: e })
     }

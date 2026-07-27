@@ -3,8 +3,6 @@
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels } from '../context'
 
-/** Taille des icônes @mdi/react des boutons de barre. */
-export const ICON_SIZE = 0.8
 
 /** Affichage d'une touche : lettre seule en capitale, combo tel quel. */
 export const formatKey = (key: string): string => (key.length === 1 ? key.toUpperCase() : key)
