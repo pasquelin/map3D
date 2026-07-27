@@ -1,4 +1,4 @@
-import { mdiChevronLeft, mdiChevronRight, mdiPin } from '@mdi/js'
+import { mdiChevronUp } from '@mdi/js'
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
@@ -187,75 +187,72 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
   // Rien à montrer : ni favori, ni drag en cours.
   if (props.items.length === 0 && !dragActive) return null
 
-  // Repliée : pastille compacte (épingle + compteur + chevron), qui reste une
-  // cible de dépôt. Un clic la redéploie. Chaque état monte un élément distinct
-  // (button ↔ div) → l'animation d'apparition CSS se rejoue à chaque bascule.
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        className={`m3d-pindock m3d-pindock-collapsed${isOver ? ' m3d-pindock-over' : ''}`}
-        {...dropProps}
-        onClick={() => setCollapsed(false)}
-        aria-label={labels.pinned.expand}
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-          <path d={mdiPin} fill="currentColor" />
-        </svg>
-        {props.items.length > 0 && <span className="m3d-pindock-count">{props.items.length}</span>}
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden className="m3d-pindock-chev">
-          <path d={mdiChevronRight} fill="currentColor" />
-        </svg>
-      </button>
-    )
-  }
-
+  // Les DEUX états vivent dans le même arbre : la barre ne se démonte pas, elle
+  // coulisse sous le bord de la carte, et la poignée ronde la suit. Monter deux
+  // éléments distincts (comme avant) interdisait toute continuité — l'un
+  // disparaissait, l'autre apparaissait.
+  //
+  // La poignée porte `dropProps` en plus de la barre : les deux résolvent la même
+  // zone (le hit-test remonte au plus proche `data-m3d-drop`), donc on épingle par
+  // dépôt même repliée, sans avoir à déployer.
   return (
-    <div className={`m3d-pindock${isOver ? ' m3d-pindock-over' : ''}`} {...dropProps}>
-      <div className="m3d-pindock-add" style={{ width: size, height: size }} aria-hidden={props.items.length > 0}>
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-        </svg>
-        <span className="m3d-pindock-addlabel">{addLabel}</span>
-      </div>
-      {props.items.length > 0 && (
-        <div className="m3d-pindock-items" ref={listRef}>
-          {props.items.map((item, i) => (
-            <Fragment key={item.id}>
-              {reorder?.index === i && <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />}
-              <PinnedPin
-              item={item}
-              dimmed={reorder != null && String(reorder.id) === String(item.id)}
-              size={size}
-              render={props.renderPin}
-              tooltip={props.tooltip}
-              removeLabel={removeLabel}
-              onUnpin={props.onUnpin}
-              onActivate={() => {
-                if (props.flyOnClick !== false && item.position) {
-                  const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? 16)
-                  engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: 0.8 })
-                }
-                props.onPinClick?.(item)
-              }}
-            />
-            </Fragment>
-          ))}
-          {reorder != null && reorder.index >= props.items.length && (
-            <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />
-          )}
-        </div>
-      )}
+    <div className={`m3d-pindock-wrap${collapsed ? ' m3d-collapsed' : ''}${isOver ? ' m3d-pindock-over' : ''}`}>
       <button
         type="button"
         className="m3d-pindock-toggle"
-        onClick={() => setCollapsed(true)}
-        aria-label={labels.pinned.collapse}
+        {...dropProps}
+        onClick={() => setCollapsed((c) => !c)}
+        aria-label={collapsed ? labels.pinned.expand : labels.pinned.collapse}
+        aria-expanded={!collapsed}
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-          <path d={mdiChevronLeft} fill="currentColor" />
+        {/* Un seul chevron, qui pivote : vers le bas il referme, vers le haut il
+            rouvre. Deux icônes échangées sauteraient au lieu de tourner. */}
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden className="m3d-pindock-chev">
+          <path d={mdiChevronUp} fill="currentColor" />
         </svg>
+        {/* Compteur et nom sont TOUJOURS montés, et c'est le CSS qui les déplie avec
+            la poignée : montés à la bascule, ils feraient sauter sa largeur au lieu
+            de l'accompagner. Repliée, la poignée est le seul élément visible — sans
+            eux, on ignore et ce qu'elle rouvre, et combien elle contient. */}
+        {props.items.length > 0 && <span className="m3d-pindock-count">{props.items.length}</span>}
+        <span className="m3d-pindock-name">{labels.pinned.title}</span>
       </button>
+      <div className="m3d-pindock" {...dropProps} aria-hidden={collapsed}>
+        <div className="m3d-pindock-add" style={{ width: size, height: size }} aria-hidden={props.items.length > 0}>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          </svg>
+          <span className="m3d-pindock-addlabel">{addLabel}</span>
+        </div>
+        {props.items.length > 0 && (
+          <div className="m3d-pindock-items" ref={listRef}>
+            {props.items.map((item, i) => (
+              <Fragment key={item.id}>
+                {reorder?.index === i && <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />}
+                <PinnedPin
+                  item={item}
+                  dimmed={reorder != null && String(reorder.id) === String(item.id)}
+                  size={size}
+                  render={props.renderPin}
+                  tooltip={props.tooltip}
+                  removeLabel={removeLabel}
+                  onUnpin={props.onUnpin}
+                  onActivate={() => {
+                    if (props.flyOnClick !== false && item.position) {
+                      const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? 16)
+                      engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: 0.8 })
+                    }
+                    props.onPinClick?.(item)
+                  }}
+                />
+              </Fragment>
+            ))}
+            {reorder != null && reorder.index >= props.items.length && (
+              <span className="m3d-pin-slot" style={{ width: size, height: size }} aria-hidden />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
