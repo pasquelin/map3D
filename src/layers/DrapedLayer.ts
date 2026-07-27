@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { Projection } from '../core/Projection'
 import { clearGroup, disposeObject3D } from '../core/geometry'
@@ -55,6 +57,8 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
   ) {
     this.group.name = groupName
     this.scene.add(this.group)
+    // Accesseur et non valeur figée : `setConfig` remplace l'arbre, et le protocole
+    // de drapage relit ses budgets à chaque frame.
     this.sync = new DrapeSync(projection, {
       count: () => this.drapes.length,
       getHeight: (i) => this.drapes[i]!.height,
@@ -76,7 +80,17 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
         this.projection.enuBasisFor(d.anchor, d.enu.matrix, this.heightOf(d))
         d.enu.matrixWorldNeedsUpdate = true
       },
-    })
+    }, () => this.config)
+  }
+
+  /**
+   * Réglages courants, posés par la couche React — même patron que `DrawLayer`.
+   * `defaultConfig` tant que rien n'est posé : le core reste utilisable seul.
+   */
+  config: MapConfig = defaultConfig
+
+  setConfig(config: MapConfig): void {
+    this.config = config
   }
 
   /** Ancre géo d'un item : origine de son repère ENU. Doit tolérer un item vide. */

@@ -14,9 +14,15 @@ import { RemoveButton } from './RemoveButton'
 export type RelationStatusBarProps = {
   /** Nom lisible d'un point — l'application seule sait le produire (défaut : son id). */
   nameOf?: (point: MapPoint) => string
+  /**
+   * Modes de transport proposés, dans l'ordre du menu. Restreindre la liste est un
+   * besoin courant — une flotte de véhicules n'a que faire de « à pied » ni des
+   * transports en commun — et l'API ne le permettait pas.
+   */
+  modes?: readonly TravelMode[]
 }
 
-const MODES: readonly TravelMode[] = ['DRIVE', 'WALK', 'BICYCLE', 'TWO_WHEELER', 'TRANSIT']
+const DEFAULT_MODES: readonly TravelMode[] = ['DRIVE', 'WALK', 'BICYCLE', 'TWO_WHEELER', 'TRANSIT']
 
 /** Segments pilotables de la barre. */
 type Segment = 'mode' | 'family'
@@ -34,7 +40,7 @@ type OpenSegment = Segment | null
  * ne dit pas DE QUELLE relation elle parle quand plusieurs sont ouvertes. Ici la
  * commande est à l'endroit exact où le regard se trouve déjà.
  */
-export function RelationStatusBar({ nameOf }: RelationStatusBarProps) {
+export function RelationStatusBar({ nameOf, modes = DEFAULT_MODES }: RelationStatusBarProps) {
   const { snapshots, hubHosts } = useRelations()
   return (
     <>
@@ -44,7 +50,7 @@ export function RelationStatusBar({ nameOf }: RelationStatusBarProps) {
         // barre apparaîtra au rendu suivant, avec son ancre.
         if (!host) return null
         return createPortal(
-          <RelationBar snapshot={snapshot} nameOf={nameOf} />,
+          <RelationBar snapshot={snapshot} nameOf={nameOf} modes={modes} />,
           host,
           snapshot.source.id,
         )
@@ -56,9 +62,10 @@ export function RelationStatusBar({ nameOf }: RelationStatusBarProps) {
 type BarProps = {
   snapshot: RelationSnapshot
   nameOf?: (point: MapPoint) => string
+  modes: readonly TravelMode[]
 }
 
-function RelationBar({ snapshot, nameOf }: BarProps) {
+function RelationBar({ snapshot, nameOf, modes }: BarProps) {
   const labels = useLabels()
   const { rules, setMode, clear, untrace, run, routeColor, familyColor } = useRelations()
   const { source, rule, links } = snapshot
@@ -87,9 +94,9 @@ function RelationBar({ snapshot, nameOf }: BarProps) {
 
   const modeItems = useMemo(
     (): MenuItem[] =>
-      MODES.map((mode) => ({
+      modes.map((mode) => ({
         label: labels.relations.modes[mode],
-        ...(rule.mode === mode ? { icon: '✓' } : {}),
+        ...(rule.mode === mode ? { icon: labels.glyphs.check } : {}),
         onSelect: () => setMode(source.id, mode),
       })),
     [labels, rule.mode, setMode, source.id],
@@ -103,7 +110,7 @@ function RelationBar({ snapshot, nameOf }: BarProps) {
         // Couleur de la FAMILLE, comme les pastilles du menu du marker — pas celle du
         // trait : ces entrées distinguent des familles entre elles.
         swatch: familyColor(r),
-        ...(r.id === rule.id ? { icon: '✓' } : {}),
+        ...(r.id === rule.id ? { icon: labels.glyphs.check } : {}),
         onSelect: () => run(source, { ...r, mode: rule.mode, selection: rule.selection }),
       })),
     [rules, rule, run, source, familyColor],

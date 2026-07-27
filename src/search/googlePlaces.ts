@@ -2,17 +2,23 @@
 // Un SEUL appel renvoie nom, adresse, position ET viewport (→ zoom adapté au lieu),
 // contrairement au couple Autocomplete + Place Details qui en coûte deux.
 
+import { defaultConfig } from '../config/defaultConfig'
+import { resolveLocale, resolveRegion } from '../config/mergeConfig'
+import type { PlacesConfig } from '../config/types'
 import type { SearchResult } from '../shared'
+import { fetchWithPolicy } from '../core/fetchPolicy'
 import { clamp } from '../core/math'
 
 export type GooglePlacesOptions = {
   apiKey: string
-  /** Code langue BCP-47 des résultats (défaut : langue du navigateur). */
+  /** Code langue BCP-47 des résultats. Prioritaire sur `config.languageCode`. */
   language?: string
-  /** Biais régional (code CLDR, ex. 'fr'). */
+  /** Biais régional (code CLDR, ex. 'fr'). Prioritaire sur `config.regionCode`. */
   region?: string
-  /** Nombre max de résultats (1–20, défaut 6). */
+  /** Nombre max de résultats. Prioritaire sur `config.pageSize`. */
   limit?: number
+  /** Endpoint, FieldMask (facturation) et politique réseau ; `defaultConfig` à défaut. */
+  config?: PlacesConfig
 }
 
 type GooglePlace = {
@@ -33,24 +39,35 @@ type GooglePlace = {
 export function createGooglePlacesSearch(
   opts: GooglePlacesOptions,
 ): (query: string, signal?: AbortSignal) => Promise<SearchResult[]> {
-  const pageSize = clamp(Math.round(opts.limit ?? 6), 1, 20)
+  const cfg = opts.config ?? defaultConfig.providers.places
+  const [minSize, maxSize] = cfg.pageSizeRange
+  const pageSize = clamp(Math.round(opts.limit ?? cfg.pageSize), minSize, maxSize)
+  const languageCode = opts.language ?? resolveLocale(cfg.languageCode)
+  const regionCode = opts.region ?? resolveRegion(cfg.regionCode)
   return async (query, signal) => {
-    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': opts.apiKey,
-        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.viewport',
+    const res = await fetchWithPolicy(
+      cfg.url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': opts.apiKey,
+          'X-Goog-FieldMask': cfg.fields,
+          // Après les nôtres, comme en routage : un proxy qui attend un `Authorization`
+          // doit pouvoir remplacer l'en-tête de clé Google, pas seulement s'y ajouter.
+          ...cfg.headers,
+        },
+        body: JSON.stringify({
+          textQuery: query,
+          pageSize,
+          ...(languageCode ? { languageCode } : {}),
+          ...(regionCode ? { regionCode } : {}),
+        }),
       },
-      body: JSON.stringify({
-        textQuery: query,
-        pageSize,
-        languageCode: opts.language ?? (typeof navigator !== 'undefined' ? navigator.language : undefined),
-        ...(opts.region ? { regionCode: opts.region } : {}),
-      }),
-    })
-    if (!res.ok) throw new Error(`Google Places searchText ${res.status}`)
+      cfg,
+      signal,
+      'Google Places searchText',
+    )
     const body = (await res.json()) as { places?: GooglePlace[] }
     const results: SearchResult[] = []
     for (const p of body.places ?? []) {

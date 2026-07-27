@@ -1,8 +1,11 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { clamp } from '../../core/math'
-// Même source que la feuille de styles : le CSS interpole ces valeurs, le calcul de
-// place disponible les lit. Elles ne peuvent plus diverger.
-import { EDGE, GAP } from '../../style/panelGeometry'
+import { useConfig, useTheme } from '../context'
+
+// `theme.spacing` est la source de ces deux valeurs, publiée AUSSI en variables CSS
+// (`--m3d-gap`, `--m3d-edge`) par `themeToVars` : la feuille de styles et le calcul
+// de place disponible lisent le même nombre, et une charte peut les changer sans
+// que les deux côtés divergent. Les défauts vivent dans `style/panelGeometry`.
 
 /**
  * Placement des surfaces flottantes (panneaux ancrés, flyouts, menus, listes de
@@ -34,14 +37,6 @@ export function useMergedRefs(a: PanelRef, b: PanelRef): PanelRef {
     [a, b],
   )
 }
-
-/**
- * Plancher de compactage d'une barre. Volontairement haut : les icônes ne sont pas
- * mises à l'échelle, un bouton beaucoup plus petit les rend illisibles. Le
- * compactage n'absorbe donc qu'un léger dépassement — au-delà, ce sont les
- * colonnes qui prennent le relais, jamais un rapetissement agressif.
- */
-const BAR_MIN_SCALE = 0.85
 
 /** Côté de la barre hôte = suffixe de classe (`m3d-right` → panneau ouvert à gauche). */
 export type PanelSide = 'left' | 'right'
@@ -206,6 +201,7 @@ export function useAnchoredPanel(
   const top = useRef(desiredTop)
   top.current = desiredTop
   const replace = useRef<(() => void) | null>(null)
+  const { gap, edge: edgeGap } = useTheme().spacing
 
   const ref = usePlacement(
     (el, root) => {
@@ -217,19 +213,19 @@ export function useAnchoredPanel(
 
         // 1. Hauteur : le panneau ne peut pas être plus haut que le conteneur — sur
         //    une carte très courte il rétrécit plutôt que de déborder.
-        const h = clampHeight ? fitHeight(el, Math.max(0, b.height - 2 * EDGE), maxHeight) : el.offsetHeight
+        const h = clampHeight ? fitHeight(el, Math.max(0, b.height - 2 * edgeGap), maxHeight) : el.offsetHeight
         // Largeur lue AVANT l'écriture de l'étape 2 : après, elle coûterait un
         // reflux, et un décalage vertical ne peut pas la changer.
         const w = el.offsetWidth
 
         // 2. Vertical.
         const wanted = edge === 'bottom' ? a.bottom - h : a.top + top.current
-        const y = clamp(wanted, b.top + EDGE, Math.max(b.top + EDGE, b.bottom - EDGE - h))
+        const y = clamp(wanted, b.top + edgeGap, Math.max(b.top + edgeGap, b.bottom - edgeGap - h))
         const offset = edge === 'bottom' ? `${Math.round(a.bottom - y - h)}px` : `${Math.round(y - a.top)}px`
         if (el.style[edge] !== offset) el.style[edge] = offset
 
         // 3. Horizontal : `m3d-right` ouvre à gauche du bouton, `m3d-left` à droite.
-        const room = (s: PanelSide) => (s === 'right' ? a.left - GAP - b.left : b.right - (a.right + GAP))
+        const room = (s: PanelSide) => (s === 'right' ? a.left - gap - b.left : b.right - (a.right + gap))
         const other: PanelSide = side === 'right' ? 'left' : 'right'
         // Comparé à `side` (la préférence), jamais au côté courant : pas d'oscillation.
         setEffective(room(side) >= w || room(side) >= room(other) ? side : other)
@@ -238,7 +234,7 @@ export function useAnchoredPanel(
       // celle-ci (compactage, bouton ajouté) la redimensionne ou la déplace aussi.
       return { run: place, targets: [anchor] }
     },
-    [side, edge, maxHeight, clampHeight],
+    [side, edge, maxHeight, clampHeight, gap, edgeGap],
     (run) => {
       replace.current = run
     },
@@ -263,17 +259,18 @@ export function useAnchoredPanel(
  * @returns la callback ref à poser sur la surface
  */
 export function useFitHeight(mode: 'dropdown' | 'centered', cap?: number): PanelRef {
+  const edgeGap = useTheme().spacing.edge
   return usePlacement(
     (el, root) => ({
       run: () => {
         const b = boundsOf(root)
         // 'dropdown' part de la position courante ; 'centered' ne le peut pas —
         // réduire une surface centrée la recentre, sa position n'est pas un point fixe.
-        const avail = mode === 'dropdown' ? b.bottom - EDGE - layoutBox(el).top : b.height - 2 * EDGE
+        const avail = mode === 'dropdown' ? b.bottom - edgeGap - layoutBox(el).top : b.height - 2 * edgeGap
         fitHeight(el, Math.max(0, avail), cap)
       },
     }),
-    [mode, cap],
+    [mode, cap, edgeGap],
   )
 }
 
@@ -315,12 +312,18 @@ export type ColumnsOptions = {
  * @returns la callback ref à poser sur la surface
  */
 export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOptions = {}): PanelRef {
+  const edgeGap = useTheme().spacing.edge
+  // Plancher de compactage d'une barre. Volontairement haut : les icônes ne sont pas
+  // mises à l'échelle, un bouton beaucoup plus petit les rend illisibles. Le
+  // compactage n'absorbe donc qu'un léger dépassement — au-delà, ce sont les
+  // colonnes qui prennent le relais, jamais un rapetissement agressif.
+  const barMinScale = useConfig().interaction.barMinScale
   return usePlacement((el, root) => {
     const scope = root ?? document
     const fit = () => {
       const b = boundsOf(root)
-      let top = b.top + EDGE
-      const bottom = b.bottom - EDGE
+      let top = b.top + edgeGap
+      const bottom = b.bottom - edgeGap
 
       // Re-résolu à chaque passe : l'obstacle peut être monté après la barre, et un
       // `querySelector` est négligeable devant les mesures qui suivent.
@@ -332,7 +335,7 @@ export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOpti
         const box = layoutBox(el)
         // Obstacle pris en compte seulement s'il croise la barre horizontalement :
         // celle du bord opposé n'est jamais gênée.
-        if (o.right > box.left && o.left < box.right && o.bottom > top) top = o.bottom + EDGE
+        if (o.right > box.left && o.left < box.right && o.bottom > top) top = o.bottom + edgeGap
       }
 
       const avail = Math.max(0, bottom - top)
@@ -344,7 +347,7 @@ export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOpti
       const natural = el.offsetHeight
 
       if (natural > avail) {
-        el.style.setProperty('--m3d-bar-scale', String(Math.round(clamp(avail / natural, BAR_MIN_SCALE, 1) * 1000) / 1000))
+        el.style.setProperty('--m3d-bar-scale', String(Math.round(clamp(avail / natural, barMinScale, 1) * 1000) / 1000))
         // Bordures et marges fixes ne se compactent pas : la hauteur réelle peut
         // rester au-dessus de la cible même à l'échelle calculée.
         if (el.offsetHeight > avail) {
@@ -382,7 +385,7 @@ export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOpti
     // L'obstacle présent au montage est observé : la liste de résultats qui s'ouvre
     // agrandit la boîte de recherche, la barre doit se recaler.
     return { run: fit, targets: [avoid !== undefined ? scope.querySelector(avoid) : null] }
-  }, [recenter, avoid, widthVar])
+  }, [recenter, avoid, widthVar, edgeGap, barMinScale])
 }
 
 /**
@@ -397,6 +400,7 @@ export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOpti
  */
 export function useNudgeInside(flipX = false): [boolean, PanelRef] {
   const [flipped, setFlipped] = useState(false)
+  const edgeGap = useTheme().spacing.edge
 
   const ref = usePlacement(
     (el, root) => {
@@ -415,8 +419,8 @@ export function useNudgeInside(flipX = false): [boolean, PanelRef] {
 
         // Débordement bas d'abord, puis haut : d'une surface plus haute que le
         // conteneur, mieux vaut montrer le début que la fin.
-        let dy = Math.min(0, b.bottom - EDGE - refBottom)
-        dy += Math.max(0, b.top + EDGE - (refTop + dy))
+        let dy = Math.min(0, b.bottom - edgeGap - refBottom)
+        dy += Math.max(0, b.top + edgeGap - (refTop + dy))
         dy = Math.round(dy)
         if (dy !== applied.y) {
           applied.y = dy
@@ -429,14 +433,14 @@ export function useNudgeInside(flipX = false): [boolean, PanelRef] {
           // calcul suivant, indéfiniment.
           if (!pr || !p) return
           const anchorLeft = pr.left + p.clientLeft
-          const roomRight = b.right - EDGE - (anchorLeft + p.clientWidth)
-          const roomLeft = anchorLeft - (b.left + EDGE)
+          const roomRight = b.right - edgeGap - (anchorLeft + p.clientWidth)
+          const roomLeft = anchorLeft - (b.left + edgeGap)
           setFlipped(roomRight < box.width && roomLeft >= box.width)
           return
         }
         const refLeft = box.left - applied.x
-        let dx = Math.min(0, b.right - EDGE - (refLeft + box.width))
-        dx += Math.max(0, b.left + EDGE - (refLeft + dx))
+        let dx = Math.min(0, b.right - edgeGap - (refLeft + box.width))
+        dx += Math.max(0, b.left + edgeGap - (refLeft + dx))
         dx = Math.round(dx)
         if (dx !== applied.x) {
           applied.x = dx
@@ -463,7 +467,7 @@ export function useNudgeInside(flipX = false): [boolean, PanelRef] {
       frame = requestAnimationFrame(follow)
       return { run: nudge, cleanup: () => cancelAnimationFrame(frame) }
     },
-    [flipX],
+    [flipX, edgeGap],
   )
 
   return [flipped, ref]

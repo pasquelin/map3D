@@ -3,7 +3,9 @@ import { useMapContext } from '../context'
 import { useLayer, useLayerSync } from '../hooks/useLayer'
 
 export type PathLayerProps = {
+  /** Tracés à afficher, drapés sur le relief. */
   paths: PathData[]
+  /** Pulsation du point courant, en tête du tracé (défaut `true`). */
   animateHead?: boolean
 }
 

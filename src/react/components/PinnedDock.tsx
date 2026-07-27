@@ -5,7 +5,7 @@ import { altitudeForZoom } from '../../core/MapEngine'
 import type { DragPayload } from '../../core/DragRegistry'
 import type { LatLng } from '../../shared'
 import type { MapTheme } from '../../theme/types'
-import { useLabels, useMapContext } from '../context'
+import { useConfig, useLabels, useMapContext } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { RemoveButton } from './RemoveButton'
@@ -90,7 +90,8 @@ export type PinnedDockProps<T = unknown> = {
  * de la dock — un tooltip « Supprimer » apparaît alors au-dessus du curseur.
  */
 export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
-  const { engine } = useMapContext()
+  const { engine, theme } = useMapContext()
+  const config = useConfig()
   const labels = useLabels()
   const zoneId = props.zoneId ?? 'm3d-pinned'
   const size = props.size ?? 64
@@ -239,8 +240,8 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
                   onUnpin={props.onUnpin}
                   onActivate={() => {
                     if (props.flyOnClick !== false && item.position) {
-                      const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? 16)
-                      engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: 0.8 })
+                      const alt = props.flyAltitude ?? altitudeForZoom(props.flyZoom ?? config.interaction.pinnedFlyZoom)
+                      engine.camera.flyTo({ lat: item.position.lat, lng: item.position.lng, altitude: alt }, { duration: theme.animations.target })
                     }
                     props.onPinClick?.(item)
                   }}

@@ -1,12 +1,19 @@
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig, PerformanceConfig } from '../config/types'
 import type { CameraState } from './Camera'
 import type { Projection } from './Projection'
 
-/** Bande d'hystérésis des épaisseurs px→mètres : ratio hors de [1/bande, bande] → rebuild. */
-export const MPP_BAND = 1.25
-/** Variation de hauteur (m) considérée comme un vrai changement de surface. */
+/**
+ * Variation de hauteur (m) au-delà de laquelle la surface a réellement changé.
+ * Reste une constante : c'est un seuil de bruit d'échantillonnage, pas un arbitrage
+ * coût/qualité — l'abaisser ferait rebuild sur du bruit, l'élever raterait de vrais
+ * mouvements de surface.
+ */
 export const HEIGHT_EPSILON = 0.5
-/** Cadence (frames) de retentative des ancres jamais résolues (tuiles absentes). */
-export const UNRESOLVED_RETRY_FRAMES = 30
+
+/** Réglages de re-échantillonnage — cf. `performance.resettle`. */
+export type ResettleConfig = PerformanceConfig['resettle']
+
 
 /**
  * Fenêtre de re-échantillonnage des hauteurs drapées, calquée sur celle des
@@ -23,8 +30,15 @@ export class HeightResettle {
   private cursor = 0
   private readonly last = { lat: 0, lng: 0, alt: 0 }
 
+  /**
+   * Source de config relue à chaque appel — le seuil de mouvement et les cadences
+   * étaient écrits en dur ici, et les mêmes nombres l'étaient aussi dans
+   * `MarkerLayer` et `MapEngine`, avec des valeurs qui avaient divergé.
+   */
+  constructor(private readonly cfg: () => MapConfig = () => defaultConfig) {}
+
   /** Ouvre (ou prolonge) la fenêtre — à appeler à l'ajout/rebuild de formes. */
-  open(frames = 90): void {
+  open(frames = this.cfg().performance.resettle.windowFrames): void {
     this.frames = Math.max(this.frames, frames)
   }
 
@@ -39,10 +53,11 @@ export class HeightResettle {
    * dépendant de la caméra — m/px, bande d'hystérésis — sont sautés au repos).
    */
   note(cam: CameraState): boolean {
+    const eps = this.cfg().performance.cameraMoveEpsilon
     const moved =
-      Math.abs(cam.lat - this.last.lat) > 1e-6 ||
-      Math.abs(cam.lng - this.last.lng) > 1e-6 ||
-      Math.abs(cam.altitude - this.last.alt) > Math.max(1, cam.altitude * 1e-3)
+      Math.abs(cam.lat - this.last.lat) > eps.deg ||
+      Math.abs(cam.lng - this.last.lng) > eps.deg ||
+      Math.abs(cam.altitude - this.last.alt) > Math.max(eps.altitudeMinMeters, cam.altitude * eps.altitudeRatio)
     if (moved) {
       this.open()
       this.last.lat = cam.lat
@@ -53,10 +68,10 @@ export class HeightResettle {
   }
 
   /** Indices (round-robin, ≤ `batch`) à re-échantillonner cette frame ; [] hors cadence. */
-  batch(count: number, batch = 4): number[] {
+  batch(count: number, batch = this.cfg().performance.resettle.batch): number[] {
     if (count === 0 || this.frames <= 0) return []
     this.frames--
-    if (++this.tick % 3 !== 0) return []
+    if (++this.tick % this.cfg().performance.resettle.everyNFrames !== 0) return []
     const k = Math.min(batch, count)
     const out: number[] = []
     for (let i = 0; i < k; i++) out.push((this.cursor + i) % count)
@@ -98,7 +113,7 @@ export type DrapeOps = {
  *    hauteur seulement — zéro travail par frame carte immobile.
  */
 export class DrapeSync {
-  private readonly resettle = new HeightResettle()
+  private readonly resettle: HeightResettle
   private heightEpoch = -1
   private groupEpochSeen = -1
   private stableRuns = 0
@@ -107,7 +122,19 @@ export class DrapeSync {
   constructor(
     private readonly projection: Projection,
     private readonly ops: DrapeOps,
-  ) {}
+    /**
+     * Config complète relue à chaque frame (elle change à chaud). Complète et non
+     * seulement `performance.resettle` : la fenêtre de re-échantillonnage a aussi
+     * besoin du seuil de mouvement caméra, qui vit à côté et qu'elle codait en dur.
+     */
+    private readonly cfg: () => MapConfig = () => defaultConfig,
+  ) {
+    this.resettle = new HeightResettle(cfg)
+  }
+
+  private perf(): ResettleConfig {
+    return this.cfg().performance.resettle
+  }
 
   /** À appeler après un (re)build d'éléments : rouvre la fenêtre de re-échantillonnage. */
   invalidate(): void {
@@ -118,6 +145,7 @@ export class DrapeSync {
   /** Avance le protocole — à appeler chaque frame depuis `update()` du layer. */
   update(cam: CameraState): void {
     const ops = this.ops
+    const perf = this.perf()
     let heightsChanged = false
 
     // Bascule 2D/3D : la surface de référence change → tout est à re-résoudre.
@@ -141,7 +169,7 @@ export class DrapeSync {
       this.stableRuns = 0
     }
     // Ancres jamais résolues : retentative à basse cadence, ciblée sur elles seules.
-    if (++this.retryTick % UNRESOLVED_RETRY_FRAMES === 0) {
+    if (++this.retryTick % perf.retryFrames === 0) {
       for (let i = 0; i < ops.count(); i++) {
         if (ops.getHeight(i) === null && this.refine(i)) heightsChanged = true
       }
@@ -150,7 +178,7 @@ export class DrapeSync {
     if (camMoved || heightsChanged) {
       for (let i = 0; i < ops.count(); i++) {
         const r = ops.mppRatio(i)
-        if (r > MPP_BAND || r < 1 / MPP_BAND) {
+        if (r > perf.mppBand || r < 1 / perf.mppBand) {
           if (!ops.rebuild(i)) {
             ops.remove(i)
             i--

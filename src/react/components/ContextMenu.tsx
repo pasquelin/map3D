@@ -1,4 +1,5 @@
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { useConfig, useLabels } from '../context'
 import { type PanelRef, useFitColumns, useMergedRefs, useNudgeInside } from './panelFit'
 
 export type MenuItem =
@@ -43,12 +44,6 @@ export type ContextMenuProps = {
 }
 
 /**
- * Délai d'intention avant ouverture au survol : traverser un item en diagonale
- * pour atteindre le sous-menu voisin ne doit plus l'ouvrir puis le refermer.
- */
-const HOVER_INTENT_MS = 150
-
-/**
  * Sous-menu ouvert : les enfants sont résolus UNE fois, à l'ouverture. `byKey` en fait
  * partie plutôt que d'être un état parallèle — les deux décrivent la même ouverture et
  * n'étaient jamais écrits séparément. Deux `useState` distincts laissaient au prochain
@@ -79,6 +74,8 @@ const childrenOf = (it: MenuItem): MenuItem[] | null => {
 
 /** Liste d'items d'un niveau (sans panneau) — récursif pour les sous-menus. */
 function MenuLevel({ items, onClose, onExit, autoFocus }: LevelProps) {
+  const hoverIntentMs = useConfig().interaction.menu.hoverIntentMs
+  const labels = useLabels()
   const [open, setOpen] = useState<OpenState | null>(null)
   /** Item porteur du tabIndex (roving) — le focus ne bouge qu'au clavier. */
   const [active, setActive] = useState(() => items.findIndex(isActionable))
@@ -195,7 +192,7 @@ function MenuLevel({ items, onClose, onExit, autoFocus }: LevelProps) {
                 setOpen(null)
                 return
               }
-              hoverTimer.current = setTimeout(() => openChildren(i, it, false), HOVER_INTENT_MS)
+              hoverTimer.current = setTimeout(() => openChildren(i, it, false), hoverIntentMs)
             }}
             onClick={(e) => {
               e.stopPropagation()
@@ -218,7 +215,7 @@ function MenuLevel({ items, onClose, onExit, autoFocus }: LevelProps) {
             ) : null}
             <span className="m3d-menu-label">{it.label}</span>
             {it.hint != null && <span className="m3d-menu-hint">{it.hint}</span>}
-            {branch && <span className="m3d-menu-arrow">›</span>}
+            {branch && <span className="m3d-menu-arrow">{labels.glyphs.submenu}</span>}
             {expanded && (
               <SubMenu
                 items={open.items}

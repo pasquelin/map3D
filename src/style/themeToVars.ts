@@ -1,3 +1,4 @@
+import { defaultTheme } from '../theme/defaultTheme'
 import type { MapTheme } from '../theme/types'
 
 /**
@@ -27,10 +28,33 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-radius-lg': `${theme.radii.lg}px`,
     '--m3d-radius-pill': `${theme.radii.pill}px`,
     '--m3d-font': theme.typography.fontFamily,
-    '--m3d-size-xs': `${theme.typography.sizes.xs ?? 10.5}px`,
-    '--m3d-size-sm': `${theme.typography.sizes.sm ?? 12.5}px`,
-    '--m3d-size-md': `${theme.typography.sizes.md ?? 13.5}px`,
-    '--m3d-size-lg': `${theme.typography.sizes.lg ?? 16}px`,
+    // Replis pris sur `defaultTheme` et non réécrits en littéral : les quatre
+    // valeurs étaient dupliquées ici, libres de diverger de leur propre défaut.
+    '--m3d-size-xs': `${theme.typography.sizes.xs ?? defaultTheme.typography.sizes.xs}px`,
+    '--m3d-size-sm': `${theme.typography.sizes.sm ?? defaultTheme.typography.sizes.sm}px`,
+    '--m3d-size-md': `${theme.typography.sizes.md ?? defaultTheme.typography.sizes.md}px`,
+    '--m3d-size-lg': `${theme.typography.sizes.lg ?? defaultTheme.typography.sizes.lg}px`,
+    // Géométrie des surfaces flottantes : publiée pour que la feuille de styles et
+    // les hooks de placement partagent le même nombre (cf. `panelGeometry`).
+    '--m3d-gap': `${theme.spacing.gap}px`,
+    '--m3d-bar-inset': `${theme.spacing.barInset}px`,
+    // Attendue par 7 règles d'animation de `injectStyles` (menus, flyouts, panneaux)
+    // qui repliaient toutes sur 200ms faute d'émetteur.
+    '--m3d-menu-dur': `${theme.animations.menuOpen.duration}ms`,
+    '--m3d-lens-panel-w': `${theme.sizing.lensPanelW}px`,
+    '--m3d-selection-panel-w': `${theme.sizing.selectionPanelW}px`,
+    // Épaisseur d'anneau d'un marker. La feuille de styles écrivait `2.5px` pour
+    // l'avatar quand le thème annonçait `3` : deux valeurs pour le même trait, dont
+    // une seule surchargeable — et c'était la morte.
+    '--m3d-marker-ring-w': `${theme.markers.ringWidth}px`,
+    // `typography.weights` n'avait AUCUN consommateur : les dix-neuf graisses de la
+    // feuille de styles étaient écrites en dur, donc la clé mentait.
+    '--m3d-weight-medium': String(theme.typography.weights.medium ?? defaultTheme.typography.weights.medium),
+    '--m3d-weight-semibold': String(theme.typography.weights.semibold ?? defaultTheme.typography.weights.semibold),
+    '--m3d-weight-bold': String(theme.typography.weights.bold ?? defaultTheme.typography.weights.bold),
+    // Mode sombre du fond de carte : les tuiles Google n'ont pas de variante sombre,
+    // les assombrir côté rendu est le seul moyen d'accorder la carte à une UI sombre.
+    '--m3d-tiles-filter': tilesFilterCss(theme),
   }
   // Optionnelles (thème antérieur valide) : les règles CSS ont leur repli.
   if (c.attention?.sonar) vars['--m3d-sonar-color'] = c.attention.sonar
@@ -41,4 +65,23 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     vars['--m3d-marquee-under'] = c.marquee.under
   }
   return vars
+}
+
+/**
+ * Chaîne `filter` CSS correspondant à `theme.tiles.filter`, ou `'none'`.
+ *
+ * Séparée de `themeToVars` parce qu'elle se compose : chaque fonction n'est émise
+ * que si le thème la déclare, et l'ordre suit celui d'une correction d'image
+ * (luminosité → saturation → contraste → inversion → teinte).
+ */
+export function tilesFilterCss(theme: MapTheme): string {
+  const f = theme.tiles?.filter
+  if (!f) return 'none'
+  const parts: string[] = []
+  if (f.brightness !== undefined) parts.push(`brightness(${f.brightness})`)
+  if (f.saturation !== undefined) parts.push(`saturate(${f.saturation})`)
+  if (f.contrast !== undefined) parts.push(`contrast(${f.contrast})`)
+  if (f.invert !== undefined) parts.push(`invert(${f.invert})`)
+  if (f.hueRotate !== undefined) parts.push(`hue-rotate(${f.hueRotate}deg)`)
+  return parts.length > 0 ? parts.join(' ') : 'none'
 }

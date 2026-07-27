@@ -1,8 +1,6 @@
+import { defaultConfig } from '../config/defaultConfig'
 /** Tag présent sur la carte + nombre d'éléments qui le portent. */
 export type TagEntry = { tag: string; count: number }
-
-/** Clé localStorage par défaut de la sélection (surchargée via `tagStorageKey`). */
-const DEFAULT_TAG_STORAGE_KEY = 'm3d:tag-filter'
 
 /**
  * Palette de repli des pastilles du panneau « Couches ». L'attribution est un
@@ -59,7 +57,7 @@ export class TagFilter {
   selectionVersion = 0
   registryVersion = 0
 
-  constructor(private readonly storageKey: string | null = DEFAULT_TAG_STORAGE_KEY) {
+  constructor(private readonly storageKey: string | null = defaultConfig.data.storageKeys.tagFilter) {
     if (!this.storageKey) return
     try {
       const raw = globalThis.localStorage?.getItem(this.storageKey)

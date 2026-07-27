@@ -14,11 +14,11 @@ import {
   mdiVectorRectangle,
   mdiVectorSquare,
 } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import type { ReactNode } from 'react'
 import { formatLabel } from '../../labels/mergeLabels'
 import type { DrawStyle, DrawTool, SelectMode, StrokeStyle } from '../../layers/DrawLayer'
-import { useLabels } from '../context'
+import { useDrawPresets, useLabels } from '../context'
 
 /** Icône de chaque outil (toolbar, panneau Réglages) — libellés dans `labels.tools`. */
 export const TOOL_ICONS: Record<DrawTool, string> = {
@@ -33,6 +33,32 @@ export const TOOL_ICONS: Record<DrawTool, string> = {
   measure: mdiRuler,
   erase: mdiEraser,
 }
+
+/**
+ * Outils proposés par défaut — source unique de `<Toolbar>` (ce qu'elle affiche) et
+ * de `<DrawLayer>` (ce qu'elle autorise à activer).
+ *
+ * Les deux en tenaient une copie, et elles avaient divergé : celle de `DrawLayer`
+ * omettait `'symbol'`. Comme elle sert de filtre d'activation, le bouton symbole
+ * s'affichait mais `setTool('symbol')` était refusé. Retirer l'outil se fait par
+ * `<DrawLayer symbols={{ enabled: false }}>`, qui existe pour ça — pas en
+ * l'absentant de cette liste.
+ *
+ * Constante de module : un littéral recréé à chaque rendu casserait la mémoïsation
+ * de tout ce qui en dépend en aval.
+ */
+export const DEFAULT_DRAW_TOOLS: DrawTool[] = [
+  'select',
+  'line',
+  'polygon',
+  'rect',
+  'circle',
+  'freehand',
+  'arrow',
+  'symbol',
+  'measure',
+  'erase',
+]
 
 /**
  * Contrôles de style partagés entre le panneau de style (sélection/outil actif)
@@ -56,10 +82,6 @@ export const SELECT_MODE_META: Array<{
   { mode: 'lasso', action: 'selectLasso', icon: mdiLasso },
 ]
 
-const WIDTHS = [0, 2, 4, 8, 14]
-const STROKE_OPACITIES = [0.25, 0.5, 0.75, 0.95]
-const OPACITIES = [0, 0.3, 0.6, 1]
-const RADII = [0, 10, 25, 50]
 /** Les valeurs de `StrokeStyle` sont exactement les mots-clés CSS `border-style`
  *  correspondants : l'aperçu les utilise telles quelles, sans table de conversion. */
 const STROKE_VALUES: readonly StrokeStyle[] = ['solid', 'dashed', 'dotted']
@@ -101,7 +123,7 @@ export function ColorSwatches({
         <span style={{ borderColor: stroke }} />
       </button>
       <button type="button" aria-label={labels.style.swap} className="m3d-swap" onClick={onSwap}>
-        <Icon path={mdiSwapHorizontal} size={0.55} />
+        <UiIcon path={mdiSwapHorizontal} />
       </button>
     </div>
   )
@@ -174,15 +196,16 @@ function PresetRow<T extends string | number>({
 /** Épaisseur de bordure : presets visuels, ∅ = pas de bordure. */
 export function WidthPicker({ value, onChange }: { value?: number; onChange: (w: number) => void }) {
   const labels = useLabels()
+  const presets = useDrawPresets()
   return (
     <PresetRow
-      values={WIDTHS}
+      values={presets.widths}
       value={value}
       onChange={onChange}
       ariaLabel={(w) => (w === 0 ? labels.style.noBorder : formatLabel(labels.style.borderWidth, { width: w }))}
       preview={(w) =>
         w === 0 ? (
-          <span className="m3d-preset-none">∅</span>
+          <span className="m3d-preset-none">{labels.glyphs.none}</span>
         ) : (
           <span className="m3d-preset-bar" style={{ height: Math.min(w, 10) }} />
         )
@@ -210,16 +233,18 @@ export function StrokeStylePicker({ value, onChange }: { value?: StrokeStyle; on
 export function OpacityPicker({
   value,
   onChange,
-  values = OPACITIES,
+  values,
 }: {
   value?: number
   onChange: (o: number) => void
+  /** Paliers proposés — défaut : les opacités de remplissage des presets. */
   values?: readonly number[]
 }) {
   const labels = useLabels()
+  const presets = useDrawPresets()
   return (
     <PresetRow
-      values={values}
+      values={values ?? presets.fillOpacities}
       value={value}
       onChange={onChange}
       ariaLabel={(o) => formatLabel(labels.style.opacityPreset, { percent: Math.round(o * 100) })}
@@ -258,6 +283,7 @@ export function StyleEditor({
   showRadius?: boolean
 }) {
   const labels = useLabels()
+  const presets = useDrawPresets()
   const stroke = style.color ?? fallbackColor
   const fill = style.fillColor ?? style.color ?? fallbackColor
   return (
@@ -287,7 +313,7 @@ export function StyleEditor({
         <span className="m3d-style-label">{labels.style.strokeOpacity}</span>
         <OpacityPicker
           value={style.strokeOpacity}
-          values={STROKE_OPACITIES}
+          values={presets.strokeOpacities}
           onChange={(strokeOpacity) => onPatch({ strokeOpacity })}
         />
       </div>
@@ -308,9 +334,10 @@ export function StyleEditor({
 /** Rayon d'angle des rectangles : % du petit côté. */
 export function RadiusPicker({ value, onChange }: { value?: number; onChange: (r: number) => void }) {
   const labels = useLabels()
+  const presets = useDrawPresets()
   return (
     <PresetRow
-      values={RADII}
+      values={presets.radii}
       value={value}
       onChange={onChange}
       ariaLabel={(r) => formatLabel(labels.style.cornerRadius, { radius: r })}

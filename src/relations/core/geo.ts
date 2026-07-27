@@ -3,6 +3,7 @@
 // corde 3D couplée au tileset, alors que la sélection doit rester calculable
 // sans carte montée (menu, tests, rendu serveur).
 
+import { defaultConfig } from '../../config/defaultConfig'
 import { boundsOfCircle } from '../../core/bounds'
 import { DEG2RAD, EARTH_CIRCUMFERENCE, M_PER_DEG, RAD2DEG } from '../../core/math'
 import type { LatLng } from '../../shared'
@@ -30,19 +31,24 @@ export function bearingDeg(from: LatLng, to: LatLng): number {
   return (Math.atan2(y, x) * RAD2DEG + 360) % 360
 }
 
-/** Bornes de subdivision : en dessous de 2 il n'y a pas de segment, au-delà de 256 la
- *  géométrie coûte plus qu'elle n'apporte (le drapage lisse déjà le relief). */
+/** En dessous de 2 il n'y a pas de segment. Le plafond, lui, se règle
+ *  (`performance.relations.maxSteps`) : passé un certain point la géométrie coûte
+ *  plus qu'elle n'apporte, le drapage lissant déjà le relief. */
 const MIN_STEPS = 2
-const MAX_STEPS = 256
 
 /**
  * Échantillonne le grand cercle a→b tous les `stepMeters`. Indispensable au rendu :
  * un groupe drapé n'a qu'UNE hauteur d'ancre, donc un lien de plusieurs kilomètres
  * tracé en un seul segment traverserait le relief au lieu de le suivre.
  */
-export function greatCirclePoints(a: LatLng, b: LatLng, stepMeters: number): LatLng[] {
+export function greatCirclePoints(
+  a: LatLng,
+  b: LatLng,
+  stepMeters: number,
+  maxSteps = defaultConfig.performance.relations.maxSteps,
+): LatLng[] {
   const distance = haversineMeters(a, b)
-  const steps = Math.max(MIN_STEPS, Math.min(MAX_STEPS, Math.ceil(distance / Math.max(1, stepMeters))))
+  const steps = Math.max(MIN_STEPS, Math.min(maxSteps, Math.ceil(distance / Math.max(1, stepMeters))))
   const delta = distance / EARTH_RADIUS
   // Points confondus (ou quasi) : l'interpolation sphérique dégénère (sin(δ) → 0).
   if (delta < 1e-9) return [a, b]

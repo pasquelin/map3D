@@ -1,14 +1,16 @@
 import * as THREE from 'three'
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig } from '../config/types'
 import { EnuFrame } from '../core/enu'
 import type { SymbolRenderer } from '../symbols/types'
-import { HEIGHT_EPSILON, HeightResettle, MPP_BAND, UNRESOLVED_RETRY_FRAMES } from '../core/resettle'
+import { HEIGHT_EPSILON, HeightResettle } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
 import type { SelectableRegistry } from '../core/Selectables'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
-import { polygonAreaM2, ringInsideRing } from '../core/geodesy'
+import { polygonAreaM2, predicateSegments, ringInsideRing } from '../core/geodesy'
 import { ringOfShape, type ShapeData } from './ShapeLayer'
 import { EditController, type HandleId } from './draw/EditController'
 import { History } from './draw/History'
@@ -17,6 +19,8 @@ import { type SelectMode, SelectionManager } from './draw/SelectionManager'
 import { type OverlayShape, SelectionOverlay } from './draw/SelectionOverlay'
 import {
   type Pt,
+  DEFAULT_STROKE_OPACITY,
+  MEASURE_STROKE_OPACITY,
   arrowHead,
   circlePoints,
   dashedRibbon,
@@ -287,6 +291,7 @@ export class DrawLayer implements Layer {
     eventToScreen: (e) => this.eventToScreen(e),
     beginBodyDrag: (latLng) => (latLng ? this.editCtl.beginMove(latLng) : false),
     externalItems: () => this.externalSelectables?.items() ?? [],
+    interaction: () => this.config.interaction,
   })
   private externalSelectables: SelectableRegistry | null = null
   /** Désabonnement du `onItemsChanged` du registre courant. */
@@ -332,7 +337,7 @@ export class DrawLayer implements Layer {
    */
   private readonly heights = new Map<string, number | null>()
   private heightEpoch = -1
-  private readonly resettle = new HeightResettle()
+  private readonly resettle = new HeightResettle(() => this.config)
   private groupEpochSeen = -1
   private stableRuns = 0
   private retryTick = 0
@@ -369,6 +374,24 @@ export class DrawLayer implements Layer {
    */
   symbolRenderer: SymbolRenderer | null = null
 
+  /**
+   * Réglages courants, posés par la couche React (même patron que `symbolRenderer`).
+   * Le core n'a pas de contexte : plutôt que de traîner le moteur entier jusqu'ici, on
+   * lui donne l'arbre de valeurs dont il a besoin. `defaultConfig` tant que rien n'est
+   * posé, si bien qu'un usage direct du core reste possible.
+   */
+  config: MapConfig = defaultConfig
+
+  /**
+   * Pose les réglages. Passe par une méthode plutôt qu'une affectation directe parce
+   * que la profondeur d'historique doit être propagée : `History` détient sa propre
+   * pile et doit la tronquer si le plafond baisse.
+   */
+  setConfig(config: MapConfig): void {
+    this.config = config
+    this.history.setDepth(config.interaction.history.depth)
+  }
+
   constructor(
     /** Parent — utiliser `engine.annotations` pour hériter du masquage pendant l'intro. */
     private readonly scene: THREE.Object3D,
@@ -395,6 +418,7 @@ export class DrawLayer implements Layer {
         for (const d of changed) this.pendingEdit.add(d.id)
       },
       commit: (changed) => this.commitEdit(changed),
+      interaction: () => this.config.interaction,
     })
     this.overlaySel.onHandle = (id, phase, e) => this.onHandlePointer(id, phase, e)
   }
@@ -432,7 +456,11 @@ export class DrawLayer implements Layer {
     if (c.limits && c.limits.length > 0) {
       // « Au moins un » périmètre, pas leur union : deux limites disjointes ne
       // doivent pas autoriser une forme qui chevauche le vide entre les deux.
-      const inside = c.limits.some((lim) => ringInsideRing(ring, ringOfShape(lim)))
+      // Densité de prédicat alignée sur celle du rendu (cf. `predicateSegments`) :
+      // au défaut les deux valent 64, mais un hôte qui monte `circleSegments` doit
+      // voir le test suivre, sans quoi un point visiblement dans la zone en sort.
+      const segments = predicateSegments(this.config.performance.circleSegments)
+      const inside = c.limits.some((lim) => ringInsideRing(ring, ringOfShape(lim, segments)))
       if (!inside) return 'outOfLimits'
     }
     if (c.maxAreaM2 !== undefined && d.closed && polygonAreaM2(ring) > c.maxAreaM2) return 'maxArea'
@@ -842,13 +870,13 @@ export class DrawLayer implements Layer {
   /**
    * Applique un patch de style aux formes sélectionnées (restyle = rebuild simple,
    * aucune invalidation de hauteur). Une rafale de changements (drag d'un picker)
-   * = UNE entrée d'historique (coalescence à 800 ms).
+   * = UNE entrée d'historique (coalescence `interaction.history.coalesceMs`).
    */
   setStyleForSelection(patch: DrawStyle): void {
     const ds = this.selectedEditable()
     if (ds.length === 0) return
     const now = Date.now()
-    if (now - this.lastStyle > 800) this.history.push(this.drawings)
+    if (now - this.lastStyle > this.config.interaction.history.coalesceMs) this.history.push(this.drawings)
     this.lastStyle = now
     for (const d of ds) {
       if (patch.color !== undefined) d.color = patch.color
@@ -912,7 +940,7 @@ export class DrawLayer implements Layer {
       clone.locked = undefined
       // Décalage bas-droite à l'écran : +est / −nord en mètres locaux.
       const frame = new EnuFrame(this.projection, d.points[0]!, this.heightFor(d))
-      const off = 12 * this.mppFor(d)
+      const off = this.config.interaction.duplicateOffsetPx * this.mppFor(d)
       clone.points = d.points.map((p) => {
         const l = frame.local(p)
         return frame.toLatLng({ x: l.x + off, z: l.z - off })
@@ -931,9 +959,9 @@ export class DrawLayer implements Layer {
   nudgeSelection(dxPx: number, dyPx: number): void {
     const ds = this.selectedEditable()
     if (ds.length === 0) return
-    // Une rafale de nudges = UNE entrée d'historique (coalescence à 800 ms).
+    // Une rafale de nudges = UNE entrée d'historique (coalescence `interaction.history.coalesceMs`).
     const now = Date.now()
-    if (now - this.lastNudge > 800) this.history.push(this.drawings)
+    if (now - this.lastNudge > this.config.interaction.history.coalesceMs) this.history.push(this.drawings)
     this.lastNudge = now
     // Le nudge clavier ne passe pas par `EditController` : il pose son propre garde.
     this.captureEditGuard(ds)
@@ -1178,7 +1206,7 @@ export class DrawLayer implements Layer {
       else if (phase === 'move' && this.live) {
         const last = this.live.points[this.live.points.length - 1]!
         // Décimation en px écran (convertie en mètres à la résolution courante).
-        const minMeters = Math.max(2, this.live.width * 0.4) * this.mppFor(this.live)
+        const minMeters = Math.max(this.config.interaction.freehandMinStepPx, this.live.width * 0.4) * this.mppFor(this.live)
         if (this.projection.groundDistance(last, p) > minMeters) {
           this.live.points.push(p)
           this.rebuildLive()
@@ -1393,7 +1421,7 @@ export class DrawLayer implements Layer {
    * intérieurs remplis. Pré-rejet bon marché par rayon englobant avant de
    * construire le contour complet (le survol appelle ceci à chaque frame).
    */
-  hitTest(p: LatLng, tolPx = 14): Drawing | null {
+  hitTest(p: LatLng, tolPx = this.config.interaction.shapeHitTolerancePx): Drawing | null {
     type Candidate = { d: Drawing; sp: ScreenPt; pts: ScreenPt[]; closed: boolean }
     const candidates: Candidate[] = []
     for (let i = this.drawings.length - 1; i >= 0; i--) {
@@ -1475,7 +1503,7 @@ export class DrawLayer implements Layer {
       const c = frame.local(d.points[0]!)
       const e = frame.local(d.points[d.points.length - 1]!)
       const r = Math.hypot(e.x - c.x, e.z - c.z)
-      return { points: circlePoints(c, r, 48), closed: true }
+      return { points: circlePoints(c, r, this.config.performance.circleSegments), closed: true }
     }
     return { points: d.points.map((p) => frame.local(p)), closed: d.closed }
   }
@@ -1694,7 +1722,7 @@ export class DrawLayer implements Layer {
       this.stableRuns = 0
     }
     // Ancres jamais résolues : retentative à basse cadence, ciblée sur elles seules.
-    if (++this.retryTick % UNRESOLVED_RETRY_FRAMES === 0) {
+    if (++this.retryTick % this.config.performance.resettle.retryFrames === 0) {
       for (const [id, h] of this.heights) {
         if (h !== null) continue
         const d = this.drawingFor(id)
@@ -1711,13 +1739,14 @@ export class DrawLayer implements Layer {
     if (camMoved || heightsChanged) this.overlayDirty = true
     // Épaisseur px écran : le ratio ne peut changer que si caméra/hauteurs ont bougé.
     if (camMoved || heightsChanged) {
+      const mppBand = this.config.performance.resettle.mppBand
       let toRebuild: Drawing[] | null = null
       for (const [id] of this.meshes) {
         const d = this.drawingFor(id)
         const built = this.builtMpp.get(id)
         if (!d || built === undefined) continue
         const ratio = this.mppFor(d) / built
-        if (ratio > MPP_BAND || ratio < 1 / MPP_BAND) (toRebuild ??= []).push(d)
+        if (ratio > mppBand || ratio < 1 / mppBand) (toRebuild ??= []).push(d)
       }
       if (toRebuild) for (const d of toRebuild) this.rebuildOne(d, d === this.live)
     }
@@ -1762,7 +1791,7 @@ export class DrawLayer implements Layer {
     const h = this.heightFor(this.live)
     const a = this.toScreen(first, h)
     const b = this.toScreen(cur, h)
-    return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) < 16)
+    return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) < this.config.interaction.closeSnapPx)
   }
 
   project(ctx: FrameContext): void {
@@ -1918,7 +1947,7 @@ export class DrawLayer implements Layer {
 
 /** Opacité de bordure effective — la règle est plus discrète par défaut (0.85). */
 function strokeOpacityOf(d: Drawing): number {
-  return d.strokeOpacity ?? (d.kind === 'measure' ? 0.85 : 0.95)
+  return d.strokeOpacity ?? (d.kind === 'measure' ? MEASURE_STROKE_OPACITY : DEFAULT_STROKE_OPACITY)
 }
 
 /**

@@ -1,3 +1,5 @@
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Bounds, LatLng } from '../shared'
 import { type AltitudeForBoundsOptions, altitudeForBounds, centerOfBounds } from './bounds'
@@ -60,15 +62,15 @@ type Fly = {
 export class Camera {
   flyDuration = 1.0
   flyEasing: (t: number) => number = easeInOutCubic
+  /**
+   * Durées (s) des déplacements qui ne sont pas des vols ordinaires. Posées par
+   * `<Map>` depuis `theme.animations`, comme `flyDuration` — le core n'a pas de
+   * contexte de thème, mais il ne doit pas non plus figer un rythme.
+   */
+  panDuration = 0.5
+  zoomDuration = 0.4
   /** Altitude max (m) au-dessus de la surface — borne le dézoom des vols/boutons. */
   maxAltitude = Infinity
-  /**
-   * Garde-fou : aucune destination de caméra ne descend à moins de N mètres du
-   * SOL RÉEL (tuiles 3D, pas l'ellipsoïde) — sécurité contre toute plongée dans
-   * le bâti/le globe, quel que soit l'appelant (clic cluster, recherche, hôte).
-   * 30 m : au-dessus de la plupart des toits, tuiles encore nettes.
-   */
-  minGroundClearance = 20
 
   private fly: Fly | null = null
   private followFn: (() => LatLng | null) | null = null
@@ -86,6 +88,13 @@ export class Camera {
     private readonly camera: THREE.PerspectiveCamera,
     private readonly projection: Projection,
   ) {}
+
+  /** Réglages de la carte, poussés par `MapEngine` (construction puis à chaud). */
+  private config: MapConfig = defaultConfig
+
+  setConfig(config: MapConfig): void {
+    this.config = config
+  }
 
   /** Vrai tant qu'un vol/suivi pilote la caméra (les contrôles sont alors gelés). */
   isControlling(): boolean {
@@ -120,10 +129,14 @@ export class Camera {
   private clampAltitude(p: LatLng, altitude: number): number {
     const now = performance.now()
     const c = this.groundCache
-    const cached = c && now - c.at < 2000 && Math.abs(c.lat - p.lat) < 1e-4 && Math.abs(c.lng - p.lng) < 1e-4
+    // TTL et quantification du cache d'échantillon : ils évitent de relancer
+    // `sampleGroundHeight` (≈9 raycasts BVH) à chaque frame d'un mouvement, et
+    // c'est un arbitrage coût/fraîcheur — donc un réglage, pas un invariant.
+    const { ttlMs, cellDeg } = this.config.performance.groundSample
+    const cached = c && now - c.at < ttlMs && Math.abs(c.lat - p.lat) < cellDeg && Math.abs(c.lng - p.lng) < cellDeg
     const ground = cached ? c.ground : this.projection.sampleGroundHeight(p)
     if (!cached) this.groundCache = { lat: p.lat, lng: p.lng, ground, at: now }
-    return Math.max(Math.min(altitude, this.maxAltitude), (ground ?? 0) + this.minGroundClearance)
+    return Math.max(Math.min(altitude, this.maxAltitude), (ground ?? 0) + this.config.camera.minGroundClearance)
   }
 
   /** Place la caméra à la verticale (nadir) d'un point, à une altitude donnée
@@ -213,7 +226,9 @@ export class Camera {
     const usableW = Math.max(1, width - pad.left - pad.right)
     const usableH = Math.max(1, height - pad.top - pad.bottom)
     const zoomOut = Math.max(width / usableW, height / usableH)
-    let altitude = altitudeForBounds(bounds, opts) * zoomOut
+    // Les défauts de cadrage viennent du thème (`camera.fitBounds`) ; un appel qui
+    // fournit `margin`/`minAltitude`/`maxAltitude` garde la main dessus.
+    let altitude = altitudeForBounds(bounds, { ...this.config.camera.fitBounds, ...opts }) * zoomOut
 
     // Décalage du centre : le milieu de la zone utile n'est le milieu de l'écran
     // que si les marges opposées sont égales.
@@ -245,7 +260,7 @@ export class Camera {
 
   /** Recentre en douceur, altitude inchangée (équivalent de `panTo`). */
   panTo(p: LatLng, opts: FlyOptions = {}): void {
-    this.flyTo(p, { duration: 0.5, ...opts })
+    this.flyTo(p, { duration: this.panDuration, ...opts })
   }
 
   /**
@@ -256,7 +271,7 @@ export class Camera {
     const s = this.getState()
     const altitude = altitudeForZoom(zoom)
     if (opts.duration === 0) this.jumpTo({ lat: s.lat, lng: s.lng }, altitude)
-    else this.flyTo({ lat: s.lat, lng: s.lng }, { altitude, duration: opts.duration ?? 0.4 })
+    else this.flyTo({ lat: s.lat, lng: s.lng }, { altitude, duration: opts.duration ?? this.zoomDuration })
   }
 
   /** Zoom courant sur la même échelle que `setZoom`. */
@@ -292,7 +307,8 @@ export class Camera {
       const altitude = this.getState().altitude
       // Plancher sol aussi en suivi (terrain haut : montagne, plateau) — le
       // cache d'échantillon absorbe l'appel par frame d'une cible mobile.
-      this.placeNadir(p, this.clampAltitude(p, clamp(altitude, 200, 2_000_000)), this.followPos, this.followQuat)
+      const follow = this.config.camera.followAltitude
+      this.placeNadir(p, this.clampAltitude(p, clamp(altitude, follow.min, follow.max)), this.followPos, this.followQuat)
       this.camera.position.copy(this.followPos)
       this.camera.quaternion.copy(this.followQuat)
       return true

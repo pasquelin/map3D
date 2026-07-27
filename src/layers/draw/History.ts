@@ -1,6 +1,6 @@
 import type { Drawing } from '../DrawLayer'
 
-const CAP = 50
+import { defaultConfig } from '../../config/defaultConfig'
 
 /**
  * Historique undo/redo du dessin par **snapshots** de la collection complète :
@@ -18,10 +18,14 @@ const toEntry = (state: readonly Drawing[]): Entry => {
     // Seul `meta` (opaque, fourni par l'app hôte) peut contenir une valeur non
     // clonable. Le `DataCloneError` brut ne désignerait pas le coupable, et il
     // surviendrait au premier geste de dessin — loin de la ligne fautive.
+    // `cause` attachée et pas seulement recopiée dans le texte : un rapporteur
+    // d'erreurs (Sentry & co.) sait alors relier ce message à la trace du
+    // `DataCloneError` d'origine, qui seule désigne la ligne fautive.
     throw new Error(
       'map3d: une forme porte des `meta` non sérialisables (fonction, Symbol, nœud DOM). ' +
         'Voir `ShapeMeta` : stockez un identifiant plutôt qu’une valeur vivante. ' +
         `Cause : ${String(cause)}`,
+      { cause },
     )
   }
 }
@@ -30,6 +34,19 @@ export class History {
   private past: Entry[] = []
   private future: Entry[] = []
 
+  /**
+   * Profondeur de la pile (`interaction.history.depth`). Chaque entrée est un
+   * snapshot complet de la collection : la relever coûte de la mémoire
+   * proportionnellement au nombre de formes dessinées.
+   */
+  constructor(private depth: number = defaultConfig.interaction.history.depth) {}
+
+  /** Réglée à chaud par la couche de dessin ; tronque la pile si elle dépasse. */
+  setDepth(depth: number): void {
+    this.depth = depth
+    if (this.past.length > depth) this.past.splice(0, this.past.length - depth)
+  }
+
   /** Snapshot de l'état AVANT une mutation — vide la pile redo. */
   push(state: readonly Drawing[]): void {
     const entry = toEntry(state)
@@ -37,7 +54,7 @@ export class History {
     // coûte une comparaison de chaîne, pas une re-sérialisation du sommet.
     if (this.past[this.past.length - 1]?.json === entry.json) return
     this.past.push(entry)
-    if (this.past.length > CAP) this.past.shift()
+    if (this.past.length > this.depth) this.past.shift()
     this.future = []
   }
 

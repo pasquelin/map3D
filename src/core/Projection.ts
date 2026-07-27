@@ -1,21 +1,22 @@
+import { defaultConfig } from '../config/defaultConfig'
+import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import type { LatLng } from '../shared'
-import { DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
+import { CAMERA_FOV, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
 
 export type { LatLng } from '../shared'
 export type ScreenPoint = { sx: number; sy: number; z: number }
 
 /**
- * Bornes physiques terrestres des hauteurs de surface (mer Morte −430 m, Everest
- * 8 849 m) : hors de cette plage, l'échantillon est un artefact du LOD racine du
- * tileset (mesuré : −17 km à la vue globe) et doit être traité comme « rien touché »
- * — sinon il serait mémoïsé et draperait formes/vols des kilomètres sous la surface.
+ * Bornes d'altitude acceptées pour un échantillon de surface. Par défaut celles de la
+ * Terre (mer Morte −430 m, Everest 8 849 m) : au-delà, l'échantillon est un artefact
+ * du LOD racine du tileset (mesuré : −17 km à la vue globe) et vaut « rien touché » —
+ * sinon il serait mémoïsé et draperait formes et vols des kilomètres sous la surface.
+ *
+ * Réglable (`performance.groundHeightRange`) : un tileset non terrestre — maquette,
+ * intérieur, relevé aérien — serait entièrement rejeté par les bornes terrestres.
  */
-const MIN_PLAUSIBLE_HEIGHT = -500
-const MAX_PLAUSIBLE_HEIGHT = 9000
-const plausibleHeight = (h: number | null): number | null =>
-  h !== null && h > MIN_PLAUSIBLE_HEIGHT && h < MAX_PLAUSIBLE_HEIGHT ? h : null
 
 /**
  * Conversion lat/lng ↔ monde ↔ écran en repère **géocentrique (ECEF)**, adossée
@@ -28,6 +29,29 @@ export class Projection {
   private group: THREE.Object3D | null = null
   private width = 1
   private height = 1
+  /**
+   * Réglages de la carte, poussés par `MapEngine` (à la construction puis à chaud).
+   *
+   * Remplace l'ancien `setHeightRange` : les bornes de plausibilité n'étaient pas
+   * seules à être réglables ici — la géométrie d'échantillonnage du sol (origine et
+   * portée du rayon, rayon et densité de la couronne) était en dur, alors que c'est
+   * le poste de raycasts le plus sollicité de la lib.
+   */
+  private config: MapConfig = defaultConfig
+
+  setConfig(config: MapConfig): void {
+    this.config = config
+  }
+
+  private get heightRange(): readonly [number, number] {
+    return this.config.performance.groundHeightRange
+  }
+
+  /** `null` si l'échantillon sort des bornes : le point n'a rien touché d'exploitable. */
+  private plausibleHeight(h: number | null): number | null {
+    const [min, max] = this.heightRange
+    return h !== null && h > min && h < max ? h : null
+  }
 
   private readonly raycaster = new THREE.Raycaster()
   private readonly ndc = new THREE.Vector2()
@@ -182,18 +206,18 @@ export class Projection {
    * l'ellipsoïde WGS84 : sans ça, l'écart de hauteur (~45 m à Paris) se projette en
    * décalage horizontal variable sous la caméra en perspective → dérive au pan.
    */
-  sampleSurfaceHeight(p: LatLng, maxDropMeters = 40000): number | null {
+  sampleSurfaceHeight(p: LatLng, maxDropMeters = this.config.performance.groundSample.rayFarMeters): number | null {
     if (!this.ellipsoid || !this.group) return null
     // Rayon en coordonnées MONDE (le raycaster lit `matrixWorld`) : origine haut
     // au-dessus du point le long de la normale, direction vers le bas.
-    this.latLngToWorld(p, this.rayOrigin, 12000)
+    this.latLngToWorld(p, this.rayOrigin, this.config.performance.groundSample.rayOriginMeters)
     this.worldNormal(p, this.rayDir).negate()
     this.groundRay.set(this.rayOrigin, this.rayDir)
     this.groundRay.far = maxDropMeters
     ;(this.groundRay as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
     const hits = this.groundRay.intersectObject(this.group, true)
     if (hits.length === 0) return null
-    return plausibleHeight(this.heightAtWorld(hits[0]!.point))
+    return this.plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
 
   /**
@@ -209,7 +233,7 @@ export class Projection {
     ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
     const hits = this.raycaster.intersectObject(this.group, true)
     if (hits.length === 0) return null
-    return plausibleHeight(this.heightAtWorld(hits[0]!.point))
+    return this.plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
 
   /** Hauteur cartographique (m au-dessus ellipsoïde) d'un point en coordonnées MONDE. */
@@ -232,14 +256,18 @@ export class Projection {
    * les rues voisines quand on change l'angle/az de caméra (parallaxe de hauteur),
    * ce qui donne l'impression qu'il saute d'une rue à la rue parallèle.
    */
-  sampleGroundHeight(p: LatLng, radiusMeters = 18): number | null {
+  sampleGroundHeight(p: LatLng, radiusMeters = this.config.performance.groundSample.radiusMeters): number | null {
     const center = this.sampleSurfaceHeight(p)
     if (center === null) return null
     let min = center
     const dLat = radiusMeters / M_PER_DEG
     const dLng = radiusMeters / (M_PER_DEG * Math.cos(p.lat * DEG2RAD))
-    for (let a = 0; a < 360; a += 45) {
-      const rad = a * DEG2RAD
+    // `samples` tirs répartis sur la couronne. Chaque appel coûte `1 + samples`
+    // raycasts BVH : c'est le budget le plus sensible de la pose au sol, et il était
+    // figé à 8 par un pas de 45° écrit en dur.
+    const { samples } = this.config.performance.groundSample
+    for (let i = 0; i < samples; i++) {
+      const rad = (i / samples) * 2 * Math.PI
       const h = this.sampleSurfaceHeight({
         lat: p.lat + dLat * Math.sin(rad),
         lng: p.lng + dLng * Math.cos(rad),
@@ -258,7 +286,7 @@ export class Projection {
   metersPerPixel(p: LatLng, camera: THREE.Camera, viewportHeight: number, height = 0): number {
     this.latLngToWorld(p, this.scratch, height)
     const dist = camera.position.distanceTo(this.scratch)
-    const fov = (camera as THREE.PerspectiveCamera).fov ?? 60
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? CAMERA_FOV
     return metersPerPixelAt(dist, fov, viewportHeight)
   }
 

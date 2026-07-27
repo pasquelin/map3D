@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { ViewportController } from '../../data/ViewportController'
 import type { DataSource } from '../../data/types'
-import { useMap } from '../context'
+import { useConfig, useMap } from '../context'
 
-export type UseLiveDataOptions = { debounce?: number }
+export type UseLiveDataOptions = {
+  /** Anti-rebond du chargement (ms). Défaut `data.viewportDebounceMs`. */
+  debounce?: number
+}
 
 /**
  * Charge une `DataSource` en fonction de la vue (bbox) : le contrôleur débounce,
@@ -15,13 +18,15 @@ export function useLiveData<T>(
   opts: UseLiveDataOptions = {},
 ): { data: T[]; loading: boolean } {
   const engine = useMap()
+  // Contexte et non `engine.config` : cf. `useConfig`.
+  const viewportDebounceMs = useConfig().data.viewportDebounceMs
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(false)
   const controllerRef = useRef<ViewportController<T> | null>(null)
 
   useEffect(() => {
     const controller = new ViewportController<T>(
-      { debounce: opts.debounce ?? 500 },
+      { debounce: opts.debounce ?? viewportDebounceMs },
       setData,
       setLoading,
     )
@@ -37,8 +42,7 @@ export function useLiveData<T>(
       controller.dispose()
       controllerRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine, opts.debounce])
+  }, [engine, opts.debounce, viewportDebounceMs])
 
   useEffect(() => {
     controllerRef.current?.setSource(source ?? null)

@@ -61,6 +61,18 @@ export type MapLabels = {
     categories: Record<string, string>
     /** Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). */
     affiliations: Record<string, string>
+    /**
+     * Traductions du CATALOGUE, par clé d'entrée : `{ label, description }`.
+     *
+     * ⚠️ Le catalogue MIL-STD-2525D embarque 91 libellés et 91 descriptions **en
+     * français**, écrits dans `symbols/providers/milSym`. C'était le dernier gisement
+     * de texte hors des labels : la palette de symboles restait monolingue quelle que
+     * soit la locale de l'application, alors que tout le reste de l'UI se traduit.
+     *
+     * Une entrée absente garde le texte du catalogue — une traduction partielle est
+     * donc valide, et un catalogue custom n'a rien à déclarer ici.
+     */
+    catalog: Record<string, { label?: string; description?: string }>
   }
   /** `<SearchBox>` (le prop `placeholder` du composant reste prioritaire). */
   search: {
@@ -202,6 +214,26 @@ export type MapLabels = {
     /** Alt/⌘+marquee : ne sélectionner que les markers. */
     markersOnly: string
   }
+  /**
+   * Caractères d'interface écrits en dur dans les composants. Ils sont ici pour deux
+   * raisons : le chevron `›` ne se retourne pas de lui-même en RTL, et une charge
+   * typographique (police sans ces glyphes) doit pouvoir les remplacer.
+   */
+  glyphs: {
+    /** Marque de branche d'un sous-menu. */
+    submenu: string
+    /** Coche de l'option active d'un menu. */
+    check: string
+    /** Preset « sans bordure ». */
+    none: string
+    /** Séparateur inline des infobulles de cluster. */
+    separator: string
+  }
+  /** Préfixe de modificateur affiché dans les raccourcis, par plateforme. */
+  modKey: {
+    mac: string
+    other: string
+  }
   /** Noms de touches affichés (tooltips, récap raccourcis). */
   keys: {
     escape: string
@@ -213,19 +245,61 @@ export type MapLabels = {
     backspace: string
     shiftClick: string
     altOrCmd: string
+    /** Glyphe Maj seul, pour composer un raccourci affiché (⇧Z). */
+    shift: string
   }
   /** Gabarits de composition des textes affichés. */
   format: {
     /** Libellé + raccourci d'un tooltip/aria — `{label}`, `{key}`. */
     shortcut: string
   }
-  /** Label de distance de l'outil règle — `{value}` = nombre déjà formaté. */
+  /**
+   * Formatage d'une distance. La valeur d'entrée est TOUJOURS en mètres — c'est ce
+   * que produisent la géodésie de la lib et les API de routage ; aucun chemin ne
+   * fournit autre chose.
+   *
+   * Le système d'unités se décrit donc entièrement ici : deux gabarits, deux
+   * facteurs de conversion depuis le mètre, et le seuil de bascule (lui aussi en
+   * mètres). `imperialMeasure` en donne un jeu prêt à l'emploi.
+   *
+   * ⚠️ Le modèle ne pouvait PAS faire d'impérial : il convertissait la grande unité
+   * (`majorFactor`) mais affichait la petite telle quelle, donc en mètres — des
+   * « pieds » qui étaient des mètres. Et sa documentation se contredisait, annonçant
+   * tantôt `1609.344` tantôt `5280` pour le même champ, en supposant une valeur
+   * d'entrée en pieds qui n'existe nulle part.
+   */
   measure: {
-    kilometers: string
-    meters: string
+    /** Gabarit de la GRANDE unité (km, miles) — `{value}`. */
+    major: string
+    /** Gabarit de la PETITE unité (m, pieds) — `{value}`. */
+    minor: string
+    /** Seuil de bascule vers la grande unité, **en mètres**. */
+    majorThreshold: number
+    /** Diviseur mètre → grande unité : `1000` en métrique, `1609.344` en impérial. */
+    majorFactor: number
+    /** Diviseur mètre → petite unité : `1` en métrique, `0.3048` en impérial. */
+    minorFactor: number
+    /** Décimales de la grande unité. */
+    majorDecimals: number
+    /** Décimales de la petite unité — elle était arrondie à l'entier sans recours. */
+    minorDecimals: number
+    /**
+     * Locale de formatage des nombres (`Intl.NumberFormat`). `'auto'` suit le
+     * navigateur.
+     *
+     * ⚠️ Sans elle, le formatage passait par `toFixed`, donc le séparateur décimal
+     * était TOUJOURS le point : la lib affichait « 2.40 km » là où ses propres
+     * libellés français promettent « 2,4 km ». `toFixed` ne supprime pas non plus
+     * les zéros de fin.
+     */
+    numberLocale: string
   }
   /** Durée de trajet — `{value}`, ou `{h}`/`{m}` au-delà de l'heure. */
   duration: {
+    /** Sous ce nombre de secondes, la durée s'affiche en secondes. */
+    minorThreshold: number
+    /** Sous ce nombre de minutes, elle s'affiche en minutes ; au-delà en heures. */
+    majorThreshold: number
     seconds: string
     minutes: string
     /** Heures pleines (minutes nulles) — `{h}`. */
@@ -291,8 +365,23 @@ export type MapLabels = {
     title: string
   }
   /** Messages d'erreur développeur. */
+  /**
+   * Choix de la forme grammaticale d'un dénombrable. Le défaut est la règle
+   * FRANÇAISE (`n > 1`), qui est fausse pour l'anglais (0 est pluriel) et très
+   * insuffisante pour le polonais ou le russe, qui ont trois formes.
+   *
+   * Renvoyer `'one'` ou `'other'` — les deux formes que la lib sait rendre. Une
+   * langue à trois formes se traite en choisissant celle qui convient le mieux, ou
+   * en branchant `Intl.PluralRules`.
+   */
+  plural: (count: number) => 'one' | 'other'
   errors: {
+    /** Hook de la lib appelé hors d'un `<Map>` — le contexte est alors absent. */
     outsideMap: string
+    /** `useDrawing()` appelé alors que la couche de dessin est retirée. */
+    drawingRequired: string
+    /** `useLens()` appelé alors que la loupe est retirée. */
+    lensRequired: string
   }
 }
 

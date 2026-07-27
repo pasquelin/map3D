@@ -4,6 +4,9 @@ import type { MarkerData } from '../data/types'
 import type { RelationSnapshot } from '../relations/core/engine'
 import type { MapPoint, RelationRule, TravelMode } from '../relations/core/types'
 import type { MenuItem } from './components/ContextMenu'
+import { defaultConfig } from '../config/defaultConfig'
+import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './components/drawPresets'
+import type { MapConfig } from '../config/types'
 import { defaultLabels } from '../labels/defaultLabels'
 import type { MapLabels } from '../labels/types'
 import type {
@@ -28,6 +31,26 @@ export const ThemeContext = createContext<MapTheme>(defaultTheme)
 /** Fourni par `<MapProvider>` : libellés résolus (défauts + overrides `labels`). */
 export const LabelsContext = createContext<MapLabels>(defaultLabels)
 
+/**
+ * Fourni par `<MapProvider>` : réglages résolus (défauts + overrides `config`).
+ *
+ * Le défaut du contexte est `defaultConfig` — un composant lu hors de toute carte
+ * obtient donc des réglages complets plutôt que `null` à tester partout.
+ */
+export const ConfigContext = createContext<MapConfig>(defaultConfig)
+
+/**
+ * Paliers des palettes de style du dessin, fournis par `<DrawLayer presets>`.
+ * Contexte plutôt que props : les palettes sont profondément imbriquées (barre →
+ * panneau → sous-panneau → picker) et les traverser n'apprendrait rien à personne.
+ */
+export const DrawPresetsContext = createContext<DrawPresets>(DEFAULT_DRAW_PRESETS)
+
+/** Paliers de style effectifs — défauts de la lib hors `<DrawLayer>`. */
+export function useDrawPresets(): DrawPresets {
+  return useContext(DrawPresetsContext)
+}
+
 export type MapContextValue = {
   engine: MapEngine
   overlay: HTMLElement
@@ -44,6 +67,26 @@ export function useTheme(): MapTheme {
 /** Libellés résolus — chaque texte affiché par la lib passe par ici. */
 export function useLabels(): MapLabels {
   return useContext(LabelsContext)
+}
+
+/**
+ * Réglages résolus — seuils de geste, budgets, fournisseurs tiers.
+ *
+ * Toujours complet : hors `<Map>`, ce sont les défauts de la lib. Aucun appelant
+ * n'a donc à gérer l'absence de config.
+ *
+ * **À préférer systématiquement à `engine.config` dans la couche React.** Le moteur
+ * reçoit la config depuis un effet de `<Map>`, et les effets d'un enfant s'exécutent
+ * AVANT ceux de son parent : au render où `<Map config>` change, `engine.config`
+ * porte encore la valeur de la frame précédente, et aucun re-render ne viendra
+ * corriger ce qui l'aurait lue. Ce hook, lui, est la source de vérité React.
+ *
+ * Pour une closure qui survit à son render (handler d'événement abonné une fois,
+ * boucle d'animation), garder la valeur dans une ref rafraîchie à chaque render —
+ * cf. `MarkerLayer` (`latest.current.config`) ou `useViewport`.
+ */
+export function useConfig(): MapConfig {
+  return useContext(ConfigContext)
 }
 
 export function useMapContext(): MapContextValue {
@@ -116,6 +159,14 @@ export type DrawingApi = {
   replaceShapes: (shapes: readonly NewShape[], opts?: MutateOptions) => void
   /** Raccourcis effectifs (outils + actions, `false` = désactivé) — affichés par `DrawToolbar` dans ses tooltips. */
   shortcuts: Record<DrawTool | DrawAction, string | false>
+  /**
+   * Outils réellement activés (`<DrawLayer tools>`), dans l'ordre de la barre.
+   *
+   * Publié parce que le panneau « Réglages » listait sa PROPRE table figée : retirer
+   * un outil de la barre le laissait réglable dans les réglages, et en ajouter un
+   * l'y rendait invisible.
+   */
+  tools: readonly DrawTool[]
   /**
    * Symboles : catalogue disponible, rendu des vignettes et affiliation courante.
    * Fournis par `<DrawLayer>` (catalogue MIL-STD par défaut) pour que la palette de

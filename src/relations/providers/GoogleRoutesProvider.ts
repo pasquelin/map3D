@@ -5,16 +5,19 @@
 // répond en un seul appel pour N origines, et le FieldMask conditionne la facturation
 // — ne demander que ce qui est réellement affiché.
 
+import { defaultConfig } from '../../config/defaultConfig'
+import { resolveLocale, resolveRegion } from '../../config/mergeConfig'
+import type { FetchPolicy, RoutingConfig } from '../../config/types'
+import { fetchWithPolicy } from '../../core/fetchPolicy'
 import { decodePolyline } from '../core/polyline'
 import type { MapPoint, TravelMode } from '../core/types'
 import type { MatrixEntry, ProviderRoute, RoutingProvider } from './RoutingProvider'
 
-const MATRIX_URL = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix'
-const ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes'
-
-/** Le champ `condition` distingue « pas d'itinéraire » d'une durée nulle légitime. */
-const MATRIX_FIELDS = 'originIndex,destinationIndex,duration,distanceMeters,condition'
-const ROUTE_FIELDS = 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline'
+// Endpoints, FieldMasks (qui conditionnent la facturation), préférence de routage,
+// locale et politique réseau viennent de `config.providers.routing` : c'est ce qui
+// permet de viser un proxy serveur, un mock de test, ou de réduire la facture, sans
+// patcher la lib. Le champ `condition` du FieldMask matrice distingue « pas
+// d'itinéraire » d'une durée nulle légitime — le retirer casse cette distinction.
 
 /** Le trafic n'est modélisé que pour les modes motorisés ; l'envoyer ailleurs fait échouer la requête. */
 const TRAFFIC_AWARE_MODES: readonly TravelMode[] = ['DRIVE', 'TWO_WHEELER']
@@ -49,49 +52,97 @@ function parseDuration(raw: string | undefined): number | null {
  * courant est utilisé — exactement ce qu'on veut. Il ne faudrait le renseigner
  * que pour un départ planifié, avec une marge.
  */
-function trafficOptions(mode: TravelMode): Record<string, string> {
+function trafficOptions(mode: TravelMode, preference: string): Record<string, string> {
   if (!TRAFFIC_AWARE_MODES.includes(mode)) return {}
-  return { routingPreference: 'TRAFFIC_AWARE_OPTIMAL' }
+  return { routingPreference: preference }
 }
 
-async function post(url: string, apiKey: string, fields: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
-  const res = await fetch(url, {
-    method: 'POST',
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': fields,
+/** POST JSON + FieldMask, sous la politique réseau commune (timeout, réessais). */
+async function post(
+  url: string,
+  apiKey: string,
+  fields: string,
+  body: unknown,
+  policy: FetchPolicy,
+  signal?: AbortSignal,
+  /** En-têtes de `providers.routing.headers` — prioritaires (cas du proxy serveur). */
+  extraHeaders?: Readonly<Record<string, string>>,
+): Promise<unknown> {
+  const res = await fetchWithPolicy(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': fields,
+        // Après les nôtres : un proxy qui attend un `Authorization` doit pouvoir
+        // remplacer l'en-tête de clé Google, pas seulement s'y ajouter.
+        ...extraHeaders,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`Google Routes ${url.split(':').pop()} ${res.status}`)
+    policy,
+    signal,
+    `Google Routes ${url.split(':').pop()}`,
+  )
   return res.json()
 }
 
 export type GoogleRoutesOptions = {
   apiKey: string
-  /** Code langue BCP-47 des textes renvoyés (défaut : langue du navigateur). */
+  /**
+   * Code langue BCP-47 des textes renvoyés. Prioritaire sur `config.language`, qui
+   * suit le navigateur par défaut.
+   */
   language?: string
-  /** Biais régional (code CLDR, ex. 'fr'). */
+  /** Biais régional (code CLDR, ex. 'fr'). Prioritaire sur `config.regionCode`. */
   region?: string
+  /** Réglages réseau et endpoints ; `defaultConfig` à défaut. */
+  config?: RoutingConfig
 }
 
 export function createGoogleRoutesProvider(opts: GoogleRoutesOptions): RoutingProvider {
-  const languageCode = opts.language ?? (typeof navigator !== 'undefined' ? navigator.language : undefined)
-  const locale = { ...(languageCode ? { languageCode } : {}), ...(opts.region ? { regionCode: opts.region } : {}) }
+  // `opts.config` fourni = l'application a pris la main : `setConfig` ne l'écrase
+  // pas. Sinon le provider suit `providers.routing` de la carte, poussé par
+  // `<RelationLayer>` dès la première frame.
+  const pinned = opts.config !== undefined
+  let cfg = opts.config ?? defaultConfig.providers.routing
+
+  // `opts.language`/`opts.region` restent prioritaires sur la config quelle qu'en
+  // soit la source ; la locale est donc recalculée à chaque changement de `cfg`.
+  const localeOf = (c: RoutingConfig) => {
+    const languageCode = opts.language ?? resolveLocale(c.languageCode)
+    const regionCode = opts.region ?? resolveRegion(c.regionCode)
+    return {
+      ...(languageCode ? { languageCode } : {}),
+      ...(regionCode ? { regionCode } : {}),
+      // Absent = l'API déduit le système d'unités de la langue. C'est le
+      // comportement historique, mais il ne suit PAS `labels.measure` : une
+      // application qui affiche des miles obtenait des textes de manœuvre en
+      // kilomètres. Le déclarer aligne les deux.
+      ...(c.units ? { units: c.units } : {}),
+    }
+  }
+  let locale = localeOf(cfg)
 
   return {
+    setConfig(next) {
+      if (pinned || next === cfg) return
+      cfg = next
+      locale = localeOf(cfg)
+    },
+
     async matrix(origins, destination, mode, signal) {
       if (origins.length === 0) return []
       const body = {
         origins: origins.map(waypoint),
         destinations: [waypoint(destination)],
         travelMode: mode,
-        ...trafficOptions(mode),
+        ...trafficOptions(mode, cfg.routingPreference),
         ...locale,
       }
-      const raw = await post(MATRIX_URL, opts.apiKey, MATRIX_FIELDS, body, signal)
+      const raw = await post(cfg.matrixUrl, opts.apiKey, cfg.matrixFields, body, cfg, signal, cfg.headers)
       // La réponse est un TABLEAU d'éléments, dans un ordre non garanti : c'est
       // `originIndex` qui rattache une case à sa cible, jamais la position.
       const elements: MatrixElement[] = Array.isArray(raw) ? raw : []
@@ -116,14 +167,15 @@ export function createGoogleRoutesProvider(opts: GoogleRoutesOptions): RoutingPr
         origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
         destination: { location: { latLng: { latitude: to.lat, longitude: to.lng } } },
         travelMode: mode,
-        // Un seul itinéraire : le plus rapide. Les variantes encombrent la carte et
-        // sont facturées ; `RelationEngine` sait les exploiter si on les réactive.
-        computeAlternativeRoutes: false,
+        // Par défaut un seul itinéraire, le plus rapide : les variantes encombrent la
+        // carte et sont facturées. `RelationEngine` sait les exploiter si on les
+        // réactive (`providers.routing.alternatives`).
+        computeAlternativeRoutes: cfg.alternatives,
         polylineEncoding: 'ENCODED_POLYLINE',
-        ...trafficOptions(mode),
+        ...trafficOptions(mode, cfg.routingPreference),
         ...locale,
       }
-      const raw = await post(ROUTES_URL, opts.apiKey, ROUTE_FIELDS, body, signal)
+      const raw = await post(cfg.routesUrl, opts.apiKey, cfg.routeFields, body, cfg, signal, cfg.headers)
       const routes = (raw as { routes?: RouteElement[] }).routes ?? []
       const out: ProviderRoute[] = []
       for (const r of routes) {

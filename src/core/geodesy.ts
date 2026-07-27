@@ -100,11 +100,43 @@ export function ringInsideRing(inner: readonly LatLng[], outer: readonly LatLng[
 }
 
 /**
+ * Densité d'approximation d'un disque pour les **prédicats géométriques** (aire,
+ * inclusion, intersection).
+ *
+ * Distincte de `performance.circleSegments`, qui règle le RENDU : la rendre
+ * configurable exposerait un réglage capable de changer une réponse booléenne, là où
+ * côté rendu il ne change qu'un lissé.
+ *
+ * INVARIANT : elle ne doit JAMAIS être plus grossière que la densité de rendu. Un
+ * polygone régulier inscrit rétrécit quand on lui retire des sommets ; tester avec
+ * moins de segments qu'on n'en dessine rend donc « hors zone » un point visiblement
+ * à l'intérieur — un faux négatif, le pire sens pour une contrainte de périmètre.
+ * D'où 64 et non 48 : la valeur suit le défaut de rendu, elle ne le précède pas.
+ */
+export const PREDICATE_CIRCLE_SEGMENTS = 64
+
+/**
+ * Densité de prédicat à employer face à une densité de RENDU donnée.
+ *
+ * Fait tenir l'invariant ci-dessus au lieu de seulement l'énoncer : il était
+ * documenté mais non gardé, si bien qu'un hôte réglant `performance.circleSegments`
+ * au-dessus de 64 obtenait des faux négatifs d'inclusion — silencieusement, et
+ * précisément dans le sens qui exclut un point visiblement dans la zone.
+ */
+export function predicateSegments(renderSegments: number): number {
+  return Math.max(PREDICATE_CIRCLE_SEGMENTS, Math.ceil(renderSegments))
+}
+
+/**
  * Approche un disque géodésique par un anneau de `segments` sommets. Sert à
  * ramener cercles et rayons au même modèle que les polygones, pour que les
  * prédicats n'aient qu'un seul type d'entrée à traiter.
  */
-export function circleRing(center: LatLng, radiusMeters: number, segments = 48): LatLng[] {
+export function circleRing(
+  center: LatLng,
+  radiusMeters: number,
+  segments = PREDICATE_CIRCLE_SEGMENTS,
+): LatLng[] {
   // `M_PER_DEG` et non `EARTH_RADIUS` : c'est la conversion qu'emploie
   // `boundsOfCircle` pour le MÊME cercle. Deux rayons de référence différents
   // feraient sortir l'anneau de son propre cadre englobant (~0.1 % d'écart).

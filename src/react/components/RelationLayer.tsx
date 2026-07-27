@@ -12,12 +12,13 @@ import { zoomForAltitude } from '../../core/MapEngine'
 import { markerTags, type MarkerData } from '../../data/types'
 import { LinkLayer as CoreLinkLayer, type DashStyle } from '../../layers/LinkLayer'
 import { makeLinkLabelFormatter } from '../../labels/measure'
+import { RouteCache } from '../../relations/core/cache'
 import { RelationEngine } from '../../relations/core/engine'
 import { boundsAround } from '../../relations/core/geo'
 import { familyTag } from '../../relations/core/selection'
 import type { MapPoint, RelationRule, TravelMode } from '../../relations/core/types'
 import type { RoutingProvider } from '../../relations/providers/RoutingProvider'
-import { buildRelationMenu } from '../../relations/relationMenu'
+import { buildRelationMenu, type RelationMenuPresets } from '../../relations/relationMenu'
 import {
   buildRelationVisuals,
   HUB_PREFIX,
@@ -25,7 +26,7 @@ import {
   type RelationVisualStyle,
 } from '../../relations/visuals'
 import { markerColorOf, tagColorOf } from '../../theme/colors'
-import { RelationContext, type RelationApi, useLabels, useMapContext } from '../context'
+import { RelationContext, type RelationApi, useConfig, useLabels, useMapContext } from '../context'
 import { useLayer, useLayerSync } from '../hooks/useLayer'
 import { useRelationInteraction } from '../hooks/useRelationInteraction'
 import type { MenuItem } from './ContextMenu'
@@ -110,6 +111,25 @@ export type RelationLayerProps = {
    */
   refreshIntervalMs?: number
   /**
+   * Paliers proposés par le menu d'une famille (« les 3 plus rapides », « dans
+   * 500 m »). Choix métier : la bonne échelle dépend de ce qu'on relie.
+   */
+  menuPresets?: RelationMenuPresets
+  /**
+   * Au-delà de ce nombre de liens, l'éventail se replie en un trait agrégé — au-delà
+   * il devient illisible. Défaut 5.
+   */
+  fanMaxLegs?: number
+  /**
+   * 💰 Candidats interrogés par lien affiché en mode « les plus rapides » (défaut 3).
+   *
+   * Le plus proche à vol d'oiseau n'est pas le plus rapide — sens uniques, fleuve à
+   * contourner. On en interroge donc plusieurs et la DURÉE tranche. Chaque unité
+   * multiplie la taille de la matrice facturée : à 1, seul le voisinage direct est
+   * interrogé, et le résultat cesse d'être « les plus rapides ».
+   */
+  fastestOversample?: number
+  /**
    * Enfants montés dans le contexte de relations. La forme FONCTION reçoit l'API
    * directement : greffer l'entrée de menu sur une couche marker déclarée au même
    * niveau n'oblige alors pas à extraire un composant juste pour `useRelations()`.
@@ -124,7 +144,7 @@ const NUMERIC_ID = /^-?\d+$/
  * Motif par défaut des traits de recherche, en pixels écran. Tiret un peu plus long
  * que l'espace (le trait doit rester une ligne, pas une file de points) et défilement
  * lent : c'est un signal d'attente, il ne doit pas capter le regard plus que le marker
- * qu'il désigne. `gapOpacity` à 10 % : l'espace entre deux tirets reste juste assez
+ * qu'il désigne. `gapOpacity` à 30 % : l'espace entre deux tirets reste juste assez
  * présent pour tenir la ligne, sans concurrencer les tirets. Hissé hors du composant —
  * un littéral par défaut serait une nouvelle référence à chaque rendu, et referait
  * tous les visuels de la couche.
@@ -158,21 +178,68 @@ export function RelationLayer({
   casingWidth = 3,
   casingColor,
   minOpacity = 1,
-  staleMeters = 150,
-  refreshIntervalMs = 15_000,
+  staleMeters: staleMetersProp,
+  refreshIntervalMs: refreshIntervalMsProp,
+  menuPresets,
+  fanMaxLegs,
+  fastestOversample: fastestOversampleProp,
   children,
 }: RelationLayerProps) {
   const { engine, overlay, theme } = useMapContext()
   const labels = useLabels()
+  // `useConfig()` et NON `engine.config` : au render, le moteur porte encore la config
+  // de la frame précédente. `<Map>` la lui pose dans un effet, et les effets d'un
+  // enfant s'exécutent AVANT ceux du parent — lire le moteur ici renverrait donc
+  // systématiquement la valeur périmée au render où `<Map config>` change, sans que
+  // rien ne re-rende ensuite. Le contexte, lui, est la source de vérité React.
+  const config = useConfig()
+
+  // Les trois réglages qui pilotent le volume d'appels facturés prennent leur défaut
+  // dans la config au lieu d'un littéral : ils étaient écrits ici ET dans le core
+  // (`RelationEngine.syncPositions` avait `staleMeters = 0`, soit l'inverse de ce
+  // défaut-ci), donc la même carte ne se rafraîchissait pas au même rythme selon le
+  // chemin emprunté.
+  const routing = config.providers.routing
+  const staleMeters = staleMetersProp ?? routing.staleMeters
+  const refreshIntervalMs = refreshIntervalMsProp ?? routing.refreshIntervalMs
+  const fastestOversample = fastestOversampleProp ?? routing.fastestOversample
 
   // Le moteur survit aux re-rendus : c'est lui qui porte l'état, pas React.
-  const relationEngine = useMemo(() => new RelationEngine(provider), [provider])
+  // Cache construit avec les réglages de la carte : laissé au défaut de `RouteCache`,
+  // régler `providers.routing.cache` (TTL, quantification, plafond) n'aurait aucun
+  // effet — or ces trois valeurs décident du nombre d'appels facturés.
+  //
+  // Dépendre de `routing.cache` et non de `engine` : ce dernier est stable pour toute
+  // la vie de la carte, si bien que le cache serait resté figé sur les réglages du
+  // montage. `fastestOversample` est volontairement ABSENT des dépendances — le
+  // recréer jetterait tout l'état des relations (cf. le `clear()` ci-dessous), donc
+  // ferait disparaître les liens affichés et refacturerait leur calcul pour un simple
+  // entier changé. Il est poussé au moteur par l'effet qui suit.
+  const relationEngine = useMemo(
+    () => new RelationEngine(provider, new RouteCache(routing.cache)),
+    [provider, routing.cache],
+  )
   const version = useSyncExternalStore(relationEngine.subscribe, () => relationEngine.version)
   const snapshots = relationEngine.snapshots
+
+  // Sur-échantillonnage poussé plutôt que passé au constructeur : réglage de volume
+  // d'appels, il doit pouvoir changer sans détruire ce qui est déjà calculé.
+  useEffect(() => {
+    relationEngine.fastestOversample = fastestOversample
+  }, [relationEngine, fastestOversample])
 
   // Requêtes en vol au démontage : sans cet arrêt, elles se poursuivent, sont
   // facturées par le fournisseur de routage, et retiennent le moteur en mémoire.
   useEffect(() => () => relationEngine.clear(), [relationEngine])
+
+  // Réglages de routage poussés au fournisseur. Il est construit par l'application
+  // AVANT que la carte n'existe (cf. la doc de la prop `provider`), donc il ne peut
+  // pas les lire de lui-même : sans cette ligne, endpoints, FieldMasks,
+  // `routingPreference` et politique réseau restaient figés sur `defaultConfig`,
+  // quoi qu'on écrive dans `<Map config>`.
+  useEffect(() => {
+    provider.setConfig?.(routing)
+  }, [provider, routing])
 
   /** Géométries mémoïsées, validées par leurs extrémités (cf. `RelationGeometryCache`). */
   const geometry = useRef(new RelationGeometryCache())
@@ -184,17 +251,20 @@ export function RelationLayer({
   // de palier, pas à chaque frame d'un mouvement caméra.
   const camRef = useRef({ zoom: 14, step: 14 })
   const [clusterTick, bumpCluster] = useReducer((x: number) => x + 1, 0)
+  const zoomBand = config.performance.relations.zoomBand
+  /** Budgets de la couche relations — identité stable tant que `<Map config>` ne change pas. */
+  const relationsPerf = config.performance.relations
   useEffect(() => {
     return engine.on('camera', (state) => {
       const zoom = zoomForAltitude(state.altitude)
       const step = Math.round(zoom)
       // La bande de 0,3 évite que des pattes dimensionnées en pixels ne dérivent
       // visiblement entre deux paliers entiers.
-      if (step === camRef.current.step && Math.abs(zoom - camRef.current.zoom) < 0.3) return
+      if (step === camRef.current.step && Math.abs(zoom - camRef.current.zoom) < zoomBand) return
       camRef.current = { zoom, step }
       bumpCluster()
     })
-  }, [engine])
+  }, [engine, zoomBand])
 
   /**
    * Conteneurs DOM des socles, ancrés à la carte par la couche. La barre d'état de
@@ -329,9 +399,13 @@ export function RelationLayer({
         // source n'aurait plus la main sur les traits.
         colorOf: familyColor,
         onRun: (rule) => run(source, rule),
+        presets: menuPresets ?? routing.presets,
+        // Le compteur du menu doit sur-échantillonner comme le moteur, sinon
+        // l'avertissement « sélection trop large » se déclenche au mauvais seuil.
+        fastestOversample,
       })
     },
-    [candidatesAround, rules, labels, run, familyColor],
+    [candidatesAround, rules, labels, run, familyColor, menuPresets, fastestOversample, routing.presets],
   )
 
   /**
@@ -417,6 +491,8 @@ export function RelationLayer({
           zoom: camRef.current.zoom,
           visualNodeOf,
           colorOf: (snapshot) => colorFor(snapshot.rule, snapshot.source.id),
+          fanMaxLegs: fanMaxLegs ?? relationsPerf.fanMaxLegs,
+          perf: relationsPerf,
         },
         geometry.current,
       ),
@@ -428,7 +504,19 @@ export function RelationLayer({
     // visuels de TOUTES les relations à chaque rendu de l'hôte. `MapProvider` le mémoïse,
     // donc l'invariant tient — c'est lui qu'il faut préserver, pas ce tableau.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [version, clusterTick, hoveredId, snapshots, visualStyle, labels, formatLink, visualNodeOf, colorFor],
+    [
+      version,
+      clusterTick,
+      hoveredId,
+      snapshots,
+      visualStyle,
+      labels,
+      formatLink,
+      visualNodeOf,
+      colorFor,
+      fanMaxLegs,
+      relationsPerf,
+    ],
   )
 
   useLayerSync(layerRef, visuals, (layer, v) => layer.setLinks(v))

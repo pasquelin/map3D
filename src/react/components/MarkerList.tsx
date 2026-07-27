@@ -1,11 +1,11 @@
 import { mdiClose, mdiCrosshairsGps, mdiDotsHorizontal } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import { memo, type ReactNode, useCallback, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
-import { useLabels, useMapContext } from '../context'
+import { useConfig, useLabels, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { useMergedRefs, useNudgeInside } from './panelFit'
 import { Swatch } from './Swatch'
@@ -22,7 +22,9 @@ export type MarkerListAction<T = unknown> = {
 }
 
 export type MarkerListProps<T = unknown> = {
+  /** Markers listés, dans l'ordre fourni. */
   markers: MarkerData<T>[]
+  /** Clé stable d'une ligne. Requise ici — la liste ne suppose rien de la forme des données. */
   getId: (m: MarkerData<T>) => string | number
   /** Rendu du **titre** (1ʳᵉ ligne) — défaut : `MarkerData.title`, sinon l'id. */
   renderItem?: (m: MarkerData<T>) => ReactNode
@@ -58,6 +60,7 @@ export type MarkerListProps<T = unknown> = {
 function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
   const { markers, getId, onRemove } = props
   const { engine, theme, overlay } = useMapContext()
+  const config = useConfig()
   const labels = useLabels()
   const root = overlay.parentElement
   const [menu, setMenu] = useState<{ id: string | number; left: number; top: number } | null>(null)
@@ -76,8 +79,8 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
       return
     }
     engine.camera.flyTo(
-      { lat: m.position.lat, lng: m.position.lng, altitude: altitudeForZoom(props.targetZoom ?? 17) },
-      { duration: 0.8 },
+      { lat: m.position.lat, lng: m.position.lng, altitude: altitudeForZoom(props.targetZoom ?? config.interaction.targetZoom) },
+      { duration: theme.animations.target },
     )
   }
 
@@ -104,7 +107,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
   const menuItemsFor = (m: MarkerData<T>): MenuItem[] => {
     const targetItem: MenuItem = {
       label: labels.markerList.target,
-      icon: <Icon path={mdiCrosshairsGps} size={0.7} />,
+      icon: <UiIcon path={mdiCrosshairsGps} />,
       onSelect: () => target(m),
     }
     const provided = props.menu?.(m)
@@ -113,7 +116,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
       targetItem,
       ...(props.actions ?? []).map((a) => ({
         label: a.label,
-        icon: a.icon ? <Icon path={a.icon} size={0.7} /> : undefined,
+        icon: a.icon ? <UiIcon path={a.icon} /> : undefined,
         onSelect: () => a.run(m),
       })),
     ]
@@ -180,7 +183,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
                 else openMenu(id, e.currentTarget)
               }}
             >
-              <Icon path={mdiDotsHorizontal} size={0.7} />
+              <UiIcon path={mdiDotsHorizontal} />
             </button>
             {onRemove && (
               <button
@@ -193,7 +196,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
                   onRemove(id)
                 }}
               >
-                <Icon path={mdiClose} size={0.6} />
+                <UiIcon path={mdiClose} />
               </button>
             )}
             {menu?.id === id &&

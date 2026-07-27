@@ -2,9 +2,8 @@ import { type RefObject, useEffect, useState } from 'react'
 import type { MapEngine } from '../../core/MapEngine'
 import type { LinkLayer } from '../../layers/LinkLayer'
 import type { RelationEngine } from '../../relations/core/engine'
+import { useConfig } from '../context'
 
-/** Tolérance du pointeur autour d'un trait, en pixels. */
-const HIT_TOLERANCE_PX = 12
 /** Classe posée sur le conteneur carte quand un lien est survolé (curseur). */
 const HOVER_CLASS = 'm3d-hover-link'
 
@@ -28,6 +27,8 @@ export function useRelationInteraction(
   relations: RelationEngine,
 ): string | null {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  // Contexte et non `engine.config` : cf. `useConfig`.
+  const linkHitTolerancePx = useConfig().interaction.linkHitTolerancePx
 
   // Survol : curseur de sélection + mise en évidence du trait. C'est le seul signal
   // qui rend les liens découvrables comme cliquables.
@@ -54,7 +55,7 @@ export function useRelationInteraction(
       // du disque il s'en trouve toujours un à portée de tolérance. Les tester en
       // premier rendrait le socle définitivement inatteignable. Ailleurs — soit
       // partout au-delà de son rayon — les traits reprennent la main.
-      const hit = hub ?? layer.hitTest(point.x, point.y, HIT_TOLERANCE_PX)
+      const hit = hub ?? layer.hitTest(point.x, point.y, linkHitTolerancePx)
       setHoveredId(hit)
       // Le curseur ne change que sur un trait : sur le socle, seule la croix est
       // cliquable — annoncer tout le disque comme actionnable serait un mensonge.
@@ -81,7 +82,7 @@ export function useRelationInteraction(
       el.removeEventListener('pointerleave', onLeave)
       overlay.parentElement?.classList.remove(HOVER_CLASS)
     }
-  }, [engine, overlay, relations, layerRef])
+  }, [engine, overlay, relations, layerRef, linkHitTolerancePx])
 
   // Clic sur un lien : itinéraire réel, ou promotion d'un alternatif déjà en mémoire.
   useEffect(() => {
@@ -94,7 +95,7 @@ export function useRelationInteraction(
       // Sur le socle, on ne choisit rien : les traits y convergent tous, le clic
       // ouvrirait un itinéraire au hasard. Seule sa croix y est actionnable.
       if (layer.hitTestHub(x, y)) return
-      const hit = layer.hitTest(x, y, HIT_TOLERANCE_PX)
+      const hit = layer.hitTest(x, y, linkHitTolerancePx)
       if (!hit) return
       // Recliquer sur l'itinéraire affiché le referme : le geste qui l'a ouvert est
       // aussi celui qui le ferme, sans avoir à viser une croix.
@@ -105,7 +106,7 @@ export function useRelationInteraction(
       }
       void relations.trace(hit)
     })
-  }, [engine, relations, layerRef])
+  }, [engine, relations, layerRef, linkHitTolerancePx])
 
   // Échap referme les itinéraires ouverts, puis efface les relations restantes.
   useEffect(() => {

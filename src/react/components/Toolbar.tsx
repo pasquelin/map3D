@@ -5,20 +5,20 @@ import {
   mdiTrashCanOutline,
   mdiUndo,
 } from '@mdi/js'
-import Icon from '@mdi/react'
+import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import { zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
-import { LensContext, useLabels, useMapContext } from '../context'
+import { LensContext, useConfig, useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
-import { SELECT_MODE_META, TOOL_ICONS } from './drawControls'
+import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
 import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
 import { useAnchoredPanel, useFitColumns } from './panelFit'
 import { useCloseWhenHidden } from './useDismiss'
-import { modKey } from './shortcuts'
+import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
 import { SymbolPaletteButton } from './SymbolPaletteButton'
 import { ToolButton } from './ToolButton'
@@ -37,6 +37,7 @@ export type DrawToolbarSection =
   | 'clear'
 
 export type DrawToolbarProps = {
+  /** Côté d'ancrage de la barre. */
   position?: 'left' | 'right'
   /** Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. */
   minZoom?: number
@@ -99,19 +100,6 @@ const ToolbarContext = createContext<ToolbarApi>({
  */
 export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
 
-const DEFAULT_TOOLS: DrawTool[] = [
-  'select',
-  'line',
-  'polygon',
-  'rect',
-  'circle',
-  'freehand',
-  'arrow',
-  'symbol',
-  'measure',
-  'erase',
-]
-
 /**
  * Barre d'outils de dessin (navigation, formes, gomme, annuler, tout effacer).
  * Nécessite un `<DrawLayer>` monté (elle pilote `useDrawing()`). Masquée sous
@@ -119,13 +107,17 @@ const DEFAULT_TOOLS: DrawTool[] = [
  */
 export function Toolbar({
   position = 'left',
-  minZoom = 11,
-  tools = DEFAULT_TOOLS,
+  minZoom: minZoomProp,
+  tools = DEFAULT_DRAW_TOOLS,
   selectModes,
   components = {},
   extraTools,
 }: DrawToolbarProps) {
   const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts, symbols } = useDrawing()
+  // Hook appelé INCONDITIONNELLEMENT : `minZoomProp ?? useConfig()` le
+  // court-circuiterait dès qu'une prop est fournie — même piège que `ToolButton`.
+  const config = useConfig()
+  const minZoom = minZoomProp ?? config.interaction.drawToolbarMinZoom
   const { engine } = useMapContext()
   // Un outil externe actif (ex. loupe) doit "éteindre" la main : sinon `tool === null`
   // surligne Naviguer alors qu'un autre outil est actif (deux items actifs à la fois).
@@ -173,7 +165,6 @@ export function Toolbar({
         lens?.deactivate()
       },
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [hidden, nativeActive, setTool, lens],
   )
 
@@ -184,7 +175,10 @@ export function Toolbar({
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search', widthVar: '--m3d-drawbar-w' })
   const tip = useTip(TIP_ID)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
-  const undoKey = `${modKey}Z`
+  // Étiquettes composées depuis les raccourcis effectifs (cf. `formatEdit`).
+  const edit = useConfig().interaction.shortcuts.edit
+  const undoKey = formatEdit(edit.undo, labels.modKey, labels.keys.shift)
+  const redoKey = formatEdit(edit.redo, labels.modKey, labels.keys.shift)
   // Sections configurables : convention partagée avec `MapControls` (cf. `slots.ts`).
   const { slot } = resolveSlots<DrawToolbarSection>(components)
 
@@ -232,7 +226,7 @@ export function Toolbar({
         )}
         {slot(
           'redo',
-          <ToolButton icon={mdiRedo} label={labels.toolbar.redo} tip={tip} shortcut={`⇧${undoKey}`} onClick={redo} disabled={!canRedo} />,
+          <ToolButton icon={mdiRedo} label={labels.toolbar.redo} tip={tip} shortcut={redoKey} onClick={redo} disabled={!canRedo} />,
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
         {slot(
@@ -304,7 +298,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
                 setOpen(false)
               }}
             >
-              <Icon path={m.icon} size={0.7} />
+              <UiIcon path={m.icon} />
               <span className="m3d-flyout-label">{labels.selectModes[m.mode].label}</span>
             </button>
           ))}

@@ -34,7 +34,7 @@ export function App() {
   const map = useRef<MapHandle>(null)
   // Cycle true → 'view' (caméra figée, markers vivants) → false (inerte).
   const [interactive, setInteractive] = useState<InteractiveMode>(true)
-  const cycleInteractive = () => setInteractive((m) => (m === true ? 'view' : m === 'view' ? false : true))
+  const cycleInteractive = () => setInteractive((m) => (m === true ? 'view' : m !== 'view'))
   // Hauteur d'extrusion, réglable à chaud (cf. le banc de test dans la barre).
   const [volumeHeight, setVolumeHeight] = useState(200)
   // Mémoïsation OBLIGATOIRE, pas une optimisation de confort : la couche de formes
@@ -75,7 +75,7 @@ export function App() {
         // Avant `ready`, `fitBounds` viserait l'ellipsoïde nu — pas le sol réel.
         onReady={(engine) => console.log('[map] ready — altitude sol connue, cadrage fiable', engine.getView().zoom)}
         fallbackGlobe
-        mapMode="3d"
+        mapMode="plan"
         // ── Interface : tout se déclare ici. `<Map>` monte les surfaces dans le bon
         // ordre d'imbrication (loupe > dessin > barre > relations > couches), un
         // savoir qui appartient à la lib et non à l'application.
@@ -244,10 +244,6 @@ export function App() {
           }),
         ]}
       >
-        {/* Seul enfant restant : le mouchard de CETTE démo, qui journalise l'état du
-        dessin dans la console. Il consomme `useDrawing()` pour être RÉACTIF (un
-        rendu par changement d'outil ou d'historique), ce qu'une `ref` ne fait pas.
-        Rien de la lib n'a plus à être assemblé ici. */}
         <DrawDebug />
       </Map>
     </div>

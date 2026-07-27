@@ -1,7 +1,7 @@
 import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef } from 'react'
 import type { MarkerLayer as CoreMarkerLayer } from '../../layers/MarkerLayer'
 import type { LatLng } from '../../shared'
-import { useMapContext } from '../context'
+import { useConfig, useMapContext } from '../context'
 import { suppressNextClick } from './suppressNextClick'
 
 export type UseRepositionableOptions = {
@@ -11,7 +11,10 @@ export type UseRepositionableOptions = {
   layer: CoreMarkerLayer | null
   /** Désactive le geste (l'élément reste cliquable normalement). */
   disabled?: boolean
-  /** Déplacement (px) au-delà duquel le geste devient un repositionnement. Défaut 4. */
+  /**
+   * Déplacement (px) au-delà duquel le geste devient un repositionnement.
+   * Défaut `interaction.repositionSlopPx`.
+   */
   slop?: number
   /**
    * Franchissement du seuil : le geste est devenu un déplacement. Notifié une fois
@@ -48,6 +51,7 @@ export function useRepositionable(opts: UseRepositionableOptions): {
   const { engine, overlay } = useMapContext()
   const latest = useRef(opts)
   latest.current = opts
+  const interaction = useConfig().interaction
   const cleanup = useRef<(() => void) | null>(null)
 
   useEffect(() => () => cleanup.current?.(), [])
@@ -68,7 +72,7 @@ export function useRepositionable(opts: UseRepositionableOptions): {
       const el = e.currentTarget as HTMLElement
       const startX = e.clientX
       const startY = e.clientY
-      const slop = o.slop ?? 4
+      const slop = o.slop ?? interaction.repositionSlopPx
       // Id figé pour la durée du geste : c'est ce marker-là qu'il faudra dépingler,
       // même si la prop a changé entre-temps (une liste qui se réordonne).
       const id = o.id
@@ -126,7 +130,7 @@ export function useRepositionable(opts: UseRepositionableOptions): {
           root?.classList.add('m3d-repositioning')
           // Un clic ne doit pas suivre un déplacement (il ouvrirait la fiche du
           // marker qu'on vient juste de bouger).
-          suppressNextClick(el)
+          suppressNextClick(el, interaction.clickSuppressMs)
           latest.current.onStart?.()
         }
         pending = { x: ev.clientX, y: ev.clientY }
@@ -155,7 +159,7 @@ export function useRepositionable(opts: UseRepositionableOptions): {
       window.addEventListener('pointercancel', stop, { once: true })
       cleanup.current = stop
     },
-    [engine, overlay],
+    [engine, overlay, interaction.clickSuppressMs, interaction.repositionSlopPx],
   )
 
   return { onPointerDown, className: 'm3d-repositionable' }

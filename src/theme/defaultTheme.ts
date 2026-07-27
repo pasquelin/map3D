@@ -1,4 +1,5 @@
 import { easeInOutCubic } from '../core/math'
+import { BAR_INSET, EDGE, GAP, LENS_PANEL_W, SELECTION_PANEL_W } from '../style/panelGeometry'
 import type { MapTheme } from './types'
 
 /** Thème neutre par défaut (base du merge profond). Tout est surchargeable. */
@@ -30,6 +31,11 @@ export const defaultTheme: MapTheme = {
     attention: { sonar: '#ffd60a', target: '#ff3b30' },
     path: { base: '#2E7CF6', casing: '#ffffff' },
     zone: { fill: '#079A7D', stroke: '#079A7D' },
+    // Reprend à l'identique les replis qui vivaient dans la feuille de styles
+    // (`.m3d-marquee*`). Sans défaut ici, ces trois couleurs n'existaient QUE côté
+    // CSS : ni lisibles depuis le JS, ni atteignables par une charte, alors que le
+    // type les déclare depuis le début.
+    marquee: { fill: 'rgba(255,255,255,0.12)', stroke: '#000000', under: '#ffffff' },
   },
   shadows: {
     sm: '0 1px 2px rgba(0,0,0,0.3)',
@@ -50,12 +56,14 @@ export const defaultTheme: MapTheme = {
     icon: 'type',
     moveTween: { duration: 500, easing: easeInOutCubic },
   },
+  // Valeurs reprises du donut réellement dessiné par `<DefaultCluster>`, à
+  // l'identique : le thème décrit enfin ce que le composant fait.
   clusters: {
-    coreRadius: (total) => 25 + Math.min(11, Math.sqrt(total) * 1.7),
-    satelliteRadius: (count) => 17 + Math.min(5, Math.sqrt(count) * 1.1),
-    arcSpan: Math.PI * 1.55,
-    startAngle: -Math.PI * 0.94,
-    maxSatellites: 4,
+    coreRadius: (total) => Math.min(28, 19 + Math.sqrt(total)),
+    ringWidth: 30,
+    strokeWidth: 2.5,
+    segmentGap: 0.045,
+    startAngle: Math.PI,
   },
   animations: {
     enabled: true,
@@ -65,30 +73,36 @@ export const defaultTheme: MapTheme = {
     markerEnter: { duration: 460, easing: 'cubic-bezier(.32,1.5,.5,1)', stagger: 30 },
     clusterEnter: { duration: 460, easing: 'cubic-bezier(.32,1.5,.5,1)', stagger: 55 },
     menuOpen: { duration: 200, easing: 'cubic-bezier(.32,1.3,.5,1)' },
-    cameraSmoothing: 0.15,
     flyDuration: 1.0,
     flyEasing: easeInOutCubic,
-    flyArcHeight: 0.15,
+    // Reprises telles quelles des littéraux qui vivaient dans huit fichiers.
+    pan: 0.5,
+    zoom: 0.4,
+    moveTo: 0.4,
+    target: 0.8,
+    clusterOpen: 0.6,
+    topDown: 0.5,
+    globe: 1.0,
   },
-  camera: {
-    minZoom: 2,
-    maxZoom: 21,
-    maxTilt: 1.05,
-    zoomStep: 0.5,
-    dragSpeed: { min: 0.002, max: 0.35 },
+  // Valeurs reprises de `style/panelGeometry`, qui en reste l'unique source pour le
+  // code sans thème (SSR, hooks montés hors carte).
+  spacing: { gap: GAP, edge: EDGE, barInset: BAR_INSET },
+  sizing: {
+    lensPanelW: LENS_PANEL_W,
+    selectionPanelW: SELECTION_PANEL_W,
+    panelMaxHeight: { tags: 380, symbols: 420, search: 340, settings: 560, settingsSub: 520 },
+    iconSize: 0.8,
   },
-  // spiderfyZoom 19 ≈ 76 m d'altitude : assez près pour juger, tuiles encore
-  // nettes — plus bas la caméra plonge dans le bâti 3D.
-  clustering: { radius: 60, minPoints: 2, maxZoom: 18, levelQuantization: 1, spiderfyZoom: 19 },
-  tiles: {
-    cacheSize: 256,
-    uploadsPerFrame: 4,
-    parentFallback: true,
-    priorityByDistance: true,
-  },
+  // Fond de carte accordé au thème SOMBRE par défaut : les tuiles Google sont
+  // produites claires, et leur API n'offre pas de variante sombre. Réglage volontai-
+  // rement doux — assez pour que la carte cesse d'éblouir sous une UI sombre, pas
+  // assez pour fausser la lecture d'une imagerie satellite. `tiles: undefined` (ou
+  // un thème clair) rend les tuiles telles quelles.
+  tiles: { filter: { brightness: 0.85, saturation: 0.9, contrast: 1.05 } },
+  // `tileSurface` et `transitionZoom` décrivaient une stratégie de rendu, pas une
+  // apparence — et n'avaient aucun consommateur. Ne restent que les couleurs, dont
+  // `oceanColor` est désormais réellement lue (globes de repli).
   globe: {
-    tileSurface: 'flat-handoff',
-    transitionZoom: 5,
     atmosphere: true,
     background: '#070C16',
     oceanColor: '#0F2942',

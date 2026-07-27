@@ -23,7 +23,7 @@ import { useLiveData } from '../hooks/useLiveData'
 import { useTagSelection } from '../hooks/useTags'
 import { useDraggable } from '../hooks/useDraggable'
 import { useRepositionable } from '../hooks/useRepositionable'
-import { useMapContext } from '../context'
+import { useConfig, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { DefaultMarker } from './DefaultMarker'
@@ -32,9 +32,11 @@ import { useDismiss } from './useDismiss'
 import { markerColorOf } from '../../theme/colors'
 
 export type MarkerLayerProps<T> = {
+  /** Markers à afficher. Exclusif avec `source`, qui les charge selon la vue. */
   points?: MarkerData<T>[]
   /** Source viewport-driven (rechargée au déplacement, gate `minZoom`). */
   source?: DataSource<MarkerData<T>>
+  /** Clé stable d'un marker (défaut `p.id`) : elle décide de l'identité, donc du tween. */
   getId?: (p: MarkerData<T>) => string | number
   /**
    * Regroupement des markers proches. `radius`, `maxZoom` et `spiderfyZoom`
@@ -80,8 +82,11 @@ export type MarkerLayerProps<T> = {
     members: MarkerData<T>[],
     segmentType?: string,
   ) => { title?: ReactNode; content?: ReactNode } | null
+  /** Menu contextuel d'un marker (clic droit, et bouton « … » des listes). */
   menu?: (p: MarkerData<T>) => MenuItem[]
+  /** Marker sélectionné — **contrôlé** : la couche ne le change jamais d'elle-même. */
   selectedId?: string | number
+  /** Marker suivi par la caméra ; elle reste centrée dessus tant qu'il est fourni. */
   followId?: string | number
   /**
    * Sélection changée. La règle est uniforme : **tout clic qui ne sélectionne pas un
@@ -160,12 +165,6 @@ type Entry<T> =
   | { kind: 'cluster'; cluster: ClusterInfo }
 
 
-/**
- * Marge de cull par défaut (px). Assez large pour qu'un marker du bord ne clignote pas
- * pendant un pan, assez serrée pour que la vue courante reste seule dans le DOM.
- */
-const DEFAULT_CULL_MARGIN = 200
-
 /** SVG → data-URI, idempotent (une source déjà encodée passe telle quelle). */
 export const svgToDataUri = (svg: string): string =>
   svg.startsWith('data:') ? svg : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
@@ -191,6 +190,9 @@ const tipFromData = <T,>(m: MarkerData<T>): { title?: ReactNode; content?: React
 
 export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const { engine, theme } = useMapContext()
+  // Contexte et non `engine.config` : au render, le moteur porte encore les réglages
+  // de la frame précédente (cf. `useConfig`).
+  const config = useConfig()
   const getId = props.getId ?? ((p: MarkerData<T>) => p.id)
 
   const { data: sourceData } = useLiveData<MarkerData<T>>(props.source)
@@ -275,9 +277,10 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // le facteur de pastille que `selectionRing` porte pour les sprites.
   const avatarRing = markerSize + 12
 
-  const maxZoom = props.cluster?.maxZoom ?? theme.clustering.maxZoom
-  const spiderfyZoom = props.cluster?.spiderfyZoom ?? theme.clustering.spiderfyZoom ?? 19
-  const clusterRadius = props.cluster?.radius ?? theme.clustering.radius
+  const clustering = config.clustering
+  const maxZoom = props.cluster?.maxZoom ?? clustering.maxZoom
+  const spiderfyZoom = props.cluster?.spiderfyZoom ?? clustering.spiderfyZoom
+  const clusterRadius = props.cluster?.radius ?? clustering.radius
   // Instantané du rendu courant, écrit UNE fois : les deux littéraux jumeaux d'avant
   // devaient être édités symétriquement à chaque champ ajouté, et un oubli laissait
   // un champ figé à sa valeur du premier rendu — sans que le typage n'en dise rien.
@@ -299,6 +302,10 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     onRepositionMove: props.onRepositionMove,
     leaderLine: props.leaderLine,
     cullMargin: props.cullMargin,
+    // Dans l'instantané comme le reste : les closures longue durée de ce fichier
+    // (recompute, gestes de cluster) tournent longtemps après leur render et doivent
+    // voir les réglages COURANTS, pas ceux qu'elles ont capturés à leur création.
+    config,
   }
   const latest = useRef(snapshot)
   latest.current = snapshot
@@ -330,7 +337,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     // de l'appelant), le second sur le gabarit plein d'un avatar — cf. `setSelectionRing`.
     core.setSelectionRing(latest.current.ringSize, latest.current.avatarRing)
     core.leaderLine = latest.current.leaderLine ?? true
-    core.cullMargin = latest.current.cullMargin ?? DEFAULT_CULL_MARGIN
+    core.cullMargin = latest.current.cullMargin ?? latest.current.config.performance.markerCullMarginPx
     engine.addLayer(core)
     coreRef.current = core
     return () => {
@@ -344,9 +351,10 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // d'un nœud à sa création, alors que le cull ne fait que masquer — le changer à chaud
   // n'a donc rien à reconstruire. Sans cet effet, la prop resterait figée à sa valeur
   // du premier rendu, et rien dans le typage ne le dirait.
+  const cullMarginPx = config.performance.markerCullMarginPx
   useEffect(() => {
-    if (coreRef.current) coreRef.current.cullMargin = props.cullMargin ?? DEFAULT_CULL_MARGIN
-  }, [props.cullMargin])
+    if (coreRef.current) coreRef.current.cullMargin = props.cullMargin ?? cullMarginPx
+  }, [props.cullMargin, cullMarginPx])
 
   // Moteur de clustering (supercluster).
   useEffect(() => {
@@ -355,14 +363,14 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       return
     }
     clusterRef.current = new ClusterEngine({
-      radius: props.cluster.radius ?? theme.clustering.radius,
-      minPoints: props.cluster.minPoints ?? theme.clustering.minPoints,
-      maxZoom: theme.clustering.maxZoom,
+      radius: props.cluster.radius ?? clustering.radius,
+      minPoints: props.cluster.minPoints ?? clustering.minPoints,
+      maxZoom: clustering.maxZoom,
     })
     return () => {
       clusterRef.current = null
     }
-  }, [props.cluster?.enabled, props.cluster?.radius, props.cluster?.minPoints, theme.clustering])
+  }, [props.cluster?.enabled, props.cluster?.radius, props.cluster?.minPoints, clustering])
 
   /** Entrées géo (markers/sous-clusters) → markers feuilles. UNIQUE implémentation
    *  (recompute, infobulle de cluster) — ne lit que des refs. */
@@ -482,7 +490,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       // petit offset ; chacun garde son propre fil vertical vers son point au sol).
       // Replié dès qu'on dézoome.
       const { maxZoom: clusterMaxZoom, ringSize } = latest.current
-      if (view.zoom >= clusterMaxZoom - 0.05) {
+      const spiderfy = latest.current.config.interaction.spiderfy
+      if (view.zoom >= clusterMaxZoom - spiderfy.zoomEpsilon) {
         // `members` ne contient QUE les nœuds cluster — itération directe. Les nœuds
         // éclatés sont retirés en UNE passe après la boucle (pas de splice O(n) par cluster).
         const exploded = new Set<string | number>()
@@ -493,7 +502,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
           if (leaves.length < 2) continue
           exploded.add(key)
           entries.delete(key)
-          const slots = spiderfyLayout(leaves.length, entry.cluster.position, view.zoom, ringSize)
+          const slots = spiderfyLayout(leaves.length, entry.cluster.position, view.zoom, ringSize, spiderfy)
           leaves.forEach((m, i) => {
             const mkey = markerEntryKey(idOf(m))
             items.push(markerItem(mkey, slots[i]!.position, m, false))
@@ -699,7 +708,9 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // appel de traîne garantit l'état final correct une fois la caméra immobile.
   useEffect(() => {
     if (!props.cluster?.enabled) return
-    const MIN_INTERVAL = 90
+    // `performance.markerRecomputeMs` — à relever sur un jeu de markers très dense,
+    // à abaisser si le regroupement paraît traîner derrière la carte.
+    const MIN_INTERVAL = latest.current.config.performance.markerRecomputeMs
     let lastRun = 0
     let trailing = 0
     const run = () => {
@@ -737,11 +748,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // extérieur. L'event `click` du moteur ne porte QUE les clics carte : ceux qui
   // touchent un marker sont absorbés par son nœud DOM, et un outil de dessin actif
   // les consomme avant émission — donc aucune désélection parasite en cours de tracé.
-  useEffect(
-    () => engine.on('click', () => latest.current.onSelect?.(null)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [engine],
-  )
+  useEffect(() => engine.on('click', () => latest.current.onSelect?.(null)), [engine])
 
   // Taille de l'anneau de multi-sélection : le core la pose par nœud à la
   // création — ici seule la resynchronisation au changement de valeur.
@@ -818,14 +825,15 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         const soloCluster = geo.length === 1 && geo[0]!.kind === 'cluster' ? geo[0] : null
         const expansion = soloCluster ? (clusterRef.current?.expansionZoom(soloCluster.clusterId) ?? Infinity) : Infinity
         // Marge au-delà du zoom d'éclatement pour que la séparation soit nette.
-        const targetZoom = Math.min(expansion <= maxZoom ? expansion + 0.3 : maxZoom + 0.5, spiderfyZoom)
+        const openZoom = latest.current.config.interaction.clusterOpenZoom
+        const targetZoom = Math.min(expansion <= maxZoom ? expansion + openZoom.expansion : maxZoom + openZoom.max, spiderfyZoom)
         engine.camera.flyTo(
           {
             lat: entry.cluster.position.lat,
             lng: entry.cluster.position.lng,
             altitude: altitudeForZoom(targetZoom),
           },
-          { duration: 0.6 },
+          { duration: theme.animations.clusterOpen },
         )
         return
       }
@@ -959,7 +967,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       // défaut (rayon dépendant du total) ou pastille du marker.
       const tipLift =
         entry.kind === 'cluster' && !props.clusterIcon
-          ? defaultClusterRadius(entry.cluster.total) + 10
+          ? defaultClusterRadius(entry.cluster.total, theme) + 10
           : size / 2 + 10
       // La prop de couche, si fournie, prime sur le drapeau porté par la donnée —
       // sinon c'est le marker lui-même qui décide (cas courant : un seul point

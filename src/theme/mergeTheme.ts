@@ -36,7 +36,12 @@ export function mergeTheme(
 ): MapTheme {
   const merged = deepMerge(base, override)
   if (opts?.prefersReducedMotion && override?.animations?.enabled === undefined) {
-    merged.animations = { ...merged.animations, enabled: false }
+    // Copie, jamais d'affectation sur `merged` : sans override, `deepMerge` renvoie
+    // `base` **par référence** (cf. son premier test). Muter ici écrivait donc dans
+    // l'objet de l'appelant — en pratique le singleton `defaultTheme`, exporté
+    // publiquement, qui restait figé sur `enabled: false` pour toute l'application
+    // dès qu'un utilisateur avait `prefers-reduced-motion: reduce`.
+    return { ...merged, animations: { ...merged.animations, enabled: false } }
   }
   return merged
 }

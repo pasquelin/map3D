@@ -3,7 +3,7 @@ import type { MarkerData } from '../../data/types'
 import type { ShapeSymbol } from '../../layers/DrawLayer'
 import type { LatLng } from '../../shared'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
-import { useLabels } from '../context'
+import { useConfig, useLabels } from '../context'
 import { MarkerLayer, svgToDataUri } from './MarkerLayer'
 
 /** Symbole posé, tel que le fournit la couche de dessin. */
@@ -63,7 +63,10 @@ const PLACEHOLDER_SVG =
  * symboles l'historique undo/redo, le GeoJSON et les events par forme sans rien
  * dupliquer. Ce composant ne fait que projeter et remonter les déplacements.
  */
-export function SymbolMarkers({ shapes, catalog, renderer, size = 40, ready, onMove }: SymbolMarkersProps) {
+export function SymbolMarkers({ shapes, catalog, renderer, size: sizeProp, ready, onMove }: SymbolMarkersProps) {
+  // Taille écran d'un symbole posé. Hook appelé INCONDITIONNELLEMENT (cf. `ToolButton`).
+  const symbolsCfg = useConfig().interaction.symbols
+  const size = sizeProp ?? symbolsCfg.sizePx
   const byKey = useMemo(() => new Map(catalog.entries.map((e) => [e.key, e])), [catalog])
   // Tous les symboles portent le type `'symbol'` : leur rubrique de recherche est
   // unique, et son nom vient de la lib (l'application n'a pas déclaré ce type).

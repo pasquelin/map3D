@@ -8,6 +8,8 @@
 // géométrie. Un tableau littéral reconstruit à chaque passe fait retriangulariser
 // toute la couche au moindre survol.
 
+import { defaultConfig } from '../config/defaultConfig'
+import type { PerformanceConfig } from '../config/types'
 import { metersPerPixelAtZoom } from '../core/math'
 import type { VisualNode } from '../core/MarkerQuery'
 import type { DashStyle, LinkVisual } from '../layers/LinkLayer'
@@ -19,12 +21,8 @@ import { bearingDeg, destinationPoint, fanLegs, greatCirclePoints, haversineMete
 import type { Link } from './core/types'
 import type { LatLng } from '../shared'
 
-/** Pas d'échantillonnage des lignes droites : sous ~200 m le drapage ne gagne plus rien. */
-const STRAIGHT_STEP_METERS = 200
 /** Opacité du lien de rang 1 — SEULE variable liée au classement avec `minOpacity`. */
 const OPACITY_TOP = 1
-/** Au-delà, l'éventail devient illisible : le groupe passe en trait unique agrégé. */
-const FAN_MAX_LEGS = 5
 /** Ouverture de l'éventail, en degrés. */
 const FAN_SPREAD_DEG = 70
 /** Longueur d'une patte, en pixels écran (convertie en mètres au zoom courant). */
@@ -73,7 +71,17 @@ export type RelationVisualContext = {
    * qu'il avait au clic.
    */
   colorOf: (snapshot: RelationSnapshot) => string
+  /** Au-delà, l'éventail se replie en trait agrégé — cf. `performance.relations.fanMaxLegs`. */
+  fanMaxLegs?: number
+  /** Budgets d'échantillonnage des arcs — cf. `performance.relations`. */
+  perf?: ArcPerf
 }
+
+/**
+ * Budgets d'échantillonnage des arcs — cf. `performance.relations`. Indexé sur la
+ * config plutôt que réécrit : ajouter un budget se propage aux trois usages seul.
+ */
+type ArcPerf = Pick<PerformanceConfig['relations'], 'stepMeters' | 'maxSteps'>
 
 /** Opacité d'un lien selon son rang. Un lien sans rang (temps indisponible) reste discret. */
 export function opacityForRank(rank: number | null, total: number, min: number): number {
@@ -102,6 +110,20 @@ type Entry = { a: LatLng; b: LatLng; points: LatLng[] }
 export class RelationGeometryCache {
   private entries = new Map<string, Entry>()
   private pass: Map<string, Entry> | null = null
+  /**
+   * Budgets d'échantillonnage courants. Champ et non paramètre d'appel : la validité
+   * d'une entrée ne tient qu'à ses EXTRÉMITÉS, donc un pas passé en argument aurait
+   * laissé tous les arcs déjà en cache à l'ancienne subdivision — le réglage n'aurait
+   * semblé agir que sur les liens créés ensuite. Ici, en changer vide le cache.
+   */
+  private perf: ArcPerf = defaultConfig.performance.relations
+
+  setPerf(perf: ArcPerf): void {
+    if (perf.stepMeters === this.perf.stepMeters && perf.maxSteps === this.perf.maxSteps) return
+    this.perf = perf
+    this.entries.clear()
+    this.pass?.clear()
+  }
 
   begin(): void {
     this.pass = new Map()
@@ -115,7 +137,7 @@ export class RelationGeometryCache {
 
   /** Arc de grand cercle échantillonné, mémoïsé tant que ses extrémités tiennent. */
   arc(key: string, a: LatLng, b: LatLng): LatLng[] {
-    return this.resolve(key, a, b, () => greatCirclePoints(a, b, STRAIGHT_STEP_METERS))
+    return this.resolve(key, a, b, () => greatCirclePoints(a, b, this.perf.stepMeters, this.perf.maxSteps))
   }
 
   /** Segment brut à deux points (patte d'éventail) — même contrat d'identité. */
@@ -225,6 +247,7 @@ export function buildRelationVisuals(
   ctx: RelationVisualContext,
   cache: RelationGeometryCache,
 ): LinkVisual[] {
+  if (ctx.perf) cache.setPerf(ctx.perf)
   cache.begin()
   const shared = sharedPairs(snapshots, ctx)
   const out: LinkVisual[] = []
@@ -363,7 +386,7 @@ function fanVisuals(
   const ordered = [...groupLinks].sort((a, b) => (a.durationSeconds ?? Infinity) - (b.durationSeconds ?? Infinity))
   const best = ordered[0]!
   const screenDistance = haversineMeters(source, node.position) / mpp
-  const collapsed = ordered.length > FAN_MAX_LEGS || screenDistance < FAN_COLLAPSE_PX
+  const collapsed = ordered.length > (ctx.fanMaxLegs ?? defaultConfig.performance.relations.fanMaxLegs) || screenDistance < FAN_COLLAPSE_PX
   const opacity = opacityForRank(best.rank, total, style.minOpacity)
 
   if (collapsed) {

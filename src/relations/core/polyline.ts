@@ -32,7 +32,9 @@ export function decodePolyline(encoded: string): LatLng[] {
   function readValue(): number | null {
     let result = 0
     let shift = 0
-    let byte = 0
+    // Sans valeur initiale : le corps de la boucle l'affecte avant que la condition
+    // ne la lise, et un `0` de départ laisserait croire à un état qui n'existe pas.
+    let byte: number
     do {
       if (index >= encoded.length) return null
       byte = encoded.charCodeAt(index++) - 63

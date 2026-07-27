@@ -1,7 +1,7 @@
-import Icon from '@mdi/react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useLabels } from '../context'
-import { ICON_SIZE, withShortcut } from './tooltip'
+import { withShortcut } from './tooltip'
+import { UiIcon } from './UiIcon'
 
 /** Fabrique de tooltip d'une barre — la valeur de retour de `useTip(TIP_ID)`. */
 export type BarTip = (label: string, shortcut?: string | false) => Record<string, string>
@@ -23,7 +23,7 @@ export type ToolButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
   active?: boolean
   /** Classes en PLUS de `m3d-btn` (ex. `m3d-btn-delete`, `m3d-tagbtn`). */
   className?: string
-  /** Taille de l'icône (défaut : `ICON_SIZE`, la convention des barres). */
+  /** Taille de l'icône (défaut : `theme.sizing.iconSize`, la convention des barres). */
   iconSize?: number
   /** Contenu additionnel DANS le bouton, après l'icône (ex. badge de compteur). */
   children?: ReactNode
@@ -34,7 +34,7 @@ export type ToolButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
  * porteurs du raccourci. Source unique du langage des barres (`MapControls`,
  * `Toolbar`, `LensToolButton`, `TagFilterControl`, `DrawSettingsButton`) — sans
  * lui, chaque site recopiait `className={\`m3d-btn${on ? ' m3d-on' : ''}\`}` +
- * `{...tip(...)}` + `<Icon size={ICON_SIZE}>`, et un oubli d'`aria-label` passait
+ * `{...tip(...)}` + `<Icon size>` accordé au thème, et un oubli d'`aria-label` passait
  * inaperçu.
  *
  * Tout attribut de `<button>` non listé est transmis tel quel (`onClick`,
@@ -47,7 +47,7 @@ export function ToolButton({
   shortcut,
   active,
   className,
-  iconSize = ICON_SIZE,
+  iconSize,
   children,
   ...rest
 }: ToolButtonProps) {
@@ -64,7 +64,7 @@ export function ToolButton({
       {...naming}
       {...rest}
     >
-      <Icon path={icon} size={iconSize} />
+      <UiIcon path={icon} size={iconSize} />
       {children}
     </button>
   )

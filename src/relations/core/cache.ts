@@ -2,37 +2,38 @@
 // quantifiée de la cible : un TTL seul laisserait un marker mobile traîner un temps
 // de trajet calculé là où il n'est plus.
 
+import { defaultConfig } from '../../config/defaultConfig'
+import type { RoutingCacheConfig } from '../../config/types'
 import { quantizeKey } from './geo'
 import type { MapPoint, TravelMode } from './types'
 
 type Entry = { value: unknown; expiresAt: number }
 
-const DEFAULT_TTL_MS = 60_000
-/** Côté de la cellule de position : sous ~150 m, un recalcul n'apporte rien de visible. */
-const DEFAULT_CELL_METERS = 150
-/**
- * Plafond d'entrées. Une borne est INDISPENSABLE et non redondante avec le TTL :
- * la clé embarque la position quantifiée de la cible, donc un marker mobile crée une
- * clé neuve à chaque cellule franchie. Les anciennes ne seront jamais relues, donc
- * jamais purgées par la voie paresseuse de `get` — le TTL seul laisse la table
- * croître indéfiniment sur une session de supervision longue.
- */
-const DEFAULT_MAX_ENTRIES = 500
-
 export class RouteCache {
   /** `Map` = ordre d'insertion garanti : la première clé itérée est la plus ancienne. */
   private readonly entries = new Map<string, Entry>()
 
+  /**
+   * TTL, côté de cellule et plafond d'entrées viennent de
+   * `config.providers.routing.cache` — pris en bloc plutôt qu'en trois paramètres
+   * positionnels : le type existe déjà et porte exactement ces champs.
+   *
+   * Le côté de cellule : sous ~150 m, un recalcul n'apporte rien de visible.
+   *
+   * Le plafond est INDISPENSABLE et non redondant avec le TTL : la clé embarque la
+   * position quantifiée de la cible, donc un marker mobile crée une clé neuve à
+   * chaque cellule franchie. Les anciennes ne seront jamais relues, donc jamais
+   * purgées par la voie paresseuse de `get` — le TTL seul laisse la table croître
+   * indéfiniment sur une session de supervision longue.
+   */
   constructor(
-    private readonly ttlMs: number = DEFAULT_TTL_MS,
-    private readonly cellMeters: number = DEFAULT_CELL_METERS,
+    private readonly cfg: RoutingCacheConfig = defaultConfig.providers.routing.cache,
     /** Injectable — le core reste déterministe et testable sans horloge réelle. */
     private readonly now: () => number = () => Date.now(),
-    private readonly maxEntries: number = DEFAULT_MAX_ENTRIES,
   ) {}
 
   key(fromId: string, to: MapPoint, mode: TravelMode): string {
-    return `${fromId}|${to.id}|${mode}|${quantizeKey(to, this.cellMeters)}`
+    return `${fromId}|${to.id}|${mode}|${quantizeKey(to, this.cfg.cellMeters)}`
   }
 
   get<T>(key: string): T | null {
@@ -51,8 +52,8 @@ export class RouteCache {
 
   set<T>(key: string, value: T): void {
     this.entries.delete(key)
-    this.entries.set(key, { value, expiresAt: this.now() + this.ttlMs })
-    if (this.entries.size > this.maxEntries) this.evict()
+    this.entries.set(key, { value, expiresAt: this.now() + this.cfg.ttlMs })
+    if (this.entries.size > this.cfg.maxEntries) this.evict()
   }
 
   /**
@@ -65,7 +66,7 @@ export class RouteCache {
       if (e.expiresAt <= t) this.entries.delete(k)
     }
     for (const k of this.entries.keys()) {
-      if (this.entries.size <= this.maxEntries) break
+      if (this.entries.size <= this.cfg.maxEntries) break
       this.entries.delete(k)
     }
   }

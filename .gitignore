@@ -11,3 +11,6 @@ examples/react/.env
 .playwright-mcp/
 /*.jpeg
 !/examples/react/src/App.tsx
+
+# Cache Python des scripts de génération de doc
+__pycache__/
