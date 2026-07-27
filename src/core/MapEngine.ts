@@ -14,16 +14,13 @@ import { DragRegistry } from './DragRegistry'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
 import { SearchRegistry } from '../search/registry'
+import { ClusterRegistry } from './ClusterRegistry'
 import { MarkerRegistry } from './MarkerQuery'
 import { TagFilter } from './TagFilter'
 
 export type PointerPhase = 'down' | 'move' | 'up'
 /** Intercepteur d'entrée (outils de dessin) : renvoie true pour consommer. */
-export type PointerInterceptor = (
-  phase: PointerPhase,
-  latLng: LatLng | null,
-  event: PointerEvent,
-) => boolean
+export type PointerInterceptor = (phase: PointerPhase, latLng: LatLng | null, event: PointerEvent) => boolean
 
 /** Type de carte : 3D photoréaliste (Ion) ou fond 2D Google (plan). */
 export type MapMode = '3d' | 'plan'
@@ -169,6 +166,12 @@ export class MapEngine {
   readonly selectables = new SelectableRegistry()
   /** Registre d'inventaire des markers (données sources, clusters inclus) consommé par l'outil loupe. */
   readonly markers = new MarkerRegistry()
+  /**
+   * Registre du regroupement COMMUN : les couches y versent leurs points, la surface
+   * de clusters en fait des pastilles. Au niveau de la carte et non de la couche —
+   * un cluster regroupe ce qui se superpose à l'écran, d'où que viennent les points.
+   */
+  readonly clusters = new ClusterRegistry()
   /** Registre des sources cherchables (markers, formes, dessins) consommé par la boîte de recherche. */
   readonly search = new SearchRegistry()
   /**
@@ -308,9 +311,7 @@ export class MapEngine {
         }),
       )
     } else if (opts.googleMapsApiKey) {
-      this.tiles.registerPlugin(
-        new GoogleCloudAuthPlugin({ apiToken: opts.googleMapsApiKey, autoRefreshToken: true }),
-      )
+      this.tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: opts.googleMapsApiKey, autoRefreshToken: true }))
     }
     if (opts.errorTarget !== undefined) this.tiles.errorTarget = opts.errorTarget
     this.tiles.setCamera(this.threeCamera)
@@ -819,8 +820,7 @@ export class MapEngine {
   private checkReady(now: number): void {
     if (this.readyEmitted) return
     const usable =
-      this.projection.isReady() &&
-      (this.mapMode !== '3d' || (this.terrainKnown && this.tiles.loadProgress >= 1))
+      this.projection.isReady() && (this.mapMode !== '3d' || (this.terrainKnown && this.tiles.loadProgress >= 1))
     if (!usable && now - this.startedAt < this.config.startup.readyMaxWaitMs) return
     this.readyEmitted = true
     this.emit('ready', this)
@@ -1009,7 +1009,8 @@ export class MapEngine {
       this.settleFrames = 0
     } else {
       this.settleFrames++
-      if (this.settleFrames === this.config.performance.viewportSettleFrames) this.emit('viewport', this.computeView(state))
+      if (this.settleFrames === this.config.performance.viewportSettleFrames)
+        this.emit('viewport', this.computeView(state))
     }
 
     // Mode 2D : alimente le globe tuilé chaque frame (raffinement incrémental fluide).

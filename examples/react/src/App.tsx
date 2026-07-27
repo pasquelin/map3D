@@ -11,6 +11,7 @@ import { RELATION_RULES } from './config/relations'
 import { SELECTION_RING, theme } from './config/theme'
 import { ALERTS } from './data/alerts'
 import { PARIS, TEST_POINT } from './data/cities'
+import { DEFIBS } from './data/defibs'
 import { BUILDINGS, DEMO_SHAPES, MAX_DRAW_AREA_M2, demoVolumes } from './data/shapes'
 import type { AnyData } from './data/types'
 import { useAgentMarkers } from './hooks/useAgentMarkers'
@@ -48,8 +49,10 @@ export function App() {
   const { pinMarker, onReposition } = useEditablePin()
 
   // Alertes + agents + point éditable dans un SEUL layer → clusterisés ensemble
-  // (comme la référence).
-  const allMarkers: MarkerData<AnyData>[] = [...ALERTS, ...agentMarkers, pinMarker]
+  // (comme la référence). Les défibrillateurs y entrent aussi : ils sont `static`,
+  // donc la lib les masque sous `markers.staticMinZoom` — au-dessus, ils clusterisent
+  // et prennent leur part de camembert comme n'importe quel type.
+  const allMarkers: MarkerData<AnyData>[] = [...ALERTS, ...agentMarkers, ...DEFIBS, pinMarker]
   // Les favoris se déclarent avant les menus : l'entrée « Épingler » lit leur état
   // et les bascule, elle ne tient aucun état à elle.
   const favorites = useFavorites(allMarkers)
@@ -76,6 +79,16 @@ export function App() {
         onReady={(engine) => console.log('[map] ready — altitude sol connue, cadrage fiable', engine.getView().zoom)}
         fallbackGlobe
         mapMode="plan"
+        // Seuil de lisibilité du DÉCOR (`MarkerData.static` : défibrillateurs ici,
+        // symboles posés dans la couche de dessin). Repassé à sa valeur par défaut
+        // pour que le réglage soit visible ici : au-dessus, la carte montre les
+        // repères ; en dessous, elle ne garde que ce qui demande une action.
+        config={{ markers: { staticMinZoom: 13 }, clustering: { maxZoom: 18 } }}
+        // ── Regroupement COMMUN : une seule pastille pour ce qui se superpose à
+        // l'écran, markers de l'app ET symboles posés confondus. Son apparence se
+        // déclare donc ici, une fois, et non dans une couche qui n'en commande qu'une
+        // partie. `false` le couperait ; une couche s'en retire avec `cluster: { enabled: false }`.
+        cluster={{ typeIcon: clusterTypeIcon, typeLabel: clusterTypeLabel, tooltip: clusterTip }}
         // ── Interface : tout se déclare ici. `<Map>` monte les surfaces dans le bon
         // ordre d'imbrication (loupe > dessin > barre > relations > couches), un
         // savoir qui appartient à la lib et non à l'application.
@@ -208,9 +221,6 @@ export function App() {
           markersLayer<AnyData>({
             points: allMarkers,
             getId: (m) => m.id,
-            // `maxZoom` surcharge le thème POUR CETTE COUCHE ; le rayon, lui, n'est
-            // pas repassé — la couche prend `theme.clustering.radius`.
-            cluster: { enabled: true, maxZoom: 18 },
             selectedId: selected,
             // TOUT marker est sélectionnable : le dock sélectionne déjà n'importe quel
             // type au clic (`onPinClick`), restreindre ici aux agents donnait deux
@@ -231,16 +241,14 @@ export function App() {
               console.log('[marker] reposition', m.id, latLng)
               onReposition(latLng)
             },
-            clusterTypeIcon: clusterTypeIcon,
-            // Nomme un type UNE fois : rubriques de la recherche, satellites de
-            // cluster, vignettes de sélection. `clusterTypeLabel` n'est plus à
-            // fournir séparément — il retombe dessus.
+            // Nomme un type UNE fois : rubriques de la recherche et vignettes de
+            // sélection. Le camembert, lui, se nomme sur `<Map cluster>` — il agrège
+            // les points de TOUTES les couches, donc aucune d'elles ne le commande.
             typeLabel: clusterTypeLabel,
             // `tooltip` reste ici parce que ces infobulles sont RICHES (avatar,
             // badges, statut). Un marker qui se contente d'un titre n'a besoin de
             // rien : `MarkerData.title` suffit à le rendre survolable ET cherchable.
             tooltip: markerTip,
-            clusterTooltip: clusterTip,
           }),
         ]}
       >

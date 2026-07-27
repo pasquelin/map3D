@@ -159,6 +159,13 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `selection.clearAll` | Panneau de sélection (liste des éléments sélectionnés, par groupe). | `'Tout désélectionner'` |
 | `selection.movePanel` | aria-label de la poignée de déplacement du panneau. | `'Déplacer le panneau'` |
 
+## `clusters` — Regroupement de markers
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `clusters.label` | aria-label d'une pastille — `{count}` = nombre de markers agrégés. C'est le seul texte qu'un lecteur d'écran a de la pastille : le camembert est une image, et la répartition par type vit dans l'infobulle. | `'Groupe de {count} marqueurs'` |
+| `clusters.labelSingular` | Idem au singulier — `{count}` = 1. | `'Groupe de {count} marqueur'` |
+
 ## `markerList` — Listes de markers
 
 | Clé | Description | Défaut |

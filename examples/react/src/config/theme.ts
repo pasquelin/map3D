@@ -18,8 +18,11 @@ export const theme: MapTheme = mergeTheme(defaultTheme, {
     tags: TAG_COLORS,
   },
   markers: { size: 44, ringWidth: 3, gradient: true, gloss: true },
-  clustering: { radius: 60 },
-  clusters: { maxSatellites: 4, arcSpan: (279 * Math.PI) / 180 },
+  // `clustering` (rayon, minPoints, maxZoom) a migré du thème vers `MapConfig` : ce
+  // sont des paramètres d'algorithme, pas d'apparence. Ils se règlent désormais par
+  // couche (`cluster:` de `markersLayer`) ou dans `config.clustering`.
+  // La géométrie du donut, elle, reste au thème (`clusters`) — la démo prend ses
+  // défauts, qui sont ceux de la lib.
   animations: {
     enabled: true,
     halo: { duration: 2600, easing: 'cubic-bezier(.2,.6,.35,1)', maxScale: 2.1 },

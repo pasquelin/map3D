@@ -135,3 +135,13 @@ export function boundsOfCircle(center: LatLng, radiusMeters: number): Bounds {
     east: normalizeLng(center.lng + dLng),
   }
 }
+
+/**
+ * Cadre du MONDE entier. `85` n'est pas décoratif : c'est la troncature de la
+ * projection Web Mercator, au-delà de laquelle la latitude diverge.
+ *
+ * À passer à un regroupement ou à un inventaire qui ne doit RIEN filtrer par la vue :
+ * en vue oblique, les bounds du viewport n'atteignent pas l'horizon, et un marker
+ * lointain tomberait hors boîte alors qu'il est à l'écran.
+ */
+export const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }

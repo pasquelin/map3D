@@ -30,6 +30,7 @@ export const TAG_COLORS: Record<string, string> = {
   standby: typeColor('agent-available'),
   move: typeColor('agent-enroute'),
   onsite: typeColor('agent-onsite'),
+  defib: typeColor('defib'),
 }
 
 /** Trait des zones de couverture (cercles de ville + thème `colors.zone`). */

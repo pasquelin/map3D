@@ -164,6 +164,18 @@ export type MapLabels = {
     /** aria-label de la poignée de déplacement du panneau. */
     movePanel: string
   }
+  /** Regroupement de markers (`<ClusterSurface>`). */
+  clusters: {
+    /**
+     * aria-label d'une pastille — `{count}` = nombre de markers agrégés.
+     *
+     * C'est le seul texte qu'un lecteur d'écran a de la pastille : le camembert est
+     * une image, et la répartition par type vit dans l'infobulle.
+     */
+    label: string
+    /** Idem au singulier — `{count}` = 1. */
+    labelSingular: string
+  }
   /** Liste de markers partagée (sélection + loupe) : 1 ligne par marker. */
   markerList: {
     /** Action « cibler » (menu + clic sur la ligne). */

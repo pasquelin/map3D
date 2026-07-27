@@ -23,6 +23,15 @@ export interface DataSource<T> {
 }
 
 /**
+ * Décor à seuil PROPRE — cf. `MarkerData.static`. Le champ ne se nomme pas
+ * `staticMinZoom` : il vit déjà sous `static`, qui dit de quoi il s'agit.
+ */
+export type StaticMarker = {
+  /** Zoom en deçà duquel CE marker disparaît, à la place de `config.markers.staticMinZoom`. */
+  minZoom: number
+}
+
+/**
  * Point à identité **stable** (`id` = clé métier, ex. uuid d'agent),
  * indépendante de la position : au changement de `position`, le marker est
  * translaté en douceur plutôt que recréé.
@@ -84,6 +93,26 @@ export type MarkerData<T = unknown> = {
    */
   repositionable?: boolean
   /**
+   * Objet **fixe du décor** (symbole posé, défibrillateur, borne) : un repère qu'on
+   * consulte de près, pas un événement qui demande une action.
+   *
+   * Une seule conséquence, portée par la lib : il **disparaît** en dessous de
+   * `config.markers.staticMinZoom`. Dézoomée sur une région, la carte se couvrirait
+   * sinon de pictogrammes illisibles qui masquent ce qui, lui, demande une action.
+   * Visible, en revanche, c'est un marker comme un autre — cluster et camembert le
+   * traitent exactement comme les autres types.
+   *
+   * `true` prend le seuil de la config ; `{ minZoom }` en impose un **propre à ce
+   * marker**. Tout le décor ne se lit pas à la même distance : un hôpital mérite
+   * d'apparaître bien avant une borne d'incendie, et c'est la donnée qui le sait, pas
+   * un réglage global. Un seuil de `0` rend le marker visible à tout zoom.
+   *
+   * Sans rapport avec le filtre de tags : celui-ci obéit à un choix de l'utilisateur
+   * et masque partout (recherche comprise), là où le seuil de zoom ne dit que ce qui
+   * est LISIBLE — un statique masqué reste cherchable et atteignable.
+   */
+  static?: boolean | StaticMarker
+  /**
    * Priorité d'affichage entre markers qui se recouvrent — le plus haut passe
    * devant. Défaut 0. Utile pour qu'un point courant, un focus ou une alerte
    * critique ne disparaisse pas sous un voisin.
@@ -99,6 +128,18 @@ export type MarkerData<T = unknown> = {
    */
   selectedColor?: string
   data: T
+}
+
+/**
+ * Zoom à partir duquel ce marker s'affiche, ou `null` s'il n'est pas du décor.
+ *
+ * Point de vérité UNIQUE de la résolution `static` → seuil : la couche marker s'en
+ * sert pour filtrer, et le hook de gate pour savoir quels seuils surveiller. Deux
+ * lectures divergentes feraient apparaître un marker que personne n'a réveillé.
+ */
+export function staticMinZoomOf<T>(m: MarkerData<T>, fallback: number): number | null {
+  if (!m.static) return null
+  return m.static === true ? fallback : m.static.minZoom
 }
 
 /**

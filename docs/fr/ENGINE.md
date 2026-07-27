@@ -196,15 +196,39 @@ inventoriables sans que `<Map>` ait à les inventorier.
 
 ```ts
 type MarkerProvider = {
-  markersInBounds(bounds: Bounds): MarkerData[]
-  markerById(id): MarkerData | null
+  markersInBounds?(bounds: Bounds): MarkerData[]
+  markerById?(id): MarkerData | null
   visualNodeOf?(id): VisualNode | null   // le cluster qui agrège ce marker, ou lui-même
 }
 ```
 
+Les trois méthodes sont **facultatives** : un fournisseur ne déclare que ce qu'il sait.
+`<ClusterSurface>` ne connaît aucune donnée source mais est seule à savoir quelle
+pastille agrège quoi, et ne déclare donc que `visualNodeOf`.
+
 `visualNodeOf` répond depuis l'état de clustering **déjà calculé** : interroger ne
 déclenche aucun recompute et ne change jamais le zoom. C'est ce qui permet aux liens de
 relation de viser un cluster sans l'éclater.
+
+### `ClusterRegistry` (`engine.clusters`)
+
+```ts
+type ClusterContributor = {
+  key: string                              // clé STABLE de la couche (`useId()`)
+  points(): readonly MarkerData[]          // ce que la couche afficherait
+  idOf(m: MarkerData): string | number     // sa clé, telle que la couche la voit
+  place(placement: ClusterPlacement): void // ce qu'elle doit poser, et où
+}
+```
+
+Le contrat tient en deux gestes : la couche **donne** ses points, et **pose** ce que la
+surface lui rend (`absorbed` : agrégés dans une pastille, à ne pas poser ; `moved` :
+décollés par l'éventail). Elle ne connaît ni les autres couches, ni les pastilles.
+
+`key` préfixe les uid du registre : deux couches peuvent porter le même id métier, et un
+rang attribué à l'inscription changerait à chaque remontage — donc tous les uid, le cache
+de feuilles de l'index et les clés DOM des pastilles. `place` n'est appelée que lorsque
+le placement de CETTE couche a réellement changé.
 
 ### `SelectableRegistry` (`engine.selectables`)
 

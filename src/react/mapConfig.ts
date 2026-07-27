@@ -21,6 +21,7 @@ import type { MenuItem } from './components/ContextMenu'
 import type { DrawLayerProps } from './components/DrawLayer'
 import type { LensOptions } from './components/LensLayer'
 import type { MapControlsProps } from './components/MapControls'
+import type { ClusterSurfaceProps } from './components/ClusterSurface'
 import type { MarkerLayerProps } from './components/MarkerLayer'
 import type { PinnedDockProps } from './components/PinnedDock'
 import type { RelationLayerProps } from './components/RelationLayer'
@@ -182,7 +183,7 @@ export type LayerSpec = MarkersSpec | (WithId & { kind: 'shapes' } & ShapeLayerP
  * ]}
  * ```
  */
-export const markersLayer = <T,>(props: Omit<MarkersSpec<T>, 'kind'>): LayerSpec =>
+export const markersLayer = <T>(props: Omit<MarkersSpec<T>, 'kind'>): LayerSpec =>
   ({ kind: 'markers', ...props }) as unknown as LayerSpec
 
 /** Couche de formes drapées (zones, périmètres, volumes). */
@@ -209,6 +210,15 @@ export type MapSurfaces<T = unknown, TPin = unknown> = {
   /** Couche de dessin. `false` retire le dessin ET la barre qui le pilote. */
   draw?: false | DrawConfig
   /** Moteur de relations par tags — sa présence l'active (cf. `RelationsConfig`). */
+  /**
+   * Regroupement COMMUN de la carte : ce qui se superpose à l'écran devient une
+   * pastille, quelle que soit la couche d'origine. `false` le coupe entièrement ;
+   * une couche s'en retire avec `cluster: { enabled: false }`.
+   *
+   * Réglé ici et non par couche : un même nœud agrège les points de plusieurs
+   * couches, il ne peut donc pas prendre deux apparences contradictoires.
+   */
+  cluster?: false | ClusterSurfaceProps
   relations?: RelationsConfig
   /** Couches de données, dans l'ordre de rendu. */
   layers?: LayerSpec[]

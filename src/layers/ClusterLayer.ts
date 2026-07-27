@@ -110,19 +110,32 @@ export class ClusterEngine {
 
   constructor(private options: ClusterOptions) {}
 
-  load(markers: readonly MarkerData[]): void {
+  /**
+   * `idOf` permet à l'appelant d'indexer sous une clé qui n'est pas `m.id` — le
+   * regroupement commun préfixe la sienne par la couche d'origine, deux couches
+   * pouvant porter le même id métier.
+   *
+   * `markers` est un ITÉRABLE, pas un tableau : le regroupement commun tient ses
+   * points dans une structure qui en porte plus (couche d'origine, uid), et le
+   * convertir en tableau n'allouait qu'un intermédiaire jeté à la ligne suivante.
+   */
+  load(markers: Iterable<MarkerData>, idOf: (m: MarkerData) => string | number = (m) => m.id): void {
     const index = new Supercluster<LeafProps>({
       radius: this.options.radius,
       minPoints: this.options.minPoints,
       maxZoom: this.options.maxZoom,
     })
-    index.load(
-      markers.map((m) => ({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [m.position.lng, m.position.lat] },
-        properties: { markerId: m.id, mType: m.type },
-      })),
-    )
+    // Type pris à `load` plutôt qu'au namespace global `GeoJSON` : il suit la version
+    // de supercluster installée, sans dépendre d'un typage ambiant.
+    const features: Parameters<typeof index.load>[0] = []
+    for (const m of markers) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [m.position.lng, m.position.lat] },
+        properties: { markerId: idOf(m), mType: m.type },
+      })
+    }
+    index.load(features)
     this.index = index
     this.leafCache.clear()
   }
@@ -159,12 +172,7 @@ export class ClusterEngine {
   getClusters(bounds: Bounds, zoom: number): ClusterEntry[] {
     if (!this.index) return []
     const z = clamp(Math.round(zoom), 0, this.options.maxZoom + 1)
-    const bbox: [number, number, number, number] = [
-      bounds.west,
-      bounds.south,
-      bounds.east,
-      bounds.north,
-    ]
+    const bbox: [number, number, number, number] = [bounds.west, bounds.south, bounds.east, bounds.north]
     const features = this.index.getClusters(bbox, z)
     const out: ClusterEntry[] = []
     for (const f of features) {

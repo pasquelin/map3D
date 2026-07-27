@@ -4,7 +4,7 @@ import type { ShapeSymbol } from '../../layers/DrawLayer'
 import type { LatLng } from '../../shared'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 import { useConfig, useLabels } from '../context'
-import { MarkerLayer, svgToDataUri } from './MarkerLayer'
+import { MarkerLayer, type MarkerLayerProps, svgToDataUri } from './MarkerLayer'
 
 /** Symbole posé, tel que le fournit la couche de dessin. */
 export type PlacedSymbolShape = {
@@ -43,6 +43,23 @@ export type SymbolMarkersProps = {
    * resterait dépourvue de graphisme jusqu'au prochain changement de `shapes`.
    */
   ready?: boolean
+  /**
+   * Participation au regroupement COMMUN de la carte (cf. `<Map cluster>`). Les
+   * symboles y entrent d'office : posés à la douzaine sur une même zone, ils se
+   * recouvrent sans rien dire de ce qu'ils cachent — et ils se regroupent avec les
+   * markers de l'application, puisqu'un cluster regroupe ce qui se superpose à
+   * l'écran, d'où que viennent les points.
+   *
+   * `{ enabled: false }` les en sort : un marker par symbole, à tout zoom.
+   */
+  cluster?: MarkerLayerProps<PlacedSymbolShape>['cluster']
+  /**
+   * Zoom en deçà duquel les symboles posés disparaissent — à la place de
+   * `config.markers.staticMinZoom`, et lui-même surclassé par le `minZoom` d'une
+   * entrée de catalogue. La cascade va donc du plus général au plus précis :
+   * config → couche → genre de symbole.
+   */
+  minZoom?: number
   /** Nouvelle position après déplacement du marker. */
   onMove: (id: string, at: LatLng) => void
 }
@@ -63,7 +80,16 @@ const PLACEHOLDER_SVG =
  * symboles l'historique undo/redo, le GeoJSON et les events par forme sans rien
  * dupliquer. Ce composant ne fait que projeter et remonter les déplacements.
  */
-export function SymbolMarkers({ shapes, catalog, renderer, size: sizeProp, ready, onMove }: SymbolMarkersProps) {
+export function SymbolMarkers({
+  shapes,
+  catalog,
+  renderer,
+  size: sizeProp,
+  ready,
+  cluster,
+  minZoom,
+  onMove,
+}: SymbolMarkersProps) {
   // Taille écran d'un symbole posé. Hook appelé INCONDITIONNELLEMENT (cf. `ToolButton`).
   const symbolsCfg = useConfig().interaction.symbols
   const size = sizeProp ?? symbolsCfg.sizePx
@@ -105,6 +131,11 @@ export function SymbolMarkers({ shapes, catalog, renderer, size: sizeProp, ready
           tags: [...s.tags],
           // Déplaçable : le drapeau vit sur la donnée, comme pour tout marker éditable.
           repositionable: true,
+          // DÉCOR fixe : masqué au dézoom (cf. `MarkerData.static`). Le seuil n'est
+          // porté par le POINT que si le catalogue le fait dépendre du genre de
+          // symbole — un poste de commandement se voit de loin, un point de contrôle
+          // non. Sinon `true` s'en remet à la couche, qui s'en remet à la config.
+          static: entry?.minZoom === undefined ? true : { minZoom: entry.minZoom },
           // Repère des LISTES (loupe, sélection) : le dessin du symbole, pas une
           // pastille de couleur. Le type vaut `'symbol'` pour tous — il ne distingue
           // rien, là où le pictogramme dit d'un coup d'œil ce qui est posé.
@@ -131,16 +162,15 @@ export function SymbolMarkers({ shapes, catalog, renderer, size: sizeProp, ready
   // renderer par marker — c'est le même rendu, payé une fois.
   const icon = useCallback((m: MarkerData<PlacedSymbolShape>) => m.data.svg ?? PLACEHOLDER_SVG, [])
 
-  const reposition = useCallback(
-    (m: MarkerData<PlacedSymbolShape>, at: LatLng) => onMove(m.data.id, at),
-    [onMove],
-  )
+  const reposition = useCallback((m: MarkerData<PlacedSymbolShape>, at: LatLng) => onMove(m.data.id, at), [onMove])
 
   return (
     <MarkerLayer<PlacedSymbolShape>
       points={points}
       getId={getSymbolId}
       size={size}
+      cluster={cluster}
+      staticMinZoom={minZoom}
       icon={icon}
       typeLabel={symbolTypeLabel}
       // Deux gestes distincts et complémentaires : l'ICÔNE se saisit au long-press

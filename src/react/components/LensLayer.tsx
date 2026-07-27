@@ -4,6 +4,7 @@ import { AnchorHeightCache } from '../../core/AnchorHeightCache'
 import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
 import type { ScreenPoint } from '../../core/Projection'
 import type { MarkerData } from '../../data/types'
+import { WORLD_BOUNDS } from '../../core/bounds'
 import type { Bounds } from '../../shared'
 import { LensContext, type LensApi, useConfig, useLabels, useMapContext } from '../context'
 import { LensPanel } from './LensPanel'
@@ -12,9 +13,6 @@ import type { MenuItem } from './ContextMenu'
 import type { MarkerListAction } from './MarkerList'
 import { inTextInput, plainKey } from './shortcuts'
 import type { LensRect, LensRenderItem } from './lensTypes'
-
-/** Cadre géo « monde » — repli quand les coins ne pickent pas (vue vers le ciel). */
-const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -180 }
 
 /** Clé par défaut d'un marker. Hissée : identité stable → `MarkerList` reste mémoïsée. */
 const defaultGetId = <T,>(m: MarkerData<T>): string | number => m.id

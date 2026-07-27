@@ -167,6 +167,13 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `selection.clearAll` | Selection panel (list of selected elements, by group). | `'Tout désélectionner'` |
 | `selection.movePanel` | aria-label of the panel's move grip. | `'Déplacer le panneau'` |
 
+## `clusters` — Marker grouping
+
+| Key | Description | Default |
+|---|---|---|
+| `clusters.label` | aria-label of a chip — `{count}` = number of aggregated markers. It is the only text a screen reader gets from the chip: the pie is an image, and the per-type breakdown lives in the tooltip. | `'Groupe de {count} marqueurs'` |
+| `clusters.labelSingular` | Same, singular — `{count}` = 1. | `'Groupe de {count} marqueur'` |
+
 ## `markerList` — Marker lists
 
 | Key | Description | Default |

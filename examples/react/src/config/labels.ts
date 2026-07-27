@@ -1,6 +1,6 @@
 import type { MarkerData } from 'map3d'
 
-import { type Alert, type AgentStatus, isAgentMarker } from '../data/types'
+import type { AgentStatus } from '../data/types'
 import { markerTypeSpec } from './markerTypes'
 
 /* ══════════════════ LIBELLÉS MÉTIER ══════════════════
@@ -21,8 +21,13 @@ export const STATUS_LABEL: Record<AgentStatus, string> = {
 }
 
 /**
- * Titre métier d'un marker — source UNIQUE, partagée par les éléments épinglés, la
- * loupe et le panneau de sélection (`MarkerList` commun, où pastille/avatar et
- * sous-titre de type sont automatiques).
+ * Titre d'un marker — partagé par les éléments épinglés, la loupe et le panneau de
+ * sélection.
+ *
+ * Lit `MarkerData.title` et RIEN d'autre. Toutes les fabriques de la démo l'alimentent
+ * déjà (le nom pour un agent, le titre pour une alerte ou un défibrillateur), et c'est
+ * le seul champ que porte AUSSI un marker venu d'une autre couche — un symbole posé,
+ * qui arrive désormais dans les mêmes pastilles et n'a ni `name` ni `title` dans sa
+ * donnée. Lire la donnée métier faisait des lignes vides sans rien apporter.
  */
-export const markerLabel = (m: MarkerData): string => (isAgentMarker(m) ? m.data.name : (m.data as Alert).title)
+export const markerLabel = (m: MarkerData): string => m.title ?? String(m.id)

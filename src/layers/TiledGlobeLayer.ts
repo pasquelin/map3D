@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { defaultConfig } from '../config/defaultConfig'
 import type { TilesConfig } from '../config/types'
+import { WORLD_BOUNDS } from '../core/bounds'
 import { GoogleTileSource, latToTileY, lngToTileX, tileXToLng, tileYToLat } from '../core/googleTiles'
 import { clamp, DEG2RAD } from '../core/math'
 import type { Bounds } from '../shared'
@@ -150,7 +151,7 @@ export class TiledGlobeLayer {
     // Tuiles désirées : base (globe entier) + niveau cible (emprise vue + marge). Si le
     // niveau cible dépasse le budget de tuiles, on RÉDUIT le zoom pour tenir (jamais rien
     // sauter → il y a toujours quelque chose de plus net que la base).
-    this.requestLevel(BASE_Z, { west: -180, east: 180, north: 85, south: -85 }, 0)
+    this.requestLevel(BASE_Z, WORLD_BOUNDS, 0)
     let targetZ = clamp(Math.round(zoom), BASE_Z, MAX_Z)
     while (targetZ > BASE_Z && tileCount(bounds, targetZ, this.cfg.margin) > this.cfg.maxRequest) targetZ--
     if (refine && targetZ > BASE_Z) this.requestLevel(targetZ, bounds, this.cfg.margin)
@@ -186,10 +187,20 @@ export class TiledGlobeLayer {
     let t = this.tiles.get(key)
     if (!t) {
       t = {
-        z, x, y, key, state: 'queued', img: null, mesh: null, lastUsed: this.frame,
-        attempts: 0, retryAt: 0,
-        west: tileXToLng(x, z), east: tileXToLng(x + 1, z),
-        north: tileYToLat(y, z), south: tileYToLat(y + 1, z),
+        z,
+        x,
+        y,
+        key,
+        state: 'queued',
+        img: null,
+        mesh: null,
+        lastUsed: this.frame,
+        attempts: 0,
+        retryAt: 0,
+        west: tileXToLng(x, z),
+        east: tileXToLng(x + 1, z),
+        north: tileYToLat(y, z),
+        south: tileYToLat(y + 1, z),
       }
       this.tiles.set(key, t)
       this.queue.push(t)
@@ -321,7 +332,12 @@ export class TiledGlobeLayer {
     // au-dessus et la repeignent (peintre) ; l'océan ne comble que pôles/gaps.
     geo.scale(r.x, r.y, r.z)
     // Peint en premier (sous toutes les tuiles), au-dessus des étoiles, sans depth test.
-    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(this.oceanColor), side: THREE.FrontSide, depthTest: false, depthWrite: false })
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(this.oceanColor),
+      side: THREE.FrontSide,
+      depthTest: false,
+      depthWrite: false,
+    })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = -0.9
     return mesh
