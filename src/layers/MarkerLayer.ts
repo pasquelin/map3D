@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import type { FrameContext, Layer } from '../core/Layer'
-import type { Projection } from '../core/Projection'
+import type { Projection, ScreenPoint } from '../core/Projection'
 import type { SelectableScreenItem } from '../core/Selectables'
 import { clamp, DEG2RAD, shortestLngDelta } from '../core/math'
 import type { LatLng } from '../shared'
@@ -64,6 +64,30 @@ export class MarkerLayer implements Layer {
    * l'alerte. `false` → badge centré directement sur le point.
    */
   leaderLine = true
+  /**
+   * Marge (px écran) au-delà du cadre du canvas où un marker reste affiché. Passée,
+   * son nœud est masqué (`display:none` via le `CSS2DRenderer`) : le navigateur cesse
+   * d'en calculer le style, la mise en page et la composition.
+   *
+   * Un marker DÉJÀ affiché n'est pas démonté pour autant : son nœud, son portail React
+   * et son `CSS2DObject` restent en place, seul le coût navigateur disparaît. En
+   * revanche un marker créé hors cadre n'entre JAMAIS dans le document : le
+   * `CSS2DRenderer` n'insère l'élément qu'au premier rendu où l'objet est visible.
+   * Mesuré sur la démo, vue initiale : 9 ancres dans le DOM au lieu de 32.
+   *
+   * Ce que ça ne fait pas : réduire le nombre d'objets suivis. Le tri z du
+   * `CSS2DRenderer` porte sur tout ce qui est monté, visible ou non, et le levier
+   * d'ordre de grandeur reste de ne pas charger la donnée lointaine (`DataSource`
+   * cadrée sur le viewport).
+   *
+   * Le prix est une projection par marker et par frame — le même calcul que fait déjà
+   * le `CSS2DRenderer` pour les positionner, donc du même ordre que ce que la couche
+   * coûte de toute façon. `0` désactive le cull.
+   *
+   * La marge n'est pas cosmétique : un cull au ras du cadre fait clignoter les markers
+   * du bord pendant un pan, le temps que la caméra rattrape la frame.
+   */
+  cullMargin = 200
 
   private readonly nodes = new Map<string | number, Node>()
 
@@ -74,6 +98,9 @@ export class MarkerLayer implements Layer {
    */
   private readonly pinned = new Set<string | number>()
   private readonly worldScratch = new THREE.Vector3()
+  /** Point écran réutilisé : le cull de cadre projette CHAQUE marker à chaque frame,
+   *  et `worldToScreen` alloue son résultat sans lui. */
+  private readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
   private selected: string | number | null = null
   /** Multi-sélection (outil sélection) — canal parallèle à `selected` (popup/follow). */
   private readonly multiSel = new Set<string | number>()
@@ -426,19 +453,35 @@ export class MarkerLayer implements Layer {
   }
 
   /**
-   * Passe 2 — occlusion optionnelle : masque les markers derrière le globe via le
-   * test d'horizon ellipsoïde. Aucun calcul de position d'écran (délégué au
-   * CSS2DRenderer).
+   * Passe 2 — ce qui n'a pas à être peint : les markers passés derrière le globe
+   * (test d'horizon ellipsoïde) et, si `cullMargin` le demande, ceux sortis du cadre.
+   *
+   * Les deux verdicts se rejoignent dans le MÊME drapeau (`node.visible` → `display:
+   * none`) : pour le navigateur comme pour `screenPositions`, un marker sous l'horizon
+   * et un marker à trois écrans de là sont la même chose — quelque chose qu'on ne voit
+   * pas. L'horizon est testé en PREMIER : il ne coûte qu'un produit scalaire, là où le
+   * cadre coûte une projection complète, qu'on évite ainsi pour tout l'hémisphère
+   * caché.
    */
   project(ctx: FrameContext): void {
-    if (!this.occlude) return
+    const cull = this.cullMargin > 0
+    if (!this.occlude && !cull) return
     const camPos = ctx.camera.position
+    const { width, height } = ctx.size
+    const m = this.cullMargin
     for (const node of this.nodes.values()) {
       const world = node.obj.getWorldPosition(this.worldScratch)
-      const above = this.projection.isAboveHorizon(world, camPos)
-      if (above !== node.visible) {
-        node.obj.visible = above
-        node.visible = above
+      let visible = !this.occlude || this.projection.isAboveHorizon(world, camPos)
+      if (visible && cull) {
+        const s = this.projection.worldToScreen(world, ctx.camera, this.screen)
+        // `z > 1` = derrière la caméra : le `CSS2DRenderer` le masque déjà, mais le
+        // dire ici évite qu'un point projeté au dos de l'écran soit lu comme « dans le
+        // cadre » — la projection replie l'arrière sur l'avant.
+        visible = s.z <= 1 && s.sx >= -m && s.sy >= -m && s.sx <= width + m && s.sy <= height + m
+      }
+      if (visible !== node.visible) {
+        node.obj.visible = visible
+        node.visible = visible
       }
     }
   }
