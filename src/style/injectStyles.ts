@@ -873,7 +873,7 @@ const CSS = `
   box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px);color:var(--m3d-muted);
   transition:top .14s cubic-bezier(.4,0,.2,1),padding .28s cubic-bezier(.4,0,.2,1),
     background .14s,color .14s,border-color .14s}
-.m3d-collapsed .m3d-pindock-toggle{top:calc(100% - 17px);padding:0 13px 0 7px}
+.m3d-collapsed .m3d-pindock-toggle{top:100%;padding:0 13px 0 7px}
 .m3d-pindock-toggle:hover{background:color-mix(in srgb,var(--m3d-text) 6%,var(--m3d-panel));color:var(--m3d-text)}
 .m3d-pindock-toggle:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
 /* Un seul chevron pour les deux sens : il pointe vers le haut au repos (« rouvrir »)

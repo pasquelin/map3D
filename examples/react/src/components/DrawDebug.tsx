@@ -14,11 +14,20 @@ export function DrawDebug() {
   const api = useDrawing()
   const settings = useDrawSettings()
 
-  useEffect(() => console.log('[draw] tool', api.tool, api.tool === 'select' ? `(mode ${api.selectMode})` : ''), [api.tool, api.selectMode])
-  useEffect(() => console.log('[draw] history', { canUndo: api.canUndo, canRedo: api.canRedo }), [api.canUndo, api.canRedo])
+  useEffect(
+    () => console.log('[draw] tool', api.tool, api.tool === 'select' ? `(mode ${api.selectMode})` : ''),
+    [api.tool, api.selectMode],
+  )
+  useEffect(
+    () => console.log('[draw] history', { canUndo: api.canUndo, canRedo: api.canRedo }),
+    [api.canUndo, api.canRedo],
+  )
 
-  // Le JSON ne sert que de dépendance stable — l'objet, lui, se loggue tel quel.
+  // Le JSON ne sert que de dépendance stable — l'objet, lui, se loggue tel quel. C'est
+  // le POINT du montage : dépendre de `api.currentStyle` rejouerait le log à chaque
+  // render, puisque le style est un objet neuf à chaque fois.
   const styleJson = JSON.stringify(api.currentStyle)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => console.log('[draw] style courant', api.currentStyle), [styleJson])
   useEffect(() => console.log('[draw] settings modifiés (v%d)', settings.version), [settings.version])
 
@@ -35,7 +44,10 @@ export function DrawDebug() {
         const a = after.find((x: DrawnShape) => x.id === b.id)
         return !a || JSON.stringify(a.meta) !== JSON.stringify(b.meta)
       })
-      console.log(`[draw] round-trip : ${before.length} formes → ${after.length}, ${lost.length} identité(s)/meta perdue(s)`, lost)
+      console.log(
+        `[draw] round-trip : ${before.length} formes → ${after.length}, ${lost.length} identité(s)/meta perdue(s)`,
+        lost,
+      )
     }
   })
 

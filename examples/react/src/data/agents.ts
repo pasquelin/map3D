@@ -1,4 +1,4 @@
-import { moveAlong } from './geo'
+import { GOLDEN, moveAlong, vogel } from './geo'
 import type { Agent, AgentStatus } from './types'
 
 /**
@@ -27,22 +27,100 @@ export const agentTags = (a: Agent): string[] => ['user', ACTIVITY[a.status], a.
  */
 const ROSTER: Agent[] = [
   // ── Paris
-  { id: 'agent-0', name: 'Sam MacCloud', phone: '+33 6 09 82 88 04', status: 'available', city: 'paris', position: { lat: 48.8566, lng: 2.3522 } },
-  { id: 'agent-1', name: 'Agent Alban', phone: '+33 6 28 13 16 22', status: 'enroute', city: 'paris', position: { lat: 48.8698, lng: 2.3079 } },
-  { id: 'agent-2', name: 'Léa Fontaine', phone: '+33 6 77 41 09 88', status: 'onsite', city: 'paris', position: { lat: 48.8443, lng: 2.3743 } },
-  { id: 'agent-3', name: 'Karim Belhadj', phone: '+33 6 12 55 34 21', status: 'available', city: 'paris', position: { lat: 48.8809, lng: 2.36 } },
+  {
+    id: 'agent-0',
+    name: 'Sam MacCloud',
+    phone: '+33 6 09 82 88 04',
+    status: 'available',
+    city: 'paris',
+    position: { lat: 48.8566, lng: 2.3522 },
+  },
+  {
+    id: 'agent-1',
+    name: 'Agent Alban',
+    phone: '+33 6 28 13 16 22',
+    status: 'enroute',
+    city: 'paris',
+    position: { lat: 48.8698, lng: 2.3079 },
+  },
+  {
+    id: 'agent-2',
+    name: 'Léa Fontaine',
+    phone: '+33 6 77 41 09 88',
+    status: 'onsite',
+    city: 'paris',
+    position: { lat: 48.8443, lng: 2.3743 },
+  },
+  {
+    id: 'agent-3',
+    name: 'Karim Belhadj',
+    phone: '+33 6 12 55 34 21',
+    status: 'available',
+    city: 'paris',
+    position: { lat: 48.8809, lng: 2.36 },
+  },
   // ── Nice
-  { id: 'agent-4', name: 'Yanis Moretti', phone: '+33 6 44 71 25 03', status: 'available', city: 'nice', position: { lat: 43.697, lng: 7.27 } },
-  { id: 'agent-5', name: 'Chloé Bonnet', phone: '+33 6 51 90 33 17', status: 'enroute', city: 'nice', position: { lat: 43.7018, lng: 7.2648 } },
-  { id: 'agent-6', name: 'Marc Delaunay', phone: '+33 6 63 08 74 52', status: 'onsite', city: 'nice', position: { lat: 43.6952, lng: 7.2789 } },
-  { id: 'agent-7', name: 'Inès Bertrand', phone: '+33 6 22 47 61 90', status: 'available', city: 'nice', position: { lat: 43.6668, lng: 7.2172 } },
+  {
+    id: 'agent-4',
+    name: 'Yanis Moretti',
+    phone: '+33 6 44 71 25 03',
+    status: 'available',
+    city: 'nice',
+    position: { lat: 43.697, lng: 7.27 },
+  },
+  {
+    id: 'agent-5',
+    name: 'Chloé Bonnet',
+    phone: '+33 6 51 90 33 17',
+    status: 'enroute',
+    city: 'nice',
+    position: { lat: 43.7018, lng: 7.2648 },
+  },
+  {
+    id: 'agent-6',
+    name: 'Marc Delaunay',
+    phone: '+33 6 63 08 74 52',
+    status: 'onsite',
+    city: 'nice',
+    position: { lat: 43.6952, lng: 7.2789 },
+  },
+  {
+    id: 'agent-7',
+    name: 'Inès Bertrand',
+    phone: '+33 6 22 47 61 90',
+    status: 'available',
+    city: 'nice',
+    position: { lat: 43.6668, lng: 7.2172 },
+  },
   // ── Vernon
-  { id: 'agent-8', name: 'Julien Lefèvre', phone: '+33 6 31 76 12 45', status: 'available', city: 'vernon', position: { lat: 49.0942, lng: 1.4841 } },
-  { id: 'agent-9', name: 'Fatou Diallo', phone: '+33 6 85 29 40 66', status: 'enroute', city: 'vernon', position: { lat: 49.0903, lng: 1.4762 } },
-  { id: 'agent-10', name: 'Thibault Roy', phone: '+33 6 17 53 88 29', status: 'onsite', city: 'vernon', position: { lat: 49.0936, lng: 1.4857 } },
+  {
+    id: 'agent-8',
+    name: 'Julien Lefèvre',
+    phone: '+33 6 31 76 12 45',
+    status: 'available',
+    city: 'vernon',
+    position: { lat: 49.0942, lng: 1.4841 },
+  },
+  {
+    id: 'agent-9',
+    name: 'Fatou Diallo',
+    phone: '+33 6 85 29 40 66',
+    status: 'enroute',
+    city: 'vernon',
+    position: { lat: 49.0903, lng: 1.4762 },
+  },
+  {
+    id: 'agent-10',
+    name: 'Thibault Roy',
+    phone: '+33 6 17 53 88 29',
+    status: 'onsite',
+    city: 'vernon',
+    position: { lat: 49.0936, lng: 1.4857 },
+  },
 ]
 
-const TICK_MS = 300
+/** Cadence par défaut du flux — réglable, cf. `AgentStreamOptions`. */
+export const TICK_MS = 300
 
 /**
  * Vitesse de déplacement par statut, en **mètres par seconde** — les vraies allures
@@ -63,39 +141,119 @@ const SPEED_MPS: Record<AgentStatus, number> = {
  */
 const WANDER_RAD = 0.9
 
+/** Effectif relevé sur le terrain. Au-delà, `rosterOf` renforce artificiellement. */
+export const ROSTER_SIZE = ROSTER.length
+
+const STATUSES: AgentStatus[] = ['available', 'enroute', 'onsite']
+
+/**
+ * Effectif de `count` agents : le `ROSTER` d'abord, puis des renforts générés.
+ *
+ * Les renforts se déduisent de leur index (angle en nombre d'or, rayon en spirale
+ * autour du poste dont ils viennent) — aucun `Math.random`, donc le même effectif
+ * redonne exactement la même scène d'un rechargement à l'autre, ce dont dépend toute
+ * comparaison de réglage.
+ */
+export function rosterOf(count: number): Agent[] {
+  // Copie de surface : le flux REMPLACE `position`, il ne la mute pas — `ROSTER` reste
+  // donc intact sans qu'on ait à cloner le point (cf. `snapshot` dans le flux).
+  const base = ROSTER.slice(0, Math.min(count, ROSTER.length)).map((a) => ({ ...a }))
+  for (let i = ROSTER.length; i < count; i++) {
+    const seed = ROSTER[i % ROSTER.length]!
+    const rank = i - ROSTER.length
+    base.push({
+      id: `agent-${i}`,
+      name: `Renfort ${rank + 1}`,
+      phone: seed.phone,
+      status: STATUSES[i % STATUSES.length]!,
+      city: seed.city,
+      // Même recette que les points de renfort de `data/generate` : spirale de Vogel
+      // autour du poste d'origine (cf. `vogel`).
+      position: vogel(seed.position, rank, 120),
+    })
+  }
+  return base
+}
+
+/** Réglages du flux — le banc d'essai de l'exemple les pilote en direct. */
+export type AgentStreamOptions = {
+  /** Effectif simulé (défaut : le `ROSTER` complet). */
+  count?: number
+  /** Cadence du flux, en ms. */
+  tickMs?: number
+  /** Multiplicateur des allures de `SPEED_MPS` — `0` fige les agents. */
+  speedScale?: number
+}
+
 /**
  * Flux « temps réel » simulé : chaque agent suit un cap propre, qui serpente
  * lentement, à l'allure de son statut. Caps et périodes sont dérivés de l'index
  * (nombre d'or) — ajouter un agent au `ROSTER` suffit, il n'y a pas de tableau
  * parallèle à tenir à jour.
  */
-export function createAgentStream() {
-  const agents: Agent[] = ROSTER.map((a) => ({ ...a, position: { ...a.position } }))
-  const baseHeading = agents.map((_, i) => (i * 2.399963) % (Math.PI * 2))
+export function createAgentStream(options: AgentStreamOptions = {}) {
+  let tickMs = Math.max(16, options.tickMs ?? TICK_MS)
+  let speedScale = options.speedScale ?? 1
+  const agents: Agent[] = rosterOf(options.count ?? ROSTER.length)
+  const baseHeading = agents.map((_, i) => (i * GOLDEN) % (Math.PI * 2))
   const listeners = new Set<(a: Agent[]) => void>()
   let timer: ReturnType<typeof setInterval> | null = null
   // Temps simulé, en secondes : pas de `Date.now()`, le flux reste reproductible.
   let elapsed = 0
+
+  /**
+   * Copie de surface SEULEMENT : `moveAlong` REMPLACE `a.position` par un objet neuf à
+   * chaque pas, il ne le mute jamais. Cloner la position en plus n'isolerait donc rien
+   * et allouerait un objet par agent et par tick — 31 000 par seconde au réglage haut
+   * (500 agents à 16 ms), dans la boucle même dont on mesure la fluidité.
+   */
+  const snapshot = (): Agent[] => agents.map((a) => ({ ...a }))
+
+  const stop = () => {
+    if (timer) clearInterval(timer)
+    timer = null
+  }
+
+  const start = () => {
+    timer ??= setInterval(() => {
+      const dt = tickMs / 1000
+      elapsed += dt
+      agents.forEach((a, i) => {
+        const heading = baseHeading[i]! + WANDER_RAD * Math.sin(elapsed * (0.11 + i * 0.013))
+        a.position = moveAlong(a.position, heading, SPEED_MPS[a.status] * speedScale * dt)
+      })
+      // Snapshot hissé HORS de la boucle des abonnés : un par tick, pas un par abonné —
+      // et tous voient alors rigoureusement la même donnée.
+      const tick = snapshot()
+      listeners.forEach((cb) => cb(tick))
+    }, tickMs)
+  }
+
+  // Fonctions nommées plutôt que méthodes : `setPace` appelait `this.stop()`, ce qui
+  // cassait dès qu'un appelant déstructurait l'API (`const { setPace } = stream`).
   return {
-    current: () => agents.map((a) => ({ ...a })),
+    current: snapshot,
     subscribe(cb: (a: Agent[]) => void) {
       listeners.add(cb)
       return () => listeners.delete(cb)
     },
-    start() {
-      timer ??= setInterval(() => {
-        const dt = TICK_MS / 1000
-        elapsed += dt
-        agents.forEach((a, i) => {
-          const heading = baseHeading[i]! + WANDER_RAD * Math.sin(elapsed * (0.11 + i * 0.013))
-          a.position = moveAlong(a.position, heading, SPEED_MPS[a.status] * dt)
-        })
-        listeners.forEach((cb) => cb(agents.map((a) => ({ ...a, position: { ...a.position } }))))
-      }, TICK_MS)
-    },
-    stop() {
-      if (timer) clearInterval(timer)
-      timer = null
+    start,
+    stop,
+    /**
+     * Change l'allure SANS recréer le flux : les agents gardent leur position et leur
+     * cap. Recréer le flux à chaque cran d'un slider les renverrait à leur point de
+     * départ — la carte sauterait au lieu de ralentir.
+     */
+    setPace(next: { tickMs?: number; speedScale?: number }) {
+      if (next.speedScale !== undefined) speedScale = next.speedScale
+      const wanted = next.tickMs === undefined ? tickMs : Math.max(16, next.tickMs)
+      if (wanted === tickMs) return
+      tickMs = wanted
+      // Seule la cadence impose de reposer l'intervalle — et seulement s'il tourne.
+      if (timer) {
+        stop()
+        start()
+      }
     },
   }
 }

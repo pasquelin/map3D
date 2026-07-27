@@ -29,7 +29,13 @@ export function useEditablePin(): { pinMarker: MarkerData<AnyData>; onReposition
       // passer sous un marker voisin. La sélection et le menu ouvert restent
       // au-dessus.
       zIndex: 10,
-      data: { id: -1, severity: 'medium', title: 'Position à définir (déplaçable)', address: 'Point posé par l’opérateur', city: 'paris' },
+      data: {
+        id: -1,
+        severity: 'medium',
+        title: 'Position à définir (déplaçable)',
+        address: 'Point posé par l’opérateur',
+        city: 'paris',
+      },
     },
     onReposition: setPosition,
   }

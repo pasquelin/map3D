@@ -15,6 +15,12 @@ Un override est **partiel et profond** : ne fournir que ce qui change, `mergeCon
 complète le reste. Les tableaux et tuples, eux, se remplacent en bloc — un tuple
 partiel est une erreur de compilation.
 
+> **Essayer avant d'écrire.** `pnpm dev:example` monte, à droite de la carte, un banc
+> de réglages (Tweakpane) qui expose CETTE table en entier, en direct. Son bouton
+> « Copier le `PartialConfig` » rend l'écart aux défauts sous la forme exacte à coller
+> dans `config={{ … }}`. Les réglages marqués ❄ y sont lus à la construction du moteur :
+> ils ne prennent effet qu'au remontage de la carte.
+
 💰 = impact facturation Google · 🌍 = impact locale/i18n
 
 ## `providers` — Fournisseurs tiers, réseau, caches
