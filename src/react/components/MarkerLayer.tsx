@@ -125,12 +125,34 @@ export type MarkerLayerProps<T> = {
    * porté par le graphisme lui-même.
    */
   leaderLine?: boolean
+  /**
+   * Marge (px écran) au-delà du cadre au-delà de laquelle un marker est **masqué**
+   * (`display:none`) : le navigateur cesse d'en calculer le style, la mise en page et
+   * la composition. Défaut : 200 px. `0` désactive le cull.
+   *
+   * Un marker déjà affiché n'est pas démonté pour autant — son nœud et son portail
+   * React restent. Un marker créé hors cadre, lui, n'entre jamais dans le document
+   * (le `CSS2DRenderer` n'insère l'élément qu'au premier rendu visible) : sur la
+   * démo, 9 ancres dans le DOM au lieu de 32. Le tri z du `CSS2DRenderer` continue en
+   * revanche de porter sur tout ce qui est monté, et la vraie borne reste de ne pas
+   * charger la donnée lointaine (`source` cadrée sur le viewport).
+   *
+   * Un marker masqué sort aussi de la sélection au marquee : hors cadre d'au moins
+   * cette marge, aucun rectangle tracé à l'écran ne peut l'atteindre.
+   */
+  cullMargin?: number
 }
 
 type Entry<T> =
   | { kind: 'marker'; marker: MarkerData<T> }
   | { kind: 'cluster'; cluster: ClusterInfo }
 
+
+/**
+ * Marge de cull par défaut (px). Assez large pour qu'un marker du bord ne clignote pas
+ * pendant un pan, assez serrée pour que la vue courante reste seule dans le DOM.
+ */
+const DEFAULT_CULL_MARGIN = 200
 
 /** SVG → data-URI, idempotent (une source déjà encodée passe telle quelle). */
 export const svgToDataUri = (svg: string): string =>
@@ -241,6 +263,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     onReposition: props.onReposition,
     onRepositionMove: props.onRepositionMove,
     leaderLine: props.leaderLine,
+    cullMargin: props.cullMargin,
   }
   const latest = useRef(snapshot)
   latest.current = snapshot
@@ -267,6 +290,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     // de l'appelant), le second sur le gabarit plein d'un avatar — cf. `setSelectionRing`.
     core.setSelectionRing(latest.current.ringSize, latest.current.avatarRing)
     core.leaderLine = latest.current.leaderLine ?? true
+    core.cullMargin = latest.current.cullMargin ?? DEFAULT_CULL_MARGIN
     engine.addLayer(core)
     coreRef.current = core
     return () => {
@@ -275,6 +299,14 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])
+
+  // Réglage VIVANT, contrairement à `leaderLine` : celui-ci décide de la structure DOM
+  // d'un nœud à sa création, alors que le cull ne fait que masquer — le changer à chaud
+  // n'a donc rien à reconstruire. Sans cet effet, la prop resterait figée à sa valeur
+  // du premier rendu, et rien dans le typage ne le dirait.
+  useEffect(() => {
+    if (coreRef.current) coreRef.current.cullMargin = props.cullMargin ?? DEFAULT_CULL_MARGIN
+  }, [props.cullMargin])
 
   // Moteur de clustering (supercluster).
   useEffect(() => {

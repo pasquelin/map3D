@@ -110,6 +110,16 @@ const theme = mergeTheme(defaultTheme, {
 - Accès programmatique : `useTags()` / `useTagSelection()` (ou `engine.tags` : `toggle`, `clear`, `isVisible`, `all`).
 - Persistance : clé configurable via `<Map tagStorageKey>` (`null` pour désactiver, une clé par carte si plusieurs cartes cohabitent).
 
+### Markers hors champ
+
+Un marker sorti du cadre **reste monté** : son nœud DOM, son portail React et son `CSS2DObject` sont conservés. Seuls sont masqués d'office ceux passés **derrière la caméra** et ceux passés **derrière le globe** (occlusion d'horizon).
+
+Ceux sortis du cadre de plus de **200 px** (`<MarkerLayer cullMargin>`, `0` pour désactiver) sont masqués en plus : le navigateur cesse d'en calculer le style, la mise en page et la composition. Un marker **créé** hors cadre n'entre même jamais dans le document — le `CSS2DRenderer` n'insère l'élément qu'au premier rendu où l'objet est visible. Mesuré sur la démo, vue initiale : **9 ancres dans le DOM au lieu de 32**, et aucun marker affiché au-delà de la marge (23 sans le cull).
+
+Le prix est une projection par marker et par frame, le même calcul que fait déjà le `CSS2DRenderer` pour les positionner. La marge n'est pas cosmétique : plus serrée, les markers du bord clignotent pendant un pan. Un marker masqué sort aussi de la sélection au marquee — hors cadre d'au moins 200 px, aucun rectangle tracé à l'écran ne pourrait de toute façon l'atteindre.
+
+Ce réglage ne réduit **pas** le nombre d'objets montés (le tri z du `CSS2DRenderer` porte sur tout ce qui existe). Pour borner ce nombre, deux leviers, dans cet ordre : une `source` **cadrée sur le viewport** (c'est le seul qui borne la donnée, y compris au zoom maximal où le clustering ne regroupe plus) et le **clustering**.
+
 ## Relations (distances et temps de trajet réels)
 
 `<RelationLayer>` relie un marker à ses voisins **par tags**, avec les distances et durées **routières réelles** d'un fournisseur de routage. Une section « Distance autour » se **greffe** sur le menu contextuel du marker : elle ne le remplace pas. Les familles de tags applicables à la source y sont listées directement, chacune ouvrant ses presets de sélection.
@@ -426,7 +436,7 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 |---|---|
 | `<MapProvider theme colorScheme labels>` | Thème résolu (clair/sombre + reduced-motion) + libellés traduisibles ([LABELS.md](./LABELS.md)). |
 | `<Map cesiumIonToken googleMapsApiKey center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + moteur (Cesium Ion). |
-| `<MarkerLayer points/source getId cluster icon clusterIcon tooltip clusterTooltip menu selectedId followId onSelect selectionRing draggable repositionable onReposition>` | Markers/clusters DOM. Infobulles au survol (`tooltip`/`clusterTooltip` — le clic = actions), `MarkerData.avatar` (photo ronde gérée), `MarkerData.new` (sonar jusqu'au clic) et `MarkerData.urgent` (viseur rouge, infobulle style urgence). Cluster inséparable au zoom max → éclaté automatiquement en éventail. |
+| `<MarkerLayer points/source getId cluster icon clusterIcon tooltip clusterTooltip menu selectedId followId onSelect selectionRing draggable repositionable onReposition leaderLine cullMargin>` | Markers/clusters DOM. Infobulles au survol (`tooltip`/`clusterTooltip` — le clic = actions), `MarkerData.avatar` (photo ronde gérée), `MarkerData.new` (sonar jusqu'au clic) et `MarkerData.urgent` (viseur rouge, infobulle style urgence). Cluster inséparable au zoom max → éclaté automatiquement en éventail. |
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
 | `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds — drapées au sol, ou **volumétriques** via `extrudeHeight`. |
 | `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange onShapeAdd onShapeUpdate onShapeDelete onShapeEdit>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON, identité stable par forme, métadonnées métier libres et CRUD par id. |
