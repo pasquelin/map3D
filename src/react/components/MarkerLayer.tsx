@@ -16,6 +16,9 @@ import {
 import type { LatLng } from '../../shared'
 import { markerTags } from '../../data/types'
 import type { DataSource, MarkerData } from '../../data/types'
+import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMatch } from '../../search/match'
+import { markerGroupId } from '../../search/registry'
+import type { SearchEntry, SearchGroup } from '../../search/types'
 import { useLiveData } from '../hooks/useLiveData'
 import { useTagSelection } from '../hooks/useTags'
 import { useDraggable } from '../hooks/useDraggable'
@@ -48,13 +51,22 @@ export type MarkerLayerProps<T> = {
   clusterIcon?: (c: ClusterInfo) => string
   /** Icône d'un type (fragment SVG viewBox `0 0 24 24`, `currentColor`) pour les satellites du cluster. */
   clusterTypeIcon?: (type: string) => ReactNode
-  /** Libellé lisible d'un type, pour l'infobulle au survol d'un satellite. */
+  /**
+   * Libellé lisible d'un type (`'agent'` → « Agents ») : **nom de rubrique dans la
+   * recherche**, et repli de `clusterTypeLabel`. Un type se nomme ici, une fois.
+   */
+  typeLabel?: (type: string) => string
+  /** Libellé d'un type pour l'infobulle d'un satellite de cluster. Défaut : `typeLabel`. */
   clusterTypeLabel?: (type: string) => string
   /**
    * Infobulle au survol d'un marker : `title` et `content` acceptent tout
    * ReactNode (texte, HTML, composants — avatar, badges…). `null` = pas
    * d'infobulle pour ce marker. L'info vit AU SURVOL — le clic est réservé aux
    * actions (menu contextuel, sélection).
+   *
+   * **Surcharge** : sans cette prop, l'infobulle se construit d'elle-même à partir de
+   * `MarkerData.title` / `titleColor` / `content`. Fournie, elle décide seule — y
+   * compris pour rendre `null`. À réserver aux titres que du texte ne peut pas dire.
    */
   tooltip?: (p: MarkerData<T>) => { title?: ReactNode; content?: ReactNode } | null
   /**
@@ -158,6 +170,25 @@ const DEFAULT_CULL_MARGIN = 200
 export const svgToDataUri = (svg: string): string =>
   svg.startsWith('data:') ? svg : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 
+/** Le marker se décrit-il lui-même (cf. `MarkerData.title` / `content`) ? */
+const hasOwnTip = <T,>(m: MarkerData<T>): boolean => m.title != null || m.content != null
+
+/**
+ * Infobulle déduite de la DONNÉE, quand la couche n'en fournit pas. `titleColor`
+ * évite à l'appelant d'écrire du JSX pour la seule chose qu'un titre a besoin
+ * d'exprimer au-delà de son texte : sa gravité.
+ */
+const tipFromData = <T,>(m: MarkerData<T>): { title?: ReactNode; content?: ReactNode } | null => {
+  if (!hasOwnTip(m)) return null
+  return {
+    title:
+      m.title == null ? undefined : (
+        <span style={m.titleColor ? { color: m.titleColor } : undefined}>{m.title}</span>
+      ),
+    content: m.content,
+  }
+}
+
 export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const { engine, theme } = useMapContext()
   const getId = props.getId ?? ((p: MarkerData<T>) => p.id)
@@ -202,6 +233,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
 
   // Registre du panneau « Couches » : tags portés par TOUS les points (même masqués).
   const tagSource = useId()
+  /** Clé de cette couche dans le registre de recherche (deux couches coexistent). */
+  const searchSource = useId()
   useEffect(() => {
     tagFilter.report(tagSource, countTags(allPoints, (p) => p.tags))
   }, [allPoints, tagFilter, tagSource])
@@ -258,6 +291,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     maxZoom,
     spiderfyZoom,
     onSelect: props.onSelect,
+    menu: props.menu,
+    typeLabel: props.typeLabel,
     // Via ref : le portail est mémoïsé, un handler redéfini à chaque rendu ne doit
     // pas le faire recalculer (il n'est pas dans ses dépendances).
     onReposition: props.onReposition,
@@ -267,6 +302,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   }
   const latest = useRef(snapshot)
   latest.current = snapshot
+
+  // Titres normalisés mémoïsés PAR OBJET marker : un tick temps réel reconstruit le
+  // tableau mais préserve la plupart des références, donc ne renormalise que ce qui
+  // a réellement changé.
+  const normalizedTitle = useMemo(() => createTitleCache<MarkerData<T>>((m) => m.title), [])
 
   // Couche DOM de positionnement (pool, tween, ancrage CSS2DObject).
   useEffect(() => {
@@ -574,6 +614,83 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     })
   }, [engine, leavesOf])
 
+  // Fournisseur de recherche : une rubrique par TYPE présent, alimentée par
+  // `MarkerData.title`. Part des mêmes `points` que le registre d'inventaire — donc
+  // post-filtre « Couches » : ce qui est masqué sur la carte est introuvable, ce qui
+  // évite de faire voler la caméra vers un marker que l'utilisateur ne verra pas.
+  //
+  // Un marker sans `title` est ÉCARTÉ, jamais indexé sous son id : proposer
+  // « 7f3a-91b2 » dans une liste de résultats n'aide personne.
+  useEffect(() => {
+    return engine.search.register({
+      query: (needle, opts) => {
+        const { points, getId, menu, onSelect } = latest.current
+        const perGroup = new Map<string, Hit<MarkerData<T>>[]>()
+        for (const m of points) {
+          if (!m.title) continue
+          const group = markerGroupId(m.type)
+          if (opts.group && opts.group !== group) continue
+          const score = scoreMatch(normalizedTitle(m), needle)
+          if (score === NO_MATCH) continue
+          const distance = opts.origin ? proximityRank(m.position, opts.origin) : 0
+          const bucket = perGroup.get(group)
+          if (bucket) bucket.push({ item: m, score, distance })
+          else perGroup.set(group, [{ item: m, score, distance }])
+        }
+        const entries: SearchEntry[] = []
+        const totals = new Map<string, number>()
+        // Les entrées (et leurs closures) ne sont construites qu'APRÈS la troncature :
+        // une requête de deux lettres peut correspondre à des centaines de markers
+        // dont six seulement seront affichés.
+        for (const [group, hits] of perGroup) {
+          totals.set(group, hits.length)
+          for (const m of rankHits(hits, opts.limit)) {
+            entries.push({
+              group,
+              id: getId(m),
+              title: m.title!,
+              titleColor: m.titleColor,
+              // Pas de sous-titre de type : l'en-tête de rubrique le dit déjà, et le
+              // répéter sur chaque ligne noierait le nom qu'on cherche à lire.
+              position: m.position,
+              avatar: m.avatar,
+              icon: m.icon,
+              color: markerColorOf(theme, m.type).base,
+              // Le chemin EXACT d'un clic sur la carte : la couche signale, l'hôte
+              // décide de `selectedId`. Court-circuiter reviendrait à inventer une
+              // seconde sémantique de sélection.
+              select: () => onSelect?.(m),
+              menu: menu ? () => menu(m) : undefined,
+            })
+          }
+        }
+        return { entries, totals }
+      },
+    })
+  }, [engine, theme, normalizedTitle])
+
+  // Rubriques DÉCLARÉES (et non demandées) : `points` est remplacé à chaque tick d'un
+  // flux temps réel, alors que les rubriques ne bougent quasiment jamais. Le registre
+  // compare avant d'émettre, donc les abonnés ne se re-rendent que sur changement réel.
+  useEffect(() => {
+    const counts = new Map<string, SearchGroup>()
+    for (const p of points) {
+      if (!p.title) continue
+      const id = markerGroupId(p.type)
+      const prev = counts.get(id)
+      if (prev) prev.count++
+      else
+        counts.set(id, {
+          id,
+          label: props.typeLabel?.(p.type) ?? p.type,
+          color: markerColorOf(theme, p.type).base,
+          count: 1,
+        })
+    }
+    engine.search.report(searchSource, [...counts.values()])
+  }, [engine, points, props.typeLabel, theme, searchSource])
+  useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
+
   // Recalcule les clusters au déplacement caméra — UNIQUEMENT en mode clustering
   // (sans clustering les markers sont des CSS2DObject ancrés en 3D et suivent la
   // caméra tout seuls). Le recompute (supercluster + projection écran + binning) est
@@ -777,7 +894,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
                 cluster={entry.cluster}
                 theme={theme}
                 typeIcon={props.clusterTypeIcon}
-                typeLabel={props.clusterTypeLabel}
+                typeLabel={props.clusterTypeLabel ?? props.typeLabel}
                 satelliteTip={!props.clusterTooltip}
                 onSegmentHover={props.clusterTooltip ? setHoverSegment : undefined}
               />
@@ -822,7 +939,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       const tip = !hovered
         ? null
         : entry.kind === 'marker'
-          ? props.tooltip?.(entry.marker)
+          ? // La prop décide seule quand elle existe (son `null` doit rester un refus,
+            // pas une invitation à retomber sur la donnée).
+            props.tooltip
+            ? props.tooltip(entry.marker)
+            : tipFromData(entry.marker)
           : props.clusterTooltip
             ? segment == null
               ? props.clusterTooltip(entry.cluster, leafMarkersOf(id))
@@ -832,7 +953,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
                   segment,
                 )
             : null
-      const hoverable = entry.kind === 'marker' ? !!props.tooltip : !!props.clusterTooltip
+      const hoverable =
+        entry.kind === 'marker' ? !!props.tooltip || hasOwnTip(entry.marker) : !!props.clusterTooltip
       // Ancrage de l'infobulle : au-dessus du VISUEL réel — donut du cluster par
       // défaut (rayon dépendant du total) ou pastille du marker.
       const tipLift =

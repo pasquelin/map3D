@@ -37,13 +37,21 @@ export type ShapeStyle = {
   extrudeHeight?: number
 }
 
+/**
+ * Identité d'une forme fournie par l'application. `title` est le nom lisible —
+ * même rôle que `MarkerData.title` : ce que la recherche indexe et ce que les
+ * listes affichent. Sans lui, une zone n'est trouvable par personne.
+ */
+type ShapeIdentity = { id?: string | number; title?: string }
+
 export type ShapeData = ShapeStyle &
+  ShapeIdentity &
   (
-    | { id?: string | number; kind: 'polygon'; points: LatLng[] }
-    | { id?: string | number; kind: 'line'; points: LatLng[] }
-    | { id?: string | number; kind: 'arrow'; points: LatLng[] }
-    | { id?: string | number; kind: 'rect'; bounds: Bounds }
-    | { id?: string | number; kind: 'circle'; center: LatLng; radiusMeters: number }
+    | { kind: 'polygon'; points: LatLng[] }
+    | { kind: 'line'; points: LatLng[] }
+    | { kind: 'arrow'; points: LatLng[] }
+    | { kind: 'rect'; bounds: Bounds }
+    | { kind: 'circle'; center: LatLng; radiusMeters: number }
   )
 
 export type ShapeLayerDefaults = { color: string; width: number; fillOpacity: number; renderOrder: number }

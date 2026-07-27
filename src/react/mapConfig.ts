@@ -47,7 +47,17 @@ export type ToolbarConfig<T = unknown> = DrawToolbarProps & {
 /** Contrôles de navigation (déplacement, boussole, zoom, fonds, couches, plein écran). */
 export type ControlsConfig = MapControlsProps
 
-/** Recherche de lieu. Sans `search` sur `<Map>`, la boîte n'existe pas. */
+/**
+ * Recherche unifiée : éléments de la carte (markers, zones, dessins, symboles) et
+ * géocodage de lieux, en une liste rubriquée. Sans `search` sur `<Map>`, la boîte
+ * n'existe pas.
+ *
+ * Les rubriques carte ne se déclarent PAS ici : elles viennent des couches, qui
+ * s'inscrivent d'elles-mêmes au registre `engine.search`. Il suffit qu'un marker
+ * porte un `title` pour être trouvable, et un `typeLabel` sur sa couche pour que sa
+ * rubrique ait un nom lisible. Cet objet ne règle que la boîte elle-même :
+ * géocodeur, portée, plafonds, historique.
+ */
 export type SearchConfig = SearchBoxProps
 
 /**

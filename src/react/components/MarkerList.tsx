@@ -5,10 +5,10 @@ import { createPortal } from 'react-dom'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
-import type { MapTheme } from '../../theme/types'
 import { useLabels, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { useMergedRefs, useNudgeInside } from './panelFit'
+import { Swatch } from './Swatch'
 import { useDismiss } from './useDismiss'
 import { markerColorOf } from '../../theme/colors'
 
@@ -24,7 +24,7 @@ export type MarkerListAction<T = unknown> = {
 export type MarkerListProps<T = unknown> = {
   markers: MarkerData<T>[]
   getId: (m: MarkerData<T>) => string | number
-  /** Rendu du **titre** (1ʳᵉ ligne) — défaut : l'id. */
+  /** Rendu du **titre** (1ʳᵉ ligne) — défaut : `MarkerData.title`, sinon l'id. */
   renderItem?: (m: MarkerData<T>) => ReactNode
   /** Rendu du **sous-titre** (2ᵉ ligne, plus petit) — défaut : le type via `markerTypeLabel`. */
   renderSubtitle?: (m: MarkerData<T>) => ReactNode
@@ -46,28 +46,6 @@ export type MarkerListProps<T = unknown> = {
    * « Cibler » reste ajouté en tête par la liste — ne le remettez pas ici.
    */
   menu?: (m: MarkerData<T>) => MenuItem[]
-}
-
-/**
- * Repère visuel d'une ligne, toujours présent : photo > icône > pastille de type.
- *
- * L'icône est affichée ENTIÈRE (et non recadrée comme une photo) : un pictogramme
- * rogné en rond perd ce qui le distingue, alors que c'est précisément lui qui
- * identifie la ligne — le cas d'un symbole, dont le type (`'symbol'`) ne dit rien.
- */
-function Swatch<T>({ m, theme }: { m: MarkerData<T>; theme: MapTheme }) {
-  const color = markerColorOf(theme, m.type)
-  if (m.avatar) {
-    return <img className="m3d-mlavatar" src={m.avatar} alt="" draggable={false} style={{ borderColor: color.base }} />
-  }
-  if (m.icon) {
-    return (
-      <span className="m3d-mlicon" style={{ borderColor: color.base }}>
-        <img src={m.icon} alt="" draggable={false} />
-      </span>
-    )
-  }
-  return <span className="m3d-mldot" style={{ background: color.base }} />
 }
 
 /**
@@ -172,9 +150,17 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
               }
             }}
           >
-            <Swatch m={m} theme={theme} />
+            <Swatch avatar={m.avatar} icon={m.icon} color={markerColorOf(theme, m.type).base} />
             <div className="m3d-mltext">
-              <span className="m3d-mltitle">{props.renderItem ? props.renderItem(m) : idStr}</span>
+              {/* `renderItem` décide de TOUT le titre, teinte comprise : la même règle
+                  de précédence que `tooltip` face à `title`/`titleColor` sur la donnée
+                  — la render-prop l'emporte, elle ne se fait pas colorer par surprise. */}
+              <span
+                className="m3d-mltitle"
+                style={!props.renderItem && m.titleColor ? { color: m.titleColor } : undefined}
+              >
+                {props.renderItem ? props.renderItem(m) : (m.title ?? idStr)}
+              </span>
               {(() => {
                 const sub = props.renderSubtitle
                   ? props.renderSubtitle(m)

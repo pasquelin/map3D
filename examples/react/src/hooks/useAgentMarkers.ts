@@ -34,6 +34,7 @@ export function useAgentMarkers(): { agents: Agent[]; agentMarkers: MarkerData<A
   const agentMarkers: MarkerData<Agent>[] = agents.map((a) => ({
     id: a.id,
     type: `agent-${a.status}`,
+    title: a.name,
     tags: agentTags(a),
     avatar: AGENT_AVATARS[a.id],
     position: a.position,

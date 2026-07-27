@@ -87,6 +87,8 @@ export type ShapeSymbol = { key: string; variant?: string }
 export type Drawing = {
   id: string
   kind: DrawTool
+  /** Nom lisible — cf. `MarkerData.title` : indexé par la recherche, affiché en liste. */
+  title?: string
   points: LatLng[]
   /** Couleur de bordure (et de remplissage si `fillColor` est absent). */
   color: string
@@ -120,6 +122,8 @@ export type Drawing = {
 export type DrawnShape = {
   id: string
   kind: DrawTool
+  /** Nom lisible — cf. `MarkerData.title`. */
+  title?: string
   points: LatLng[]
   closed: boolean
   style: DrawStyle
@@ -145,6 +149,8 @@ export type NewShape = Omit<DrawnShape, 'id' | 'closed' | 'tags'> & {
 export type ShapePatch = {
   points?: LatLng[]
   closed?: boolean
+  /** Nom lisible — `''` le retire. */
+  title?: string
   /** Fusionné champ par champ avec le style courant. */
   style?: DrawStyle
   tags?: string[]
@@ -194,6 +200,8 @@ type GeoJSONFeature = {
     | { type: 'Point'; coordinates: number[] }
   properties: {
     kind: DrawTool
+    /** Nom lisible — préservé au round-trip, comme l'identité. */
+    title?: string
     color: string
     width: number
     fillOpacity: number
@@ -463,6 +471,7 @@ export class DrawLayer implements Layer {
       },
       tags: [...d.tags],
     }
+    if (d.title) s.title = d.title
     if (d.locked) s.locked = true
     if (d.meta) s.meta = d.meta
     if (d.symbol) s.symbol = { ...d.symbol }
@@ -640,6 +649,7 @@ export class DrawLayer implements Layer {
     const d: Drawing = {
       id: shape.id && !this.byId.has(shape.id) ? shape.id : this.nextId(),
       kind: shape.kind,
+      title: shape.title,
       points: shape.points.map((p) => ({ lat: p.lat, lng: p.lng })),
       color: st.color ?? base.color,
       fillColor: st.fillColor ?? base.fillColor,
@@ -671,6 +681,7 @@ export class DrawLayer implements Layer {
     const moved = patch.points !== undefined
     if (moved) d.points = patch.points!.map((p) => ({ lat: p.lat, lng: p.lng }))
     if (patch.closed !== undefined) d.closed = patch.closed
+    if (patch.title !== undefined) d.title = patch.title || undefined
     if (patch.tags !== undefined) d.tags = [...patch.tags]
     if (patch.locked !== undefined) d.locked = patch.locked || undefined
     if (patch.meta !== undefined) d.meta = patch.meta
@@ -1787,6 +1798,7 @@ export class DrawLayer implements Layer {
           fillOpacity: d.fillOpacity,
           tags: d.tags,
         }
+        if (d.title) props.title = d.title
         if (d.fillColor !== undefined) props.fillColor = d.fillColor
         if (d.strokeOpacity !== undefined) props.strokeOpacity = d.strokeOpacity
         if (d.stroke !== undefined && d.stroke !== 'solid') props.stroke = d.stroke
@@ -1837,6 +1849,7 @@ export class DrawLayer implements Layer {
         // Un id déjà pris dans cette collection retombe sur un id libre.
         id: f.id && !this.byId.has(f.id) ? f.id : this.nextId(),
         kind: props.kind,
+        title: props.title,
         points,
         color: props.color,
         fillColor: props.fillColor,

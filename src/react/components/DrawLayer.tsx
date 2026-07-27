@@ -1,5 +1,8 @@
 import { type ReactNode, type RefObject, useCallback, useContext, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
+import { boundsOfLatLngs, centerOfBounds } from '../../core/bounds'
 import type { MapEngine } from '../../core/MapEngine'
+import { type Hit, NO_MATCH, normalizeSearch, proximityRank, rankHits, scoreMatch } from '../../search/match'
+import { DRAW_GROUP, emptyResult } from '../../search/registry'
 import {
   DrawLayer as CoreDrawLayer,
   type DrawConstraints,
@@ -15,7 +18,7 @@ import { SELECT_MODE_META } from './drawControls'
 import { type DrawAction, DrawingContext, type DrawingApi, LensContext, useLabels, useMapContext } from '../context'
 import { inTextInput, plainKey } from './shortcuts'
 import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/milSym'
-import type { LatLng } from '../../shared'
+import type { Bounds, LatLng } from '../../shared'
 import { useMapDropZone } from '../hooks/useMapDropZone'
 import { SYMBOL_DRAG_TYPE } from './SymbolPaletteButton'
 import { SymbolMarkers } from './SymbolMarkers'
@@ -404,6 +407,69 @@ export function DrawLayer(props: DrawLayerProps) {
   // un restyle) : kind par id ne change qu'avec la sélection elle-même.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const selectionDetails = useMemo(() => coreRef.current?.selectionDetails() ?? [], [selection])
+
+  // ── Recherche ──
+  // Seules les formes NOMMÉES entrent dans l'index : un tracé libre s'appelle
+  // « polygon-7 » et n'est un résultat pour personne. Un nom arrive par import
+  // GeoJSON ou par `updateShape(id, { title })` — c'est ce qui rend cherchables les
+  // périmètres qu'une application réinjecte depuis son backend.
+  //
+  // Les symboles sont exclus : ils sont déjà indexés comme markers par
+  // `<SymbolMarkers>`, avec leur pictogramme et leur libellé de catalogue.
+  const drawGroupLabel = useLabels().search.groups.draw
+  const searchSource = useId()
+  // Pas de cache de normalisation ici, contrairement aux markers et aux formes
+  // déclaratives : `getShapes()` reconstruit un `DrawnShape` neuf à chaque appel, donc
+  // une `WeakMap` clé sur l'objet n'aurait jamais un seul succès — elle ne ferait que
+  // grossir. Les formes dessinées NOMMÉES se comptent en dizaines, pas en milliers.
+  const namedShapes = useCallback(
+    (): DrawnShape[] => (coreRef.current?.getShapes() ?? []).filter((s) => s.title && s.kind !== 'symbol'),
+    [],
+  )
+
+  useEffect(() => {
+    return engine.search.register({
+      query: (needle, opts) => {
+        if (opts.group && opts.group !== DRAW_GROUP) return emptyResult()
+        const hits: Hit<{ shape: DrawnShape; bounds: Bounds }>[] = []
+        for (const s of namedShapes()) {
+          const score = scoreMatch(normalizeSearch(s.title!), needle)
+          if (score === NO_MATCH) continue
+          const bounds = boundsOfLatLngs(s.points)
+          if (!bounds) continue
+          hits.push({
+            item: { shape: s, bounds },
+            score,
+            distance: opts.origin ? proximityRank(centerOfBounds(bounds), opts.origin) : 0,
+          })
+        }
+        return {
+          entries: rankHits(hits, opts.limit).map(({ shape, bounds }) => ({
+            group: DRAW_GROUP,
+            id: shape.id,
+            title: shape.title!,
+            position: centerOfBounds(bounds),
+            bounds,
+            color: shape.style.color,
+            select: () => coreRef.current?.select([shape.id]),
+          })),
+          totals: new Map([[DRAW_GROUP, hits.length]]),
+        }
+      },
+    })
+  }, [engine, namedShapes])
+
+  // `rev` bumpe à chaque mutation du core : c'est le seul signal qui dise qu'une forme
+  // a été ajoutée, renommée ou supprimée. Il bumpe aussi à chaque frame d'un tracé en
+  // cours — d'où la déclaration comparée côté registre plutôt qu'une notification nue.
+  useEffect(() => {
+    const count = namedShapes().length
+    engine.search.report(
+      searchSource,
+      count > 0 ? [{ id: DRAW_GROUP, label: drawGroupLabel, color: theme.colors.draw.default, count }] : [],
+    )
+  }, [engine, rev, namedShapes, drawGroupLabel, theme, searchSource])
+  useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
 
   // ── Symboles ──
   const symbolsEnabled = props.symbols?.enabled ?? true

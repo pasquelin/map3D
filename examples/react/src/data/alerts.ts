@@ -101,6 +101,8 @@ const toMarkers = (seeds: AlertSeed[], city: CityId): MarkerData<Alert>[] =>
     id: alert.id,
     type: `alert-${alert.severity}`,
     position,
+    // Nom lisible : infobulle, listes, ET recherche — un seul champ pour les trois.
+    title: alert.title,
     tags: ['alert', alert.severity, city],
     selectedColor: typeColor(`alert-${alert.severity}`),
     urgent,

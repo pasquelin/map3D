@@ -16,6 +16,10 @@ import { offsetMeters } from './geo'
  */
 export const DEMO_SHAPES: ShapeData[] = CITY_LIST.map((c) => ({
   id: `zone-${c.id}`,
+  // Nommée, donc trouvable : la recherche cadre la zone entière (son emprise), là
+  // où un marker ne ferait que survoler un point. Une forme sans `title` reste
+  // affichée mais n'est indexée nulle part.
+  title: `Zone ${c.label}`,
   kind: 'circle',
   center: c.center,
   radiusMeters: c.radiusMeters,
@@ -116,6 +120,7 @@ export const BUILDINGS: ShapeData[] = [
  */
 export const demoVolumes = (height: number): ShapeData[] => [
   {
+    title: 'Volume haut — Cité',
     kind: 'polygon',
     points: [
       { lat: 48.8625, lng: 2.3345 },
@@ -130,6 +135,7 @@ export const demoVolumes = (height: number): ShapeData[] => [
   // Second volume, hauteur DIFFÉRENTE (moitié) : la hauteur est bien un réglage
   // de la zone, pas de la couche.
   {
+    title: 'Volume bas — Saint-Augustin',
     kind: 'circle',
     center: { lat: 48.8655, lng: 2.3255 },
     radiusMeters: 220,

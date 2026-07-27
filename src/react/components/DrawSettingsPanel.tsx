@@ -9,9 +9,10 @@ import { useDrawSettings } from '../hooks/useDrawSettings'
 import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
 import { useAnchoredPanel } from './panelFit'
 import { modKey } from './shortcuts'
+import { useToolbar } from './Toolbar'
 import { ToolButton } from './ToolButton'
 import { formatKey } from './tooltip'
-import { useDismiss } from './useDismiss'
+import { useCloseWhenHidden, useDismiss } from './useDismiss'
 
 const SHAPE_TOOLS: DrawTool[] = ['line', 'polygon', 'rect', 'circle', 'freehand', 'arrow', 'measure']
 
@@ -47,6 +48,7 @@ export function DrawSettingsButton({
   const [target, setTarget] = useState<SwatchTarget>('fill')
   const rootRef = useRef<HTMLDivElement>(null)
   useDismiss(rootRef, open, () => setOpen(false))
+  useCloseWhenHidden(useToolbar().retracted, setOpen)
 
   // Placement : le panneau est calé sur le BAS du bouton (il grandit vers le haut),
   // le sous-panneau sur la ligne survolée — les deux clampés au conteneur.
