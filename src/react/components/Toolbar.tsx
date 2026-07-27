@@ -15,14 +15,25 @@ import { useDrawing } from '../hooks/useDrawing'
 import { SELECT_MODE_META, TOOL_ICONS } from './drawControls'
 import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
+import { LensToolButton } from './LensToolButton'
 import { useAnchoredPanel, useFitColumns } from './panelFit'
 import { modKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
+import { SymbolPaletteButton } from './SymbolPaletteButton'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 
 /** Sections optionnelles de la barre : `false` pour masquer, ReactNode pour remplacer. */
-export type DrawToolbarSection = 'navigate' | 'select' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
+export type DrawToolbarSection =
+  | 'navigate'
+  | 'select'
+  | 'symbol'
+  | 'lens'
+  | 'stylePanel'
+  | 'settings'
+  | 'undo'
+  | 'redo'
+  | 'clear'
 
 export type DrawToolbarProps = {
   position?: 'left' | 'right'
@@ -35,9 +46,10 @@ export type DrawToolbarProps = {
   /** Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. */
   components?: SlotConfig<DrawToolbarSection>
   /**
-   * Outils externes (non-dessin) rendus en **items principaux** de la barre, après
-   * les outils de dessin — ex. `<LensToolButton>` (loupe). Mécanisme d'extension
-   * générique : ils pilotent leur propre contexte, la barre ne les connaît pas.
+   * Outils **de l'application** rendus en items principaux de la barre, après les
+   * outils natifs (dessin, symboles, loupe) : ils prennent le langage visuel de la
+   * barre au lieu de flotter dans un coin de la carte. Ils pilotent leur propre
+   * état, la barre ne les connaît pas.
    */
   extraTools?: ReactNode
 }
@@ -53,6 +65,7 @@ const DEFAULT_TOOLS: DrawTool[] = [
   'circle',
   'freehand',
   'arrow',
+  'symbol',
   'measure',
   'erase',
 ]
@@ -70,7 +83,7 @@ export function Toolbar({
   components = {},
   extraTools,
 }: DrawToolbarProps) {
-  const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts } = useDrawing()
+  const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts, symbols } = useDrawing()
   const { engine } = useMapContext()
   // Un outil externe actif (ex. loupe) doit "éteindre" la main : sinon `tool === null`
   // surligne Naviguer alors qu'un autre outil est actif (deux items actifs à la fois).
@@ -105,7 +118,11 @@ export function Toolbar({
             label={labels.toolbar.navigate}
             tip={tip}
             shortcut={labels.keys.escape}
-            active={tool === null && !lens?.active}
+            // La main n'est active que si RIEN d'autre ne l'est — outils de tracé,
+            // loupe, palette de symboles. Une surface qui s'allume sans éteindre la
+            // main laisserait deux boutons allumés, et la barre ne dirait plus où on
+            // en est. (La palette, elle, se referme d'elle-même au clic hors d'elle.)
+            active={tool === null && !lens?.active && !symbols.paletteOpen}
             className="m3d-btn-move"
             onClick={() => {
               setTool(null)
@@ -116,10 +133,18 @@ export function Toolbar({
         {tools.map((t) =>
           t === 'select' ? (
             slot('select', <SelectToolButton key={t} position={position} modes={selectModes} />)
+          ) : t === 'symbol' ? (
+            // Pas un outil de tracé : le bouton ouvre la palette, et le dépôt d'une
+            // vignette crée la forme. Rendu ici pour qu'il prenne sa place dans
+            // l'ordre de `tools`, comme n'importe quel autre outil.
+            slot('symbol', <SymbolPaletteButton key={t} position={position} />)
           ) : (
             <ToolButton key={t} icon={TOOL_ICONS[t]} label={labels.tools[t]} tip={tip} shortcut={shortcuts[t]} active={tool === t} onClick={() => toggle(t)} />
           ),
         )}
+        {/* Loupe : outil natif de la barre au même titre que les symboles. Le bouton
+            s'efface tout seul si la carte est montée sans loupe (`toolbar={{ lens: false }}`). */}
+        {slot('lens', <LensToolButton />)}
         {extraTools}
         {slot(
           'undo',

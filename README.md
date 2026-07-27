@@ -27,6 +27,8 @@ npm i @gosecure/map3d three react react-dom
 
 `three` et `react`/`react-dom` (19) sont des **peer dependencies**.
 
+Le SDK de symbologie MIL-STD (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 Mo) est une dépendance directe, mais chargée en **import dynamique** : elle n'entre dans aucun bundle qui n'affiche pas de symboles (cf. [Symboles](#symboles-catalogue-dicônes-posées-au-glisser-déposer)).
+
 ## Démarrage rapide
 
 ```tsx
@@ -199,13 +201,27 @@ Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (
 
 **Formes verrouillées** : une feature GeoJSON avec `properties.locked: true` (ex. limite de zone imposée par votre API) est intouchable dans l'UI — clic dessus = flash cadenas ; « Tout effacer » la conserve, et **l'undo/redo la préserve** (ni supprimée ni déverrouillée par Ctrl+Z). Déverrouillage réservé au code hôte : `api.lock(ids)` / `api.unlock(ids)`.
 
-**GeoJSON** : export/import via `onChange`/`value`/`toGeoJSON`/`fromGeoJSON`. Properties par forme : `kind`, `color` (bordure), `fillColor`, `width` (px, 0 = sans bordure), `fillOpacity`, `strokeOpacity`, `stroke` (`solid`/`dashed`/`dotted`), `radius` (% d'angle, rects), `locked`, `tags`. Les anciens fichiers (sans les nouveaux champs) se chargent tels quels.
+**GeoJSON** : export/import via `onChange`/`value`/`toGeoJSON`/`fromGeoJSON`. Properties par forme : `kind`, `color` (bordure), `fillColor`, `width` (px, 0 = sans bordure), `fillOpacity`, `strokeOpacity`, `stroke` (`solid`/`dashed`/`dotted`), `radius` (% d'angle, rects), `locked`, `tags`, `meta`. Chaque feature porte aussi son `id` (champ standard GeoJSON). Les anciens fichiers (sans les nouveaux champs) se chargent tels quels.
+
+**Identité et métadonnées métier** : chaque forme a un `id` **stable qui survit au round-trip** export → import, et un champ libre `meta: Record<string, unknown>` transporté tel quel de bout en bout, jamais interprété ni rendu par la lib. C'est là que vit votre modèle (uuid de base, groupes, titre…).
+
+**Events par forme** : `onShapeAdd` / `onShapeUpdate` / `onShapeDelete` sont émis **au moment du changement**, contrairement à `onChange` qui sérialise toute la collection et se coalesce à 1×/frame. `onShapeEdit` signale un **double-clic** — une intention d'ouvrir une fiche côté hôte, pas une mutation. Les deux styles cohabitent : `onChange` pour un état global contrôlé, `onShape*` pour du CRUD par identité (une mutation par forme). L'undo/redo émet aussi ces events, déduits par différence.
 
 ```tsx
 <DrawLayer
   value={zonesImposees}                        // import contrôlé (remplace tout, non annulable)
   onChange={(fc) => save(fc)}                  // GeoJSON complet, coalescé (1 émission max par frame)
   onSelectionChange={(ids) => console.log(ids)}
+  onShapeAdd={async (s) => {                   // CRUD par identité : une mutation par forme
+    const { uuid } = await createZone(s)
+    api.updateShape(s.id, { meta: { uuid } }, { silent: true })  // silent = pas de ré-émission
+  }}
+  onShapeUpdate={(s) => saveZone(s.meta?.uuid, s)}
+  onShapeDelete={(s) => deleteZone(s.meta?.uuid)}
+  onShapeEdit={(s) => openSheet(s.meta?.uuid)} // double-clic
+  // Règles métier du dessin utilisateur (les mutations programmatiques y échappent).
+  constraints={{ limits: perimetresAutorises, maxAreaM2: 10_000_000 }}
+  onReject={(reason, s) => toast(reason === 'outOfLimits' ? 'Hors zone' : 'Trop grande')}
   settingsStorage="local"                      // ou "none"
   shortcuts={{ selectLasso: 'q', rect: false }} // remappe/désactive outils et modes de sélection
 >
@@ -219,6 +235,124 @@ Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (
 ```
 
 L'API `useDrawing()` expose tout : `tool/setTool`, `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`, `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`, `undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`), `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
+
+**Contraintes métier** — `constraints.limits` (des `ShapeData`, comme `<ShapeLayer>`) impose que chaque forme dessinée tienne dans **au moins un** périmètre, et `constraints.maxAreaM2` plafonne son aire. Une création refusée ne laisse aucune trace (ni mesh, ni historique, ni `onChange`) ; une **édition** refusée remet la forme dans son état d'avant le geste plutôt que de la perdre — et n'émet donc pas `onShapeUpdate`. `onReject(reason, shape)` vous laisse afficher votre propre message : la lib n'affiche rien d'elle-même. `limits` ne dessine rien non plus — affichez vos périmètres avec `<ShapeLayer>` ou en formes verrouillées. Seuls les **gestes utilisateur** sont contraints : `addShape`/`updateShape`/`fromGeoJSON` injectent sans contrôle.
+
+Les prédicats sont exportés et **géodésiques** (donc stables au pivot de caméra, contrairement à un test en coordonnées écran) : `polygonAreaM2` (excès sphérique, même méthode que `google.maps.geometry.spherical.computeArea`), `pointInRing`, `ringInsideRing`, `circleRing`, `ringOfShape`.
+
+**CRUD par identité** — pour piloter les formes une par une depuis votre code : `getShapes()`, `getShape(id)`, `getLastShape()`, `addShape(shape, opts?)` (renvoie l'id), `updateShape(id, patch, opts?)`, `removeShape(id, opts?)`, `replaceShapes(shapes, opts?)`. Toutes acceptent `{ silent: true }`, qui **supprime toute émission d'event** — indispensable pour réinjecter une réponse de votre backend sans relancer la mutation qui vient de la produire. `addShape({ id: monUuid, … })` fait de votre identifiant métier l'id map3d directement ; `replaceShapes` émet les events par différence, là où `fromGeoJSON` remplace en bloc. Dans un patch, `style` est fusionné champ par champ mais `meta` est **remplacée** (`{ meta: { ...getShape(id)?.meta, uuid } }` pour patcher).
+
+## Symboles (catalogue d'icônes posées au glisser-déposer)
+
+Les **icônes d'un catalogue** se posent sur le terrain par glisser-déposer depuis la palette, puis sont déplaçables, sélectionnables, filtrables par tag et persistables — mêmes garanties que les formes de dessin, appliquées à des points.
+
+Il n'y a **pas de couche dédiée à monter** : un symbole posé est une forme de la collection de dessin (`kind: 'symbol'`), donc `<DrawLayer>` porte l'ensemble. Il hérite ainsi de l'undo/redo, du GeoJSON et des events par forme sans que rien ne soit dupliqué.
+
+Le graphisme est **injecté** (`SymbolRenderer`), comme les providers de recherche et de routage : la couche ne connaît que des `key` de catalogue, jamais un format de symbologie particulier. Un catalogue peut donc changer de graphisme sans invalider les données déjà enregistrées.
+
+```tsx
+const catalog: SymbolCatalog = {
+  id: 'mon-catalogue',
+  entries: [
+    { key: 'poste', label: 'Poste de commandement', category: 'installations' },
+    { key: 'hopital', label: 'Hôpital', category: 'installations' },
+  ],
+}
+
+// `render` est SYNCHRONE (appelé à chaque rendu) donc mémoïsant ; le chargement
+// d'un éventuel SDK passe par `ready`, après quoi la couche se re-rend.
+const renderer: SymbolRenderer = {
+  ready: chargerMonSdk(),
+  render: (key, { size, variant } = {}) => ({ size: size ?? 40, svg: svgAncréAuCentre(key, variant) }),
+}
+
+<DrawLayer
+  symbols={{ catalog, renderer }}             // `enabled: false` retire l'outil
+  onShapeAdd={(s) => créerEnBase(s)}          // CRUD par identité, formes ET symboles
+  onShapeUpdate={(s) => sauver(s.meta?.uuid, s)}
+  onShapeDelete={(s) => supprimer(s.meta?.uuid)}
+  onChange={(fc) => persister(fc)}            // ou l'état global en GeoJSON
+/>
+```
+
+Les events sont ceux de la couche de dessin : un symbole s'y reconnaît à `kind === 'symbol'`, et son entrée de catalogue à `symbol.key`. L'affiliation appliquée aux poses est celle de la palette (`useDrawing().symbols.affiliation`), pas une prop.
+
+**Le SVG doit être ancré au centre de son viewBox** — c'est une exigence, pas un confort. Les symboles MIL-STD ont un point d'ancrage interne qui n'est pas le centre de l'image (un poste de commandement pend sous son mât) : rendre le SVG brut décalerait le symbole de plusieurs pixels par rapport au terrain. Recentrer le viewBox sur l'ancre est la responsabilité du provider ; la couche place le centre de l'image sur la coordonnée.
+
+Le rendu passe par `<MarkerLayer>` : un symbole ponctuel **est** un point à icône, donc il hérite de la projection, du pool recyclé, de la sélection marquee/lasso et du filtre « Couches » sans les réimplémenter. Les tags par défaut suivent la convention maison : `['symbol', <catégorie>]`, à côté de `['draw', <outil>]` et `['marker', <type>]`.
+
+Poser une icône neuve et déplacer une icône existante sont **le même geste** sur la même zone (`useMapDropZone`) : seule la provenance de la charge diffère. Le reste passe par `useDrawing()` : son champ `symbols` expose `catalog`, `render` (vignettes), `ready`, `affiliation`/`setAffiliation`, `paletteOpen`/`setPaletteOpen` et `place(key, at, variant?)` ; le CRUD, l'historique et le GeoJSON sont ceux des formes (`addShape`, `updateShape`, `removeShape`, `undo`/`redo`, `toGeoJSON`…), symboles compris.
+
+Les entrées `multiPoint` du catalogue (graphiques tactiques : périmètre, axe, zone) sont **ignorées au dépôt** : elles se posent par collecte de points successifs, mode qui n'est pas encore implémenté.
+
+### Palette (`<SymbolPaletteButton>`)
+
+Le bouton qui ouvre la palette est un **outil natif de la barre** (comme la loupe) : `<Toolbar>` le rend elle-même, `components={{ symbol: false }}` le masque.
+
+```tsx
+<DrawLayer>
+  <Toolbar />
+</DrawLayer>
+```
+
+Le catalogue, l'affiliation et les libellés viennent du contexte de `<DrawLayer>` : la palette n'a aucune configuration à recevoir.
+
+Le panneau reprend le langage visuel de « Couches » (recherche, compteurs, panneau ancré du côté opposé à la barre, fermeture au clic extérieur ou Échap) et ajoute une grille par catégorie. Chaque vignette est rendue par le `SymbolRenderer` **dans l'affiliation courante** : changer d'affiliation redessine toute la palette, et le symbole posé hérite de la variante affichée. Un badge sur le bouton compte les symboles présents sur la carte.
+
+Détails d'usage : la prise est **immédiate** sur une vignette (`longPressMs: 0` — une palette n'a pas de clic à préserver, contrairement à un marker dont le clic ouvre une fiche) ; les entrées `multiPoint` sont listées mais grisées et non saisissables, plutôt que masquées, pour ne pas faire croire à un catalogue incomplet ; et le panneau n'est monté qu'ouvert, donc fermé il n'appelle pas le renderer.
+
+### Symbologie MIL-STD-2525D fournie
+
+Un catalogue et un renderer prêts à l'emploi sont livrés, adossés au SDK officiel `@armyc2.c5isr.renderer` :
+
+```tsx
+import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+
+const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
+
+<DrawLayer symbols={{ renderer }} />   // `catalog` vaut MILSYM_CATALOG par défaut
+```
+
+`MILSYM_CATALOG` couvre **91 entrées** en 7 catégories — 80 icônes ponctuelles (`installations`, `units`, `equipment`, `air`, `events`, `control`) et 11 graphiques tactiques multi-points — avec libellés et descriptions en français. La `variant` d'un symbole est son **affiliation** : `friendly`, `hostile`, `neutral`, `unknown`.
+
+Le SDK pèse ~9 Mo : il est chargé par **import dynamique**, donc isolé dans un chunk que seule une carte affichant des symboles télécharge. `render` reste synchrone (contrat `SymbolRenderer`) et sert depuis un cache par SIDC + taille ; il renvoie `null` jusqu'à ce que `ready` soit résolu, la couche affichant un placeholder d'ici là.
+
+⚠️ **Piège du SIDC** — l'affiliation est le **4ᵉ** chiffre du SIDC 2525D, pas le 3ᵉ (celui-ci porte le *contexte* : réalité / exercice / simulation). L'écrire en 3ᵉ position — ce que fait `applySidcAffiliation` côté operator — produit un symbole de contexte non standard : graphisme décoré, dimensions et **point d'ancrage différents** (≈ 5 px de décalage vertical mesuré), l'affiliation restant celle du catalogue. `applyAffiliation` de map3d écrit au bon endroit ; c'est un point à corriger lors de la migration de l'operator.
+
+
+## Loupe (rayon X des markers d'une zone)
+
+Outil de **consultation** : on trace une zone rectangulaire à l'écran, et un panneau inventorie **tous les markers qu'elle couvre — y compris ceux agrégés dans un cluster**. La carte, elle, ne bouge pas : rien n'est sélectionné, aucun cluster n'est éclaté, aucune forme n'est créée (donc rien dans le GeoJSON, l'undo/redo ou le panneau de style).
+
+Elle est **montée par la carte et active par défaut** — comme l'outil Symboles, il n'y a rien à assembler :
+
+```tsx
+<Map center={PARIS} zoom={14}>          {/* la loupe est là, touche X, bouton dans la barre */}
+  <MarkerLayer points={markers} />
+  <DrawLayer><Toolbar /></DrawLayer>
+</Map>
+```
+
+`lens` ne sert qu'à **régler** l'outil (tout est facultatif), et `lens={false}` le retire entièrement — ni raccourci, ni bouton :
+
+```tsx
+<Map
+  lens={{
+    renderItem: (m) => m.data?.name ?? m.id,   // défaut : pastille de type + avatar + id
+    actions: SHEET_ACTIONS,                    // en plus de « Cibler », natif
+    markerTypeLabel: (t) => LABELS[t] ?? t,    // récap par type de l'en-tête
+    getId: (m) => m.id,
+    shortcut: 'x',                             // `null` = aucun
+    targetZoom: 17,
+  }}
+>
+```
+
+Le bouton est un **outil natif de `<Toolbar>`** (masquable par `components={{ lens: false }}`), et `useLens()` donne `active`/`activate`/`deactivate`/`toggle` partout sous `<Map>` — pour piloter la loupe depuis votre propre UI.
+
+**Interaction** : tant que l'outil est actif, le glissé trace la zone (retracer remplace, clic simple efface) ; la carte se navigue à la molette et à la barre espace, comme pour le dessin. La zone est déplaçable et redimensionnable, et la liste **se recalcule en direct** quand la carte défile dessous. `Échap` retire la zone, puis quitte l'outil. La loupe et les outils de dessin sont **mutuellement exclusifs** — ils partagent le même intercepteur de pointeur.
+
+Le panneau réutilise la `<MarkerList>` du panneau de sélection : une ligne par marker, en-tête fixe avec le décompte par type, corps scrollable, croix par ligne, menu d'actions extensible.
 
 ## Traduction des libellés (`labels`)
 
@@ -274,6 +408,7 @@ Remappable si une touche est déjà prise ailleurs dans votre app — même patt
 | `⌘A` / `⌘D` | Tout sélectionner / Dupliquer la sélection |
 | `Suppr`/`⌫` | Supprimer la sélection |
 | Flèches | Déplacer la sélection d'1 px (Maj = 10 px) |
+| `X` | Loupe — inventaire des markers d'une zone (`<Map lens={{ shortcut }}>` pour remapper) |
 | `Entrée` | Fermer le polygone (dessin ou marquee) |
 | `Échap` | Cascade : annule le geste/tracé en cours → marquee → désélectionne → outil navigation |
 
@@ -284,11 +419,13 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | Élément | Rôle |
 |---|---|
 | `<MapProvider theme colorScheme labels>` | Thème résolu (clair/sombre + reduced-motion) + libellés traduisibles ([LABELS.md](./LABELS.md)). |
-| `<Map cesiumIonToken center zoom fallbackGlobe onViewportChange onCameraChange>` | Canvas + moteur (Cesium Ion). |
-| `<MarkerLayer points/source getId cluster icon clusterIcon tooltip clusterTooltip menu selectedId followId onSelect selectionRing>` | Markers/clusters DOM. Infobulles au survol (`tooltip`/`clusterTooltip` — le clic = actions), `MarkerData.avatar` (photo ronde gérée), `MarkerData.new` (sonar jusqu'au clic) et `MarkerData.urgent` (viseur rouge, infobulle style urgence). Cluster inséparable au zoom max → éclaté automatiquement en éventail. |
+| `<Map cesiumIonToken googleMapsApiKey center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + moteur (Cesium Ion). |
+| `<MarkerLayer points/source getId cluster icon clusterIcon tooltip clusterTooltip menu selectedId followId onSelect selectionRing draggable repositionable onReposition>` | Markers/clusters DOM. Infobulles au survol (`tooltip`/`clusterTooltip` — le clic = actions), `MarkerData.avatar` (photo ronde gérée), `MarkerData.new` (sonar jusqu'au clic) et `MarkerData.urgent` (viseur rouge, infobulle style urgence). Cluster inséparable au zoom max → éclaté automatiquement en éventail. |
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée). |
-| `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds. |
-| `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON. |
+| `<ShapeLayer shapes>` | Zones : cercle-rayon, polygone, rectangle-bounds — drapées au sol, ou **volumétriques** via `extrudeHeight`. |
+| `<DrawLayer tools shortcuts defaults settingsStorage value onChange onSelectionChange onShapeAdd onShapeUpdate onShapeDelete onShapeEdit>` | Éditeur de formes complet (sélection, édition, style, undo/redo, verrouillage) + GeoJSON, identité stable par forme, métadonnées métier libres et CRUD par id. |
+| `<DrawLayer symbols={{ enabled, catalog, renderer }}>` | Icônes d'un catalogue posées au **glisser-déposer** (graphisme injecté), déplaçables, taguées, undo/redo + GeoJSON — cf. [Symboles](#symboles-catalogue-dicônes-posées-au-glisser-déposer). |
+| `<SymbolPaletteButton position tipId shortcut categoryLabel variants variant onVariantChange previewSize>` | Bouton + palette catégorisée avec recherche, sélecteur d'affiliation et vignettes saisissables (→ `<Toolbar extraTools>`). |
 | `<Toolbar position minZoom tools selectModes components>` | Barre de dessin entièrement paramétrable (sections masquables/remplaçables). |
 | `<DrawStylePanel>` `DrawSettingsButton` | Panneau de style et réglages par outil, utilisables seuls. |
 | `<MapControls>` `<ContextMenu>` | Contrôles remplaçables (boutons **Déplacement/Rotation** du drag — pivoter sans maintenir Maj —, bouton **Couches** = filtre par tags). |
@@ -297,7 +434,17 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | `<ToolButton icon label tip shortcut active>` | Bouton de barre (icône, état, infobulle + `aria-label` porteurs du raccourci) — pour peupler `extraTools` / `components` avec le langage visuel des boutons natifs. |
 | `AnchorHeightCache` | Hauteurs d'ancre mémoïsées (raycast amorti, retentative des tuiles absentes, invalidation 2D↔3D) pour une couche custom qui projette des éléments drapés au sol. |
 | `<RelationLayer rules provider>` `<RelationStatusBar>` | Liens par tags vers les markers voisins, avec distances et durées routières réelles — cf. [Relations](#relations-distances-et-temps-de-trajet-réels). |
-| Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useMapEvents`, `useTags`, `useTagSelection`, `useRelations`, `useDraggablePanel`, `useDraggable`, `useDropZone`, `useTheme`, `useLabels`. |
+| Hooks | `useMap`, `useSymbols`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useMapEvents`, `useTags`, `useTagSelection`, `useRelations`, `useDraggablePanel`, `useDraggable`, `useDropZone`, `useMapDropZone`, `useTheme`, `useLabels`. |
+
+**Déposer sur la carte (`useMapDropZone`)** — pendant du couple `useDraggable`/`useDropZone` quand la cible du dépôt est le **terrain** et non un panneau : la zone couvre les trois surfaces carte (canvas, markers, overlay) — jamais les barres d'outils — et le callback reçoit directement la coordonnée visée, par raycast ellipsoïde (juste en vue inclinée comme en 2D). Un dépôt à côté du globe est ignoré, faute de position à donner.
+
+```tsx
+// La palette rend ses items saisissables ; la carte les reçoit à la bonne lat/lng.
+useMapDropZone<Icone>({
+  accept: (p) => p.type === 'icone',
+  onDrop: (payload, latLng) => poser(payload.data, latLng),
+})
+```
 
 `<MapControls>` est entièrement configurable, à deux grains :
 
@@ -310,9 +457,155 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />
 ```
 
-Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `mode3d`, `plan`, `traffic`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `layers`, `fullscreen`.
+Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `target`, `layers`, `fullscreen`.
+
+#### Bouton « revenir à la cible »
+
+Un écran a souvent un point de référence — l'alerte consultée, l'événement en cours. Fournir `target` ajoute un bouton qui y ramène ; l'omettre le retire. La carte n'a pas à savoir ce que la cible représente, seulement où elle est.
+
+```tsx
+<MapControls
+  target={{
+    position: alerte.position,
+    label: 'Revenir à l’alerte',   // défaut : labels.controls.target
+    onlyWhenOutOfView: true,        // n'apparaît qu'une fois la cible sortie de l'écran
+    zoom: 16,                       // absent = altitude courante conservée
+  }}
+/>
+```
+
+`onlyWhenOutOfView` se réévalue sur l'event `viewport` (la vue **stabilisée**), pas à chaque frame : inutile de tester pendant un vol, seule la vue posée compte.
+
+### Zones volumétriques (`extrudeHeight`)
+
+Une zone est drapée au sol par défaut. `extrudeHeight` (mètres au-dessus du sol) la transforme en **volume** — murs verticaux + couvercle — pour les vues inclinées où un aplat se lit mal :
+
+```tsx
+<ShapeLayer shapes={[{ kind: 'polygon', points, color: '#f59e0b', fillOpacity: 0.18, extrudeHeight: 200 }]} />
+```
+
+Le volume est monté **dans le même repère que la surface drapée** : il hérite de son ancre et de sa hauteur de terrain, déjà résolues et raffinées au fil du chargement des tuiles. Il ne peut donc pas dériver de sa base au pan — il n'a pas de position propre. Contrairement aux formes plaquées au sol, ses faces **testent la profondeur** : un bâtiment qui passe devant l'occulte correctement.
+
+Ses arêtes (anneau du bas, montants, anneau du couvercle) sont tracées en **lignes GL de 1 px**, constantes au zoom et sans conversion px→mètres — un ruban ne tomberait jamais exactement sur un pixel. Sur une forme extrudée, ces arêtes remplacent donc le contour en ruban ; `width` ne s'applique plus qu'aux formes drapées.
+
+**Le volume part du sol réel, pas du plan de la zone** : le terrain est échantillonné le long du contour et le bas des murs descend sous le point le plus bas, si bien qu'il ne flotte jamais au-dessus d'un creux (berge, pont, vallon). Le couvercle, lui, reste plan à `extrudeHeight` au-dessus du sol de référence de la zone. `extrudeHeight` est une propriété **de la zone** : deux zones voisines peuvent avoir des hauteurs différentes, et la changer à chaud reconstruit le volume.
+
+N'a d'effet que sur les formes fermées (polygone, rectangle, cercle).
+
+### Carte prête (`onReady`)
+
+```tsx
+<Map onReady={(engine) => camera.fitBounds(boundsOfMarkers(markers))} />
+```
+
+**`ready` = la projection résout des hauteurs et un cadrage vise le sol réel.** Ce n'est pas « le moteur existe » : ça, c'est `useMap()`, disponible dès le montage sans attendre les tuiles. Avant `ready`, un `fitBounds` viserait l'ellipsoïde nu.
+
+L'event tire **une seule fois**, mais un abonné arrivé après coup le reçoit quand même immédiatement — sans quoi `onReady` marcherait au premier montage et resterait silencieux ensuite. Si une source de tuiles échoue (token invalide, réseau coupé), `ready` finit malgré tout par tomber au bout de 8 s : l'application n'est jamais suspendue à un event qui n'arrivera pas.
+
+Autres surfaces : `engine.on('ready', cb)`, `engine.ready` (booléen synchrone), et `useMapEvents({ onReady })` pour un composant enfant qui n'est pas celui qui rend `<Map>`.
+
+### Options portées par la donnée du marker
+
+En plus de `position`, `type`, `tags`, `icon`/`avatar`, `new` et `urgent`, un `MarkerData` porte :
+
+| Champ | Effet |
+|---|---|
+| `zIndex` | Priorité entre markers superposés (défaut 0). Le sélectionné et celui dont le menu est ouvert restent **au-dessus de toute valeur** : un `zIndex` métier ne peut pas enterrer ce avec quoi on interagit. |
+| `selectedColor` | Couleur de l'anneau quand ce marker est le `selectedId` — l'anneau porte alors une information (statut d'un agent, source d'une alerte) au lieu d'une teinte fixe. Défaut : l'accent du thème. |
+| `repositionable` | Le marker se déplace sur la carte (cf. section suivante). |
+
+**Le marker sélectionné et le marker suivi échappent au filtre par tags** : masquer ce sur quoi la carte est centrée ferait disparaître la cible sans explication, et le suivi perdrait sa position en cours de route.
+
+Côté couche, `cluster` accepte `radius`, `minPoints`, `maxZoom` et `spiderfyZoom` — ils surchargent le thème **pour cette couche**, deux cartes de la même app n'ayant pas forcément la même densité de points.
+
+### Markers repositionnables
+
+Un marker peut être **déplacé sur la carte** pour définir une position. Le drapeau vit sur la **donnée**, parce que dans un même jeu seuls certains markers sont éditables :
+
+```tsx
+const markers = [
+  { id: 'a1', type: 'alert-high', position, data },                     // fixe
+  { id: 'pin', type: 'pin', position, repositionable: true, data },     // déplaçable
+]
+
+<MarkerLayer
+  points={markers}
+  onReposition={(m, latLng) => setForm(latLng)}       // au relâchement
+  onRepositionMove={(m, latLng) => preview(latLng)}   // en continu (optionnel)
+/>
+```
+
+La prop `<MarkerLayer repositionable>` (booléen ou prédicat) permet de trancher globalement ou sur un critère externe au marker (mode édition, droits) ; **fournie, elle prime** sur le champ de la donnée.
+
+Le geste s'arme au **mouvement** (4 px), pas au long-press : le clic reste intact tant que le pointeur ne bouge pas. Le marker suit le **relief réel** (`pickLatLng`), donc reste sous le curseur en vue inclinée, avec repli sur l'ellipsoïde si le pointeur sort du globe.
+
+**À ne pas confondre avec `draggable`**, qui est le drag-and-drop à payload (long-press → ghost → `<PinnedDock>`). Les deux gestes partent du même `pointerdown` : un marker repositionnable ignore `draggable`, même quand la couche l'active pour tous.
+
+Pour une couche custom qui pose ses propres poignées déplaçables : `useRepositionable()`, et `engine.pickLatLngAtClient(clientX, clientY, fallbackToEllipsoid?)` pour convertir un `PointerEvent` en lat/lng.
+
+### Carte figée (`interactive`)
+
+```tsx
+<Map interactive={false}>   // ou 'view', ou true (défaut)
+```
+
+| Mode | Caméra | Outils (dessin, loupe) | Clic carte | Markers |
+|---|---|---|---|---|
+| `true` | libre | actifs | émis | cliquables |
+| `'view'` | **figée** | neutralisés | émis | cliquables |
+| `false` | **figée** | neutralisés | supprimé | inertes |
+
+`'view'` est l'aperçu qu'on consulte sans pouvoir le déplacer : la caméra ne bouge plus, mais markers, sélection et infobulles restent vivants. `false` rend la carte inerte. Dans les deux cas **les overlays continuent d'être rendus** — c'est une carte figée, pas une capture d'écran — et un outil resté sélectionné retrouve son état intact au dégel.
+
+Équivalent impératif : `engine.setInteractive(mode)`, lecture par `engine.interactive`.
+
+`interactive` fige la **carte**, pas votre UI : les contrôles de la lib restent cliquables (ils vivent hors de la surface carte). Masquez ce qui n'a plus de sens :
+
+```tsx
+<Map interactive={false}>
+  <MapControls buttons={{ zoomIn: false, zoomOut: false, tilt: false, globe: false }} />
+</Map>
+```
+
+### Cadrage et recentrage de la caméra
+
+`useCamera()` (et `engine.camera`) expose, en plus de `flyTo`/`follow`/`moveTo` :
+
+```tsx
+const camera = useCamera()
+
+// Cadre un ensemble géographique. `padding` en pixels : un nombre pour les 4 côtés,
+// ou {top,right,bottom,left}. Asymétrique, il décale aussi le centre visé — le
+// contenu se centre dans la zone RESTÉE visible, utile sous un panneau latéral.
+camera.fitBounds(bounds, { padding: { left: 320, top: 40, right: 40, bottom: 40 } })
+camera.fitBounds(bounds, { padding: 50, duration: 0 })     // instantané
+camera.fitBounds(traceBounds, { minAltitude: 80 })         // cadrer un objet de quelques dizaines de mètres
+
+camera.setCenter(p)          // instantané, altitude conservée
+camera.panTo(p)              // animé, altitude conservée
+camera.setZoom(16)           // échelle carte 2D (0 = monde, ~20 = rue)
+camera.getZoom()
+```
+
+Les `bounds` se construisent avec les helpers exportés, tous **corrects à l'antiméridien** et tolérants aux coordonnées non finies (ils renvoient `null` plutôt qu'un cadre empoisonné) :
+
+```ts
+boundsOfLatLngs(points)          // liste de points
+boundsOfMarkers(markers)         // tout objet { position }
+boundsOfShapes(shapes)           // ShapeData[] (cercle, rect, polygone…)
+boundsOfCircle(center, meters)   // disque géodésique
+unionBounds([a, b, c])           // union, `null` ignorés
+centerOfBounds(b)                // centre, antiméridien compris
+altitudeForBounds(b, opts?)      // altitude cadrante (utilisée par SearchBox et fitBounds)
+```
+
+Par défaut `altitudeForBounds` borne à `[350 m, 6000 km]` avec une marge de 1.35× — des valeurs pensées pour la recherche de lieu. `minAltitude`, `maxAltitude` et `margin` les ajustent quand le contenu est plus petit (une trace GPS de 200 m).
 
 **Fond de carte (`basemap`)** — bascule entre les tuiles 3D photoréalistes et le plan 2D Google, plus le calque trafic. Ces fonds sont des services Google : **sans `googleMapsApiKey`, le groupe entier n'est pas rendu** plutôt que d'offrir des boutons inertes. Le bouton trafic n'apparaît qu'en mode plan (seul mode où le calque existe), et repasser en 3D l'éteint — le moteur s'en charge, `engine.getBasemap()` et l'événement `basemap` en sont la source de vérité.
+
+**Mode au démarrage (`<Map mapMode>`)** — avec `googleMapsApiKey`, la carte **démarre en plan 2D** : plus lisible pour lire des positions, et le tileset 3D n'est même pas requêté tant qu'on ne bascule pas (aucune tuile photoréaliste téléchargée au chargement). `mapMode="3d"` démarre sur les tuiles photoréalistes ; sans clé Google, `'3d'` est le seul mode possible et reste le défaut.
+
+⚠️ **Quota** — le fond 2D consomme le quota **Map Tiles API de votre clé Google**, alors que la 3D via `cesiumIonToken` est servie par Cesium Ion : démarrer en 2D *déplace* le coût, il ne le supprime pas. Deux garde-fous côté lib : pendant un vol caméra (l'intro notamment) seuls les niveaux de base sont demandés, au lieu des onze niveaux traversés ; et une tuile en échec est réessayée avec du recul (1 s puis 4 s, trois essais) au lieu d'être abandonnée — un simple `429` laissait sinon des trous définitifs dans la carte. Si vous voyez des `429 Too Many Requests`, vérifiez aussi les quotas par minute du projet dans la console Google Cloud.
 
 ## Exemple complet (Dashboard GoSecure)
 

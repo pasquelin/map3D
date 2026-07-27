@@ -1,10 +1,10 @@
 import { mdiClose, mdiHistory, mdiMagnify, mdiMapMarkerOutline, mdiTrashCanOutline } from '@mdi/js'
 import Icon from '@mdi/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DEG2RAD, M_PER_DEG, clamp } from '../../core/math'
+import { altitudeForBounds } from '../../core/bounds'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../../core/storage'
 import { createGooglePlacesSearch } from '../../search/googlePlaces'
-import type { Bounds, SearchResult } from '../../shared'
+import type { SearchResult } from '../../shared'
 import { useLabels, useMapContext } from '../context'
 import { useCamera } from '../hooks/useCamera'
 import { useFitHeight } from './panelFit'
@@ -35,29 +35,6 @@ const MIN_QUERY = 2
 const DEBOUNCE_MS = 250
 /** Hauteur maximale de la liste de résultats quand la place le permet (px). */
 const RESULTS_MAX_HEIGHT = 300
-
-/**
- * Amplitude en longitude d'un viewport (degrés), antiméridien compris.
- *
- * `east < west` signale une boîte qui franchit ±180° (Fidji : west 176.8 →
- * east -178.0) : un simple `east - west` y donnerait -354.8 au lieu de 5.2. On ne
- * peut pas non plus prendre le plus court arc — une boîte large de plus de 180°
- * qui NE franchit PAS l'antiméridien (west -170 → east 170, soit 340°) serait
- * ramenée à 20°. Seul le signe de `east - west` distingue les deux cas.
- */
-function lngSpanDeg(b: Bounds): number {
-  return b.east >= b.west ? b.east - b.west : b.east + 360 - b.west
-}
-
-/**
- * Altitude (m) cadrant le viewport d'un lieu : ~1.35× son grand côté (marge de
- * respiration), bornée [350 m, 6000 km] — un pays entier reste sous le dézoom max.
- */
-function altitudeForBounds(b: Bounds): number {
-  const latSpan = Math.abs(b.north - b.south) * M_PER_DEG
-  const lngSpan = lngSpanDeg(b) * M_PER_DEG * Math.cos(((b.north + b.south) / 2) * DEG2RAD)
-  return clamp(Math.max(latSpan, lngSpan) * 1.35, 350, 6_000_000)
-}
 
 const sameResult = (a: SearchResult, b: SearchResult) => a.name === b.name && a.lat === b.lat && a.lng === b.lng
 

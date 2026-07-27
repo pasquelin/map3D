@@ -1,5 +1,6 @@
 import {
   mdiCompassOutline,
+  mdiCrosshairsGps,
   mdiCubeOutline,
   mdiCursorMove,
   mdiEarth,
@@ -14,7 +15,9 @@ import {
 } from '@mdi/js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
-import type { MapMode } from '../../core/MapEngine'
+import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
+import { boundsContains } from '../../core/MarkerQuery'
+import type { LatLng } from '../../shared'
 import { useLabels, useMapContext } from '../context'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
@@ -51,9 +54,11 @@ export type MapControlButton =
   | 'mode3d'
   | 'plan'
   | 'traffic'
+  /** Retour au point de référence de l'écran (cf. `MapControlsProps.target`). */
+  | 'target'
 
 /** Groupes de la barre — l'unité du grain GROUPE (masquage, remplacement, ordre). */
-export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'layers' | 'fullscreen'
+export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'target' | 'layers' | 'fullscreen'
 
 export type MapControlsProps = {
   position?: 'left' | 'right'
@@ -75,6 +80,30 @@ export type MapControlsProps = {
   shortcuts?: Partial<Record<MapControlAction, string | false>>
   /** Libellé lisible d'un tag dans le panneau « Couches » (défaut : le tag brut). */
   tagLabel?: (tag: string) => string
+  /**
+   * Point de référence de l'écran (l'alerte consultée, l'événement en cours…) :
+   * fournir cette prop ajoute un bouton **« revenir à la cible »** à la barre ;
+   * l'omettre le retire. La carte n'a pas à savoir ce que la cible représente,
+   * seulement où elle est.
+   */
+  target?: MapControlTarget
+}
+
+export type MapControlTarget = {
+  position: LatLng
+  /** Tooltip et `aria-label` du bouton (défaut : `labels.controls.target`). */
+  label?: string
+  /**
+   * Zoom d'arrivée. Absent = l'altitude courante est conservée (simple recentrage),
+   * ce qui évite de casser le niveau de détail que l'utilisateur avait choisi.
+   */
+  zoom?: number
+  /**
+   * N'afficher le bouton que lorsque la cible est **sortie de la vue**. Il
+   * disparaît dès qu'elle redevient visible : le bouton ne dit alors plus « reviens
+   * ici » alors qu'on y est déjà.
+   */
+  onlyWhenOutOfView?: boolean
 }
 
 /** Pas d'inclinaison par clic (rad). */
@@ -100,9 +129,34 @@ const DEFAULT_SHORTCUTS: Record<MapControlAction, string | false> = {
 type Slot = keyof NonNullable<MapControlsProps['components']>
 
 /** Contrôles de navigation : déplacement/rotation du drag, boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
-export function MapControls({ position = 'right', components = {}, buttons = {}, shortcuts, tagLabel }: MapControlsProps) {
+export function MapControls({ position = 'right', components = {}, buttons = {}, shortcuts, tagLabel, target }: MapControlsProps) {
   const { engine } = useMapContext()
   const labels = useLabels()
+
+  // Cible hors de la vue ? Recalculé sur `viewport` (la vue stabilisée), pas sur
+  // `camera` : inutile de tester à chaque frame d'un vol, seule la vue posée compte.
+  const [targetOut, setTargetOut] = useState(false)
+  const watchTarget = target?.onlyWhenOutOfView === true
+  const tLat = target?.position.lat
+  const tLng = target?.position.lng
+  useEffect(() => {
+    if (!watchTarget || tLat === undefined || tLng === undefined) return
+    const check = () => setTargetOut(!boundsContains(engine.getView().bounds, { lat: tLat, lng: tLng }))
+    check()
+    return engine.on('viewport', check)
+  }, [engine, watchTarget, tLat, tLng])
+
+  const goToTarget = useCallback(() => {
+    if (!target) return
+    // UN seul vol, position et altitude ensemble. Enchaîner `panTo` puis `setZoom`
+    // ne marcherait pas : `setZoom` relit l'état COURANT pour savoir où rester, et
+    // à cet instant le vol vient d'être armé sans avoir avancé d'une frame — il
+    // repartirait donc vers le point de départ, annulant le recentrage.
+    engine.camera.panTo(
+      target.position,
+      target.zoom !== undefined ? { altitude: altitudeForZoom(target.zoom) } : undefined,
+    )
+  }, [engine, target])
 
   // Mode du drag gauche (déplacer / pivoter) — source de vérité côté moteur.
   const [dragMode, setDragModeState] = useState(engine.getDragMode())
@@ -275,6 +329,22 @@ export function MapControls({ position = 'right', components = {}, buttons = {},
               )}
             </div>
           ),
+      )}
+
+      {/* Cible : présente = bouton, absente = rien. Aucune valeur par défaut ne
+          serait sensée — la lib ne sait pas vers quoi « revenir » d'elle-même. */}
+      {slot(
+        'target',
+        btn('target') && target && (!target.onlyWhenOutOfView || targetOut) && (
+          <div className="m3d-controls-group">
+            <ToolButton
+              icon={mdiCrosshairsGps}
+              label={target.label ?? labels.controls.target}
+              tip={tip}
+              onClick={goToTarget}
+            />
+          </div>
+        ),
       )}
 
       {slot(

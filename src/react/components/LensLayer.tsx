@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { AnchorHeightCache } from '../../core/AnchorHeightCache'
 import type { DragMode, PointerInterceptor } from '../../core/MapEngine'
@@ -6,9 +6,10 @@ import type { ScreenPoint } from '../../core/Projection'
 import type { MarkerData } from '../../data/types'
 import type { Bounds } from '../../shared'
 import { GAP, LENS_PANEL_W } from '../../style/panelGeometry'
-import { DrawingContext, LensContext, type LensApi, useLabels, useMapContext } from '../context'
+import { LensContext, type LensApi, useLabels, useMapContext } from '../context'
 import { LensPanel } from './LensPanel'
 import { LensZone } from './LensZone'
+import type { MenuItem } from './ContextMenu'
 import type { MarkerListAction } from './MarkerList'
 import { inTextInput, plainKey } from './shortcuts'
 import type { LensRect, LensRenderItem } from './lensTypes'
@@ -28,19 +29,32 @@ const norm = (x0: number, y0: number, x1: number, y1: number): LensRect => ({
   h: Math.abs(y1 - y0),
 })
 
-export type LensLayerProps<T = unknown> = {
+/**
+ * Réglages de l'outil loupe. Tous facultatifs : la loupe fonctionne sans aucune
+ * configuration. Passés à `<Map lens={…}>`, qui monte la couche pour vous.
+ */
+export type LensOptions<T = unknown> = {
   /** Clé stable d'un marker (défaut : `m.id`). */
   getId?: (m: MarkerData<T>) => string | number
   /** Rendu d'une ligne (défaut : pastille de type + avatar + id). */
   renderItem?: LensRenderItem<T>
   /** Actions du menu déroulant d'une ligne, en plus de « Cibler » (extensible). */
   actions?: MarkerListAction<T>[]
+  /**
+   * Menu d'une ligne, dans la MÊME forme que `<MarkerLayer menu>` — c'est ce qui rend
+   * le bouton « … » de l'inventaire identique au menu du marker sur la carte.
+   * Prime sur `actions`. Renseigné par `<Map markerMenu>` quand la loupe n'en fournit pas.
+   */
+  menu?: (m: MarkerData<T>) => MenuItem[]
   /** Libellé lisible d'un type de marker (récap par type). */
   markerTypeLabel?: (type: string) => string
   /** Raccourci clavier d'activation (lettre unique, insensible à la casse). Défaut `x`. `null` = aucun. */
   shortcut?: string | null
   /** Zoom du vol « Cibler » d'une ligne (défaut 17). */
   targetZoom?: number
+}
+
+export type LensLayerProps<T = unknown> = LensOptions<T> & {
   children?: ReactNode
 }
 
@@ -59,11 +73,16 @@ export type LensLayerProps<T = unknown> = {
  * Déplacer/redimensionner la zone (poignées) recalcule aussi. La croix la retire.
  *
  * Mutuellement exclusif avec les outils de dessin (activer l'un désactive l'autre).
+ * L'exclusivité est portée par `<DrawLayer>`, qui est monté SOUS cette couche et
+ * observe `LensContext` : la loupe ignore donc tout du dessin, et fonctionne sur
+ * une carte qui n'en a pas.
+ *
+ * Montée par `<Map lens={…}>` — la monter à la main suppose `<Map lens={false}>`,
+ * sinon deux loupes cohabitent (deux raccourcis, deux zones).
  */
 export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const { engine, overlay } = useMapContext()
   const labels = useLabels()
-  const draw = useContext(DrawingContext)
   const getId = props.getId ?? defaultGetId
   const container = overlay.parentElement as HTMLElement | null
 
@@ -290,20 +309,11 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     setActive(false)
     clearZone()
   }, [clearZone])
-  const activate = useCallback(() => {
-    draw?.setTool(null) // un outil de dessin actif est abandonné (exclusivité)
-    setActive(true)
-  }, [draw])
+  const activate = useCallback(() => setActive(true), [])
   const toggle = useCallback(() => {
     if (activeRef.current) deactivate()
     else activate()
   }, [activate, deactivate])
-
-  // Activer un outil de dessin désactive la loupe (l'intercepteur est un slot unique).
-  const drawTool = draw?.tool ?? null
-  useEffect(() => {
-    if (drawTool !== null && activeRef.current) deactivate()
-  }, [drawTool, deactivate])
 
   // Échap : retire la zone si elle existe (prêt à retracer), sinon quitte l'outil.
   useEffect(() => {
@@ -419,6 +429,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
             onClose={clearZone}
             renderItem={props.renderItem}
             actions={props.actions}
+            menu={props.menu}
             targetZoom={props.targetZoom}
             markerTypeLabel={props.markerTypeLabel}
           />

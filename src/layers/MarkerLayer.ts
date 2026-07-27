@@ -11,6 +11,10 @@ export type OverlayItem = {
   id: string | number
   position: LatLng
   animateEnter?: boolean
+  /** Priorité entre markers superposés (défaut 0) — cf. `MarkerData.zIndex`. */
+  zIndex?: number
+  /** Couleur de l'anneau quand ce marker est le sélectionné. */
+  selectedColor?: string
 }
 
 export type MoveTween = { durationMs: number; easing: (t: number) => number }
@@ -29,6 +33,10 @@ type Node = {
   visible: boolean
   /** Hauteur du sol réel (m au-dessus ellipsoïde) échantillonnée sous le point. */
   groundHeight: number
+  /** Priorité d'affichage demandée par la donnée (cf. `applyOrder`). */
+  zIndex: number
+  /** Dernière couleur d'anneau écrite — évite de réécrire le style à l'identique. */
+  selColor: string | undefined
 }
 
 /**
@@ -58,12 +66,21 @@ export class MarkerLayer implements Layer {
   leaderLine = true
 
   private readonly nodes = new Map<string | number, Node>()
+
+  /**
+   * Markers dont la position est pilotée par un geste en cours (repositionnement).
+   * `setItems` ne les déplace pas : l'hôte n'a pas encore reçu la nouvelle position,
+   * il rejouerait donc l'ancienne à chaque rendu et le marker sauterait sous le doigt.
+   */
+  private readonly pinned = new Set<string | number>()
   private readonly worldScratch = new THREE.Vector3()
   private selected: string | number | null = null
   /** Multi-sélection (outil sélection) — canal parallèle à `selected` (popup/follow). */
   private readonly multiSel = new Set<string | number>()
   /** Diamètre (px) de l'anneau de multi-sélection — CSS var posée par nœud. */
   private ringPx: number | null = null
+  /** Diamètre de l'anneau pour un marker à AVATAR (cf. `setSelectionRing`). */
+  private avatarRingPx: number | null = null
   /** Marker relevé au sommet du tri z (menu/popup ouvert). */
   private raised: string | number | null = null
   private frame = 0
@@ -142,6 +159,10 @@ export class MarkerLayer implements Layer {
       const existing = this.nodes.get(item.id)
       if (existing) {
         existing.seen = this.frame
+        // Style et priorité suivent la donnée à chaud, même position inchangée
+        // (un agent qui prend le focus change de couleur d'anneau sans bouger).
+        this.applyItemStyle(existing, item)
+        if (this.pinned.has(item.id)) continue
         if (existing.to.lat !== item.position.lat || existing.to.lng !== item.position.lng) {
           existing.from = { ...existing.cur }
           existing.to = { ...item.position }
@@ -187,7 +208,10 @@ export class MarkerLayer implements Layer {
           seen: this.frame,
           visible: true,
           groundHeight: 0,
+          zIndex: 0,
+          selColor: undefined,
         }
+        this.applyItemStyle(node, item)
         // Pose immédiate sur le sol si les tuiles sont déjà là ; sinon hauteur 0
         // puis recalage pendant la fenêtre de re-échantillonnage (le temps que les
         // tuiles de la zone se chargent).
@@ -201,7 +225,7 @@ export class MarkerLayer implements Layer {
         // Même restauration pour la multi-sélection : un marker absorbé par un
         // cluster puis ré-éclaté ressort avec son anneau.
         if (this.multiSel.has(item.id)) el.classList.add('m3d-multisel')
-        if (this.ringPx !== null) el.style.setProperty('--m3d-selring', `${this.ringPx}px`)
+        this.applyRingVars(el)
         this.onMount(item.id, el)
         if (item.animateEnter !== false) {
           requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('m3d-enter')))
@@ -220,14 +244,49 @@ export class MarkerLayer implements Layer {
   }
 
   /**
-   * Taille de l'anneau de multi-sélection. Posée à la création de chaque nœud
-   * (et resynchronisée ici au changement) : pas de passe sur tous les nœuds à
-   * chaque mount/unmount côté React.
+   * Repositionne un marker **immédiatement**, sans interpolation : le point doit
+   * coller au curseur pendant un geste, pas le rattraper avec 500 ms de retard.
+   * À encadrer par `setPinned(id, true/false)` pour que `setItems` ne le rejoue pas.
    */
-  setSelectionRing(px: number): void {
-    if (this.ringPx === px) return
+  moveItemNow(id: string | number, p: LatLng): void {
+    const n = this.nodes.get(id)
+    if (!n) return
+    n.from = { lat: p.lat, lng: p.lng }
+    n.to = { lat: p.lat, lng: p.lng }
+    n.cur = { lat: p.lat, lng: p.lng }
+    n.t = 1
+    this.settle(n)
+  }
+
+  /** Gèle (ou libère) la position d'un marker vis-à-vis de `setItems`. */
+  setPinned(id: string | number, pinned: boolean): void {
+    if (pinned) this.pinned.add(id)
+    else this.pinned.delete(id)
+  }
+
+  /**
+   * Diamètres de l'anneau de sélection : `px` pour un sprite, `avatarPx` pour une
+   * photo.
+   *
+   * Deux valeurs parce que les deux contenus n'occupent pas le même gabarit : un
+   * avatar remplit tout le carré du marker, là où la pastille visible d'un sprite
+   * n'en couvre qu'une fraction (l'appelant cale `px` sur elle). Un diamètre unique
+   * ferait donc passer l'anneau à l'intérieur de la photo.
+   *
+   * Posée à la création de chaque nœud, et resynchronisée ici au changement : pas de
+   * passe sur tous les nœuds à chaque mount/unmount côté React.
+   */
+  setSelectionRing(px: number, avatarPx?: number): void {
+    const avatar = avatarPx ?? null
+    if (this.ringPx === px && this.avatarRingPx === avatar) return
     this.ringPx = px
-    for (const node of this.nodes.values()) node.el.style.setProperty('--m3d-selring', `${px}px`)
+    this.avatarRingPx = avatar
+    for (const node of this.nodes.values()) this.applyRingVars(node.el)
+  }
+
+  private applyRingVars(el: HTMLElement): void {
+    if (this.ringPx !== null) el.style.setProperty('--m3d-selring', `${this.ringPx}px`)
+    if (this.avatarRingPx !== null) el.style.setProperty('--m3d-avatarring', `${this.avatarRingPx}px`)
   }
 
   /**
@@ -290,12 +349,54 @@ export class MarkerLayer implements Layer {
     this.applyOrder(id)
   }
 
-  /** renderOrder combiné : relevé (menu ouvert) > sélectionné > défaut. */
+  /**
+   * Applique à un nœud ce que la DONNÉE porte : priorité d'affichage et couleur
+   * d'anneau de sélection. Appelé à la création comme à chaque `setItems`, pour
+   * qu'un changement d'état (un agent qui prend le focus) suive sans recréer le nœud.
+   */
+  private applyItemStyle(node: Node, item: OverlayItem): void {
+    // `renderOrder` non fini désorganiserait tout le tri de la scène, pas seulement
+    // ce marker : une valeur douteuse retombe sur la priorité neutre.
+    const z = Number.isFinite(item.zIndex) ? item.zIndex! : 0
+    if (z !== node.zIndex) {
+      node.zIndex = z
+      this.applyOrder(item.id)
+    }
+    // Var CSS plutôt qu'une classe : la couleur est une valeur continue, et le
+    // style de l'anneau reste entièrement décrit dans la feuille. Écrite seulement
+    // au changement : `setItems` passe sur TOUS les markers à chaque rafraîchissement
+    // de données, et toucher au style de chacun sans raison est du travail pur.
+    if (item.selectedColor === node.selColor) return
+    node.selColor = item.selectedColor
+    if (item.selectedColor) node.el.style.setProperty('--m3d-selcolor', item.selectedColor)
+    else node.el.style.removeProperty('--m3d-selcolor')
+  }
+
+  /**
+   * renderOrder combiné : relevé (menu ouvert) > sélectionné > `zIndex` de la donnée.
+   *
+   * Les deux états d'interaction passent AU-DESSUS de toute valeur demandée : un
+   * `zIndex` métier ne doit jamais enterrer le marker avec lequel on interagit, ni
+   * son menu ouvert (qui est un enfant de son `CSS2DObject`, donc borné par lui).
+   * D'où le plancher borné plus bas : un `zIndex` extravagant est ramené sous lui
+   * plutôt que de le franchir, sinon la garantie ci-dessus ne tiendrait qu'en
+   * dessous d'une valeur arbitraire.
+   */
   private applyOrder(id: string | number | null): void {
     if (id == null) return
     const node = this.nodes.get(id)
-    if (node) node.obj.renderOrder = id === this.raised ? 2 : id === this.selected ? 1 : 0
+    if (!node) return
+    const base = Math.min(node.zIndex, MarkerLayer.INTERACTION_FLOOR - 1)
+    node.obj.renderOrder =
+      id === this.raised
+        ? MarkerLayer.INTERACTION_FLOOR + 1
+        : id === this.selected
+          ? MarkerLayer.INTERACTION_FLOOR
+          : base
   }
+
+  /** `renderOrder` réservé aux états d'interaction — hors d'atteinte des données. */
+  private static readonly INTERACTION_FLOOR = 1e6
 
   /** Position live (lat/lng) d'un nœud, pour le suivi caméra. */
   getItemPosition(id: string | number): LatLng | null {

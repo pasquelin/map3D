@@ -16,11 +16,25 @@ export type {
   BasemapState,
   MapEvents,
   DragMode,
+  InteractiveMode,
   PointerInterceptor,
   PointerPhase,
 } from './core/MapEngine'
 export { Camera } from './core/Camera'
-export type { CameraState, FlyOptions } from './core/Camera'
+export type { CameraState, FlyOptions, FitBoundsOptions, FitPadding } from './core/Camera'
+// Agrégation et cadrage de cadres géographiques (antiméridien traité) : de quoi
+// nourrir `camera.fitBounds()` depuis des points, des formes ou des markers.
+export {
+  altitudeForBounds,
+  boundsOfCircle,
+  boundsOfLatLngs,
+  centerOfBounds,
+  lngSpanDeg,
+  unionBounds,
+} from './core/bounds'
+export type { AltitudeForBoundsOptions } from './core/bounds'
+export { boundsOfShape, boundsOfShapes } from './layers/ShapeLayer'
+export { boundsOfMarkers } from './data/types'
 export { Projection } from './core/Projection'
 export type { ScreenPoint } from './core/Projection'
 export { EnuFrame } from './core/enu'
@@ -43,7 +57,7 @@ export type {
 // Registre du drag-and-drop générique (`engine.drag`) : source de vérité de
 // l'état, zones de dépôt, payload typé. Piloté par la couche React.
 export { DragRegistry } from './core/DragRegistry'
-export type { DragPayload, DropZone, DragState, DragEnd } from './core/DragRegistry'
+export type { DragPayload, DropZone, DropPoint, DragState, DragEnd } from './core/DragRegistry'
 // Registre d'inventaire des markers (`engine.markers`) consommé par l'outil loupe :
 // une couche marker s'y branche pour rendre ses points interrogeables par cadre géo.
 export { MarkerRegistry, boundsContains } from './core/MarkerQuery'
@@ -78,6 +92,36 @@ export type {
   Drawing,
   DrawDefaults,
 } from './layers/DrawLayer'
+// Formes vues par l'app hôte : identité stable + métadonnées métier opaques,
+// monnaie d'échange des events par forme et du CRUD par identité.
+export type { DrawnShape, NewShape, ShapePatch, ShapeMeta, ShapeSymbol, MutateOptions } from './layers/DrawLayer'
+// Contraintes métier du dessin utilisateur (périmètres autorisés, aire max).
+export type { DrawConstraints, DrawRejectReason } from './layers/DrawLayer'
+// Prédicats GÉODÉSIQUES (lat/lng, m²) — verdict stable, indépendant de la caméra.
+export { circleRing, pointInRing, polygonAreaM2, ringInsideRing } from './core/geodesy'
+export { ringOfShape } from './layers/ShapeLayer'
+// ── Symboles (catalogue d'icônes posées au glisser-déposer) ──
+// Le graphisme est INJECTÉ (`SymbolRenderer`), comme les providers de recherche et
+// de routage : la couche ne connaît que des clés de catalogue.
+// Symbologie MIL-STD-2525D prête à l'emploi : catalogue (80 icônes + 11 graphiques
+// tactiques, libellés FR) et renderer adossé au SDK officiel, chargé en import
+// dynamique (chunk séparé, ~9 Mo, jamais téléchargé sans symboles à l'écran).
+export {
+  MILSYM_CATALOG,
+  MILSYM_ENTRIES,
+  MILSYM_AFFILIATION_COLORS,
+  applyAffiliation,
+  createMilSymRenderer,
+  milSymSidc,
+} from './symbols/providers/milSym'
+export type { MilSymAffiliation, MilSymEntry, MilSymRendererOptions } from './symbols/providers/milSym'
+export type {
+  SymbolCatalog,
+  SymbolEntry,
+  SymbolRenderer,
+  SymbolRenderOptions,
+  RenderedSymbol,
+} from './symbols/types'
 export { DrawSettings } from './layers/draw/DrawSettings'
 export type { ToolSettings } from './layers/draw/DrawSettings'
 
@@ -99,6 +143,28 @@ export { MapProvider } from './react/MapProvider'
 export type { MapProviderProps } from './react/MapProvider'
 export { Map } from './react/Map'
 export type { MapProps } from './react/Map'
+// Poignée impérative (`ref` sur `<Map>`) : cadrer, dessiner ou interroger la carte
+// depuis l'extérieur, sans écrire de composant enfant pour atteindre un hook.
+// Configuration déclarative de l'interface : barre (loupe comprise), contrôles,
+// recherche, dock, dessin et couches se règlent en PROPS de `<Map>`, qui les monte
+// dans le bon ordre d'imbrication. Les composants restent exportés plus bas pour
+// un placement manuel, mais l'assemblage n'est plus à la charge de l'application.
+export type {
+  MapHandle,
+  MapSurfaces,
+  ToolbarConfig,
+  ControlsConfig,
+  SearchConfig,
+  DockConfig,
+  DrawConfig,
+  RelationsConfig,
+  LayerSpec,
+  MarkersSpec,
+} from './react/mapConfig'
+// Fabriques de couches : `layers` est hétérogène, donc son type public voit les
+// données d'un marker comme `unknown`. Ces fonctions rendent le type à l'écriture —
+// `markersLayer<Agent>({…})` type `icon`, `menu` et `tooltip` sur vos données.
+export { markersLayer, shapesLayer } from './react/mapConfig'
 export { useMap, useTheme, useLabels } from './react/context'
 export type { DrawingApi, DrawAction, LensApi } from './react/context'
 export { useCamera } from './react/hooks/useCamera'
@@ -117,6 +183,14 @@ export { useDraggable } from './react/hooks/useDraggable'
 export type { UseDraggableOptions } from './react/hooks/useDraggable'
 export { useDropZone } from './react/hooks/useDropZone'
 export type { UseDropZoneOptions } from './react/hooks/useDropZone'
+// Repositionnement libre d'un élément ancré à la carte (≠ drag-and-drop à payload) :
+// exposé pour une couche custom qui pose ses propres poignées déplaçables.
+export { useRepositionable } from './react/hooks/useRepositionable'
+export type { UseRepositionableOptions } from './react/hooks/useRepositionable'
+// Dépôt sur la SURFACE CARTE : le consommateur reçoit la lat/lng visée (raycast
+// ellipsoïde) — de quoi lâcher une icône de palette à un endroit précis du globe.
+export { useMapDropZone } from './react/hooks/useMapDropZone'
+export type { UseMapDropZoneOptions } from './react/hooks/useMapDropZone'
 
 export { MarkerLayer } from './react/components/MarkerLayer'
 export type { MarkerLayerProps } from './react/components/MarkerLayer'
@@ -128,8 +202,21 @@ export { ShapeLayer } from './react/components/ShapeLayer'
 export type { ShapeLayerProps } from './react/components/ShapeLayer'
 export { DrawLayer } from './react/components/DrawLayer'
 export type { DrawLayerProps } from './react/components/DrawLayer'
+// Palette de symboles : rendue par `<Toolbar>` comme n'importe quel outil. Exportée
+// pour un placement manuel (barre custom) — aucune configuration à lui passer.
+export { SymbolPaletteButton, SYMBOL_DRAG_TYPE } from './react/components/SymbolPaletteButton'
+// Rendu des symboles posés en markers DOM — monté par `<DrawLayer>`, exporté pour un
+// rendu custom (l'état reste dans la collection de dessin).
+export { SymbolMarkers } from './react/components/SymbolMarkers'
+export type { SymbolMarkersProps, PlacedSymbolShape } from './react/components/SymbolMarkers'
 export { MapControls } from './react/components/MapControls'
-export type { MapControlsProps, MapControlAction, MapControlButton } from './react/components/MapControls'
+export type {
+  MapControlsProps,
+  MapControlAction,
+  MapControlButton,
+  MapControlTarget,
+  ControlGroup,
+} from './react/components/MapControls'
 export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar } from './react/components/Toolbar'
@@ -142,7 +229,11 @@ export { DrawStylePanel } from './react/components/DrawStylePanel'
 export type { DrawStylePanelProps } from './react/components/DrawStylePanel'
 export { SelectionBadges } from './react/components/SelectionBadges'
 export type { SelectionBadgesProps } from './react/components/SelectionBadges'
-// Outil loupe : couche + bouton de barre + panneau + système d'actions.
+// Outil loupe. Réglé par `<Map toolbar={{ lens: … }}>`, qui monte la couche et dont `<Toolbar>`
+// affiche le bouton : les exports ci-dessous ne servent qu'à un montage manuel
+// (barre maison, panneau réutilisé ailleurs) — `toolbar={{ lens: false }}` évite alors la
+// double loupe.
+export type { LensOptions } from './react/components/LensLayer'
 export { LensLayer } from './react/components/LensLayer'
 export type { LensLayerProps } from './react/components/LensLayer'
 export { LensToolButton } from './react/components/LensToolButton'

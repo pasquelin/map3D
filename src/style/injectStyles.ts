@@ -73,6 +73,12 @@ const CSS = `
    sinon ils flottent sur le vide pendant que la planète streame. Fondu à l'entrée. */
 .m3d-root.m3d-intro .m3d-css2d{opacity:0}
 .m3d-root.m3d-intro .m3d-css2d *{pointer-events:none!important}
+/* Carte inerte (<Map interactive={false}>) : les markers réactivent pointer-events
+   élément par élément, seule une règle DESCENDANTE peut les recouvrir. Le curseur
+   redevient neutre : plus rien n'est saisissable. Même mécanique que l'intro. */
+.m3d-root.m3d-inert canvas{cursor:default}
+.m3d-root.m3d-inert .m3d-css2d *,
+.m3d-root.m3d-inert .m3d-overlay > *{pointer-events:none!important}
 /* Enveloppe ancrée : positionnée (transform) par le CSS2DRenderer chaque frame.
    PAS de will-change : la promotion en couche GPU désynchronise le marker du
    canvas WebGL pendant le déplacement (les 2 couches sont présentées à ~1 frame
@@ -255,11 +261,34 @@ const CSS = `
    composables avec l'animation transform) — pas de filter:drop-shadow qui
    re-rastérise le sous-arbre à chaque frame d'animation. */
 .m3d-marker-node.m3d-multisel::before,.m3d-marker-node.m3d-multisel::after,
+.m3d-marker-node.m3d-selected:not(.m3d-multisel)::after,
 .m3d-sonar::before,.m3d-sonar::after,
 .m3d-target::before,.m3d-target::after{content:'';position:absolute;left:0;top:0;
   box-sizing:border-box;width:var(--ring-d);height:var(--ring-d);
   margin:calc(var(--ring-d) / -2) 0 0 calc(var(--ring-d) / -2);
   border-radius:50%;pointer-events:none}
+
+/* Anneau du marker sélectionné. Sa couleur vient de la DONNÉE (--m3d-selcolor,
+   posée par la couche) : l'anneau peut ainsi porter une information — statut d'un
+   agent, source d'une alerte — au lieu d'une teinte fixe. Repli sur l'accent du
+   thème. Écarté quand la multi-sélection est active : ses marching ants blanc/noir
+   occupent déjà ce gabarit, deux anneaux concentriques seraient illisibles.
+   Centrage par le boilerplate ci-dessus : un left/top à 50% viserait le milieu de la
+   boîte du nœud, qui n'est pas l'ancre — le contenu s'y décale par marge négative. */
+.m3d-marker-node.m3d-selected:not(.m3d-multisel)::after{
+  --ring-d:var(--m3d-selring,52px);
+  border:2px solid var(--m3d-selcolor,var(--m3d-accent))}
+
+/* Marker à AVATAR : même anneau DÉTACHÉ, mais dimensionné sur la taille réelle du
+   marker (--m3d-avatarring) et non sur --m3d-selring. Un avatar occupe tout le carré
+   du marker, là où la pastille visible d'un sprite n'en couvre qu'une fraction — et
+   c'est sur cette pastille que l'appelant cale selectionRing. Le même diamètre
+   passerait donc à l'intérieur de la photo.
+   Un anneau ACCOLÉ à la photo serait pire qu'un anneau détaché : il viendrait
+   s'empiler sur la bordure de type que l'avatar porte déjà, et l'état sélectionné se
+   lirait comme un simple épaississement. */
+.m3d-marker-node.m3d-selected:has(.m3d-marker-avatar)::after{
+  --ring-d:var(--m3d-avatarring,var(--m3d-selring,52px))}
 
 /* Marker multi-sélectionné : anneau blanc plein + anneau noir en tirets qui
    tourne lentement — même langage N/B que les formes. */
@@ -621,11 +650,13 @@ const CSS = `
   display:flex;align-items:center;justify-content:center;pointer-events:none;
   box-shadow:0 0 0 2px var(--m3d-panel)}
 .m3d-btn.m3d-on .m3d-tag-badge{background:#fff;color:var(--m3d-accent)}
-.m3d-tagpanel{position:absolute;top:0;width:236px;padding:8px;z-index:30;
+/* Flyout ancré à un bouton de barre — partagé avec la palette de symboles
+   (.m3d-sympanel), qui ne surcharge que sa largeur. */
+.m3d-tagpanel,.m3d-sympanel{position:absolute;top:0;width:236px;padding:8px;z-index:30;
   display:flex;flex-direction:column;gap:7px;
   animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-tagpanel.m3d-right{right:calc(100% + ${GAP}px)}
-.m3d-tagpanel.m3d-left{left:calc(100% + ${GAP}px)}
+.m3d-tagpanel.m3d-right,.m3d-sympanel.m3d-right{right:calc(100% + ${GAP}px)}
+.m3d-tagpanel.m3d-left,.m3d-sympanel.m3d-left{left:calc(100% + ${GAP}px)}
 .m3d-tagsearch{display:flex;align-items:center;gap:2px;padding:7px 9px;
   border:1px solid var(--m3d-border);border-radius:9px;color:var(--m3d-muted)}
 .m3d-tagsearch input{border:none;background:none;outline:none;flex:1;min-width:0;
@@ -723,9 +754,32 @@ const CSS = `
    Élément saisissable : touch-action none pour que le long-press tactile ne
    soit pas avalé par le scroll. Le curseur reste celui de l'élément (pointer). */
 .m3d-draggable{touch-action:none}
-/* Drag en cours : curseur de préhension partout + pas de sélection de texte
-   parasite pendant qu'on glisse. */
-.m3d-root.m3d-dragging,.m3d-root.m3d-dragging *{cursor:grabbing!important;user-select:none}
+/* Marker repositionnable : touch-action none pour que le geste tactile ne parte
+   pas en scroll, et une main qui annonce qu'on peut le déplacer. Pendant le geste
+   la poigne fermée est forcée sur TOUT le document — le pointeur sort du marker. */
+.m3d-repositionable{touch-action:none;cursor:grab}
+.m3d-repositionable:active{cursor:grabbing}
+/* Point au sol devenu poignée de repositionnement : il doit recevoir le pointeur
+   (le calque CSS2D est en pointer-events:none) et offrir une cible plus large que
+   ses 7 px — un ::before transparent centré, sans changer le visuel.
+   Sélecteur volontairement spécifique (ancre + dot) pour passer devant toute règle
+   de curseur héritée du marker.
+   move et non grab : le CANVAS est deja en grab (pan de la carte), donc un grab sur
+   la poignee ne se distinguerait de rien — le curseur ne changerait pas a l'oeil en
+   la survolant. */
+.m3d-marker-anchor .m3d-marker-dot.m3d-repositionable,
+.m3d-marker-dot.m3d-repositionable{pointer-events:auto;cursor:move}
+.m3d-marker-anchor .m3d-marker-dot.m3d-repositionable:active,
+.m3d-marker-dot.m3d-repositionable:active{cursor:grabbing}
+.m3d-marker-dot.m3d-repositionable::before{content:'';position:absolute;
+  left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
+/* Poignée plus lisible : le point s'agrandit légèrement au survol. */
+.m3d-marker-dot.m3d-repositionable:hover{transform:scale(1.5)}
+/* Geste en cours (saisie vers la dock OU repositionnement) : curseur de préhension
+   partout + pas de sélection de texte parasite pendant qu'on glisse. */
+.m3d-root.m3d-dragging,.m3d-root.m3d-dragging *,
+.m3d-root.m3d-repositioning,
+.m3d-root.m3d-repositioning *{cursor:grabbing!important;user-select:none}
 /* Ghost accroché au curseur : positionné en px conteneur (left/top posés inline),
    centré sur le point, transparent aux événements (le hit-test DOM voit à travers).
    Les marges négatives de recentrage des icônes marker sont annulées → translate
@@ -796,7 +850,13 @@ const CSS = `
   border-radius:10px;overflow:hidden;cursor:pointer;background:var(--m3d-panel);
   box-shadow:0 0 0 1px var(--m3d-border),0 2px 8px rgba(0,0,0,.28);
   transition:transform .12s cubic-bezier(.2,.8,.3,1)}
-.m3d-pin:hover{transform:translateY(-3px) scale(1.04)}
+.m3d-pin:hover{transform:translateY(-3px)}
+/* Réordonnancement : un espace s'ouvre là où la pastille atterrira, et celle qu'on
+   déplace s'efface — sans ce retour, on relâche à l'aveugle. */
+.m3d-pin-slot{flex:none;border-radius:10px;box-sizing:border-box;
+  border:1.5px dashed color-mix(in srgb,var(--m3d-text) 30%,transparent);
+  background:color-mix(in srgb,var(--m3d-text) 6%,transparent)}
+.m3d-pin-moving{opacity:.3}
 .m3d-pin:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
 /* Média de la vignette : avatar en cover (remplit), badge coloré sinon. */
 .m3d-pin-media{width:100%;height:100%;display:block}
@@ -898,6 +958,12 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-mlrow:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
 .m3d-mldot{width:10px;height:10px;border-radius:50%;flex:none}
 .m3d-mlavatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex:none;border:1.5px solid var(--m3d-border)}
+/* Icône de ligne : même gabarit que l'avatar pour que les lignes restent alignées,
+   mais le pictogramme est CONTENU (jamais recadré) et posé sur un fond neutre —
+   un symbole MIL-STD porte ses propres couleurs, un fond teinté les brouillerait. */
+.m3d-mlicon{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;
+  border:1.5px solid var(--m3d-border);background:color-mix(in srgb,var(--m3d-text) 8%,transparent);overflow:hidden}
+.m3d-mlicon > img{width:15px;height:15px;object-fit:contain;display:block}
 .m3d-mltext{flex:1;min-width:0;display:flex;flex-direction:column}
 .m3d-mltitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;line-height:1.3}
 .m3d-mlsub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:1.25;color:var(--m3d-muted)}
@@ -908,6 +974,46 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-mlact:hover,.m3d-mlremove:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
 /* Menu déroulant d'actions (portail) : réutilise .m3d-menu-panel/-item/-label. */
 .m3d-mlmenu{position:absolute;z-index:96;min-width:160px}
+
+/* ── Palette de symboles (SymbolPaletteButton) ────────────────────────────────
+   Réutilise le langage du panneau « Couches » (m3d-panel, m3d-tagsearch,
+   m3d-tagcount, m3d-tagempty) et n'ajoute que la grille de vignettes. */
+/* Même flyout que « Couches » (cf. .m3d-tagpanel, où le bloc est groupé) : seule
+   la largeur diffère, la grille de vignettes étant plus large qu'une liste. */
+.m3d-sympalette{position:relative}
+.m3d-sympanel{width:272px}
+/* Choix d'affiliation : segments compacts, un seul actif. */
+.m3d-symvariants{display:flex;gap:3px}
+.m3d-symvariant{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;min-width:0;
+  padding:5px 4px;border:1px solid var(--m3d-border);border-radius:8px;background:transparent;
+  cursor:pointer;font-family:inherit;font-size:10.5px;color:var(--m3d-muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .14s,color .14s}
+.m3d-symvariant:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-symvariant.m3d-on{background:var(--m3d-accent);border-color:var(--m3d-accent);color:#fff}
+.m3d-symhint{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--m3d-muted)}
+/* Seuls les groupes scrollent : recherche, affiliations et consigne restent visibles. */
+.m3d-symgroups{display:flex;flex-direction:column;gap:9px;flex:1 1 auto;min-height:0;overflow-y:auto}
+.m3d-symgroup-title{display:flex;align-items:center;gap:6px;margin:0 0 4px;padding:0 2px;
+  font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--m3d-muted)}
+.m3d-symgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:3px}
+.m3d-symitem{display:grid;place-items:center;border:1px solid transparent;border-radius:9px;
+  cursor:grab;transition:background .14s,border-color .14s,transform .1s}
+.m3d-symitem:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);
+  border-color:var(--m3d-border)}
+.m3d-symitem:active{transform:scale(.94)}
+.m3d-symitem.m3d-disabled{cursor:default;opacity:.4}
+.m3d-symitem.m3d-disabled:hover{background:none;border-color:transparent}
+.m3d-symglyph{display:grid;place-items:center}
+.m3d-symglyph > svg{width:100%;height:100%;display:block;overflow:visible}
+.m3d-symskeleton{display:block;border-radius:6px;
+  background:color-mix(in srgb,var(--m3d-text) 12%,transparent);
+  animation:m3d-sympulse 1.1s ease-in-out infinite}
+@keyframes m3d-sympulse{0%,100%{opacity:.45}50%{opacity:.9}}
+/* Le ghost de palette n'a pas à grossir ×2.2 comme celui d'un marker vers la dock :
+   il représente déjà la taille à laquelle le symbole sera posé. */
+.m3d-drag-ghost.m3d-symghost,.m3d-drag-ghost.m3d-symghost.m3d-drag-over{
+  transform:translate(-50%,-50%) scale(1)}
 
 @media(prefers-reduced-motion:reduce){
   .m3d-root *{animation-duration:.001ms!important;animation-iteration-count:1!important}

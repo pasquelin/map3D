@@ -3,8 +3,9 @@
 // corde 3D couplée au tileset, alors que la sélection doit rester calculable
 // sans carte montée (menu, tests, rendu serveur).
 
-import { clamp, DEG2RAD, EARTH_CIRCUMFERENCE, M_PER_DEG, RAD2DEG } from '../../core/math'
-import type { Bounds, LatLng } from '../../shared'
+import { boundsOfCircle } from '../../core/bounds'
+import { DEG2RAD, EARTH_CIRCUMFERENCE, M_PER_DEG, RAD2DEG } from '../../core/math'
+import type { LatLng } from '../../shared'
 
 /** Rayon terrestre moyen, dérivé de la circonférence — jamais un littéral concurrent. */
 const EARTH_RADIUS = EARTH_CIRCUMFERENCE / (2 * Math.PI)
@@ -95,33 +96,14 @@ export function destinationPoint(from: LatLng, bearingDeg: number, distanceMeter
  * Cadre géo englobant un disque de `radiusMeters` autour d'un point. Sert à
  * restreindre l'inventaire de markers interrogé : la sélection doit couvrir le
  * voisinage réel de la source, pas seulement ce qui est à l'écran.
+ *
+ * Alias de `core/bounds.boundsOfCircle` : les deux existaient en parallèle et
+ * avaient commencé à diverger. Les longitudes y sont ramenées dans [-180, 180],
+ * ce dont `boundsContains` a besoin pour reconnaître un cadre à cheval sur
+ * l'antiméridien — une source à 179° produisait sinon `east: 179.1…` hors domaine,
+ * donc aucune cible.
  */
-export function boundsAround(center: LatLng, radiusMeters: number): Bounds {
-  const dLat = radiusMeters / M_PER_DEG
-  // Le degré de longitude se resserre avec la latitude ; le plancher évite une
-  // amplitude infinie au voisinage des pôles.
-  const dLng = radiusMeters / (M_PER_DEG * Math.max(0.01, Math.cos(center.lat * DEG2RAD)))
-  const north = clamp(center.lat + dLat, -90, 90)
-  const south = clamp(center.lat - dLat, -90, 90)
-  // Une amplitude qui fait le tour ne peut plus être décrite par un couple est/ouest :
-  // le repli en cadre global évite un intervalle vide (est < ouest sans franchissement
-  // réel), qui ne sélectionnerait plus RIEN au lieu de tout.
-  if (dLng >= 180) return { north, south, east: 180, west: -180 }
-  return {
-    north,
-    south,
-    // Longitudes ramenées dans [-180, 180]. `boundsContains` gère le cadre à cheval
-    // sur l'antiméridien (`west > east`) — mais seulement si les bornes y sont : une
-    // source à 179° produisait sinon `east: 179.1…` hors domaine, donc aucune cible.
-    east: wrapLng(center.lng + dLng),
-    west: wrapLng(center.lng - dLng),
-  }
-}
-
-/** Ramène une longitude dans [-180, 180). */
-function wrapLng(lng: number): number {
-  return ((((lng + 180) % 360) + 360) % 360) - 180
-}
+export const boundsAround = boundsOfCircle
 
 /**
  * Cellule de grille d'un point, en mètres. Sert de composante de clé de cache :

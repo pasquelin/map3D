@@ -324,6 +324,130 @@ export function strokeMaterial(color: THREE.ColorRepresentation, opacity = 0.95)
   return flatMaterial(color, opacity)
 }
 
+/**
+ * Matériau d'une surface **volumétrique** (murs et couvercle d'un prisme).
+ *
+ * Contrairement à `flatMaterial`, il TESTE la profondeur : un volume doit être
+ * occulté par le bâti qui passe devant lui, sinon il flotte par-dessus la ville.
+ * Il n'ÉCRIT pas la profondeur en revanche — sans quoi les faces d'un même prisme
+ * s'occulteraient entre elles et on ne verrait plus au travers.
+ */
+export function volumeMaterial(color: THREE.ColorRepresentation, opacity: number): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity,
+    depthTest: true,
+    depthWrite: false,
+  })
+}
+
+/**
+ * Matériau des **arêtes** d'un volume : un trait de 1 px, constant quel que soit le
+ * zoom et sans aucune conversion px→mètres.
+ *
+ * WebGL ignore `linewidth` et rend toujours 1 pixel : ce qui est d'ordinaire une
+ * limitation est ici exactement l'effet recherché. Un ruban (`ribbon`) donnerait au
+ * contraire une épaisseur en mètres, qu'il faudrait reconvertir à chaque
+ * changement de résolution — et qui ne vaudrait jamais 1 px pile.
+ */
+export function edgeMaterial(color: THREE.ColorRepresentation, opacity = 0.9): THREE.LineBasicMaterial {
+  return new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity,
+    depthTest: true,
+    depthWrite: false,
+  })
+}
+
+/**
+ * Arêtes d'un prisme, en segments de ligne : l'anneau du bas, les **montants**
+ * verticaux à chaque sommet, et l'anneau du couvercle. Sans elles un volume
+ * translucide n'a pas de structure lisible — ce sont ses arêtes qui le font lire
+ * comme un volume.
+ *
+ * L'anneau du bas est inclus : sur une forme extrudée il REMPLACE le contour drapé
+ * en ruban, pour que les trois familles d'arêtes aient la même finesse. Un ruban à
+ * la base et des lignes au sommet donneraient un volume visuellement bancal.
+ */
+export function prismEdges(
+  points: readonly Pt[],
+  baseY: number,
+  topY: number,
+  closed: boolean,
+): THREE.BufferGeometry | null {
+  if (points.length < 2 || !Number.isFinite(baseY) || !Number.isFinite(topY) || topY <= baseY) return null
+  if (!allFinite(points)) return rejected('prismEdges')
+  const spans = closed ? points.length : points.length - 1
+  // 2 sommets par montant, 2 par segment d'anneau (bas + haut).
+  const pos = new Float32Array((points.length + spans * 2) * 2 * 3)
+  let o = 0
+  const push = (p: Pt, y: number): void => {
+    pos[o++] = p.x
+    pos[o++] = y
+    pos[o++] = p.z
+  }
+  for (const p of points) {
+    push(p, baseY)
+    push(p, topY)
+  }
+  for (let i = 0; i < spans; i++) {
+    const a = points[i]!
+    const b = points[(i + 1) % points.length]!
+    push(a, baseY)
+    push(b, baseY)
+    push(a, topY)
+    push(b, topY)
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  return g
+}
+
+/**
+ * Murs verticaux d'un prisme : une bande de quads reliant le contour à `baseY` au
+ * même contour à `topY`. `closed` ferme la bande entre le dernier point et le premier.
+ *
+ * Les deux altitudes sont en coordonnées LOCALES du plan tangent (y = verticale du
+ * lieu), relatives à l'ancre du repère. `baseY` est le plus souvent NÉGATIF : le
+ * bas du prisme doit descendre sous le point le plus bas du terrain qu'il couvre,
+ * sinon il flotte au-dessus des creux (cf. `ShapeLayer`).
+ */
+export function prismWalls(
+  points: readonly Pt[],
+  baseY: number,
+  topY: number,
+  closed: boolean,
+): THREE.BufferGeometry | null {
+  if (points.length < 2 || !Number.isFinite(baseY) || !Number.isFinite(topY) || topY <= baseY) return null
+  if (!allFinite(points)) return rejected('prismWalls')
+  const segments = closed ? points.length : points.length - 1
+  if (segments < 1) return null
+  const pos = new Float32Array(segments * 6 * 3)
+  let o = 0
+  const push = (p: Pt, y: number): void => {
+    pos[o++] = p.x
+    pos[o++] = y
+    pos[o++] = p.z
+  }
+  for (let i = 0; i < segments; i++) {
+    const a = points[i]!
+    const b = points[(i + 1) % points.length]!
+    // Deux triangles par segment : (a_bas b_bas b_haut) et (a_bas b_haut a_haut).
+    push(a, baseY)
+    push(b, baseY)
+    push(b, topY)
+    push(a, baseY)
+    push(b, topY)
+    push(a, topY)
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  return g
+}
+
 /** Matériau de remplissage plaqué au sol. */
 export function fillMaterial(color: THREE.ColorRepresentation, opacity: number): THREE.MeshBasicMaterial {
   return flatMaterial(color, opacity)

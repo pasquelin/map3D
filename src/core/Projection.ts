@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import type { LatLng } from '../shared'
-import { DEG2RAD, M_PER_DEG, RAD2DEG } from './math'
+import { DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
 
 export type { LatLng } from '../shared'
 export type ScreenPoint = { sx: number; sy: number; z: number }
@@ -106,6 +106,11 @@ export class Projection {
   setViewportSize(width: number, height: number): void {
     this.width = Math.max(1, width)
     this.height = Math.max(1, height)
+  }
+
+  /** Taille du viewport en pixels CSS — lue par le cadrage caméra (padding). */
+  get viewportSize(): { width: number; height: number } {
+    return { width: this.width, height: this.height }
   }
 
   /**
@@ -254,7 +259,7 @@ export class Projection {
     this.latLngToWorld(p, this.scratch, height)
     const dist = camera.position.distanceTo(this.scratch)
     const fov = (camera as THREE.PerspectiveCamera).fov ?? 60
-    return (2 * dist * Math.tan((fov * DEG2RAD) / 2)) / Math.max(1, viewportHeight)
+    return metersPerPixelAt(dist, fov, viewportHeight)
   }
 
   /** Position monde → pixels écran (+ profondeur NDC ; z>1 = derrière la caméra). */

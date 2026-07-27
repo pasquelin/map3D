@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
+import type { SymbolRenderer } from '../symbols/types'
 import { HEIGHT_EPSILON, HeightResettle, MPP_BAND, UNRESOLVED_RETRY_FRAMES } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
@@ -7,6 +8,8 @@ import type { Projection } from '../core/Projection'
 import type { SelectableRegistry } from '../core/Selectables'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
+import { polygonAreaM2, ringInsideRing } from '../core/geodesy'
+import { ringOfShape, type ShapeData } from './ShapeLayer'
 import { EditController, type HandleId } from './draw/EditController'
 import { History } from './draw/History'
 import { type ScreenPt, pointInPolygon, screenBBox, segDistPx } from './draw/hitTest'
@@ -31,7 +34,7 @@ import type { LatLng } from '../shared'
 import { defaultLabels } from '../labels/defaultLabels'
 import { makeDistanceFormatter } from '../labels/measure'
 
-export type DrawTool = 'select' | 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase'
+export type DrawTool = 'select' | 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase' | 'symbol'
 export type { SelectMode } from './draw/SelectionManager'
 /** Style de trait d'une forme — absent = `'solid'`. */
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
@@ -61,6 +64,26 @@ export type DrawStyle = {
   radius?: number
 }
 
+/**
+ * Métadonnées métier libres attachées à une forme, transportées **telles quelles**
+ * de bout en bout (dessin → `toGeoJSON` → `fromGeoJSON`) et jamais interprétées ni
+ * rendues par la lib. C'est là que l'application hôte loge son identité (uuid de
+ * base, groupes, titre, actif…) sans que la lib ait à connaître son modèle.
+ *
+ * ⚠️ Les valeurs doivent être **sérialisables** (`structuredClone`) : chaque geste
+ * pousse un snapshot de la collection dans l'historique undo/redo, qui les clone.
+ * Une fonction, un `Symbol` ou un nœud DOM y feraient échouer le clonage — donc le
+ * geste. Stockez un identifiant, pas un callback ni une instance vivante.
+ */
+export type ShapeMeta = Record<string, unknown>
+
+/**
+ * Symbole d'une forme `kind: 'symbol'` : la **clé de catalogue** et sa variante
+ * (affiliation), jamais le graphisme. Champ dédié plutôt que `meta`, qui appartient
+ * à l'application hôte et que la lib ne doit pas interpréter.
+ */
+export type ShapeSymbol = { key: string; variant?: string }
+
 export type Drawing = {
   id: string
   kind: DrawTool
@@ -83,11 +106,92 @@ export type Drawing = {
   closed: boolean
   /** Tags de filtrage (panneau « Couches ») — défaut `['draw', kind]`. */
   tags: string[]
+  /** Métadonnées de l'app hôte — opaques pour la lib (cf. `ShapeMeta`). */
+  meta?: ShapeMeta
+  /** `kind: 'symbol'` uniquement : entrée de catalogue à plaquer sur les 4 coins. */
+  symbol?: ShapeSymbol
+}
+
+/**
+ * Forme telle que vue par l'application hôte : identité stable, géométrie, style
+ * regroupé et métadonnées. C'est la monnaie d'échange des events granulaires et de
+ * l'API par identité — le type `Drawing` interne, lui, reste à plat pour le rendu.
+ */
+export type DrawnShape = {
+  id: string
+  kind: DrawTool
+  points: LatLng[]
+  closed: boolean
+  style: DrawStyle
+  tags: string[]
+  locked?: boolean
+  meta?: ShapeMeta
+  /** `kind: 'symbol'` uniquement (cf. `ShapeSymbol`). */
+  symbol?: ShapeSymbol
+}
+
+/** Forme à insérer — `id` absent = généré. */
+// `tags` optionnel : `addShape` les déduit du kind (et de la clé de symbole) quand
+// ils manquent — c'est ce que fait déjà son corps. Les exiger ici poussait chaque
+// appelant interne à réécrire à la main la règle de `defaultTags`, qui a fini par
+// diverger entre le symbole POSÉ et le symbole IMPORTÉ.
+export type NewShape = Omit<DrawnShape, 'id' | 'closed' | 'tags'> & {
+  id?: string
+  closed?: boolean
+  tags?: string[]
+}
+
+/** Patch d'une forme existante : seuls les champs fournis changent. */
+export type ShapePatch = {
+  points?: LatLng[]
+  closed?: boolean
+  /** Fusionné champ par champ avec le style courant. */
+  style?: DrawStyle
+  tags?: string[]
+  locked?: boolean
+  /** **Remplace** les métadonnées (pas de fusion) — pour patcher :
+   *  `updateShape(id, { meta: { ...getShape(id)?.meta, uuid } })`. */
+  meta?: ShapeMeta
+}
+
+/**
+ * Mutation programmatique : `silent` n'émet **aucun** event (ni granulaire, ni
+ * `onChange`). Indispensable quand l'hôte réinjecte dans la carte ce qu'il vient de
+ * recevoir de son backend — sans quoi l'écho relancerait sa propre mutation.
+ */
+export type MutateOptions = { silent?: boolean }
+
+/** Motif de refus d'une forme (cf. `DrawConstraints`). */
+export type DrawRejectReason = 'outOfLimits' | 'maxArea'
+
+/**
+ * Règles métier imposées au **dessin utilisateur**. Une forme qui les viole est
+ * annulée (création) ou remise dans son état d'avant (édition), et `onReject` est
+ * notifié pour que l'hôte affiche son propre message.
+ *
+ * Les mutations programmatiques (`addShape`, `updateShape`, `fromGeoJSON`) n'y sont
+ * PAS soumises : quand l'application injecte une forme, elle sait ce qu'elle fait,
+ * et refuser silencieusement ses données serait pire que tout.
+ */
+export type DrawConstraints = {
+  /**
+   * Périmètres autorisés : une forme doit tenir entièrement dans **au moins un**
+   * d'entre eux. Ces formes ne sont pas dessinées par la couche — affichez-les avec
+   * `<ShapeLayer>` (ou en formes verrouillées) selon le rendu voulu.
+   */
+  limits?: ShapeData[]
+  /** Aire maximale (m²) d'une forme fermée. Les lignes ouvertes ne sont pas concernées. */
+  maxAreaM2?: number
 }
 
 type GeoJSONFeature = {
   type: 'Feature'
-  geometry: { type: 'LineString'; coordinates: number[][] } | { type: 'Polygon'; coordinates: number[][][] }
+  /** Identité stable (`Feature.id` du standard GeoJSON) : préservée au round-trip. */
+  id?: string
+  geometry:
+    | { type: 'LineString'; coordinates: number[][] }
+    | { type: 'Polygon'; coordinates: number[][][] }
+    | { type: 'Point'; coordinates: number[] }
   properties: {
     kind: DrawTool
     color: string
@@ -99,12 +203,23 @@ type GeoJSONFeature = {
     stroke?: StrokeStyle
     radius?: number
     locked?: boolean
+    meta?: ShapeMeta
+    /** `kind: 'symbol'` : entrée de catalogue à replaquer à l'import. */
+    symbol?: ShapeSymbol
   }
 }
 export type GeoJSONFeatureCollection = { type: 'FeatureCollection'; features: GeoJSONFeature[] }
 
+/**
+ * Tags par défaut d'une forme. Un symbole est tagué `['symbol', <clé>]` plutôt que
+ * `['draw', 'symbol']` : dans le panneau « Couches », l'utilisateur veut filtrer
+ * « les hôpitaux », pas « les symboles » en bloc.
+ */
+function defaultTags(kind: DrawTool, symbol?: ShapeSymbol): string[] {
+  return kind === 'symbol' && symbol ? ['symbol', symbol.key] : ['draw', kind]
+}
+
 let seq = 0
-const nextId = () => `draw-${seq++}`
 
 /**
  * Outils de dessin sur le globe : formes stockées en lat/lng et drapées en plan
@@ -121,6 +236,24 @@ export class DrawLayer implements Layer {
   onLockedHit?: (d: Drawing) => void
   /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
   onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
+  /**
+   * Events **par forme**, émis au moment exact du changement — contrairement à
+   * `onChange` qui sérialise toute la collection, coalescée à 1×/frame. Une app qui
+   * fait du CRUD par identité (une mutation par forme) branche ceux-ci ; `onChange`
+   * reste le bon choix pour un état global contrôlé.
+   */
+  onShapeAdd?: (s: DrawnShape) => void
+  onShapeUpdate?: (s: DrawnShape) => void
+  onShapeDelete?: (s: DrawnShape) => void
+  /**
+   * L'utilisateur demande à ÉDITER une forme (double-clic). Intention d'ouvrir une
+   * fiche côté hôte — pas une mutation : rien n'a changé sur la carte.
+   */
+  onShapeEdit?: (s: DrawnShape) => void
+  /** Règles métier du dessin utilisateur (`null` = aucune). */
+  constraints: DrawConstraints | null = null
+  /** Forme refusée par les contraintes — l'hôte affiche son propre feedback. */
+  onReject?: (reason: DrawRejectReason, s: DrawnShape) => void
   /**
    * Défauts **par outil** (réglages persistés, cf. `DrawSettings`) — prioritaire
    * sur `defaults` pour les nouvelles formes quand il est fourni.
@@ -221,6 +354,13 @@ export class DrawLayer implements Layer {
    */
   private readonly filterExempt = new Set<string>()
 
+  /**
+   * Fournisseur de graphisme des symboles, injecté par la couche React (défaut :
+   * catalogue MIL-STD). `null` = aucun symbole n'est rendu — la lib ne dépend pas
+   * d'un catalogue en particulier, elle ne connaît que des clés.
+   */
+  symbolRenderer: SymbolRenderer | null = null
+
   constructor(
     /** Parent — utiliser `engine.annotations` pour hériter du masquage pendant l'intro. */
     private readonly scene: THREE.Object3D,
@@ -238,7 +378,10 @@ export class DrawLayer implements Layer {
       targets: () => this.selectedEditable(),
       anchorHeight: (d) => this.heightFor(d),
       toScreen: (p, h) => this.toScreen(p, h),
-      snapshotBefore: () => this.history.push(this.drawings),
+      snapshotBefore: () => {
+        this.history.push(this.drawings)
+        this.captureEditGuard(this.selectedEditable())
+      },
       afterMutate: (changed) => {
         // Coalescé : reconstruit au prochain update() (1×/frame), pas par pointermove.
         for (const d of changed) this.pendingEdit.add(d.id)
@@ -248,6 +391,84 @@ export class DrawLayer implements Layer {
     this.overlaySel.onHandle = (id, phase, e) => this.onHandlePointer(id, phase, e)
   }
 
+  /**
+   * Id interne libre. Le compteur seul ne suffit plus depuis que `fromGeoJSON`
+   * réutilise les ids fournis : un import de `draw-7` dans une session neuve
+   * collisionnerait avec la 8e forme dessinée. La boucle est bornée en pratique
+   * (elle ne tourne que sur des ids réellement occupés).
+   */
+  private nextId(): string {
+    let id = `draw-${seq++}`
+    while (this.byId.has(id)) id = `draw-${seq++}`
+    return id
+  }
+
+  /**
+   * Contour géodésique RÉEL d'une forme (rect → 4 coins, cercle → 48 points), et
+   * non ses points de contrôle : une contrainte doit juger ce qui est affiché.
+   * Réutilise `localGeometry`, seul endroit qui sait développer chaque variante.
+   */
+  private ringOf(d: Drawing): LatLng[] {
+    if (d.points.length < 2 || !this.projection.isReady()) return d.points.map((p) => ({ ...p }))
+    const frame = new EnuFrame(this.projection, d.points[0]!, this.heightFor(d))
+    return this.localGeometry(d, frame).points.map((p) => frame.toLatLng(p))
+  }
+
+  /** Motif de refus d'une forme, ou `null` si elle passe. */
+  private violation(d: Drawing): DrawRejectReason | null {
+    const c = this.constraints
+    if (!c) return null
+    // La règle mesure, elle ne délimite rien : la contraindre n'aurait pas de sens.
+    if (d.kind === 'measure') return null
+    const ring = this.ringOf(d)
+    if (c.limits && c.limits.length > 0) {
+      // « Au moins un » périmètre, pas leur union : deux limites disjointes ne
+      // doivent pas autoriser une forme qui chevauche le vide entre les deux.
+      const inside = c.limits.some((lim) => ringInsideRing(ring, ringOfShape(lim)))
+      if (!inside) return 'outOfLimits'
+    }
+    if (c.maxAreaM2 !== undefined && d.closed && polygonAreaM2(ring) > c.maxAreaM2) return 'maxArea'
+    return null
+  }
+
+  /**
+   * Points d'avant le geste d'édition, par forme. Une forme dont l'édition viole
+   * les contraintes est **remise dans son état d'avant** plutôt que refusée après
+   * coup : l'utilisateur ne perd pas une zone existante en la déplaçant mal.
+   */
+  private readonly editGuard = new Map<string, LatLng[]>()
+
+  /** Mémorise l'état d'avant geste des formes sur le point d'être éditées. */
+  private captureEditGuard(targets: readonly Drawing[]): void {
+    if (!this.constraints) return
+    this.editGuard.clear()
+    for (const d of targets) this.editGuard.set(d.id, d.points.map((p) => ({ ...p })))
+  }
+
+  /** Vue hôte d'une forme (identité + géométrie + style groupé + meta). */
+  private toShape(d: Drawing): DrawnShape {
+    const s: DrawnShape = {
+      id: d.id,
+      kind: d.kind,
+      points: d.points.map((p) => ({ lat: p.lat, lng: p.lng })),
+      closed: d.closed,
+      style: {
+        color: d.color,
+        fillColor: d.fillColor,
+        width: d.width,
+        fillOpacity: d.fillOpacity,
+        strokeOpacity: strokeOpacityOf(d),
+        stroke: d.stroke ?? 'solid',
+        radius: d.radius,
+      },
+      tags: [...d.tags],
+    }
+    if (d.locked) s.locked = true
+    if (d.meta) s.meta = d.meta
+    if (d.symbol) s.symbol = { ...d.symbol }
+    return s
+  }
+
   /** Fin d'un geste d'édition : hauteurs/mpp invalidées (l'ancre a bougé), rebuild, émission. */
   private commitEdit(changed: readonly Drawing[]): void {
     // Une forme supprimée/remplacée PENDANT le geste (Suppr, undo…) ne doit pas
@@ -255,6 +476,17 @@ export class DrawLayer implements Layer {
     const alive = changed.filter((d) => this.byId.get(d.id) === d)
     for (const d of changed) this.pendingEdit.delete(d.id)
     if (alive.length === 0) return
+    // Édition refusée : la forme retrouve ses points d'avant le geste. Le rebuild
+    // qui suit s'applique donc à l'état restauré — rien de spécial à défaire.
+    const refused: Array<{ d: Drawing; reason: DrawRejectReason }> = []
+    for (const d of alive) {
+      const reason = this.violation(d)
+      if (!reason) continue
+      const before = this.editGuard.get(d.id)
+      if (before) d.points = before.map((p) => ({ ...p }))
+      refused.push({ d, reason })
+    }
+    this.editGuard.clear()
     for (const d of alive) {
       this.heights.delete(d.id)
       this.builtMpp.delete(d.id)
@@ -262,6 +494,10 @@ export class DrawLayer implements Layer {
     this.resettle.open()
     for (const d of alive) this.rebuildOne(d, false)
     this.overlayDirty = true
+    for (const { d, reason } of refused) this.onReject?.(reason, this.toShape(d))
+    // Une forme restaurée n'a PAS changé du point de vue de l'hôte : pas d'`update`.
+    const rejected = new Set(refused.map((r) => r.d.id))
+    for (const d of alive) if (!rejected.has(d.id)) this.onShapeUpdate?.(this.toShape(d))
     this.emitChange()
   }
 
@@ -305,6 +541,201 @@ export class DrawLayer implements Layer {
     this.hoverShape = false
     this.overlay.parentElement?.classList.remove('m3d-hover-shape')
     this.updateRotateCursor()
+  }
+
+  // ── API par identité (CRUD piloté par l'app hôte) ──
+
+  /** Toutes les formes, dans l'ordre de la collection. */
+  getShapes(): DrawnShape[] {
+    return this.drawings.map((d) => this.toShape(d))
+  }
+
+  getShape(id: string): DrawnShape | null {
+    const d = this.byId.get(id)
+    return d ? this.toShape(d) : null
+  }
+
+  /** Dernière forme de la collection — celle qui vient d'être dessinée. */
+  getLastShape(): DrawnShape | null {
+    const d = this.drawings[this.drawings.length - 1]
+    return d ? this.toShape(d) : null
+  }
+
+  /**
+   * Pose un symbole du catalogue à une coordonnée.
+   *
+   * C'est une forme d'UN SEUL point, rendue en marker DOM par la couche React : un
+   * pictogramme doit rester lisible et de taille constante à tout zoom et toute
+   * inclinaison, ce qu'une emprise au sol (rect, cercle) ne permet pas. Il vit
+   * néanmoins dans la collection de dessin, et hérite donc de l'historique, du
+   * GeoJSON, des tags et des events par forme.
+   */
+  placeSymbol(key: string, at: LatLng, variant?: string): string {
+    return this.addShape({
+      kind: 'symbol',
+      points: [at],
+      closed: false,
+      symbol: { key, variant },
+      style: {},
+    })
+  }
+
+  /**
+   * Signature de l'état des symboles (identités, positions, variantes). Permet à la
+   * couche de rendu de ne recalculer QUE lorsqu'un symbole change réellement : le
+   * compteur de révision, lui, bumpe à chaque frame d'un tracé en cours.
+   */
+  symbolsVersion(): string {
+    let sig = ''
+    for (const d of this.drawings) {
+      if (d.kind !== 'symbol' || !d.symbol || !d.points[0]) continue
+      sig += `${d.id}:${d.points[0].lat},${d.points[0].lng},${d.symbol.key},${d.symbol.variant ?? ''};`
+    }
+    return sig
+  }
+
+  /**
+   * Symboles posés, pour la couche de rendu (markers DOM). Les autres formes n'y
+   * figurent pas : elles sont rendues en WebGL par cette classe.
+   */
+  symbolShapes(): Array<{ id: string; at: LatLng; symbol: ShapeSymbol; tags: readonly string[] }> {
+    const out: Array<{ id: string; at: LatLng; symbol: ShapeSymbol; tags: readonly string[] }> = []
+    for (const d of this.drawings) {
+      if (d.kind === 'symbol' && d.symbol && d.points[0]) {
+        // Copies, comme `toShape` : ce que rend la lib ne doit jamais être une
+        // poignée sur son état interne.
+        out.push({
+          id: d.id,
+          at: { lat: d.points[0].lat, lng: d.points[0].lng },
+          symbol: { ...d.symbol },
+          tags: [...d.tags],
+        })
+      }
+    }
+    return out
+  }
+
+  /** Déplace un symbole (repositionnement de son marker). */
+  moveSymbol(id: string, at: LatLng): boolean {
+    return this.updateShape(id, { points: [at] })
+  }
+
+  /** Insère une forme et renvoie son id (généré si absent). */
+  addShape(shape: NewShape, opts: MutateOptions = {}): string {
+    this.history.push(this.drawings)
+    const d = this.insertShape(shape)
+    if (!opts.silent) {
+      this.onShapeAdd?.(this.toShape(d))
+      this.emitChange()
+    }
+    return d.id
+  }
+
+  /** Insertion nue : ni historique ni event — les appelants s'en chargent (une
+   *  seule entrée d'historique pour un remplacement de collection entier). */
+  private insertShape(shape: NewShape): Drawing {
+    const closed = shape.closed ?? (shape.kind === 'rect' || shape.kind === 'circle' || shape.kind === 'polygon')
+    const base = this.defaultsFor?.(shape.kind) ?? this.defaults
+    const st = shape.style ?? {}
+    const d: Drawing = {
+      id: shape.id && !this.byId.has(shape.id) ? shape.id : this.nextId(),
+      kind: shape.kind,
+      points: shape.points.map((p) => ({ lat: p.lat, lng: p.lng })),
+      color: st.color ?? base.color,
+      fillColor: st.fillColor ?? base.fillColor,
+      width: st.width ?? base.width,
+      fillOpacity: st.fillOpacity ?? base.fillOpacity,
+      strokeOpacity: st.strokeOpacity ?? base.strokeOpacity,
+      stroke: st.stroke ?? base.stroke,
+      radius: shape.kind === 'rect' ? (st.radius ?? base.radius) : undefined,
+      locked: shape.locked || undefined,
+      closed,
+      tags: shape.tags ? [...shape.tags] : defaultTags(shape.kind, shape.symbol),
+      meta: shape.meta,
+      symbol: shape.symbol ? { ...shape.symbol } : undefined,
+    }
+    this.drawings.push(d)
+    this.byId.set(d.id, d)
+    this.rebuildOne(d, false)
+    return d
+  }
+
+  /** Applique un patch à une forme. Renvoie false si l'id est inconnu. */
+  updateShape(id: string, patch: ShapePatch, opts: MutateOptions = {}): boolean {
+    const d = this.byId.get(id)
+    if (!d) return false
+    this.history.push(this.drawings)
+    // La géométrie change → l'ancre bouge : hauteur et résolution mémoïsées sont
+    // périmées (même précaution que `commitEdit`), sinon la forme est drapée à la
+    // hauteur de son ancien emplacement.
+    const moved = patch.points !== undefined
+    if (moved) d.points = patch.points!.map((p) => ({ lat: p.lat, lng: p.lng }))
+    if (patch.closed !== undefined) d.closed = patch.closed
+    if (patch.tags !== undefined) d.tags = [...patch.tags]
+    if (patch.locked !== undefined) d.locked = patch.locked || undefined
+    if (patch.meta !== undefined) d.meta = patch.meta
+    const st = patch.style
+    if (st) {
+      if (st.color !== undefined) d.color = st.color
+      if (st.fillColor !== undefined) d.fillColor = st.fillColor
+      if (st.width !== undefined) d.width = st.width
+      if (st.fillOpacity !== undefined) d.fillOpacity = st.fillOpacity
+      if (st.strokeOpacity !== undefined) d.strokeOpacity = st.strokeOpacity
+      if (st.stroke !== undefined) d.stroke = st.stroke
+      if (st.radius !== undefined && d.kind === 'rect') d.radius = st.radius
+    }
+    if (moved) {
+      this.heights.delete(d.id)
+      this.builtMpp.delete(d.id)
+      this.resettle.open()
+    }
+    this.rebuildOne(d, false)
+    this.overlayDirty = true
+    if (!opts.silent) {
+      this.onShapeUpdate?.(this.toShape(d))
+      this.emitChange()
+    }
+    return true
+  }
+
+  /** Supprime une forme (verrouillée comprise : l'appel vient du code hôte). */
+  removeShape(id: string, opts: MutateOptions = {}): boolean {
+    const d = this.byId.get(id)
+    if (!d) return false
+    // Un geste d'édition en cours sur cette forme reconstruirait un mesh fantôme.
+    if (this.editCtl.active) this.editCtl.abort()
+    this.history.push(this.drawings)
+    const gone = this.toShape(d)
+    this.dropDrawing(id)
+    this.byId.delete(id)
+    this.drawings = this.drawings.filter((x) => x.id !== id)
+    this.selection.prune()
+    if (!opts.silent) {
+      this.onShapeDelete?.(gone)
+      this.emitChange()
+    }
+    return true
+  }
+
+  /**
+   * Remplace toute la collection. Contrairement à `fromGeoJSON`, les events
+   * granulaires sont émis par différence (ajouts/modifs/suppressions) : l'app hôte
+   * qui synchronise depuis son backend voit exactement ce qui a bougé.
+   */
+  replaceShapes(shapes: readonly NewShape[], opts: MutateOptions = {}): void {
+    const before = new Map(this.drawings.map((d) => [d.id, this.toShape(d)]))
+    this.history.push(this.drawings)
+    this.editCtl.abort()
+    for (const d of this.drawings) this.dropDrawing(d.id)
+    this.drawings = []
+    this.byId.clear()
+    this.cancelLive()
+    for (const s of shapes) this.insertShape(s)
+    this.selection.prune()
+    if (!opts.silent) {
+      this.emitDiff(before)
+      this.emitChange()
+    }
   }
 
   // ── Sélection ──
@@ -386,12 +817,14 @@ export class DrawLayer implements Layer {
     // pointer-up reconstruirait un mesh fantôme pour une forme supprimée.
     this.editCtl.abort()
     this.history.push(this.drawings)
+    const removed = this.drawings.filter((d) => ids.has(d.id)).map((d) => this.toShape(d))
     for (const id of ids) {
       this.dropDrawing(id)
       this.byId.delete(id)
     }
     this.drawings = this.drawings.filter((d) => !ids.has(d.id))
     this.selection.prune()
+    for (const s of removed) this.onShapeDelete?.(s)
     this.emitChange()
   }
 
@@ -417,6 +850,7 @@ export class DrawLayer implements Layer {
       // Rebuild coalescé (1×/frame) : le picker natif émet en continu pendant le drag.
       this.pendingEdit.add(d.id)
     }
+    for (const d of ds) this.onShapeUpdate?.(this.toShape(d))
     this.emitChange()
   }
 
@@ -463,7 +897,7 @@ export class DrawLayer implements Layer {
     const clones: Drawing[] = []
     for (const d of ds) {
       const clone = structuredClone(d) as Drawing
-      clone.id = nextId()
+      clone.id = this.nextId()
       clone.locked = undefined
       // Décalage bas-droite à l'écran : +est / −nord en mètres locaux.
       const frame = new EnuFrame(this.projection, d.points[0]!, this.heightFor(d))
@@ -478,6 +912,7 @@ export class DrawLayer implements Layer {
       clones.push(clone)
     }
     this.selection.set(clones.map((c) => c.id))
+    for (const c of clones) this.onShapeAdd?.(this.toShape(c))
     this.emitChange()
   }
 
@@ -489,6 +924,8 @@ export class DrawLayer implements Layer {
     const now = Date.now()
     if (now - this.lastNudge > 800) this.history.push(this.drawings)
     this.lastNudge = now
+    // Le nudge clavier ne passe pas par `EditController` : il pose son propre garde.
+    this.captureEditGuard(ds)
     for (const d of ds) {
       const frame = new EnuFrame(this.projection, d.points[0]!, this.heightFor(d))
       const mpp = this.mppFor(d)
@@ -522,16 +959,17 @@ export class DrawLayer implements Layer {
 
   /** Verrouille/déverrouille des formes (réservé au code hôte — aucune UI n'y touche). */
   setLocked(ids: readonly string[], locked: boolean): void {
-    let changed = false
+    const changed: Drawing[] = []
     for (const id of ids) {
       const d = this.byId.get(id)
       if (d && !!d.locked !== locked) {
         d.locked = locked || undefined
-        changed = true
+        changed.push(d)
       }
     }
-    if (!changed) return
+    if (changed.length === 0) return
     this.selection.prune()
+    for (const d of changed) this.onShapeUpdate?.(this.toShape(d))
     this.emitChange()
   }
 
@@ -676,6 +1114,13 @@ export class DrawLayer implements Layer {
           this.updateRotateCursor()
         }
       }
+      // Double-clic sur une forme : intention d'édition côté hôte (ouvrir une
+      // fiche). Notification PURE — l'event n'est pas consommé, la sélection et
+      // l'édition sur place suivent leur cours normal.
+      if (phase === 'down' && e.detail === 2 && latLng && this.onShapeEdit) {
+        const hit = this.hitTest(latLng)
+        if (hit) this.onShapeEdit(this.toShape(hit))
+      }
       const consumed = this.selection.handle(phase, latLng, e)
       // Le marquee suit le curseur : recalcul de l'overlay seulement quand il y a
       // quelque chose à animer (pas au simple survol).
@@ -755,7 +1200,7 @@ export class DrawLayer implements Layer {
     if (!this.tool) return
     const base = this.defaultsFor?.(this.tool) ?? this.defaults
     this.live = {
-      id: nextId(),
+      id: this.nextId(),
       kind: this.tool,
       points: points ?? [p],
       color: base.color,
@@ -781,11 +1226,20 @@ export class DrawLayer implements Layer {
       this.dropDrawing(d.id)
       return
     }
+    // Contrainte évaluée AVANT toute trace : une forme refusée ne doit laisser ni
+    // mesh, ni entrée d'historique, ni `onChange` — comme si le geste n'avait pas eu lieu.
+    const refused = this.violation(d)
+    if (refused) {
+      this.dropDrawing(d.id)
+      this.onReject?.(refused, this.toShape(d))
+      return
+    }
     this.history.push(this.drawings)
     this.drawings.push(d)
     this.byId.set(d.id, d)
     if (!this.isTagVisible(d.tags)) this.filterExempt.add(d.id)
     this.rebuildOne(d, false)
+    this.onShapeAdd?.(this.toShape(d))
     this.emitChange()
   }
 
@@ -827,6 +1281,11 @@ export class DrawLayer implements Layer {
   private restore(state: Drawing[]): void {
     this.cancelLive()
     this.editCtl.abort()
+    // Snapshot AVANT mutation : un undo qui défait une création doit émettre la
+    // suppression correspondante, sinon l'app hôte garde en base une forme qui
+    // n'est plus sur la carte (l'ancienne carte Google n'avait pas d'undo — cette
+    // capacité est propre à map3d, et son incohérence le serait aussi).
+    const before = new Map(this.drawings.map((d) => [d.id, this.toShape(d)]))
     const lockedById = new Map(this.drawings.filter((d) => d.locked).map((d) => [d.id, d]))
     const exempt = new Set(this.filterExempt)
     for (const d of this.drawings) {
@@ -855,7 +1314,22 @@ export class DrawLayer implements Layer {
       if (!this.meshes.has(d.id)) this.rebuildOne(d, false)
     }
     this.selection.prune()
+    this.emitDiff(before)
     this.emitChange()
+  }
+
+  /** Events granulaires déduits d'un remplacement en masse (undo/redo). */
+  private emitDiff(before: ReadonlyMap<string, DrawnShape>): void {
+    if (!this.onShapeAdd && !this.onShapeUpdate && !this.onShapeDelete) return
+    for (const d of this.drawings) {
+      const prev = before.get(d.id)
+      const now = this.toShape(d)
+      if (!prev) this.onShapeAdd?.(now)
+      else if (!sameShape(prev, now)) this.onShapeUpdate?.(now)
+    }
+    for (const [id, s] of before) {
+      if (!this.byId.has(id)) this.onShapeDelete?.(s)
+    }
   }
 
   /** Efface les dessins **visibles** ; sous filtre actif, les dessins masqués sont
@@ -869,11 +1343,13 @@ export class DrawLayer implements Layer {
     }
     if (dropped.length === 0 && !this.live) return
     if (dropped.length > 0) this.history.push(this.drawings)
+    const removed = dropped.map((d) => this.toShape(d))
     for (const d of dropped) this.dropDrawing(d.id)
     this.drawings = kept
     this.byId.clear()
     for (const d of kept) this.byId.set(d.id, d)
     this.cancelLive()
+    for (const s of removed) this.onShapeDelete?.(s)
     this.emitChange()
   }
 
@@ -883,6 +1359,9 @@ export class DrawLayer implements Layer {
    * comparé à une autre hauteur, la parallaxe fausserait les tolérances en px.
    */
   private screenContour(d: Drawing): { pts: ScreenPt[]; closed: boolean } | null {
+    // Symbole = marker DOM, sans contour géométrique : il est donc aussi hors du
+    // marquee/lasso des formes (c'est la sélection de MARKERS qui le prend en charge).
+    if (d.kind === 'symbol') return null
     if (d.points.length < 1 || !this.projection.isReady()) return null
     const h = this.heightFor(d)
     const frame = new EnuFrame(this.projection, d.points[0]!, h)
@@ -909,6 +1388,10 @@ export class DrawLayer implements Layer {
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i]!
       if (!this.isShown(d)) continue
+      // Un symbole est un marker DOM : c'est lui qui reçoit les clics (et le
+      // repositionnement). Le laisser dans le hit-test géométrique le rendrait
+      // sélectionnable comme une forme, avec des poignées qu'il n'a pas.
+      if (d.kind === 'symbol') continue
       const h = this.heightFor(d)
       const sp = this.toScreen(p, h)
       if (!sp) continue
@@ -952,6 +1435,7 @@ export class DrawLayer implements Layer {
     const i = this.drawings.indexOf(d)
     if (i >= 0) this.drawings.splice(i, 1)
     this.byId.delete(d.id)
+    this.onShapeDelete?.(this.toShape(d))
     this.emitChange()
   }
 
@@ -1035,6 +1519,15 @@ export class DrawLayer implements Layer {
     this.builtMpp.set(d.id, mpp)
 
     const enu = frame.group()
+
+    // Un symbole n'a PAS de géométrie WebGL : il est rendu en marker DOM par la
+    // couche React (toujours face à l'écran, donc lisible à toute inclinaison, et
+    // de taille constante). Seule sa position vit ici, avec l'historique et le GeoJSON.
+    if (d.kind === 'symbol') {
+      this.group.add(enu)
+      this.meshes.set(d.id, enu)
+      return
+    }
 
     if (closed && points.length > 2 && d.fillOpacity > 0) {
       const fg = fillGeo(points)
@@ -1299,11 +1792,20 @@ export class DrawLayer implements Layer {
         if (d.stroke !== undefined && d.stroke !== 'solid') props.stroke = d.stroke
         if (d.radius) props.radius = d.radius
         if (d.locked) props.locked = true
+        if (d.meta) props.meta = d.meta
+        // Sans la clé de catalogue, un symbole réimporté serait un quad vide :
+        // la géométrie ne dit pas QUEL symbole plaquer dessus.
+        if (d.symbol) props.symbol = { ...d.symbol }
+        // Un symbole est ponctuel : `Point` et non `LineString`, dont la
+        // spécification GeoJSON exige au moins deux positions.
+        if (d.kind === 'symbol' && coords[0]) {
+          return { type: 'Feature', id: d.id, geometry: { type: 'Point', coordinates: coords[0] }, properties: props }
+        }
         if (d.closed) {
           const ring = [...coords, coords[0]!]
-          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: props }
+          return { type: 'Feature', id: d.id, geometry: { type: 'Polygon', coordinates: [ring] }, properties: props }
         }
-        return { type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props }
+        return { type: 'Feature', id: d.id, geometry: { type: 'LineString', coordinates: coords }, properties: props }
       }),
     }
   }
@@ -1315,7 +1817,12 @@ export class DrawLayer implements Layer {
     this.clearAll()
     for (const f of fc.features) {
       const props = f.properties
-      const coords = f.geometry.type === 'Polygon' ? f.geometry.coordinates[0]! : f.geometry.coordinates
+      const coords =
+        f.geometry.type === 'Polygon'
+          ? f.geometry.coordinates[0]!
+          : f.geometry.type === 'Point'
+            ? [f.geometry.coordinates]
+            : f.geometry.coordinates
       const points = coords.map((c) => ({ lng: c[0]!, lat: c[1]! }))
       // Anneau GeoJSON : dernier point = 1er (fermeture) — retiré du modèle interne,
       // sinon un rect [a,b,a] réimporté devient dégénéré (diagonale a→a).
@@ -1325,7 +1832,10 @@ export class DrawLayer implements Layer {
         if (Math.abs(a.lat - b.lat) < 1e-12 && Math.abs(a.lng - b.lng) < 1e-12) points.pop()
       }
       const d: Drawing = {
-        id: nextId(),
+        // Identité FOURNIE prioritaire : sans quoi l'app hôte perdrait le lien
+        // entre ses formes et ses enregistrements à chaque import→export→import.
+        // Un id déjà pris dans cette collection retombe sur un id libre.
+        id: f.id && !this.byId.has(f.id) ? f.id : this.nextId(),
         kind: props.kind,
         points,
         color: props.color,
@@ -1335,15 +1845,21 @@ export class DrawLayer implements Layer {
         strokeOpacity: props.strokeOpacity,
         stroke: props.stroke,
         radius: props.radius,
+        symbol: props.symbol ? { ...props.symbol } : undefined,
         locked: props.locked,
         closed: f.geometry.type === 'Polygon',
-        tags: props.tags ?? ['draw', props.kind],
+        // `defaultTags` et non un littéral : un symbole importé recevait sinon
+        // ['draw','symbol'] là où le même symbole POSÉ reçoit ['symbol', <clé>] —
+        // le panneau « Couches » se comportait donc différemment selon la provenance.
+        tags: props.tags ?? defaultTags(props.kind, props.symbol),
+        meta: props.meta,
       }
       this.drawings.push(d)
       this.byId.set(d.id, d)
       this.rebuildOne(d, false)
     }
-    // Les ids sélectionnés n'existent plus (nouvelle collection = nouveaux ids).
+    // Une sélection courante peut survivre à l'import : les ids fournis sont
+    // conservés, donc `prune` ne retire que ce qui a réellement disparu.
     this.selection.prune()
     this.emitChange()
   }
@@ -1390,4 +1906,51 @@ export class DrawLayer implements Layer {
 /** Opacité de bordure effective — la règle est plus discrète par défaut (0.85). */
 function strokeOpacityOf(d: Drawing): number {
   return d.strokeOpacity ?? (d.kind === 'measure' ? 0.85 : 0.95)
+}
+
+/**
+ * `meta` opaques équivalentes ? Comparaison par VALEUR (superficielle sur les
+ * valeurs, `JSON` sur les objets imbriqués).
+ *
+ * La comparaison par référence serait sans effet ici : `History` restitue ses
+ * snapshots via `structuredClone`, donc après un undo aucune `meta` n'est plus la
+ * même référence — toute forme qui en porte serait signalée comme modifiée, et une
+ * app qui mute son backend sur `onShapeUpdate` déclencherait une écriture par forme
+ * à chaque annulation.
+ */
+function sameMeta(a: ShapeMeta | undefined, b: ShapeMeta | undefined): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const ka = Object.keys(a)
+  if (ka.length !== Object.keys(b).length) return false
+  return ka.every((k) => {
+    const va = a[k]
+    const vb = b[k]
+    if (va === vb) return true
+    // Valeurs imbriquées : `JSON` suffit et reste prévisible sur des métadonnées,
+    // qui sont sérialisables par contrat (cf. `ShapeMeta`).
+    if (va === null || vb === null || typeof va !== 'object' || typeof vb !== 'object') return false
+    return JSON.stringify(va) === JSON.stringify(vb)
+  })
+}
+
+/**
+ * Deux vues d'une même forme sont-elles identiques ? Sert au diff d'undo/redo, où
+ * l'historique restitue des objets reconstruits — la comparaison porte donc sur les
+ * valeurs, `meta` et `symbol` compris.
+ */
+function sameShape(a: DrawnShape, b: DrawnShape): boolean {
+  if (a.kind !== b.kind || a.closed !== b.closed || !!a.locked !== !!b.locked) return false
+  if (!sameMeta(a.meta, b.meta)) return false
+  // Un symbole n'a pas d'autre géométrie que son point : sans cette comparaison, un
+  // changement de clé de catalogue ou d'affiliation au même emplacement passerait
+  // pour un non-changement.
+  if (a.symbol?.key !== b.symbol?.key || a.symbol?.variant !== b.symbol?.variant) return false
+  if (a.points.length !== b.points.length) return false
+  for (let i = 0; i < a.points.length; i++) {
+    if (a.points[i]!.lat !== b.points[i]!.lat || a.points[i]!.lng !== b.points[i]!.lng) return false
+  }
+  if (a.tags.length !== b.tags.length || a.tags.some((t, i) => t !== b.tags[i])) return false
+  const keys: Array<keyof DrawStyle> = ['color', 'fillColor', 'width', 'fillOpacity', 'strokeOpacity', 'stroke', 'radius']
+  return keys.every((k) => a.style[k] === b.style[k])
 }

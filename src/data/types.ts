@@ -1,3 +1,4 @@
+import { boundsOfLatLngs } from '../core/bounds'
 import type { Bounds, LatLng } from '../shared'
 
 export type { Bounds, LatLng } from '../shared'
@@ -38,6 +39,16 @@ export type MarkerData<T = unknown> = {
    */
   avatar?: string
   /**
+   * Icône (URL ou data-URI) représentant ce marker dans les LISTES (loupe, panneau
+   * de sélection) — affichée **entière**, là où `avatar` est une photo recadrée.
+   *
+   * Distinction reprise de `PinnedItem` : un pictogramme perd son sens s'il est
+   * rogné en rond, un portrait non. Renseignée d'office pour les symboles, dont le
+   * graphisme EST l'identité — une pastille de couleur ne dirait rien de ce qui est
+   * posé sur la carte.
+   */
+  icon?: string
+  /**
    * Élément fraîchement arrivé (ex. nouvelle alerte) : animation sonar autour
    * du marker jusqu'au premier clic dessus (état « vu » géré par la couche).
    */
@@ -47,6 +58,31 @@ export type MarkerData<T = unknown> = {
    * marker, tant que le flag est vrai — conçu pour attirer l'œil immédiatement.
    */
   urgent?: boolean
+  /**
+   * Ce marker peut être **déplacé sur la carte** pour définir une nouvelle position
+   * (drag → `onReposition`). Porté par la donnée : dans un même jeu de markers,
+   * seuls certains sont éditables (le point qu'on pose dans un formulaire, un
+   * symbole placé à la main) tandis que les autres reflètent un état non modifiable.
+   *
+   * Sans rapport avec `MarkerLayer.draggable`, qui est le drag-and-drop à payload
+   * (emporter le marker vers une autre zone de l'app, ex. un dock de favoris).
+   */
+  repositionable?: boolean
+  /**
+   * Priorité d'affichage entre markers qui se recouvrent — le plus haut passe
+   * devant. Défaut 0. Utile pour qu'un point courant, un focus ou une alerte
+   * critique ne disparaisse pas sous un voisin.
+   *
+   * Le marker sélectionné et celui dont le menu est ouvert restent **au-dessus de
+   * toute valeur** : un `zIndex` ne peut pas enterrer ce avec quoi on interagit.
+   */
+  zIndex?: number
+  /**
+   * Couleur de l'anneau de sélection quand ce marker est le `selectedId`.
+   * Absente = couleur d'accent du thème. Permet de faire porter à l'anneau une
+   * information (statut de l'agent, source de l'alerte) plutôt qu'une teinte fixe.
+   */
+  selectedColor?: string
   data: T
 }
 
@@ -58,4 +94,17 @@ export type MarkerData<T = unknown> = {
  */
 export function markerTags<T>(m: MarkerData<T>): string[] {
   return m.tags ?? ['marker', m.type]
+}
+
+/**
+ * Cadre englobant un ensemble de markers — à passer à `camera.fitBounds()`.
+ *
+ * Contrainte volontairement réduite à `{ position }` plutôt que `MarkerData<T>` :
+ * le générique n'apporterait rien ici (seule la position compte) et forcerait
+ * l'appelant à annoter des listes hétérogènes dont `T` s'infère mal.
+ */
+export function boundsOfMarkers(markers: Iterable<{ position: LatLng }>): Bounds | null {
+  const points: LatLng[] = []
+  for (const m of markers) points.push(m.position)
+  return boundsOfLatLngs(points)
 }

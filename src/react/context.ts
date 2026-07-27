@@ -6,8 +6,19 @@ import type { MapPoint, RelationRule, TravelMode } from '../relations/core/types
 import type { MenuItem } from './components/ContextMenu'
 import { defaultLabels } from '../labels/defaultLabels'
 import type { MapLabels } from '../labels/types'
-import type { DrawStyle, DrawTool, GeoJSONFeatureCollection, SelectMode } from '../layers/DrawLayer'
+import type {
+  DrawStyle,
+  DrawTool,
+  DrawnShape,
+  GeoJSONFeatureCollection,
+  MutateOptions,
+  NewShape,
+  SelectMode,
+  ShapePatch,
+} from '../layers/DrawLayer'
 import type { DrawSettings } from '../layers/draw/DrawSettings'
+import type { RenderedSymbol, SymbolCatalog, SymbolRenderOptions } from '../symbols/types'
+import type { LatLng } from '../shared'
 import { defaultTheme } from '../theme/defaultTheme'
 import type { MapTheme } from '../theme/types'
 
@@ -90,8 +101,53 @@ export type DrawingApi = {
   clear: () => void
   toGeoJSON: () => GeoJSONFeatureCollection
   fromGeoJSON: (fc: GeoJSONFeatureCollection) => void
+  /**
+   * CRUD par identité — pour une app qui tient chaque forme en base et la
+   * synchronise par `id`. `silent` supprime toute émission d'event : c'est ce qui
+   * permet de réinjecter une réponse du backend sans relancer sa propre mutation.
+   */
+  getShapes: () => DrawnShape[]
+  getShape: (id: string) => DrawnShape | null
+  /** Dernière forme de la collection — celle qui vient d'être dessinée. */
+  getLastShape: () => DrawnShape | null
+  addShape: (shape: NewShape, opts?: MutateOptions) => string | undefined
+  updateShape: (id: string, patch: ShapePatch, opts?: MutateOptions) => boolean
+  removeShape: (id: string, opts?: MutateOptions) => boolean
+  replaceShapes: (shapes: readonly NewShape[], opts?: MutateOptions) => void
   /** Raccourcis effectifs (outils + actions, `false` = désactivé) — affichés par `DrawToolbar` dans ses tooltips. */
   shortcuts: Record<DrawTool | DrawAction, string | false>
+  /**
+   * Symboles : catalogue disponible, rendu des vignettes et affiliation courante.
+   * Fournis par `<DrawLayer>` (catalogue MIL-STD par défaut) pour que la palette de
+   * la barre n'ait aucune configuration à recevoir.
+   */
+  symbols: {
+    /** `false` si l'outil est désactivé (`<DrawLayer symbols={{ enabled: false }}>`). */
+    enabled: boolean
+    catalog: SymbolCatalog
+    /** Vignette d'une entrée — `null` tant que le graphisme n'est pas chargé. */
+    render: (key: string, opts?: SymbolRenderOptions) => RenderedSymbol | null
+    /** `false` tant que le renderer n'est pas prêt (SDK en cours de chargement). */
+    ready: boolean
+    /** Affiliation appliquée aux symboles posés. */
+    affiliation: string
+    setAffiliation: (variant: string) => void
+    /**
+     * La palette est ouverte. **Publié** par le bouton, jamais relu par lui : il
+     * reste maître de son propre affichage, sinon l'aller-retour par le contexte
+     * ajouterait un rendu et sa fermeture au clic extérieur avalerait le clic
+     * d'ouverture.
+     *
+     * Sert à deux choses. D'abord l'exclusivité visuelle de la barre : la main
+     * s'éteint quand la palette s'ouvre, comme elle le fait pour la loupe. Ensuite
+     * le chargement de la symbologie (~9 Mo), déclenché par cette ouverture ou par
+     * la présence d'un symbole posé — jamais au simple montage de `<DrawLayer>`.
+     */
+    paletteOpen: boolean
+    setPaletteOpen: (open: boolean) => void
+    /** Pose un symbole du catalogue (utilisé par le dépôt de la palette). */
+    place: (key: string, at: LatLng, variant?: string) => string | null
+  }
 }
 
 /** Actions clavier du dessin (raccourcis configurables, en plus des outils). */
