@@ -312,6 +312,19 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'startup.introAltitudeFactor': { min: 0.2, max: 5, step: 0.05 },
   // Fixe le premier `aspect` de la caméra, avant le ResizeObserver.
   'startup.fallbackSize': { kind: 'csvNumber', cold: true },
+
+  // ⑩ sky ──────────────────────────────────────────────────────────────────────
+  'sky.turbidity': { min: 1, max: 20, step: 0.5 },
+  'sky.rayleigh': { min: 0, max: 4, step: 0.1 },
+  'sky.mieCoefficient': { min: 0, max: 0.05, step: 0.001 },
+  'sky.mieDirectionalG': { min: 0, max: 1, step: 0.01 },
+  'sky.clouds.coverage': { min: 0, max: 1, step: 0.01 },
+  'sky.clouds.density': { min: 0, max: 1, step: 0.01 },
+  'sky.clouds.scale': { min: 0.00005, max: 0.001, step: 0.00005 },
+  'sky.clouds.elevation': { min: 0, max: 1, step: 0.01 },
+  'sky.fade.start': { min: 100_000, max: 2_000_000, step: 10_000 },
+  'sky.fade.end': { min: 10_000, max: 500_000, step: 10_000 },
+  // Epoch ms, 0 = maintenant : champ nombre libre (aucune borne n'aurait de sens).
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

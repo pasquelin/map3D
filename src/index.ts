@@ -159,6 +159,7 @@ export type {
   Tiles3dConfig,
   DataSearchConfig,
   StartupConfig,
+  SkyConfig,
   StorageKeysConfig,
   SymbolsProviderConfig,
   TileMapType,

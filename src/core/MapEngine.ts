@@ -19,7 +19,17 @@ import { Camera, type CameraState } from './Camera'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
 import type { FrameContext, Layer, MapView } from './Layer'
-import { altitudeForZoom, CAMERA_FOV, clamp, DEG2RAD, EARTH_CIRCUMFERENCE, zoomForAltitude } from './math'
+import {
+  altitudeForZoom,
+  CAMERA_FOV,
+  clamp,
+  DEG2RAD,
+  EARTH_CIRCUMFERENCE,
+  easeInOutCubic,
+  zoomForAltitude,
+} from './math'
+import { Sky } from './Sky'
+import { subsolarPoint } from './sun'
 import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
@@ -247,6 +257,15 @@ export class MapEngine {
   private pointerDrag: { x: number; y: number; moved: number } | null = null
 
   private stars: THREE.Points | null = null
+  /** Ciel atmosphérique procédural (null quand `config.sky.enabled` est faux). */
+  private sky: Sky | null = null
+  /** Point subsolaire figé (dépend de la seule date) — recalculé à `applySky`, pas par frame. */
+  private subsolar: { lat: number; lng: number } = { lat: 0, lng: 0 }
+  /** Instant du soleil résolu (ms epoch) ; capturé une fois quand `config.sky.date` vaut 0. */
+  private skyEpoch = 0
+  /** Scratches réutilisés par frame (verticale locale, direction du soleil) — zéro-alloc. */
+  private skyUp = new THREE.Vector3()
+  private skySun = new THREE.Vector3()
   private drawingMode = false
   /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
   private drawingSuspended = false
@@ -528,6 +547,10 @@ export class MapEngine {
     this.stars = this.buildStars()
     this.scene.add(this.stars)
 
+    // Ciel atmosphérique : monté par-dessus les étoiles, mais invisible tant que l'altitude
+    // reste haute (opacité pilotée par frame). La vue globe part donc identique à avant.
+    this.applySky()
+
     // Zoom molette actif au-dessus des SURFACES CARTE (markers, formes/marquee,
     // zone loupe) : on relaie l'événement `wheel` qu'elles reçoivent vers le canvas
     // (écouté par GlobeControls). Le listener est posé sur le conteneur pour couvrir
@@ -621,6 +644,69 @@ export class MapEngine {
     stars.renderOrder = -1
     stars.frustumCulled = false
     return stars
+  }
+
+  /**
+   * (Re)configure le ciel depuis `config.sky` : le crée/le détruit selon `enabled`, pousse
+   * les uniforms statiques (atmosphère + nuages) et fige le point subsolaire depuis la date.
+   * Appelée au montage et à chaque `setConfig` — jamais par frame.
+   */
+  private applySky(): void {
+    const cfg = this.config.sky
+    if (!cfg.enabled) {
+      if (this.sky) {
+        this.scene.remove(this.sky)
+        this.sky.geometry.dispose()
+        this.sky.material.dispose()
+        this.sky = null
+      }
+      return
+    }
+    if (!this.sky) {
+      this.sky = new Sky()
+      this.scene.add(this.sky)
+    }
+    const u = this.sky.uniforms
+    u.turbidity.value = cfg.turbidity
+    u.rayleigh.value = cfg.rayleigh
+    u.mieCoefficient.value = cfg.mieCoefficient
+    u.mieDirectionalG.value = cfg.mieDirectionalG
+    u.cloudCoverage.value = cfg.clouds.coverage
+    u.cloudDensity.value = cfg.clouds.density
+    u.cloudScale.value = cfg.clouds.scale
+    u.cloudElevation.value = cfg.clouds.elevation
+    // `date` à 0 ⇒ heure de montage, capturée une seule fois puis figée (jour/nuit stable).
+    if (this.skyEpoch === 0) this.skyEpoch = cfg.date > 0 ? cfg.date : Date.now()
+    const epoch = cfg.date > 0 ? cfg.date : this.skyEpoch
+    this.subsolar = subsolarPoint(new Date(epoch))
+  }
+
+  /**
+   * Fondu et orientation du ciel, par frame. Opacité déduite de l'altitude (invisible au-
+   * dessus de `fade.start` → plein sous `fade.end`) : au-delà, on sort tôt et le ciel ne
+   * coûte rien en vue globe. Sinon on oriente `up` (verticale locale) et `sunPosition`
+   * (normale au point subsolaire) en repère monde, et on colle le dome à la caméra.
+   */
+  private updateSky(state: CameraState): void {
+    const sky = this.sky
+    if (!sky) return
+    const { start, end } = this.config.sky.fade
+    const opacity = easeInOutCubic(clamp((start - state.altitude) / Math.max(1, start - end), 0, 1))
+    if (opacity <= 0) {
+      sky.visible = false
+      return
+    }
+    sky.visible = true
+    const u = sky.uniforms
+    u.opacity.value = opacity
+    this.projection.worldNormal({ lat: state.lat, lng: state.lng }, this.skyUp)
+    u.up.value.copy(this.skyUp)
+    this.projection.worldNormal(this.subsolar, this.skySun)
+    u.sunPosition.value.copy(this.skySun)
+    sky.position.copy(this.threeCamera.position)
+    // Grand devant la caméra pour remplir l'écran sans être rognée par le near ; la
+    // profondeur est de toute façon forcée au far par le shader.
+    sky.scale.setScalar(Math.max(this.threeCamera.far * 0.5, 1e5))
   }
 
   // ── Cycle de vie ──
@@ -741,6 +827,8 @@ export class MapEngine {
     this.camera.setConfig(config)
     this.projection.setConfig(config)
     for (const layer of this.layers) layer.setConfig?.(config)
+    // Ciel : recrée/détruit selon `enabled` et repousse atmosphère + nuages + date.
+    this.applySky()
     // Bornes de navigation : recopiées dans `GlobeControls`, qui ne les relit pas.
     if (prev.camera !== config.camera) this.applyCameraLimits()
     /**
@@ -1481,6 +1569,8 @@ export class MapEngine {
 
     // Étoiles en skybox : suivent la position caméra (distance constante = infini).
     if (this.stars) this.stars.position.copy(this.threeCamera.position)
+    // Ciel atmosphérique : fondu + orientation (sort tôt et gratuit en vue globe).
+    this.updateSky(state)
     this.renderer.render(this.scene, this.threeCamera)
     // Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls
     // garde une plage serrée pour la précision de profondeur du rendu WebGL — mais le
@@ -1762,6 +1852,10 @@ export class MapEngine {
     if (this.stars) {
       this.stars.geometry.dispose()
       ;(this.stars.material as THREE.Material).dispose()
+    }
+    if (this.sky) {
+      this.sky.geometry.dispose()
+      this.sky.material.dispose()
     }
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
