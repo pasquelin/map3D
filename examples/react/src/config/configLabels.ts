@@ -67,6 +67,10 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'data.search': 'Boîte de recherche',
 
   startup: 'Démarrage',
+
+  sky: 'Ciel',
+  'sky.clouds': 'Nuages',
+  'sky.fade': 'Fondu (altitude)',
 }
 
 /** Feuilles — les 196 de `defaultConfig`, plus les 3 clés optionnelles du type. */
@@ -340,4 +344,18 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'startup.introFadeMs': 'fondu de fin (ms)',
   'startup.introAltitudeFactor': 'altitude de départ (rayons)',
   'startup.fallbackSize': 'taille de repli (px)',
+
+  // ── sky ────────────────────────────────────────────────────────────────────
+  'sky.enabled': 'ciel atmosphérique',
+  'sky.turbidity': 'turbidité (voile)',
+  'sky.rayleigh': 'bleu du ciel (Rayleigh)',
+  'sky.mieCoefficient': 'halo solaire (Mie)',
+  'sky.mieDirectionalG': 'concentration du halo',
+  'sky.clouds.coverage': 'couverture',
+  'sky.clouds.density': 'densité',
+  'sky.clouds.scale': 'échelle du motif',
+  'sky.clouds.elevation': 'élévation',
+  'sky.fade.start': 'apparition (m)',
+  'sky.fade.end': 'plein ciel (m)',
+  'sky.date': 'instant du soleil (0 = maintenant)',
 }

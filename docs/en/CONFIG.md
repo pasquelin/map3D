@@ -318,3 +318,22 @@ compile error.
 | `startup.introFadeMs` | Fade of the overlay at the end of the intro. Counterpart of `introDuration`, which was exposed while its fade-out lived in the stylesheet. | `500` |
 | `startup.introAltitudeFactor` | Starting altitude of the intro, in Earth radii (globe view). | `1` |
 | `startup.fallbackSize` | Fallback size (px) when the container is not measured yet at mount — hidden container, SSR hydration, deferred layout. ⚠️ This is not cosmetic: this pair fixes the camera's first `aspect`, hence the first projection, before the `ResizeObserver` takes over. It used to be… | `[800, 600]` |
+
+## `sky` — Procedural atmospheric sky
+
+Computed sky (Preetham model + clouds), **faded in as you descend toward the ground in 3D**. In globe view (high altitude) it is invisible: only the stars and the space background remain — the view from space is never altered. The sun is the real subsolar point computed for `sky.date`, and the location comes from the targeted center: travelling from one continent to another changes day and night. No color here — the sky is computed physically from these parameters.
+
+| Key | Description | Default |
+|---|---|---|
+| `sky.enabled` | Enables the sky. `false` = stars + color background only (previous behavior). | `true` |
+| `sky.turbidity` | Atmospheric haze: `1` = clear sky, `~10` = hazy/milky. | `2` |
+| `sky.rayleigh` | Rayleigh scattering — intensity of the sky's blue. | `1.2` |
+| `sky.mieCoefficient` | Mie scattering — strength of the halo around the sun. | `0.005` |
+| `sky.mieDirectionalG` | Mie directionality (0..1) — concentration of the solar halo. | `0.8` |
+| `sky.clouds.coverage` | Cloud coverage: `0` = clear sky, `1` = overcast. | `0.35` |
+| `sky.clouds.density` | Cloud opacity (0..1). | `0.4` |
+| `sky.clouds.scale` | Cloud pattern scale (smaller = larger clouds). | `0.0002` |
+| `sky.clouds.elevation` | Apparent elevation of the layer (0..1). | `0.5` |
+| `sky.fade.start` | Camera altitude (m) above which the sky is invisible (globe view intact). | `500000` |
+| `sky.fade.end` | Camera altitude (m) below which the sky is full. `start` must be > `end`. | `90000` |
+| `sky.date` | Instant (ms epoch, like `Date.now()`) that fixes the sun's position. `0` = the map's mount time, frozen. A value > 0 freezes a precise instant (deterministic). | `0` |
