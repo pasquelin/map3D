@@ -13,7 +13,7 @@
 //     le globe. Le mesh suit la caméra sans rotation ; toute l'orientation vit dans ces
 //     deux vecteurs.
 
-import { BackSide, BoxGeometry, Mesh, ShaderMaterial, UniformsUtils, Vector3 } from 'three'
+import { BackSide, BoxGeometry, Mesh, NormalBlending, ShaderMaterial, UniformsUtils, Vector3 } from 'three'
 
 /** Uniforms typés du ciel — évite l'accès indexé `possibly undefined` sur `material.uniforms`. */
 export type SkyUniforms = {
@@ -238,10 +238,16 @@ const SkyShader = {
 }
 
 /**
- * Skydome procédural. Boîte inversée (`BackSide`) rendue au plan far, sans écrire le
- * depth : elle ne peint QUE le fond (là où aucune tuile n'a écrit de profondeur), donc
- * jamais par-dessus le globe. Le moteur la positionne sur la caméra, la met à l'échelle,
- * et pilote `opacity` / `up` / `sunPosition` par frame.
+ * Skydome procédural. Boîte inversée (`BackSide`) rendue comme un FOND, pas comme un
+ * overlay transparent.
+ *
+ * Ce moteur peint par ordre de `renderOrder` sans écrire le depth (étoiles -1, océan
+ * -0.9, tuiles -0.8…) : un matériau `transparent: true` rendrait APRÈS tous les opaques
+ * et recouvrirait la carte. On reste donc dans la passe OPAQUE (`transparent: false`) à
+ * `renderOrder -0.95` — juste après les étoiles, avant tout le reste, qui se peint alors
+ * par-dessus. Le fondu vient du blending alpha (`opacity` dans `gl_FragColor.a`), appliqué
+ * même hors passe transparente ; à `opacity = 0` le ciel ne dessine rien (le moteur le
+ * masque en amont). Le moteur le colle à la caméra et pilote `opacity`/`up`/`sunPosition`.
  */
 export class Sky extends Mesh {
   declare material: ShaderMaterial
@@ -255,14 +261,16 @@ export class Sky extends Mesh {
         vertexShader: SkyShader.vertexShader,
         fragmentShader: SkyShader.fragmentShader,
         side: BackSide,
+        depthTest: false,
         depthWrite: false,
-        transparent: true,
+        transparent: false,
+        blending: NormalBlending,
       }),
     )
     this.frustumCulled = false
-    // Après les étoiles (renderOrder -1), avant la carte (0) : le fondu se pose sur le
-    // fond étoilé, et la passe transparente le dessine de toute façon après les opaques.
-    this.renderOrder = -0.5
+    // Entre les étoiles (-1) et le fond de carte (océan -0.9, tuiles -0.8) : le ciel se
+    // pose sur les étoiles, et la carte se peint par-dessus lui.
+    this.renderOrder = -0.95
   }
 
   /** Accès typé aux uniforms (le champ `material.uniforms` de Three est indexé faiblement). */
