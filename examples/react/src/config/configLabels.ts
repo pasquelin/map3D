@@ -32,6 +32,7 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'interaction.lens': 'Loupe',
   'interaction.history': 'Annulation',
   'interaction.menu': 'Menus',
+  'interaction.buildingPick': 'Sélection de bâtiment',
   'interaction.tooltip': 'Infobulle de cluster',
   'interaction.spiderfy': 'Éclatement en éventail',
   'interaction.clusterOpenZoom': 'Ouverture d’un cluster',
@@ -164,6 +165,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.maxRequest': 'budget de tuiles par vue',
   'providers.buildings.maxAttempts': 'essais par tuile',
   'providers.buildings.retryDelays': 'délais entre essais (ms)',
+  'providers.buildings.pickFields': 'attributs remontés au clic',
   'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
   'providers.symbols.cacheMaxEntries': 'cache de vignettes',
 
@@ -186,6 +188,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.history.depth': 'profondeur d’annulation',
   'interaction.menu.hoverIntentMs': 'survol avant ouverture (ms)',
   'interaction.menu.submenuCloseMs': 'grâce avant fermeture (ms)',
+  'interaction.buildingPick.cursor': 'curseur de l’outil',
   'interaction.hubHitTolerancePx': 'tolérance clic socle (px)',
   'interaction.repositionHitPx': 'cible du point au sol (px)',
   'interaction.clickSuppressMs': 'clic avalé après geste (ms)',
@@ -218,6 +221,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.controls.fullscreen': 'plein écran',
   'interaction.shortcuts.controls.basemap': 'bascule 3D / plan',
   'interaction.shortcuts.controls.traffic': 'calque trafic',
+  'interaction.shortcuts.controls.selectBuilding': 'sélectionner un bâtiment',
 
   'interaction.shortcuts.draw.select': 'sélection',
   'interaction.shortcuts.draw.selectRect': 'sélection rectangle',

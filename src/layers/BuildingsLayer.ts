@@ -8,12 +8,29 @@ import { trimSlash } from '../core/internalTiles'
 import { DEG2RAD } from '../core/math'
 import { intersectsView, type Tile, TileQueue, tileRange, tileRing } from '../core/TileQueue'
 import { BuildingsSource, type BuiltTile } from '../data/buildingsSource'
-import type { Shading, TileFrame } from '../data/mvt'
+import type { Shading, TileBuildings, TileFrame } from '../data/mvt'
 import type { Bounds, LatLng } from '../shared'
 import { defaultTheme } from '../theme/defaultTheme'
+import {
+  type BuildingAttrs,
+  buildingAttrs,
+  buildingAtVertex,
+  paintRange,
+  restoreRange,
+  saveRange,
+} from './buildingPick'
 
 /** Ce que la file de tuiles ne connaît pas : la géométrie montée dans la scène. */
-type BuildingTile = Tile & { mesh: THREE.Mesh | null }
+type BuildingTile = Tile & { mesh: THREE.Mesh | null; buildings: TileBuildings | null }
+
+/** Désigne un bâtiment : sa tuile, et son rang dans la table de celle-ci. */
+export type BuildingRef = { tileKey: string; index: number }
+
+/** Genre de mise en évidence — le survol et le menu ouvert cohabitent. */
+export type BuildingHighlight = 'hover' | 'active'
+
+/** Ce qu'un raycast rend : de quoi re-désigner le bâtiment, et de quoi le décrire. */
+export type BuildingPickResult = { ref: BuildingRef; point: THREE.Vector3; attrs: BuildingAttrs }
 
 /** Apparence des volumes — vient du thème, jamais du code. */
 export type BuildingColors = {
@@ -27,6 +44,10 @@ export type BuildingColors = {
   roofLighten: number
   /** Soleil de convention qui module les façades selon leur orientation. */
   shading: Shading
+  /** Teinte d'un bâtiment survolé, l'outil de sélection actif. */
+  hover: string
+  /** Teinte du bâtiment dont le menu est ouvert. */
+  select: string
 }
 
 /**
@@ -65,6 +86,15 @@ export class BuildingsLayer {
   private readonly p0 = new THREE.Vector3()
   private readonly p1 = new THREE.Vector3()
 
+  /** Mesh → tuile : le raycast rend un objet, la table de bâtiments vit sur la tuile. */
+  private readonly byMesh = new Map<THREE.Object3D, BuildingTile>()
+  /** Rayon du pick — jamais celui de `Projection`, dont les réglages servent la caméra. */
+  private readonly raycaster = new THREE.Raycaster()
+  /** Couleurs empruntées à la plage surlignée, par genre — rendues telles quelles ensuite. */
+  private readonly saved: Record<BuildingHighlight, Uint8Array | null> = { hover: null, active: null }
+  private readonly current: Record<BuildingHighlight, BuildingRef | null> = { hover: null, active: null }
+  private readonly rgb = new THREE.Color()
+
   /**
    * UN matériau pour toutes les tuiles : leurs réglages sont identiques, et seule la
    * géométrie les distingue.
@@ -85,7 +115,7 @@ export class BuildingsLayer {
    */
   private readonly cache = new TileQueue<BuildingTile, BuiltTile>({
     budget: () => this.cfg,
-    make: (base) => ({ ...base, mesh: null }),
+    make: (base) => ({ ...base, mesh: null, buildings: null }),
     fetch: (t, signal) => this.source.build(this.tileUrl(t), this.cfg, this.frameFor(t), this.colors.shading, signal),
     commit: (t, built) => this.buildMesh(t, built),
     release: (t) => this.disposeTile(t),
@@ -107,6 +137,8 @@ export class BuildingsLayer {
       roof: defaultTheme.globe.buildingRoofColor,
       roofLighten: defaultTheme.globe.buildingRoofLighten,
       shading: { azimuth: defaultTheme.globe.buildingSunAzimuth, min: defaultTheme.globe.buildingShadeMin },
+      hover: defaultTheme.globe.buildingHoverColor,
+      select: defaultTheme.globe.buildingSelectColor,
     },
   ) {
     this.group.name = 'm3d-buildings'
@@ -313,10 +345,19 @@ export class BuildingsLayer {
      */
     attachBVH(mesh)
     t.mesh = mesh
+    t.buildings = built.buildings
+    this.byMesh.set(mesh, t)
     // Ce que la tuile retient réellement, GPU et CPU confondus — la matière du budget
     // mémoire. Un compte de tuiles ne dirait rien : entre campagne et centre-ville, le
     // rapport est de cent.
-    t.bytes = built.positions.byteLength + built.indices.byteLength + colors.byteLength + bvhBytes(mesh)
+    t.bytes =
+      built.positions.byteLength +
+      built.indices.byteLength +
+      colors.byteLength +
+      bvhBytes(mesh) +
+      built.buildings.vStart.byteLength +
+      built.buildings.featureIds.byteLength +
+      built.buildings.heights.byteLength
     this.group.add(mesh)
   }
 
@@ -365,8 +406,99 @@ export class BuildingsLayer {
     return out
   }
 
+  /**
+   * Bâtiment sous `ndc`, `null` s'il n'y en a pas.
+   *
+   * Un seul rayon : le BVH de chaque tuile est déjà là (cf. `attachBVH`) et `firstHitOnly`
+   * l'arrête au premier triangle — un mouvement de pointeur coûte donc ~0,015 ms, au lieu
+   * du parcours des 131 000 triangles d'une tuile dense.
+   */
+  pick(ndc: THREE.Vector2, camera: THREE.Camera): BuildingPickResult | null {
+    // Groupe masqué = groupe SORTI du graphe (cf. `setVisible`) : rien à intersecter, et
+    // surtout rien à désigner sur une carte qui ne montre pas ses volumes.
+    if (!this.group.visible) return null
+    this.raycaster.setFromCamera(ndc, camera)
+    this.raycaster.far = Infinity
+    ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
+    const hit = this.raycaster.intersectObject(this.group, true)[0]
+    const face = hit?.faceIndex
+    if (!hit || face === undefined || face === null) return null
+    const tile = this.byMesh.get(hit.object)
+    const idx = tile?.mesh?.geometry.getIndex()
+    if (!tile?.buildings || !idx) return null
+    // Le premier sommet de la face suffit : les trois appartiennent au même bâtiment, une
+    // face n'enjambant jamais deux emprises.
+    const index = buildingAtVertex(tile.buildings.vStart, idx.getX(face * 3))
+    if (index < 0) return null
+    return { ref: { tileKey: tile.key, index }, point: hit.point, attrs: buildingAttrs(tile.buildings, index) }
+  }
+
+  /**
+   * Met (ou retire, avec `null`) la mise en évidence d'un genre donné.
+   *
+   * Réécrit la plage de l'attribut `color` DÉJÀ ALLOUÉ, après en avoir emprunté une copie :
+   * aucun objet n'entre ni ne sort de la scène, et le BVH — qui ne connaît que `position`
+   * et l'index — reste valide.
+   */
+  setHighlight(ref: BuildingRef | null, kind: BuildingHighlight): void {
+    const cur = this.current[kind]
+    if (cur && ref && cur.tileKey === ref.tileKey && cur.index === ref.index) return
+    this.restore(kind)
+    if (!ref) return
+    const tile = this.find(ref.tileKey)
+    const attr = tile?.mesh?.geometry.getAttribute('color')
+    const from = tile?.buildings?.vStart[ref.index]
+    const to = tile?.buildings?.vStart[ref.index + 1]
+    if (!attr || from === undefined || to === undefined) return
+    const colors = attr.array as Uint8Array
+    const span = (to - from) * 3
+    // Tampon d'emprunt recyclé tant qu'il est assez grand : un survol qui glisse d'un
+    // bâtiment à l'autre, c'est un appel par mouvement de pointeur.
+    const prev = this.saved[kind]
+    const keep = prev && prev.length >= span ? prev : new Uint8Array(span)
+    saveRange(colors, from, to, keep)
+    this.saved[kind] = keep
+    this.rgb.set(kind === 'hover' ? this.colors.hover : this.colors.select)
+    paintRange(
+      colors,
+      from,
+      to,
+      Math.round(this.rgb.r * 255),
+      Math.round(this.rgb.g * 255),
+      Math.round(this.rgb.b * 255),
+    )
+    attr.needsUpdate = true
+    this.current[kind] = ref
+  }
+
+  /** Rend ses couleurs d'origine à la plage surlignée d'un genre. */
+  private restore(kind: BuildingHighlight): void {
+    const ref = this.current[kind]
+    const keep = this.saved[kind]
+    this.current[kind] = null
+    if (!ref || !keep) return
+    const tile = this.find(ref.tileKey)
+    const attr = tile?.mesh?.geometry.getAttribute('color')
+    const from = tile?.buildings?.vStart[ref.index]
+    const to = tile?.buildings?.vStart[ref.index + 1]
+    if (!attr || from === undefined || to === undefined) return
+    restoreRange(attr.array as Uint8Array, from, keep, (to - from) * 3)
+    attr.needsUpdate = true
+  }
+
+  private find(tileKey: string): BuildingTile | null {
+    for (const t of this.cache.values()) if (t.key === tileKey) return t
+    return null
+  }
+
   private disposeTile(t: BuildingTile): void {
     if (!t.mesh) return
+    this.byMesh.delete(t.mesh)
+    t.buildings = null
+    // Une tuile évincée sous un highlight laisserait une référence morte — et le prochain
+    // `setHighlight` tenterait de restaurer des couleurs dans une géométrie libérée.
+    if (this.current.hover?.tileKey === t.key) this.current.hover = null
+    if (this.current.active?.tileKey === t.key) this.current.active = null
     this.group.remove(t.mesh)
     // L'arbre vit côté CPU : `geometry.dispose()` ne connaît que les ressources GPU.
     detachBVH(t.mesh)
@@ -378,6 +510,7 @@ export class BuildingsLayer {
 
   dispose(): void {
     this.disposed = true
+    this.byMesh.clear()
     this.cache.dispose()
     this.material.dispose()
     this.source.dispose()

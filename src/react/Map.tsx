@@ -208,6 +208,8 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       buildingRoofLighten: theme.globe.buildingRoofLighten,
       buildingSunAzimuth: theme.globe.buildingSunAzimuth,
       buildingShadeMin: theme.globe.buildingShadeMin,
+      buildingHoverColor: theme.globe.buildingHoverColor,
+      buildingSelectColor: theme.globe.buildingSelectColor,
       googleMapsApiKey: props.googleMapsApiKey,
       cesiumIonToken: props.cesiumIonToken,
       cesiumIonAssetId: props.cesiumIonAssetId,

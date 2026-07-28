@@ -77,6 +77,13 @@ export type MapEngineOptions = {
    */
   buildingSunAzimuth?: number
   buildingShadeMin?: number
+  /**
+   * Teintes du bâtiment survolé et du bâtiment dont le menu est ouvert
+   * (`theme.globe.buildingHoverColor` / `buildingSelectColor`). Lues au montage comme les
+   * précédentes : elles ne repeignent pas un highlight en cours.
+   */
+  buildingHoverColor?: string
+  buildingSelectColor?: string
   /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
   googleMapsApiKey?: string
   /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
@@ -468,6 +475,8 @@ export class MapEngine {
           azimuth: opts.buildingSunAzimuth ?? defaultTheme.globe.buildingSunAzimuth,
           min: opts.buildingShadeMin ?? defaultTheme.globe.buildingShadeMin,
         },
+        hover: opts.buildingHoverColor ?? defaultTheme.globe.buildingHoverColor,
+        select: opts.buildingSelectColor ?? defaultTheme.globe.buildingSelectColor,
       },
     )
     this.has3dTileset = hasCustomTiles
