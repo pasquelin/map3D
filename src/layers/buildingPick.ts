@@ -53,6 +53,43 @@ export function buildingAttrs(b: TileBuildings, index: number): BuildingAttrs {
   }
 }
 
+/** Désigne un bâtiment : sa tuile, et son rang dans la table de celle-ci. */
+export type BuildingRef = { tileKey: string; index: number }
+
+/** Genre de mise en évidence — le survol et le menu ouvert cohabitent sur la carte. */
+export type BuildingHighlight = 'hover' | 'active'
+
+const same = (a: BuildingRef | null, b: BuildingRef | null): boolean =>
+  a !== null && b !== null && a.tileKey === b.tileKey && a.index === b.index
+
+/**
+ * Ce qu'il faut défaire, puis refaire, pour poser `ref` en `kind`.
+ *
+ * ⚠️ Un bâtiment ne doit JAMAIS porter les deux genres à la fois. Chaque genre EMPRUNTE les
+ * couleurs de la plage avant de la repeindre : si `active` s'appliquait sur un bâtiment déjà
+ * survolé, il sauvegarderait la teinte de survol, et la restituerait à la fermeture du menu
+ * — le bâtiment restait jaune pour de bon. C'est la règle que cette fonction porte, et la
+ * raison pour laquelle elle est pure : c'est la partie qui s'est trompée.
+ */
+export function highlightActions(
+  current: Record<BuildingHighlight, BuildingRef | null>,
+  ref: BuildingRef | null,
+  kind: BuildingHighlight,
+): { restore: BuildingHighlight[]; paint: BuildingRef | null } {
+  // Déjà posé au même endroit : rien à faire (le survol rejoue à chaque mouvement).
+  if (same(current[kind], ref)) return { restore: [], paint: null }
+  const other: BuildingHighlight = kind === 'hover' ? 'active' : 'hover'
+  // Le bâtiment visé porte déjà l'AUTRE genre.
+  if (ref && same(current[other], ref)) {
+    // Le menu ouvert prime sur le survol : on lève seulement le survol précédent, ailleurs.
+    if (kind === 'hover') return { restore: ['hover'], paint: null }
+    // Le menu s'ouvre sur le bâtiment survolé : le survol lui rend ses couleurs D'ABORD,
+    // pour que la sauvegarde du menu parte du gris et non du jaune.
+    return { restore: ['hover', 'active'], paint: ref }
+  }
+  return { restore: [kind], paint: ref }
+}
+
 /** Copie les couleurs des sommets `[from, to[` dans `out`, qui peut être plus grand. */
 export function saveRange(colors: Uint8Array, from: number, to: number, out: Uint8Array): void {
   out.set(colors.subarray(from * 3, to * 3))

@@ -13,12 +13,17 @@ import type { Bounds, LatLng } from '../shared'
 import { defaultTheme } from '../theme/defaultTheme'
 import {
   type BuildingAttrs,
+  type BuildingHighlight,
+  type BuildingRef,
   buildingAttrs,
   buildingAtVertex,
+  highlightActions,
   paintRange,
   restoreRange,
   saveRange,
 } from './buildingPick'
+
+export type { BuildingHighlight, BuildingRef } from './buildingPick'
 
 /** Ce que la file de tuiles ne connaît pas : la géométrie montée dans la scène. */
 type BuildingTile = Tile & {
@@ -31,12 +36,6 @@ type BuildingTile = Tile & {
    */
   shade: Uint8Array | null
 }
-
-/** Désigne un bâtiment : sa tuile, et son rang dans la table de celle-ci. */
-export type BuildingRef = { tileKey: string; index: number }
-
-/** Genre de mise en évidence — le survol et le menu ouvert cohabitent. */
-export type BuildingHighlight = 'hover' | 'active'
 
 /** Ce qu'un raycast rend : de quoi re-désigner le bâtiment, et de quoi le décrire. */
 export type BuildingPickResult = { ref: BuildingRef; point: THREE.Vector3; attrs: BuildingAttrs }
@@ -452,14 +451,13 @@ export class BuildingsLayer {
    * et l'index — reste valide.
    */
   setHighlight(ref: BuildingRef | null, kind: BuildingHighlight): void {
-    const cur = this.current[kind]
-    if (cur && ref && cur.tileKey === ref.tileKey && cur.index === ref.index) return
-    this.restore(kind)
-    if (!ref) return
-    const tile = this.find(ref.tileKey)
+    const { restore, paint } = highlightActions(this.current, ref, kind)
+    for (const k of restore) this.restore(k)
+    if (!paint) return
+    const tile = this.find(paint.tileKey)
     const attr = tile?.mesh?.geometry.getAttribute('color')
-    const from = tile?.buildings?.vStart[ref.index]
-    const to = tile?.buildings?.vStart[ref.index + 1]
+    const from = tile?.buildings?.vStart[paint.index]
+    const to = tile?.buildings?.vStart[paint.index + 1]
     if (!attr || !tile?.shade || from === undefined || to === undefined) return
     const colors = attr.array as Uint8Array
     const span = (to - from) * 3
@@ -480,7 +478,7 @@ export class BuildingsLayer {
       tile.shade,
     )
     attr.needsUpdate = true
-    this.current[kind] = ref
+    this.current[kind] = paint
   }
 
   /** Rend ses couleurs d'origine à la plage surlignée d'un genre. */

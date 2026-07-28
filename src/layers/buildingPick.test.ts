@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TileBuildings } from '../data/mvt'
-import { buildingAtVertex, buildingAttrs, paintRange, restoreRange, saveRange } from './buildingPick'
+import { buildingAtVertex, buildingAttrs, highlightActions, paintRange, restoreRange, saveRange } from './buildingPick'
 
 /** Trois bâtiments : sommets 0-9, 10-29, 30-31. La 4ᵉ entrée est la sentinelle. */
 const V_START = new Uint32Array([0, 10, 30, 32])
@@ -49,6 +49,44 @@ describe('buildingAttrs', () => {
 
   it('rend les attributs demandés quand la tuile en porte', () => {
     expect(buildingAttrs({ ...table, props: [{ name: 'A' }, { name: 'B' }, {}] }, 1).props).toEqual({ name: 'B' })
+  })
+})
+
+describe('highlightActions — survol et menu ne se marchent pas dessus', () => {
+  const A = { tileKey: 't1', index: 0 }
+  const B = { tileKey: 't1', index: 1 }
+  const none = { hover: null, active: null }
+
+  it('pose le survol quand rien n’est posé', () => {
+    expect(highlightActions(none, A, 'hover')).toEqual({ restore: ['hover'], paint: A })
+  })
+
+  it('ne rejoue rien quand le survol ne bouge pas', () => {
+    // `pointermove` appelle à chaque pixel : re-sauvegarder capturerait la teinte posée.
+    expect(highlightActions({ hover: A, active: null }, A, 'hover')).toEqual({ restore: [], paint: null })
+  })
+
+  it('lève le survol avant d’ouvrir le menu SUR LE MÊME bâtiment', () => {
+    // LA régression : sans ce `restore('hover')`, le menu sauvegardait la teinte de survol
+    // et la rendait à sa fermeture — le bâtiment restait jaune définitivement.
+    expect(highlightActions({ hover: A, active: null }, A, 'active')).toEqual({
+      restore: ['hover', 'active'],
+      paint: A,
+    })
+  })
+
+  it('laisse le menu ouvert primer sur le survol du même bâtiment', () => {
+    // Le pointeur repasse sur le bâtiment dont le menu est ouvert : il garde sa teinte de
+    // sélection. Le survol précédent, lui, est bien levé.
+    expect(highlightActions({ hover: B, active: A }, A, 'hover')).toEqual({ restore: ['hover'], paint: null })
+  })
+
+  it('permet de survoler un AUTRE bâtiment que celui du menu', () => {
+    expect(highlightActions({ hover: null, active: A }, B, 'hover')).toEqual({ restore: ['hover'], paint: B })
+  })
+
+  it('retire un genre avec null', () => {
+    expect(highlightActions({ hover: A, active: null }, null, 'hover')).toEqual({ restore: ['hover'], paint: null })
   })
 })
 
