@@ -40,6 +40,7 @@ import { inTextInput, matchesEdit, plainKey } from './shortcuts'
 import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/milSym'
 import type { Bounds, LatLng } from '../../shared'
 import { useMapDropZone } from '../hooks/useMapDropZone'
+import { usePedestrian } from '../hooks/usePedestrian'
 import { SYMBOL_DRAG_TYPE } from './SymbolPaletteButton'
 import { SymbolMarkers, type SymbolMarkersProps } from './SymbolMarkers'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
@@ -217,6 +218,18 @@ export function DrawLayer(props: DrawLayerProps) {
   const lens = useContext(LensContext)
   const lensRef = useRef(lens)
   lensRef.current = lens
+  /**
+   * Mode piéton : une surface concurrente de plus (comme la loupe et la palette). Marcher et
+   * tracer en même temps n'a pas de sens, et les deux se disputeraient le slot
+   * `engine.inputInterceptor`.
+   *
+   * Via ref pour l'effet des raccourcis, monté UNE fois : une dépendance sur l'état
+   * remonterait son écouteur à chaque pas du piéton (le mode émet sur rotation).
+   */
+  const pedestrian = usePedestrian()
+  const pedestrianActive = pedestrian.state.mode === 'pedestrian'
+  const pedestrianRef = useRef(pedestrian)
+  pedestrianRef.current = pedestrian
 
   const setSelectMode = (m: SelectMode) => {
     coreRef.current?.setSelectMode(m)
@@ -357,7 +370,7 @@ export function DrawLayer(props: DrawLayerProps) {
   const lensActive = lens?.active ?? false
   const [pickingBuilding, setPickingBuilding] = useState(() => engine.getBuildingPickMode())
   useEffect(() => engine.on('buildingpickmode', setPickingBuilding), [engine])
-  useYieldsTool(lensActive || pickingBuilding, toolRef, setTool)
+  useYieldsTool(lensActive || pickingBuilding || pedestrianActive, toolRef, setTool)
 
   // Barre espace = pan caméra temporaire (le dessin/geste en cours est gelé, pas
   // perdu) ; Espace+Maj = rotation caméra. Relâcher = reprise exacte de l'outil.
@@ -416,6 +429,16 @@ export function DrawLayer(props: DrawLayerProps) {
       if (e.code === 'Space') return // géré par l'effet barre espace
       if (editKeys.closePolygon !== false && e.key === editKeys.closePolygon) coreRef.current?.closeCurrent()
       else if (e.key === 'Escape') {
+        /**
+         * Le mode piéton capte Échap EN PRIORITÉ sur la cascade de dessin (spec §5) : sans
+         * cette garde, `coreRef.escape()` consommerait la touche et l'utilisateur resterait
+         * enfermé au sol. En immersion totale le Pointer Lock aura déjà relâché avant nous —
+         * cf. la phase 2, où la sortie ne vaut que depuis `explore`.
+         */
+        if (pedestrianRef.current.state.mode === 'pedestrian') {
+          pedestrianRef.current.exit()
+          return
+        }
         // Cascade : marquee en cours → sélection → sortie de l'outil. La garde
         // `toolRef.current !== null` est CAPITALE : sans outil de dessin actif,
         // `setTool(null)` reprendrait quand même le slot partagé
