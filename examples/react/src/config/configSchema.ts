@@ -336,6 +336,7 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'pedestrian.pitchMaxDeg': { min: 0, max: 89, step: 1 },
   'pedestrian.nearMeters': { min: 0.01, max: 2, step: 0.01 },
   'pedestrian.groundProbeMeters': { min: 1, max: 50, step: 1 },
+  'pedestrian.tileDetailDistanceMeters': { min: 10, max: 1000, step: 10 },
   'pedestrian.groundSmoothing': { min: 0, max: 2, step: 0.01 },
   'pedestrian.collision.radiusMeters': { min: 0.1, max: 2, step: 0.05 },
   'pedestrian.collision.feelers': { min: 3, max: 16, step: 1 },

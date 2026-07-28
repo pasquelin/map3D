@@ -38,6 +38,7 @@ import type { FrameContext, Layer, MapView } from './Layer'
 import {
   altitudeForZoom,
   CAMERA_FOV,
+  metersPerPixelAt,
   clamp,
   DEG2RAD,
   EARTH_CIRCUMFERENCE,
@@ -1729,9 +1730,31 @@ export class MapEngine {
       this.size.height,
       this.terrainElevation,
     )
+    return this.tileZoomFor(state.lat, metersPerPixel)
+  }
+
+  /**
+   * Niveau de détail des tuiles pendant la MARCHE, calculé à une distance de référence
+   * (`pedestrian.tileDetailDistanceMeters`) et non à la distance caméra→sol.
+   *
+   * ⚠️ Celle-ci vaut 1,70 m à hauteur d'homme : le calcul ordinaire réclame alors le zoom
+   * maximal sur toute la distance de vue — des dizaines de milliers de tuiles pour une rue,
+   * et le déplacement s'arrête net. On raisonne donc sur la distance à laquelle on regarde.
+   */
+  private tileZoomWalking(state: CameraState): number {
+    const mpp = metersPerPixelAt(
+      this.config.pedestrian.tileDetailDistanceMeters,
+      this.threeCamera.fov,
+      this.size.height,
+    )
+    return this.tileZoomFor(state.lat, mpp)
+  }
+
+  /** Zoom Web Mercator correspondant à une résolution au sol, à une latitude donnée. */
+  private tileZoomFor(lat: number, metersPerPixel: number): number {
     // Résolution Web Mercator au zoom 0 (m/px à l'équateur) = circonférence / taille tuile.
     const equatorMetersPerPixel = EARTH_CIRCUMFERENCE / TILE_SIZE
-    return Math.log2((equatorMetersPerPixel * Math.cos(state.lat * DEG2RAD)) / metersPerPixel)
+    return Math.log2((equatorMetersPerPixel * Math.cos(lat * DEG2RAD)) / metersPerPixel)
   }
 
   /**
@@ -1967,7 +1990,7 @@ export class MapEngine {
       const bounds = view
         ? view.bounds
         : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
-      const tileZoom = this.tileZoomAtCenter(state)
+      const tileZoom = walking ? this.tileZoomWalking(state) : this.tileZoomAtCenter(state)
       const aim = view ? this.aimPoint(view) : this.pedestrianCtl.position
       if (feedBasemap) this.basemap2d.update(bounds, tileZoom, aim, !controlling)
       if (feedBuildings) this.buildings.update(bounds, tileZoom, aim)

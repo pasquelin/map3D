@@ -1214,6 +1214,17 @@ export type PedestrianConfig = {
    */
   groundProbeMeters: number
   /**
+   * Distance de référence (m) du niveau de détail des tuiles pendant la marche.
+   *
+   * ⚠️ Le détail se déduit d'ordinaire de la distance caméra→sol. À hauteur d'homme elle
+   * vaut 1,70 m : le calcul réclame alors le zoom MAXIMAL sur toute la distance de vue,
+   * soit des dizaines de milliers de tuiles pour une rue. On raisonne donc sur la distance
+   * à laquelle on regarde réellement, pas sur celle de ses pieds.
+   *
+   * Baisser = plus net de près et plus lourd ; monter = plus léger et plus grossier.
+   */
+  tileDetailDistanceMeters: number
+  /**
    * Constante de temps (SECONDES) du lissage vertical de l'œil. Trop fort → sensation de
    * flottement ; trop faible → sautillement quand les tuiles se raffinent.
    */

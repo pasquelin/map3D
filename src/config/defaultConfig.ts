@@ -456,6 +456,9 @@ export const defaultConfig: MapConfig = {
     fogStartMeters: 700,
     nearMeters: 0.1,
     groundProbeMeters: 5,
+    // 120 m : le détail se cale sur ce qu'on regarde en marchant (le bout de la rue), et
+    // non sur la distance à ses propres pieds — qui réclamerait le zoom maximal partout.
+    tileDetailDistanceMeters: 120,
     groundSmoothing: 0.25,
     collision: {
       radiusMeters: 0.3,

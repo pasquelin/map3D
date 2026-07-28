@@ -381,6 +381,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'pedestrian.fogStartMeters': 'début du brouillard (m)',
   'pedestrian.nearMeters': 'plan proche (m)',
   'pedestrian.groundProbeMeters': 'portée du rayon de sol (m)',
+  'pedestrian.tileDetailDistanceMeters': 'distance de référence du détail (m)',
   'pedestrian.groundSmoothing': 'lissage du sol (s)',
   'pedestrian.collision.radiusMeters': 'rayon du corps (m)',
   'pedestrian.collision.feelers': 'nombre de palpeurs',
