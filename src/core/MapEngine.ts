@@ -1227,12 +1227,32 @@ export class MapEngine {
    */
   canPlacePedestrian(clientX: number, clientY: number): boolean {
     if (!this.pedestrianAvailable()) return false
-    const p = this.projection.pickLatLng(clientX, clientY, this.threeCamera)
-    if (!p) return false
     const c = this.config.pedestrian.placement
-    const hit = this.projection.pickHeight(clientX, clientY, this.threeCamera)
-    return isGroundPlacement(hit, this.groundLevelAt(p, c.ringRadiusMeters), c.maxRoofDeltaMeters)
+    /**
+     * Mémoïsation du survol : une validation coûte le rayon d'écran PLUS la couronne de sol
+     * (~9 rayons). `pointermove` tire bien plus vite que la frame, et recalculer à chaque
+     * pixel saturait la boucle de rendu — la carte devenait inutilisable dès qu'on visait.
+     */
+    const now = performance.now()
+    const last = this.placeProbe
+    if (
+      last &&
+      now - last.at < c.refreshMs &&
+      Math.abs(clientX - last.x) <= c.refreshSlopPx &&
+      Math.abs(clientY - last.y) <= c.refreshSlopPx
+    ) {
+      return last.ok
+    }
+    const picked = this.projection.pickLatLngHeight(clientX, clientY, this.threeCamera)
+    const ok = picked
+      ? isGroundPlacement(picked.height, this.groundLevelAt(picked.latLng, c.ringRadiusMeters), c.maxRoofDeltaMeters)
+      : false
+    this.placeProbe = { x: clientX, y: clientY, at: now, ok }
+    return ok
   }
+
+  /** Dernière validation de survol — cf. la mémoïsation de `canPlacePedestrian`. */
+  private placeProbe: { x: number; y: number; at: number; ok: boolean } | null = null
 
   /**
    * Niveau de rue sous un point, avec repli sur l'élévation suivie du terrain.

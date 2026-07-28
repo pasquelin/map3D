@@ -269,6 +269,39 @@ export class Projection {
     return this.plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
 
+  /**
+   * Coordonnée ET hauteur sous un pixel, en **un seul lancer de rayon**.
+   *
+   * `pickLatLng` puis `pickHeight` répondent à la même question à partir du même impact :
+   * les enchaîner double le coût pour rien. Le mode piéton valide son curseur à chaque
+   * mouvement de souris, où ce doublon se payait comptant.
+   *
+   * `height` est `null` quand aucun volume n'est touché — le rayon est alors retombé sur
+   * l'ellipsoïde, et `latLng` reste exploitable : c'est le **sol nu** (cf. `isGroundPlacement`).
+   */
+  pickLatLngHeight(
+    clientX: number,
+    clientY: number,
+    camera: THREE.Camera,
+  ): { latLng: LatLng; height: number | null } | null {
+    if (!this.ellipsoid || !this.group) return null
+    this.ndc.set((clientX / this.width) * 2 - 1, -(clientY / this.height) * 2 + 1)
+    this.raycaster.setFromCamera(this.ndc, camera)
+    if (this.flatHeight !== null) {
+      const ll = this.ellipsoidFromRay(this.flatHeight)
+      return ll ? { latLng: ll, height: this.flatHeight } : null
+    }
+    this.raycaster.far = Infinity
+    ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
+    const target = this.rayTarget()
+    if (!target) return null
+    const hit = target ? this.raycaster.intersectObject(target, true)[0] : undefined
+    if (hit)
+      return { latLng: this.worldToLatLng(hit.point), height: this.plausibleHeight(this.heightAtWorld(hit.point)) }
+    const ll = this.ellipsoidFromRay()
+    return ll ? { latLng: ll, height: null } : null
+  }
+
   /** Hauteur cartographique (m au-dessus ellipsoïde) d'un point en coordonnées MONDE. */
   heightAtWorld(world: THREE.Vector3): number | null {
     if (!this.ellipsoid || !this.group) return null

@@ -145,7 +145,7 @@ export class PedestrianController {
   /** Avance d'une frame : regard, déplacement collisionné, gravité, puis pose caméra. */
   update(dt: number): void {
     const c = this.config.pedestrian
-    this.applyLook(c.lookSpeed, c.invertY, c.pitchMaxDeg)
+    this.applyLook(c)
     // Base tangente au point courant, recalculée chaque frame : le repère du tileset peut
     // avoir changé (rebase d'origine), et « tout droit » doit suivre la rue.
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, this.groundHeight)
@@ -154,12 +154,19 @@ export class PedestrianController {
     this.applyPose()
   }
 
-  /** Regard : le delta accumulé devient cap + tangage, puis se vide. */
-  private applyLook(lookSpeed: number, invertY: boolean, pitchMaxDeg: number): void {
+  /**
+   * Regard : le delta accumulé devient cap + tangage, puis se vide.
+   *
+   * Les deux axes s'inversent séparément (`invertX` / `invertY`) : la bonne convention
+   * dépend du geste — glisser la carte (« attraper la scène ») et regarder en FPS vont en
+   * sens opposés, et l'une comme l'autre a ses habitués.
+   */
+  private applyLook(c: MapConfig['pedestrian']): void {
     if (this.lookDx === 0 && this.lookDy === 0) return
-    this.heading = headingAfterLook(this.heading, this.lookDx, lookSpeed)
-    const dy = invertY ? this.lookDy : -this.lookDy
-    this.pitch = clampPitch(this.pitch + dy * lookSpeed * DEG2RAD, pitchMaxDeg)
+    const dx = c.invertX ? -this.lookDx : this.lookDx
+    const dy = c.invertY ? this.lookDy : -this.lookDy
+    this.heading = headingAfterLook(this.heading, dx, c.lookSpeed)
+    this.pitch = clampPitch(this.pitch + dy * c.lookSpeed * DEG2RAD, c.pitchMaxDeg)
     this.lookDx = 0
     this.lookDy = 0
   }

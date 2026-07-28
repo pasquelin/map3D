@@ -442,7 +442,10 @@ export const defaultConfig: MapConfig = {
     walkSpeed: 1.4,
     sprintFactor: 3,
     lookSpeed: 0.15,
-    invertY: false,
+    // Convention du glisser de carte : tirer la souris vers le BAS relève la vue, comme le
+    // pan de `GlobeControls`. Passer à `false` donne la convention FPS.
+    invertY: true,
+    invertX: false,
     pitchMaxDeg: 89,
     // 1000 m : au-delà, la vue rasante fait demander des milliers de tuiles pour un
     // horizon que le brouillard cache de toute façon.
@@ -464,6 +467,10 @@ export const defaultConfig: MapConfig = {
       // Même ordre de grandeur que `performance.groundSample.radiusMeters` (18 m), écrit
       // pour exactement ce problème.
       ringRadiusMeters: 20,
+      // ~30 Hz : le curseur reste vif à l'œil, et la dizaine de raycasts par validation
+      // cesse de suivre la cadence d'un `pointermove`.
+      refreshMs: 33,
+      refreshSlopPx: 3,
     },
     headBob: { enabled: false, amplitudeMeters: 0.05, frequency: 1.8 },
     transitions: { enterMs: 800, exitMs: 600 },

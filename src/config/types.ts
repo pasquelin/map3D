@@ -1140,6 +1140,16 @@ export type PedestrianPlacementConfig = {
   maxRoofDeltaMeters: number
   /** Rayon de la couronne d'échantillonnage du sol (m) — cf. `sampleGroundHeight`. */
   ringRadiusMeters: number
+  /**
+   * Période minimale (ms) entre deux validations du curseur pendant le placement.
+   *
+   * Chaque validation coûte une dizaine de raycasts (le rayon d'écran, plus la couronne de
+   * sol). `pointermove` tire beaucoup plus vite que ça : sans cette limite, viser une rue
+   * suffisait à saturer la boucle de rendu.
+   */
+  refreshMs: number
+  /** Déplacement (px) en deçà duquel la validation précédente est réutilisée telle quelle. */
+  refreshSlopPx: number
 }
 
 /** Balancement de la marche — un effet, désactivé par défaut. */
@@ -1171,8 +1181,17 @@ export type PedestrianConfig = {
   sprintFactor: number
   /** Sensibilité du regard : degrés de rotation par pixel de souris. */
   lookSpeed: number
-  /** Inverse l'axe vertical du regard (convention « pilote »). */
+  /**
+   * Inverse l'axe vertical du regard.
+   *
+   * ⚠️ Le défaut suit la convention du CLIQUER-GLISSER de la carte (« attraper la scène » :
+   * tirer vers le bas relève la vue), et non celle d'un FPS — c'est le même geste que le
+   * pan de `GlobeControls`, et deux conventions opposées dans la même vue désorientent.
+   * Sous Pointer Lock (immersion totale), la convention FPS s'applique d'elle-même.
+   */
   invertY: boolean
+  /** Inverse l'axe horizontal du regard. */
+  invertX: boolean
   /** Borne du regard vertical (°) — à 90° la base du repère dégénère. */
   pitchMaxDeg: number
   /**
