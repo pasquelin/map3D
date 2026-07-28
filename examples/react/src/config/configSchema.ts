@@ -321,6 +321,7 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'sky.clouds.coverage': { min: 0, max: 1, step: 0.01 },
   'sky.clouds.density': { min: 0, max: 1, step: 0.01 },
   'sky.clouds.scale': { min: 0.00005, max: 0.001, step: 0.00005 },
+  'sky.clouds.speed': { min: 0, max: 0.005, step: 0.0001 },
   'sky.clouds.elevation': { min: 0, max: 1, step: 0.01 },
   'sky.fade.start': { min: 100_000, max: 2_000_000, step: 10_000 },
   'sky.fade.end': { min: 10_000, max: 500_000, step: 10_000 },

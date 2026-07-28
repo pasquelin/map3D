@@ -324,12 +324,13 @@ Ciel calculé (modèle de Preetham + nuages), **révélé en fondu quand on desc
 |---|---|---|
 | `sky.enabled` | Active le ciel. `false` = étoiles + fond de couleur seuls (comportement d'avant). | `true` |
 | `sky.turbidity` | Voile atmosphérique : `1` = ciel limpide, `~10` = brumeux/laiteux. | `2` |
-| `sky.rayleigh` | Diffusion de Rayleigh — intensité du bleu du ciel. | `1.2` |
+| `sky.rayleigh` | Diffusion de Rayleigh — intensité du bleu du ciel. | `3` |
 | `sky.mieCoefficient` | Diffusion de Mie — force du halo autour du soleil. | `0.005` |
 | `sky.mieDirectionalG` | Directionnalité de Mie (0..1) — concentration du halo solaire. | `0.8` |
-| `sky.clouds.coverage` | Couverture nuageuse : `0` = ciel dégagé, `1` = couvert. | `0.35` |
+| `sky.clouds.coverage` | Couverture nuageuse : `0` = ciel dégagé, `1` = couvert. | `0.3` |
 | `sky.clouds.density` | Opacité des nuages (0..1). | `0.4` |
 | `sky.clouds.scale` | Échelle du motif de nuages (plus petit = nuages plus grands). | `0.0002` |
+| `sky.clouds.speed` | Vitesse de dérive des nuages. `0` = figés ; sinon ils se déplacent en continu. | `0.0006` |
 | `sky.clouds.elevation` | Élévation apparente de la couche (0..1). | `0.5` |
 | `sky.fade.start` | Altitude caméra (m) au-dessus de laquelle le ciel est invisible (vue globe intacte). | `500000` |
 | `sky.fade.end` | Altitude caméra (m) en dessous de laquelle le ciel est plein. `start` doit être > `end`. | `90000` |

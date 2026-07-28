@@ -407,13 +407,14 @@ export const defaultConfig: MapConfig = {
 
   sky: {
     enabled: true,
-    // Ciel clair et franc par défaut : turbidité basse, bleu de Rayleigh soutenu.
+    // Ciel clair et franc : turbidité basse (peu de voile), bleu de Rayleigh soutenu
+    // (3 → azur profond au zénith plutôt que cyan délavé).
     turbidity: 2,
-    rayleigh: 1.2,
+    rayleigh: 3,
     mieCoefficient: 0.005,
     mieDirectionalG: 0.8,
-    // Couverture modérée, nuages statiques (pas d'animation temporelle).
-    clouds: { coverage: 0.35, density: 0.4, scale: 0.0002, elevation: 0.5 },
+    // Couverture modérée, nuages qui dérivent lentement (speed > 0).
+    clouds: { coverage: 0.3, density: 0.4, scale: 0.0002, speed: 0.0006, elevation: 0.5 },
     // Fondu haut dans la descente : au-delà de 500 km, espace étoilé pur ; sous 90 km,
     // ciel plein. La bande couvre toute l'entrée en atmosphère sans jamais toucher la
     // vue globe (altitude ≈ rayon terrestre).
