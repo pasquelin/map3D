@@ -23,6 +23,15 @@ describe('mergeConfig', () => {
     expect(mergeConfig(defaultConfig, undefined)).toBe(defaultConfig)
   })
 
+  it('fusionne un sous-arbre piéton partiel sans vider ses voisins', () => {
+    const merged = mergeConfig(defaultConfig, { pedestrian: { collision: { feelers: 8 } } })
+    expect(merged.pedestrian.collision.feelers).toBe(8)
+    // Les frères du champ touché survivent — c'est tout l'intérêt du merge profond.
+    expect(merged.pedestrian.collision.radiusMeters).toBe(0.3)
+    expect(merged.pedestrian.eyeHeightMeters).toBe(1.7)
+    expect(merged.interaction.shortcuts.controls.pedestrian).toBe('w')
+  })
+
   it('remplace un tableau de paliers en bloc', () => {
     const merged = mergeConfig(defaultConfig, { providers: { routing: { presets: { fastest: [2] } } } })
     expect(merged.providers.routing.presets.fastest).toEqual([2])

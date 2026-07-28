@@ -745,6 +745,8 @@ export type ControlShortcuts = {
   basemap: string | false
   /** Calque trafic — le bouton n'existe qu'en mode plan. */
   traffic: string | false
+  /** Entrer / quitter le mode piéton — le bouton n'existe qu'en 3D photoréaliste externe. */
+  pedestrian: string | false
 }
 
 /** Outils de dessin et modes de sélection — une touche simple chacun. */
@@ -833,9 +835,24 @@ export type NavigateShortcuts = {
   boost: readonly string[]
 }
 
+/**
+ * Mode piéton. L'ENTRÉE dans le mode est un bouton de la barre de navigation : sa touche
+ * vit donc dans `controls.pedestrian`, avec les neuf autres. Ne reste ici que ce qui n'a
+ * pas de bouton de barre.
+ *
+ * `immersion` est à `false` par défaut, comme `controls.topDown` et `controls.traffic` : la
+ * bascule ne vaut QUE mode piéton actif, et Échap en sort déjà (relâchement natif du
+ * Pointer Lock). Brûler une lettre globale pour ça serait déroutant.
+ */
+export type PedestrianShortcuts = {
+  /** Bascule exploration ↔ immersion totale. */
+  immersion: string | false
+}
+
 export type ShortcutsConfig = {
   controls: ControlShortcuts
   navigate: NavigateShortcuts
+  pedestrian: PedestrianShortcuts
   draw: DrawToolShortcuts
   edit: EditShortcuts
   lens: {
@@ -1102,6 +1119,85 @@ export type SkyConfig = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Corps du piéton — capsule approximée par des rayons palpeurs (aucun BVH). */
+export type PedestrianCollisionConfig = {
+  /** Demi-largeur du corps (m) : distance en deçà de laquelle un mur repousse. */
+  radiusMeters: number
+  /** Nombre de rayons horizontaux lancés en éventail autour de la direction de marche. */
+  feelers: number
+  /** Longueur des palpeurs EN PLUS du rayon (m) — de quoi voir le mur avant de l'atteindre. */
+  feelerMarginMeters: number
+  /** Montée franchissable d'un pas (m) : trottoir, marche. Au-delà, c'est un mur. */
+  maxStepHeightMeters: number
+}
+
+/** Choix du point d'entrée en mode piéton — cf. `isGroundPlacement`. */
+export type PedestrianPlacementConfig = {
+  /**
+   * Écart maximal (m) entre la surface visée et le niveau de rue de la couronne. Au-delà,
+   * le point est un toit et le clic est refusé.
+   */
+  maxRoofDeltaMeters: number
+  /** Rayon de la couronne d'échantillonnage du sol (m) — cf. `sampleGroundHeight`. */
+  ringRadiusMeters: number
+}
+
+/** Balancement de la marche — un effet, désactivé par défaut. */
+export type PedestrianHeadBobConfig = {
+  enabled: boolean
+  amplitudeMeters: number
+  /** Oscillations par seconde (Hz) à vitesse de marche nominale. */
+  frequency: number
+}
+
+/** Durées (ms) de la plongée à l'entrée et de la remontée à la sortie. */
+export type PedestrianTransitionsConfig = {
+  enterMs: number
+  exitMs: number
+}
+
+/**
+ * Mode piéton / première personne — cf. le guide PEDESTRIAN.md.
+ *
+ * ⚠️ Tout ce qui suit est de la CONFIG et non du thème : rien ne s'y voit directement.
+ * L'apparence du curseur de placement et du réticule vit dans `theme.colors.pedestrian`.
+ */
+export type PedestrianConfig = {
+  /** Hauteur de l'œil au-dessus du sol (m). */
+  eyeHeightMeters: number
+  /** Vitesse de marche (m/s) — INDÉPENDANTE de l'altitude, contrairement au vol orbital. */
+  walkSpeed: number
+  /** Multiplicateur appliqué tant que la touche `boost` est maintenue. */
+  sprintFactor: number
+  /** Sensibilité du regard : degrés de rotation par pixel de souris. */
+  lookSpeed: number
+  /** Inverse l'axe vertical du regard (convention « pilote »). */
+  invertY: boolean
+  /** Borne du regard vertical (°) — à 90° la base du repère dégénère. */
+  pitchMaxDeg: number
+  /**
+   * Distance de vue (m) : borne le `far` de la caméra, donc le frustum culling, donc les
+   * tuiles que le `TilesRenderer` demande. C'est le levier de performance n°1 de la vue
+   * rasante — la baisser coûte de l'horizon et rend de la fluidité.
+   */
+  viewDistanceMeters: number
+  /** Début du brouillard (m). Il finit toujours à `viewDistanceMeters` — cf. `pedestrianView`. */
+  fogStartMeters: number
+  /** Plan proche de la caméra (m) en mode piéton. */
+  nearMeters: number
+  /**
+   * Constante de temps (SECONDES) du lissage vertical de l'œil. Trop fort → sensation de
+   * flottement ; trop faible → sautillement quand les tuiles se raffinent.
+   */
+  groundSmoothing: number
+  collision: PedestrianCollisionConfig
+  placement: PedestrianPlacementConfig
+  headBob: PedestrianHeadBobConfig
+  transitions: PedestrianTransitionsConfig
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Arbre de réglages complet — chaque feuille a une valeur (cf. `defaultConfig`). */
 export type MapConfig = {
   providers: ProvidersConfig
@@ -1116,6 +1212,8 @@ export type MapConfig = {
   startup: StartupConfig
   /** Ciel atmosphérique procédural — cf. `SkyConfig`. */
   sky: SkyConfig
+  /** Mode piéton / première personne — cf. `PedestrianConfig`. */
+  pedestrian: PedestrianConfig
 }
 
 /** Ce que fournit l'application : n'importe quel sous-arbre de `MapConfig`. */

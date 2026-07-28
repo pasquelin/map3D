@@ -248,6 +248,9 @@ export const defaultConfig: MapConfig = {
         basemap: 'b',
         // Le bouton n'existe qu'en mode plan : un raccourci global serait déroutant.
         traffic: false,
+        // 'w' : les lettres voisines sont prises (ZQSD navigue, 'p' est le polygone), et
+        // 'w' est la convention FPS (walk).
+        pedestrian: 'w',
       },
       // Déplacement CONTINU : ces touches agissent tant qu'elles sont maintenues. Les
       // flèches marchent partout ; ZQSD suit la disposition AZERTY, une application
@@ -258,6 +261,11 @@ export const defaultConfig: MapConfig = {
         left: ['arrowleft', 'q'],
         right: ['arrowright', 'd'],
         boost: ['shift'],
+      },
+      // L'ENTRÉE dans le mode piéton est un bouton de barre : sa touche vit dans
+      // `controls.pedestrian`. Ne reste ici que ce qui n'a pas de bouton.
+      pedestrian: {
+        immersion: false,
       },
       draw: {
         select: 'v',
@@ -427,5 +435,32 @@ export const defaultConfig: MapConfig = {
     fade: { start: 500_000, end: 90_000 },
     // 0 = heure de montage, figée (cf. SkyConfig.date).
     date: 0,
+  },
+
+  pedestrian: {
+    eyeHeightMeters: 1.7,
+    walkSpeed: 1.4,
+    sprintFactor: 3,
+    lookSpeed: 0.15,
+    invertY: false,
+    pitchMaxDeg: 89,
+    // 1000 m : au-delà, la vue rasante fait demander des milliers de tuiles pour un
+    // horizon que le brouillard cache de toute façon.
+    viewDistanceMeters: 1000,
+    fogStartMeters: 700,
+    nearMeters: 0.1,
+    groundSmoothing: 0.25,
+    collision: {
+      radiusMeters: 0.3,
+      feelers: 6,
+      feelerMarginMeters: 0.2,
+      maxStepHeightMeters: 0.4,
+    },
+    placement: {
+      maxRoofDeltaMeters: 2,
+      ringRadiusMeters: 4,
+    },
+    headBob: { enabled: false, amplitudeMeters: 0.05, frequency: 1.8 },
+    transitions: { enterMs: 800, exitMs: 600 },
   },
 }

@@ -72,6 +72,12 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   sky: 'Ciel',
   'sky.clouds': 'Nuages',
   'sky.fade': 'Fondu (altitude)',
+  pedestrian: 'Mode piéton',
+  'pedestrian.collision': 'Collision',
+  'pedestrian.placement': 'Placement',
+  'pedestrian.headBob': 'Balancement',
+  'pedestrian.transitions': 'Transitions',
+  'interaction.shortcuts.pedestrian': 'Mode piéton',
 }
 
 /** Feuilles — les 196 de `defaultConfig`, plus les 3 clés optionnelles du type. */
@@ -362,4 +368,29 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'sky.fade.start': 'apparition (m)',
   'sky.fade.end': 'plein ciel (m)',
   'sky.date': 'instant du soleil (0 = maintenant)',
+
+  // ── mode piéton ────────────────────────────────────────────────────────────
+  'pedestrian.eyeHeightMeters': 'hauteur des yeux (m)',
+  'pedestrian.walkSpeed': 'vitesse de marche (m/s)',
+  'pedestrian.sprintFactor': 'facteur de course',
+  'pedestrian.lookSpeed': 'sensibilité du regard',
+  'pedestrian.invertY': 'inverser l’axe vertical',
+  'pedestrian.pitchMaxDeg': 'regard vertical maxi (°)',
+  'pedestrian.viewDistanceMeters': 'distance de vue (m)',
+  'pedestrian.fogStartMeters': 'début du brouillard (m)',
+  'pedestrian.nearMeters': 'plan proche (m)',
+  'pedestrian.groundSmoothing': 'lissage du sol (s)',
+  'pedestrian.collision.radiusMeters': 'rayon du corps (m)',
+  'pedestrian.collision.feelers': 'nombre de palpeurs',
+  'pedestrian.collision.feelerMarginMeters': 'marge des palpeurs (m)',
+  'pedestrian.collision.maxStepHeightMeters': 'marche franchissable (m)',
+  'pedestrian.placement.maxRoofDeltaMeters': 'écart toit maxi (m)',
+  'pedestrian.placement.ringRadiusMeters': 'rayon de la couronne (m)',
+  'pedestrian.headBob.enabled': 'balancement de marche',
+  'pedestrian.headBob.amplitudeMeters': 'amplitude (m)',
+  'pedestrian.headBob.frequency': 'fréquence (Hz)',
+  'pedestrian.transitions.enterMs': 'durée de plongée (ms)',
+  'pedestrian.transitions.exitMs': 'durée de remontée (ms)',
+  'interaction.shortcuts.controls.pedestrian': 'mode piéton',
+  'interaction.shortcuts.pedestrian.immersion': 'basculer l’immersion',
 }

@@ -325,6 +325,25 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'sky.fade.start': { min: 100_000, max: 2_000_000, step: 10_000 },
   'sky.fade.end': { min: 10_000, max: 500_000, step: 10_000 },
   // Epoch ms, 0 = maintenant : champ nombre libre (aucune borne n'aurait de sens).
+
+  // Mode piéton. Le suffixe `…Meters` déduit [0, def×4] AU PAS DE 1 : beaucoup trop
+  // grossier pour des grandeurs corporelles (0,3 m de rayon, 0,1 m de near). `…Deg` et les
+  // clés sans suffixe n'ont, elles, aucune borne déduite.
+  'pedestrian.eyeHeightMeters': { min: 0.5, max: 3, step: 0.05 },
+  'pedestrian.walkSpeed': { min: 0.5, max: 10, step: 0.1 },
+  'pedestrian.sprintFactor': { min: 1, max: 10, step: 0.5 },
+  'pedestrian.lookSpeed': { min: 0.01, max: 1, step: 0.01 },
+  'pedestrian.pitchMaxDeg': { min: 0, max: 89, step: 1 },
+  'pedestrian.nearMeters': { min: 0.01, max: 2, step: 0.01 },
+  'pedestrian.groundSmoothing': { min: 0, max: 2, step: 0.01 },
+  'pedestrian.collision.radiusMeters': { min: 0.1, max: 2, step: 0.05 },
+  'pedestrian.collision.feelers': { min: 3, max: 16, step: 1 },
+  'pedestrian.collision.feelerMarginMeters': { min: 0, max: 1, step: 0.05 },
+  'pedestrian.collision.maxStepHeightMeters': { min: 0, max: 1.5, step: 0.05 },
+  'pedestrian.placement.maxRoofDeltaMeters': { min: 0, max: 20, step: 0.5 },
+  'pedestrian.placement.ringRadiusMeters': { min: 1, max: 20, step: 0.5 },
+  'pedestrian.headBob.amplitudeMeters': { min: 0, max: 0.5, step: 0.01 },
+  'pedestrian.headBob.frequency': { min: 0.5, max: 5, step: 0.1 },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
