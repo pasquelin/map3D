@@ -444,6 +444,50 @@ export class BuildingsLayer {
   }
 
   /**
+   * Coins de l'emprise d'un bâtiment, en repère MONDE, écrits dans `out` (4 points).
+   * `false` quand la tuile n'est plus là.
+   *
+   * La boîte est mesurée dans le repère LOCAL de la tuile — de l'arithmétique sur la plage
+   * de sommets — puis seuls ses quatre coins passent en monde. Un bâtiment fait quelques
+   * dizaines de mètres : à cette échelle le repère est linéaire, et convertir chaque sommet
+   * donnerait la même boîte pour mille fois le travail.
+   *
+   * Appelé au CLIC seulement, jamais au survol : c'est le seul endroit où l'emprise sert.
+   */
+  cornersOf(ref: BuildingRef, out: THREE.Vector3[]): boolean {
+    const tile = this.find(ref.tileKey)
+    const mesh = tile?.mesh
+    const from = tile?.buildings?.vStart[ref.index]
+    const to = tile?.buildings?.vStart[ref.index + 1]
+    if (!mesh || from === undefined || to === undefined || to <= from) return false
+    const pos = mesh.geometry.getAttribute('position')
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    // Le toit, mesuré et non déduit de l'ordre des sommets : cadrer sur la base ferait
+    // passer la caméra à l'intérieur du volume.
+    let top = -Infinity
+    for (let v = from; v < to; v++) {
+      // `getX`/`getY` dénormalisent d'eux-mêmes un attribut `int16` ; c'est la matrice du
+      // mesh qui rend ensuite les mètres, puis la position sur le globe.
+      const x = pos.getX(v)
+      const y = pos.getY(v)
+      const z = pos.getZ(v)
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+      if (z > top) top = z
+    }
+    out[0]!.set(minX, minY, top).applyMatrix4(mesh.matrixWorld)
+    out[1]!.set(maxX, minY, top).applyMatrix4(mesh.matrixWorld)
+    out[2]!.set(maxX, maxY, top).applyMatrix4(mesh.matrixWorld)
+    out[3]!.set(minX, maxY, top).applyMatrix4(mesh.matrixWorld)
+    return true
+  }
+
+  /**
    * Met (ou retire, avec `null`) la mise en évidence d'un genre donné.
    *
    * Réécrit la plage de l'attribut `color` DÉJÀ ALLOUÉ, après en avoir emprunté une copie :

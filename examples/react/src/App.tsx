@@ -27,7 +27,7 @@ import { StatsOverlay } from './components/StatsOverlay'
 import { clusterTip, markerTip } from './components/tooltips'
 import { CESIUM_ION_TOKEN, GOOGLE_MAPS_KEY, TILE_ORIGIN } from './config/env'
 import { clusterTypeLabel, markerLabel } from './config/labels'
-import { buildingMenu } from './config/buildingMenu'
+import { createBuildingMenu } from './config/buildingMenu'
 import { createMarkerMenu } from './config/markerMenus'
 import { RELATION_RULES } from './config/relations'
 import { loadStoredPartial } from './config/configSchema'
@@ -259,6 +259,10 @@ export function App() {
      l'inventaire de la loupe, le panneau de sélection). Les deux listings y ajoutent
      « Cibler » d'eux-mêmes ; le second argument porte les entrées du moteur de
      relations. */
+  /* Menu d'un bâtiment du volume 3D interne. La poignée est passée par REF : le menu se
+     fabrique une fois, et lit la caméra au moment du clic. */
+  const buildingMenu = useMemo(() => createBuildingMenu(map), [])
+
   const markerMenu = useCallback<NonNullable<MapSurfaces<AnyData>['markerMenu']>>(
     (m, relations) => {
       const rel = relations?.menuFor(m) ?? []
@@ -434,7 +438,7 @@ export function App() {
           // panneau de sélection. Les deux listings y ajoutent « Cibler » d'eux-mêmes.
           // Le second argument porte les entrées du moteur de relations.
           markerMenu={markerMenu}
-          // Menu d'un bâtiment du volume interne. Le bouton qui arme l'outil n'apparaît
+          // Menu d'un bâtiment du volume interne. L'entrée qui arme l'outil n'apparaît
           // qu'en 3D interne, ce que `basemap.canPickBuildings` décide seul — inutile de
           // conditionner cette prop.
           buildingMenu={buildingMenu}

@@ -104,6 +104,22 @@ state at click time without the map having to depend on it.
 | `height` | `number` | total height of the footprint (m above ground) |
 | `minHeight` | `number` | base height — non-zero for a porch, for stilts |
 | `props` | `Record<string, unknown>` | MVT attributes requested through `pickFields`; empty otherwise (§ 5) |
+| `bounds` | `Bounds` | the volume's extent — what you need to **frame** it (see below) |
+
+### Framing the selected building
+
+`bounds` is the volume's extent, not the clicked point: pass it straight to the camera.
+
+```tsx
+{
+  label: 'Frame this building',
+  onSelect: () => map.current?.camera.fitBounds(info.bounds, { padding: 80 }),
+}
+```
+
+The library **never** reframes on its own: an unrequested flight on every click would move
+the map out from under the menu that just opened. It is a `buildingMenu` entry for you to
+write, like the rest of its contents — and you pick the padding, zoom and duration there.
 
 > **A "building" is a FOOTPRINT, not a feature.** One MVT feature may carry several (two
 > wings of the same block), and they then share the same `featureId`. Each hovers and picks

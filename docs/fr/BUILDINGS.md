@@ -107,6 +107,23 @@ votre application au moment du clic sans que la carte ait à en dépendre.
 | `height` | `number` | hauteur totale de l'emprise (m au-dessus du sol) |
 | `minHeight` | `number` | hauteur de base — non nulle pour un porche, des pilotis |
 | `props` | `Record<string, unknown>` | attributs MVT demandés par `pickFields` ; vide sinon (cf. § 5) |
+| `bounds` | `Bounds` | emprise du volume — de quoi le **cadrer** (voir plus bas) |
+
+### Cadrer le bâtiment sélectionné
+
+`bounds` est l'emprise du volume, pas le point cliqué : elle se passe telle quelle à la
+caméra.
+
+```tsx
+{
+  label: 'Cadrer ce bâtiment',
+  onSelect: () => map.current?.camera.fitBounds(info.bounds, { padding: 80 }),
+}
+```
+
+La lib ne recadre **jamais** d'elle-même : un vol non demandé à chaque clic déplacerait la
+carte sous le menu qui vient de s'ouvrir. C'est une entrée de `buildingMenu` à écrire, comme
+le reste de son contenu — et vous y choisissez la marge, le zoom et la durée.
 
 > **Un « bâtiment » est une EMPRISE, pas une feature.** Une feature MVT peut en porter
 > plusieurs (deux corps d'un même îlot), et elles partagent alors le même `featureId`.

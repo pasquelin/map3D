@@ -4,7 +4,12 @@ import { GlobeControls, TilesRenderer } from '3d-tiles-renderer'
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/plugins'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig, TileProvider, TilesConfig } from '../config/types'
-import { type BuildingHighlight, BuildingsLayer, type BuildingRef } from '../layers/BuildingsLayer'
+import {
+  type BuildingHighlight,
+  type BuildingPickResult,
+  BuildingsLayer,
+  type BuildingRef,
+} from '../layers/BuildingsLayer'
 import { defaultTheme } from '../theme/defaultTheme'
 import { TiledGlobeLayer } from '../layers/TiledGlobeLayer'
 import type { Bounds, LatLng } from '../shared'
@@ -165,6 +170,14 @@ export type BuildingInfo = {
   minHeight: number
   /** Attributs demandés par `providers.buildings.pickFields` ; vide sans liste. */
   props: Record<string, unknown>
+  /**
+   * Emprise du bâtiment — de quoi le CADRER : `camera.fitBounds(info.bounds)`.
+   *
+   * La lib ne recadre rien d'elle-même : un vol non demandé à chaque clic déplacerait la
+   * carte sous le menu qui vient de s'ouvrir. C'est une entrée de `buildingMenu` à écrire,
+   * comme le reste de son contenu.
+   */
+  bounds: Bounds
 }
 
 /** Le bâtiment désigné, et de quoi le re-désigner (mise en évidence). */
@@ -300,6 +313,8 @@ export class MapEngine {
   private buildingPickMode = false
   /** Scratch NDC du pick de bâtiment — un objet, jamais un par mouvement de pointeur. */
   private readonly pickNdc = new THREE.Vector2()
+  /** Coins de l'emprise cliquée — quatre points réutilisés, alloués une seule fois. */
+  private readonly pickCorners = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]
 
   private stars: THREE.Points | null = null
   /** Ciel atmosphérique procédural (null quand `config.sky.enabled` est faux). */
@@ -1900,19 +1915,46 @@ export class MapEngine {
   }
 
   /**
-   * Bâtiment sous le pointeur, coordonnée du point d'impact comprise.
+   * Bâtiment sous le pointeur — brut : sa référence et le point d'impact en repère MONDE.
    *
-   * Le raycast rend son point en repère MONDE : `worldToLatLng` le ramène au repère du
-   * groupe puis à l'ellipsoïde — la même conversion que `pickLatLng`, donc exactement la
-   * même coordonnée qu'un clic carte au même pixel.
+   * Aucune géodésie ici : le survol l'appelle à chaque mouvement du pointeur et n'a besoin
+   * que de la référence. C'est `buildingHitOf` qui convertit, au clic seulement.
    */
-  private pickBuildingAt(e: PointerEvent): BuildingHit | null {
+  private pickBuildingAt(e: PointerEvent): BuildingPickResult | null {
     const rect = this.canvas.getBoundingClientRect()
     this.pickNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
-    const hit = this.buildings.pick(this.pickNdc, this.threeCamera)
-    if (!hit) return null
+    return this.buildings.pick(this.pickNdc, this.threeCamera)
+  }
+
+  /**
+   * Complète un pick en `BuildingHit` : coordonnée du point cliqué et emprise du volume.
+   *
+   * `worldToLatLng` ramène le point au repère du groupe puis à l'ellipsoïde — la même
+   * conversion que `pickLatLng`, donc exactement la coordonnée d'un clic carte au même
+   * pixel. L'emprise, elle, vient des quatre coins que la couche mesure sur la plage de
+   * sommets du bâtiment : de quoi le cadrer avec `camera.fitBounds`.
+   */
+  private buildingHitOf(hit: BuildingPickResult): BuildingHit {
     const ll = this.projection.worldToLatLng(hit.point)
-    return { ref: hit.ref, info: { ...hit.attrs, lat: ll.lat, lng: ll.lng } }
+    let north = -Infinity
+    let south = Infinity
+    let east = -Infinity
+    let west = Infinity
+    if (this.buildings.cornersOf(hit.ref, this.pickCorners)) {
+      for (const c of this.pickCorners) {
+        const p = this.projection.worldToLatLng(c)
+        if (p.lat > north) north = p.lat
+        if (p.lat < south) south = p.lat
+        if (p.lng > east) east = p.lng
+        if (p.lng < west) west = p.lng
+      }
+    } else {
+      // Tuile disparue entre le rayon et ici : l'emprise se réduit au point cliqué, ce qui
+      // laisse `fitBounds` recentrer sans cadrer — plutôt qu'une boîte vide ou infinie.
+      north = south = ll.lat
+      east = west = ll.lng
+    }
+    return { ref: hit.ref, info: { ...hit.attrs, lat: ll.lat, lng: ll.lng, bounds: { north, south, east, west } } }
   }
 
   /** Les outils (dessin, loupe) ne reçoivent rien tant que la carte est figée. */
@@ -1952,7 +1994,7 @@ export class MapEngine {
     if (this.buildingPickMode && drag && drag.moved < this.config.interaction.cleanClickPx) {
       const hit = this.pickBuildingAt(e)
       if (hit) {
-        this.emit('buildingclick', { hit, originalEvent: e })
+        this.emit('buildingclick', { hit: this.buildingHitOf(hit), originalEvent: e })
         return
       }
     }
