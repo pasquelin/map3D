@@ -133,6 +133,11 @@ export class PedestrianController {
     this.lookDy += dyPx
   }
 
+  /** Position au sol courante — référence VIVE, jamais copiée : lue par frame. */
+  get position(): LatLng {
+    return this.at
+  }
+
   /** Cap courant (rad) — lu par frame, sans allouer (contrairement à `getPose`). */
   get heading(): number {
     return this.headingRad

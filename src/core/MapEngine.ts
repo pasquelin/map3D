@@ -20,7 +20,7 @@ import {
   deriveBasemapCapabilities,
   type MapMode,
 } from './basemap'
-import { boundsOfLatLngs } from './bounds'
+import { boundsOfCircle, boundsOfLatLngs } from './bounds'
 import { Camera, type CameraState } from './Camera'
 import { PedestrianController } from './PedestrianController'
 import { isGroundPlacement } from './pedestrianPlacement'
@@ -1949,19 +1949,28 @@ export class MapEngine {
      * d'ellipsoïde), dont la moitié des rayons part dans le ciel à l'horizontale au sol — et
      * aucun des deux calques alimentés ici n'est à l'écran en 3D externe.
      */
-    const feedBasemap =
-      this.cameraMode === 'orbit' &&
-      (this.mapMode !== '3d' || this.provider3d === 'internal') &&
-      this.basemap2d.hasSource
-    const feedBuildings = this.cameraMode === 'orbit' && this.mapMode === '3d' && this.provider3d === 'internal'
+    const feedBasemap = (this.mapMode !== '3d' || this.provider3d === 'internal') && this.basemap2d.hasSource
+    const feedBuildings = this.mapMode === '3d' && this.provider3d === 'internal'
     if (feedBasemap || feedBuildings) {
-      // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
-      // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
-      const view = this.computeView(state)
+      /**
+       * Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
+       * → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
+       *
+       * ⚠️ Sauf en piéton : à hauteur d'homme la grille de `viewportBounds` tire la moitié de
+       * ses rayons vers le ciel, et le cadre qui en sort part à l'horizon. Le disque de la
+       * distance de vue est à la fois juste et gratuit — c'est exactement ce que le
+       * brouillard laisse voir. Sans lui, le décor du volume interne restait au niveau de
+       * détail du survol : sol flou et bâtiments grossiers, à un mètre des yeux.
+       */
+      const walking = this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active'
+      const view = walking ? null : this.computeView(state)
+      const bounds = view
+        ? view.bounds
+        : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
       const tileZoom = this.tileZoomAtCenter(state)
-      const aim = this.aimPoint(view)
-      if (feedBasemap) this.basemap2d.update(view.bounds, tileZoom, aim, !controlling)
-      if (feedBuildings) this.buildings.update(view.bounds, tileZoom, aim)
+      const aim = view ? this.aimPoint(view) : this.pedestrianCtl.position
+      if (feedBasemap) this.basemap2d.update(bounds, tileZoom, aim, !controlling)
+      if (feedBuildings) this.buildings.update(bounds, tileZoom, aim)
     }
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
