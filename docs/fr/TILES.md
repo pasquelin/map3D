@@ -289,6 +289,7 @@ export type TileSource = {
 
 ## Voir aussi
 
+- [BUILDINGS.md](BUILDINGS.md) — désigner un bâtiment de ce volume interne
 - [CONFIG.md](CONFIG.md) — toutes les clés de `providers.tiles`
 - [ENGINE.md](ENGINE.md) — `BasemapState`, événement `basemap`
 - [PROPS.md](PROPS.md) — boutons de `<MapControls>`

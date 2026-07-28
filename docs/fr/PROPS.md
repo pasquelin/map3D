@@ -59,6 +59,7 @@ couches et regroupement **dans le bon ordre d'imbrication**.
 | `layers` | Couches de données, dans l'ordre de rendu (`markersLayer`, `shapesLayer`). | `[]` |
 | `cluster` | Surface de regroupement de la carte (cf. `<ClusterSurface>`). `false` coupe le regroupement. | *(défauts)* |
 | `markerMenu` | Menu d'un marker, **partagé** par la carte, la loupe et le panneau de sélection. | *(absent)* |
+| `buildingMenu` | Menu d'un **bâtiment** du volume interne, ouvert au clic quand l'outil « Sélectionner un bâtiment » est actif. Reçoit un [`BuildingInfo`](BUILDINGS.md#4-buildinginfo). Sans cette prop, l'outil surligne au survol mais le clic n'ouvre rien. | *(absent)* |
 | `children` | Vos composants montés dans la carte (`useMap()`, panneaux maison…). | *(absent)* |
 
 ## `<ClusterSurface>`

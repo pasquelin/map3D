@@ -38,6 +38,7 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `controls.mode3d` | Fond de carte : tuiles 3D photoréalistes. | `'Vue 3D'` |
 | `controls.plan` | Fond de carte : plan 2D Google. | `'Plan'` |
 | `controls.traffic` | Calque trafic Google (mode plan uniquement). | `'Trafic'` |
+| `controls.selectBuilding` | Outil « sélectionner un bâtiment » — volume interne seulement. | `'Sélectionner un bâtiment'` |
 
 ## `tags` — Panneau « Couches »
 

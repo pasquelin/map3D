@@ -46,6 +46,7 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `controls.mode3d` | Basemap: photorealistic 3D tiles. | `'Vue 3D'` |
 | `controls.plan` | Basemap: Google 2D plan. | `'Plan'` |
 | `controls.traffic` | Google traffic overlay (plan mode only). | `'Trafic'` |
+| `controls.selectBuilding` | “Select a building” tool — internal volume only. | `'Sélectionner un bâtiment'` |
 
 ## `tags` — “Layers” panel
 
@@ -347,6 +348,7 @@ import { imperialMeasure } from '@gosecure/map3d'
       zoomIn: 'Zoom in', zoomOut: 'Zoom out', tilt: 'Tilt', topDown: 'Top-down view',
       globe: 'Back to globe', fullscreen: 'Fullscreen', target: 'Back to target',
       mode3d: '3D view', plan: 'Plan', traffic: 'Traffic',
+      selectBuilding: 'Select a building',
     },
     tags: {
       button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',

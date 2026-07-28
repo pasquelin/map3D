@@ -110,6 +110,7 @@ compile error.
 | `providers.buildings.maxRequest` | Budget of tiles requested for one view: the N×N tiles around the **looked-at** point (the ground under screen centre, not under the camera). `25` = 5×5, about 8 km of reach in Paris. Beyond it, the raster basemap stands alone — see [TILES.md § 5](TILES.md). | `25` |
 | `providers.buildings.maxAttempts` | Attempts per tile before giving up. | `3` |
 | `providers.buildings.retryDelays` | Backoff between two attempts on the same tile. | `[1000, 4000]` |
+| `providers.buildings.pickFields` | MVT attributes surfaced by the building pick (`buildingMenu`). **Empty by default**: the data carries dozens per footprint, and carrying them all would cost, per tile, more than the whole geometry. The host asks for what it displays. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Cesium Ion asset served by default (Google Photorealistic 3D Tiles). ⚠️ The identifier used to be written in the engine and repeated in TWO documentation blocks: three copies of a value that designates a provider, the only one of its kind living outside `providers`. | `'2275207'` |
 | `providers.symbols.cacheMaxEntries` | Cap of the rendered thumbnail cache. ⚠️ Unbounded until now. | `200` |
 
@@ -135,6 +136,7 @@ compile error.
 | `interaction.history.depth` | Depth of the undo stack. | `50` |
 | `interaction.menu.hoverIntentMs` | Sustained hover before a submenu opens. | `150` |
 | `interaction.menu.submenuCloseMs` | Grace delay before closing a sub-panel you left. | `140` |
+| `interaction.buildingPick.cursor` | Canvas cursor while the “select a building” tool is active. A **system** cursor — the project's convention rules out cursor images. Set inline on the canvas, which wins over the injected stylesheet's `grab`. | `'crosshair'` |
 | `interaction.hubHitTolerancePx` | Click tolerance around a relation hub (the link has its own). | `12` |
 | `interaction.repositionHitPx` | Clickable target of a repositionable marker's ground point. The dot is 7 px: without widening, catching it is a matter of dexterity. The value used to live in the stylesheet (`::before`), hence outside this block although it belongs exactly here — a pointer tolerance that touch support… | `22` |
 | `interaction.clickSuppressMs` | Time net after a gesture: how long the synthetic `click` that follows is swallowed. Coupled with `longPressMs` — a touch context that lengthens one must be able to lengthen the other. | `400` |
@@ -165,6 +167,7 @@ compile error.
 | `interaction.shortcuts.controls.fullscreen` | Fullscreen. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Switch photorealistic 3D ↔ 2D plan. | `'b'` |
 | `interaction.shortcuts.controls.traffic` | Traffic overlay — the button only exists in plan mode. | `false` |
+| `interaction.shortcuts.controls.selectBuilding` | Toggles the “select a building” tool. | `'u'` |
 | `interaction.shortcuts.navigate.forward` | Move forward — held. Several keys: the arrows, universal, and a letter family that depends on keyboard layout. | `['arrowup', 'z']` |
 | `interaction.shortcuts.navigate.backward` | Move back. | `['arrowdown', 's']` |
 | `interaction.shortcuts.navigate.left` | Strafe left. | `['arrowleft', 'q']` |

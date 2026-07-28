@@ -289,6 +289,7 @@ that provider has nothing to serve.
 
 ## See also
 
+- [BUILDINGS.md](BUILDINGS.md) — picking a building of that internal volume
 - [CONFIG.md](CONFIG.md) — every `providers.tiles` key
 - [ENGINE.md](ENGINE.md) — `BasemapState`, `basemap` event
 - [PROPS.md](PROPS.md) — `<MapControls>` buttons

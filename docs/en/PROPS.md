@@ -61,6 +61,7 @@ grouping **in the right nesting order**.
 | `layers` | Data layers, in render order (`markersLayer`, `shapesLayer`). | `[]` |
 | `cluster` | The map's grouping surface (see `<ClusterSurface>`). `false` turns grouping off. | *(defaults)* |
 | `markerMenu` | Marker menu, **shared** by the map, the lens and the selection panel. | *(absent)* |
+| `buildingMenu` | Menu of a **building** of the internal volume, opened on click while the “Select a building” tool is active. Receives a [`BuildingInfo`](BUILDINGS.md#4-buildinginfo). Without this prop the tool highlights on hover but clicking opens nothing. | *(absent)* |
 | `children` | Your components mounted inside the map (`useMap()`, custom panels…). | *(absent)* |
 
 ## `<ClusterSurface>`

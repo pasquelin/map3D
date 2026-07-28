@@ -107,6 +107,7 @@ partiel est une erreur de compilation.
 | `providers.buildings.maxRequest` | Budget de tuiles demandées pour une vue : les N×N tuiles autour du point **regardé** (le sol sous le centre de l'écran, pas sous la caméra). `25` = 5×5, soit ~8 km de portée à Paris. Au-delà, le fond raster reste seul — cf. [TILES.md § 5](TILES.md). | `25` |
 | `providers.buildings.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
 | `providers.buildings.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
+| `providers.buildings.pickFields` | Attributs MVT remontés par le pick de bâtiment (`buildingMenu`). **Vide par défaut** : la donnée en porte des dizaines par emprise, et les transporter toutes coûterait, par tuile, plus que toute la géométrie. L'hôte demande ce qu'il affiche. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles). ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de documentation : trois copies d'une valeur qui désigne un fournisseur, seule de son espèce à vivre hors de `providers`. | `'2275207'` |
 | `providers.symbols.cacheMaxEntries` | Plafond du cache de vignettes rendues. ⚠️ Non borné jusqu'ici. | `200` |
 
@@ -132,6 +133,7 @@ partiel est une erreur de compilation.
 | `interaction.history.depth` | Profondeur de la pile d'annulation. | `50` |
 | `interaction.menu.hoverIntentMs` | Survol maintenu avant ouverture d'un sous-menu. | `150` |
 | `interaction.menu.submenuCloseMs` | Délai de grâce avant fermeture d'un sous-panneau quitté. | `140` |
+| `interaction.buildingPick.cursor` | Curseur du canvas pendant que l'outil « sélectionner un bâtiment » est actif. Curseur **système** — la convention du projet exclut les images de curseur. Posé en style inline sur le canvas, qui l'emporte sur le `grab` de la feuille injectée. | `'crosshair'` |
 | `interaction.hubHitTolerancePx` | Tolérance de clic autour du socle d'une relation (le trait, lui, a la sienne). | `12` |
 | `interaction.repositionHitPx` | Cible cliquable du point au sol d'un marker repositionnable. Le point mesure 7 px : sans élargissement, l'attraper relève de l'adresse. La valeur vivait dans la feuille de styles (`::before`), donc hors de ce bloc alors qu'elle en est exactement — une tolérance de pointeur qu'un support tactile… | `22` |
 | `interaction.clickSuppressMs` | Filet temporel après un geste : durée pendant laquelle le `click` synthétique qui suit est avalé. Couplé à `longPressMs` — un contexte tactile qui allonge l'un doit pouvoir allonger l'autre. | `400` |
@@ -162,6 +164,7 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.controls.fullscreen` | Plein écran. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Bascule 3D photoréaliste ↔ plan 2D. | `'b'` |
 | `interaction.shortcuts.controls.traffic` | Calque trafic — le bouton n'existe qu'en mode plan. | `false` |
+| `interaction.shortcuts.controls.selectBuilding` | Bascule l'outil « sélectionner un bâtiment ». | `'u'` |
 | `interaction.shortcuts.navigate.forward` | Avancer — maintenu. Plusieurs touches : les flèches, universelles, et une famille de lettres qui dépend de la disposition du clavier. | `['arrowup', 'z']` |
 | `interaction.shortcuts.navigate.backward` | Reculer. | `['arrowdown', 's']` |
 | `interaction.shortcuts.navigate.left` | Dériver à gauche. | `['arrowleft', 'q']` |
