@@ -55,11 +55,29 @@ describe('buildingAttrs', () => {
 describe('paintRange / restoreRange', () => {
   /** Trois sommets, trois couleurs distinctes — de quoi voir un décalage d'un octet. */
   const original = () => new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80, 90])
+  /** Ombrage neutre : toutes les faces à pleine lumière. */
+  const FULL = new Uint8Array([255, 255, 255])
 
   it('ne repeint que la plage demandée', () => {
     const colors = original()
-    paintRange(colors, 1, 2, 200, 100, 50)
+    paintRange(colors, 1, 2, 200, 100, 50, FULL)
     expect(Array.from(colors)).toEqual([10, 20, 30, 200, 100, 50, 70, 80, 90])
+  })
+
+  it('GARDE le relief : la teinte est modulée par l’ombrage de chaque sommet', () => {
+    // La régression que ce test verrouille : une teinte UNIE effaçait l'ombrage cuit dans
+    // les couleurs de sommets. Le bâtiment survolé devenait un aplat — ses quatre façades
+    // confondues, sans le volume que tout le quartier garde.
+    const colors = new Uint8Array(9)
+    // Trois faces d'exposition décroissante : pleine, moitié, tiers.
+    const shade = new Uint8Array([255, 128, 85])
+    paintRange(colors, 0, 3, 240, 180, 60, shade)
+    expect(Array.from(colors.subarray(0, 3))).toEqual([240, 180, 60])
+    // Chaque sommet garde SON facteur : la façade à mi-lumière sort à mi-teinte.
+    expect(colors[3]).toBe(Math.trunc((240 * 128) / 255))
+    expect(colors[6]).toBe(Math.trunc((240 * 85) / 255))
+    // …et les trois faces restent distinctes entre elles, ce qui est tout l'enjeu.
+    expect(new Set([colors[0], colors[3], colors[6]]).size).toBe(3)
   })
 
   it('survol puis sortie rendent EXACTEMENT les couleurs d’origine', () => {
@@ -68,7 +86,7 @@ describe('paintRange / restoreRange', () => {
     const colors = original()
     const saved = new Uint8Array(3)
     saveRange(colors, 1, 2, saved)
-    paintRange(colors, 1, 2, 200, 100, 50)
+    paintRange(colors, 1, 2, 200, 100, 50, FULL)
     restoreRange(colors, 1, saved, 3)
     expect(Array.from(colors)).toEqual(Array.from(original()))
   })
@@ -79,7 +97,7 @@ describe('paintRange / restoreRange', () => {
     const colors = original()
     const saved = new Uint8Array(9)
     saveRange(colors, 0, 1, saved)
-    paintRange(colors, 0, 3, 1, 1, 1)
+    paintRange(colors, 0, 3, 1, 1, 1, new Uint8Array([255, 255, 255]))
     restoreRange(colors, 0, saved, 3)
     expect(Array.from(colors)).toEqual([10, 20, 30, 1, 1, 1, 1, 1, 1])
   })

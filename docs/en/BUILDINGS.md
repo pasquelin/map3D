@@ -140,9 +140,10 @@ a switch to flip mid-session.
 | `theme.globe.buildingSelectColor` | `'#E8613C'` | tint of the building whose menu is open |
 | `labels.buildingPick` | `{ label: 'Bâtiment', … }` | row label and its tooltip |
 
-Both tints **replace** the footprint's vertex colours, shading included — that is what
-makes one building stand out of a whole neighbourhood. They are read when the map mounts,
-like the other volume colours: changing the theme does not repaint a highlight in progress.
+Both tints replace the footprint's vertex colours **but keep its shading**: every wall gets
+the tint modulated by its own exposure, so the building stands out of the neighbourhood
+without losing its relief. They are read when the map mounts, like the other volume colours:
+changing the theme does not repaint a highlight in progress.
 
 ## 7. What it costs
 

@@ -143,10 +143,11 @@ démarrage, pas un interrupteur à faire varier en cours de session.
 | `theme.globe.buildingSelectColor` | `'#E8613C'` | teinte du bâtiment dont le menu est ouvert |
 | `labels.buildingPick` | `{ label: 'Bâtiment', … }` | libellé de la ligne et son infobulle |
 
-Les deux teintes **remplacent** la couleur des sommets de l'emprise, ombrage compris —
-c'est ce qui fait ressortir un bâtiment au milieu d'un quartier entier. Elles sont lues au
-montage de la carte, comme les autres couleurs de volume : changer la charte ne repeint pas
-une mise en évidence en cours.
+Les deux teintes remplacent la couleur des sommets de l'emprise **mais gardent son
+ombrage** : chaque façade reçoit la teinte modulée par sa propre exposition, si bien que le
+bâtiment ressort du quartier sans perdre son relief. Elles sont lues au montage de la carte,
+comme les autres couleurs de volume : changer la charte ne repeint pas une mise en évidence
+en cours.
 
 ## 7. Ce que ça coûte
 

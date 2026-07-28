@@ -58,12 +58,28 @@ export function saveRange(colors: Uint8Array, from: number, to: number, out: Uin
   out.set(colors.subarray(from * 3, to * 3))
 }
 
-/** Peint les sommets `[from, to[` d'une teinte unie, en octets 0…255. */
-export function paintRange(colors: Uint8Array, from: number, to: number, r: number, g: number, b: number): void {
+/**
+ * Peint les sommets `[from, to[` d'une teinte, **modulée par l'ombrage de chaque sommet**.
+ *
+ * `shade` est le facteur que le worker a cuit dans les couleurs d'origine (255 = face la
+ * mieux exposée). Sans lui, une teinte unie effacerait le relief : le bâtiment survolé
+ * devenait un aplat, ses quatre façades confondues, et il perdait le volume que tout le
+ * quartier garde. On repeint donc la teinte, pas la lumière.
+ */
+export function paintRange(
+  colors: Uint8Array,
+  from: number,
+  to: number,
+  r: number,
+  g: number,
+  b: number,
+  shade: Uint8Array,
+): void {
   for (let v = from; v < to; v++) {
-    colors[v * 3] = r
-    colors[v * 3 + 1] = g
-    colors[v * 3 + 2] = b
+    const lit = shade[v]!
+    colors[v * 3] = (r * lit) / 255
+    colors[v * 3 + 1] = (g * lit) / 255
+    colors[v * 3 + 2] = (b * lit) / 255
   }
 }
 

@@ -21,7 +21,16 @@ import {
 } from './buildingPick'
 
 /** Ce que la file de tuiles ne connaît pas : la géométrie montée dans la scène. */
-type BuildingTile = Tile & { mesh: THREE.Mesh | null; buildings: TileBuildings | null }
+type BuildingTile = Tile & {
+  mesh: THREE.Mesh | null
+  buildings: TileBuildings | null
+  /**
+   * Facteur d'ombrage par sommet, RETENU après le développement des couleurs : c'est lui
+   * qui rend son relief au bâtiment surligné. Sans lui, la teinte de survol repeindrait
+   * les quatre façades du même aplat.
+   */
+  shade: Uint8Array | null
+}
 
 /** Désigne un bâtiment : sa tuile, et son rang dans la table de celle-ci. */
 export type BuildingRef = { tileKey: string; index: number }
@@ -115,7 +124,7 @@ export class BuildingsLayer {
    */
   private readonly cache = new TileQueue<BuildingTile, BuiltTile>({
     budget: () => this.cfg,
-    make: (base) => ({ ...base, mesh: null, buildings: null }),
+    make: (base) => ({ ...base, mesh: null, buildings: null, shade: null }),
     fetch: (t, signal) => this.source.build(this.tileUrl(t), this.cfg, this.frameFor(t), this.colors.shading, signal),
     commit: (t, built) => this.buildMesh(t, built),
     release: (t) => this.disposeTile(t),
@@ -346,6 +355,7 @@ export class BuildingsLayer {
     attachBVH(mesh)
     t.mesh = mesh
     t.buildings = built.buildings
+    t.shade = built.shade
     this.byMesh.set(mesh, t)
     // Ce que la tuile retient réellement, GPU et CPU confondus — la matière du budget
     // mémoire. Un compte de tuiles ne dirait rien : entre campagne et centre-ville, le
@@ -355,6 +365,7 @@ export class BuildingsLayer {
       built.indices.byteLength +
       colors.byteLength +
       bvhBytes(mesh) +
+      built.shade.byteLength +
       built.buildings.vStart.byteLength +
       built.buildings.featureIds.byteLength +
       built.buildings.heights.byteLength
@@ -449,7 +460,7 @@ export class BuildingsLayer {
     const attr = tile?.mesh?.geometry.getAttribute('color')
     const from = tile?.buildings?.vStart[ref.index]
     const to = tile?.buildings?.vStart[ref.index + 1]
-    if (!attr || from === undefined || to === undefined) return
+    if (!attr || !tile?.shade || from === undefined || to === undefined) return
     const colors = attr.array as Uint8Array
     const span = (to - from) * 3
     // Tampon d'emprunt recyclé tant qu'il est assez grand : un survol qui glisse d'un
@@ -466,6 +477,7 @@ export class BuildingsLayer {
       Math.round(this.rgb.r * 255),
       Math.round(this.rgb.g * 255),
       Math.round(this.rgb.b * 255),
+      tile.shade,
     )
     attr.needsUpdate = true
     this.current[kind] = ref
@@ -495,6 +507,7 @@ export class BuildingsLayer {
     if (!t.mesh) return
     this.byMesh.delete(t.mesh)
     t.buildings = null
+    t.shade = null
     // Une tuile évincée sous un highlight laisserait une référence morte — et le prochain
     // `setHighlight` tenterait de restaurer des couleurs dans une géométrie libérée.
     if (this.current.hover?.tileKey === t.key) this.current.hover = null
