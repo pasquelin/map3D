@@ -69,8 +69,8 @@ export class PedestrianController {
   /** Position au sol du piéton, et hauteur de sol lissée sous ses pieds. */
   private readonly at: LatLng = { lat: 0, lng: 0 }
   private groundHeight = 0
-  private heading = 0
-  private pitch = 0
+  private headingRad = 0
+  private pitchRad = 0
   /** Delta de regard accumulé depuis le dernier `update` — cf. spec §9 (Pointer Lock). */
   private lookDx = 0
   private lookDy = 0
@@ -111,7 +111,7 @@ export class PedestrianController {
     this.at.lat = p.lat
     this.at.lng = p.lng
     this.groundHeight = groundHeight
-    this.pitch = 0
+    this.pitchRad = 0
     this.lookDx = 0
     this.lookDy = 0
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, groundHeight)
@@ -122,7 +122,7 @@ export class PedestrianController {
     if (this.forward.lengthSq() < 1e-8) {
       this.forward.set(0, 1, 0).transformDirection(this.camera.matrixWorld).projectOnPlane(this.up)
     }
-    this.heading =
+    this.headingRad =
       this.forward.lengthSq() < 1e-8 ? 0 : Math.atan2(this.forward.dot(this.east), this.forward.dot(this.north))
     this.applyPose()
   }
@@ -133,12 +133,22 @@ export class PedestrianController {
     this.lookDy += dyPx
   }
 
+  /** Cap courant (rad) — lu par frame, sans allouer (contrairement à `getPose`). */
+  get heading(): number {
+    return this.headingRad
+  }
+
+  /** Regard vertical courant (rad) — même raison que `heading`. */
+  get pitch(): number {
+    return this.pitchRad
+  }
+
   getPose(): PedestrianPose {
     return {
       position: { lat: this.at.lat, lng: this.at.lng },
       groundHeight: this.groundHeight,
-      heading: this.heading,
-      pitch: this.pitch,
+      heading: this.headingRad,
+      pitch: this.pitchRad,
     }
   }
 
@@ -165,8 +175,8 @@ export class PedestrianController {
     if (this.lookDx === 0 && this.lookDy === 0) return
     const dx = c.invertX ? -this.lookDx : this.lookDx
     const dy = c.invertY ? this.lookDy : -this.lookDy
-    this.heading = headingAfterLook(this.heading, dx, c.lookSpeed)
-    this.pitch = clampPitch(this.pitch + dy * c.lookSpeed * DEG2RAD, c.pitchMaxDeg)
+    this.headingRad = headingAfterLook(this.headingRad, dx, c.lookSpeed)
+    this.pitchRad = clampPitch(this.pitchRad + dy * c.lookSpeed * DEG2RAD, c.pitchMaxDeg)
     this.lookDx = 0
     this.lookDy = 0
   }
@@ -179,8 +189,8 @@ export class PedestrianController {
     // Diagonale normalisée : deux touches ne vont pas plus vite qu'une (cf. `applyKeyNav`).
     const norm = axis.forward !== 0 && axis.right !== 0 ? Math.SQRT1_2 : 1
     const speed = c.walkSpeed * (axis.boost ? c.sprintFactor : 1) * dt
-    const sin = Math.sin(this.heading)
-    const cos = Math.cos(this.heading)
+    const sin = Math.sin(this.headingRad)
+    const cos = Math.cos(this.headingRad)
     // Cap → axes locaux : « avant » suit la RUE (plan tangent), jamais la ligne de visée —
     // sinon regarder ses pieds ferait avancer moins vite, et regarder le ciel décoller.
     this.move.east = (axis.forward * sin + axis.right * cos) * norm * speed
@@ -234,10 +244,20 @@ export class PedestrianController {
    */
   private applyGravity(dt: number, moved: boolean): void {
     const c = this.config.pedestrian
-    const sampled = this.projection.sampleSurfaceHeight(this.at)
-    // Aucune tuile sous les pieds (streaming en cours) : on garde la hauteur précédente
-    // plutôt que de tomber au centre de la Terre.
-    if (sampled === null) return
+    /**
+     * Rayon COURT depuis au-dessus de la tête, et non `sampleSurfaceHeight` : celui-ci part
+     * de 12 km d'altitude et porte sur 40 km (cf. `performance.groundSample`), donc à
+     * hauteur d'homme il traverse toute la scène pour mesurer deux mètres sous les pieds.
+     * C'était le poste le plus cher de la boucle de marche.
+     */
+    const probeUp = c.eyeHeightMeters + c.collision.maxStepHeightMeters
+    this.rayFrom.copy(this.origin).addScaledVector(this.up, probeUp)
+    this.rayDir.copy(this.up).negate()
+    const distance = this.projection.castRay(this.rayFrom, this.rayDir, probeUp + c.groundProbeMeters, this.rayHit)
+    // Sol introuvable — hors de portée, ou surface non raycastable (le raster du volume
+    // interne) : on garde la hauteur précédente plutôt que de tomber au centre de la Terre.
+    if (distance === null) return
+    const sampled = this.groundHeight + probeUp - distance
     // Une montée trop raide pendant un pas est un mur, pas une marche : on ne monte pas.
     const target = moved ? stepGround(this.groundHeight, sampled, c.collision.maxStepHeightMeters) : sampled
     if (target === null) return
@@ -249,12 +269,12 @@ export class PedestrianController {
     const c = this.config.pedestrian
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, this.groundHeight)
     this.eye.copy(this.origin).addScaledVector(this.up, c.eyeHeightMeters)
-    const sin = Math.sin(this.heading)
-    const cos = Math.cos(this.heading)
+    const sin = Math.sin(this.headingRad)
+    const cos = Math.cos(this.headingRad)
     // Cap dans le plan tangent, puis tangage autour de l'axe « droite » local.
     this.forward.set(0, 0, 0).addScaledVector(this.north, cos).addScaledVector(this.east, sin)
     this.right.crossVectors(this.forward, this.up).normalize()
-    this.forward.applyAxisAngle(this.right, -this.pitch).normalize()
+    this.forward.applyAxisAngle(this.right, -this.pitchRad).normalize()
     this.lookTarget.copy(this.eye).add(this.forward)
     this.poseMatrix.lookAt(this.eye, this.lookTarget, this.up)
     this.camera.position.copy(this.eye)

@@ -1197,14 +1197,15 @@ export class MapEngine {
    * stable pour un consommateur React qui le met en état (cf. `syncBasemap`, même règle).
    */
   private syncPedestrian(): void {
-    const pose = this.pedestrianCtl.getPose()
+    // Accesseurs plutôt que `getPose()` : appelé À CHAQUE FRAME en marche, il y allouait
+    // deux objets par tour pour deux nombres.
     const next: PedestrianState = {
       mode: this.cameraMode,
       phase: this.pedestrianPhase,
       immersion: this.immersion,
       available: this.pedestrianAvailable(),
-      heading: pose.heading,
-      pitch: pose.pitch,
+      heading: this.pedestrianCtl.heading,
+      pitch: this.pedestrianCtl.pitch,
     }
     if (samePedestrianState(this.pedestrianState, next)) return
     this.pedestrianState = next
@@ -1263,11 +1264,17 @@ export class MapEngine {
    * refusé partout sauf sur les toits.
    */
   private groundLevelAt(p: LatLng, ringRadiusMeters: number): number | null {
-    const sampled = this.projection.sampleGroundHeight(p, ringRadiusMeters)
-    if (sampled !== null) return sampled
-    // `terrainElevation` suit la surface sous le centre écran ; en volume interne le fond
-    // plat y est justement drapé (cf. `applyModeVisibility`).
-    return this.provider3d === 'internal' ? this.terrainElevation : null
+    /**
+     * Volume INTERNE : le sol est le raster drapé à `terrainElevation`, et il n'est pas
+     * raycastable — seuls les bâtiments sont des volumes. Échantillonner ne trouverait donc
+     * que des TOITS : sur une emprise plus large que la couronne, le toit devenait son
+     * propre « niveau de rue », écart nul, et le placement s'y autorisait.
+     *
+     * Le lire directement est aussi ce qui supprime les neuf raycasts de la couronne à
+     * chaque validation de survol.
+     */
+    if (this.provider3d === 'internal') return this.terrainElevation
+    return this.projection.sampleGroundHeight(p, ringRadiusMeters)
   }
 
   /**

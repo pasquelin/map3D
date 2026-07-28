@@ -1205,6 +1205,15 @@ export type PedestrianConfig = {
   /** Plan proche de la caméra (m) en mode piéton. */
   nearMeters: number
   /**
+   * Portée (m) du rayon qui cherche le sol sous les pieds, à chaque frame de marche.
+   *
+   * ⚠️ Court par nécessité : `sampleGroundHeight` part de 12 km d'altitude et porte sur
+   * 40 km — à hauteur d'homme, ce rayon traverse toute la scène pour mesurer deux mètres.
+   * C'était le poste le plus cher de la boucle de marche. Il borne aussi la chute : au-delà,
+   * le sol est réputé introuvable et la hauteur précédente est conservée.
+   */
+  groundProbeMeters: number
+  /**
    * Constante de temps (SECONDES) du lissage vertical de l'œil. Trop fort → sensation de
    * flottement ; trop faible → sautillement quand les tuiles se raffinent.
    */

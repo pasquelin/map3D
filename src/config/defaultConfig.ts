@@ -439,7 +439,10 @@ export const defaultConfig: MapConfig = {
 
   pedestrian: {
     eyeHeightMeters: 1.7,
-    walkSpeed: 1.4,
+    // 3 m/s : la marche réelle (1,4) donne l'impression de faire du surplace dans un décor
+    // à l'échelle. Un pas plus vif se lit mieux, et `sprintFactor` reste là pour couvrir
+    // du terrain. À ramener à 1,4 pour une vitesse fidèle.
+    walkSpeed: 3,
     sprintFactor: 3,
     lookSpeed: 0.15,
     // Convention du glisser de carte : tirer la souris vers le BAS relève la vue, comme le
@@ -452,6 +455,7 @@ export const defaultConfig: MapConfig = {
     viewDistanceMeters: 1000,
     fogStartMeters: 700,
     nearMeters: 0.1,
+    groundProbeMeters: 5,
     groundSmoothing: 0.25,
     collision: {
       radiusMeters: 0.3,
