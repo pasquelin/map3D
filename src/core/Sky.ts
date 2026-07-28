@@ -5,15 +5,26 @@
 // procéduraux (fbm) — d'où les uniforms `cloud*` et `time` absents du Sky d'origine.
 //
 // DEUX écarts assumés au shader d'origine, pour le moteur globe :
-//  1. un uniform `opacity` + `transparent: true` : le ciel se révèle en FONDU depuis les
-//     étoiles quand on descend (piloté par l'altitude côté MapEngine) ; à `opacity = 0` il
-//     est invisible et la vue globe reste strictement inchangée.
+//  1. un uniform `opacity` mélangé en `CustomBlending` : le ciel se révèle en FONDU depuis
+//     les étoiles quand on descend (piloté par l'altitude côté MapEngine) ; à `opacity = 0`
+//     il est invisible et la vue globe reste strictement inchangée.
 //  2. `up` et `sunPosition` sont fournis en repère MONDE (ECEF) par le moteur, pas en
 //     (0,1,0) : c'est ce qui oriente correctement l'horizon et le soleil où qu'on soit sur
 //     le globe. Le mesh suit la caméra sans rotation ; toute l'orientation vit dans ces
 //     deux vecteurs.
 
-import { BackSide, BoxGeometry, Mesh, NormalBlending, ShaderMaterial, UniformsUtils, Vector3 } from 'three'
+import {
+  AddEquation,
+  BackSide,
+  BoxGeometry,
+  CustomBlending,
+  Mesh,
+  OneMinusSrcAlphaFactor,
+  ShaderMaterial,
+  SrcAlphaFactor,
+  UniformsUtils,
+  Vector3,
+} from 'three'
 
 /** Uniforms typés du ciel — évite l'accès indexé `possibly undefined` sur `material.uniforms`. */
 export type SkyUniforms = {
@@ -245,9 +256,10 @@ const SkyShader = {
  * -0.9, tuiles -0.8…) : un matériau `transparent: true` rendrait APRÈS tous les opaques
  * et recouvrirait la carte. On reste donc dans la passe OPAQUE (`transparent: false`) à
  * `renderOrder -0.95` — juste après les étoiles, avant tout le reste, qui se peint alors
- * par-dessus. Le fondu vient du blending alpha (`opacity` dans `gl_FragColor.a`), appliqué
- * même hors passe transparente ; à `opacity = 0` le ciel ne dessine rien (le moteur le
- * masque en amont). Le moteur le colle à la caméra et pilote `opacity`/`up`/`sunPosition`.
+ * par-dessus. Le fondu vient du blending alpha (`opacity` dans `gl_FragColor.a`) via un
+ * `CustomBlending` explicite, car three neutralise le blending pour
+ * `NormalBlending + transparent:false` ; à `opacity = 0` le ciel ne dessine rien (le moteur
+ * le masque en amont). Le moteur le colle à la caméra et pilote `opacity`/`up`/`sunPosition`.
  */
 export class Sky extends Mesh {
   declare material: ShaderMaterial
@@ -264,7 +276,16 @@ export class Sky extends Mesh {
         depthTest: false,
         depthWrite: false,
         transparent: false,
-        blending: NormalBlending,
+        // Blending alpha EXPLICITE. Three annule le blending pour
+        // `NormalBlending + transparent:false` (setMaterial → NoBlending), ce qui rendait
+        // l'`opacity` du shader inopérant : le ciel « popait » plein opaque dès `visible`,
+        // masquant les étoiles sans fondu (la fameuse bande noire). CustomBlending rétablit
+        // le mélange source-alpha tout en gardant la passe OPAQUE (transparent:false), donc
+        // le ciel reste rendu AVANT les tuiles (renderOrder -0.95) sans les recouvrir.
+        blending: CustomBlending,
+        blendEquation: AddEquation,
+        blendSrc: SrcAlphaFactor,
+        blendDst: OneMinusSrcAlphaFactor,
       }),
     )
     this.frustumCulled = false

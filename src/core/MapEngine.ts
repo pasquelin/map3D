@@ -176,6 +176,10 @@ export { altitudeForZoom, zoomForAltitude }
  */
 export const WHEEL_SURFACE_ATTR = 'data-m3d-wheel-surface'
 
+// Rayon de la sphère d'étoiles (repère local, avant mise à l'échelle par frame). La valeur
+// exacte importe peu : le rayon monde est recalé chaque frame sous le far courant.
+const STAR_RADIUS = 1e7
+
 /**
  * Cœur du moteur : scène Three, `TilesRenderer` (Google Photorealistic 3D Tiles
  * ou tileset custom), `GlobeControls` (navigation façon Google Earth), globe
@@ -614,7 +618,7 @@ export class MapEngine {
     const count = 2600
     const pos = new Float32Array(count * 3)
     const col = new Float32Array(count * 3)
-    const R = 1e7
+    const R = STAR_RADIUS
     for (let i = 0; i < count; i++) {
       const u = Math.random() * 2 - 1
       const theta = Math.random() * Math.PI * 2
@@ -1567,8 +1571,16 @@ export class MapEngine {
     for (const layer of this.layers) layer.update(ctx)
     for (const layer of this.layers) layer.project(ctx)
 
-    // Étoiles en skybox : suivent la position caméra (distance constante = infini).
-    if (this.stars) this.stars.position.copy(this.threeCamera.position)
+    // Étoiles en skybox : collées à la caméra, et surtout RECALÉES sous le far courant.
+    // GlobeControls resserre le far à ~distance-horizon (bien < STAR_RADIUS) en vue posée :
+    // à rayon fixe, les étoiles étaient clippées, d'où la grande bande noire entre l'espace
+    // (haut) et le ciel (bas). On garde donc leur rayon monde à 0.9·far — toujours dans le
+    // frustum. `sizeAttenuation:false` fige la taille écran et `depthTest:false` les tient
+    // derrière la carte : ni la distance ni l'échelle ne se voient, seule la visibilité change.
+    if (this.stars) {
+      this.stars.position.copy(this.threeCamera.position)
+      this.stars.scale.setScalar((this.threeCamera.far * 0.9) / STAR_RADIUS)
+    }
     // Ciel atmosphérique : fondu + orientation (sort tôt et gratuit en vue globe).
     this.updateSky(state)
     this.renderer.render(this.scene, this.threeCamera)
