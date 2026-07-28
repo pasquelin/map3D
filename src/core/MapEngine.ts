@@ -1231,7 +1231,23 @@ export class MapEngine {
     if (!p) return false
     const c = this.config.pedestrian.placement
     const hit = this.projection.pickHeight(clientX, clientY, this.threeCamera)
-    return isGroundPlacement(hit, this.projection.sampleGroundHeight(p, c.ringRadiusMeters), c.maxRoofDeltaMeters)
+    return isGroundPlacement(hit, this.groundLevelAt(p, c.ringRadiusMeters), c.maxRoofDeltaMeters)
+  }
+
+  /**
+   * Niveau de rue sous un point, avec repli sur l'élévation suivie du terrain.
+   *
+   * Le repli n'est pas un confort : en fournisseur INTERNE, le sol est un raster drapé que
+   * les rayons ne rencontrent pas — seuls les bâtiments sont des volumes. `sampleGroundHeight`
+   * y rend donc `null` au-dessus de la moindre chaussée, et sans repli le placement était
+   * refusé partout sauf sur les toits.
+   */
+  private groundLevelAt(p: LatLng, ringRadiusMeters: number): number | null {
+    const sampled = this.projection.sampleGroundHeight(p, ringRadiusMeters)
+    if (sampled !== null) return sampled
+    // `terrainElevation` suit la surface sous le centre écran ; en volume interne le fond
+    // plat y est justement drapé (cf. `applyModeVisibility`).
+    return this.provider3d === 'internal' ? this.terrainElevation : null
   }
 
   /**
@@ -1241,7 +1257,9 @@ export class MapEngine {
   enterPedestrian(p: LatLng): boolean {
     if (!this.pedestrianAvailable()) return false
     const c = this.config.pedestrian.placement
-    const ground = this.projection.sampleGroundHeight(p, c.ringRadiusMeters)
+    // Même repli que la validation du curseur : les deux doivent voir le MÊME sol, sinon un
+    // point validé en survol serait refusé au clic.
+    const ground = this.groundLevelAt(p, c.ringRadiusMeters)
     if (ground === null) return false
     // L'utilisateur prend la main : ni intro ni vol programmé ne doivent lui résister.
     this.cancelIntro()
@@ -1855,9 +1873,10 @@ export class MapEngine {
       this.internalSurface.updateMatrixWorld(true)
     }
     // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
-    // Sauté en piéton : le fond 2D n'est pas alimenté en 3D externe, et ce rayon
-    // centre-écran vise l'horizon à hauteur d'homme — il ne mesurerait rien d'utile.
-    if (this.mapMode === '3d' && this.cameraMode === 'orbit') this.trackTerrainElevation()
+    // Sauté seulement quand on MARCHE : ce rayon centre-écran vise alors l'horizon et ne
+    // mesure rien d'utile. Pendant le placement il reste indispensable — c'est le repli de
+    // sol du fournisseur interne (cf. `groundLevelAt`), qui serait figé sans lui.
+    if (this.mapMode === '3d' && this.pedestrianPhase !== 'active') this.trackTerrainElevation()
     this.updateIntro(now)
     this.checkReady(now)
 

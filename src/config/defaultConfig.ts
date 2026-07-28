@@ -458,7 +458,12 @@ export const defaultConfig: MapConfig = {
     },
     placement: {
       maxRoofDeltaMeters: 2,
-      ringRadiusMeters: 4,
+      // 20 m, et non 4 : la couronne doit SORTIR de l'emprise du bâtiment visé pour
+      // trouver la rue en contrebas. À 4 m elle restait sur le toit, qui devenait donc
+      // son propre « niveau de rue » — un toit se validait alors comme une chaussée.
+      // Même ordre de grandeur que `performance.groundSample.radiusMeters` (18 m), écrit
+      // pour exactement ce problème.
+      ringRadiusMeters: 20,
     },
     headBob: { enabled: false, amplitudeMeters: 0.05, frequency: 1.8 },
     transitions: { enterMs: 800, exitMs: 600 },

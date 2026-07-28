@@ -341,7 +341,7 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'pedestrian.collision.feelerMarginMeters': { min: 0, max: 1, step: 0.05 },
   'pedestrian.collision.maxStepHeightMeters': { min: 0, max: 1.5, step: 0.05 },
   'pedestrian.placement.maxRoofDeltaMeters': { min: 0, max: 20, step: 0.5 },
-  'pedestrian.placement.ringRadiusMeters': { min: 1, max: 20, step: 0.5 },
+  'pedestrian.placement.ringRadiusMeters': { min: 4, max: 60, step: 1 },
   'pedestrian.headBob.amplitudeMeters': { min: 0, max: 0.5, step: 0.01 },
   'pedestrian.headBob.frequency': { min: 0.5, max: 5, step: 0.1 },
 }

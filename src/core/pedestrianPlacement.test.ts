@@ -10,8 +10,11 @@ describe('isGroundPlacement', () => {
     expect(isGroundPlacement(78, 34, 2)).toBe(false)
   })
 
-  it('refuse le ciel — aucun impact, donc rien à valider', () => {
-    expect(isGroundPlacement(null, 34, 2)).toBe(false)
+  it('ACCEPTE l’absence d’impact : c’est du sol nu, pas du vide', () => {
+    // Le cas normal du fournisseur interne, où seuls les bâtiments sont raycastables :
+    // viser la chaussée ne touche aucun volume. Le refuser inversait toute la règle —
+    // seuls les toits se validaient. Le vide, lui, est écarté en amont par `pickLatLng`.
+    expect(isGroundPlacement(null, 34, 2)).toBe(true)
   })
 
   it('refuse un sol de couronne indéterminé : aucune tuile chargée sous le point', () => {

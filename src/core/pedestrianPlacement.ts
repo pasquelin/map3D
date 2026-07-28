@@ -7,13 +7,22 @@
  * un toit d'une chaussée. L'écart des deux mesures est le seul signal disponible — un toit
  * domine la rue adjacente de plusieurs mètres, une chaussée non.
  *
- * `null` (ciel, ou aucune tuile chargée) vaut refus : on ne pose pas un piéton dans le vide.
+ * ⚠️ `hitHeight` à `null` vaut **sol nu**, donc POSABLE — et non l'inverse.
+ *
+ * C'est le cas normal du fournisseur interne, où seuls les bâtiments sont des volumes
+ * raycastables : viser la chaussée ne touche rien. Traiter cette absence comme un refus
+ * inversait toute la règle — seuls les toits se validaient, et la rue, c'est-à-dire le seul
+ * endroit où l'on veut poser un piéton, était interdite.
+ *
+ * Le vide reste écarté en amont : l'appelant n'entre ici qu'avec une coordonnée résolue
+ * (`pickLatLng`), et un sol indéterminé (`groundHeight` nul, aucune tuile chargée) refuse.
  */
 export function isGroundPlacement(
   hitHeight: number | null,
   groundHeight: number | null,
   maxRoofDeltaMeters: number,
 ): boolean {
-  if (hitHeight === null || groundHeight === null) return false
+  if (groundHeight === null) return false
+  if (hitHeight === null) return true
   return hitHeight - groundHeight <= maxRoofDeltaMeters
 }
