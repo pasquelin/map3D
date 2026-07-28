@@ -1089,30 +1089,34 @@ export class MapEngine {
   private syncBasemap(): void {
     const next = deriveBasemapCapabilities(this.mapMode, this.basemapSupport(), this.basemap2d.trafficOn)
     const s = this.basemapState
-    if (
+    const changed = !(
       s.mode === next.mode &&
       s.traffic === next.traffic &&
       s.trafficAvailable === next.trafficAvailable &&
       s.canPlan === next.canPlan &&
       s.can3d === next.can3d &&
       s.canPickBuildings === next.canPickBuildings
-    ) {
-      return
+    )
+    if (changed) {
+      this.basemapState = next
+      this.emit('basemap', this.basemapState)
+      // Le volume interne quitté, l'outil de sélection n'a plus rien à désigner : le laisser
+      // armé afficherait un curseur de sélection sur une carte plate. Ici et pas dans
+      // `setMapMode` : plusieurs chemins retirent le volume (bascule, config qui change de
+      // fournisseur), et tous passent par cette publication.
+      if (!next.canPickBuildings) this.setBuildingPickMode(false)
     }
-    this.basemapState = next
-    this.emit('basemap', this.basemapState)
-    // Le volume interne quitté, l'outil de sélection n'a plus rien à désigner : le laisser
-    // armé afficherait un curseur de sélection sur une carte plate. Ici et pas dans
-    // `setMapMode` : plusieurs chemins retirent le volume (bascule, config qui change de
-    // fournisseur), et tous passent par cette publication.
-    if (!next.canPickBuildings) this.setBuildingPickMode(false)
-    // Le mode piéton exige la 3D photoréaliste externe : la quitter (bascule 2D depuis la
-    // barre, changement de fournisseur) doit le refermer — sinon la caméra reste posée au
-    // sol d'un décor qui n'existe plus. Ici et pas dans `setMapMode` : plusieurs chemins
-    // retirent le volume, et tous passent par cette publication.
+    /**
+     * Mode piéton : publié À CHAQUE passage, y compris quand le fond n'a pas bougé.
+     *
+     * ⚠️ Sous le retour anticipé d'origine, la disponibilité n'était jamais publiée au
+     * démarrage — le fond n'y change pas — et le bouton restait absent de la barre à vie.
+     * `syncPedestrian` porte sa propre garde d'égalité : rien n'est émis pour rien.
+     *
+     * APRÈS l'écriture de `basemapState` : `pedestrianAvailable()` le lit, et le faire avant
+     * lui aurait fait voir l'état précédent — donc réagir un cran en retard.
+     */
     if (!this.pedestrianAvailable()) this.exitPedestrian()
-    // La DISPONIBILITÉ change même quand le mode n'était pas actif : le bouton de la barre
-    // doit apparaître et disparaître avec elle.
     this.syncPedestrian()
   }
 
@@ -1169,12 +1173,18 @@ export class MapEngine {
   // ── Mode piéton (cf. `PedestrianController`) ──
 
   /**
-   * Le mode piéton est-il proposable ? Il exige la 3D photoréaliste EXTERNE : c'est le seul
-   * cas où la surface sous les pieds est un vrai relevé de rue. Le globe de repli, le plan
-   * 2D et le volume interne n'ont rien à parcourir à hauteur d'homme.
+   * Le mode piéton est-il proposable ? Il lui faut **du volume à l'écran**, quel qu'en soit
+   * le fournisseur : tuiles photoréalistes en externe, bâtiments extrudés (porteurs d'un
+   * BVH) en interne. Dans les deux cas la surface est raycastable, et c'est tout ce dont la
+   * collision et la gravité ont besoin — `applyModeVisibility` pose d'ailleurs le même
+   * `setFlatHeight(null)` pour les deux.
+   *
+   * C'est exactement la règle de `can3d`, réutilisée plutôt que réécrite : une seconde table
+   * de vérité aurait dérivé au premier fournisseur ajouté. Le mode plan, lui, reste exclu —
+   * un fond plat n'a pas de relief à parcourir à hauteur d'homme.
    */
   private pedestrianAvailable(): boolean {
-    return this.mapMode === '3d' && this.provider3d === 'external' && this.has3dTileset
+    return this.mapMode === '3d' && this.basemapState.can3d
   }
 
   /** État piéton courant — source de vérité de l'UI, avec l'événement `pedestrian`. */
@@ -1360,12 +1370,18 @@ export class MapEngine {
    * l'entrée et à la sortie du mode. Jamais par frame.
    */
   private refreshFogMaterials(): void {
-    this.tiles.group.traverse((o) => {
-      const material = (o as THREE.Mesh).material
-      if (!material) return
-      if (Array.isArray(material)) for (const m of material) m.needsUpdate = true
-      else material.needsUpdate = true
-    })
+    // LES DEUX surfaces : le tileset photoréaliste ET la surface reconstruite localement
+    // (raster interne + bâtiments extrudés). Le mode piéton s'ouvre sur l'un comme sur
+    // l'autre (cf. `pedestrianAvailable`) — n'en traiter qu'une laissait le fournisseur
+    // interne net derrière un brouillard qui n'existait que pour l'externe.
+    for (const root of [this.tiles.group, this.internalSurface]) {
+      root.traverse((o) => {
+        const material = (o as THREE.Mesh).material
+        if (!material) return
+        if (Array.isArray(material)) for (const m of material) m.needsUpdate = true
+        else material.needsUpdate = true
+      })
+    }
   }
 
   /**

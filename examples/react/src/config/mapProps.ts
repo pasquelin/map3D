@@ -38,7 +38,9 @@ export type MapPropsSettings = {
 
 export const defaultMapProps: MapPropsSettings = {
   colorScheme: 'dark',
-  mapMode: 'plan',
+  // '3d' : le banc démarre sur le volume, seul mode où se jugent les tuiles 3D, le pick de
+  // bâtiment et le mode piéton. Le fond plat reste à un clic (bouton « Plan » de la barre).
+  mapMode: '3d',
   interactive: 'true',
   fallbackGlobe: true,
   intro: true,
