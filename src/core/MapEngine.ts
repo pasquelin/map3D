@@ -260,12 +260,9 @@ export class MapEngine {
   /** Ciel atmosphérique procédural (null quand `config.sky.enabled` est faux). */
   private sky: Sky | null = null
   /** Point subsolaire figé (dépend de la seule date) — recalculé à `applySky`, pas par frame. */
-  private subsolar: { lat: number; lng: number } = { lat: 0, lng: 0 }
+  private subsolar: LatLng = { lat: 0, lng: 0 }
   /** Instant du soleil résolu (ms epoch) ; capturé une fois quand `config.sky.date` vaut 0. */
   private skyEpoch = 0
-  /** Scratches réutilisés par frame (verticale locale, direction du soleil) — zéro-alloc. */
-  private skyUp = new THREE.Vector3()
-  private skySun = new THREE.Vector3()
   private drawingMode = false
   /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
   private drawingSuspended = false
@@ -656,8 +653,7 @@ export class MapEngine {
     if (!cfg.enabled) {
       if (this.sky) {
         this.scene.remove(this.sky)
-        this.sky.geometry.dispose()
-        this.sky.material.dispose()
+        this.sky.dispose()
         this.sky = null
       }
       return
@@ -675,10 +671,14 @@ export class MapEngine {
     u.cloudDensity.value = cfg.clouds.density
     u.cloudScale.value = cfg.clouds.scale
     u.cloudElevation.value = cfg.clouds.elevation
-    // `date` à 0 ⇒ heure de montage, capturée une seule fois puis figée (jour/nuit stable).
-    if (this.skyEpoch === 0) this.skyEpoch = cfg.date > 0 ? cfg.date : Date.now()
-    const epoch = cfg.date > 0 ? cfg.date : this.skyEpoch
-    this.subsolar = subsolarPoint(new Date(epoch))
+    // `date` explicite (> 0) : instant fixe. Sinon on fige l'heure de montage, capturée
+    // une seule fois puis conservée (jour/nuit stable au fil des `setConfig`).
+    if (cfg.date > 0) {
+      this.subsolar = subsolarPoint(new Date(cfg.date))
+    } else {
+      if (this.skyEpoch === 0) this.skyEpoch = Date.now()
+      this.subsolar = subsolarPoint(new Date(this.skyEpoch))
+    }
   }
 
   /**
@@ -699,10 +699,10 @@ export class MapEngine {
     sky.visible = true
     const u = sky.uniforms
     u.opacity.value = opacity
-    this.projection.worldNormal({ lat: state.lat, lng: state.lng }, this.skyUp)
-    u.up.value.copy(this.skyUp)
-    this.projection.worldNormal(this.subsolar, this.skySun)
-    u.sunPosition.value.copy(this.skySun)
+    // Écrit droit dans les Vector3 des uniforms (déjà alloués) — pas de scratch ni de
+    // copie, et `state` sert de `LatLng` sans littéral intermédiaire. Zéro-alloc par frame.
+    this.projection.worldNormal(state, u.up.value)
+    this.projection.worldNormal(this.subsolar, u.sunPosition.value)
     sky.position.copy(this.threeCamera.position)
     // Grand devant la caméra pour remplir l'écran sans être rognée par le near ; la
     // profondeur est de toute façon forcée au far par le shader.
@@ -1853,10 +1853,7 @@ export class MapEngine {
       this.stars.geometry.dispose()
       ;(this.stars.material as THREE.Material).dispose()
     }
-    if (this.sky) {
-      this.sky.geometry.dispose()
-      this.sky.material.dispose()
-    }
+    if (this.sky) this.sky.dispose()
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
   }

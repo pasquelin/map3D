@@ -277,4 +277,10 @@ export class Sky extends Mesh {
   get uniforms(): SkyUniforms {
     return this.material.uniforms as unknown as SkyUniforms
   }
+
+  /** Libère les ressources GPU. Le ciel possède son teardown, comme les autres primitives de fond. */
+  dispose(): void {
+    this.geometry.dispose()
+    this.material.dispose()
+  }
 }
