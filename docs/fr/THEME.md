@@ -173,3 +173,8 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `globe.background` | Fond derrière le globe (espace). | `'#070C16'` |
 | `globe.oceanColor` | Océan des globes de repli — celui de secours et celui sous les tuiles 2D. | `'#0F2942'` |
 | `globe.landColor` | Terres émergées du globe de repli. | `'#4F7A45'` |
+| `globe.buildingColor` | Façades des bâtiments extrudés (volume du fournisseur interne). Une emprise qui porte sa propre couleur (attribut `colour`) garde la sienne. | `'#8A8E96'` |
+| `globe.buildingRoofColor` | Toits des bâtiments extrudés, plus clairs que les façades — la face haute se lit d'emblée. | `'#C2C6CE'` |
+| `globe.buildingRoofLighten` | De combien éclaircir le toit d'une emprise qui porte SA PROPRE couleur (attribut `colour`), en fraction vers le blanc. `buildingRoofColor` ne s'applique qu'aux emprises laissées au thème, et sans cet écart le volume disparaît sur celles-là. ⚠️ Était un littéral dans `BuildingsLayer` : une décision d'apparence écrite dans le code d'un calque, invisible depuis le thème. `0` rend le toit de la couleur exacte de la façade. | `0.35` |
+| `globe.buildingSunAzimuth` | Azimut du soleil factice (degrés depuis le nord, sens horaire) qui module les façades selon leur orientation. La scène n'a **aucune** lumière : le terme est cuit dans les couleurs de sommets par le worker d'extrusion, il ne coûte rien à la frame. Éviter les multiples de 45° : sur une diagonale exacte, les quatre façades d'un bâtiment orthogonal tombent deux par deux sur la même teinte. | `120` |
+| `globe.buildingShadeMin` | Teinte de la façade la moins exposée, en fraction de sa couleur. `1` désactive l'ombrage. | `0.62` |

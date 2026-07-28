@@ -23,7 +23,7 @@ Racine — monte le moteur et toutes les surfaces.
 | `googleMapsApiKey` | Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). | — |
 | `cesiumIonToken` | Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. | — |
 | `cesiumIonAssetId` | Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). | — |
-| `mapMode` | Type de carte au démarrage. Défaut : `'plan'` (fond 2D Google) dès que `googleMapsApiKey` est fourni, sinon `'3d'`. `'3d'` explicite pour démarrer sur les tuiles photoréalistes. | — |
+| `mapMode` | Type de carte au démarrage. Défaut : `'plan'` dès qu'un fond 2D est servable — clé Google **ou** `providers.internal.origin` d'un serveur interne (cf. [TILES.md](TILES.md)) — sinon `'3d'`. `'3d'` explicite pour démarrer sur le volume. Lu à la **construction** : la bascule ensuite passe par le bouton de la barre ou `MapHandle`. | — |
 | `fallbackGlobe` | Globe ellipsoïde uni de repli quand aucune tuile n'est disponible (défaut: true). | — |
 | `errorTarget` | Erreur d'écran cible (qualité/perf). | — |
 | `intro` | Intro façon Google Earth : vue globe puis descente animée vers center/zoom (défaut: true). | — |

@@ -1,12 +1,15 @@
+// Iconographie : les glyphes « 3D » et « 2D » vont à la BASCULE DE FOND — les seuls
+// boutons de la barre à porter un état actif, donc les seuls que ces libellés doivent
+// désigner. Les actions caméra (incliner / remettre à plat) prennent la perspective.
 import {
   mdiCompassOutline,
   mdiCrosshairsGps,
-  mdiCubeOutline,
   mdiCursorMove,
   mdiEarth,
   mdiFullscreen,
-  mdiMapOutline,
   mdiMinus,
+  mdiPerspectiveLess,
+  mdiPerspectiveMore,
   mdiPlus,
   mdiRotateOrbit,
   mdiTrafficLight,
@@ -15,6 +18,7 @@ import {
 } from '@mdi/js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
+import { canEnterMode } from '../../core/basemap'
 import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
 import { boundsContains } from '../../core/MarkerQuery'
 import type { LatLng } from '../../shared'
@@ -183,13 +187,31 @@ export function MapControls({
 
   // Sections configurables : convention partagée avec `Toolbar` (cf. `slots.ts`).
   const { slot, isDefault } = resolveSlots<Slot>(components)
-  /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
-   *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier
-   *  fantôme. S'ajoute au prédicat partagé : le fond 2D est un service Google, sans
-   *  clé le groupe n'existe pas (une seule vérité, pas trois tests séparés). */
-  const defaultShown = (key: Slot) => isDefault(key) && (key !== 'basemap' || engine.supportsBasemap2d)
   /** Ce bouton précis est-il visible ? (grain fin `buttons`, dans un groupe rendu) */
   const btn = (b: MapControlButton) => buttons[b] !== false
+  /**
+   * Chaque bouton de bascule est proposé si SA destination a de quoi s'afficher —
+   * `canEnterMode`, la même table de vérité que celle qui autorise `engine.setMapMode`
+   * et le raccourci plus bas.
+   *
+   * ⚠️ Les deux étaient conditionnés au seul `canPlan` : `can3d` était publié, documenté
+   * et testé, mais lu nulle part. Un hôte en fond interne sans tileset photoréaliste ni
+   * volume interne se voyait donc offrir un bouton « 3D » qui, une fois cliqué, masquait
+   * le fond pour ne rien mettre à la place.
+   */
+  const showMode3d = btn('mode3d') && canEnterMode(basemap, '3d')
+  const showPlan = btn('plan') && canEnterMode(basemap, 'plan')
+  /**
+   * Le groupe « fond de carte » a-t-il quelque chose à montrer ? Le bouton trafic dépend
+   * de l'état ET du fournisseur : sa visibilité entre aussi dans le test de non-vacuité,
+   * sinon le groupe se rendrait vide.
+   */
+  const basemapGroupShown = showMode3d || showPlan || (btn('traffic') && basemap.trafficAvailable)
+  /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
+   *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier
+   *  fantôme. S'ajoute au prédicat partagé : ce que le fond de carte permet dépend du
+   *  fournisseur (une seule vérité, pas trois tests séparés). */
+  const defaultShown = (key: Slot) => isDefault(key) && (key !== 'basemap' || basemapGroupShown)
   // Défauts pris dans la config : les dix touches vivaient dans une table de module,
   // donc remappables par prop mais invisibles depuis `<Map config>`. L'assertion
   // `satisfies` garde les deux ensembles de clés alignés.
@@ -226,8 +248,10 @@ export function MapControls({
       else if (hit('view', 'globe', 'globe')) globe()
       else if (hit('fullscreen', 'fullscreen', 'fullscreen')) toggleFs()
       // La bascule s'applique au bouton de destination : masquer « Plan » désactive
-      // aussi la touche qui y mènerait.
-      else if (hit('basemap', to === 'plan' ? 'plan' : 'mode3d', 'basemap')) engine.setMapMode(to)
+      // aussi la touche qui y mènerait — et `canEnterMode` la désactive de même quand la
+      // destination n'a rien à afficher, exactement comme elle en masque le bouton.
+      else if (canEnterMode(bm, to) && hit('basemap', to === 'plan' ? 'plan' : 'mode3d', 'basemap'))
+        engine.setMapMode(to)
       else if (bm.trafficAvailable && hit('basemap', 'traffic', 'traffic')) engine.setTrafficVisible(!bm.traffic)
       else return
       // Raccourci consommé : pas d'action par défaut du navigateur (ex. frappe
@@ -307,52 +331,22 @@ export function MapControls({
         ),
       )}
 
-      {slot(
-        'view',
-        (btn('tilt') || btn('topDown') || btn('globe')) && (
-          <div className="m3d-controls-group">
-            {btn('tilt') && (
-              <ToolButton
-                icon={mdiVideo3d}
-                label={labels.controls.tilt}
-                tip={tip}
-                shortcut={keys.tilt}
-                onClick={tiltUp}
-              />
-            )}
-            {btn('topDown') && (
-              <ToolButton
-                icon={mdiVideo2d}
-                label={labels.controls.topDown}
-                tip={tip}
-                shortcut={keys.topDown}
-                onClick={topDown}
-              />
-            )}
-            {btn('globe') && (
-              <ToolButton
-                icon={mdiEarth}
-                label={labels.controls.globe}
-                tip={tip}
-                shortcut={keys.globe}
-                onClick={globe}
-              />
-            )}
-          </div>
-        ),
-      )}
+      {/* Fond de carte, AVANT les commandes de caméra : c'est le choix de ce qu'on
+          regarde (carte ou volume), pas une manière de le regarder — et il porte le seul
+          état actif de la barre.
 
-      {/* Fond de carte : le groupe entier disparaît sans clé Google (les modes 2D et
-          le trafic sont des services Google). La visibilité du bouton trafic dépend
-          de l'ÉTAT (pas seulement de la config) : elle entre donc dans le test de
-          non-vacuité, sinon le groupe se rendrait vide. */}
+          Chaque bouton de la paire 2D/3D est là si SA destination est servable (cf.
+          `canEnterMode` plus haut) : « Plan » demande un fond plat — clé Google ou origine
+          interne — et « 3D » du volume — tileset photoréaliste, ou relief/bâtiments
+          internes. Le trafic dépend en plus de l'ÉTAT, pas seulement de la config : sa
+          visibilité entre donc dans le test de non-vacuité du groupe. */}
       {slot(
         'basemap',
-        engine.supportsBasemap2d && (btn('mode3d') || btn('plan') || (btn('traffic') && basemap.trafficAvailable)) && (
+        basemapGroupShown && (
           <div className="m3d-controls-group">
-            {btn('mode3d') && (
+            {showMode3d && (
               <ToolButton
-                icon={mdiCubeOutline}
+                icon={mdiVideo3d}
                 label={labels.controls.mode3d}
                 tip={tip}
                 // Le raccourci bascule : ne l'annoncer que sur le bouton vers
@@ -362,9 +356,9 @@ export function MapControls({
                 onClick={() => engine.setMapMode('3d')}
               />
             )}
-            {btn('plan') && (
+            {showPlan && (
               <ToolButton
-                icon={mdiMapOutline}
+                icon={mdiVideo2d}
                 label={labels.controls.plan}
                 tip={tip}
                 shortcut={basemap.mode === '3d' ? keys.basemap : undefined}
@@ -380,6 +374,41 @@ export function MapControls({
                 shortcut={keys.traffic}
                 active={basemap.traffic}
                 onClick={() => engine.setTrafficVisible(!basemap.traffic)}
+              />
+            )}
+          </div>
+        ),
+      )}
+
+      {slot(
+        'view',
+        (btn('tilt') || btn('topDown') || btn('globe')) && (
+          <div className="m3d-controls-group">
+            {btn('tilt') && (
+              <ToolButton
+                icon={mdiPerspectiveMore}
+                label={labels.controls.tilt}
+                tip={tip}
+                shortcut={keys.tilt}
+                onClick={tiltUp}
+              />
+            )}
+            {btn('topDown') && (
+              <ToolButton
+                icon={mdiPerspectiveLess}
+                label={labels.controls.topDown}
+                tip={tip}
+                shortcut={keys.topDown}
+                onClick={topDown}
+              />
+            )}
+            {btn('globe') && (
+              <ToolButton
+                icon={mdiEarth}
+                label={labels.controls.globe}
+                tip={tip}
+                shortcut={keys.globe}
+                onClick={globe}
               />
             )}
           </div>

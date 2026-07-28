@@ -84,6 +84,9 @@ const NONE = ''
 /** Entrée d'`optionalList` qui signifie « ne pas écrire la clé ». */
 export const UNSET = '(défaut)'
 
+/** Les plafonds mémoire se règlent en mébioctets — un pas d'un octet n'aurait aucun sens. */
+const MIB = 1024 * 1024
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Table des exceptions
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,6 +100,28 @@ export const UNSET = '(défaut)'
  */
 const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   // ① providers ───────────────────────────────────────────────────────────────
+  // Bascule Google ↔ serveur auto-hébergé, à chaud : c'est le réglage qui fait
+  // apparaître ou disparaître les boutons 2D/3D et trafic de la barre.
+  'providers.tiles.provider': {
+    kind: 'list',
+    options: { 'Google (externe)': 'external', 'serveur interne': 'internal' },
+  },
+  // Choix fermé plutôt que saisie libre : les deux origines réellement utilisées sont la
+  // production et le serveur local, et une URL tapée à la main ne se teste qu'en voyant
+  // la carte rester vide. `localhost` dépanne quand la production est hors d'atteinte.
+  'providers.internal.origin': {
+    kind: 'list',
+    options: {
+      'production — map.gosecure.site': 'https://map.gosecure.site',
+      'local — localhost:8090': 'http://localhost:8090',
+    },
+  },
+  'providers.tiles.baseZoom': { min: 0, max: 6, step: 1 },
+  'providers.tiles.maxZoom': { min: 2, max: 22, step: 1 },
+  // Côté de l'anneau demandé à chaque niveau INTERMÉDIAIRE de la cascade de détail.
+  // Impair : l'anneau est centré sur le point visé. Au-delà de 7 on paie surtout des
+  // tuiles redondantes — le niveau plus fin couvre déjà le quart central.
+  'providers.tiles.lodRing': { min: 1, max: 9, step: 2, billing: true },
   'providers.tiles.language': { kind: 'list', options: LOCALES },
   'providers.tiles.region': { kind: 'list', options: REGIONS },
   // Les CLÉS s'affichent, les valeurs partent au fournisseur : elles restent les
@@ -108,12 +133,55 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'providers.tiles.layerTypes': { kind: 'csvString' },
   'providers.tiles.retryDelays': { kind: 'csvNumber' },
   'providers.tiles.maxTiles': { min: 50, max: 2000, step: 10 },
+  // Une tuile raster décodée pèse 256×256×4 = 262 Ko sur le GPU : les 500 du plafond
+  // ci-dessus en font 131 Mo, que rien ne bornait avant cette clé.
+  'providers.tiles.maxBytes': { min: 16 * MIB, max: 512 * MIB, step: 16 * MIB },
+  'providers.tiles.evictEvery': { min: 1, max: 60, step: 1 },
+  'providers.tiles.evictSlack': { min: 0, max: 500, step: 10 },
+  'providers.tiles.mountPerFrame': { min: 1, max: 32, step: 1 },
   'providers.tiles.maxInflight': { min: 1, max: 32, step: 1 },
   'providers.tiles.margin': { min: 0, max: 4, step: 1 },
   'providers.tiles.maxRequest': { min: 10, max: 500, step: 10, billing: true },
   'providers.tiles.maxAttempts': { min: 1, max: 6, step: 1 },
 
+  // À chaud, comme le fournisseur 2D : il commande la visibilité et le pilotage du
+  // tileset photoréaliste, pas son enregistrement.
+  'providers.tiles3d.provider': {
+    kind: 'list',
+    options: { 'photoréaliste (externe)': 'external', 'serveur interne': 'internal' },
+  },
   'providers.tiles3d.cesiumIonAssetId': { cold: true },
+
+  'providers.buildings.defaultHeight': { min: 2, max: 30, step: 1 },
+  // La Burj Khalifa fait 828 m : au-delà, c'est une erreur de saisie OSM (`height=99999`
+  // est courant), qui produisait un volume de cent kilomètres.
+  'providers.buildings.maxHeight': { min: 50, max: 2000, step: 50 },
+  // `int16` divise par deux le plus gros tampon, pour ~4 cm de résolution. À basculer sur
+  // `float32` pour comparer à l'œil : la différence ne se voit pas, la mémoire si.
+  'providers.buildings.positionPrecision': {
+    kind: 'list',
+    options: { 'int16 (2× plus léger)': 'int16', float32: 'float32' },
+  },
+  'providers.buildings.zoom': { min: 10, max: 16, step: 1 },
+  'providers.buildings.minViewZoom': { min: 10, max: 18, step: 1 },
+  'providers.buildings.margin': { min: 0, max: 3, step: 1 },
+  // Bornes RESSERRÉES : une tuile z14 dense pèse ~131 000 triangles, sans commune mesure
+  // avec une tuile raster. Les plafonds d'avant (256 / 16 / 128) étaient calqués sur ceux
+  // du fond 2D et permettaient de mettre la carte à genoux depuis le panneau.
+  'providers.buildings.maxTiles': { min: 4, max: 64, step: 4 },
+  // C'est CE plafond qui borne réellement la mémoire : le compte de tuiles ne dit rien de
+  // ce qu'elles pèsent, et le rapport va de un à cent entre campagne et centre-ville. Le
+  // descendre puis se promener dans Paris montre l'éviction à l'œuvre.
+  'providers.buildings.maxBytes': { min: 16 * MIB, max: 512 * MIB, step: 16 * MIB },
+  'providers.buildings.evictEvery': { min: 1, max: 60, step: 1 },
+  'providers.buildings.evictSlack': { min: 0, max: 64, step: 4 },
+  // À 1, la carte perd une frame par tuile montée au lieu de trois. Le monter fait
+  // réapparaître le gel d'origine — c'est le réglage qui le démontre.
+  'providers.buildings.mountPerFrame': { min: 1, max: 8, step: 1 },
+  'providers.buildings.maxInflight': { min: 1, max: 6, step: 1 },
+  'providers.buildings.maxRequest': { min: 1, max: 49, step: 1 },
+  'providers.buildings.maxAttempts': { min: 1, max: 6, step: 1 },
+  'providers.buildings.retryDelays': { kind: 'csvNumber' },
 
   'providers.routing.routingPreference': {
     kind: 'list',
@@ -193,6 +261,20 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'performance.relations.zoomBand': { min: 0, max: 2, step: 0.05 },
 
   // ④ camera ──────────────────────────────────────────────────────────────────
+  // Les trois bornes de zoom sont désormais RÉELLEMENT appliquées (elles étaient
+  // déclarées et inertes) : ce sont donc de vrais leviers de navigation, à essayer en
+  // direct. `maxZoom3d` est le plancher de descente en volume — altitude au-dessus du
+  // sol = 40 075 016 / 2^zoom, soit ~153 m à 18, ~76 m à 19, ~19 m à 21.
+  'camera.minZoom': { min: 0, max: 8, step: 1 },
+  'camera.maxZoom': { min: 12, max: 22, step: 1 },
+  'camera.maxZoom3d': { min: 12, max: 22, step: 1 },
+  'camera.minGroundClearance': { min: 1, max: 500, step: 1 },
+  'camera.keyPan.speed': { min: 0.05, max: 4, step: 0.05 },
+  'camera.keyPan.boost': { min: 1, max: 10, step: 0.5 },
+  // Plusieurs touches par direction : les flèches, universelles, et une famille de
+  // lettres qui dépend de la disposition du clavier. Saisies en liste séparée par des
+  // virgules, en minuscules (`arrowup`, `z`, `shift`).
+  'interaction.shortcuts.navigate.*': { kind: 'csvString' },
   'camera.maxTilt': { min: 0, max: Math.PI / 2, step: 0.01 },
   'camera.maxTilt3d': { min: 0, max: Math.PI / 2, step: 0.01 },
   'camera.maxTilt2d': { min: 0, max: Math.PI / 2, step: 0.01 },

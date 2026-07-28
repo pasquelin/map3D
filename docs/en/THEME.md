@@ -176,3 +176,8 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `globe.background` | Background behind the globe (space). | `'#070C16'` |
 | `globe.oceanColor` | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles. | `'#0F2942'` |
 | `globe.landColor` | Landmasses of the fallback globe. | `'#4F7A45'` |
+| `globe.buildingColor` | Walls of the extruded buildings (internal provider's volume). A footprint carrying its own colour (`colour` attribute) keeps it. | `'#8A8E96'` |
+| `globe.buildingRoofColor` | Roofs of the extruded buildings, lighter than the walls — the top face reads at once. | `'#C2C6CE'` |
+| `globe.buildingRoofLighten` | How much to lighten the roof of a footprint carrying ITS OWN colour (the `colour` attribute), as a fraction towards white. `buildingRoofColor` only applies to footprints left to the theme, and without this offset volume disappears on those. ⚠️ Was a literal in `BuildingsLayer`: an appearance decision written into a layer's code, invisible from the theme. `0` makes the roof exactly the wall colour. | `0.35` |
+| `globe.buildingSunAzimuth` | Azimuth of the fake sun (degrees from north, clockwise) that modulates walls by orientation. The scene has **no** light: the term is baked into vertex colours by the extrusion worker, so it costs nothing per frame. Avoid multiples of 45°: on an exact diagonal, the four walls of an orthogonal building collapse pairwise onto the same tone. | `120` |
+| `globe.buildingShadeMin` | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading. | `0.62` |

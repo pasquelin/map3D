@@ -18,6 +18,9 @@ markers/clusters DOM, tracés, formes, outils de dessin, données temps réel �
 ## Highlights · Points clés
 
 - **Photorealistic 3D tiles** (Google, via Cesium Ion) with an ellipsoid globe fallback.
+- **Bring your own tile server** — the 2D basemap runs from Google *or* from your
+  self-hosted server (plain XYZ, no key, no session, no quota), switched by configuration
+  alone. Le fond 2D depuis **votre** serveur, au choix, par simple réglage.
 - **DOM/CSS markers and clusters** — native animations, `:hover`, accessibility; pooled
   nodes, `translate3d` written in a single project pass.
 - **Stable identity** → a moving agent *glides* instead of being recreated.
@@ -88,6 +91,7 @@ export function App() {
 | Lens | [LENS.md](docs/fr/LENS.md) | [LENS.md](docs/en/LENS.md) |
 | Search | [SEARCH.md](docs/fr/SEARCH.md) | [SEARCH.md](docs/en/SEARCH.md) |
 | Camera | [CAMERA.md](docs/fr/CAMERA.md) | [CAMERA.md](docs/en/CAMERA.md) |
+| Tiles | [TILES.md](docs/fr/TILES.md) | [TILES.md](docs/en/TILES.md) |
 | Data | [DATA.md](docs/fr/DATA.md) | [DATA.md](docs/en/DATA.md) |
 | Hooks | [HOOKS.md](docs/fr/HOOKS.md) | [HOOKS.md](docs/en/HOOKS.md) |
 | Engine | [ENGINE.md](docs/fr/ENGINE.md) | [ENGINE.md](docs/en/ENGINE.md) |

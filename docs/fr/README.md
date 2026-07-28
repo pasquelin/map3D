@@ -36,6 +36,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 | [LENS.md](LENS.md) | loupe : inventaire des markers d'une zone |
 | [SEARCH.md](SEARCH.md) | recherche unifiée carte + lieux |
 | [CAMERA.md](CAMERA.md) | position initiale, `ready`, vols, cadrage, carte figée, fond de carte |
+| [TILES.md](TILES.md) | fournisseur de tuiles : Google ou serveur auto-hébergé, capacités et boutons |
 | [DATA.md](DATA.md) | viewport-driven, temps réel, tags, épinglage, persistance |
 | [HOOKS.md](HOOKS.md) | tous les hooks, et ce qui fait re-rendre quoi |
 | [ENGINE.md](ENGINE.md) | moteur, events, registres, couches custom |
@@ -61,6 +62,7 @@ ne peut diverger de ce que la lib applique :
 | cadrer la carte sur du contenu | [CAMERA.md § 4](CAMERA.md#4-cadrer-fitbounds) |
 | traduire l'interface | [LABELS.md](LABELS.md) |
 | adapter la charte | [THEME.md](THEME.md) |
+| servir vos tuiles depuis votre serveur | [TILES.md § 2](TILES.md#2-régler-le-serveur-interne) |
 | écrire votre propre couche | [ENGINE.md § 3](ENGINE.md#3-écrire-une-couche) |
 
 ### Les trois arbres de réglages
@@ -479,6 +481,25 @@ Chaque texte affiché (tooltips, aria-labels, placeholders, panneaux, label de d
 
 Les **outils** se choisissent par lettres seules, identiques Mac/PC ; les **actions d'édition** (annuler, tout sélectionner, dupliquer) utilisent le modificateur de la plateforme (⌘ sur Mac, Ctrl ailleurs) avec `preventDefault` ciblé. Tous sont affichés dans les tooltips des boutons et ignorés pendant une saisie (recherche, formulaires).
 
+**Déplacement sur la carte** — les seules touches qui agissent tant qu'elles sont **maintenues** :
+
+| Touche | Action |
+|---|---|
+| `↑` `↓` `←` `→` | Avancer / reculer / dériver, **dans le repère de la vue** |
+| `Z` `S` `Q` `D` | Les mêmes, en AZERTY |
+| `Maj` (maintenu) | Accélérer (×3) |
+
+« Tout droit » suit le **sol**, jamais la ligne de visée : la caméra garde son altitude,
+même très inclinée. Tourner la vue tourne les touches avec elle, et elles restent actives
+en **mode rotation** — la souris fait pivoter, les flèches déplacent.
+
+La vitesse est proportionnelle à la hauteur au-dessus du sol (`camera.keyPan.speed`), donc
+la carte défile à la même allure à l'écran quelle que soit l'altitude.
+
+Les flèches reviennent au **déplacement d'une sélection de dessin** dès qu'il y en a une —
+la carte se tait alors d'elle-même. Les lettres se remappent par
+`interaction.shortcuts.navigate` (WASD en QWERTY, par exemple).
+
 **Contrôles carte (`<MapControls>`)** :
 
 | Touche | Action |
@@ -503,7 +524,7 @@ Remappable si une touche est déjà prise ailleurs dans votre app — même patt
 | Touche | Action |
 |---|---|
 | `V` | Sélectionner — `1` rectangle, `2` polygone, `3` lasso |
-| `L` `P` `R` `C` `D` `A` `M` `E` | Ligne, Polygone, Rectangle, Cercle, main levée (Dessin), flèche (Arrow), Mesurer, gomme (Effacer) |
+| `L` `P` `R` `C` `H` `A` `M` `E` | Ligne, Polygone, Rectangle, Cercle, main levée (`H`), flèche (Arrow), Mesurer, gomme (Effacer) |
 | `Espace` (maintenir) | Pan caméra temporaire (dessin gelé, pas perdu) — `Espace+Maj` = rotation caméra |
 | `Maj` + glisser | Rotation de la forme (corps) / homothétie (poignée de coin) |
 | `⌘Z` / `⌘⇧Z` (`Ctrl` ailleurs) | Annuler / Rétablir (création, édition, style, suppression) |

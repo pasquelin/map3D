@@ -43,10 +43,20 @@ const AUTH_STATUS = new Set([400, 401, 403, 429])
  * `fr-FR`/`FR` et interdisait tout proxy d'entreprise.
  */
 export class GoogleTileSource {
+  /** Le calque trafic est un service Google : la source interne, elle, ne l'a pas. */
+  readonly supportsTraffic = true
+
+  /**
+   * Promesse résolue partagée, renvoyée quand la session est déjà là. `ensureSession`
+   * est appelé UNE FOIS PAR TUILE : allouer une promesse par tuile pour n'attendre rien
+   * serait payé à chaque vague de chargement.
+   */
+  private static readonly READY = Promise.resolve()
+
   private session: string | null = null
   /** Signature de la session ÉTABLIE — mise à jour au succès seulement (cf. `ensureSession`). */
   private sessionTraffic = false
-  private pending: Promise<string> | null = null
+  private pending: Promise<void> | null = null
   /** Signature de la création en cours, distincte de celle de la session établie. */
   private pendingTraffic = false
   /** Instant (ms) avant lequel toute nouvelle tentative est refusée — cf. `backoffAuthMs`. */
@@ -73,9 +83,17 @@ export class GoogleTileSource {
     this.signsItself = cfg.tileUrl.includes('{session}') || cfg.tileUrl.includes('{key}')
   }
 
-  /** Garantit une session valide pour le plan (+ trafic optionnel) ; renvoie le token. */
-  async ensureSession(traffic: boolean): Promise<string> {
-    if (this.session && this.sessionTraffic === traffic) return this.session
+  /**
+   * Garantit une session valide pour le plan (+ trafic optionnel). Le token n'est pas
+   * renvoyé : il vit dans `this.session`, que `tileUrl` lit — c'est ce qui permet à
+   * cette méthode de tenir le contrat `TileSource` commun au fournisseur interne, qui
+   * n'a aucun token à produire.
+   *
+   * Volontairement NON `async` : les deux sorties rapides (session déjà là, création
+   * déjà en vol) doivent rendre une promesse existante plutôt qu'en allouer une.
+   */
+  ensureSession(traffic: boolean): Promise<void> {
+    if (this.session && this.sessionTraffic === traffic) return GoogleTileSource.READY
     // Coalesce les créations concurrentes de même type (plan / plan+trafic).
     if (this.pending && this.pendingTraffic === traffic) return this.pending
     /**
@@ -84,7 +102,9 @@ export class GoogleTileSource {
      * sinon une création — inutile face à une clé refusée, qui le restera. On borne
      * donc la cadence, sans jamais rendre l'échec définitif.
      */
-    if (Date.now() < this.retryAt) throw new Error('Google createSession: nouvelle tentative différée')
+    if (Date.now() < this.retryAt) {
+      return Promise.reject(new Error('Google createSession: nouvelle tentative différée'))
+    }
     this.pendingTraffic = traffic
     const p = (async () => {
       const cfg = this.cfg
@@ -116,7 +136,6 @@ export class GoogleTileSource {
       // détenir une session du type demandé alors qu'il n'en a aucune, et la
       // session précédente (encore valide) serait considérée périmée.
       this.sessionTraffic = traffic
-      return body.session
     })()
     this.pending = p
     /**

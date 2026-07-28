@@ -75,10 +75,30 @@ const off = engine.on('viewport', (view) => refetch(view.bounds))
 | `viewport` | `MapView` | après stabilisation |
 | `click` | `{ latLng, originalEvent }` | clic sur la carte |
 | `dragmode` | `'pan' \| 'rotate'` | changement de mode |
-| `basemap` | `{ mode, traffic, trafficAvailable }` | changement de fond |
+| `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable }` | changement de fond **ou de capacités** |
 | `ready` | `MapEngine` | **une seule fois**, rejoué pour qui s'abonne après coup |
 
 Version React : `useMapEvents({ onClick, onCameraChange, onViewportChange, onReady })`.
+
+### `BasemapState` — l'état du fond ET ses capacités
+
+`basemap` ne dit pas seulement ce qui est affiché, mais ce qui est **possible** : les
+fournisseurs de tuiles n'offrent pas les mêmes options (cf. [TILES.md](TILES.md)). Une UI
+lit ces drapeaux plutôt que de redériver la règle — c'est ainsi que `<MapControls>` retire
+le bouton trafic là où il n'aurait rien à allumer.
+
+| Champ | Sens |
+|---|---|
+| `mode` | `'plan'` (carte plate) ou `'3d'` (volume) |
+| `traffic` | calque trafic allumé |
+| `canPlan` | une carte plate est servable : clé Google en `external`, `origin` en `internal`. Sans elle, le groupe de boutons du fond n'a rien à proposer |
+| `can3d` | du volume est servable : tileset photoréaliste en `external`, relief/bâtiments en `internal`. **Informatif** — ne masque aucun bouton |
+| `trafficAvailable` | trafic proposable : fournisseur **externe**, fond 2D présent, hors mode 3D |
+
+`engine.supportsBasemap2d` reste disponible : c'est l'alias historique de `canPlan`.
+`setMapMode('plan')` sans `canPlan`, comme `setTrafficVisible(true)` sans
+`trafficAvailable`, sont **sans effet** — un état accepté sans rien à l'écran vaut moins
+qu'un refus net.
 
 ---
 

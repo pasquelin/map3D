@@ -3,14 +3,25 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 import { GlobeControls, TilesRenderer } from '3d-tiles-renderer'
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/plugins'
 import { defaultConfig } from '../config/defaultConfig'
-import type { MapConfig } from '../config/types'
+import type { MapConfig, TileProvider, TilesConfig } from '../config/types'
+import { BuildingsLayer } from '../layers/BuildingsLayer'
+import { defaultTheme } from '../theme/defaultTheme'
 import { TiledGlobeLayer } from '../layers/TiledGlobeLayer'
 import type { Bounds, LatLng } from '../shared'
+import {
+  type BasemapState,
+  type BasemapSupport,
+  canEnterMode,
+  deriveBasemapCapabilities,
+  type MapMode,
+} from './basemap'
 import { Camera, type CameraState } from './Camera'
-import { GoogleTileSource, TILE_SIZE } from './googleTiles'
+import { TILE_SIZE } from './googleTiles'
+import { createTileSource } from './tileSource'
 import type { FrameContext, Layer, MapView } from './Layer'
 import { altitudeForZoom, CAMERA_FOV, clamp, DEG2RAD, EARTH_CIRCUMFERENCE, zoomForAltitude } from './math'
 import { DragRegistry } from './DragRegistry'
+import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
 import { SearchRegistry } from '../search/registry'
@@ -22,8 +33,10 @@ export type PointerPhase = 'down' | 'move' | 'up'
 /** Intercepteur d'entrée (outils de dessin) : renvoie true pour consommer. */
 export type PointerInterceptor = (phase: PointerPhase, latLng: LatLng | null, event: PointerEvent) => boolean
 
-/** Type de carte : 3D photoréaliste (Ion) ou fond 2D Google (plan). */
-export type MapMode = '3d' | 'plan'
+// Le domaine du fond de carte (mode + capacités) vit dans `./basemap`, avec sa table de
+// vérité en fonction pure. Ré-exporté ici : c'est de `MapEngine` que les consommateurs
+// (et `src/index.ts`) l'importent depuis toujours.
+export type { BasemapState, MapMode } from './basemap'
 
 export type MapEngineOptions = {
   canvas: HTMLCanvasElement
@@ -38,6 +51,22 @@ export type MapEngineOptions = {
    * `TiledGlobeLayer` — deux océans de teintes opposées selon le globe affiché.
    */
   oceanColor: string
+  /**
+   * Façades et toits des bâtiments extrudés du fournisseur interne
+   * (`theme.globe.buildingColor` / `buildingRoofColor`). Comme `oceanColor`, lues au
+   * montage : une charte qui change ne reconstruit pas la géométrie déjà extrudée.
+   */
+  buildingColor?: string
+  buildingRoofColor?: string
+  /** Éclaircissement du toit d'une emprise colorée par la donnée (`theme.globe.buildingRoofLighten`). */
+  buildingRoofLighten?: number
+  /**
+   * Soleil de convention des façades (`theme.globe.buildingSunAzimuth` /
+   * `buildingShadeMin`). Lu au montage comme les couleurs : l'ombrage est cuit dans les
+   * couleurs de sommets, il ne coûte donc rien à la frame — et ne se repeint pas.
+   */
+  buildingSunAzimuth?: number
+  buildingShadeMin?: number
   /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
   googleMapsApiKey?: string
   /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
@@ -102,18 +131,6 @@ export type DragMode = 'pan' | 'rotate'
  * intercepteur n'est plus appelé.
  */
 export type InteractiveMode = boolean | 'view'
-
-/** Fond de carte affiché et calques optionnels qui en dépendent. */
-export type BasemapState = {
-  mode: MapMode
-  traffic: boolean
-  /**
-   * Le trafic est un calque du fond 2D Google : indisponible en 3D et sans clé.
-   * Diffusé plutôt que redérivé par chaque consommateur — l'UI n'a pas à
-   * connaître la règle.
-   */
-  trafficAvailable: boolean
-}
 
 export type MapEvents = {
   camera: CameraState
@@ -233,8 +250,52 @@ export class MapEngine {
   private drawingMode = false
   /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
   private drawingSuspended = false
-  /** Globe 2D Google tuilé (LOD/cache/prefetch), null si pas de clé. */
-  private basemap2d: TiledGlobeLayer | null = null
+  /**
+   * Globe 2D tuilé (LOD/cache/prefetch). Toujours monté : c'est sa SOURCE qui peut
+   * manquer (`basemap2d.hasSource`), et elle peut apparaître à chaud — cf. le
+   * constructeur.
+   */
+  private readonly basemap2d: TiledGlobeLayer
+  /**
+   * Volume du fournisseur interne : bâtiments extrudés depuis les tuiles vectorielles.
+   * Monté comme le fond 2D — inconditionnellement, sa SOURCE pouvant manquer.
+   */
+  private readonly buildings: BuildingsLayer
+  /**
+   * Surface reconstruite localement : fond raster interne + bâtiments extrudés.
+   *
+   * FRÈRE du groupe de tuiles, jamais son enfant : `TilesGroup.raycast()` délègue au
+   * `TilesRenderer` puis renvoie `false`, ce qui arrête la traversée de Three — tout
+   * enfant y est donc invisible aux rayons. C'est ce qui privait le fond 2D, puis les
+   * bâtiments, de toute collision et de tout drapage.
+   *
+   * Sa transformée est recopiée du groupe de tuiles à chaque frame : les deux surfaces
+   * partagent ainsi exactement le même repère (ECEF local), sans en dépendre.
+   */
+  private readonly internalSurface = new THREE.Group()
+  /** Un tileset 3D photoréaliste est disponible (token Cesium Ion ou clé Google) — figé au montage. */
+  private readonly has3dTileset: boolean
+  /**
+   * D'où vient le volume — `providers.tiles3d.provider`, relu à chaud par `setConfig`.
+   *
+   * Sur `'internal'`, le tileset photoréaliste n'est ni rendu ni piloté : son `update`
+   * étant gelé, il n'émet AUCUNE requête (le premier fetch part au premier `update`),
+   * donc rien ne se facture — sans avoir à remonter la carte pour changer d'avis.
+   */
+  private provider3d: TileProvider
+  /**
+   * Déplacement continu au clavier. Monté d'office : sans touche maintenue il ne coûte
+   * rien, et `setKeyNavEnabled` le rend à qui de droit quand les flèches lui reviennent.
+   */
+  private readonly navKeys: NavKeys
+  // Base tangente et rotation du déplacement clavier — recalculées par frame, jamais allouées.
+  private readonly navUp = new THREE.Vector3()
+  private readonly navForward = new THREE.Vector3()
+  private readonly navRight = new THREE.Vector3()
+  private readonly navDir = new THREE.Vector3()
+  private readonly navAxis = new THREE.Vector3()
+  private readonly navCenter = new THREE.Vector3()
+  private readonly navQuat = new THREE.Quaternion()
   /** Distance max caméra↔centre Terre (limite de dézoom). 0 = illimité. */
   private maxCameraDistance = 0
   private readonly clampScratch = new THREE.Vector3()
@@ -262,19 +323,35 @@ export class MapEngine {
   globeDuration = 1.0
 
   /**
-   * (Ré)applique les bornes de navigation de `config.camera` : dézoom max, plafond
-   * d'altitude, inclinaison selon le mode courant.
+   * Recopie les bornes de navigation dans `GlobeControls` et `Camera`, qui ne les
+   * relisent pas. Appelée à chaque changement de config ET de mode : plusieurs de ces
+   * bornes dépendent du mode.
    *
-   * Appelée à la construction ET depuis `setConfig` : ces bornes sont recopiées dans
-   * `GlobeControls`, qui ne les relit pas — sans cet appel, une config changée à chaud
-   * laisserait la carte avec les limites de l'ancienne.
+   * ⚠️ Trois réglages de `camera` étaient **déclarés, documentés et branchés nulle part** :
+   * `minZoom`, `maxZoom`, et `minGroundClearance` hors des vols programmés. La molette
+   * n'était donc bornée que par le `cameraRadius` de `GlobeControls` — 5 m par défaut,
+   * jamais réglé : on descendait au ras du pavé, nez contre une façade.
    */
   private applyCameraLimits(): void {
     const c = this.config.camera
     const R = this.tiles.ellipsoid.radius.x
     this.maxCameraDistance = R * c.maxDistanceFactor
     this.camera.maxAltitude = R * c.maxAltitudeFactor
-    this.controls.maxDistance = R * c.maxAltitudeFactor
+    // `minZoom` et `maxAltitudeFactor` bornent le même éloignement en deux unités : le plus
+    // contraignant gagne, plutôt que l'un des deux soit ignoré.
+    this.controls.maxDistance = Math.min(R * c.maxAltitudeFactor, altitudeForZoom(c.minZoom))
+    /**
+     * Plancher de descente. `minDistance` borne la distance caméra ↔ **point visé** (là où
+     * le rayon du curseur touche la surface, bâtiments compris) : c'est donc une garde
+     * juste aussi en vue inclinée, là où une simple borne d'altitude ne dirait rien.
+     *
+     * Le mode décide, comme pour l'inclinaison : une carte plate se lit d'autant mieux
+     * qu'on s'en approche, un volume non.
+     */
+    this.controls.minDistance = altitudeForZoom(this.mapMode === '3d' ? c.maxZoom3d : c.maxZoom)
+    // Garde au sol de la molette et du pan, que `Camera.clampAltitude` n'applique qu'aux
+    // vols programmés — le réglage annonçait pourtant « le sol RÉEL, tuiles comprises ».
+    this.controls.cameraRadius = c.minGroundClearance
     this.controls.maxAltitude = this.mapMode === 'plan' ? c.maxTilt2d : c.maxTilt3d
   }
 
@@ -282,6 +359,7 @@ export class MapEngine {
     this.canvas = opts.canvas
     this.config = opts.config ?? defaultConfig
     this.projection.setConfig(this.config)
+    this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
     this.tags = new TagFilter(opts.tagStorageKey)
     this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: this.config.performance.antialias })
@@ -300,6 +378,12 @@ export class MapEngine {
     // en direct (clé). NB : les Photorealistic 3D Tiles Google sont bloquées pour les
     // comptes EEA → Ion reste la source fiable. Sans l'un ni l'autre, le TilesRenderer
     // reste vide → globe ellipsoïde de repli.
+    //
+    // Les plugins sont enregistrés dès qu'un token/une clé existe, indépendamment de
+    // `providers.tiles3d.provider` : c'est la VISIBILITÉ et l'`update` du tileset que ce
+    // réglage commande (cf. `applyModeVisibility` et `tick`), ce qui le rend modifiable à
+    // chaud dans les deux sens. Un tileset jamais updaté n'émet aucune requête.
+    this.provider3d = this.config.providers.tiles3d.provider
     const hasCustomTiles = !!(opts.cesiumIonToken || opts.googleMapsApiKey)
     this.tiles = new TilesRenderer()
     if (opts.cesiumIonToken) {
@@ -326,18 +410,47 @@ export class MapEngine {
 
     this.projection.setContext(this.tiles.ellipsoid, this.tiles.group)
 
-    // Fond 2D Google : couche indépendante (plan/terrain/trafic) drapée sur le globe,
-    // rendue seulement en mode 2D (le tileset 3D est alors masqué). NB EEA : Google 2D
-    // ne sert que roadmap/terrain/trafic (satellite/hybride bloqués).
-    if (opts.googleMapsApiKey) {
-      this.basemap2d = new TiledGlobeLayer(
-        this.tiles.group,
-        this.tiles.ellipsoid,
-        new GoogleTileSource(opts.googleMapsApiKey, this.config.providers.tiles),
-        this.config.providers.tiles,
-        opts.oceanColor,
-      )
-    }
+    // Fond 2D : couche indépendante drapée sur le globe, rendue en mode plan (le tileset
+    // 3D est alors masqué). NB EEA : Google 2D ne sert que roadmap/terrain/trafic
+    // (satellite/hybride bloqués) ; le fournisseur interne, lui, sert son propre style.
+    //
+    // Le calque est monté INCONDITIONNELLEMENT, la source pouvant être absente : il était
+    // créé sous condition de clé Google, ce qui rendait le fond 2D définitivement
+    // indisponible pour toute la session — renseigner une origine interne à chaud
+    // n'aurait rien pu y changer. C'est `hasSource` qui porte désormais la
+    // disponibilité, et le calque inerte ne coûte qu'une sphère masquée.
+    // Capturée AVANT la fabrique : sans ça, la closure retient tout `MapEngineOptions`
+    // (conteneur, canvas, callbacks) pour la durée de vie de la carte.
+    const apiKey = opts.googleMapsApiKey
+    this.internalSurface.name = 'm3d-internal-surface'
+    // Matrice pilotée à la main (recopiée du groupe de tuiles chaque frame).
+    this.internalSurface.matrixAutoUpdate = false
+    this.scene.add(this.internalSurface)
+    this.basemap2d = new TiledGlobeLayer(
+      this.internalSurface,
+      this.tiles.ellipsoid,
+      (cfg, origin) => createTileSource(cfg, origin, apiKey),
+      this.config.providers.tiles,
+      this.config.providers.internal,
+      opts.oceanColor,
+    )
+    // Volume interne. Même règle que le fond 2D : monté d'office, inerte sans origine.
+    this.buildings = new BuildingsLayer(
+      this.internalSurface,
+      this.tiles.ellipsoid,
+      this.config.providers.buildings,
+      this.config.providers.internal,
+      {
+        wall: opts.buildingColor ?? defaultTheme.globe.buildingColor,
+        roof: opts.buildingRoofColor ?? defaultTheme.globe.buildingRoofColor,
+        roofLighten: opts.buildingRoofLighten ?? defaultTheme.globe.buildingRoofLighten,
+        shading: {
+          azimuth: opts.buildingSunAzimuth ?? defaultTheme.globe.buildingSunAzimuth,
+          min: opts.buildingShadeMin ?? defaultTheme.globe.buildingShadeMin,
+        },
+      },
+    )
+    this.has3dTileset = hasCustomTiles
 
     // Renderer HTML superposé au canvas : positionne chaque `CSS2DObject` via la
     // caméra Three (aucune projection écran manuelle → zéro dérive). `domElement`
@@ -372,8 +485,13 @@ export class MapEngine {
      * scène. Pire, une forme plaquée au sol pouvait servir de pivot de caméra à la
      * place du terrain.
      *
-     * Le fond de carte 2D est lui aussi dans `tiles.group` (cf. `basemap2d` plus
-     * bas) : la surface reste donc trouvable en mode plan comme en 3D.
+     * ⚠️ Ce groupe est un `TilesGroup` : son `raycast()` interroge le `TilesRenderer`
+     * puis renvoie `false`, ce qui ARRÊTE la traversée de Three. Seules les tuiles
+     * répondent donc, jamais ce qu'on ajoute au groupe — le fond raster n'a ainsi
+     * jamais été raycastable, d'où le `flatHeight` du mode plan.
+     *
+     * La surface reconstruite localement vit pour cette raison à côté
+     * (`internalSurface`), et `applyModeVisibility` désigne celle des deux à viser.
      */
     this.controls.setScene(this.tiles.group)
     this.controls.setCamera(this.threeCamera)
@@ -420,10 +538,15 @@ export class MapEngine {
     this.bindInput()
 
     // Mode de départ, en DERNIER (setMapMode touche controls, projection et l'intro,
-    // tous construits au-dessus) : 2D par défaut dès que le fond Google existe. Passe
-    // par setMapMode pour ne pas dupliquer les règles de bascule ; sans clé, sa garde
-    // ramène au mode 3D.
-    this.setMapMode(opts.mapMode ?? (this.basemap2d ? 'plan' : '3d'))
+    // tous construits au-dessus) : plan par défaut dès qu'un fond 2D est servable — clé
+    // Google ou origine interne. Passe par setMapMode pour ne pas dupliquer les règles
+    // de bascule ; sans source, sa garde ramène au mode 3D.
+    this.setMapMode(opts.mapMode ?? (this.basemap2d.hasSource ? 'plan' : '3d'))
+    // `setMapMode` sort par sa garde d'idempotence quand le mode demandé est DÉJÀ celui
+    // de départ ('3d') : la scène resterait alors dans son état de construction, où fond
+    // et bâtiments sont masqués. On applique donc l'état une fois, explicitement.
+    this.applyModeVisibility()
+    this.syncBasemap()
   }
 
   /**
@@ -607,12 +730,34 @@ export class MapEngine {
       this.renderer.setSize(this.size.width, this.size.height, false)
     }
     this.controls.enableDamping = config.interaction.damping
-    this.basemap2d?.setConfig(config.providers.tiles)
+    // Relu AVANT le fond : c'est lui qui décide du fournisseur effectif de celui-ci
+    // (cf. `effectiveTilesConfig`).
+    this.provider3d = config.providers.tiles3d.provider
+    // L'origine du serveur interne est PARTAGÉE : le fond 2D et le volume la lisent au
+    // même endroit (`providers.internal`), puisque les deux sortent du même serveur.
+    this.basemap2d.setConfig(this.effectiveTilesConfig(), config.providers.internal)
+    this.buildings.setConfig(config.providers.buildings, config.providers.internal)
+    this.navKeys.setConfig(config.interaction.shortcuts.navigate)
     this.camera.setConfig(config)
     this.projection.setConfig(config)
     for (const layer of this.layers) layer.setConfig?.(config)
     // Bornes de navigation : recopiées dans `GlobeControls`, qui ne les relit pas.
     if (prev.camera !== config.camera) this.applyCameraLimits()
+    /**
+     * Les fournisseurs ont pu changer (bascule à chaud) : le fond 2D peut apparaître ou
+     * disparaître sous nos pieds, et le volume passer du photoréaliste à l'interne. Si le
+     * mode courant n'a plus de quoi s'afficher, on part vers l'autre — dans les DEUX sens,
+     * là où seul le retour vers `'3d'` était traité : retirer le token Ion en 3D externe
+     * laissait la carte sur un mode vide.
+     *
+     * `setMapMode` porte les règles de bascule (intro, trafic, visibilité) ; les rejouer
+     * ici en écrivant `mapMode` à la main laissait par exemple le calque trafic allumé
+     * sous un mode qui ne le sert pas, prêt à réapparaître au retour en plan.
+     */
+    const caps = deriveBasemapCapabilities(this.mapMode, this.basemapSupport(), this.basemap2d.trafficOn)
+    if (!canEnterMode(caps, this.mapMode)) this.setMapMode(this.mapMode === '3d' ? 'plan' : '3d')
+    this.applyModeVisibility()
+    this.syncBasemap()
     this.viewDirty = true
   }
 
@@ -696,9 +841,20 @@ export class MapEngine {
     if (Math.abs(apply(delta) - target) > 0.02) apply(-delta)
   }
 
-  /** Type de carte affiché. '3d' = tuiles Ion photoréalistes ; 'plan' = globe 2D Google. */
+  /** Type de carte affiché — cf. `MapMode` : 'plan' = carte plate, '3d' = volume. */
   private mapMode: MapMode = '3d'
-  private basemapState: BasemapState = { mode: '3d', traffic: false, trafficAvailable: false }
+  private basemapState: BasemapState = deriveBasemapCapabilities(
+    '3d',
+    {
+      hasBasemap2d: false,
+      sourceSupportsTraffic: false,
+      provider3d: 'external',
+      has3dTileset: false,
+      hasRelief: false,
+      hasBuildings: false,
+    },
+    false,
+  )
 
   /**
    * Fond de carte courant — source de vérité de l'UI, avec l'événement `basemap`.
@@ -710,41 +866,78 @@ export class MapEngine {
   }
 
   /**
-   * Recalcule l'état diffusé depuis les sources réelles (mode + calque), et n'émet
-   * que sur changement effectif. Le trafic est lu sur la couche : en garder une
-   * copie ici la laisserait diverger.
+   * Ce que les sources réelles savent faire, à l'instant présent. Lu (jamais copié) :
+   * une copie divergerait de la source au premier changement de config.
+   *
+   * `hasRelief`/`hasBuildings` restent faux : le relief terrain-RGB et les bâtiments
+   * extrudés du fournisseur interne sont les phases suivantes de la feature. Ce sont
+   * eux qui donneront un mode '3d' au fournisseur interne.
+   */
+  private basemapSupport(): BasemapSupport {
+    return {
+      hasBasemap2d: this.basemap2d.hasSource,
+      sourceSupportsTraffic: this.basemap2d.supportsTraffic,
+      provider3d: this.provider3d,
+      has3dTileset: this.has3dTileset,
+      // Le relief terrain-RGB est la phase suivante de la feature.
+      hasRelief: false,
+      hasBuildings: this.buildings.hasSource,
+    }
+  }
+
+  /**
+   * Recalcule l'état diffusé depuis les sources réelles (mode + calque + capacités), et
+   * n'émet que sur changement effectif — l'objet doit rester stable pour un consommateur
+   * React qui le met en état.
    */
   private syncBasemap(): void {
-    const traffic = this.basemap2d?.trafficOn ?? false
-    const trafficAvailable = !!this.basemap2d && this.mapMode !== '3d'
+    const next = deriveBasemapCapabilities(this.mapMode, this.basemapSupport(), this.basemap2d.trafficOn)
     const s = this.basemapState
-    if (s.mode === this.mapMode && s.traffic === traffic && s.trafficAvailable === trafficAvailable) return
-    this.basemapState = { mode: this.mapMode, traffic, trafficAvailable }
+    if (
+      s.mode === next.mode &&
+      s.traffic === next.traffic &&
+      s.trafficAvailable === next.trafficAvailable &&
+      s.canPlan === next.canPlan &&
+      s.can3d === next.can3d
+    ) {
+      return
+    }
+    this.basemapState = next
     this.emit('basemap', this.basemapState)
   }
 
   /**
-   * Les fonds 2D et le trafic sont des services Google : sans clé, `setMapMode('plan')`
-   * et `setTrafficVisible(true)` sont sans effet (voir leurs gardes). L'UI s'en sert
-   * pour ne pas proposer des boutons inertes.
+   * Une carte plate est-elle servable ? (clé Google en fournisseur externe, origine
+   * renseignée en interne). `setMapMode('plan')` est sans effet quand c'est faux, et
+   * l'UI s'en sert pour ne pas proposer un bouton inerte.
+   *
+   * Conservé comme alias de `getBasemap().canPlan` : c'est l'API publique historique.
    */
   get supportsBasemap2d(): boolean {
-    return !!this.basemap2d
+    return this.basemap2d.hasSource
   }
 
   /**
-   * Bascule le type de carte. En 2D, le tileset 3D est masqué (et son `update` gelé
-   * pour ne rien charger en fond), le globe tuilé Google prend le relais, et
-   * l'inclinaison est **limitée** (`minAltitude` relevé) : une carte 2D à plat ne peut
-   * pas couvrir jusqu'à l'horizon en tuiles → sinon fond bas-résolution étiré/étrange.
-   * Nécessite une clé Google (sinon les modes 2D sont sans effet).
+   * Bascule le type de carte — cf. `MapMode`. En plan, le tileset 3D est masqué (et son
+   * `update` gelé pour ne rien charger en fond), le globe tuilé prend le relais, et
+   * l'inclinaison est **limitée** (`minAltitude` relevé) : une carte plate ne peut pas
+   * couvrir jusqu'à l'horizon en tuiles → sinon fond bas-résolution étiré/étrange.
+   * Un mode sans rien à afficher est sans effet — cf. `canEnterMode`.
    */
   setMapMode(mode: MapMode): void {
     const in2d = mode !== '3d'
-    // Sans fond 2D à afficher, basculer ne ferait que masquer les tuiles 3D sans
-    // rien mettre à la place — carte vide. L'appel est ignoré, y compris en usage
-    // vanilla où aucune UI ne filtre.
-    if (in2d && !this.basemap2d) return
+    /**
+     * Basculer vers un mode que rien n'alimente ne ferait que masquer ce qui est à
+     * l'écran — carte vide. L'appel est ignoré, y compris en usage vanilla et depuis la
+     * prop `mapMode`, où aucune UI ne filtre.
+     *
+     * ⚠️ La garde n'existait que pour `'plan'` : entrer en `'3d'` sans tileset ni volume
+     * interne masquait le fond pour ne rien mettre à la place. On ne refuse toutefois que
+     * s'il reste OÙ ALLER — sans aucun fournisseur configuré, la carte garde son mode et
+     * son globe de repli plutôt que de n'avoir plus aucun mode légal.
+     */
+    const caps = deriveBasemapCapabilities(mode, this.basemapSupport(), this.basemap2d.trafficOn)
+    if (!canEnterMode(caps, mode) && canEnterMode(caps, in2d ? '3d' : 'plan')) return
     // Idempotent, comme `setDragMode` et `setTrafficVisible` : recliquer le mode
     // actif ne rejoue ni l'intro ni le basculement des tuiles.
     if (mode === this.mapMode) return
@@ -756,26 +949,111 @@ export class MapEngine {
       if (this.camera.isControlling()) this.cancelIntro()
       else this.startIntroFlight()
     }
-    // Aligne le fond 2D sur l'altitude du terrain suivie en continu en 3D → même échelle.
-    if (in2d) this.basemap2d?.setElevation(this.terrainElevation)
-    // En 2D, pick ET drapage des formes visent le PLAN du fond (même hauteur que le
-    // basemap) — pas les tuiles 3D invisibles ; en 3D, retour à la surface réelle.
-    this.projection.setFlatHeight(in2d ? this.terrainElevation : null)
-    // Limite l'inclinaison en 2D (borne la couverture de tuiles), libre en 3D.
-    this.controls.maxAltitude = in2d ? this.config.camera.maxTilt2d : this.config.camera.maxTilt3d
-    // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
-    this.setTiles3DVisible(!in2d)
-    this.basemap2d?.setVisible(in2d)
+    this.applyModeVisibility()
     // Le trafic est un calque du fond 2D : repasser en 3D l'éteint. La règle est
     // celle de `setTrafficVisible`, appelée plutôt que recopiée ici.
     if (!in2d) this.setTrafficVisible(false)
     this.syncBasemap()
   }
 
+  /**
+   * Réglages de tuiles réellement appliqués au fond.
+   *
+   * En volume interne, le fond SOUS les bâtiments doit sortir du même serveur qu'eux,
+   * même si l'hôte a choisi Google pour la 2D : deux fournisseurs, ce sont deux
+   * millésimes et deux généralisations de la même ville — les emprises extrudées ne
+   * tombent alors pas sur les bâtiments dessinés dans le raster.
+   */
+  private effectiveTilesConfig(): TilesConfig {
+    const tiles = this.config.providers.tiles
+    return this.mapMode === '3d' && this.provider3d === 'internal' ? { ...tiles, provider: 'internal' } : tiles
+  }
+
+  /**
+   * Applique le mode courant à la scène : qui est visible, à quelle hauteur on pique, et
+   * jusqu'où la caméra peut s'incliner.
+   *
+   * Rassemblé en un point unique parce que ces décisions se prennent aussi HORS bascule
+   * de mode — changer de fournisseur à chaud doit les rejouer (cf. `setConfig`). Réparties
+   * dans `setMapMode`, elles n'étaient rejouées que par un clic sur le bouton.
+   *
+   * **Règle d'ISO-fonctionnement** : les deux fournisseurs de volume doivent se comporter
+   * à l'identique. Ce qui suit ne conditionne donc au fournisseur que ce qui EST le
+   * fournisseur (quelle géométrie est montée, quelle surface les rayons visent) ; tout ce
+   * qui décrit un comportement — pick, drapage, suivi d'altitude, inclinaison — est
+   * commun. Les écarts de coût qui justifiaient jadis un traitement de faveur sont réglés
+   * à la source : hiérarchie de tuiles côté externe, BVH côté interne.
+   */
+  private applyModeVisibility(): void {
+    const in2d = this.mapMode !== '3d'
+    const external3d = this.provider3d === 'external'
+    // Le fond peut devoir changer de fournisseur avec le mode (cf. `effectiveTilesConfig`).
+    this.basemap2d.setConfig(this.effectiveTilesConfig(), this.config.providers.internal)
+    /**
+     * Volume interne : le tileset photoréaliste ne se montre JAMAIS — et le fond raster
+     * reste affiché, y compris en mode '3d'. C'est lui que le relief du serveur interne
+     * déformera ; sans cette règle, passer en 3D interne vide l'écran (tileset masqué,
+     * volume interne pas encore reconstruit).
+     */
+    const show3dTileset = !in2d && external3d
+    /**
+     * Altitude de la surface reconstruite localement — fond raster ET volumes la
+     * partagent : deux références différentes feraient flotter les bâtiments au-dessus du
+     * raster, ou les y enfonceraient.
+     *
+     * Posée en mode plan SEULEMENT : en 3D, `terrainElevation` capte les TOITS, et la
+     * géométrie se reconstruirait à chaque variation.
+     */
+    if (in2d) {
+      this.basemap2d.setElevation(this.terrainElevation)
+      this.buildings.setElevation(this.terrainElevation)
+    }
+    /**
+     * Pick et drapage visent le PLAN du fond en mode plan ; en 3D, la surface réelle —
+     * pour les DEUX fournisseurs de volume, à l'identique.
+     *
+     * Un `flatHeight` non nul court-circuite tout lancer de rayon
+     * (`Projection.resolveAnchorHeight` le renvoie tel quel) : le poser en 3D priverait le
+     * volume de toute collision. Ce qui rendait ce court-circuit tentant côté interne — le
+     * coût du rayon — n'existe plus : les bâtiments portent un BVH.
+     */
+    this.projection.setFlatHeight(in2d ? this.terrainElevation : null)
+    // Bornes qui dépendent du mode : inclinaison (bornée en plan, pour borner la couverture
+    // de tuiles) et plancher de descente. Rejouées par `applyCameraLimits`, source unique —
+    // recopier la seule inclinaison ici laissait le plancher figé sur le mode de départ.
+    this.applyCameraLimits()
+    /**
+     * Surface visée par les rayons — garde caméra (`GlobeControls`) et drapage
+     * (`Projection`) : chaque fournisseur expose la géométrie qu'il affiche réellement.
+     *
+     * Dépend du seul FOURNISSEUR DE VOLUME, jamais du mode : en externe c'est toujours
+     * le `TilesRenderer` qui répond — y compris en mode plan, comme depuis toujours —
+     * sinon la surface d'appui de la caméra changeait sous les pieds d'un hôte Ion.
+     *
+     * Les deux cibles sont désormais du même ordre de coût, ce qui est la condition pour
+     * que ce choix reste invisible : `TilesGroup` descend par la hiérarchie de volumes du
+     * `TilesRenderer`, et la surface interne par le BVH de chaque tuile de bâtiments (cf.
+     * `core/bvh`). Sans cela, `GlobeControls` seul en lançait deux par frame sur les
+     * ~131 000 triangles bruts d'une tuile dense — la carte en devenait inutilisable.
+     */
+    const rayTarget = external3d ? this.tiles.group : this.internalSurface
+    this.controls.setScene(rayTarget)
+    this.projection.setRaycastRoot(rayTarget === this.tiles.group ? null : rayTarget)
+    // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
+    this.setTiles3DVisible(show3dTileset)
+    this.basemap2d.setVisible(in2d || !external3d)
+    // Les volumes internes n'ont de sens qu'en mode '3d', et seulement si c'est d'eux que
+    // le volume doit venir.
+    this.buildings.setVisible(!in2d && !external3d)
+  }
+
   /** Masque/affiche uniquement les tuiles 3D — jamais l'ancre des markers ni le globe 2D. */
   private setTiles3DVisible(visible: boolean): void {
     for (const child of this.tiles.group.children) {
-      if (child !== this.overlayAnchor && child !== this.basemap2d?.group) child.visible = visible
+      // L'ancre des overlays reste visible ; la surface interne, elle, n'est plus ici
+      // (cf. `internalSurface`) et se pilote séparément.
+      if (child === this.overlayAnchor) continue
+      child.visible = visible
     }
   }
 
@@ -911,11 +1189,17 @@ export class MapEngine {
     }
   }
 
-  /** Affiche/masque le calque trafic Google (mode 2D uniquement). */
+  /**
+   * Affiche/masque le calque trafic (mode plan uniquement).
+   *
+   * Le trafic est une propriété de la tuile Google — `layerTypes` demandé à la session —
+   * pas une surcouche transparente : un fournisseur qui ne le sert pas (serveur interne)
+   * n'a rien à allumer, et l'accepter donnerait un bouton allumé sans rien à l'écran.
+   * Même règle qu'en 3D. `setTraffic` est par ailleurs déjà idempotent.
+   */
   setTrafficVisible(visible: boolean): void {
-    // En 3D le calque n'a pas de support : accepter l'état donnerait un bouton
-    // allumé sans rien à l'écran. `setTraffic` est déjà idempotent.
-    this.basemap2d?.setTraffic(visible && this.mapMode !== '3d')
+    const supported = this.basemap2d.supportsTraffic && this.mapMode !== '3d'
+    this.basemap2d.setTraffic(visible && supported)
     this.syncBasemap()
   }
 
@@ -951,13 +1235,17 @@ export class MapEngine {
    * et non l'altitude seule, sinon flou), et emprise **centrée sur la vue** dimensionnée
    * à l'écran (évite les bounds gonflés par l'inclinaison → compte de tuiles raisonnable).
    */
-  private updateBasemap(state: CameraState, refine: boolean): void {
-    if (!this.basemap2d) return
-    // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
-    // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
-    const view = this.computeView(state)
-    // Zoom pour une résolution ~1:1 au centre — même définition m/px que les épaisseurs
-    // de trait des layers (Projection.metersPerPixel : distance→sol réel, FOV, écran).
+  /**
+   * Zoom de tuile donnant une résolution ~1:1 AU CENTRE de l'écran — calculé depuis la
+   * vraie résolution mètres/pixel (distance caméra→sol, FOV, hauteur écran), même
+   * définition que les épaisseurs de trait des layers.
+   *
+   * À ne PAS confondre avec `MapView.zoom`, déduit de l'emprise : celui-là s'effondre dès
+   * qu'on incline (la vue porte jusqu'à l'horizon), au point de passer sous les seuils
+   * d'affichage — les bâtiments cessaient alors d'être demandés, donc de s'afficher ET
+   * d'arrêter la caméra.
+   */
+  private tileZoomAtCenter(state: CameraState): number {
     const metersPerPixel = this.projection.metersPerPixel(
       { lat: state.lat, lng: state.lng },
       this.threeCamera,
@@ -966,8 +1254,122 @@ export class MapEngine {
     )
     // Résolution Web Mercator au zoom 0 (m/px à l'équateur) = circonférence / taille tuile.
     const equatorMetersPerPixel = EARTH_CIRCUMFERENCE / TILE_SIZE
-    const zoom = Math.log2((equatorMetersPerPixel * Math.cos(state.lat * DEG2RAD)) / metersPerPixel)
-    this.basemap2d.update(view.bounds, zoom, refine)
+    return Math.log2((equatorMetersPerPixel * Math.cos(state.lat * DEG2RAD)) / metersPerPixel)
+  }
+
+  /**
+   * Sol sous le CENTRE DE L'ÉCRAN — le point réellement regardé, autour duquel se
+   * centrent les couronnes de tuiles (cascade du fond, volume des bâtiments).
+   *
+   * À distinguer de `view.center`, qui est le point sous la CAMÉRA : en vue inclinée les
+   * deux sont très éloignés, et centrer sur la caméra dépense le budget derrière
+   * l'observateur. Intersection analytique de l'ellipsoïde — aucun rayon lancé dans la
+   * scène, donc gratuit par frame ; repli sur le point caméra si la vue porte sur le vide.
+   */
+  private aimPoint(view: MapView): LatLng {
+    return (
+      this.projection.pickEllipsoidLatLng(this.size.width / 2, this.size.height / 2, this.threeCamera) ?? view.center
+    )
+  }
+
+  /**
+   * Déplacement au clavier — translation de la caméra dans le PLAN TANGENT au sol, dans
+   * le repère de la vue : « tout droit » suit le sol, jamais la ligne de visée.
+   *
+   * C'est ce qui le distingue du mode vol intégré de `GlobeControls` (`enableFlight`),
+   * qui translate selon les axes propres de la caméra : à 79° d'inclinaison, sa flèche
+   * haut plonge dans le décor. Ce mode vol reste la base toute trouvée de la navigation
+   * FPS à venir — sa vitesse est déjà mise à l'échelle de la hauteur au-dessus du sol —
+   * mais il écoute son `domElement` (donc exige le focus) et câble W/S/A/D/Q/E en dur,
+   * dont trois touches sont prises par les outils de dessin. Les liaisons de
+   * `interaction.shortcuts.navigate` sont là pour lui servir aussi le jour venu : seul le
+   * modèle de déplacement changera, pas les touches.
+   *
+   * Appelé AVANT `controls.update()`, dont la garde au sol (`cameraRadius`) rattrape donc
+   * le mouvement dans la même frame.
+   */
+  private applyKeyNav(dt: number): void {
+    const axis = this.navKeys.axis()
+    if (!axis) return
+    // L'utilisateur prend la main : ni intro ni vol programmé ne doivent lui résister.
+    this.cancelIntro()
+    this.camera.cancelFly()
+
+    const cam = this.threeCamera
+    /**
+     * Verticale RADIALE (caméra → centre du globe), et non la normale à l'ellipsoïde :
+     * c'est l'axe autour duquel la rotation ci-dessous conserve exactement la distance au
+     * centre. L'écart entre les deux est de l'ordre du dixième de degré, sans effet sur
+     * une direction de déplacement.
+     */
+    this.navCenter.setFromMatrixPosition(this.tiles.group.matrixWorld)
+    this.navUp.subVectors(cam.position, this.navCenter)
+    const radius = this.navUp.length()
+    if (radius < 1) return
+    this.navUp.divideScalar(radius)
+
+    // Axe de visée projeté à plat. Au nadir il devient dégénéré (on regarde le long de la
+    // verticale) : le haut de l'écran prend alors le relais, ce qui est exactement la
+    // direction que l'utilisateur lit comme « devant ».
+    this.navForward.set(0, 0, -1).transformDirection(cam.matrixWorld).projectOnPlane(this.navUp)
+    if (this.navForward.lengthSq() < 1e-8) {
+      this.navForward.set(0, 1, 0).transformDirection(cam.matrixWorld).projectOnPlane(this.navUp)
+    }
+    if (this.navForward.lengthSq() < 1e-8) return
+    this.navForward.normalize()
+    this.navRight.crossVectors(this.navForward, this.navUp).normalize()
+
+    const keyPan = this.config.camera.keyPan
+    // Hauteur AU-DESSUS DU SOL, pas altitude ellipsoïdale : sinon la vitesse s'emballerait
+    // au-dessus d'un relief élevé. L'état de la frame précédente suffit pour une vitesse.
+    const above = Math.max(
+      1,
+      (this.lastState?.altitude ?? this.config.camera.fitBounds.minAltitude) - this.terrainElevation,
+    )
+    const step = above * keyPan.speed * (axis.boost ? keyPan.boost : 1) * dt
+    // Diagonale normalisée : deux touches ne doivent pas aller plus vite qu'une.
+    const norm = axis.forward !== 0 && axis.right !== 0 ? Math.SQRT1_2 : 1
+    this.navDir
+      .set(0, 0, 0)
+      .addScaledVector(this.navForward, axis.forward * norm)
+      .addScaledVector(this.navRight, axis.right * norm)
+
+    /**
+     * ⚠️ On fait TOURNER la caméra autour du centre du globe, on ne la translate pas.
+     *
+     * La translation était le vrai défaut : sur une sphère, avancer en ligne droite écarte
+     * la caméra de la surface et laisse son orientation en arrière, si bien que
+     * `GlobeControls` la redresse à chaque frame — y compris en ROULIS. Or, au nadir, la
+     * direction « devant » se lit justement sur le haut de l'écran : elle suivait donc ce
+     * roulis, la direction dérivait d'une frame à l'autre, et le déplacement se refermait
+     * en cercle.
+     *
+     * Une rotation rigide (position ET orientation par le même quaternion) déplace la
+     * caméra SUR le globe : distance au sol, inclinaison et cap relatif au terrain sont
+     * conservés par construction, et il ne reste rien à redresser. C'est aussi ce que fait
+     * le glisser à la souris — d'où l'écart de comportement entre les deux.
+     */
+    this.navAxis.crossVectors(this.navUp, this.navDir)
+    if (this.navAxis.lengthSq() < 1e-12) return
+    this.navQuat.setFromAxisAngle(this.navAxis.normalize(), step / radius)
+    cam.position.sub(this.navCenter).applyQuaternion(this.navQuat).add(this.navCenter)
+    cam.quaternion.premultiply(this.navQuat)
+    cam.updateMatrixWorld()
+  }
+
+  /**
+   * Coupe/rétablit le déplacement au clavier. À couper quand les flèches reviennent
+   * légitimement à autre chose — c'est le cas du déplacement d'une sélection de dessin,
+   * que `<DrawLayer>` réclame tant qu'il y en a une.
+   *
+   * `owner` identifie le demandeur : le déplacement ne reprend qu'une fois TOUTES les
+   * coupures levées. Sans lui, le dernier appelant décidait pour tous, et un
+   * consommateur qui se démonte rendait les flèches à la caméra sous le nez d'un autre
+   * qui les voulait encore. Omis, l'appel vaut pour un demandeur anonyme unique — le
+   * comportement historique, pour un hôte qui n'en a qu'un.
+   */
+  setKeyNavEnabled(enabled: boolean, owner = 'default'): void {
+    this.navKeys.setEnabled(enabled, owner)
   }
 
   // ── Boucle ──
@@ -980,18 +1382,36 @@ export class MapEngine {
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
     // Suspendu (barre espace) : la caméra reprend la main sans quitter l'outil.
     if (this.drawingMode && !this.drawingSuspended) this.freezeControlsPanRotate()
+    // Avant `controls.update()`, dont la garde au sol rattrape le mouvement dans la frame.
+    if (this.controls.enabled) this.applyKeyNav(dt)
     if (!controlling && this.controls.enabled) this.controls.update()
     this.clampZoom()
     this.threeCamera.updateMatrixWorld()
     // En mode 2D le tileset 3D est masqué : on gèle son update (aucun fetch/parse/LOD en
     // fond) tout en gardant son cache pour un retour instantané. `updateMatrixWorld` reste
     // appelé — le repère du groupe sert encore à la projection (ancrage overlays/2D).
-    if (this.mapMode === '3d') {
+    // Volume interne : même en mode '3d', le tileset photoréaliste reste gelé — c'est ce
+    // qui garantit qu'il n'émet aucune requête (donc aucune facturation) quand l'hôte a
+    // choisi de reconstruire le volume depuis son propre serveur.
+    if (this.mapMode === '3d' && this.provider3d === 'external') {
       // Résolution requise par le calcul d'erreur d'écran des tuiles (LOD).
       this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
       this.tiles.update()
     }
     this.tiles.group.updateMatrixWorld(true)
+    /**
+     * Même repère que les tuiles, sans être leur enfant (cf. `internalSurface`). La
+     * recopie n'a lieu QUE si la transformée du tileset a bougé — en pratique jamais.
+     *
+     * Forcer `updateMatrixWorld(true)` à chaque frame recalculait la matrice monde des
+     * centaines de tuiles raster et de bâtiments : c'est exactement le travail que
+     * `TilesGroup` évitait à ses enfants, et le perdre suffisait à faire ramer la carte,
+     * fournisseur externe compris.
+     */
+    if (!this.internalSurface.matrix.equals(this.tiles.group.matrix)) {
+      this.internalSurface.matrix.copy(this.tiles.group.matrix)
+      this.internalSurface.updateMatrixWorld(true)
+    }
     // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
     if (this.mapMode === '3d') this.trackTerrainElevation()
     this.updateIntro(now)
@@ -1017,7 +1437,27 @@ export class MapEngine {
     // Pendant un vol/suivi (`controlling`), on NE demande PAS les niveaux traversés :
     // ils défileraient sans être vus et coûteraient des centaines de tuiles Google
     // par descente d'intro. Le raffinement reprend à l'atterrissage.
-    if (this.mapMode !== '3d') this.updateBasemap(state, !controlling)
+    /**
+     * Le fond tuilé est alimenté en mode plan, ET en mode '3d' avec volume interne — où il
+     * reste à l'écran (cf. `applyModeVisibility`) : sans cela il serait figé sur les tuiles
+     * du dernier passage en 2D, donc vide dès le premier déplacement. Les volumes, eux, ne
+     * sont alimentés que quand ils sont à l'écran.
+     *
+     * Les deux conditions sont vraies EN MÊME TEMPS en volume interne : emprise, résolution
+     * et point visé sont donc calculés une seule fois pour les deux calques — ils l'étaient
+     * deux fois, dont deux intersections d'ellipsoïde et leurs allocations, par frame.
+     */
+    const feedBasemap = (this.mapMode !== '3d' || this.provider3d === 'internal') && this.basemap2d.hasSource
+    const feedBuildings = this.mapMode === '3d' && this.provider3d === 'internal'
+    if (feedBasemap || feedBuildings) {
+      // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
+      // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
+      const view = this.computeView(state)
+      const tileZoom = this.tileZoomAtCenter(state)
+      const aim = this.aimPoint(view)
+      if (feedBasemap) this.basemap2d.update(view.bounds, tileZoom, aim, !controlling)
+      if (feedBuildings) this.buildings.update(view.bounds, tileZoom, aim)
+    }
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
     // aucun layer ne le lit par frame, seul l'event 'viewport' et getView() le forcent.
@@ -1228,6 +1668,7 @@ export class MapEngine {
   }
 
   private bindInput(): void {
+    this.navKeys.bind()
     window.addEventListener('pointerdown', this.forceRotateModifier, true)
     this.canvas.addEventListener('pointerdown', this.onPointerDown)
     this.canvas.addEventListener('pointermove', this.onPointerMove)
@@ -1238,6 +1679,7 @@ export class MapEngine {
   }
 
   private unbindInput(): void {
+    this.navKeys.unbind()
     window.removeEventListener('pointerdown', this.forceRotateModifier, true)
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
@@ -1311,7 +1753,9 @@ export class MapEngine {
     this.unbindInput()
     for (const layer of this.layers) layer.dispose()
     this.layers.clear()
-    this.basemap2d?.dispose()
+    this.basemap2d.dispose()
+    this.buildings.dispose()
+    this.scene.remove(this.internalSurface)
     this.controls.dispose()
     this.tiles.dispose()
     this.renderer.dispose()

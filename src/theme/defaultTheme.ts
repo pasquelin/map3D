@@ -107,5 +107,23 @@ export const defaultTheme: MapTheme = {
     background: '#070C16',
     oceanColor: '#0F2942',
     landColor: '#4F7A45',
+    // Façade plus sombre que le toit : la scène n'a AUCUNE lumière (tout est en
+    // MeshBasicMaterial), donc ce contraste porte la face haute.
+    buildingColor: '#8A8E96',
+    buildingRoofColor: '#C2C6CE',
+    // ⚠️ Était le littéral `ROOF_LIGHTEN` de `BuildingsLayer`. Même écart relatif que
+    // celui des deux teintes ci-dessus, pour que les emprises colorées par la donnée se
+    // lisent comme les autres.
+    buildingRoofLighten: 0.35,
+    // ⚠️ Nouveaux. Le contraste toit/façade ne suffisait pas : toutes les façades d'un
+    // quartier partageaient une teinte unique, quelle que soit leur orientation, et les
+    // volumes se lisaient comme une nappe grise.
+    //
+    // Est-sud-est, et surtout PAS un multiple de 45° : sur une diagonale exacte, les
+    // quatre façades d'un bâtiment orthogonal — la forme la plus courante — tombent deux
+    // par deux sur la même teinte, et l'angle du bâtiment redevient invisible. 120° donne
+    // quatre tons distincts, ce qu'un test vérifie.
+    buildingSunAzimuth: 120,
+    buildingShadeMin: 0.62,
   },
 }

@@ -181,7 +181,7 @@ export function ConfigPane(props: ConfigPaneProps) {
     // elle mérite d'être VUE plutôt que devinée au ❄ de chaque libellé.
     mapPage.addBlade({ view: 'separator' })
     mapPage
-      .addBinding(mapDraft, 'mapMode', { label: '❄ fond', options: { 'plan 2D': 'plan', '3D photo': '3d' } })
+      .addBinding(mapDraft, 'mapMode', { label: 'fond', options: { 'plan 2D': 'plan', '3D photo': '3d' } })
       .on('change', emitMapProps)
     mapPage.addBinding(mapDraft, 'fallbackGlobe', { label: '❄ globe de repli' }).on('change', emitMapProps)
     mapPage.addBinding(mapDraft, 'intro', { label: '❄ vol d’intro' }).on('change', emitMapProps)

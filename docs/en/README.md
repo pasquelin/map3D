@@ -47,6 +47,7 @@ cover each one **in depth**.
 | [LENS.md](LENS.md) | lens: inventory of the markers in an area |
 | [SEARCH.md](SEARCH.md) | unified map + place search |
 | [CAMERA.md](CAMERA.md) | initial position, `ready`, flights, framing, frozen map, basemap |
+| [TILES.md](TILES.md) | tile provider: Google or self-hosted server, capabilities and buttons |
 | [DATA.md](DATA.md) | viewport-driven, real time, tags, pinning, persistence |
 | [HOOKS.md](HOOKS.md) | every hook, and what makes what re-render |
 | [ENGINE.md](ENGINE.md) | engine, events, registries, custom layers |
@@ -72,6 +73,7 @@ diverge from what the library applies:
 | frame the map on some content | [CAMERA.md § 4](CAMERA.md#4-framing-fitbounds) |
 | translate the interface | [LABELS.md](LABELS.md) |
 | adapt the visual identity | [THEME.md](THEME.md) |
+| serve tiles from your own server | [TILES.md § 2](TILES.md#2-configuring-the-internal-server) |
 | write your own layer | [ENGINE.md § 3](ENGINE.md#3-writing-a-layer) |
 
 ### The three settings trees
@@ -700,6 +702,25 @@ through `<MapProvider labels>` (deep merge — pass only what you translate):
 targeted `preventDefault`. All of them appear in the buttons' tooltips and are ignored
 while typing (search, forms).
 
+**Moving on the map** — the only keys that act while **held down**:
+
+| Key | Action |
+|---|---|
+| `↑` `↓` `←` `→` | Forward / back / strafe, **in the view's frame** |
+| `Z` `S` `Q` `D` | The same, on AZERTY |
+| `Shift` (held) | Speed up (×3) |
+
+"Straight ahead" follows the **ground**, never the line of sight: the camera keeps its
+altitude however steep the tilt. Turning the view turns the keys with it, and they stay
+active in **rotate mode** — the mouse orbits, the arrows move.
+
+Speed is proportional to height above ground (`camera.keyPan.speed`), so the map scrolls at
+the same on-screen pace at any altitude.
+
+The arrows go back to **nudging a drawing selection** as soon as there is one — the map
+steps aside on its own. Letters are remapped through `interaction.shortcuts.navigate`
+(WASD on QWERTY, for instance).
+
 **Map controls (`<MapControls>`)**:
 
 | Key | Action |
@@ -725,7 +746,7 @@ tools:
 | Key | Action |
 |---|---|
 | `V` | Select — `1` rectangle, `2` polygon, `3` lasso |
-| `L` `P` `R` `C` `D` `A` `M` `E` | Line, Polygon, Rectangle, Circle, freehand (Draw), Arrow, Measure, Eraser |
+| `L` `P` `R` `C` `H` `A` `M` `E` | Line, Polygon, Rectangle, Circle, freehand (`H`), Arrow, Measure, Eraser |
 | `Space` (hold) | Temporary camera pan (drawing frozen, not lost) — `Space+Shift` = camera rotation |
 | `Shift` + drag | Rotate the shape (body) / uniform scale (corner handle) |
 | `⌘Z` / `⌘⇧Z` (`Ctrl` elsewhere) | Undo / Redo (creation, editing, style, deletion) |

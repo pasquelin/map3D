@@ -75,10 +75,30 @@ const off = engine.on('viewport', (view) => refetch(view.bounds))
 | `viewport` | `MapView` | after settling |
 | `click` | `{ latLng, originalEvent }` | click on the map |
 | `dragmode` | `'pan' \| 'rotate'` | mode change |
-| `basemap` | `{ mode, traffic, trafficAvailable }` | basemap change |
+| `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable }` | basemap **or capability** change |
 | `ready` | `MapEngine` | **once only**, replayed for late subscribers |
 
 React version: `useMapEvents({ onClick, onCameraChange, onViewportChange, onReady })`.
+
+### `BasemapState` — basemap state AND capabilities
+
+`basemap` reports not only what is displayed, but what is **possible**: tile providers do
+not offer the same options (see [TILES.md](TILES.md)). A UI reads these flags instead of
+re-deriving the rule — that is how `<MapControls>` drops the traffic button where it would
+have nothing to switch on.
+
+| Field | Meaning |
+|---|---|
+| `mode` | `'plan'` (flat map) or `'3d'` (volume) |
+| `traffic` | traffic layer on |
+| `canPlan` | a flat map is servable: Google key with `external`, `origin` with `internal`. Without it the basemap button group has nothing to offer |
+| `can3d` | volume is servable: photorealistic tileset with `external`, terrain/buildings with `internal`. **Informational** — hides no button |
+| `trafficAvailable` | traffic offerable: **external** provider, 2D basemap present, not in 3D mode |
+
+`engine.supportsBasemap2d` is still available: it is the historical alias of `canPlan`.
+`setMapMode('plan')` without `canPlan`, like `setTrafficVisible(true)` without
+`trafficAvailable`, are **no-ops** — a state accepted with nothing on screen is worth less
+than a clean refusal.
 
 ---
 
