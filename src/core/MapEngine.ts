@@ -4,7 +4,7 @@ import { GlobeControls, TilesRenderer } from '3d-tiles-renderer'
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/plugins'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig, TileProvider, TilesConfig } from '../config/types'
-import { BuildingsLayer } from '../layers/BuildingsLayer'
+import { type BuildingHighlight, BuildingsLayer, type BuildingRef } from '../layers/BuildingsLayer'
 import { defaultTheme } from '../theme/defaultTheme'
 import { TiledGlobeLayer } from '../layers/TiledGlobeLayer'
 import type { Bounds, LatLng } from '../shared'
@@ -47,6 +47,7 @@ export type PointerInterceptor = (phase: PointerPhase, latLng: LatLng | null, ev
 // vérité en fonction pure. Ré-exporté ici : c'est de `MapEngine` que les consommateurs
 // (et `src/index.ts`) l'importent depuis toujours.
 export type { BasemapState, MapMode } from './basemap'
+export type { BuildingHighlight, BuildingRef } from '../layers/BuildingsLayer'
 
 export type MapEngineOptions = {
   canvas: HTMLCanvasElement
@@ -149,12 +150,39 @@ export type DragMode = 'pan' | 'rotate'
  */
 export type InteractiveMode = boolean | 'view'
 
+/**
+ * Ce qu'un bâtiment désigné rend à l'hôte. Aucun texte : c'est `buildingMenu` qui compose
+ * ce qui s'affiche — la lib ne sait pas ce qu'un bâtiment représente pour l'application.
+ */
+export type BuildingInfo = {
+  /** `feature.id` MVT ; `null` quand la donnée n'en portait pas. */
+  featureId: number | null
+  /** Point CLIQUÉ sur le volume — pas le centre de l'emprise. */
+  lat: number
+  lng: number
+  /** Hauteurs de l'emprise, en mètres au-dessus du sol. */
+  height: number
+  minHeight: number
+  /** Attributs demandés par `providers.buildings.pickFields` ; vide sans liste. */
+  props: Record<string, unknown>
+}
+
+/** Le bâtiment désigné, et de quoi le re-désigner (mise en évidence). */
+export type BuildingHit = { ref: BuildingRef; info: BuildingInfo }
+
 export type MapEvents = {
   camera: CameraState
   viewport: MapView
   click: { latLng: LatLng; originalEvent: PointerEvent }
   dragmode: DragMode
   basemap: BasemapState
+  /** L'outil « sélectionner un bâtiment » vient d'être armé ou quitté. */
+  buildingpickmode: boolean
+  /**
+   * Un bâtiment du volume interne a été cliqué, l'outil actif. La lib n'en fait rien
+   * d'elle-même : c'est `<Map buildingMenu>` qui décide de ce qui s'ouvre.
+   */
+  buildingclick: { hit: BuildingHit; originalEvent: PointerEvent }
   /**
    * La carte est **exploitable** : la projection résout des hauteurs, et un
    * `fitBounds`/`flyTo` vise le sol réel plutôt que l'ellipsoïde nu.
@@ -249,6 +277,8 @@ export class MapEngine {
     click: new Set(),
     dragmode: new Set(),
     basemap: new Set(),
+    buildingpickmode: new Set(),
+    buildingclick: new Set(),
     ready: new Set(),
   }
   private dragMode: DragMode = 'pan'
@@ -266,6 +296,10 @@ export class MapEngine {
   private cachedView: MapView | null = null
 
   private pointerDrag: { x: number; y: number; moved: number } | null = null
+
+  private buildingPickMode = false
+  /** Scratch NDC du pick de bâtiment — un objet, jamais un par mouvement de pointeur. */
+  private readonly pickNdc = new THREE.Vector2()
 
   private stars: THREE.Points | null = null
   /** Ciel atmosphérique procédural (null quand `config.sky.enabled` est faux). */
@@ -999,12 +1033,18 @@ export class MapEngine {
       s.traffic === next.traffic &&
       s.trafficAvailable === next.trafficAvailable &&
       s.canPlan === next.canPlan &&
-      s.can3d === next.can3d
+      s.can3d === next.can3d &&
+      s.canPickBuildings === next.canPickBuildings
     ) {
       return
     }
     this.basemapState = next
     this.emit('basemap', this.basemapState)
+    // Le volume interne quitté, l'outil de sélection n'a plus rien à désigner : le laisser
+    // armé afficherait un curseur de sélection sur une carte plate. Ici et pas dans
+    // `setMapMode` : plusieurs chemins retirent le volume (bascule, config qui change de
+    // fournisseur), et tous passent par cette publication.
+    if (!next.canPickBuildings) this.setBuildingPickMode(false)
   }
 
   /**
@@ -1766,6 +1806,40 @@ export class MapEngine {
   }
 
   /**
+   * Mise en évidence des bâtiments, ouverte à la couche React : c'est elle qui tient le
+   * menu contextuel ouvert, donc elle seule sait combien de temps un bâtiment reste
+   * « sélectionné ». Le survol, lui, appartient au moteur.
+   */
+  get buildingPicker(): { setHighlight(ref: BuildingRef | null, kind: BuildingHighlight): void } {
+    return this.buildings
+  }
+
+  /**
+   * Arme ou quitte l'outil « sélectionner un bâtiment ».
+   *
+   * La navigation caméra reste ENTIÈRE : l'outil n'intercepte rien, il lit les mêmes
+   * `pointermove`/`pointerup` que le moteur et ne retient que le clic propre (cf.
+   * `interaction.cleanClickPx`). Un glissé reste donc un déplacement de carte.
+   *
+   * Sans volume interne à l'écran, la demande est ignorée — il n'y aurait rien à désigner.
+   */
+  setBuildingPickMode(on: boolean): void {
+    const next = on && this.basemapState.canPickBuildings
+    if (next === this.buildingPickMode) return
+    this.buildingPickMode = next
+    // Le survol ne survit pas à la sortie du mode : le bâtiment resterait coloré.
+    if (!next) this.buildings.setHighlight(null, 'hover')
+    // Style INLINE : il l'emporte sur le `grab` de la feuille injectée (qui n'est pas
+    // `!important`), et il porte une valeur de config là où une classe serait figée.
+    this.canvas.style.cursor = next ? this.config.interaction.buildingPick.cursor : ''
+    this.emit('buildingpickmode', next)
+  }
+
+  getBuildingPickMode(): boolean {
+    return this.buildingPickMode
+  }
+
+  /**
    * Mode rotation : GlobeControls choisit pivoter/déplacer en lisant `e.shiftKey`
    * au pointerdown — on shadow la propriété sur L'INSTANCE de l'événement, en
    * capture sur `window` (s'exécute AVANT les listeners du canvas, quel que soit
@@ -1821,6 +1895,22 @@ export class MapEngine {
     return this.pickLatLngAtClient(e.clientX, e.clientY)
   }
 
+  /**
+   * Bâtiment sous le pointeur, coordonnée du point d'impact comprise.
+   *
+   * Le raycast rend son point en repère MONDE : `worldToLatLng` le ramène au repère du
+   * groupe puis à l'ellipsoïde — la même conversion que `pickLatLng`, donc exactement la
+   * même coordonnée qu'un clic carte au même pixel.
+   */
+  private pickBuildingAt(e: PointerEvent): BuildingHit | null {
+    const rect = this.canvas.getBoundingClientRect()
+    this.pickNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
+    const hit = this.buildings.pick(this.pickNdc, this.threeCamera)
+    if (!hit) return null
+    const ll = this.projection.worldToLatLng(hit.point)
+    return { ref: hit.ref, info: { ...hit.attrs, lat: ll.lat, lng: ll.lng } }
+  }
+
   /** Les outils (dessin, loupe) ne reçoivent rien tant que la carte est figée. */
   private get toolsActive(): boolean {
     return this.interactiveMode === true
@@ -1840,6 +1930,8 @@ export class MapEngine {
     if (this.toolsActive && this.inputInterceptor) {
       this.inputInterceptor('move', this.pickAt(e), e)
     }
+    // Survol du bâtiment visé. Un seul raycast BVH, et seulement l'outil armé.
+    if (this.buildingPickMode) this.buildings.setHighlight(this.pickBuildingAt(e)?.ref ?? null, 'hover')
   }
 
   private onPointerUp = (e: PointerEvent): void => {
@@ -1851,6 +1943,15 @@ export class MapEngine {
     // Carte totalement inerte : aucun clic n'en sort. En `'view'` il passe — c'est
     // ce qui distingue « consultable » de « image ».
     if (this.interactiveMode === false) return
+    // Outil de sélection armé : un clic propre désigne un bâtiment, et NE PRODUIT PAS de
+    // `click` carte — l'hôte recevrait sinon deux intentions pour un seul geste.
+    if (this.buildingPickMode && drag && drag.moved < this.config.interaction.cleanClickPx) {
+      const hit = this.pickBuildingAt(e)
+      if (hit) {
+        this.emit('buildingclick', { hit, originalEvent: e })
+        return
+      }
+    }
     // Clic « propre » (peu de mouvement) → événement de sélection carte.
     if (drag && drag.moved < this.config.interaction.cleanClickPx) {
       const ll = this.pickAt(e)
@@ -1861,6 +1962,7 @@ export class MapEngine {
   dispose(): void {
     this.disposed = true
     this.stop()
+    this.canvas.style.cursor = ''
     this.unbindInput()
     for (const layer of this.layers) layer.dispose()
     this.layers.clear()
