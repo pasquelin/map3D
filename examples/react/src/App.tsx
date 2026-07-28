@@ -27,6 +27,7 @@ import { StatsOverlay } from './components/StatsOverlay'
 import { clusterTip, markerTip } from './components/tooltips'
 import { CESIUM_ION_TOKEN, GOOGLE_MAPS_KEY, TILE_ORIGIN } from './config/env'
 import { clusterTypeLabel, markerLabel } from './config/labels'
+import { buildingMenu } from './config/buildingMenu'
 import { createMarkerMenu } from './config/markerMenus'
 import { RELATION_RULES } from './config/relations'
 import { loadStoredPartial } from './config/configSchema'
@@ -433,6 +434,10 @@ export function App() {
           // panneau de sélection. Les deux listings y ajoutent « Cibler » d'eux-mêmes.
           // Le second argument porte les entrées du moteur de relations.
           markerMenu={markerMenu}
+          // Menu d'un bâtiment du volume interne. Le bouton qui arme l'outil n'apparaît
+          // qu'en 3D interne, ce que `basemap.canPickBuildings` décide seul — inutile de
+          // conditionner cette prop.
+          buildingMenu={buildingMenu}
           // ── Couches de données, dans l'ordre de rendu. Les fabriques `shapesLayer` /
           // `markersLayer<T>` rendent le typage sur VOS données, que le tableau
           // hétérogène ne peut pas porter seul.
