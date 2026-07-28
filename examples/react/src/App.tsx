@@ -385,6 +385,10 @@ export function App() {
           // Avant `ready`, `fitBounds` viserait l'ellipsoïde nu — pas le sol réel.
           onReady={(e) => {
             setEngine(e)
+            // Moteur exposé sur `window` : c'est un BANC D'ESSAI, et pouvoir interroger la
+            // scène depuis la console (tuiles en vol, near/far, état piéton) vaut mieux que
+            // de recompiler une sonde à chaque question. N'existe que dans l'exemple.
+            ;(window as unknown as { __m3d?: MapEngine }).__m3d = e
             console.log('[map] ready — altitude sol connue, cadrage fiable', e.getView().zoom)
           }}
           // Props hors `MapConfig` (thème clair/sombre, fond, interactivité) : réglées
