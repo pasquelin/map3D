@@ -65,6 +65,7 @@ export const CONTROL_BUTTONS = keysOf<MapControlButton>({
   mode3d: true,
   plan: true,
   traffic: true,
+  pedestrian: true,
   target: true,
 })
 
@@ -74,6 +75,7 @@ export const CONTROL_GROUPS = keysOf<ControlGroup>({
   zoom: true,
   view: true,
   basemap: true,
+  pedestrian: true,
   target: true,
   layers: true,
   fullscreen: true,

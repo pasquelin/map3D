@@ -54,6 +54,7 @@ export const GROUP_LABELS: Record<ControlGroup, string> = {
   zoom: 'Zoom',
   view: 'Vues',
   basemap: 'Fonds',
+  pedestrian: 'Mode piéton',
   target: 'Cible',
   layers: 'Couches',
   fullscreen: 'Plein écran',
