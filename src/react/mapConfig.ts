@@ -14,7 +14,7 @@
 
 import type { ReactNode } from 'react'
 import type { Camera } from '../core/Camera'
-import type { MapEngine } from '../core/MapEngine'
+import type { BuildingInfo, MapEngine } from '../core/MapEngine'
 import type { MarkerData } from '../data/types'
 import type { DrawingApi, LensApi, RelationApi } from './context'
 import type { MenuItem } from './components/ContextMenu'
@@ -236,6 +236,19 @@ export type MapSurfaces<T = unknown, TPin = unknown> = {
    * ajoutent « Cibler » en tête d'eux-mêmes — inutile de le prévoir ici.
    */
   markerMenu?: (p: MarkerData<T>, relations: RelationApi | null) => MenuItem[]
+  /**
+   * Menu d'un **bâtiment** du volume interne, ouvert au clic quand l'outil « Sélectionner
+   * un bâtiment » est actif. Même contrat que `markerMenu` : l'hôte compose tout — lignes
+   * d'information comme actions — et la lib n'écrit aucun texte.
+   *
+   * Sans cette prop, l'outil reste disponible et surligne au survol, mais le clic n'ouvre
+   * rien : la lib n'a rien à dire d'un bâtiment.
+   *
+   * Les attributs MVT n'arrivent dans `info.props` que s'ils sont demandés par
+   * `config.providers.buildings.pickFields` ; `height`, `minHeight`, `featureId` et la
+   * coordonnée cliquée sont toujours là.
+   */
+  buildingMenu?: (info: BuildingInfo) => MenuItem[]
   /**
    * Composants **de l'application** montés dans la carte : panneaux maison, écoutes
    * d'événements, tout ce qui consomme `useMap()`, `useDrawing()` ou `useLens()`.

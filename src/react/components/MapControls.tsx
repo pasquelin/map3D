@@ -7,6 +7,7 @@ import {
   mdiCursorMove,
   mdiEarth,
   mdiFullscreen,
+  mdiHomeSearchOutline,
   mdiMinus,
   mdiPerspectiveLess,
   mdiPerspectiveMore,
@@ -42,6 +43,8 @@ export type MapControlAction =
   /** Bascule 3D ↔ plan 2D. */
   | 'basemap'
   | 'traffic'
+  /** Bascule l'outil « sélectionner un bâtiment » (volume interne seulement). */
+  | 'selectBuilding'
 
 /** Boutons individuels de la barre (grain fin de `MapControlsProps.buttons`). */
 export type MapControlButton =
@@ -58,6 +61,7 @@ export type MapControlButton =
   | 'mode3d'
   | 'plan'
   | 'traffic'
+  | 'selectBuilding'
   /** Retour au point de référence de l'écran (cf. `MapControlsProps.target`). */
   | 'target'
 
@@ -166,6 +170,11 @@ export function MapControls({
   const [basemap, setBasemap] = useState(() => engine.getBasemap())
   useEffect(() => engine.on('basemap', setBasemap), [engine])
 
+  // Outil de sélection de bâtiment — état porté par le moteur, comme le mode du drag. Le
+  // moteur le désarme seul quand le volume interne quitte l'écran : l'UI suit l'événement.
+  const [pickBuilding, setPickBuilding] = useState(() => engine.getBuildingPickMode())
+  useEffect(() => engine.on('buildingpickmode', setPickBuilding), [engine])
+
   const zoomBy = useCallback(
     (factor: number) => {
       const s = engine.camera.getState()
@@ -206,7 +215,9 @@ export function MapControls({
    * de l'état ET du fournisseur : sa visibilité entre aussi dans le test de non-vacuité,
    * sinon le groupe se rendrait vide.
    */
-  const basemapGroupShown = showMode3d || showPlan || (btn('traffic') && basemap.trafficAvailable)
+  /** L'outil n'est proposé qu'avec du volume INTERNE à l'écran (cf. `canPickBuildings`). */
+  const showSelectBuilding = btn('selectBuilding') && basemap.canPickBuildings
+  const basemapGroupShown = showMode3d || showPlan || showSelectBuilding || (btn('traffic') && basemap.trafficAvailable)
   /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
    *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier
    *  fantôme. S'ajoute au prédicat partagé : ce que le fond de carte permet dépend du
@@ -253,6 +264,9 @@ export function MapControls({
       else if (canEnterMode(bm, to) && hit('basemap', to === 'plan' ? 'plan' : 'mode3d', 'basemap'))
         engine.setMapMode(to)
       else if (bm.trafficAvailable && hit('basemap', 'traffic', 'traffic')) engine.setTrafficVisible(!bm.traffic)
+      // Lu au moteur, pas à l'état React : une seule source de vérité, comme le fond.
+      else if (bm.canPickBuildings && hit('basemap', 'selectBuilding', 'selectBuilding'))
+        engine.setBuildingPickMode(!engine.getBuildingPickMode())
       else return
       // Raccourci consommé : pas d'action par défaut du navigateur (ex. frappe
       // insérée si un champ vient de prendre le focus).
@@ -374,6 +388,16 @@ export function MapControls({
                 shortcut={keys.traffic}
                 active={basemap.traffic}
                 onClick={() => engine.setTrafficVisible(!basemap.traffic)}
+              />
+            )}
+            {showSelectBuilding && (
+              <ToolButton
+                icon={mdiHomeSearchOutline}
+                label={labels.controls.selectBuilding}
+                tip={tip}
+                shortcut={keys.selectBuilding}
+                active={pickBuilding}
+                onClick={() => engine.setBuildingPickMode(!pickBuilding)}
               />
             )}
           </div>

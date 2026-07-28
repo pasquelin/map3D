@@ -334,6 +334,7 @@ export type { RemoveButtonProps } from './react/components/RemoveButton'
 export { REMOVE_ICON_PATH } from './core/removeButton'
 export { ContextMenu } from './react/components/ContextMenu'
 export type { MenuItem } from './react/components/ContextMenu'
+export type { BuildingHit, BuildingHighlight, BuildingInfo, BuildingRef } from './core/MapEngine'
 
 // ── Moteur de relations (liens par tags + routage réel) ──
 // Le core est publié tel quel : il est utilisable sans carte (calcul de sélection

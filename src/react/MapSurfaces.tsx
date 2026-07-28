@@ -37,6 +37,7 @@ import { MapControls } from './components/MapControls'
 import { MarkerLayer } from './components/MarkerLayer'
 import { PinnedDock } from './components/PinnedDock'
 import { RelationLayer } from './components/RelationLayer'
+import { BuildingMenuHost } from './components/BuildingMenuHost'
 import { RelationStatusBar } from './components/RelationStatusBar'
 import { SearchBox } from './components/SearchBox'
 import { SelectionBadges, type SelectionBadgesProps } from './components/SelectionBadges'
@@ -239,6 +240,7 @@ export function MapSurfaces<T, TPin>({
   layers,
   cluster,
   markerMenu,
+  buildingMenu,
   children,
   apis,
 }: Surfaces<T, TPin> & { apis: MutableRefObject<BridgedApis> }) {
@@ -269,6 +271,9 @@ export function MapSurfaces<T, TPin>({
           qu'à regrouper. Elle rend les pastilles ; chaque couche rend ses markers. */}
       {cluster !== false && <ClusterSurface {...(cluster ?? {})} />}
       {controls !== false && <MapControls {...(controls ?? {})} />}
+      {/* Sans `buildingMenu`, rien à monter : l'outil surligne au survol, le clic n'ouvre
+          rien — la lib n'a aucun contenu à mettre dans ce menu. */}
+      {buildingMenu && <BuildingMenuHost menu={buildingMenu} />}
       {search ? <SearchBox {...(search === true ? {} : search)} /> : null}
       {dock && <PinnedDock<TPin> {...dock} />}
     </>
