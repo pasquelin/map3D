@@ -160,6 +160,17 @@ export class TiledGlobeLayer {
    * géométrie** de chaque tuile (getCartographicToPosition) — reconstruction du cache
    * quand elle change significativement (rare : une fois par bascule 2D).
    */
+  /**
+   * Hauteur (m au-dessus de l'ellipsoïde) à laquelle le fond est réellement drapé.
+   *
+   * C'est LE niveau du sol du volume interne : la nappe est plate et **non raycastable**
+   * (cf. `makeUnraycastable`), donc aucun rayon ne peut le retrouver. Le mode piéton s'y
+   * pose et y valide ses points d'entrée.
+   */
+  get groundElevation(): number {
+    return this.elevation
+  }
+
   setElevation(meters: number): void {
     if (Math.abs(meters - this.elevation) < this.epsilon) return
     this.elevation = meters

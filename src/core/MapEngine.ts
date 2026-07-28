@@ -1265,15 +1265,19 @@ export class MapEngine {
    */
   private groundLevelAt(p: LatLng, ringRadiusMeters: number): number | null {
     /**
-     * Volume INTERNE : le sol est le raster drapé à `terrainElevation`, et il n'est pas
-     * raycastable — seuls les bâtiments sont des volumes. Échantillonner ne trouverait donc
-     * que des TOITS : sur une emprise plus large que la couronne, le toit devenait son
-     * propre « niveau de rue », écart nul, et le placement s'y autorisait.
+     * Volume INTERNE : le sol est la nappe raster, **plate et non raycastable** (cf.
+     * `makeUnraycastable`). Aucun rayon ne peut donc le retrouver — échantillonner ne
+     * ramènerait que des TOITS, et sur une emprise plus large que la couronne le toit
+     * devenait son propre « niveau de rue » : écart nul, placement autorisé dessus.
      *
-     * Le lire directement est aussi ce qui supprime les neuf raycasts de la couronne à
-     * chaque validation de survol.
+     * ⚠️ Et surtout PAS `terrainElevation` : en 3D il suit la surface sous le centre écran,
+     * c'est-à-dire les toits eux aussi (cf. `applyModeVisibility`). S'en servir posait le
+     * piéton à hauteur de toit, au-dessus du vide.
+     *
+     * Le lire directement supprime au passage les neuf raycasts de la couronne à chaque
+     * validation de survol.
      */
-    if (this.provider3d === 'internal') return this.terrainElevation
+    if (this.provider3d === 'internal') return this.basemap2d.groundElevation
     return this.projection.sampleGroundHeight(p, ringRadiusMeters)
   }
 
