@@ -20,6 +20,7 @@ import {
   deriveBasemapCapabilities,
   type MapMode,
 } from './basemap'
+import { boundsOfLatLngs } from './bounds'
 import { Camera, type CameraState } from './Camera'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
@@ -1936,25 +1937,16 @@ export class MapEngine {
    */
   private buildingHitOf(hit: BuildingPickResult): BuildingHit {
     const ll = this.projection.worldToLatLng(hit.point)
-    let north = -Infinity
-    let south = Infinity
-    let east = -Infinity
-    let west = Infinity
-    if (this.buildings.cornersOf(hit.ref, this.pickCorners)) {
-      for (const c of this.pickCorners) {
-        const p = this.projection.worldToLatLng(c)
-        if (p.lat > north) north = p.lat
-        if (p.lat < south) south = p.lat
-        if (p.lng > east) east = p.lng
-        if (p.lng < west) west = p.lng
-      }
-    } else {
-      // Tuile disparue entre le rayon et ici : l'emprise se réduit au point cliqué, ce qui
-      // laisse `fitBounds` recentrer sans cadrer — plutôt qu'une boîte vide ou infinie.
-      north = south = ll.lat
-      east = west = ll.lng
-    }
-    return { ref: hit.ref, info: { ...hit.attrs, lat: ll.lat, lng: ll.lng, bounds: { north, south, east, west } } }
+    // `boundsOfLatLngs` et non un min/max à la main : il déroule les longitudes autour d'une
+    // référence, donc un bâtiment à cheval sur l'antiméridien rend un cadre étroit au lieu
+    // d'en faire le tour du globe.
+    const corners = this.buildings.cornersOf(hit.ref, this.pickCorners)
+      ? this.pickCorners.map((c) => this.projection.worldToLatLng(c))
+      : // Tuile disparue entre le rayon et ici : l'emprise se réduit au point cliqué, ce qui
+        // laisse `fitBounds` recentrer sans cadrer — plutôt qu'une boîte vide ou infinie.
+        [ll]
+    const bounds = boundsOfLatLngs(corners) ?? { north: ll.lat, south: ll.lat, east: ll.lng, west: ll.lng }
+    return { ref: hit.ref, info: { ...this.buildings.attrsOf(hit.ref), lat: ll.lat, lng: ll.lng, bounds } }
   }
 
   /** Les outils (dessin, loupe) ne reçoivent rien tant que la carte est figée. */

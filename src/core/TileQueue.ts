@@ -169,6 +169,11 @@ export class TileQueue<T extends Tile, R> {
     return this.tiles.size
   }
 
+  /** Tuile d'une clé, `undefined` si elle n'est pas (ou plus) en cache. */
+  get(key: string): T | undefined {
+    return this.tiles.get(key)
+  }
+
   values(): IterableIterator<T> {
     return this.tiles.values()
   }

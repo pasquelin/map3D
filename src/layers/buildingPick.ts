@@ -62,6 +62,9 @@ export type BuildingHighlight = 'hover' | 'active'
 const same = (a: BuildingRef | null, b: BuildingRef | null): boolean =>
   a !== null && b !== null && a.tileKey === b.tileKey && a.index === b.index
 
+/** « Rien à faire » — figé, parce que c'est la réponse la plus fréquente du survol. */
+const NOTHING: { restore: BuildingHighlight[]; paint: BuildingRef | null } = { restore: [], paint: null }
+
 /**
  * Ce qu'il faut défaire, puis refaire, pour poser `ref` en `kind`.
  *
@@ -76,8 +79,9 @@ export function highlightActions(
   ref: BuildingRef | null,
   kind: BuildingHighlight,
 ): { restore: BuildingHighlight[]; paint: BuildingRef | null } {
-  // Déjà posé au même endroit : rien à faire (le survol rejoue à chaque mouvement).
-  if (same(current[kind], ref)) return { restore: [], paint: null }
+  // Déjà posé au même endroit : rien à faire. C'est le cas MAJORITAIRE — le survol rejoue à
+  // chaque mouvement du pointeur — d'où la constante figée plutôt qu'un objet par appel.
+  if (same(current[kind], ref)) return NOTHING
   const other: BuildingHighlight = kind === 'hover' ? 'active' : 'hover'
   // Le bâtiment visé porte déjà l'AUTRE genre.
   if (ref && same(current[other], ref)) {

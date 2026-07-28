@@ -37,8 +37,14 @@ type BuildingTile = Tile & {
   shade: Uint8Array | null
 }
 
-/** Ce qu'un raycast rend : de quoi re-désigner le bâtiment, et de quoi le décrire. */
-export type BuildingPickResult = { ref: BuildingRef; point: THREE.Vector3; attrs: BuildingAttrs }
+/**
+ * Ce qu'un raycast rend : de quoi re-désigner le bâtiment, et le point touché.
+ *
+ * Volontairement SANS ses attributs : le survol appelle `pick` à chaque mouvement du
+ * pointeur et n'a besoin que de la référence. Les attributs se lisent au clic, par
+ * `attrsOf`.
+ */
+export type BuildingPickResult = { ref: BuildingRef; point: THREE.Vector3 }
 
 /** Apparence des volumes — vient du thème, jamais du code. */
 export type BuildingColors = {
@@ -98,6 +104,8 @@ export class BuildingsLayer {
   private readonly byMesh = new Map<THREE.Object3D, BuildingTile>()
   /** Rayon du pick — jamais celui de `Projection`, dont les réglages servent la caméra. */
   private readonly raycaster = new THREE.Raycaster()
+  /** Intersections du rayon, vidées et réutilisées à chaque pick (zéro allocation). */
+  private readonly hits: THREE.Intersection[] = []
   /** Couleurs empruntées à la plage surlignée, par genre — rendues telles quelles ensuite. */
   private readonly saved: Record<BuildingHighlight, Uint8Array | null> = { hover: null, active: null }
   private readonly current: Record<BuildingHighlight, BuildingRef | null> = { hover: null, active: null }
@@ -430,7 +438,11 @@ export class BuildingsLayer {
     this.raycaster.setFromCamera(ndc, camera)
     this.raycaster.far = Infinity
     ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
-    const hit = this.raycaster.intersectObject(this.group, true)[0]
+    // Tableau d'intersections RECYCLÉ : `intersectObject` en alloue un neuf à chaque appel
+    // sans ce paramètre, et le survol l'appelle à chaque mouvement du pointeur.
+    this.hits.length = 0
+    this.raycaster.intersectObject(this.group, true, this.hits)
+    const hit = this.hits[0]
     const face = hit?.faceIndex
     if (!hit || face === undefined || face === null) return null
     const tile = this.byMesh.get(hit.object)
@@ -440,7 +452,15 @@ export class BuildingsLayer {
     // face n'enjambant jamais deux emprises.
     const index = buildingAtVertex(tile.buildings.vStart, idx.getX(face * 3))
     if (index < 0) return null
-    return { ref: { tileKey: tile.key, index }, point: hit.point, attrs: buildingAttrs(tile.buildings, index) }
+    return { ref: { tileKey: tile.key, index }, point: hit.point }
+  }
+
+  /** Attributs d'un bâtiment désigné. Lu au CLIC — le survol n'en a que faire. */
+  attrsOf(ref: BuildingRef): BuildingAttrs {
+    const t = this.find(ref.tileKey)?.buildings
+    // Tuile évincée entre le clic et ici : des attributs vides valent mieux qu'un `null`
+    // que chaque appelant devrait retester.
+    return t ? buildingAttrs(t, ref.index) : { featureId: null, height: 0, minHeight: 0, props: {} }
   }
 
   /**
@@ -540,9 +560,9 @@ export class BuildingsLayer {
     attr.needsUpdate = true
   }
 
-  private find(tileKey: string): BuildingTile | null {
-    for (const t of this.cache.values()) if (t.key === tileKey) return t
-    return null
+  /** Tuile d'une clé — la file l'indexe déjà, inutile de parcourir le cache. */
+  private find(tileKey: string): BuildingTile | undefined {
+    return this.cache.get(tileKey)
   }
 
   private disposeTile(t: BuildingTile): void {

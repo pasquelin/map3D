@@ -206,7 +206,6 @@ export function MapControls({
    * de l'état ET du fournisseur : sa visibilité entre aussi dans le test de non-vacuité,
    * sinon le groupe se rendrait vide.
    */
-  /** L'outil n'est proposé qu'avec du volume INTERNE à l'écran (cf. `canPickBuildings`). */
   const basemapGroupShown = showMode3d || showPlan || (btn('traffic') && basemap.trafficAvailable)
   /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
    *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier

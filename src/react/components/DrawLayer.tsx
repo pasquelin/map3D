@@ -351,9 +351,13 @@ export function DrawLayer(props: DrawLayerProps) {
     [engine, overlay, allowed.join(',')],
   )
 
-  // Réciproque de l'exclusivité : la loupe activée abandonne l'outil de dessin.
+  // Réciproque de l'exclusivité : un outil NON-dessin qui s'arme abandonne l'outil de
+  // dessin. La loupe et le pick de bâtiment y passent par le même chemin — c'est ce qui
+  // évite à chaque point d'armement de rejouer la règle pour son compte.
   const lensActive = lens?.active ?? false
-  useYieldsTool(lensActive, toolRef, setTool)
+  const [pickingBuilding, setPickingBuilding] = useState(() => engine.getBuildingPickMode())
+  useEffect(() => engine.on('buildingpickmode', setPickingBuilding), [engine])
+  useYieldsTool(lensActive || pickingBuilding, toolRef, setTool)
 
   // Barre espace = pan caméra temporaire (le dessin/geste en cours est gelé, pas
   // perdu) ; Espace+Maj = rotation caméra. Relâcher = reprise exacte de l'outil.
@@ -453,10 +457,12 @@ export function DrawLayer(props: DrawLayerProps) {
         if (!found) return
         const modeMeta = SELECT_MODE_META.find((m) => m.action === found[0])
         if (found[0] === 'selectBuilding') {
-          // Ligne « bâtiment » du sélecteur : un outil du MOTEUR, exclusif du dessin. Le
-          // moteur refuse de lui-même hors volume interne, il n'y a rien à tester ici.
-          setTool(null)
-          engine.setBuildingPickMode(!engine.getBuildingPickMode())
+          // Ligne « bâtiment » du sélecteur : un outil du MOTEUR, pas du dessin. Le moteur
+          // refuse de lui-même hors volume interne, et `useYieldsTool` retire l'outil de
+          // tracé — comme pour la loupe. Reste la loupe elle-même, qui ne se cède pas.
+          const next = !engine.getBuildingPickMode()
+          if (next) lensRef.current?.deactivate()
+          engine.setBuildingPickMode(next)
         } else if (modeMeta) {
           // Raccourci d'un mode de sélection : choisit le mode ET active l'outil.
           setSelectMode(modeMeta.mode)

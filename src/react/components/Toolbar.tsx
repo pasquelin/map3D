@@ -318,9 +318,6 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
         active={active || pickingBuilding}
         className={hasFlyout ? 'm3d-btn-flyout' : undefined}
         onClick={() => {
-          // Le bouton principal rend la main au dessin : il quitte le pick de bâtiment,
-          // qui n'est pas un mode de sélection mais un outil concurrent.
-          engine.setBuildingPickMode(false)
           // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
           if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
             setSelectMode(available[0]!.mode)
@@ -336,7 +333,6 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               {...tip(labels.selectModes[m.mode].description, shortcuts[m.action])}
               className={`m3d-flyout-item${active && selectMode === m.mode ? ' m3d-on' : ''}`}
               onClick={() => {
-                engine.setBuildingPickMode(false)
                 setSelectMode(m.mode)
                 setTool('select')
                 setOpen(false)
@@ -355,13 +351,9 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               className={`m3d-flyout-item${pickingBuilding ? ' m3d-on' : ''}`}
               onClick={() => {
                 const next = !pickingBuilding
-                if (next) {
-                  // Armer le pick ÉTEINT les autres surfaces : la barre ne doit jamais
-                  // montrer deux outils allumés. Le dessin est coupé par le moteur (cf.
-                  // `setDrawing`), la loupe se relâche ici — comme la main le fait.
-                  setTool(null)
-                  lens?.deactivate()
-                }
+                // L'outil de tracé se retire seul (`useYieldsTool`, comme pour la loupe) ;
+                // la loupe, elle, ne se cède pas — on la relâche, comme la main le fait.
+                if (next) lens?.deactivate()
                 engine.setBuildingPickMode(next)
                 setOpen(false)
               }}
