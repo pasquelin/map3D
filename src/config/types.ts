@@ -1061,8 +1061,6 @@ export type SkyConfig = {
     density: number
     /** Échelle du motif de nuages (plus petit = nuages plus grands). */
     scale: number
-    /** Vitesse de dérive des nuages. `0` = figés ; sinon ils se déplacent en continu. */
-    speed: number
     /** Élévation apparente de la couche (0..1). */
     elevation: number
   }

@@ -202,17 +202,11 @@ const SkyShader = {
 
       vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );
 
-      // Nuages : projetés sur le plan tangent LOCAL (repère ECEF → la horizontale dépend
-      // de up). Projeter sur le plan XZ du MONDE, comme le shader d'origine, barbouille
-      // l'horizon de blanc dès qu'on n'est pas au pôle. On construit donc une base tangente
-      // (t1, t2) orthogonale à up et on y projette la direction de visée.
+      // Nuages : projetés sur un plan au-dessus de l'horizon local (dot avec up).
       float upness = dot( direction, up );
       if ( upness > 0.0 && cloudCoverage > 0.0 ) {
         float elevation = mix( 1.0, 0.1, cloudElevation );
-        vec3 ref = abs( up.y ) < 0.99 ? vec3( 0.0, 1.0, 0.0 ) : vec3( 1.0, 0.0, 0.0 );
-        vec3 t1 = normalize( cross( ref, up ) );
-        vec3 t2 = cross( up, t1 );
-        vec2 cloudUV = vec2( dot( direction, t1 ), dot( direction, t2 ) ) / ( upness * elevation );
+        vec2 cloudUV = direction.xz / ( upness * elevation );
         cloudUV *= cloudScale;
         cloudUV += time * cloudSpeed;
 
@@ -222,9 +216,7 @@ const SkyShader = {
 
         float cloudMask = smoothstep( 1.0 - cloudCoverage, 1.0 - cloudCoverage + 0.3, cloudNoise );
 
-        // Dégage franchement l'horizon : pas de nuages sous ~20° d'élévation, où la nappe
-        // s'étire à l'infini et vire au blanc uniforme.
-        float horizonFade = smoothstep( 0.05, 0.35, upness );
+        float horizonFade = smoothstep( 0.0, 0.1 + 0.2 * cloudElevation, upness );
         cloudMask *= horizonFade;
 
         float sunInfluence = dot( direction, vSunDirection ) * 0.5 + 0.5;

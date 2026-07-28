@@ -266,8 +266,6 @@ export class MapEngine {
   /** Scratches réutilisés par frame (verticale locale, direction du soleil) — zéro-alloc. */
   private skyUp = new THREE.Vector3()
   private skySun = new THREE.Vector3()
-  /** Temps cumulé (s) alimentant la dérive des nuages — indépendant de la date du soleil. */
-  private skyTime = 0
   private drawingMode = false
   /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
   private drawingSuspended = false
@@ -676,7 +674,6 @@ export class MapEngine {
     u.cloudCoverage.value = cfg.clouds.coverage
     u.cloudDensity.value = cfg.clouds.density
     u.cloudScale.value = cfg.clouds.scale
-    u.cloudSpeed.value = cfg.clouds.speed
     u.cloudElevation.value = cfg.clouds.elevation
     // `date` à 0 ⇒ heure de montage, capturée une seule fois puis figée (jour/nuit stable).
     if (this.skyEpoch === 0) this.skyEpoch = cfg.date > 0 ? cfg.date : Date.now()
@@ -690,20 +687,11 @@ export class MapEngine {
    * coûte rien en vue globe. Sinon on oriente `up` (verticale locale) et `sunPosition`
    * (normale au point subsolaire) en repère monde, et on colle le dome à la caméra.
    */
-  private updateSky(state: CameraState, dt: number): void {
+  private updateSky(state: CameraState): void {
     const sky = this.sky
     if (!sky) return
     const { start, end } = this.config.sky.fade
     const opacity = easeInOutCubic(clamp((start - state.altitude) / Math.max(1, start - end), 0, 1))
-    // Cross-fade des étoiles : elles s'assombrissent (color → noir) à mesure que le ciel
-    // monte, au lieu de transparaître au travers. On teinte le matériau (multiplié aux
-    // couleurs de sommets) — pas de passe transparente, les étoiles restent DERRIÈRE le
-    // globe. Réglé AVANT la sortie anticipée pour rester à pleine brillance en vue globe.
-    //
-    // Courbe `1 - opacity²` (et non linéaire) : les étoiles reviennent TÔT dans la remontée,
-    // pendant que le ciel (bleu profond, presque noir au zénith) est encore partiellement
-    // là — sinon un creux sombre apparaît entre « ciel » et « étoiles » (ciel → noir → étoiles).
-    if (this.stars) (this.stars.material as THREE.PointsMaterial).color.setScalar(1 - opacity * opacity)
     if (opacity <= 0) {
       sky.visible = false
       return
@@ -711,9 +699,6 @@ export class MapEngine {
     sky.visible = true
     const u = sky.uniforms
     u.opacity.value = opacity
-    // Dérive des nuages : le temps avance en continu (indépendant de la date du soleil figée).
-    this.skyTime += dt
-    u.time.value = this.skyTime
     this.projection.worldNormal({ lat: state.lat, lng: state.lng }, this.skyUp)
     u.up.value.copy(this.skyUp)
     this.projection.worldNormal(this.subsolar, this.skySun)
@@ -1585,7 +1570,7 @@ export class MapEngine {
     // Étoiles en skybox : suivent la position caméra (distance constante = infini).
     if (this.stars) this.stars.position.copy(this.threeCamera.position)
     // Ciel atmosphérique : fondu + orientation (sort tôt et gratuit en vue globe).
-    this.updateSky(state, dt)
+    this.updateSky(state)
     this.renderer.render(this.scene, this.threeCamera)
     // Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls
     // garde une plage serrée pour la précision de profondeur du rendu WebGL — mais le

@@ -354,7 +354,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'sky.clouds.coverage': 'couverture',
   'sky.clouds.density': 'densité',
   'sky.clouds.scale': 'échelle du motif',
-  'sky.clouds.speed': 'vitesse de dérive',
   'sky.clouds.elevation': 'élévation',
   'sky.fade.start': 'apparition (m)',
   'sky.fade.end': 'plein ciel (m)',

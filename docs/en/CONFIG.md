@@ -327,13 +327,12 @@ Computed sky (Preetham model + clouds), **faded in as you descend toward the gro
 |---|---|---|
 | `sky.enabled` | Enables the sky. `false` = stars + color background only (previous behavior). | `true` |
 | `sky.turbidity` | Atmospheric haze: `1` = clear sky, `~10` = hazy/milky. | `2` |
-| `sky.rayleigh` | Rayleigh scattering — intensity of the sky's blue. | `3` |
+| `sky.rayleigh` | Rayleigh scattering — intensity of the sky's blue. | `1.2` |
 | `sky.mieCoefficient` | Mie scattering — strength of the halo around the sun. | `0.005` |
 | `sky.mieDirectionalG` | Mie directionality (0..1) — concentration of the solar halo. | `0.8` |
-| `sky.clouds.coverage` | Cloud coverage: `0` = clear sky, `1` = overcast. | `0.3` |
+| `sky.clouds.coverage` | Cloud coverage: `0` = clear sky, `1` = overcast. | `0.35` |
 | `sky.clouds.density` | Cloud opacity (0..1). | `0.4` |
 | `sky.clouds.scale` | Cloud pattern scale (smaller = larger clouds). | `0.0002` |
-| `sky.clouds.speed` | Cloud drift speed. `0` = frozen; otherwise they move continuously. | `0.0006` |
 | `sky.clouds.elevation` | Apparent elevation of the layer (0..1). | `0.5` |
 | `sky.fade.start` | Camera altitude (m) above which the sky is invisible (globe view intact). | `500000` |
 | `sky.fade.end` | Camera altitude (m) below which the sky is full. `start` must be > `end`. | `90000` |
