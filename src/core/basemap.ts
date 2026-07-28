@@ -41,6 +41,14 @@ export type BasemapState = {
    * l'UI n'a pas à connaître la règle.
    */
   trafficAvailable: boolean
+  /**
+   * Un bâtiment est **désignable** : le volume à l'écran est celui du fournisseur interne,
+   * fait d'emprises MVT extrudées, chacune avec son identité.
+   *
+   * Le photoréaliste externe est hors de portée par nature — un maillage texturé fusionné,
+   * où il n'y a aucun bâtiment à distinguer d'un autre.
+   */
+  canPickBuildings: boolean
 }
 
 /** Ce que le moteur sait de ses sources, au moment où il publie ses capacités. */
@@ -74,6 +82,7 @@ export function deriveBasemapCapabilities(mode: MapMode, support: BasemapSupport
   // tuiles photoréalistes. Les deux axes (2D / 3D) restent indépendants.
   const can3d = support.provider3d === 'external' ? support.has3dTileset : support.hasRelief || support.hasBuildings
   const trafficAvailable = support.sourceSupportsTraffic && canPlan && mode !== '3d'
+  const canPickBuildings = mode === '3d' && support.provider3d === 'internal' && support.hasBuildings
   return {
     mode,
     // Le trafic est un calque du fond plat : hors mode plan il n'a rien à quoi s'accrocher.
@@ -85,6 +94,7 @@ export function deriveBasemapCapabilities(mode: MapMode, support: BasemapSupport
     canPlan,
     can3d,
     trafficAvailable,
+    canPickBuildings,
   }
 }
 

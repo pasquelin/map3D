@@ -142,3 +142,27 @@ describe('deriveBasemapCapabilities — cohérence du trafic', () => {
     expect(s.traffic).toBe(false)
   })
 })
+
+/** Fournisseur interne AVEC ses bâtiments : le seul volume qui porte des emprises. */
+const internalBuildings: BasemapSupport = { ...internalRaster, hasBuildings: true }
+
+describe('canPickBuildings', () => {
+  it('n’est vrai qu’en 3D interne avec des bâtiments', () => {
+    expect(deriveBasemapCapabilities('3d', internalBuildings, false).canPickBuildings).toBe(true)
+  })
+
+  it('est faux en mode plan', () => {
+    // Les volumes ne sont pas à l'écran : proposer l'outil offrirait un mode sans cible.
+    expect(deriveBasemapCapabilities('plan', internalBuildings, false).canPickBuildings).toBe(false)
+  })
+
+  it('est faux en volume externe', () => {
+    // Le photoréaliste est un maillage texturé fusionné : aucune identité de bâtiment.
+    expect(deriveBasemapCapabilities('3d', withKey, false).canPickBuildings).toBe(false)
+  })
+
+  it('est faux sans source de bâtiments', () => {
+    const relief: BasemapSupport = { ...internalRaster, hasRelief: true }
+    expect(deriveBasemapCapabilities('3d', relief, false).canPickBuildings).toBe(false)
+  })
+})
