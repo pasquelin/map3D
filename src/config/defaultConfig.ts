@@ -459,6 +459,9 @@ export const defaultConfig: MapConfig = {
     // 120 m : le détail se cale sur ce qu'on regarde en marchant (le bout de la rue), et
     // non sur la distance à ses propres pieds — qui réclamerait le zoom maximal partout.
     tileDetailDistanceMeters: 120,
+    // ~4 Hz : la couverture suit largement une marche à quelques mètres par seconde, et la
+    // cascade cesse d'être reconstruite soixante fois par seconde.
+    tileRefreshMs: 250,
     groundSmoothing: 0.25,
     collision: {
       radiusMeters: 0.3,

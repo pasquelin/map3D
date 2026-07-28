@@ -1256,6 +1256,9 @@ export class MapEngine {
   /** Dernière validation de survol — cf. la mémoïsation de `canPlacePedestrian`. */
   private placeProbe: { x: number; y: number; at: number; ok: boolean } | null = null
 
+  /** Dernier rafraîchissement de la couverture de tuiles en marche (`tileRefreshMs`). */
+  private tileFeedAt = 0
+
   /**
    * Niveau de rue sous un point, avec repli sur l'élévation suivie du terrain.
    *
@@ -1986,14 +1989,25 @@ export class MapEngine {
        * détail du survol : sol flou et bâtiments grossiers, à un mètre des yeux.
        */
       const walking = this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active'
+      /**
+       * En marche, la couverture n'est refaite qu'à `tileRefreshMs`.
+       *
+       * ⚠️ Chaque passage reconstruit la CASCADE entière (`TiledGlobeLayer.update`) : un
+       * anneau de tuiles par niveau, du plus fin jusqu'au niveau de base. À hauteur d'homme
+       * le niveau le plus fin est élevé, donc la cascade compte une quinzaine de crans et
+       * frôle le plafond du cache — les tuiles évincées sont aussitôt redemandées, et le
+       * rechargement devient perpétuel. À 3 m/s, quatre passages par seconde suffisent.
+       */
+      const due = !walking || now - this.tileFeedAt >= this.config.pedestrian.tileRefreshMs
+      if (walking && due) this.tileFeedAt = now
       const view = walking ? null : this.computeView(state)
       const bounds = view
         ? view.bounds
         : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
       const tileZoom = walking ? this.tileZoomWalking(state) : this.tileZoomAtCenter(state)
       const aim = view ? this.aimPoint(view) : this.pedestrianCtl.position
-      if (feedBasemap) this.basemap2d.update(bounds, tileZoom, aim, !controlling)
-      if (feedBuildings) this.buildings.update(bounds, tileZoom, aim)
+      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling)
+      if (feedBuildings && due) this.buildings.update(bounds, tileZoom, aim)
     }
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :

@@ -1225,6 +1225,15 @@ export type PedestrianConfig = {
    */
   tileDetailDistanceMeters: number
   /**
+   * Période minimale (ms) entre deux mises à jour de la couverture de tuiles en marche.
+   *
+   * ⚠️ Chaque passage reconstruit la cascade de niveaux — un anneau par cran, du plus fin
+   * au niveau de base — puis parcourt tout le cache. À hauteur d'homme le niveau le plus fin
+   * est élevé, donc la cascade est longue, et la refaire soixante fois par seconde ne sert
+   * à rien : à 3 m/s le décor a bougé de cinq centimètres.
+   */
+  tileRefreshMs: number
+  /**
    * Constante de temps (SECONDES) du lissage vertical de l'œil. Trop fort → sensation de
    * flottement ; trop faible → sautillement quand les tuiles se raffinent.
    */
