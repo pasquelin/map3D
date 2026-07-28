@@ -406,6 +406,12 @@ export type BuildingsConfig = {
   maxAttempts: number
   /** Backoff entre deux essais d'une même tuile. */
   retryDelays: readonly number[]
+  /**
+   * Attributs MVT remontés par le pick de bâtiment (`buildingMenu`). **Vide par défaut** :
+   * la donnée en porte des dizaines par emprise, et les transporter toutes coûterait, par
+   * tuile, plus que toute la géométrie. L'hôte demande ce qu'il affiche.
+   */
+  pickFields: readonly string[]
 } & TileCacheBudget
 
 export type ProvidersConfig = {
@@ -472,6 +478,15 @@ export type InteractionConfig = {
     hoverIntentMs: number
     /** Délai de grâce avant fermeture d'un sous-panneau quitté. */
     submenuCloseMs: number
+  }
+  /** Outil « sélectionner un bâtiment » (volume interne uniquement). */
+  buildingPick: {
+    /**
+     * Curseur du canvas pendant que l'outil est actif. Curseur **système** — la
+     * convention du projet exclut les images de curseur. Posé en style inline sur le
+     * canvas, qui l'emporte sur le `grab` de la feuille injectée.
+     */
+    cursor: string
   }
   /** Tolérance de clic autour du socle d'une relation (le trait, lui, a la sienne). */
   hubHitTolerancePx: number
@@ -730,6 +745,8 @@ export type ControlShortcuts = {
   basemap: string | false
   /** Calque trafic — le bouton n'existe qu'en mode plan. */
   traffic: string | false
+  /** Bascule l'outil « sélectionner un bâtiment ». */
+  selectBuilding: string | false
 }
 
 /** Outils de dessin et modes de sélection — une touche simple chacun. */

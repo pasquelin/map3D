@@ -52,3 +52,11 @@ describe('mergeTheme', () => {
     expect(merged.animations.enabled).toBe(true)
   })
 })
+
+describe('teintes de sélection des bâtiments', () => {
+  it('distingue survol et sélection', () => {
+    // Deux teintes distinctes : le bâtiment sous le menu ouvert ne doit pas se lire
+    // comme celui qu'on survole en passant.
+    expect(defaultTheme.globe.buildingHoverColor).not.toBe(defaultTheme.globe.buildingSelectColor)
+  })
+})

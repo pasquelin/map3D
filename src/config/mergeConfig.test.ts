@@ -27,6 +27,19 @@ describe('mergeConfig', () => {
     const merged = mergeConfig(defaultConfig, { providers: { routing: { presets: { fastest: [2] } } } })
     expect(merged.providers.routing.presets.fastest).toEqual([2])
   })
+
+  it('expose les réglages du pick de bâtiment et les laisse surcharger', () => {
+    expect(defaultConfig.providers.buildings.pickFields).toEqual([])
+    expect(defaultConfig.interaction.buildingPick.cursor).toBe('crosshair')
+    const merged = mergeConfig(defaultConfig, {
+      providers: { buildings: { pickFields: ['name'] } },
+      interaction: { buildingPick: { cursor: 'pointer' } },
+    })
+    expect(merged.providers.buildings.pickFields).toEqual(['name'])
+    expect(merged.interaction.buildingPick.cursor).toBe('pointer')
+    // Le voisin du même bloc n'est pas emporté par la surcharge.
+    expect(merged.providers.buildings.zoom).toBe(defaultConfig.providers.buildings.zoom)
+  })
 })
 
 describe('resolveLocale / resolveRegion', () => {

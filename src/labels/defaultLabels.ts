@@ -16,6 +16,7 @@ export const defaultLabels: MapLabels = {
     mode3d: 'Vue 3D',
     plan: 'Plan',
     traffic: 'Trafic',
+    selectBuilding: 'Sélectionner un bâtiment',
   },
   tags: {
     button: 'Couches — filtrer par tag',

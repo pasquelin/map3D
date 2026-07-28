@@ -125,5 +125,9 @@ export const defaultTheme: MapTheme = {
     // quatre tons distincts, ce qu'un test vérifie.
     buildingSunAzimuth: 120,
     buildingShadeMin: 0.62,
+    // Survol chaud et sélection saturée : elles doivent se distinguer entre elles ET du
+    // gris des façades, sur lequel l'ombrage de sommet est déjà cuit.
+    buildingHoverColor: '#F2B441',
+    buildingSelectColor: '#E8613C',
   },
 }

@@ -190,6 +190,10 @@ export const defaultConfig: MapConfig = {
       maxRequest: 25,
       maxAttempts: 3,
       retryDelays: [1000, 4000],
+      // Vide : un attribut demandé traverse le worker pour CHAQUE emprise de CHAQUE tuile
+      // (~2 300 par tuile dense). L'hôte qui en affiche un le nomme, les autres ne coûtent
+      // rien — `height`, `minHeight` et l'identifiant sont là de toute façon.
+      pickFields: [],
     },
 
     // ⚠️ Nouveau : le cache de vignettes n'avait ni plafond ni éviction.
@@ -212,6 +216,7 @@ export const defaultConfig: MapConfig = {
     lens: { minDragPx: 4, minSizePx: 28 },
     history: { coalesceMs: 800, depth: 50 },
     menu: { hoverIntentMs: 150, submenuCloseMs: 140 },
+    buildingPick: { cursor: 'crosshair' },
     // ⚠️ Nouveaux : tolérances et seuils qui vivaient dans les composants, voire dans
     // la feuille de styles pour `repositionHitPx`. Valeurs reprises à l'identique.
     hubHitTolerancePx: 12,
@@ -243,6 +248,9 @@ export const defaultConfig: MapConfig = {
         basemap: 'b',
         // Le bouton n'existe qu'en mode plan : un raccourci global serait déroutant.
         traffic: false,
+        // 'u' : les lettres mnémoniques sont prises (b = fond de carte, i = incliner,
+        // e = gomme). Le bouton n'existe qu'en volume interne, comme `traffic` en plan.
+        selectBuilding: 'u',
       },
       // Déplacement CONTINU : ces touches agissent tant qu'elles sont maintenues. Les
       // flèches marchent partout ; ZQSD suit la disposition AZERTY, une application

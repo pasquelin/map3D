@@ -30,6 +30,8 @@ export type MapLabels = {
     plan: string
     /** Calque trafic Google (mode plan uniquement). */
     traffic: string
+    /** Outil « sélectionner un bâtiment » — volume interne seulement. */
+    selectBuilding: string
   }
   /** Bouton + panneau « Couches » (filtre par tag). */
   tags: {

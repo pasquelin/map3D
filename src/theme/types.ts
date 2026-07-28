@@ -305,6 +305,15 @@ export type MapTheme = {
      * aucun ombrage). Le mur le mieux exposé garde sa couleur pleine.
      */
     buildingShadeMin: number
+    /**
+     * Teinte d'un bâtiment survolé, l'outil de sélection actif.
+     *
+     * Elle REMPLACE la couleur des sommets de l'emprise le temps du survol — ombrage
+     * compris, qui est cuit dedans : c'est ce qui la fait ressortir d'un quartier entier.
+     */
+    buildingHoverColor: string
+    /** Teinte du bâtiment dont le menu contextuel est ouvert. */
+    buildingSelectColor: string
     /** Texture de substitution du globe de repli. */
     textureUrl?: string
   }
