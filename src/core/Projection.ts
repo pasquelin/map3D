@@ -65,6 +65,10 @@ export class Projection {
   // Rayon dédié à l'échantillonnage vertical de la hauteur du sol (markers posés
   // sur la vraie surface des tuiles, pas sur l'ellipsoïde).
   private readonly groundRay = new THREE.Raycaster()
+  // Rayon dédié aux palpeurs de collision du mode piéton : courts et arbitraires, lancés
+  // plusieurs fois par frame. Distinct de `groundRay` (vertical) et de `raycaster` (écran) —
+  // les partager ferait s'écraser leurs réglages `far` d'un appel à l'autre.
+  private readonly feelerRay = new THREE.Raycaster()
   private readonly rayOrigin = new THREE.Vector3()
   private readonly rayDir = new THREE.Vector3()
   private readonly hitLocal = new THREE.Vector3()
@@ -273,6 +277,30 @@ export class Projection {
       height: number
     }
     return c.height
+  }
+
+  /**
+   * Impact le plus proche le long d'un rayon MONDE arbitraire : distance en mètres, ou
+   * `null` si rien n'est touché. `out` reçoit le point d'impact.
+   *
+   * Réservé aux **rayons courts** (palpeurs de collision du mode piéton) : le culling par
+   * volumes englobants du `TilesRenderer` les rend alors bon marché. Un rayon long à
+   * l'horizontale traverserait toute la hiérarchie de tuiles.
+   *
+   * `direction` doit être NORMALISÉE — la distance rendue est celle du raycaster, qui la
+   * suppose unitaire. Aucune allocation : raycaster et vecteur de sortie sont fournis.
+   */
+  castRay(origin: THREE.Vector3, direction: THREE.Vector3, farMeters: number, out: THREE.Vector3): number | null {
+    const target = this.rayTarget()
+    if (!target) return null
+    this.feelerRay.set(origin, direction)
+    this.feelerRay.far = farMeters
+    ;(this.feelerRay as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
+    const hits = this.feelerRay.intersectObject(target, true)
+    const first = hits[0]
+    if (!first) return null
+    out.copy(first.point)
+    return first.distance
   }
 
   /**
