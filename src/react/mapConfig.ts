@@ -16,6 +16,7 @@ import type { ReactNode } from 'react'
 import type { Camera } from '../core/Camera'
 import type { BuildingInfo, MapEngine } from '../core/MapEngine'
 import type { MarkerData } from '../data/types'
+import type { PedestrianApi } from './hooks/usePedestrian'
 import type { DrawingApi, LensApi, RelationApi } from './context'
 import type { MenuItem } from './components/ContextMenu'
 import type { DrawLayerProps } from './components/DrawLayer'
@@ -125,6 +126,8 @@ export type MapHandle = {
   readonly engine: MapEngine
   /** Caméra : `fitBounds`, `panTo`, `setZoom`, `flyTo`, `follow`, `getState`… */
   readonly camera: Camera
+  /** Mode piéton : armer le placement, entrer, quitter, régler l'immersion. */
+  readonly pedestrian: PedestrianApi
   /** Dessin : outils, sélection, CRUD par identité. `null` si `draw={false}`. */
   readonly drawing: DrawingApi | null
   /** Outil loupe. `null` s'il est retiré (`toolbar={false}` ou `lens: false`). */

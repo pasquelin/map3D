@@ -22,6 +22,7 @@ export type {
 } from './core/MapEngine'
 export { Camera } from './core/Camera'
 export type { CameraState, FlyOptions, FitBoundsOptions, FitPadding } from './core/Camera'
+export type { CameraMode, ImmersionLevel, PedestrianPhase, PedestrianState } from './core/pedestrianState'
 // Agrégation et cadrage de cadres géographiques (antiméridien traité) : de quoi
 // nourrir `camera.fitBounds()` depuis des points, des formes ou des markers.
 export {
@@ -166,6 +167,12 @@ export type {
   TileProvider,
   TilesConfig,
   BuildingsConfig,
+  PedestrianConfig,
+  PedestrianCollisionConfig,
+  PedestrianPlacementConfig,
+  PedestrianHeadBobConfig,
+  PedestrianTransitionsConfig,
+  PedestrianShortcuts,
 } from './config/types'
 /**
  * Sources de tuiles 2D. Exposées pour qu'un hôte puisse brancher son propre
@@ -226,6 +233,8 @@ export { markersLayer, shapesLayer } from './react/mapConfig'
 export { useMap, useTheme, useLabels, useConfig } from './react/context'
 export type { DrawingApi, DrawAction, LensApi } from './react/context'
 export { useCamera } from './react/hooks/useCamera'
+export { usePedestrian } from './react/hooks/usePedestrian'
+export type { PedestrianApi } from './react/hooks/usePedestrian'
 export { useViewport } from './react/hooks/useViewport'
 /** Gate de zoom booléen — ce qui masque les markers `static` sous un seuil. */
 export { useZoomGate } from './react/hooks/useZoomGate'

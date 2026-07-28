@@ -1,5 +1,6 @@
 import { type CSSProperties, type Ref, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { CameraState } from '../core/Camera'
+import type { ImmersionLevel } from '../core/pedestrianState'
 import { type InteractiveMode, MapEngine, type MapMode, WHEEL_SURFACE_ATTR } from '../core/MapEngine'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { Viewport } from '../data/types'
@@ -338,6 +339,17 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
         ? {
             engine,
             camera: engine.camera,
+            // Composé à la lecture, comme `drawing`/`lens` : `state` doit rendre l'état de
+            // l'INSTANT de l'appel, pas celui de la création de la poignée.
+            get pedestrian() {
+              return {
+                state: engine.getPedestrian(),
+                enterPlacement: () => engine.enterPedestrianPlacement(),
+                enter: (p: LatLng) => engine.enterPedestrian(p),
+                exit: () => engine.exitPedestrian(),
+                setImmersion: (level: ImmersionLevel) => engine.setPedestrianImmersion(level),
+              }
+            },
             get drawing() {
               return apis.current.drawing
             },

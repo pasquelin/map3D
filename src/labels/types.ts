@@ -30,6 +30,14 @@ export type MapLabels = {
     plan: string
     /** Calque trafic Google (mode plan uniquement). */
     traffic: string
+    /** Bouton d'entrée en mode piéton — n'apparaît qu'en 3D photoréaliste externe. */
+    pedestrian: string
+    /** Même bouton, mode armé ou actif : il quitte. */
+    pedestrianExit: string
+    /** Bascule exploration ↔ immersion totale. */
+    immersion: string
+    /** Rappel affiché en immersion totale, la souris étant cachée. */
+    pedestrianHint: string
   }
   /** Bouton + panneau « Couches » (filtre par tag). */
   tags: {

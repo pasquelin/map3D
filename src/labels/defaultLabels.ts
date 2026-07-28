@@ -16,6 +16,10 @@ export const defaultLabels: MapLabels = {
     mode3d: 'Vue 3D',
     plan: 'Plan',
     traffic: 'Trafic',
+    pedestrian: 'Mode piéton',
+    pedestrianExit: 'Quitter le mode piéton',
+    immersion: 'Immersion totale',
+    pedestrianHint: 'Échap pour quitter',
   },
   tags: {
     button: 'Couches — filtrer par tag',

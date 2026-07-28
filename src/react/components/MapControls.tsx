@@ -13,6 +13,7 @@ import {
   mdiPlus,
   mdiRotateOrbit,
   mdiTrafficLight,
+  mdiWalk,
   mdiVideo2d,
   mdiVideo3d,
 } from '@mdi/js'
@@ -23,6 +24,7 @@ import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
 import { boundsContains } from '../../core/MarkerQuery'
 import type { LatLng } from '../../shared'
 import { useConfig, useLabels, useMapContext } from '../context'
+import { usePedestrian } from '../hooks/usePedestrian'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
@@ -42,6 +44,8 @@ export type MapControlAction =
   /** Bascule 3D ↔ plan 2D. */
   | 'basemap'
   | 'traffic'
+  /** Entrer / quitter le mode piéton. */
+  | 'pedestrian'
 
 /** Boutons individuels de la barre (grain fin de `MapControlsProps.buttons`). */
 export type MapControlButton =
@@ -60,9 +64,12 @@ export type MapControlButton =
   | 'traffic'
   /** Retour au point de référence de l'écran (cf. `MapControlsProps.target`). */
   | 'target'
+  /** Mode piéton — n'apparaît qu'en 3D photoréaliste externe. */
+  | 'pedestrian'
 
 /** Groupes de la barre — l'unité du grain GROUPE (masquage, remplacement, ordre). */
-export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'target' | 'layers' | 'fullscreen'
+export type ControlGroup =
+  'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'pedestrian' | 'target' | 'layers' | 'fullscreen'
 
 export type MapControlsProps = {
   /** Côté d'ancrage de la barre. */
@@ -166,6 +173,13 @@ export function MapControls({
   const [basemap, setBasemap] = useState(() => engine.getBasemap())
   useEffect(() => engine.on('basemap', setBasemap), [engine])
 
+  // Mode piéton — même patron que le fond de carte : le moteur referme le mode de lui-même
+  // (bascule 2D, Échap dans le canvas), et la barre suit l'événement plutôt que ses propres
+  // appels.
+  const pedestrian = usePedestrian()
+  /** Mode armé (placement) OU en cours : dans les deux cas, le bouton quitte. */
+  const inPedestrian = pedestrian.state.mode === 'pedestrian'
+
   const zoomBy = useCallback(
     (factor: number) => {
       const s = engine.camera.getState()
@@ -207,11 +221,18 @@ export function MapControls({
    * sinon le groupe se rendrait vide.
    */
   const basemapGroupShown = showMode3d || showPlan || (btn('traffic') && basemap.trafficAvailable)
+  /**
+   * Le bouton piéton n'existe que si le mode est SERVABLE (3D photoréaliste externe) — même
+   * règle que la paire 2D/3D : un bouton qui ne mène nulle part n'est pas proposé. Masqué et
+   * non grisé, c'est la convention de cette barre : aucun de ses boutons n'a d'état inerte.
+   */
+  const showPedestrian = btn('pedestrian') && pedestrian.state.available
   /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
    *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier
    *  fantôme. S'ajoute au prédicat partagé : ce que le fond de carte permet dépend du
    *  fournisseur (une seule vérité, pas trois tests séparés). */
-  const defaultShown = (key: Slot) => isDefault(key) && (key !== 'basemap' || basemapGroupShown)
+  const defaultShown = (key: Slot) =>
+    isDefault(key) && (key !== 'basemap' || basemapGroupShown) && (key !== 'pedestrian' || pedestrian.state.available)
   // Défauts pris dans la config : les dix touches vivaient dans une table de module,
   // donc remappables par prop mais invisibles depuis `<Map config>`. L'assertion
   // `satisfies` garde les deux ensembles de clés alignés.
@@ -253,7 +274,12 @@ export function MapControls({
       else if (canEnterMode(bm, to) && hit('basemap', to === 'plan' ? 'plan' : 'mode3d', 'basemap'))
         engine.setMapMode(to)
       else if (bm.trafficAvailable && hit('basemap', 'traffic', 'traffic')) engine.setTrafficVisible(!bm.traffic)
-      else return
+      else if (hit('pedestrian', 'pedestrian', 'pedestrian')) {
+        // Lu au moment de la frappe (comme le fond de carte) : une seule source de vérité,
+        // et la touche reste juste même si la carte a changé de mode entre-temps.
+        if (engine.getPedestrian().mode === 'pedestrian') engine.exitPedestrian()
+        else engine.enterPedestrianPlacement()
+      } else return
       // Raccourci consommé : pas d'action par défaut du navigateur (ex. frappe
       // insérée si un champ vient de prendre le focus).
       e.preventDefault()
@@ -376,6 +402,26 @@ export function MapControls({
                 onClick={() => engine.setTrafficVisible(!basemap.traffic)}
               />
             )}
+          </div>
+        ),
+      )}
+
+      {/* Mode piéton, après le fond de carte : comme lui, c'est le choix de CE QU'ON REGARDE
+          (du ciel ou de la rue), pas une manière de le regarder — et il porte un état actif.
+          Le groupe n'existe pas hors 3D photoréaliste externe : le mode n'y a rien à
+          parcourir. */}
+      {slot(
+        'pedestrian',
+        showPedestrian && (
+          <div className="m3d-controls-group">
+            <ToolButton
+              icon={mdiWalk}
+              label={inPedestrian ? labels.controls.pedestrianExit : labels.controls.pedestrian}
+              tip={tip}
+              shortcut={keys.pedestrian}
+              active={inPedestrian}
+              onClick={() => (inPedestrian ? pedestrian.exit() : pedestrian.enterPlacement())}
+            />
           </div>
         ),
       )}
