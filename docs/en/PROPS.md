@@ -25,7 +25,7 @@ Root — mounts the engine and every surface.
 | `googleMapsApiKey` | Google Maps Platform key → Photorealistic 3D Tiles directly (takes precedence over Ion). | — |
 | `cesiumIonToken` | Cesium Ion token → Google Photorealistic 3D Tiles via Cesium. | — |
 | `cesiumIonAssetId` | Cesium Ion asset (default 2275207 = Google Photorealistic 3D Tiles). | — |
-| `mapMode` | Map type at startup. Default: `'plan'` (Google 2D basemap) as soon as `googleMapsApiKey` is provided, otherwise `'3d'`. Pass `'3d'` explicitly to start on the photorealistic tiles. | — |
+| `mapMode` | Map type at startup. Default: `'plan'` as soon as a 2D basemap is servable — Google key **or** an internal server's `providers.internal.origin` (see [TILES.md](TILES.md)) — otherwise `'3d'`. Pass `'3d'` explicitly to start on volume. Read at **construction**: switching afterwards goes through the toolbar button or `MapHandle`. | — |
 | `fallbackGlobe` | Plain ellipsoid fallback globe when no tile is available (default: true). | — |
 | `errorTarget` | Target screen-space error (quality/perf). | — |
 | `intro` | Google Earth-style intro: globe view then an animated descent to center/zoom (default: true). | — |

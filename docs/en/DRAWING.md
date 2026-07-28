@@ -381,7 +381,7 @@ Defaults (`config.interaction.shortcuts.draw` and `.edit`):
 | | |
 |---|---|
 | `V` `1` `2` `3` | select, rectangle, polygon, lasso |
-| `L` `P` `R` `C` `D` `A` `M` `E` `Y` | line, polygon, rect, circle, freehand, arrow, measure, eraser, symbols |
+| `L` `P` `R` `C` `H` `A` `M` `E` `Y` | line, polygon, rect, circle, freehand (`H`), arrow, measure, eraser, symbols |
 | `Enter` | close the polygon (drawing or marquee) |
 | `Escape` | cascade: cancels the gesture in progress → marquee → deselects → navigation tool |
 

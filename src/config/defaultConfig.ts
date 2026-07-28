@@ -10,7 +10,32 @@ import type { MapConfig } from './types'
 
 export const defaultConfig: MapConfig = {
   providers: {
+    // Serveur auto-hébergé, partagé par le fond 2D ET le volume (raster, bâtiments).
+    // Sa production. À remplacer par la vôtre : cette origine est celle du projet, pas
+    // un service public.
+    internal: {
+      origin: 'https://map.gosecure.site',
+      // ⚠️ Était le littéral `1` recopié dans les deux calques. Un mètre : sous la
+      // précision du suivi d'altitude, et assez grand pour qu'une reconstruction de cache
+      // reste un événement rare (une par bascule de mode, en pratique).
+      elevationEpsilon: 1,
+    },
+
     tiles: {
+      // ⚠️ Le fond 2D était nécessairement Google, et sa clé obligatoire. Le défaut est
+      // désormais le serveur auto-hébergé : une carte tourne sans aucune clé d'API.
+      // `'external'` rétablit le fond Google.
+      provider: 'internal',
+      internalTileUrl: '{origin}/styles/{style}/{z}/{x}/{y}{r}.png',
+      style: 'liberty',
+      retina: false,
+      // ⚠️ Étaient BASE_Z / MAX_Z, deux littéraux dans `TiledGlobeLayer` — donc le
+      // plafond de zoom d'un fournisseur, écrit dans le code d'un calque.
+      baseZoom: 2,
+      maxZoom: 22,
+      // ⚠️ Nouveau : le cran de la cascade de détail (cf. son JSDoc). 5 tuiles de côté,
+      // soit le quart central déjà couvert par le niveau plus fin et une couronne autour.
+      lodRing: 5,
       // ⚠️ Était 'fr-FR' / 'FR' en dur : la carte parlait français quelle que soit
       // la locale de l'application hôte.
       language: 'auto',
@@ -21,7 +46,30 @@ export const defaultConfig: MapConfig = {
       tileUrl: 'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}',
       backoffAuthMs: 5 * 60_000,
       backoffTransientMs: 10_000,
-      maxTiles: 500,
+      // ⚠️ 500 → 700 : la cascade descend jusqu'au niveau de base, ce qui ajoute un anneau
+      // de `lodRing²` tuiles par cran grossier (~375 au total depuis un zoom de rue). Sous
+      // l'ancien plafond, ces niveaux se faisaient évincer par les tuiles fines aussitôt
+      // demandés — et l'aplat uniforme au loin réapparaissait. Ils sont petits en nombre,
+      // couvrent d'immenses surfaces, et ne se renouvellent pas quand on se déplace.
+      maxTiles: 700,
+      /**
+       * ⚠️ Nouveau — un FILET, pas un budget actif. Une tuile raster décodée pèse
+       * 256×256×4 = 262 Ko sur le GPU : les 700 du plafond ci-dessus en font 183 Mo, que
+       * rien ne bornait. 256 Mio restent donc au-dessus de ce que `maxTiles` autorise, et
+       * le défaut ne change RIEN au comportement connu — c'est `maxTiles` qui continue de
+       * trancher. Le filet ne se referme que si l'on monte `maxTiles`, ou en `retina`, où
+       * une tuile @2x pèse quatre fois plus.
+       *
+       * Le poser SOUS `maxTiles × 262 Ko` évincerait des niveaux de la cascade de détail,
+       * et rouvrirait l'aplat uniforme au loin qu'elle est justement là pour combler.
+       */
+      maxBytes: 256 * 1024 * 1024,
+      // ⚠️ Étaient les littéraux 10 et 200 de `TiledGlobeLayer.evict`.
+      evictEvery: 10,
+      evictSlack: 200,
+      // Une tuile raster se monte en une fraction de milliseconde (une grille de 2×2 à 32×32
+      // quads, une texture) : rien à étaler, contrairement au volume.
+      mountPerFrame: 8,
       maxInflight: 12,
       margin: 1,
       maxRequest: 140,
@@ -72,7 +120,77 @@ export const defaultConfig: MapConfig = {
 
     // ⚠️ Nouveau : l'identifiant vivait dans `MapEngine` (`?? '2275207'`) et dans
     // deux blocs de doc. Surchargeable par la prop `cesiumIonAssetId`, qui prime.
-    tiles3d: { cesiumIonAssetId: '2275207' },
+    // ⚠️ Le volume venait NÉCESSAIREMENT des tuiles photoréalistes dès qu'un token ou une
+    // clé était fourni. Il vient désormais du serveur interne (bâtiments extrudés) ;
+    // `'external'` rétablit les tuiles photoréalistes.
+    tiles3d: { provider: 'internal', cesiumIonAssetId: '2275207' },
+
+    // Volume du fournisseur interne. Les noms d'attributs sont ceux du schéma
+    // OpenMapTiles ; ils se règlent pour un serveur qui en publierait d'autres.
+    buildings: {
+      tileUrl: '{origin}/data/openmaptiles/{z}/{x}/{y}.pbf',
+      sourceLayer: 'building',
+      heightField: 'render_height',
+      minHeightField: 'render_min_height',
+      hideField: 'hide_3d',
+      colorField: 'colour',
+      defaultHeight: 6,
+      // ⚠️ Nouveau. La Burj Khalifa fait 828 m : au-delà, ce n'est plus un bâtiment mais
+      // une erreur de saisie — et `height=99999` est une faute courante dans OSM, qui
+      // produisait un volume de cent kilomètres.
+      maxHeight: 1000,
+      // Résolution de ~4 cm sur l'étendue d'une tuile, pour deux fois moins d'octets que
+      // `'float32'` sur le plus gros tampon. Cf. le JSDoc du type pour le repli.
+      positionPrecision: 'int16',
+      // 14 = maxzoom des données OpenMapTiles : au-delà, la tuile 14 est réutilisée.
+      zoom: 14,
+      // 13 et non 14 : le zoom d'une vue INCLINÉE est plus bas que celui demandé à la
+      // caméra (l'emprise s'élargit), donc un seuil à 14 laissait une carte à `zoom={14}`
+      // sans le moindre bâtiment. Le budget `maxRequest` borne ce que ce niveau réclame.
+      minViewZoom: 13,
+      margin: 0,
+      // ⚠️ Étaient 64 / 4 / 24, calqués sur les budgets du raster — sans rapport avec ce
+      // que pèse une tuile de VOLUME (~131 000 triangles pour une tuile z14 parisienne).
+      //
+      // `maxRequest: 25` = les 5×5 tuiles autour du point REGARDÉ, soit ~8 km de portée à
+      // cette latitude (une tuile z14 y fait 1,6 km). C'est un arbitrage assumé, pas une
+      // couverture : une vue inclinée à 79° porte à des dizaines de kilomètres, et aucune
+      // couronne z14 ne l'atteindrait — le niveau z13 des données, lui, ne porte AUCUNE
+      // hauteur (vérifié sur le serveur), donc il n'existe pas de LOD lointain à moindre
+      // coût. Au-delà de la couronne, le fond raster reste seul : c'est visible, et c'est
+      // la limite de la donnée.
+      //
+      // `maxTiles` doit rester nettement au-dessus de `maxRequest`, sinon un pan évince ce
+      // qu'il vient de demander et la file repart en boucle.
+      maxTiles: 36,
+      /**
+       * ⚠️ Nouveau — un FILET, pas un budget actif. Une tuile z14 dense pèse ~1,5 Mo de
+       * positions (en `int16`), 780 Ko de couleurs, 1,9 Mo d'indices et ~0,7 Mo d'arbre de
+       * collision, soit ~4,9 Mo ; les 36 du plafond ci-dessus en font ~175 Mo, que rien ne
+       * bornait — de quoi faire perdre son contexte WebGL à un GPU intégré. En rase
+       * campagne, les mêmes 36 tuiles pèsent 2 Mo : le compte de tuiles ne dit donc rien
+       * de ce qui est retenu.
+       *
+       * 256 Mio restent au-dessus du pire cas des 36 tuiles : le défaut ne retire aucun
+       * bâtiment de l'écran, et la borne n'agit que si l'on monte `maxTiles`. C'est
+       * ELLE qu'il faut baisser pour protéger une machine modeste — le panneau de
+       * l'exemple la règle en direct, et l'éviction se voit à l'œil.
+       */
+      maxBytes: 256 * 1024 * 1024,
+      // ⚠️ Étaient les littéraux 10 et 16 de `BuildingsLayer.evict`. Marge plus serrée que
+      // celle du raster : une tuile de volume coûte vingt fois plus qu'une texture.
+      evictEvery: 10,
+      evictSlack: 16,
+      // ⚠️ Nouveau, et c'est UNE tuile : son montage coûte une vingtaine de millisecondes
+      // (couleurs développées, arbre de collision construit). Deux dans la même frame — ce
+      // que `maxInflight` autorise — faisaient un gel franc de 50 ms, chaque fois qu'une
+      // vue nouvelle arrivait. Étalées, la carte perd une frame au lieu de trois.
+      mountPerFrame: 1,
+      maxInflight: 2,
+      maxRequest: 25,
+      maxAttempts: 3,
+      retryDelays: [1000, 4000],
+    },
 
     // ⚠️ Nouveau : le cache de vignettes n'avait ni plafond ni éviction.
     symbols: { cacheMaxEntries: 200 },
@@ -126,6 +244,16 @@ export const defaultConfig: MapConfig = {
         // Le bouton n'existe qu'en mode plan : un raccourci global serait déroutant.
         traffic: false,
       },
+      // Déplacement CONTINU : ces touches agissent tant qu'elles sont maintenues. Les
+      // flèches marchent partout ; ZQSD suit la disposition AZERTY, une application
+      // QWERTY pose WASD à la place sans toucher au code.
+      navigate: {
+        forward: ['arrowup', 'z'],
+        backward: ['arrowdown', 's'],
+        left: ['arrowleft', 'q'],
+        right: ['arrowright', 'd'],
+        boost: ['shift'],
+      },
       draw: {
         select: 'v',
         selectRect: '1',
@@ -135,7 +263,10 @@ export const defaultConfig: MapConfig = {
         polygon: 'p',
         rect: 'r',
         circle: 'c',
-        freehand: 'd',
+        // ⚠️ Était 'd', désormais pris par le déplacement au clavier (ZQSD). 'h' comme
+        // « main levée », et il était libre. À rebasculer sur 'd' par la config si
+        // l'application n'active pas les lettres de navigation.
+        freehand: 'h',
         arrow: 'a',
         measure: 'm',
         erase: 'e',
@@ -208,8 +339,16 @@ export const defaultConfig: MapConfig = {
   // ⚠️ Déplacé depuis `theme.camera` : bornes de navigation et pas de geste, pas
   // d'apparence. Valeurs reprises à l'identique.
   camera: {
+    // ⚠️ `minZoom` et `maxZoom` étaient inertes (cf. leur JSDoc). Valeurs inchangées :
+    // `minZoom: 2` (~10 000 km) reste moins contraignant que `maxDistanceFactor`, donc le
+    // dézoom que vous connaissez ne bouge pas — les deux réglages cessent seulement de se
+    // contredire.
     minZoom: 2,
     maxZoom: 21,
+    // ⚠️ Nouveau. ~153 m au-dessus du sol (40 075 016 / 2^18) : on voit un pâté de maisons
+    // entier, chaque bâtiment reste identifiable, et la caméra n'entre jamais dans la rue.
+    // Un immeuble haussmannien fait ~20 m — la marge est large, y compris sur les tours.
+    maxZoom3d: 18,
     maxTilt: 1.05,
     zoomStep: 0.5,
     dragSpeed: { min: 0.002, max: 0.35 },
@@ -223,6 +362,9 @@ export const defaultConfig: MapConfig = {
     maxDistanceFactor: 2.5,
     maxAltitudeFactor: 1.5,
     minGroundClearance: 20,
+    // ⚠️ Nouveau : déplacement au clavier. 0,8 hauteur-sol par seconde ≈ un écran par
+    // seconde au nadir, ce qui reste lisible ; Maj triple.
+    keyPan: { speed: 0.8, boost: 3 },
     followAltitude: { min: 200, max: 2_000_000 },
     fitBounds: { margin: 1.35, minAltitude: 350, maxAltitude: 6_000_000 },
   },

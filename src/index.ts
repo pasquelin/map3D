@@ -162,8 +162,23 @@ export type {
   StorageKeysConfig,
   SymbolsProviderConfig,
   TileMapType,
+  TileProvider,
   TilesConfig,
+  BuildingsConfig,
 } from './config/types'
+/**
+ * Sources de tuiles 2D. Exposées pour qu'un hôte puisse brancher son propre
+ * fournisseur : tout ce que `TiledGlobeLayer` demande est le contrat `TileSource`.
+ */
+export { createTileSource, type TileSource } from './core/tileSource'
+export { InternalTileSource } from './core/internalTiles'
+export { GoogleTileSource } from './core/googleTiles'
+/**
+ * Capacités du fond de carte. `canEnterMode` est la table de vérité que la barre livrée
+ * applique déjà : un hôte qui compose la sienne s'en sert plutôt que de redériver la
+ * règle — c'est de l'avoir redérivée qui laissait un bouton « 3D » sans volume derrière.
+ */
+export { type BasemapSupport, canEnterMode, deriveBasemapCapabilities } from './core/basemap'
 export { defaultConfig } from './config/defaultConfig'
 export { mergeConfig, resolveLocale, resolveRegion } from './config/mergeConfig'
 export { fetchWithPolicy, HttpError } from './core/fetchPolicy'

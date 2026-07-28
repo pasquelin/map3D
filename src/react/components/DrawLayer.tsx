@@ -196,6 +196,21 @@ export function DrawLayer(props: DrawLayerProps) {
   toolRef.current = tool
   const selectionRef = useRef(selection)
   selectionRef.current = selection
+
+  /**
+   * Les flèches déplacent la SÉLECTION tant qu'il y en a une : le moteur doit alors
+   * cesser d'en faire un déplacement de caméra, sinon la carte défile sous la forme qu'on
+   * est en train de bouger. Le moteur ne peut pas le deviner — la sélection est un état
+   * de cette couche.
+   *
+   * La coupure est nominative (`useId`) : cette couche ne rend les flèches qu'à SA propre
+   * demande, sans lever celle d'un autre consommateur ni celle de l'hôte.
+   */
+  const keyNavOwner = useId()
+  useEffect(() => {
+    engine.setKeyNavEnabled(selection.length === 0, keyNavOwner)
+    return () => engine.setKeyNavEnabled(true, keyNavOwner)
+  }, [engine, selection.length, keyNavOwner])
   const tagSource = useId()
   // Outil loupe, s'il est monté (`<Map lens>`) : via ref pour que `setTool` — mémoïsé
   // sur le moteur — n'ait pas à se reconstruire à chaque bascule de la loupe.

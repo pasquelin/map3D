@@ -18,12 +18,14 @@
 /** Dossiers — un par nœud de l'arbre `MapConfig`. */
 export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   providers: 'Fournisseurs tiers',
+  'providers.internal': 'Serveur interne',
   'providers.tiles': 'Tuiles 2D',
   'providers.routing': 'Itinéraires',
   'providers.routing.cache': 'Cache',
   'providers.routing.presets': 'Paliers proposés',
   'providers.places': 'Recherche de lieux',
   'providers.tiles3d': 'Tuiles 3D',
+  'providers.buildings': 'Bâtiments 3D',
   'providers.symbols': 'Symboles tactiques',
 
   interaction: 'Interaction',
@@ -36,6 +38,7 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'interaction.symbols': 'Symboles',
   'interaction.shortcuts': 'Raccourcis clavier',
   'interaction.shortcuts.controls': 'Navigation',
+  'interaction.shortcuts.navigate': 'Déplacement au clavier',
   'interaction.shortcuts.draw': 'Outils de dessin',
   'interaction.shortcuts.edit': 'Édition',
   'interaction.shortcuts.lens': 'Loupe',
@@ -52,6 +55,7 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   camera: 'Caméra',
   'camera.dragSpeed': 'Vitesse de déplacement',
   'camera.zoomFactor': 'Facteur par cran de zoom',
+  'camera.keyPan': 'Déplacement au clavier',
   'camera.followAltitude': 'Altitude du mode suivi',
   'camera.fitBounds': 'Cadrage automatique',
 
@@ -68,6 +72,15 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
 /** Feuilles — les 196 de `defaultConfig`, plus les 3 clés optionnelles du type. */
 export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   // ── providers.tiles ────────────────────────────────────────────────────────
+  'providers.internal.origin': 'origine du serveur',
+  'providers.internal.elevationEpsilon': 'seuil de reconstruction (m)',
+  'providers.tiles.provider': 'fournisseur de tuiles',
+  'providers.tiles.internalTileUrl': 'gabarit d’URL interne',
+  'providers.tiles.style': 'style interne',
+  'providers.tiles.retina': 'tuiles double densité',
+  'providers.tiles.lodRing': 'anneau de la cascade (tuiles)',
+  'providers.tiles.baseZoom': 'zoom du niveau de base',
+  'providers.tiles.maxZoom': 'zoom maximal demandé',
   'providers.tiles.language': 'langue des libellés',
   'providers.tiles.region': 'biais régional',
   'providers.tiles.mapType': 'fond de carte',
@@ -77,6 +90,10 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.backoffAuthMs': 'attente après refus d’identité (ms)',
   'providers.tiles.backoffTransientMs': 'attente après panne (ms)',
   'providers.tiles.maxTiles': 'cache de textures (tuiles)',
+  'providers.tiles.maxBytes': 'cache de textures (Mio)',
+  'providers.tiles.evictEvery': 'éviction : une frame sur',
+  'providers.tiles.evictSlack': 'éviction forcée au-delà de (tuiles)',
+  'providers.tiles.mountPerFrame': 'tuiles montées par frame',
   'providers.tiles.maxInflight': 'téléchargements simultanés',
   'providers.tiles.margin': 'anneau de préchargement',
   'providers.tiles.maxRequest': 'budget de tuiles par zoom',
@@ -119,6 +136,30 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.places.headers': 'en-têtes HTTP (JSON)',
 
   // ── providers, divers ──────────────────────────────────────────────────────
+  'providers.tiles3d.provider': 'fournisseur du volume',
+
+  // ── providers.buildings ────────────────────────────────────────────────────
+  'providers.buildings.tileUrl': 'gabarit d’URL vectorielle',
+  'providers.buildings.sourceLayer': 'couche des emprises',
+  'providers.buildings.heightField': 'attribut de hauteur',
+  'providers.buildings.minHeightField': 'attribut de hauteur de base',
+  'providers.buildings.hideField': 'attribut d’exclusion',
+  'providers.buildings.colorField': 'attribut de couleur',
+  'providers.buildings.defaultHeight': 'hauteur par défaut (m)',
+  'providers.buildings.maxHeight': 'hauteur maximale retenue (m)',
+  'providers.buildings.positionPrecision': 'précision des positions',
+  'providers.buildings.zoom': 'zoom des tuiles vectorielles',
+  'providers.buildings.minViewZoom': 'zoom minimal d’affichage',
+  'providers.buildings.margin': 'anneau de préchargement',
+  'providers.buildings.maxTiles': 'cache de tuiles extrudées',
+  'providers.buildings.maxBytes': 'plafond mémoire du cache (Mio)',
+  'providers.buildings.evictEvery': 'éviction : une frame sur',
+  'providers.buildings.evictSlack': 'éviction forcée au-delà de (tuiles)',
+  'providers.buildings.mountPerFrame': 'tuiles montées par frame',
+  'providers.buildings.maxInflight': 'téléchargements simultanés',
+  'providers.buildings.maxRequest': 'budget de tuiles par vue',
+  'providers.buildings.maxAttempts': 'essais par tuile',
+  'providers.buildings.retryDelays': 'délais entre essais (ms)',
   'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
   'providers.symbols.cacheMaxEntries': 'cache de vignettes',
 
@@ -242,7 +283,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
 
   // ── camera ─────────────────────────────────────────────────────────────────
   'camera.minZoom': 'zoom minimal',
-  'camera.maxZoom': 'zoom maximal',
+  'camera.maxZoom': 'zoom maximal en plan',
+  'camera.maxZoom3d': 'zoom maximal en 3D (plancher)',
   'camera.maxTilt': 'inclinaison max (rad)',
   'camera.zoomStep': 'pas de la molette',
   'camera.dragSpeed.min': 'au ras du sol',
@@ -256,6 +298,13 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'camera.maxDistanceFactor': 'distance max (rayons terrestres)',
   'camera.maxAltitudeFactor': 'altitude max des vols (rayons)',
   'camera.minGroundClearance': 'garde au sol (m)',
+  'camera.keyPan.speed': 'vitesse (hauteurs-sol / s)',
+  'camera.keyPan.boost': 'accélération (×, avec Maj)',
+  'interaction.shortcuts.navigate.forward': 'avancer',
+  'interaction.shortcuts.navigate.backward': 'reculer',
+  'interaction.shortcuts.navigate.left': 'vers la gauche',
+  'interaction.shortcuts.navigate.right': 'vers la droite',
+  'interaction.shortcuts.navigate.boost': 'accélérer (maintenu)',
   'camera.followAltitude.min': 'minimale (m)',
   'camera.followAltitude.max': 'maximale (m)',
   'camera.fitBounds.margin': 'respiration',

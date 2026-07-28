@@ -272,6 +272,39 @@ export type MapTheme = {
     oceanColor: string
     /** Terres émergées du globe de repli. */
     landColor: string
+    /**
+     * Façades des bâtiments extrudés (volume du fournisseur interne). Une emprise qui
+     * porte sa propre couleur (attribut `colour`) garde la sienne.
+     */
+    buildingColor: string
+    /** Toits des bâtiments extrudés, plus clairs que les façades — la face haute se lit d'emblée. */
+    buildingRoofColor: string
+    /**
+     * De combien éclaircir le toit d'une emprise qui porte SA PROPRE couleur (attribut
+     * `colour`), en fraction vers le blanc — `buildingRoofColor` ne s'applique qu'aux
+     * emprises laissées au thème, et sans cet écart le volume disparaît sur celles-là.
+     *
+     * ⚠️ Était un littéral dans `BuildingsLayer` : une décision d'apparence, écrite dans
+     * le code d'un calque, invisible depuis le thème qui la portait déjà pour tout le
+     * reste. `0` rend le toit de la couleur exacte de la façade.
+     */
+    buildingRoofLighten: number
+    /**
+     * Azimut du soleil factice (degrés depuis le nord, sens horaire) qui module les
+     * façades selon leur orientation.
+     *
+     * La scène n'a AUCUNE lumière : tout est en `MeshBasicMaterial`. Sans cette
+     * modulation, deux murs perpendiculaires ont exactement la même teinte et les blocs
+     * s'aplatissent — un pâté de maisons devenait une tache grise. Le terme est **cuit
+     * dans les couleurs de sommets** par le worker d'extrusion : il ne coûte rien à la
+     * frame, et n'introduit aucun éclairage dans une scène qui n'en veut pas.
+     */
+    buildingSunAzimuth: number
+    /**
+     * Teinte de la façade la moins exposée, en fraction de sa couleur (0 = noire, 1 =
+     * aucun ombrage). Le mur le mieux exposé garde sa couleur pleine.
+     */
+    buildingShadeMin: number
     /** Texture de substitution du globe de repli. */
     textureUrl?: string
   }

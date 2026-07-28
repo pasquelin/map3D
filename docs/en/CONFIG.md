@@ -30,6 +30,15 @@ compile error.
 
 | Key | Description | Default |
 |---|---|---|
+| `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ The default points at the project's own server: a third-party host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `'https://map.gosecure.site'` |
+| `providers.internal.elevationEpsilon` | Ground-elevation change (m) below which the raster basemap and the volumes are NOT rebuilt. Elevation is baked into both layers' geometry: tracking it to the centimetre would replay the whole cache every frame. Shared setting — both must use the exact same reference. ⚠️ Was a literal copied into both layers. | `1` |
+| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota, **no traffic**). See [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles.internalTileUrl` | URL template for an internal raster tile — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` and `{r}` are substituted. No query string is appended: the internal server signs nothing. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
+| `providers.tiles.style` | Name of the style rendered by the internal server, substituted for `{style}`. | `'liberty'` |
+| `providers.tiles.retina` | Request internal tiles at double density (`{r}` → `@2x`). Defaults to `false`: the canvas follows `performance.pixelRatio` (1 by default), where an @2x tile quadruples the bytes without adding anything on screen. | `false` |
+| `providers.tiles.baseZoom` | Always-loaded base level covering the whole globe — what keeps the map hole-free while finer levels arrive. ⚠️ Was hard-coded (2). | `2` |
+| `providers.tiles.maxZoom` | Highest tile zoom requested. ⚠️ Was hard-coded (22, the Google roadmap ceiling): an internal server whose style stops earlier was asked for levels that do not exist. | `22` |
+| `providers.tiles.lodRing` | Side (in tiles) of the ring requested at each **intermediate** level of the detail cascade, around the looked-at point. ⚠️ New: the layer only knew two levels, so in a tilted view the distance dropped straight to the base level — a flat wash of colour. Each step reaches twice as far as the previous one. | `5` |
 | `providers.tiles.language` | Language of the labels baked into the tiles. `'auto'` follows the browser. ⚠️ Hard-coded to `'fr-FR'` until now: the map displayed French names whatever the application's locale. | `'auto'` |
 | `providers.tiles.region` | Regional bias (disputed border rendering, toponymy). `'auto'` lets the provider infer it. ⚠️ Hard-coded to `'FR'` until now. | `'auto'` |
 | `providers.tiles.mapType` | 2D basemap requested from the provider. | `'roadmap'` |
@@ -38,7 +47,11 @@ compile error.
 | `providers.tiles.tileUrl` | Tile URL template — `{z}`, `{x}`, `{y}` and `{session}` are substituted. | `'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'` |
 | `providers.tiles.backoffAuthMs` | Wait after an identity refusal (invalid key, quota) before retrying. | `300000` |
 | `providers.tiles.backoffTransientMs` | Wait after a transient failure (5xx, network). | `10000` |
-| `providers.tiles.maxTiles` | Texture cache cap (GPU memory). | `500` |
+| `providers.tiles.maxTiles` | Texture cache cap (GPU memory). ⚠️ 500 → 700: the detail cascade now goes all the way down to the base level, adding a ring of `lodRing²` tiles per coarser step. Under the old cap those levels were evicted by the fine tiles as soon as they were requested, and the uniform wash in the distance came back. | `700` |
+| `providers.tiles.maxBytes` | Cap on memory retained by mounted tiles (bytes, `0` = unlimited). ⚠️ New: a decoded raster tile weighs 256×256×4 = 262 KB, so the 700-tile cap above makes 183 MB that nothing bounded. | `268435456` |
+| `providers.tiles.evictEvery` | One frame in N triggers the eviction sort, which allocates and costs O(n log n). ⚠️ Was a literal (10). | `10` |
+| `providers.tiles.evictSlack` | Overshoot (in tiles) beyond which eviction is forced without waiting its turn, to bound the memory peak. ⚠️ Was a literal (200). | `200` |
+| `providers.tiles.mountPerFrame` | Tiles mounted into the scene per frame at most. A raster tile mounts in a fraction of a millisecond: nothing to spread out, unlike volume. | `8` |
 | `providers.tiles.maxInflight` | Concurrent downloads. | `12` |
 | `providers.tiles.margin` | Ring of tiles preloaded around the viewport. | `1` |
 | `providers.tiles.maxRequest` | Budget of tiles requested for the target zoom level. | `140` |
@@ -75,6 +88,28 @@ compile error.
 | `providers.places.retries` | Retries after a network failure or 5xx. `0` = none. 💰 Since search re-runs on every keystroke, each retry is one more billed Places call. | `1` |
 | `providers.places.backoffMs` | Wait before the first retry, doubled each round, with a random share. `0` = immediate retry. | `300` |
 | `providers.places.headers` | Extra headers, taking precedence over ours — same use and priority as `providers.routing.headers`. | *(absent)* |
+| `providers.tiles3d.provider` | Volume provider (`'3d'` mode): `'external'` (photorealistic 3D tiles, from the Ion token / key passed to `<Map>`) or `'internal'` (terrain and buildings from the self-hosted server). Independent of `providers.tiles.provider`. Changeable at runtime; with `'internal'` the photorealistic tileset is frozen, so it **issues no request**. See [TILES.md](TILES.md). | `'internal'` |
+| `providers.buildings.tileUrl` | URL template for a vector tile — `{origin}`, `{z}`, `{x}`, `{y}` substituted. | `'{origin}/data/openmaptiles/{z}/{x}/{y}.pbf'` |
+| `providers.buildings.sourceLayer` | OpenMapTiles layer holding the footprints. | `'building'` |
+| `providers.buildings.heightField` | Total height attribute (m above ground). | `'render_height'` |
+| `providers.buildings.minHeightField` | Base height attribute — a porch or a stilted building does not start at 0. | `'render_min_height'` |
+| `providers.buildings.hideField` | Boolean attribute excluding a footprint from extrusion. | `'hide_3d'` |
+| `providers.buildings.colorField` | Per-footprint colour attribute; otherwise the theme decides. | `'colour'` |
+| `providers.buildings.defaultHeight` | Height (m) used when the attribute is missing — a footprint without height stays visible. | `6` |
+| `providers.buildings.maxHeight` | Maximum height (m) retained; beyond it the footprint is clamped. ⚠️ New: height came RAW from the data, and `height=99999` (a common OSM typo) produced a hundred-kilometre building — oversized bounding volume, tile permanently visible, camera stopped on a ghost. | `1000` |
+| `providers.buildings.positionPrecision` | Format of the positions sent to the GPU: `'int16'` (integers normalised over the tile's extent, ~4 cm resolution, **half the bytes**) or `'float32'` (fallback, for a use case needing better than a centimetre). | `'int16'` |
+| `providers.buildings.zoom` | Zoom of the requested tiles: the data's `maxzoom` (14 in OpenMapTiles). | `14` |
+| `providers.buildings.minViewZoom` | View zoom below which no tile is requested. Seen from above, buildings cover only a few pixels. **13 rather than 14**: the zoom of a tilted view is lower than the one asked of the camera. | `13` |
+| `providers.buildings.margin` | Ring of tiles prefetched around the viewport. | `0` |
+| `providers.buildings.maxTiles` | Cap on the extruded-tile cache (GPU memory). A dense z14 tile weighs ~131,000 triangles: this cap has nothing to do with the raster one. Keep it well above `maxRequest`, otherwise a pan evicts what it just requested. | `36` |
+| `providers.buildings.maxBytes` | Cap on memory retained by mounted volumes (bytes, `0` = unlimited). ⚠️ New, and this is the one that **actually** bounds memory: a dense z14 tile weighs ~4.9 MB (positions, colours, indices, collision tree), so the 36-tile cap above made 175 MB — enough to lose the WebGL context on an integrated GPU. Out in the countryside the same 36 tiles weigh 2 MB: a tile count says nothing about what is retained. | `268435456` |
+| `providers.buildings.evictEvery` | One frame in N triggers the eviction sort. ⚠️ Was a literal (10). | `10` |
+| `providers.buildings.evictSlack` | Overshoot (in tiles) beyond which eviction is forced. ⚠️ Was a literal (16). | `16` |
+| `providers.buildings.mountPerFrame` | Tiles mounted into the scene per frame at most. ⚠️ New, and it is **one**: mounting (expanding colours, building the collision tree) costs about twenty milliseconds and stays on the main thread. Two tiles landing in the same frame — which `maxInflight` allows — added up their cost into a visible freeze. | `1` |
+| `providers.buildings.maxInflight` | Tiles concurrently downloading **and extruding** in the worker. | `2` |
+| `providers.buildings.maxRequest` | Budget of tiles requested for one view: the N×N tiles around the **looked-at** point (the ground under screen centre, not under the camera). `25` = 5×5, about 8 km of reach in Paris. Beyond it, the raster basemap stands alone — see [TILES.md § 5](TILES.md). | `25` |
+| `providers.buildings.maxAttempts` | Attempts per tile before giving up. | `3` |
+| `providers.buildings.retryDelays` | Backoff between two attempts on the same tile. | `[1000, 4000]` |
 | `providers.tiles3d.cesiumIonAssetId` | Cesium Ion asset served by default (Google Photorealistic 3D Tiles). ⚠️ The identifier used to be written in the engine and repeated in TWO documentation blocks: three copies of a value that designates a provider, the only one of its kind living outside `providers`. | `'2275207'` |
 | `providers.symbols.cacheMaxEntries` | Cap of the rendered thumbnail cache. ⚠️ Unbounded until now. | `200` |
 
@@ -130,6 +165,11 @@ compile error.
 | `interaction.shortcuts.controls.fullscreen` | Fullscreen. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Switch photorealistic 3D ↔ 2D plan. | `'b'` |
 | `interaction.shortcuts.controls.traffic` | Traffic overlay — the button only exists in plan mode. | `false` |
+| `interaction.shortcuts.navigate.forward` | Move forward — held. Several keys: the arrows, universal, and a letter family that depends on keyboard layout. | `['arrowup', 'z']` |
+| `interaction.shortcuts.navigate.backward` | Move back. | `['arrowdown', 's']` |
+| `interaction.shortcuts.navigate.left` | Strafe left. | `['arrowleft', 'q']` |
+| `interaction.shortcuts.navigate.right` | Strafe right. | `['arrowright', 'd']` |
+| `interaction.shortcuts.navigate.boost` | Speed-up modifier, held. | `['shift']` |
 | `interaction.shortcuts.draw.select` | Select tool. | `'v'` |
 | `interaction.shortcuts.draw.selectRect` | Rectangle selection. | `'1'` |
 | `interaction.shortcuts.draw.selectPoly` | Polygon selection. | `'2'` |
@@ -138,7 +178,7 @@ compile error.
 | `interaction.shortcuts.draw.polygon` | Polygon. | `'p'` |
 | `interaction.shortcuts.draw.rect` | Rectangle. | `'r'` |
 | `interaction.shortcuts.draw.circle` | Circle. | `'c'` |
-| `interaction.shortcuts.draw.freehand` | Freehand stroke. | `'d'` |
+| `interaction.shortcuts.draw.freehand` | Freehand stroke. ⚠️ Was `'d'`, now taken by keyboard movement (ZQSD). | `'h'` |
 | `interaction.shortcuts.draw.arrow` | Arrow. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Measuring tool. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Eraser. | `'e'` |
@@ -211,8 +251,9 @@ compile error.
 
 | Key | Description | Default |
 |---|---|---|
-| `camera.minZoom` | Minimum reachable zoom (maximum zoom-out). | `2` |
-| `camera.maxZoom` | Maximum reachable zoom — beyond it the camera enters the 3D buildings. | `21` |
+| `camera.minZoom` | Minimum reachable zoom (maximum zoom-out). Bounds the same distance as `maxDistanceFactor`, in zoom rather than Earth radii: the tighter of the two wins. | `2` |
+| `camera.maxZoom` | Maximum reachable zoom **in plan mode** — the descent floor. A flat map only reads better the closer you get. | `21` |
+| `camera.maxZoom3d` | Maximum zoom **in 3D**, the counterpart of `maxZoom` as `maxTilt3d` is of `maxTilt2d`. Below building height the camera ends up IN the street: a wall fills the screen. Height above ground = `40,075,016 / 2^zoom` — ~153 m at 18, ~76 m at 19, ~19 m at 21. | `18` |
 | `camera.maxTilt` | General maximum tilt (rad from nadir). | `1.05` |
 | `camera.zoomStep` | Zoom step per wheel notch. | `0.5` |
 | `camera.dragSpeed.min` | Movement speed at ground level. | `0.002` |
@@ -225,7 +266,9 @@ compile error.
 | `camera.zoomFactor.out` | Altitude factors per zoom notch (+/− button). | `2` |
 | `camera.maxDistanceFactor` | Maximum camera↔Earth-centre distance, in Earth radii (zoom-out limit). | `2.5` |
 | `camera.maxAltitudeFactor` | Maximum flight altitude, in Earth radii. | `1.5` |
-| `camera.minGroundClearance` | Guardrail: minimum height (m) above the REAL ground, tiles included. | `20` |
+| `camera.minGroundClearance` | Guardrail: minimum height (m) above the REAL ground, tiles and buildings included. Applies to programmatic flights **and** to the wheel. | `20` |
+| `camera.keyPan.speed` | Keyboard movement: ground-heights travelled per second. A FRACTION of the height, not an absolute speed — the map then scrolls at the same on-screen pace at any altitude. `0.8` ≈ one screen per second at nadir. | `0.8` |
+| `camera.keyPan.boost` | Multiplier while the speed-up modifier is held. | `3` |
 | `camera.followAltitude.min` | Altitude bounds (m) of follow mode. | `200` |
 | `camera.followAltitude.max` | Altitude bounds (m) of follow mode. | `2000000` |
 | `camera.fitBounds.margin` | Framing defaults (`fitBounds`) — overridable call by call. | `1.35` |

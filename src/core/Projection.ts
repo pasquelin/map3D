@@ -123,6 +123,31 @@ export class Projection {
     this.group = group
   }
 
+  /**
+   * Racine RÉELLEMENT visée par les lancers de rayon, quand elle diffère du groupe de
+   * repère (`setContext`). `null` = viser le groupe.
+   *
+   * Le groupe du `TilesRenderer` est un `TilesGroup` : son `raycast()` délègue au
+   * renderer puis **renvoie `false`**, ce qui arrête la traversée de Three — donc rien
+   * de ce qu'on y ajoute n'est jamais touché par un rayon. Une surface reconstruite
+   * localement (raster interne, bâtiments extrudés) doit donc vivre à côté, et c'est
+   * elle qu'on vise alors.
+   */
+  private raycastRoot: THREE.Object3D | null = null
+
+  setRaycastRoot(root: THREE.Object3D | null): void {
+    if (root === this.raycastRoot) return
+    this.raycastRoot = root
+    // Les hauteurs d'ancre mémoïsées par les couches ont été résolues contre l'ancienne
+    // surface : elles doivent toutes être re-résolues.
+    this.heightEpoch++
+  }
+
+  /** Cible des rayons : la racine dédiée si elle existe, le groupe de repère sinon. */
+  private rayTarget(): THREE.Object3D | null {
+    return this.raycastRoot ?? this.group
+  }
+
   isReady(): boolean {
     return this.ellipsoid !== null && this.group !== null
   }
@@ -215,7 +240,9 @@ export class Projection {
     this.groundRay.set(this.rayOrigin, this.rayDir)
     this.groundRay.far = maxDropMeters
     ;(this.groundRay as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
-    const hits = this.groundRay.intersectObject(this.group, true)
+    const target = this.rayTarget()
+    if (!target) return null
+    const hits = this.groundRay.intersectObject(target, true)
     if (hits.length === 0) return null
     return this.plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
@@ -231,7 +258,9 @@ export class Projection {
     this.raycaster.setFromCamera(this.ndc, camera)
     this.raycaster.far = Infinity
     ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
-    const hits = this.raycaster.intersectObject(this.group, true)
+    const target = this.rayTarget()
+    if (!target) return null
+    const hits = this.raycaster.intersectObject(target, true)
     if (hits.length === 0) return null
     return this.plausibleHeight(this.heightAtWorld(hits[0]!.point))
   }
@@ -395,7 +424,9 @@ export class Projection {
     // 1) Surface réelle des tuiles (repère monde) → coordonnée sous le curseur exact.
     this.raycaster.far = Infinity
     ;(this.raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
-    const hits = this.raycaster.intersectObject(this.group, true)
+    const target = this.rayTarget()
+    if (!target) return null
+    const hits = this.raycaster.intersectObject(target, true)
     if (hits.length > 0) return this.worldToLatLng(hits[0]!.point)
     // 2) Repli ellipsoïde (aucune tuile touchée : horizon, océan, très haute altitude).
     return this.ellipsoidFromRay()

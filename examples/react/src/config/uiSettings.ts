@@ -106,6 +106,8 @@ export type UiSettings = {
   relations: boolean
   /** Sonde `DrawDebug` : logs console + `window.drawApi`. */
   drawDebug: boolean
+  /** Moniteur `StatsOverlay` : FPS/RAM (stats.js) + compteurs `renderer.info`, en haut à droite. */
+  stats: boolean
 }
 
 const allOn = <K extends string>(keys: readonly K[]): Record<K, boolean> =>
@@ -135,6 +137,8 @@ export const defaultUiSettings: UiSettings = {
   cluster: true,
   relations: true,
   drawDebug: true,
+  // Outil de mesure : éteint par défaut, on l'allume pour profiler.
+  stats: false,
 }
 
 /** Les clés cochées, dans l'ordre déclaré — la forme qu'attendent `tools`/`selectModes`. */

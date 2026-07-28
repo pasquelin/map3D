@@ -78,6 +78,8 @@ export function buildUiTab(page: TabPageApi, ctxRef: UiContextRef, refresh: () =
   debugBinding.on('change', emit)
   debugToggle = debugBinding
   syncDebugToggle()
+  // Moniteur de perf, monté en haut à droite de la carte (cf. `StatsOverlay`).
+  surfaces.addBinding(draft, 'stats', { label: 'moniteur perf (FPS/RAM)' }).on('change', emit)
 
   page.addBlade({ view: 'separator' })
 

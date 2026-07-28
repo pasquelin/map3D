@@ -25,6 +25,7 @@ export default defineConfig({
         'react-dom',
         'react/jsx-runtime',
         'three',
+        'three-mesh-bvh',
         'supercluster',
         /^3d-tiles-renderer/,
       ],

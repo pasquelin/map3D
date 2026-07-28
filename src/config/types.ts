@@ -25,11 +25,141 @@ export type AutoLocale = 'auto' | (string & {})
 /** Fond de carte 2D demandé au fournisseur de tuiles. */
 export type TileMapType = 'roadmap' | 'satellite' | 'terrain'
 
+/**
+ * D'où viennent les tuiles du fond de carte.
+ *
+ * - `'external'` — Google Map Tiles : session signée (`createSession`), clé d'API
+ *   obligatoire, calque trafic disponible. C'est le défaut, et le seul comportement
+ *   qui existait.
+ * - `'internal'` — serveur de tuiles auto-hébergé : simples URLs XYZ sur
+ *   `origin`, ni session ni clé ni quota, **pas de trafic** (le calque trafic est une
+ *   propriété de la tuile Google, pas une surcouche). Le volume (mode `'3d'`) vient
+ *   alors du relief et des bâtiments (cf. `providers.terrain` / `providers.buildings`)
+ *   et non des tuiles 3D photoréalistes.
+ *
+ * Les deux fournisseurs n'offrent donc pas les mêmes options : le moteur en publie les
+ * capacités dans `BasemapState`, et l'UI n'affiche que les boutons qui ont un sens.
+ */
+export type TileProvider = 'external' | 'internal'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ① providers — fournisseurs tiers, réseau, caches
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Le serveur de tuiles auto-hébergé, commun au fond 2D et au volume.
+ *
+ * Nœud à part parce que son origine ne sert PAS qu'aux tuiles 2D : le raster, les
+ * bâtiments extrudés (et demain le relief) sortent du même serveur. La ranger sous
+ * `providers.tiles` la faisait passer pour un réglage du seul fond de carte.
+ */
+export type InternalServerConfig = {
+  /**
+   * Origine du serveur (schéma + hôte + port, sans `/` final), substituée à `{origin}`
+   * dans tous les gabarits internes : c'est la SEULE valeur à changer entre un poste de
+   * dev et la production.
+   *
+   * ⚠️ Le défaut désigne le serveur du projet. Un hôte tiers **doit** y mettre le sien —
+   * ou choisir les fournisseurs `'external'`. Vide, les fournisseurs `'internal'` restent
+   * sans effet plutôt que d'émettre des requêtes vers une origine inventée.
+   */
+  origin: string
+  /**
+   * Écart d'altitude du sol (m) en deçà duquel le fond raster et les volumes ne sont PAS
+   * reconstruits.
+   *
+   * L'altitude est intégrée à la géométrie des deux calques : la suivre au centimètre
+   * rejouerait tout le cache à chaque frame. Réglage commun aux deux, puisqu'ils doivent
+   * partager exactement la même référence — sinon les bâtiments flottent au-dessus du
+   * raster, ou s'y enfoncent. ⚠️ Était un littéral (1 m) recopié dans les deux calques.
+   */
+  elevationEpsilon: number
+}
+
+/**
+ * Budgets d'éviction communs aux caches de tuiles (fond raster, volumes).
+ *
+ * ⚠️ `maxBytes` est le seul plafond qui borne vraiment la mémoire : entre une tuile de
+ * campagne et une tuile de centre-ville, ce que pèse une tuile de volume varie d'un
+ * facteur cent, si bien qu'un plafond exprimé en NOMBRE de tuiles laissait passer des
+ * centaines de mégaoctets là où il fallait protéger — et bridait là où il n'y avait rien
+ * à protéger. Les deux cohabitent : le plus contraignant gagne.
+ */
+export type TileCacheBudget = {
+  /** Plafond du nombre de tuiles en cache. */
+  maxTiles: number
+  /** Plafond de la mémoire retenue par les tuiles montées (octets). `0` = illimité. */
+  maxBytes: number
+  /**
+   * Une frame sur N déclenche le tri d'éviction, qui alloue et coûte O(n log n) : rester
+   * au-dessus du plafond le rejouerait sinon à chaque frame, pour évincer une tuile ou
+   * deux. ⚠️ Était un littéral (10) dans les deux calques.
+   */
+  evictEvery: number
+  /**
+   * Dépassement (en tuiles) au-delà duquel l'éviction est forcée sans attendre son tour,
+   * pour borner le pic de mémoire. ⚠️ Était un littéral, et divergent d'un calque à
+   * l'autre (200 pour le raster, 16 pour les volumes).
+   */
+  evictSlack: number
+  /**
+   * Tuiles montées dans la scène par frame au plus.
+   *
+   * ⚠️ Nouveau. Le montage (couleurs développées, arbre de collision construit, tampons
+   * envoyés au GPU) est la seule part du travail qui reste sur le thread principal — une
+   * vingtaine de millisecondes pour une tuile de volume dense. Plusieurs chargements qui
+   * aboutissaient dans la même frame les additionnaient en un gel franc ; étalés, chaque
+   * frame n'en paie qu'un.
+   */
+  mountPerFrame: number
+}
+
 export type TilesConfig = {
+  /** Fournisseur des tuiles du fond de carte — cf. `TileProvider`. */
+  provider: TileProvider
+  /**
+   * Gabarit d'URL d'une tuile raster interne — `{origin}`, `{style}`, `{z}`, `{x}`,
+   * `{y}` et `{r}` (cf. `retina`) sont substitués. Aucune query n'est ajoutée : le
+   * serveur interne ne signe rien.
+   */
+  internalTileUrl: string
+  /** Nom du style rendu par le serveur interne, substitué à `{style}`. */
+  style: string
+  /**
+   * Demander les tuiles internes en double densité (`{r}` → `@2x`).
+   *
+   * Défaut `false` : le canvas suit `performance.pixelRatio` (1 par défaut), où une
+   * tuile @2x quadruple les octets sans rien ajouter à l'écran. À passer à `true` avec
+   * un `pixelRatio` supérieur à 1.
+   */
+  retina: boolean
+  /**
+   * Niveau de base, toujours chargé, qui couvre le globe entier — c'est lui qui garantit
+   * l'absence de trou pendant que les niveaux fins arrivent. ⚠️ Était codé en dur (2).
+   */
+  baseZoom: number
+  /**
+   * Zoom de tuile maximal demandé. ⚠️ Était codé en dur (22, plafond de Google roadmap) :
+   * un serveur interne dont le style s'arrête plus tôt réclamait des niveaux inexistants.
+   */
+  maxZoom: number
+  /**
+   * Côté (en tuiles) de l'anneau demandé à chaque niveau INTERMÉDIAIRE de la cascade de
+   * détail, autour du point visé. Impair de préférence : l'anneau est centré.
+   *
+   * ⚠️ Nouveau, et il corrige un défaut visible. Le calque ne connaissait que DEUX
+   * niveaux — la base et un niveau cible, rabaissé jusqu'à ce que son compte de tuiles
+   * tienne sur l'emprise entière. En vue inclinée, l'emprise porte jusqu'à l'horizon : le
+   * niveau cible s'effondrait vers la base, et le lointain tombait d'un coup sur une tuile
+   * grande comme un quart de continent — un aplat vert uniforme, qui se lisait comme un
+   * bug d'affichage.
+   *
+   * La cascade comble désormais chaque cran par un anneau dont la portée DOUBLE à mesure
+   * qu'on grossit. `5` couvre confortablement l'écart d'un niveau au suivant (le niveau
+   * plus fin en occupe déjà le quart central) ; monter au-delà ne fait que payer des
+   * tuiles redondantes.
+   */
+  lodRing: number
   /**
    * Langue des libellés gravés dans les tuiles. `'auto'` suit le navigateur.
    *
@@ -54,8 +184,6 @@ export type TilesConfig = {
   backoffAuthMs: number
   /** Attente après une panne transitoire (5xx, réseau). */
   backoffTransientMs: number
-  /** Plafond du cache de textures (mémoire GPU). */
-  maxTiles: number
   /** Téléchargements simultanés. */
   maxInflight: number
   /** Anneau de tuiles préchargées autour du viewport. */
@@ -66,7 +194,7 @@ export type TilesConfig = {
   maxAttempts: number
   /** Backoff entre deux essais d'une même tuile. */
   retryDelays: readonly number[]
-}
+} & TileCacheBudget
 
 /** Réglages communs à un appel réseau sortant. */
 export type FetchPolicy = {
@@ -188,8 +316,25 @@ export type SymbolsProviderConfig = {
   cacheMaxEntries: number
 }
 
-/** Tuiles 3D photoréalistes (Cesium Ion). */
+/** D'où vient le volume (mode `'3d'`). */
 export type Tiles3dConfig = {
+  /**
+   * Fournisseur du relief et du bâti :
+   *
+   * - `'external'` — tuiles 3D photoréalistes (Cesium Ion, ou Google en direct), selon le
+   *   token/la clé passés à `<Map>`. C'est le défaut.
+   * - `'internal'` — relief et bâtiments reconstruits depuis le serveur auto-hébergé
+   *   (cf. `providers.terrain` / `providers.buildings`). Aucun tileset photoréaliste
+   *   n'est alors monté : rien n'est streamé ni facturé chez le fournisseur externe.
+   *
+   * Indépendant de `providers.tiles.provider` : un fond 2D auto-hébergé peut cohabiter
+   * avec un volume photoréaliste, et l'inverse.
+   *
+   * Modifiable à chaud : le réglage commande la visibilité et le pilotage du tileset
+   * photoréaliste, pas son enregistrement. Un tileset gelé n'émet aucune requête, donc
+   * `'internal'` ne fait rien facturer même quand un token est configuré.
+   */
+  provider: TileProvider
   /**
    * Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles).
    *
@@ -200,9 +345,75 @@ export type Tiles3dConfig = {
   cesiumIonAssetId: string
 }
 
+/**
+ * Bâtiments extrudés depuis les tuiles vectorielles du serveur interne — le volume du
+ * fournisseur `'internal'` (cf. `Tiles3dConfig.provider`), qui remplace là les tuiles 3D
+ * photoréalistes.
+ *
+ * Pas de drapeau d'activation : `providers.tiles3d.provider` dit déjà d'où vient le
+ * volume. Un second interrupteur ne pourrait que le contredire — et donner un mode `'3d'`
+ * sans rien à l'écran.
+ */
+export type BuildingsConfig = {
+  /** Gabarit d'URL d'une tuile vectorielle — `{origin}`, `{z}`, `{x}`, `{y}` substitués. */
+  tileUrl: string
+  /** Couche du schéma OpenMapTiles portant les emprises. */
+  sourceLayer: string
+  /** Attribut de hauteur totale (m au-dessus du sol). */
+  heightField: string
+  /** Attribut de hauteur de base — un porche, un bâtiment sur pilotis ne partent pas de 0. */
+  minHeightField: string
+  /** Attribut booléen excluant une emprise de l'extrusion. */
+  hideField: string
+  /** Attribut de couleur propre à l'emprise ; à défaut, le thème décide. */
+  colorField: string
+  /** Hauteur (m) retenue quand l'attribut manque — une emprise sans hauteur reste visible. */
+  defaultHeight: number
+  /**
+   * Hauteur (m) maximale retenue. Au-delà, l'emprise est ramenée à cette borne.
+   *
+   * ⚠️ Nouveau : la hauteur venait BRUTE de la donnée. Une erreur de saisie OSM courante
+   * (`height=99999`) produisait un bâtiment de cent kilomètres — dont le volume englobant
+   * gardait la tuile visible en permanence, déséquilibrait son arbre de collision, et
+   * arrêtait la caméra sur un fantôme.
+   */
+  maxHeight: number
+  /**
+   * Format des positions transmises au GPU.
+   *
+   * - `'int16'` (défaut) — coordonnées entières normalisées sur l'étendue de la tuile,
+   *   soit ~4 cm de résolution : sous la précision de la donnée OSM, et sous le pixel à
+   *   toute distance utile. **Deux fois moins d'octets** que `'float32'` sur le plus gros
+   *   tampon, en mémoire vive comme à l'upload.
+   * - `'float32'` — repli, pour un cas d'usage qui exigerait mieux que le centimètre.
+   */
+  positionPrecision: 'int16' | 'float32'
+  /** Zoom des tuiles demandées : le `maxzoom` des données (14 en OpenMapTiles). */
+  zoom: number
+  /**
+   * Zoom de vue en dessous duquel aucune tuile n'est demandée. Vus de haut, les bâtiments
+   * ne couvrent que quelques pixels : les charger reviendrait à décoder la moitié d'une
+   * ville pour rien.
+   */
+  minViewZoom: number
+  /** Anneau de tuiles préchargées autour du viewport. */
+  margin: number
+  /** Téléchargements simultanés. */
+  maxInflight: number
+  /** Budget de tuiles demandées pour une vue. */
+  maxRequest: number
+  /** Essais par tuile avant abandon définitif. */
+  maxAttempts: number
+  /** Backoff entre deux essais d'une même tuile. */
+  retryDelays: readonly number[]
+} & TileCacheBudget
+
 export type ProvidersConfig = {
+  /** Serveur auto-hébergé, partagé par le fond 2D et le volume. */
+  internal: InternalServerConfig
   tiles: TilesConfig
   tiles3d: Tiles3dConfig
+  buildings: BuildingsConfig
   routing: RoutingConfig
   places: PlacesConfig
   symbols: SymbolsProviderConfig
@@ -582,8 +793,29 @@ export type EditShortcuts = {
   nudgeFastPx: number
 }
 
+/**
+ * Touches de DÉPLACEMENT continu sur la carte — les seules du lot qui agissent tant
+ * qu'elles sont maintenues, et non au moment de la frappe.
+ *
+ * Plusieurs touches par direction : les flèches, universelles, et une famille de lettres
+ * qui dépend de la disposition du clavier (ZQSD en AZERTY, WASD en QWERTY). Une
+ * application internationale pose la sienne sans toucher au code.
+ *
+ * ⚠️ Ces liaisons servent AUSSI au futur mode vol : c'est le modèle de déplacement qui
+ * changera (déplacement libre dans l'axe du regard, altitude comprise), pas les touches.
+ */
+export type NavigateShortcuts = {
+  forward: readonly string[]
+  backward: readonly string[]
+  left: readonly string[]
+  right: readonly string[]
+  /** Modificateur d'accélération, maintenu (cf. `camera.keyPan.boost`). */
+  boost: readonly string[]
+}
+
 export type ShortcutsConfig = {
   controls: ControlShortcuts
+  navigate: NavigateShortcuts
   draw: DrawToolShortcuts
   edit: EditShortcuts
   lens: {
@@ -606,10 +838,33 @@ export type ShortcutsConfig = {
  * mètres↔pixels de la lib en dérivent et sont mémoïsées.
  */
 export type CameraConfig = {
-  /** Zoom minimal atteignable (dézoom maximal). */
+  /**
+   * Zoom minimal atteignable (dézoom maximal).
+   *
+   * ⚠️ Ce réglage n'était **branché nulle part** : c'est `maxDistanceFactor` qui bornait
+   * seul l'éloignement, en rayons terrestres. Les deux disent la même chose en deux
+   * unités ; le plus contraignant des deux gagne désormais, au lieu que l'un soit ignoré.
+   */
   minZoom: number
-  /** Zoom maximal atteignable — au-delà la caméra entre dans le bâti 3D. */
+  /**
+   * Zoom maximal atteignable **en mode plan** — le plancher de descente.
+   *
+   * ⚠️ Lui non plus n'était branché nulle part, alors qu'il annonçait « au-delà la caméra
+   * entre dans le bâti 3D ». Le seul garde-fou réel sur la molette était le `cameraRadius`
+   * de `GlobeControls`, jamais réglé : **5 mètres**. On pouvait donc descendre au ras du
+   * pavé, nez contre une façade, sans plus rien voir.
+   */
   maxZoom: number
+  /**
+   * Zoom maximal en 3D — le pendant de `maxZoom`, comme `maxTilt3d` l'est de `maxTilt2d`.
+   *
+   * Distinct parce que les deux modes n'ont pas la même contrainte : une carte plate se
+   * lit d'autant mieux qu'on s'en approche (noms de rue, numéros), alors qu'en volume,
+   * passer sous la hauteur du bâti met la caméra DANS la rue — un mur occupe l'écran et
+   * l'on ne se repère plus. La borne s'exprime en zoom, donc en hauteur au-dessus du sol :
+   * `altitude = circonférence / 2^zoom`.
+   */
+  maxZoom3d: number
   /** Inclinaison maximale générale (rad depuis le nadir). */
   maxTilt: number
   /** Pas de zoom d'un cran de molette. */
@@ -636,6 +891,20 @@ export type CameraConfig = {
   maxAltitudeFactor: number
   /** Garde-fou : hauteur minimale (m) au-dessus du sol RÉEL, tuiles comprises. */
   minGroundClearance: number
+  /**
+   * Déplacement au clavier (cf. `interaction.shortcuts.navigate`).
+   *
+   * `speed` est une FRACTION de la hauteur au-dessus du sol parcourue par seconde, et non
+   * une vitesse absolue : la carte défile alors à la même allure à l'écran qu'on soit à
+   * 150 m ou à 100 km. C'est le principe de `dragSpeed` pour la souris, et celui du mode
+   * vol de `GlobeControls`, dont la vitesse est déjà mise à l'échelle de l'altitude.
+   */
+  keyPan: {
+    /** Hauteurs-sol par seconde. `0.8` ≈ un écran par seconde en vue au nadir. */
+    speed: number
+    /** Multiplicateur tant que le modificateur d'accélération est maintenu. */
+    boost: number
+  }
   /** Bornes d'altitude (m) du mode suivi. */
   followAltitude: { min: number; max: number }
   /** Défauts de cadrage (`fitBounds`) — surchargeables appel par appel. */

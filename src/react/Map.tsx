@@ -199,6 +199,15 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       zoom: props.zoom,
       background: theme.colors.background,
       oceanColor: theme.globe.oceanColor,
+      // ⚠️ Ces quatre-là n'étaient PAS transmises : le moteur retombait donc toujours sur
+      // `defaultTheme`, et un hôte qui changeait la couleur de ses bâtiments ne voyait
+      // rien. Comme `oceanColor`, elles sont lues au montage — la géométrie extrudée les
+      // porte, elle ne se repeint pas.
+      buildingColor: theme.globe.buildingColor,
+      buildingRoofColor: theme.globe.buildingRoofColor,
+      buildingRoofLighten: theme.globe.buildingRoofLighten,
+      buildingSunAzimuth: theme.globe.buildingSunAzimuth,
+      buildingShadeMin: theme.globe.buildingShadeMin,
       googleMapsApiKey: props.googleMapsApiKey,
       cesiumIonToken: props.cesiumIonToken,
       cesiumIonAssetId: props.cesiumIonAssetId,
@@ -280,6 +289,13 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   useEffect(() => {
     engine?.setInteractive(interactive)
   }, [engine, interactive])
+
+  // `mapMode` piloté depuis l'extérieur. Il n'était lu qu'à la CONSTRUCTION : une appli
+  // qui le changeait ensuite n'obtenait rien, sans rien pour le lui dire. L'effet ne se
+  // rejoue que si la prop change, donc il ne contredit jamais le bouton de la barre.
+  useEffect(() => {
+    if (props.mapMode) engine?.setMapMode(props.mapMode)
+  }, [engine, props.mapMode])
 
   // Réglages à chaud : un passage souris → tactile, un quota revu, un budget de
   // tuiles ajusté n'ont aucune raison de reconstruire la scène.

@@ -1,0 +1,294 @@
+# Tiles — external provider (Google) or internal server
+
+[Français](../fr/TILES.md) · **English** · [↑ Index](README.md)
+
+The 2D basemap comes either from **your own tile server** (`internal`, the default) or
+from **Google Map Tiles** (`external`). The choice is a setting: nothing to rewire,
+nothing to remount.
+
+⚠️ The default origin points at the project's own server: **replace it with yours**.
+
+```tsx
+<Map
+  center={MONACO}
+  zoom={14}
+  config={{ providers: { internal: { origin: 'https://tiles.example.com' }, tiles: { provider: 'internal' } } }}
+/>
+```
+
+With `internal`, **no request goes to Google** for the basemap: no `createSession`, no key,
+no quota. A complete 2D map without an API key becomes possible.
+
+---
+
+## 1. The two providers
+
+|                       | `external`                            | `internal` (default)           |
+| --------------------- | ------------------------------------- | ------------------------------ |
+| Source                | Google Map Tiles                      | your server (XYZ scheme)       |
+| Authentication        | API key + signed session              | none                           |
+| Minimum setting       | `<Map googleMapsApiKey>`              | `providers.internal.origin`       |
+| Traffic layer         | yes                                   | **no** (see § 4)               |
+| Volume (`'3d'` mode)  | photorealistic 3D tiles (Cesium Ion)  | extruded buildings (see § 5)   |
+| Quota                 | billed per tile                       | yours                          |
+
+The provider changes **the basemap only**. Place search, routing and photorealistic 3D
+tiles remain external services, configured separately (`providers.places`,
+`providers.routing`, `providers.tiles3d`).
+
+> **Both providers behave identically.** Outside the three rows above — what the provider
+> *is* — nothing depends on it: click picking, shape draping, ground-elevation tracking,
+> the camera stopping on built volume, tilt limits. What once justified treating internal
+> as a special case was its ray-casting cost; that is fixed at the source (see § 5), not
+> worked around with a special case.
+
+## 2. Configuring the internal server
+
+A single value changes between a development machine and production:
+
+```tsx
+config={{
+  providers: {
+    // The origin is SHARED by the 2D basemap and the volume: both come from one server.
+    internal: { origin: 'http://localhost:8090' },   // in production: your domain
+    tiles: {
+      provider: 'internal',
+      style: 'liberty',                  // name of the style the server renders
+      retina: false,                     // true → @2x tiles
+    },
+  },
+}}
+```
+
+The origin is **never written in code**: read it from the host application's environment
+(`VITE_TILE_ORIGIN` in the example) and pass it through `config`.
+
+The URL template is configurable too — useful behind a proxy, or for a server whose routes
+differ:
+
+```
+providers.tiles.internalTileUrl = '{origin}/styles/{style}/{z}/{x}/{y}{r}.png'
+```
+
+| Token         | Replaced with                                 |
+| ------------- | --------------------------------------------- |
+| `{origin}`    | `providers.internal.origin` (trailing `/` removed) |
+| `{style}`     | `providers.tiles.style`                        |
+| `{r}`         | `@2x` when `retina`, otherwise empty           |
+| `{z} {x} {y}` | tile coordinates (Web Mercator, XYZ scheme)    |
+
+What the server must serve: raster tiles at `{z}/{x}/{y}`, Web Mercator, with **CORS**
+headers (`Access-Control-Allow-Origin`) — tiles become WebGL textures, loaded with
+`crossOrigin='anonymous'`.
+
+### Zoom bounds
+
+`baseZoom` (default 2) is the always-loaded level covering the globe: it is what keeps the
+map hole-free while finer levels arrive. `maxZoom` (default 22) bounds the finest level
+requested — **lower it** if your style stops earlier, otherwise the map asks for tiles that
+do not exist.
+
+Between the two, the basemap steps down through a **cascade**: the finest level around the
+looked-at point, then a ring of `lodRing` tiles per side at each coarser step, each reaching
+twice as far, until the first level that covers the whole view. That is what makes the
+distance degrade gradually instead of dropping straight to the base level — a tile the size
+of a quarter of a continent, a flat wash of colour that reads as a rendering bug.
+
+The request cost is far lower than it looks: a coarse level covers a huge area, so it is
+requested once and reused for the whole session. Only the finest level is renewed as you
+move.
+
+## 3. Switching at runtime
+
+Changing `provider` (or `origin`, `style`, `retina`) replaces the source **without
+remounting the map**: the tile cache is cleared, the basemap reloads, the camera stays put.
+
+```tsx
+const [provider, setProvider] = useState<TileProvider>('external')
+;<Map config={{ providers: { internal: { origin: TILE_ORIGIN }, tiles: { provider } } }} />
+```
+
+If the chosen provider has nothing to serve — `external` without a key, `internal` without
+an `origin` — **no 2D basemap is offered** rather than one that would fail on every tile.
+The map falls back to `'3d'` mode, and the matching buttons disappear (§ 4).
+
+## 4. What the UI offers (capabilities)
+
+The two providers do not offer the same options. The engine therefore publishes what is
+**possible**, and `<MapControls>` only shows buttons that mean something — see
+[ENGINE.md § BasemapState](ENGINE.md).
+
+```ts
+const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
+```
+
+| Situation                                        | `2D` button | `3D` button | Traffic button |
+| ------------------------------------------------ | ----------- | ----------- | -------------- |
+| `external` + Google key + Ion token              | shown       | shown       | shown in plan  |
+| `external` + Google key, no Ion token            | shown       | **hidden**  | shown in plan  |
+| `external` without key (Ion token only)          | hidden      | shown       | hidden         |
+| neither key nor token                            | hidden      | hidden      | hidden         |
+| `internal` (origin set)                          | shown       | shown       | hidden         |
+| `internal` for 2D, `external` without token in 3D | shown      | **hidden**  | hidden         |
+
+Three rules behind that table:
+
+- **Each button depends on ITS own destination**, not on the other one. `2D` requires a
+  servable flat basemap (`canPlan`: Google key, or `origin`), `3D` requires servable volume
+  (`can3d`: a photorealistic tileset in `external`, terrain or buildings in `internal`).
+  The two axes being independent, one can be offered without the other.
+- **The engine applies the same rule as the toolbar**: `setMapMode` towards a mode with
+  nothing to show is a no-op, including in vanilla usage and from the `mapMode` prop —
+  switching would empty the screen. One exception: if NO mode is servable, the map keeps
+  its own and its fallback globe; it has to be somewhere.
+- **Traffic is a property of the Google tile** (`layerTypes` requested from the session),
+  not a transparent overlay. An internal server has nothing to switch on:
+  `setTrafficVisible(true)` is a no-op there, and the button is not offered — even when a
+  Google key is otherwise configured.
+
+A host building its own toolbar reads the same flags, or calls the pure function that
+settles them:
+
+```ts
+import { canEnterMode } from 'map3d'
+
+const basemap = engine.getBasemap()
+if (canEnterMode(basemap, '3d')) {
+  /* offer volume */
+}
+```
+
+## 5. Internal volume — extruded buildings
+
+`providers.tiles3d.provider` decides where volume comes from, **independently of the 2D
+basemap**:
+
+```tsx
+config={{
+  providers: {
+    internal: { origin: TILE_ORIGIN },
+    tiles: { provider: 'internal' },
+    tiles3d: { provider: 'internal' },   // 'external' = photorealistic tiles (Cesium Ion)
+  },
+}}
+```
+
+With `'internal'`, `'3d'` mode extrudes buildings from the server's vector tiles —
+OpenMapTiles `building` layer, `render_height` / `render_min_height`, courtyards punched
+through — above the raster basemap, which **stays visible**: it is what terrain will
+displace. No photorealistic tileset is driven, so **no request goes to Cesium or Google**,
+even when a token is configured elsewhere.
+
+There is no separate switch for buildings: `providers.tiles3d.provider` already states
+where volume comes from, and a second setting could only contradict it — leaving a `'3d'`
+mode with nothing on screen.
+
+What to know when tuning it:
+
+- **A single zoom level** (`providers.buildings.zoom`, 14): the `maxzoom` of the
+  OpenMapTiles data. Beyond it the same tile serves; buildings gain nothing from being
+  re-requested finer.
+- **`minViewZoom`** (13) bounds the bottom: from higher up, buildings would cover a few
+  pixels for the price of decoding a whole city.
+- **Colours from the theme**: `theme.globe.buildingColor` (façades) and
+  `buildingRoofColor` (roofs). A footprint carrying the `colour` attribute keeps its own —
+  hex as well as CSS keyword (`beige`, `silver`) — and its roof is lightened by
+  `buildingRoofLighten`. The scene has no light at all: roof/façade contrast, plus the
+  shading from `buildingSunAzimuth`, is what reads as volume.
+- **`maxHeight`** (1000 m) bounds absurd heights. `height=99999` is a common OSM typo, and
+  it produced a hundred-kilometre building whose bounding box kept the tile permanently
+  visible and stopped the camera on a ghost.
+- **`maxBytes`** (256 MiB) bounds cache memory, where `maxTiles` only bounds a count. It is
+  the setting that matters: between a countryside tile and a city-centre one, what a tile
+  retains varies a hundredfold.
+
+### How far volume reaches
+
+`maxRequest` (25) asks for the **5×5 tiles around the looked-at point** — the ground under
+screen centre, not under the camera: in a tilted view the two are far apart, and centring
+on the camera spent the budget behind the observer.
+
+In Paris a z14 tile is ~1.6 km, so the ring reaches ~8 km. **Beyond it only the raster
+basemap remains** — a view tilted to 79° reaches tens of kilometres, and no z14 ring would
+ever cover that.
+
+This is not an over-cautious setting, it is a limit of the data. 3D attributes exist only
+at the OpenMapTiles schema's `maxzoom`:
+
+| level | `building` layer    | attributes |
+| ----- | ------------------- | ---------- |
+| z12   | absent              | —          |
+| z13   | present, ~9× lighter | **none**  |
+| z14   | present             | `render_height`, `render_min_height`, `colour`, `hide_3d` |
+
+A distant level of detail built on z13 would therefore extrude everything at
+`defaultHeight` — uniform, wrong heights. Three levers if the boundary bothers you: raise
+`maxRequest` (cost is linear, ~131,000 triangles per tile), lower `camera.maxTilt3d` so the
+view no longer reaches the horizon, or serve a tileset carrying heights below level 14.
+- **Colours live in the theme**: `theme.globe.buildingColor` (walls) and
+  `buildingRoofColor` (roofs). A footprint carrying the `colour` attribute keeps its own —
+  hex as well as CSS keyword (`beige`, `silver`). The scene has no light: the roof/wall
+  contrast is what conveys volume.
+
+### What it costs, and why you never see it
+
+A dense z14 tile (Paris) carries 52,000 footprint vertices — about 131,000 triangles and
+231,000 vertices to produce. Five mechanisms keep that load off the frame loop:
+
+- **Extrusion in a Web Worker.** Download, MVT decoding and buffer construction happen off
+  the main thread, and the buffers come back by transfer (no copy). The worker is bundled
+  as a self-contained blob when the library is built: nothing to configure in the host's
+  bundler, no asset to serve. Where `Worker` does not exist (server rendering, tests), the
+  very same code runs as a main-thread fallback.
+- **One BVH per tile.** The map casts three rays per frame against the displayed surface
+  (camera guard, elevation tracking, shape draping). Brute force, a single tile cost
+  5.7 ms per ray; with the tree, ~0.015 ms. That is what puts internal volume on par with
+  the external `TilesRenderer`, whose tiles already have a hierarchy of their own.
+- **Spread-out mounting.** Expanding colours and building the tree stay on the main thread
+  — `MeshBVH` depends on three, and pulling it into the worker would drag the whole engine
+  into that blob. `providers.buildings.mountPerFrame` (1) therefore mounts only one tile
+  per frame: two tiles landing together used to add up their ~20 ms into a visible freeze.
+- **Local, quantised geometry.** Vertices are expressed in metres around the tile centre,
+  and the mesh matrix places them on the globe. An ECEF position is ~6.4 × 10⁶ m: in
+  `Float32` its resolution drops to ~0.4 m — the thickness of a façade. Those local metres
+  are then quantised to normalised `int16` (`positionPrecision`): half the bytes, for ~4 cm
+  of resolution.
+- **Cancellable loads.** A tile evicted while loading aborts it, on the network as well as
+  in the worker: fast navigation otherwise left the queue entirely busy extruding tiles
+  that had already left the view.
+
+The MVT decoder and the worker are loaded via **dynamic import** — a host staying on
+photorealistic volume never downloads them.
+
+> **CSP.** The worker is created from a `Blob`: a security policy must allow
+> `worker-src blob:` (or `child-src blob:`). Without it, creation fails and everything
+> falls back to the main thread — a few hundred milliseconds of freeze per tile. The
+> library then says so once in the console, so it is not mistaken for a slow machine.
+
+## 6. Plugging in another provider
+
+`TiledGlobeLayer` only knows one contract, `TileSource`: give the URL of a tile, and
+prepare whatever that URL needs. Both shipped sources implement it, and nothing prevents
+writing a third one (corporate proxy, local cache, custom signing).
+
+```ts
+import { createTileSource, type TileSource } from 'map3d'
+
+export type TileSource = {
+  tileUrl(z: number, x: number, y: number): string
+  ensureSession(traffic: boolean): Promise<void> // no-op when nothing needs signing
+  setConfig(cfg: TilesConfig, origin: string): void
+  readonly supportsTraffic: boolean
+}
+```
+
+`createTileSource(cfg, origin, apiKey?)` returns the source matching `cfg.provider`, or `null` when
+that provider has nothing to serve.
+
+---
+
+## See also
+
+- [CONFIG.md](CONFIG.md) — every `providers.tiles` key
+- [ENGINE.md](ENGINE.md) — `BasemapState`, `basemap` event
+- [PROPS.md](PROPS.md) — `<MapControls>` buttons

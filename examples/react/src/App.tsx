@@ -3,6 +3,7 @@ import {
   type DrawConfig,
   type LatLng,
   Map,
+  type MapEngine,
   type MapHandle,
   type MapSurfaces,
   type MarkerData,
@@ -22,8 +23,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConfigPane } from './components/ConfigPane'
 import { DrawDebug } from './components/DrawDebug'
 import { MapErrorBoundary } from './components/MapErrorBoundary'
+import { StatsOverlay } from './components/StatsOverlay'
 import { clusterTip, markerTip } from './components/tooltips'
-import { CESIUM_ION_TOKEN, GOOGLE_MAPS_KEY } from './config/env'
+import { CESIUM_ION_TOKEN, GOOGLE_MAPS_KEY, TILE_ORIGIN } from './config/env'
 import { clusterTypeLabel, markerLabel } from './config/labels'
 import { createMarkerMenu } from './config/markerMenus'
 import { RELATION_RULES } from './config/relations'
@@ -51,6 +53,21 @@ import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
 
 /**
+ * Réglages de départ : le dernier état stocké, complété par l'origine du serveur de
+ * tuiles auto-hébergé lue dans `.env`.
+ *
+ * Injectée dans l'état INITIAL, et non en aval de `<Map config>` : c'est ce même état que
+ * le panneau affiche et modifie, donc l'origine y est visible, surchargeable, et
+ * persistée comme n'importe quel autre réglage. Un choix déjà stocké n'est jamais écrasé.
+ */
+function initialConfig(): PartialConfig {
+  const stored = loadStoredPartial()
+  if (!TILE_ORIGIN || stored.providers?.internal?.origin) return stored
+  const { providers } = stored
+  return { ...stored, providers: { ...providers, internal: { ...providers?.internal, origin: TILE_ORIGIN } } }
+}
+
+/**
  * Démo de la lib : une carte, ses données, son interface — tout se déclare en props
  * de `<Map>`.
  *
@@ -67,10 +84,22 @@ export function App() {
   // panneau n'émet que l'ÉCART aux défauts, donc cet état est exactement ce qu'une
   // application écrirait à la main dans `config={{ … }}`. Il repart du dernier
   // réglage stocké : régler puis recharger la page ne perd rien.
-  const [config, setConfig] = useState<PartialConfig>(loadStoredPartial)
+  const [config, setConfig] = useState<PartialConfig>(initialConfig)
   // Ce que `MapConfig` ne couvre pas : les props de `<Map>` (thème clair/sombre,
   // fond, interactivité) — même panneau, onglet « Carte ».
   const [mapProps, setMapProps] = useState<MapPropsSettings>(defaultMapProps)
+  // Moteur, capté à `ready` : le panneau doit SUIVRE la carte, pas seulement la piloter.
+  const [engine, setEngine] = useState<MapEngine | null>(null)
+  /* Le mode de carte a DEUX pilotes : le champ « fond » du panneau et les boutons 2D/3D
+     de la barre. Sans cet abonnement, cliquer un bouton laissait le panneau afficher le
+     mode précédent — et le réafficher au prochain rendu aurait ramené la carte en arrière.
+     On ne réécrit l'état que sur changement réel : sinon chaque frame re-rendrait. */
+  useEffect(() => {
+    if (!engine) return
+    return engine.on('basemap', (b) =>
+      setMapProps((prev) => (prev.mapMode === b.mode ? prev : { ...prev, mapMode: b.mode })),
+    )
+  }, [engine])
   // Les réglages ❄ (fov, antialias, taille de repli, clés de stockage, asset Ion, et
   // les props marquées ci-dessus) sont lus à la CONSTRUCTION du moteur : seule une
   // remontée les fait prendre.
@@ -349,7 +378,10 @@ export function App() {
           zoom={14}
           // Le cas d'usage type : gater un cadrage sur la disponibilité de la carte.
           // Avant `ready`, `fitBounds` viserait l'ellipsoïde nu — pas le sol réel.
-          onReady={(engine) => console.log('[map] ready — altitude sol connue, cadrage fiable', engine.getView().zoom)}
+          onReady={(e) => {
+            setEngine(e)
+            console.log('[map] ready — altitude sol connue, cadrage fiable', e.getView().zoom)
+          }}
           // Props hors `MapConfig` (thème clair/sombre, fond, interactivité) : réglées
           // dans l'onglet « Carte » du panneau. Celles marquées ❄ n'y prennent effet
           // qu'après le bouton « Recharger la carte » — elles sont lues à la
@@ -446,6 +478,10 @@ export function App() {
             sans elle jette. La case du panneau ne suffit donc pas, la couche doit être
             là — c'est aussi pourquoi le panneau la grise quand le dessin est coupé. */}
           {ui.draw && ui.drawDebug && <DrawDebug />}
+          {/* Moniteur perf : monté DANS la carte pour s'ancrer en haut à droite de
+              `.m3d-root`. Il lit le renderer public (capté à `ready`), donc `engine`
+              peut être encore null au premier rendu — le composant l'attend. */}
+          {ui.stats && <StatsOverlay engine={engine} />}
         </Map>
       </MapErrorBoundary>
       {/* Banc d'essai : `MapConfig` en entier, les props hors config, et la scène.

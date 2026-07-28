@@ -381,7 +381,7 @@ Défauts (`config.interaction.shortcuts.draw` et `.edit`) :
 | | |
 |---|---|
 | `V` `1` `2` `3` | sélection, rectangle, polygone, lasso |
-| `L` `P` `R` `C` `D` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, main levée, flèche, mesure, gomme, symboles |
+| `L` `P` `R` `C` `H` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, main levée (`H`), flèche, mesure, gomme, symboles |
 | `Entrée` | fermer le polygone (dessin ou marquee) |
 | `Échap` | cascade : annule le geste en cours → marquee → désélectionne → outil navigation |
 

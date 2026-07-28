@@ -27,6 +27,15 @@ partiel est une erreur de compilation.
 
 | Clé | Description | Défaut |
 |---|---|---|
+| `providers.internal.origin` | Origine du serveur auto-hébergé (schéma + hôte + port, sans `/` final), substituée à `{origin}` dans TOUS les gabarits internes — fond 2D **et** volume, qui sortent du même serveur. ⚠️ Le défaut désigne le serveur du projet : un hôte tiers **doit** y mettre le sien, ou choisir les fournisseurs `'external'`. Vide, les fournisseurs `'internal'` restent sans effet. | `'https://map.gosecure.site'` |
+| `providers.internal.elevationEpsilon` | Écart d'altitude du sol (m) en deçà duquel le fond raster et les volumes ne sont PAS reconstruits. L'altitude est intégrée à la géométrie des deux calques : la suivre au centimètre rejouerait tout le cache à chaque frame. Réglage commun, les deux devant partager la même référence. ⚠️ Était un littéral recopié dans les deux calques. | `1` |
+| `providers.tiles.provider` | Fournisseur des tuiles du fond de carte : `'external'` (Google Map Tiles, session + clé, trafic disponible) ou `'internal'` (serveur auto-hébergé, simples URLs XYZ, sans clé ni quota, **sans trafic**). Cf. [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles.internalTileUrl` | Gabarit d'URL d'une tuile raster interne — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` et `{r}` sont substitués. Aucune query n'est ajoutée : le serveur interne ne signe rien. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
+| `providers.tiles.style` | Nom du style rendu par le serveur interne, substitué à `{style}`. | `'liberty'` |
+| `providers.tiles.retina` | Demander les tuiles internes en double densité (`{r}` → `@2x`). Défaut `false` : le canvas suit `performance.pixelRatio` (1 par défaut), où une tuile @2x quadruple les octets sans rien ajouter à l'écran. | `false` |
+| `providers.tiles.baseZoom` | Niveau de base, toujours chargé, qui couvre le globe entier — c'est lui qui garantit l'absence de trou pendant que les niveaux fins arrivent. ⚠️ Était codé en dur (2). | `2` |
+| `providers.tiles.maxZoom` | Zoom de tuile maximal demandé. ⚠️ Était codé en dur (22, plafond de Google roadmap) : un serveur interne dont le style s'arrête plus tôt réclamait des niveaux inexistants. | `22` |
+| `providers.tiles.lodRing` | Côté (en tuiles) de l'anneau demandé à chaque niveau **intermédiaire** de la cascade de détail, autour du point visé. ⚠️ Nouveau : le calque ne connaissait que deux niveaux, si bien qu'en vue inclinée le lointain tombait d'un coup sur le niveau de base — un aplat uniforme. Chaque cran porte deux fois plus loin que le précédent. | `5` |
 | `providers.tiles.language` | Langue des libellés gravés dans les tuiles. `'auto'` suit le navigateur. ⚠️ Codé en dur sur `'fr-FR'` jusqu'ici : la carte affichait des noms français quelle que soit la locale de l'application. | `'auto'` |
 | `providers.tiles.region` | Biais régional (tracé des frontières contestées, toponymie). `'auto'` laisse le fournisseur déduire. ⚠️ Codé en dur sur `'FR'` jusqu'ici. | `'auto'` |
 | `providers.tiles.mapType` | Fond de carte 2D demandé au fournisseur. | `'roadmap'` |
@@ -35,7 +44,11 @@ partiel est une erreur de compilation.
 | `providers.tiles.tileUrl` | Gabarit d'URL de tuile — `{z}`, `{x}`, `{y}` et `{session}` sont substitués. | `'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'` |
 | `providers.tiles.backoffAuthMs` | Attente après un refus d'identité (clé invalide, quota) avant de réessayer. | `300000` |
 | `providers.tiles.backoffTransientMs` | Attente après une panne transitoire (5xx, réseau). | `10000` |
-| `providers.tiles.maxTiles` | Plafond du cache de textures (mémoire GPU). | `500` |
+| `providers.tiles.maxTiles` | Plafond du cache de textures (mémoire GPU). ⚠️ 500 → 700 : la cascade de détail descend jusqu'au niveau de base, ce qui ajoute un anneau de `lodRing²` tuiles par cran grossier. Sous l'ancien plafond, ces niveaux se faisaient évincer par les tuiles fines aussitôt demandés, et l'aplat uniforme au loin réapparaissait. | `700` |
+| `providers.tiles.maxBytes` | Plafond de la mémoire retenue par les tuiles montées (octets, `0` = illimité). ⚠️ Nouveau : une tuile raster décodée pèse 256×256×4 = 262 Ko, donc les 700 du plafond ci-dessus en font 183 Mo que rien ne bornait. | `268435456` |
+| `providers.tiles.evictEvery` | Une frame sur N déclenche le tri d'éviction, qui alloue et coûte O(n log n). ⚠️ Était un littéral (10). | `10` |
+| `providers.tiles.evictSlack` | Dépassement (en tuiles) au-delà duquel l'éviction est forcée sans attendre son tour, pour borner le pic de mémoire. ⚠️ Était un littéral (200). | `200` |
+| `providers.tiles.mountPerFrame` | Tuiles montées dans la scène par frame au plus. Une tuile raster se monte en une fraction de milliseconde : rien à étaler, contrairement au volume. | `8` |
 | `providers.tiles.maxInflight` | Téléchargements simultanés. | `12` |
 | `providers.tiles.margin` | Anneau de tuiles préchargées autour du viewport. | `1` |
 | `providers.tiles.maxRequest` | Budget de tuiles demandées pour le niveau de zoom cible. | `140` |
@@ -72,6 +85,28 @@ partiel est une erreur de compilation.
 | `providers.places.retries` | Réessais après échec réseau ou 5xx. `0` = aucun. 💰 La recherche étant relancée à la frappe, chaque réessai est un appel Places facturé de plus. | `1` |
 | `providers.places.backoffMs` | Attente avant le premier réessai, doublée à chaque tour, avec une part aléatoire. `0` = réessai immédiat. | `300` |
 | `providers.places.headers` | En-têtes supplémentaires, prioritaires sur les nôtres — mêmes usage et priorité que `providers.routing.headers`. | *(absent)* |
+| `providers.tiles3d.provider` | Fournisseur du volume (mode `'3d'`) : `'external'` (tuiles 3D photoréalistes, selon le token Ion / la clé passés à `<Map>`) ou `'internal'` (relief et bâtiments du serveur auto-hébergé). Indépendant de `providers.tiles.provider`. Modifiable à chaud ; sur `'internal'` le tileset photoréaliste est gelé, donc **n'émet aucune requête**. Cf. [TILES.md](TILES.md). | `'internal'` |
+| `providers.buildings.tileUrl` | Gabarit d'URL d'une tuile vectorielle — `{origin}`, `{z}`, `{x}`, `{y}` substitués. | `'{origin}/data/openmaptiles/{z}/{x}/{y}.pbf'` |
+| `providers.buildings.sourceLayer` | Couche du schéma OpenMapTiles portant les emprises. | `'building'` |
+| `providers.buildings.heightField` | Attribut de hauteur totale (m au-dessus du sol). | `'render_height'` |
+| `providers.buildings.minHeightField` | Attribut de hauteur de base — un porche, un bâtiment sur pilotis ne partent pas de 0. | `'render_min_height'` |
+| `providers.buildings.hideField` | Attribut booléen excluant une emprise de l'extrusion. | `'hide_3d'` |
+| `providers.buildings.colorField` | Attribut de couleur propre à l'emprise ; à défaut, le thème décide. | `'colour'` |
+| `providers.buildings.defaultHeight` | Hauteur (m) retenue quand l'attribut manque — une emprise sans hauteur reste visible. | `6` |
+| `providers.buildings.maxHeight` | Hauteur (m) maximale retenue ; au-delà, l'emprise y est ramenée. ⚠️ Nouveau : la hauteur venait BRUTE de la donnée, et `height=99999` (faute de saisie courante dans OSM) produisait un bâtiment de cent kilomètres — volume englobant démesuré, tuile visible en permanence, caméra arrêtée sur un fantôme. | `1000` |
+| `providers.buildings.positionPrecision` | Format des positions envoyées au GPU : `'int16'` (entiers normalisés sur l'étendue de la tuile, ~4 cm de résolution, **deux fois moins d'octets**) ou `'float32'` (repli, pour un cas d'usage exigeant mieux que le centimètre). | `'int16'` |
+| `providers.buildings.zoom` | Zoom des tuiles demandées : le `maxzoom` des données (14 en OpenMapTiles). | `14` |
+| `providers.buildings.minViewZoom` | Zoom de vue en dessous duquel aucune tuile n'est demandée. Vus de haut, les bâtiments ne couvrent que quelques pixels. **13 et non 14** : le zoom d'une vue inclinée est plus bas que celui demandé à la caméra. | `13` |
+| `providers.buildings.margin` | Anneau de tuiles préchargées autour du viewport. | `0` |
+| `providers.buildings.maxTiles` | Plafond du cache de tuiles extrudées (mémoire GPU). Une tuile z14 dense pèse ~131 000 triangles : ce plafond n'a rien à voir avec celui du fond raster. À garder nettement au-dessus de `maxRequest`, sinon un pan évince ce qu'il vient de demander. | `36` |
+| `providers.buildings.maxBytes` | Plafond de la mémoire retenue par les volumes montés (octets, `0` = illimité). ⚠️ Nouveau, et c'est **lui** qui borne réellement la mémoire : une tuile z14 dense pèse ~4,9 Mo (positions, couleurs, index, arbre de collision), donc les 36 du plafond ci-dessus en faisaient 175 Mo — de quoi faire perdre son contexte WebGL à un GPU intégré. En rase campagne, les mêmes 36 tuiles pèsent 2 Mo : le compte de tuiles ne dit rien de ce qui est retenu. | `268435456` |
+| `providers.buildings.evictEvery` | Une frame sur N déclenche le tri d'éviction. ⚠️ Était un littéral (10). | `10` |
+| `providers.buildings.evictSlack` | Dépassement (en tuiles) au-delà duquel l'éviction est forcée. ⚠️ Était un littéral (16). | `16` |
+| `providers.buildings.mountPerFrame` | Tuiles montées dans la scène par frame au plus. ⚠️ Nouveau, et c'est **une** : le montage (couleurs développées, arbre de collision construit) coûte une vingtaine de millisecondes et reste sur le thread principal. Deux tuiles qui aboutissaient dans la même frame — ce que `maxInflight` autorise — additionnaient leur coût en un gel franc. | `1` |
+| `providers.buildings.maxInflight` | Tuiles simultanément en cours de téléchargement **et d'extrusion** dans le worker. | `2` |
+| `providers.buildings.maxRequest` | Budget de tuiles demandées pour une vue : les N×N tuiles autour du point **regardé** (le sol sous le centre de l'écran, pas sous la caméra). `25` = 5×5, soit ~8 km de portée à Paris. Au-delà, le fond raster reste seul — cf. [TILES.md § 5](TILES.md). | `25` |
+| `providers.buildings.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
+| `providers.buildings.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
 | `providers.tiles3d.cesiumIonAssetId` | Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles). ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de documentation : trois copies d'une valeur qui désigne un fournisseur, seule de son espèce à vivre hors de `providers`. | `'2275207'` |
 | `providers.symbols.cacheMaxEntries` | Plafond du cache de vignettes rendues. ⚠️ Non borné jusqu'ici. | `200` |
 
@@ -127,6 +162,11 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.controls.fullscreen` | Plein écran. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Bascule 3D photoréaliste ↔ plan 2D. | `'b'` |
 | `interaction.shortcuts.controls.traffic` | Calque trafic — le bouton n'existe qu'en mode plan. | `false` |
+| `interaction.shortcuts.navigate.forward` | Avancer — maintenu. Plusieurs touches : les flèches, universelles, et une famille de lettres qui dépend de la disposition du clavier. | `['arrowup', 'z']` |
+| `interaction.shortcuts.navigate.backward` | Reculer. | `['arrowdown', 's']` |
+| `interaction.shortcuts.navigate.left` | Dériver à gauche. | `['arrowleft', 'q']` |
+| `interaction.shortcuts.navigate.right` | Dériver à droite. | `['arrowright', 'd']` |
+| `interaction.shortcuts.navigate.boost` | Modificateur d'accélération, maintenu. | `['shift']` |
 | `interaction.shortcuts.draw.select` | Outil sélection. | `'v'` |
 | `interaction.shortcuts.draw.selectRect` | Sélection au rectangle. | `'1'` |
 | `interaction.shortcuts.draw.selectPoly` | Sélection au polygone. | `'2'` |
@@ -135,7 +175,7 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.draw.polygon` | Polygone. | `'p'` |
 | `interaction.shortcuts.draw.rect` | Rectangle. | `'r'` |
 | `interaction.shortcuts.draw.circle` | Cercle. | `'c'` |
-| `interaction.shortcuts.draw.freehand` | Tracé main levée. | `'d'` |
+| `interaction.shortcuts.draw.freehand` | Tracé main levée. ⚠️ Était `'d'`, désormais pris par le déplacement au clavier (ZQSD). | `'h'` |
 | `interaction.shortcuts.draw.arrow` | Flèche. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Règle de mesure. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Gomme. | `'e'` |
@@ -208,8 +248,9 @@ partiel est une erreur de compilation.
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `camera.minZoom` | Zoom minimal atteignable (dézoom maximal). | `2` |
-| `camera.maxZoom` | Zoom maximal atteignable — au-delà la caméra entre dans le bâti 3D. | `21` |
+| `camera.minZoom` | Zoom minimal atteignable (dézoom maximal). Borne le même éloignement que `maxDistanceFactor`, en zoom plutôt qu'en rayons terrestres : le plus contraignant des deux gagne. | `2` |
+| `camera.maxZoom` | Zoom maximal atteignable **en mode plan** — le plancher de descente. Une carte plate se lit d'autant mieux qu'on s'en approche. | `21` |
+| `camera.maxZoom3d` | Zoom maximal **en 3D**, pendant de `maxZoom` comme `maxTilt3d` l'est de `maxTilt2d`. Sous la hauteur du bâti, la caméra se retrouve DANS la rue : un mur occupe l'écran. Hauteur au-dessus du sol = `40 075 016 / 2^zoom` — ~153 m à 18, ~76 m à 19, ~19 m à 21. | `18` |
 | `camera.maxTilt` | Inclinaison maximale générale (rad depuis le nadir). | `1.05` |
 | `camera.zoomStep` | Pas de zoom d'un cran de molette. | `0.5` |
 | `camera.dragSpeed.min` | Vitesse de déplacement au ras du sol. | `0.002` |
@@ -222,7 +263,9 @@ partiel est une erreur de compilation.
 | `camera.zoomFactor.out` | Facteurs d'altitude par cran de zoom (bouton +/−). | `2` |
 | `camera.maxDistanceFactor` | Distance max caméra↔centre Terre, en rayons terrestres (limite de dézoom). | `2.5` |
 | `camera.maxAltitudeFactor` | Altitude max des vols, en rayons terrestres. | `1.5` |
-| `camera.minGroundClearance` | Garde-fou : hauteur minimale (m) au-dessus du sol RÉEL, tuiles comprises. | `20` |
+| `camera.minGroundClearance` | Garde-fou : hauteur minimale (m) au-dessus du sol RÉEL, tuiles et bâtiments compris. S'applique aux vols programmés **et** à la molette. | `20` |
+| `camera.keyPan.speed` | Déplacement au clavier : hauteurs-sol parcourues par seconde. Une FRACTION de la hauteur, pas une vitesse absolue — la carte défile alors à la même allure à l'écran à toute altitude. `0.8` ≈ un écran par seconde au nadir. | `0.8` |
+| `camera.keyPan.boost` | Multiplicateur tant que le modificateur d'accélération est maintenu. | `3` |
 | `camera.followAltitude.min` | Bornes d'altitude (m) du mode suivi. | `200` |
 | `camera.followAltitude.max` | Bornes d'altitude (m) du mode suivi. | `2000000` |
 | `camera.fitBounds.margin` | Défauts de cadrage (`fitBounds`) — surchargeables appel par appel. | `1.35` |

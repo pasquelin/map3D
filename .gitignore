@@ -11,6 +11,11 @@ examples/react/dist
 .env.local
 examples/react/.env
 
+# Notes de conception en cours (brainstormings, specs pas encore implémentées) : elles
+# décrivent ce qui n'existe PAS dans `src/`, et le repo n'a pas à publier une spec que le
+# code contredit.
+docs/superpowers/
+
 # Artefacts de debug (captures Playwright, screenshots de validation)
 .playwright-mcp/
 /*.jpeg

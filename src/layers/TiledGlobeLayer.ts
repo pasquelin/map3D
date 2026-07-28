@@ -1,37 +1,17 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { defaultConfig } from '../config/defaultConfig'
-import type { TilesConfig } from '../config/types'
+import type { InternalServerConfig, TilesConfig } from '../config/types'
 import { WORLD_BOUNDS } from '../core/bounds'
-import { GoogleTileSource, latToTileY, lngToTileX, tileXToLng, tileYToLat } from '../core/googleTiles'
+import { makeUnraycastable } from '../core/bvh'
+import { latToTileY, lngToTileX, TILE_SIZE, tileXToLng, tileYToLat } from '../core/googleTiles'
 import { clamp, DEG2RAD } from '../core/math'
-import type { Bounds } from '../shared'
+import type { TileSource } from '../core/tileSource'
+import { intersectsView, type Tile, TileQueue, tileRange, tileRing } from '../core/TileQueue'
+import type { Bounds, LatLng } from '../shared'
 
-const BASE_Z = 2 // niveau de base (globe entier), toujours chargé → couverture totale
-const MAX_Z = 22 // zoom max des tuiles Google roadmap 2D
-
-type TileState = 'queued' | 'loading' | 'ready' | 'error'
-
-interface Tile {
-  z: number
-  x: number
-  y: number
-  key: string
-  state: TileState
-  img: HTMLImageElement | null
-  mesh: THREE.Mesh | null
-  lastUsed: number
-  /** Tentatives de téléchargement déjà consommées. */
-  attempts: number
-  /** Date (ms) avant laquelle la file n'a pas le droit de relancer cette tuile. */
-  retryAt: number
-  // Emprise géographique (constante pour la durée de vie de la tuile) — mémoïsée pour
-  // éviter de recalculer exp/atan (tileYToLat) à chaque test de vue par frame.
-  west: number
-  east: number
-  north: number
-  south: number
-}
+/** Ce que la file de tuiles ne connaît pas : l'image reçue et le mesh monté. */
+type RasterTile = Tile & { img: HTMLImageElement | null; mesh: THREE.Mesh | null }
 
 /** Subdivisions par tuile : les tuiles basses (grandes) sont plus tessellées pour
  *  épouser la courbure ; les hautes (petites) restent légères. */
@@ -43,30 +23,66 @@ function segFor(z: number): number {
   return 2
 }
 
+/** Réglages qui décident de QUELLE source sert les tuiles (origine du serveur incluse). */
+function sourceSignature(cfg: TilesConfig, origin: string): string {
+  return [cfg.provider, origin, cfg.style, cfg.retina, cfg.internalTileUrl, cfg.tileUrl, cfg.sessionUrl].join(' ')
+}
+
 /**
- * Globe 2D tuilé (quadtree) : fond de carte Google drapé sur l'ellipsoïde avec LOD,
- * cache mémoïsé (LRU), file de chargement à concurrence limitée, prefetch et
- * raffinement progressif. Un niveau de base couvre en permanence tout le globe
- * (zéro trou), les tuiles fines sont ajoutées/retirées incrémentalement selon la vue.
- * Aucun rebuild global : le rendu se raffine du flou vers le net sans à-coup.
+ * Globe 2D tuilé (quadtree) : fond de carte drapé sur l'ellipsoïde avec LOD, cache
+ * mémoïsé (LRU), file de chargement à concurrence limitée, prefetch et raffinement
+ * progressif. Un niveau de base couvre en permanence tout le globe (zéro trou), les
+ * tuiles fines sont ajoutées/retirées incrémentalement selon la vue. Aucun rebuild
+ * global : le rendu se raffine du flou vers le net sans à-coup.
+ *
+ * La source des tuiles est **injectée par une fabrique** (cf. `TileSource`) : le calque
+ * ignore s'il parle à Google ou à un serveur auto-hébergé, et n'a jamais à connaître de
+ * clé d'API. Une fabrique qui rend `null` (fournisseur non configuré) laisse le calque
+ * en place, inerte, prêt à repartir dès que la config le permet.
  */
 export class TiledGlobeLayer {
   readonly group = new THREE.Group()
   private readonly ocean: THREE.Mesh
-  private readonly tiles = new Map<string, Tile>()
-  private readonly queue: Tile[] = []
   private readonly scratch = new THREE.Vector3()
   private elevation = 0
-  private inflight = 0
-  private frame = 0
   private traffic = false
   private disposed = false
+  /** Seuil de reconstruction sur l'altitude du sol — cf. `providers.internal`. */
+  private epsilon = defaultConfig.providers.internal.elevationEpsilon
+
+  /** Source courante ; `null` = fournisseur non servable (cf. `createTileSource`). */
+  private source: TileSource | null
+  /** Signature de la config qui a produit `source` — recréation quand elle change. */
+  private signature: string
+
+  /**
+   * Cache et file, partagés avec le volume interne (cf. `TileQueue`).
+   *
+   * `fetch` ne monte RIEN : c'est la file qui vérifie, au retour, que la tuile lui
+   * appartient encore. Le niveau de base est épinglé — c'est le filet qui garantit
+   * l'absence de trou pendant que les niveaux fins arrivent.
+   */
+  private readonly cache = new TileQueue<RasterTile, HTMLImageElement>({
+    budget: () => this.cfg,
+    make: (base) => ({ ...base, img: null, mesh: null }),
+    fetch: (t, signal) => this.fetchTile(t, signal),
+    commit: (t, img) => {
+      t.img = img
+      // Le mesh se construit à l'affichage, pas ici : une tuile chargée hors de la vue
+      // n'a aucune raison de payer sa géométrie. Les octets sont comptés au montage réel.
+    },
+    release: (t) => this.disposeTile(t),
+    pinned: (t) => t.z === this.cfg.baseZoom,
+  })
 
   constructor(
     private readonly parent: THREE.Object3D,
     private readonly ellipsoid: Ellipsoid,
-    private readonly source: GoogleTileSource,
+    /** Fabrique de source, relue à chaque changement de fournisseur (bascule à chaud). */
+    private readonly createSource: (cfg: TilesConfig, origin: string) => TileSource | null,
     private cfg: TilesConfig = defaultConfig.providers.tiles,
+    /** Serveur interne : origine partagée avec le volume, et seuil d'altitude commun. */
+    server: InternalServerConfig = defaultConfig.providers.internal,
     /**
      * Océan de repli sous les tuiles. Vient de `theme.globe.oceanColor`, comme celui
      * du globe de secours : le bleu clair écrit ici était le second des deux
@@ -77,13 +93,37 @@ export class TiledGlobeLayer {
   ) {
     this.group.name = 'm3d-tiled-globe'
     this.group.visible = false
+    this.source = createSource(cfg, server.origin)
+    this.signature = sourceSignature(cfg, server.origin)
+    this.epsilon = server.elevationEpsilon
     this.ocean = this.buildOcean()
     this.group.add(this.ocean)
-    this.parent.add(this.group)
+    // Pas d'`add` ici : le groupe n'entre dans le graphe qu'une fois visible (cf. `setVisible`).
   }
 
+  /**
+   * Montre ou retire le fond tuilé.
+   *
+   * Le groupe est SORTI du graphe quand il est masqué : `Raycaster.intersect()` ne teste
+   * que `layers`, jamais `visible`. Ses tuiles sont certes insensibles aux rayons
+   * (`makeUnraycastable`), mais la traversée descend quand même dans chacune — jusqu'à
+   * `maxTiles` enfants parcourus trois fois par frame pour n'y rien trouver.
+   */
   setVisible(visible: boolean): void {
+    if (visible === this.group.visible) return
     this.group.visible = visible
+    if (visible) this.parent.add(this.group)
+    else this.parent.remove(this.group)
+  }
+
+  /** Le fournisseur courant a-t-il de quoi servir des tuiles ? (clé, ou origine) */
+  get hasSource(): boolean {
+    return this.source !== null
+  }
+
+  /** Le fournisseur courant sait-il servir le calque trafic ? (Google seulement) */
+  get supportsTraffic(): boolean {
+    return this.source?.supportsTraffic ?? false
   }
 
   /**
@@ -92,18 +132,25 @@ export class TiledGlobeLayer {
    * nouveau plafond plus bas. Un `mapType` ou une langue différents changent en
    * revanche les URLs, donc le cache est vidé — sinon des tuiles de l'ancienne
    * session resteraient affichées.
+   *
+   * Changer de FOURNISSEUR (ou d'origine, de style, de densité) va plus loin : la
+   * source elle-même est remplacée, sans démonter le calque — c'est ce qui permet de
+   * basculer Google ↔ serveur interne sans remonter la carte.
    */
-  setConfig(cfg: TilesConfig): void {
+  setConfig(cfg: TilesConfig, server: InternalServerConfig): void {
     const prev = this.cfg
     this.cfg = cfg
-    this.source.setConfig(cfg)
-    const urlChanged =
-      prev.mapType !== cfg.mapType ||
-      prev.language !== cfg.language ||
-      prev.region !== cfg.region ||
-      prev.tileUrl !== cfg.tileUrl ||
-      prev.sessionUrl !== cfg.sessionUrl
-    if (urlChanged) this.clearTiles()
+    this.epsilon = server.elevationEpsilon
+    const signature = sourceSignature(cfg, server.origin)
+    if (signature !== this.signature) {
+      this.signature = signature
+      this.source = this.createSource(cfg, server.origin)
+      this.cache.clear()
+      return
+    }
+    this.source?.setConfig(cfg, server.origin)
+    const urlChanged = prev.mapType !== cfg.mapType || prev.language !== cfg.language || prev.region !== cfg.region
+    if (urlChanged) this.cache.clear()
   }
 
   /**
@@ -114,9 +161,9 @@ export class TiledGlobeLayer {
    * quand elle change significativement (rare : une fois par bascule 2D).
    */
   setElevation(meters: number): void {
-    if (Math.abs(meters - this.elevation) < 1) return
+    if (Math.abs(meters - this.elevation) < this.epsilon) return
     this.elevation = meters
-    this.clearTiles()
+    this.cache.clear()
   }
 
   /** Active/désactive le calque trafic. Les URLs incluent la session (qui change avec
@@ -124,12 +171,17 @@ export class TiledGlobeLayer {
   setTraffic(traffic: boolean): void {
     if (traffic === this.traffic) return
     this.traffic = traffic
-    this.clearTiles()
+    this.cache.clear()
   }
 
   /** État réel du calque — le moteur le lit plutôt que d'en tenir une copie. */
   get trafficOn(): boolean {
     return this.traffic
+  }
+
+  /** Mémoire retenue par les tuiles montées (octets) — lue par le panneau de réglages. */
+  get usedBytes(): number {
+    return this.cache.usedBytes
   }
 
   /**
@@ -144,38 +196,88 @@ export class TiledGlobeLayer {
    * soit plus d'un millier de tuiles jamais regardées — de quoi épuiser le quota
    * Google Map Tiles à chaque chargement de page.
    */
-  update(bounds: Bounds, zoom: number, refine = true): void {
+  update(bounds: Bounds, zoom: number, aim: LatLng, refine = true): void {
     if (this.disposed) return
-    this.frame++
+    // Sans source (fournisseur non configuré), ne RIEN mettre en file : les tuiles
+    // s'empileraient en attente d'un chargement impossible, pour être rejouées telles
+    // quelles à la reconfiguration.
+    if (!this.source) return
+    const frame = this.cache.beginFrame()
 
-    // Tuiles désirées : base (globe entier) + niveau cible (emprise vue + marge). Si le
-    // niveau cible dépasse le budget de tuiles, on RÉDUIT le zoom pour tenir (jamais rien
-    // sauter → il y a toujours quelque chose de plus net que la base).
-    this.requestLevel(BASE_Z, WORLD_BOUNDS, 0)
-    let targetZ = clamp(Math.round(zoom), BASE_Z, MAX_Z)
-    while (targetZ > BASE_Z && tileCount(bounds, targetZ, this.cfg.margin) > this.cfg.maxRequest) targetZ--
-    if (refine && targetZ > BASE_Z) this.requestLevel(targetZ, bounds, this.cfg.margin)
+    const baseZ = this.cfg.baseZoom
+    // Filet de sécurité : le globe entier au niveau de base, toujours chargé, jamais évincé.
+    this.requestLevel(baseZ, WORLD_BOUNDS, 0)
+
+    /**
+     * CASCADE de niveaux, du plus fin au plus grossier.
+     *
+     * ⚠️ Il n'y avait que DEUX niveaux : la base et un niveau cible, ce dernier étant
+     * RABAISSÉ jusqu'à ce que son compte de tuiles tienne sur l'emprise entière. En vue
+     * inclinée, l'emprise porte jusqu'à l'horizon : le niveau cible s'effondrait alors vers
+     * la base, et tout ce que le cache ne couvrait pas déjà tombait d'un coup sur le niveau
+     * 2 — une tuile grande comme un quart de continent, soit un aplat vert uniforme au
+     * loin. Ça se lisait comme un bug d'affichage, et c'en était un.
+     *
+     * Chaque niveau ne comble désormais que ce que le précédent, deux fois plus fin, ne
+     * couvre pas : un anneau de `lodRing` tuiles de côté autour du point visé suffit, et il
+     * porte deux fois plus loin à chaque cran.
+     *
+     * ⚠️ La cascade s'arrêtait au niveau `covering`, celui qui couvre toute la vue dans le
+     * budget — et ce niveau-là n'était demandé QUE sur `bounds`. Or `bounds` est déduit de
+     * raycasts sur l'ellipsoïde : à l'horizon, le rayon rase la surface et l'emprise
+     * s'arrête bien avant ce que l'œil voit. Au-delà, plus aucun niveau intermédiaire —
+     * seulement le niveau de base, dont un texel étiré couvre alors des centaines de
+     * kilomètres. C'est l'aplat uniforme qui restait au ras du ciel, exactement là où la
+     * cascade croyait n'avoir plus rien à combler.
+     *
+     * Les anneaux descendent donc jusqu'au niveau de BASE, sans dépendre de la justesse de
+     * `bounds`. Le coût est borné : à z=3 un anneau de 5 tuiles porte déjà 25 000 km, et
+     * les niveaux grossiers sont demandés une fois puis resservis toute la session.
+     *
+     * Le coût en requêtes est bien moindre qu'il n'y paraît : les niveaux grossiers
+     * couvrent d'immenses surfaces, donc ils sont demandés une fois puis resservis pendant
+     * toute la session. Seul le niveau le plus fin se renouvelle en se déplaçant.
+     */
+    if (refine) {
+      const { finest, covering } = lodLevels(bounds, zoom, this.cfg)
+      for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
+      if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
+    }
 
     // Rendu : toute tuile prête qui intersecte la vue (base incluse), la plus fine
     // au-dessus (renderOrder + polygonOffset par zoom).
-    for (const t of this.tiles.values()) {
-      const inView = t.z === BASE_Z || this.intersectsView(t, bounds)
+    for (const t of this.cache.values()) {
+      const inView = t.z === baseZ || intersectsView(t, bounds)
       if (t.state === 'ready' && inView) {
         if (!t.mesh) this.buildMesh(t)
         t.mesh!.visible = true
-        t.lastUsed = this.frame
+        t.lastUsed = frame
       } else if (t.mesh) {
         t.mesh.visible = false
       }
     }
 
-    this.pump()
-    this.evict()
+    this.cache.pump()
+    this.cache.evict()
+  }
+
+  /**
+   * Anneau de `side` × `side` tuiles centré sur le point visé, au niveau `z`.
+   *
+   * C'est le pavé d'un cran de la cascade : le niveau plus fin, deux fois plus détaillé,
+   * en couvre déjà le quart central — cet anneau ne sert donc qu'à combler la couronne
+   * autour, et sa portée double à chaque cran plus grossier.
+   */
+  private requestRing(z: number, aim: LatLng, side: number): void {
+    const r = tileRing(aim, z, side, lngToTileX, latToTileY)
+    for (let x = r.x0; x <= r.x1; x++) {
+      for (let y = r.y0; y <= r.y1; y++) this.ensureTile(z, x, y)
+    }
   }
 
   /** Garantit la présence (dans le cache/file) des tuiles couvrant `bounds` au zoom `z`. */
   private requestLevel(z: number, bounds: Bounds, margin: number): void {
-    const { x0, x1, y0, y1 } = tileRange(bounds, z, margin)
+    const { x0, x1, y0, y1 } = tileRange(bounds, z, margin, lngToTileX, latToTileY)
     if (x1 < x0 || y1 < y0) return
     for (let x = x0; x <= x1; x++) {
       for (let y = y0; y <= y1; y++) this.ensureTile(z, x, y)
@@ -183,95 +285,32 @@ export class TiledGlobeLayer {
   }
 
   private ensureTile(z: number, x: number, y: number): void {
-    const key = `${z}/${x}/${y}`
-    let t = this.tiles.get(key)
-    if (!t) {
-      t = {
-        z,
-        x,
-        y,
-        key,
-        state: 'queued',
-        img: null,
-        mesh: null,
-        lastUsed: this.frame,
-        attempts: 0,
-        retryAt: 0,
-        west: tileXToLng(x, z),
-        east: tileXToLng(x + 1, z),
-        north: tileYToLat(y, z),
-        south: tileYToLat(y + 1, z),
-      }
-      this.tiles.set(key, t)
-      this.queue.push(t)
-    }
-    t.lastUsed = this.frame
-  }
-
-  /** Lance des chargements tant qu'il reste des créneaux de concurrence. */
-  private pump(): void {
-    const now = Date.now()
-    // `skipped` fait avancer la boucle quand la tête de file est en attente de
-    // réessai : la tuile repart en queue, la longueur ne bouge pas — sans ce
-    // compteur, une file entièrement en backoff tournerait à l'infini.
-    let skipped = 0
-    while (this.inflight < this.cfg.maxInflight && this.queue.length > skipped) {
-      const t = this.queue.shift()!
-      if (t.state !== 'queued' || !this.tiles.has(t.key)) continue
-      if (t.retryAt > now) {
-        this.queue.push(t)
-        skipped++
-        continue
-      }
-      void this.load(t)
-    }
-  }
-
-  private async load(t: Tile): Promise<void> {
-    t.state = 'loading'
-    t.attempts++
-    this.inflight++
-    try {
-      await this.source.ensureSession(this.traffic) // mémoïsé/coalescé
-      if (this.disposed || !this.tiles.has(t.key)) return
-      const img = await loadImage(this.source.tileUrl(t.z, t.x, t.y))
-      if (this.disposed || !this.tiles.has(t.key)) return
-      if (img) {
-        t.img = img
-        t.state = 'ready'
-      } else {
-        this.retryOrFail(t)
-      }
-    } catch {
-      this.retryOrFail(t)
-    } finally {
-      this.inflight--
-      if (!this.disposed) this.pump()
-    }
+    this.cache.ensure(z, x, y, tileXToLng(x, z), tileXToLng(x + 1, z), tileYToLat(y, z), tileYToLat(y + 1, z))
   }
 
   /**
-   * Replanifie une tuile en échec, ou l'abandonne au bout de `MAX_ATTEMPTS`.
+   * Établit la session s'il en faut une, puis télécharge l'image.
    *
-   * `<img>` ne donne pas le code HTTP : un 429 (quota, temporaire) est
-   * indistinguable d'un 404 (tuile inexistante, définitif). On réessaie donc
-   * quelques fois avec du recul — sans quoi un simple dépassement de quota laissait
-   * des trous DÉFINITIFS dans la carte, la tuile n'étant jamais redemandée.
+   * La source est CAPTURÉE pour toute la durée du chargement : une bascule de fournisseur
+   * entre `ensureSession` et `tileUrl` produirait sinon l'URL de la nouvelle source avec
+   * la session de l'ancienne.
+   *
+   * `<img>` ne donne pas le code HTTP : un 429 (quota, temporaire) est indistinguable
+   * d'un 404 (tuile inexistante, définitif). On lève donc dans les deux cas, et la file
+   * réessaie quelques fois avec du recul — sans quoi un simple dépassement de quota
+   * laissait des trous DÉFINITIFS dans la carte, la tuile n'étant jamais redemandée.
    */
-  private retryOrFail(t: Tile): void {
-    if (t.attempts >= this.cfg.maxAttempts) {
-      t.state = 'error'
-      return
-    }
-    t.state = 'queued'
-    const delays = this.cfg.retryDelays
-    // Dernier délai reconduit au-delà de la liste ; liste vide = réessai immédiat.
-    t.retryAt = Date.now() + (delays[t.attempts - 1] ?? delays.at(-1) ?? 0)
-    this.queue.push(t)
+  private async fetchTile(t: RasterTile, signal: AbortSignal): Promise<HTMLImageElement> {
+    const source = this.source
+    if (!source) throw new Error('fournisseur de tuiles non configuré')
+    await source.ensureSession(this.traffic) // mémoïsé/coalescé
+    const img = await loadImage(source.tileUrl(t.z, t.x, t.y), signal)
+    if (!img) throw new Error('tuile raster indisponible')
+    return img
   }
 
   /** Construit la géométrie (grille projetée sur l'ellipsoïde) + texture d'une tuile. */
-  private buildMesh(t: Tile): void {
+  private buildMesh(t: RasterTile): void {
     const seg = segFor(t.z)
     const positions: number[] = []
     const uvs: number[] = []
@@ -320,7 +359,24 @@ export class TiledGlobeLayer {
     // tracés/dessins (≥ 1). Fin (z élevé) → ordre plus haut → peint par-dessus la coarse.
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = -0.8 + t.z * 0.005
+    /**
+     * Jamais touchée par un rayon, comme l'océan. Sous `TilesGroup`, ce fond ne l'était
+     * pas non plus — le `raycast()` du groupe arrêtait la traversée. Le sortir de là l'a
+     * rendu raycastable par accident : trois rayons par frame traversaient alors jusqu'à
+     * `maxTiles` meshes sans arbre, dont les tuiles de base, dont la sphère englobante
+     * couvre un quart de globe.
+     *
+     * Rien n'est perdu : c'est une surface PLATE à hauteur connue (`setElevation`), que
+     * `Projection.flatHeight` et le repli ellipsoïde de `GlobeControls` rendent déjà
+     * analytiquement. Seuls les bâtiments sont un vrai volume, et eux portent un BVH.
+     */
+    makeUnraycastable(mesh)
     t.mesh = mesh
+    // Ce que la tuile retient une fois montée : la texture décodée sur le GPU (quatre
+    // octets par texel, mipmaps exclus) et sa grille. C'est la texture qui pèse — la
+    // géométrie fait quelques kilooctets au plus.
+    const texels = (t.img?.naturalWidth || TILE_SIZE) * (t.img?.naturalHeight || TILE_SIZE)
+    this.cache.account(t, texels * 4 + positions.length * 4 + uvs.length * 4 + indices.length * 4)
     this.group.add(mesh)
   }
 
@@ -340,33 +396,15 @@ export class TiledGlobeLayer {
     })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = -0.9
+    // Jamais touchée par un rayon : son volume englobant est la Terre entière, donc TOUS
+    // les rayons de la carte la traversent et testaient ses 3 072 triangles — pour un
+    // résultat que le repli ellipsoïde de `GlobeControls` et de `Projection` donne déjà,
+    // analytiquement. Ce n'est pas une surface, c'est un bouche-trou visuel.
+    makeUnraycastable(mesh)
     return mesh
   }
 
-  private intersectsView(t: Tile, b: Bounds): boolean {
-    return !(t.east < b.west || t.west > b.east || t.south > b.north || t.north < b.south)
-  }
-
-  /** Éviction LRU au-delà du plafond (protège le niveau de base et les tuiles vues).
-   *  L'alloc + tri de tout le cache ne tourne qu'une frame sur 10 en régime normal (pas
-   *  de O(n log n) chaque frame pendant un pan soutenu au plafond), MAIS on force
-   *  l'éviction dès qu'on déborde franchement → pic mémoire (textures GPU) borné. */
-  private evict(): void {
-    if (this.tiles.size <= this.cfg.maxTiles) return
-    if (this.frame % 10 !== 0 && this.tiles.size < this.cfg.maxTiles + 200) return
-    const candidates = [...this.tiles.values()]
-      .filter((t) => t.z !== BASE_Z && t.lastUsed !== this.frame)
-      .sort((a, b) => a.lastUsed - b.lastUsed)
-    let over = this.tiles.size - this.cfg.maxTiles
-    for (const t of candidates) {
-      if (over <= 0) break
-      this.disposeTile(t)
-      this.tiles.delete(t.key)
-      over--
-    }
-  }
-
-  private disposeTile(t: Tile): void {
+  private disposeTile(t: RasterTile): void {
     if (t.mesh) {
       this.group.remove(t.mesh)
       t.mesh.geometry.dispose()
@@ -378,44 +416,81 @@ export class TiledGlobeLayer {
     t.img = null
   }
 
-  private clearTiles(): void {
-    for (const t of this.tiles.values()) this.disposeTile(t)
-    this.tiles.clear()
-    this.queue.length = 0
-  }
-
   dispose(): void {
     this.disposed = true
-    this.clearTiles()
+    this.cache.dispose()
     this.ocean.geometry.dispose()
     ;(this.ocean.material as THREE.Material).dispose()
     this.parent.remove(this.group)
   }
 }
 
-/** Plage de tuiles (indices min/max, marge incluse) couvrant `bounds` au zoom `z`, bornée au globe. */
-function tileRange(b: Bounds, z: number, margin: number): { x0: number; x1: number; y0: number; y1: number } {
-  const n = 2 ** z
-  return {
-    x0: Math.max(0, Math.floor(lngToTileX(b.west, z)) - margin),
-    x1: Math.min(n - 1, Math.floor(lngToTileX(b.east, z)) + margin),
-    y0: Math.max(0, Math.floor(latToTileY(b.north, z)) - margin),
-    y1: Math.min(n - 1, Math.floor(latToTileY(b.south, z)) + margin),
-  }
+/** Les deux bornes de la cascade de détail — cf. `lodLevels`. */
+export type LodLevels = {
+  /** Niveau le plus fin demandé, autour du point visé. */
+  finest: number
+  /**
+   * Premier niveau (≤ `finest`) qui couvre TOUTE la vue dans le budget ; il est demandé en
+   * plein, sur l'emprise. Vaut `baseZoom` quand aucun ne tient.
+   *
+   * ⚠️ Il ne clôt PAS la cascade : les anneaux descendent jusqu'au niveau de base. Ce
+   * niveau n'est demandé que sur `bounds`, or `bounds` s'arrête avant l'horizon (les
+   * raycasts d'emprise rasent l'ellipsoïde) — s'y fier laissait le lointain au seul
+   * niveau de base, dont un texel étiré couvre des centaines de kilomètres.
+   */
+  covering: number
+}
+
+/**
+ * Bornes de la cascade de détail pour une vue.
+ *
+ * Fonction PURE, hors du calque, parce que c'est la règle qui décide de ce qu'on voit au
+ * loin : un aplat uniforme ou une dégradation progressive. Elle se teste seule.
+ *
+ * Les niveaux de `finest` au niveau de base sont demandés en ANNEAU autour du point visé —
+ * chacun porte deux fois plus loin que le précédent ; le niveau `covering`, lui, est en
+ * outre demandé en plein sur l'emprise. Deux entiers suffisent à décrire ce plan : en
+ * rendre la liste allouerait un tableau et ses objets à chaque frame.
+ */
+export function lodLevels(
+  bounds: Bounds,
+  zoom: number,
+  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest'>,
+): LodLevels {
+  const finest = clamp(Math.round(zoom), cfg.baseZoom, cfg.maxZoom)
+  let covering = finest
+  while (covering > cfg.baseZoom && tileCount(bounds, covering, cfg.margin) > cfg.maxRequest) covering--
+  return { finest, covering }
 }
 
 /** Nombre de tuiles couvrant `bounds` au zoom `z` (marge incluse), borné au globe. */
 function tileCount(b: Bounds, z: number, margin: number): number {
-  const { x0, x1, y0, y1 } = tileRange(b, z, margin)
+  const { x0, x1, y0, y1 } = tileRange(b, z, margin, lngToTileX, latToTileY)
   return Math.max(0, x1 - x0 + 1) * Math.max(0, y1 - y0 + 1)
 }
 
-function loadImage(url: string): Promise<HTMLImageElement | null> {
+/**
+ * Charge une image, ou `null` en cas d'échec.
+ *
+ * `signal` interrompt le téléchargement d'une tuile qui n'intéresse plus personne : une
+ * `<img>` ne s'annule pas autrement qu'en lui retirant sa source, ce qui suffit à faire
+ * abandonner la requête au navigateur.
+ */
+function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image()
+    const onAbort = () => {
+      img.src = ''
+      resolve(null)
+    }
+    const done = (value: HTMLImageElement | null) => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve(value)
+    }
     img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = () => resolve(null)
+    img.onload = () => done(img)
+    img.onerror = () => done(null)
+    signal?.addEventListener('abort', onAbort, { once: true })
     img.src = url
   })
 }
