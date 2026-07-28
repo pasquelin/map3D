@@ -54,6 +54,18 @@ export type MapTheme = {
     /** Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels,
      *  couleurs volontairement très voyantes. Optionnel : thème antérieur valide. */
     attention?: { sonar?: string; target?: string }
+    /**
+     * Mode piéton : curseur de placement (valide / interdit) et réticule d'immersion
+     * totale. Optionnel — un thème complet écrit avant cet ajout reste valide.
+     */
+    pedestrian?: {
+      /** Cible affichée quand le point visé est une rue posable. */
+      placeValid?: string
+      /** Cible barrée quand le point visé est un toit ou le ciel. */
+      placeBlocked?: string
+      /** Réticule central de l'immersion totale. */
+      reticle?: string
+    }
     path: {
       /** Couleur d'un tracé. */
       base: string

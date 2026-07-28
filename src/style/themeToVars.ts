@@ -20,6 +20,11 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-cluster-satellite': c.cluster.satellite,
     '--m3d-cluster-text': c.cluster.text,
     '--m3d-cluster-ring': c.cluster.ring,
+    // Mode piéton. Replis sur les couleurs d'état de l'interface : un thème écrit avant
+    // l'ajout du bloc reste valide, et son curseur reste lisible.
+    '--m3d-pedestrian-valid': c.pedestrian?.placeValid ?? c.ui.accent,
+    '--m3d-pedestrian-blocked': c.pedestrian?.placeBlocked ?? c.ui.error,
+    '--m3d-pedestrian-reticle': c.pedestrian?.reticle ?? c.ui.text,
     '--m3d-shadow-sm': theme.shadows.sm,
     '--m3d-shadow-md': theme.shadows.md,
     '--m3d-shadow-lg': theme.shadows.lg,

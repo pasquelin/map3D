@@ -22,6 +22,16 @@ import {
 } from './basemap'
 import { boundsOfLatLngs } from './bounds'
 import { Camera, type CameraState } from './Camera'
+import { PedestrianController } from './PedestrianController'
+import { isGroundPlacement } from './pedestrianPlacement'
+import {
+  type CameraMode,
+  type ImmersionLevel,
+  type PedestrianPhase,
+  type PedestrianState,
+  samePedestrianState,
+} from './pedestrianState'
+import { pedestrianView } from './pedestrianView'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
 import type { FrameContext, Layer, MapView } from './Layer'
@@ -190,6 +200,11 @@ export type MapEvents = {
   click: { latLng: LatLng; originalEvent: PointerEvent }
   dragmode: DragMode
   basemap: BasemapState
+  /**
+   * Le mode piéton a changé d'état — entrée, sortie, niveau d'immersion, disponibilité, ou
+   * rotation perceptible. Émis SUR CHANGEMENT, jamais par frame (cf. `samePedestrianState`).
+   */
+  pedestrian: PedestrianState
   /** L'outil « sélectionner un bâtiment » vient d'être armé ou quitté. */
   buildingpickmode: boolean
   /**
@@ -291,6 +306,7 @@ export class MapEngine {
     click: new Set(),
     dragmode: new Set(),
     basemap: new Set(),
+    pedestrian: new Set(),
     buildingpickmode: new Set(),
     buildingclick: new Set(),
     ready: new Set(),
@@ -581,6 +597,10 @@ export class MapEngine {
 
     this.camera = new Camera(this.threeCamera, this.projection)
     this.camera.setConfig(this.config)
+    // Troisième pilote caméra, monté d'office : au repos il ne coûte rien (aucun rayon,
+    // aucun calcul), et `cameraMode` décide seul de qui écrit dans la caméra.
+    this.pedestrianCtl = new PedestrianController(this.threeCamera, this.projection, this.navKeys)
+    this.pedestrianCtl.setConfig(this.config)
     if (opts.intro === false) {
       // Sans intro : survol nadir direct à l'altitude déduite du zoom (NB : comptée
       // depuis l'ellipsoïde, le terrain n'étant pas encore streamé).
@@ -892,6 +912,9 @@ export class MapEngine {
     this.buildings.setConfig(config.providers.buildings, config.providers.internal)
     this.navKeys.setConfig(config.interaction.shortcuts.navigate)
     this.camera.setConfig(config)
+    this.pedestrianCtl.setConfig(config)
+    // Distance de vue ou brouillard modifiés en cours de marche : la vue se repose.
+    if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') this.applyPedestrianView()
     this.projection.setConfig(config)
     for (const layer of this.layers) layer.setConfig?.(config)
     // Ciel : recrée/détruit selon `enabled` et repousse atmosphère + nuages + date.
@@ -996,6 +1019,24 @@ export class MapEngine {
     if (Math.abs(apply(delta) - target) > 0.02) apply(-delta)
   }
 
+  /** Qui pilote la caméra — `'pedestrian'` gèle `GlobeControls` et branche le contrôleur. */
+  private cameraMode: CameraMode = 'orbit'
+  private pedestrianPhase: PedestrianPhase = 'placing'
+  private immersion: ImmersionLevel = 'explore'
+  private readonly pedestrianCtl: PedestrianController
+  private pedestrianState: PedestrianState = {
+    mode: 'orbit',
+    phase: 'placing',
+    immersion: 'explore',
+    available: false,
+    heading: 0,
+    pitch: 0,
+  }
+  /** Near/far orbitaux sauvegardés à l'entrée en piéton, rendus à la sortie. */
+  private savedNearFar: { near: number; far: number } | null = null
+  /** Scratch de lecture de la couleur de fond (source du brouillard) — jamais alloué à chaud. */
+  private readonly fogColor = new THREE.Color()
+
   /** Type de carte affiché — cf. `MapMode` : 'plan' = carte plate, '3d' = volume. */
   private mapMode: MapMode = '3d'
   private basemapState: BasemapState = deriveBasemapCapabilities(
@@ -1065,6 +1106,14 @@ export class MapEngine {
     // `setMapMode` : plusieurs chemins retirent le volume (bascule, config qui change de
     // fournisseur), et tous passent par cette publication.
     if (!next.canPickBuildings) this.setBuildingPickMode(false)
+    // Le mode piéton exige la 3D photoréaliste externe : la quitter (bascule 2D depuis la
+    // barre, changement de fournisseur) doit le refermer — sinon la caméra reste posée au
+    // sol d'un décor qui n'existe plus. Ici et pas dans `setMapMode` : plusieurs chemins
+    // retirent le volume, et tous passent par cette publication.
+    if (!this.pedestrianAvailable()) this.exitPedestrian()
+    // La DISPONIBILITÉ change même quand le mode n'était pas actif : le bouton de la barre
+    // doit apparaître et disparaître avec elle.
+    this.syncPedestrian()
   }
 
   /**
@@ -1115,6 +1164,208 @@ export class MapEngine {
     // celle de `setTrafficVisible`, appelée plutôt que recopiée ici.
     if (!in2d) this.setTrafficVisible(false)
     this.syncBasemap()
+  }
+
+  // ── Mode piéton (cf. `PedestrianController`) ──
+
+  /**
+   * Le mode piéton est-il proposable ? Il exige la 3D photoréaliste EXTERNE : c'est le seul
+   * cas où la surface sous les pieds est un vrai relevé de rue. Le globe de repli, le plan
+   * 2D et le volume interne n'ont rien à parcourir à hauteur d'homme.
+   */
+  private pedestrianAvailable(): boolean {
+    return this.mapMode === '3d' && this.provider3d === 'external' && this.has3dTileset
+  }
+
+  /** État piéton courant — source de vérité de l'UI, avec l'événement `pedestrian`. */
+  getPedestrian(): PedestrianState {
+    return this.pedestrianState
+  }
+
+  /**
+   * Recalcule l'état diffusé et n'émet que sur changement effectif — l'objet doit rester
+   * stable pour un consommateur React qui le met en état (cf. `syncBasemap`, même règle).
+   */
+  private syncPedestrian(): void {
+    const pose = this.pedestrianCtl.getPose()
+    const next: PedestrianState = {
+      mode: this.cameraMode,
+      phase: this.pedestrianPhase,
+      immersion: this.immersion,
+      available: this.pedestrianAvailable(),
+      heading: pose.heading,
+      pitch: pose.pitch,
+    }
+    if (samePedestrianState(this.pedestrianState, next)) return
+    this.pedestrianState = next
+    this.emit('pedestrian', next)
+  }
+
+  /** Arme le curseur de placement : le clic suivant choisit le point d'entrée. */
+  enterPedestrianPlacement(): void {
+    if (!this.pedestrianAvailable() || this.cameraMode === 'pedestrian') return
+    this.pedestrianPhase = 'placing'
+    this.cameraMode = 'pedestrian'
+    this.inputInterceptor = this.placementInterceptor
+    this.canvas.parentElement?.classList.add('m3d-pedestrian-place')
+    this.syncPedestrian()
+  }
+
+  /**
+   * Le point visé est-il posable ? Vraie question du curseur de placement : la surface sous
+   * le pixel doit être au niveau de la rue, pas sur un toit (cf. `isGroundPlacement`).
+   */
+  canPlacePedestrian(clientX: number, clientY: number): boolean {
+    if (!this.pedestrianAvailable()) return false
+    const p = this.projection.pickLatLng(clientX, clientY, this.threeCamera)
+    if (!p) return false
+    const c = this.config.pedestrian.placement
+    const hit = this.projection.pickHeight(clientX, clientY, this.threeCamera)
+    return isGroundPlacement(hit, this.projection.sampleGroundHeight(p, c.ringRadiusMeters), c.maxRoofDeltaMeters)
+  }
+
+  /**
+   * Entre en première personne à un point de rue. Rend `false` si le point n'est pas posable
+   * ou si le mode n'est pas disponible — l'appelant n'a alors rien à défaire.
+   */
+  enterPedestrian(p: LatLng): boolean {
+    if (!this.pedestrianAvailable()) return false
+    const c = this.config.pedestrian.placement
+    const ground = this.projection.sampleGroundHeight(p, c.ringRadiusMeters)
+    if (ground === null) return false
+    // L'utilisateur prend la main : ni intro ni vol programmé ne doivent lui résister.
+    this.cancelIntro()
+    this.camera.cancelFly()
+    this.cameraMode = 'pedestrian'
+    this.pedestrianPhase = 'active'
+    this.immersion = 'explore'
+    this.releasePlacement()
+    // GELÉ, pas détaché : `controls.enabled = false` neutralise ses handlers DOM tout en
+    // gardant son état interne pour le retour en orbite.
+    this.controls.enabled = false
+    this.pedestrianCtl.enter(p, ground)
+    this.applyPedestrianView()
+    this.syncPedestrian()
+    return true
+  }
+
+  /** Quitte le mode piéton et rend la caméra à `GlobeControls`. */
+  exitPedestrian(): void {
+    if (this.cameraMode === 'orbit') return
+    this.cameraMode = 'orbit'
+    this.pedestrianPhase = 'placing'
+    this.immersion = 'explore'
+    this.releasePlacement()
+    this.restoreOrbitView()
+    this.controls.enabled = this.interactiveMode === true
+    this.syncPedestrian()
+  }
+
+  setPedestrianImmersion(level: ImmersionLevel): void {
+    if (this.cameraMode !== 'pedestrian' || this.pedestrianPhase !== 'active') return
+    if (this.immersion === level) return
+    this.immersion = level
+    this.syncPedestrian()
+  }
+
+  /** Delta de regard (pixels), accumulé et appliqué une fois par frame — cf. spec §9. */
+  addPedestrianLook(dxPx: number, dyPx: number): void {
+    if (this.cameraMode !== 'pedestrian') return
+    this.pedestrianCtl.addLook(dxPx, dyPx)
+  }
+
+  /**
+   * Rend le slot d'entrée et efface les classes du curseur.
+   *
+   * Le slot n'est relâché que s'il est ENCORE à nous : un outil de dessin a pu le reprendre
+   * entre-temps, et le remettre à `null` le laisserait affiché actif mais mort — le piège
+   * que documente déjà `useYieldsTool`.
+   */
+  private releasePlacement(): void {
+    if (this.inputInterceptor === this.placementInterceptor) this.inputInterceptor = null
+    this.canvas.parentElement?.classList.remove('m3d-pedestrian-place', 'm3d-pedestrian-ok', 'm3d-pedestrian-blocked')
+  }
+
+  /**
+   * Intercepteur du mode placement — même slot que le dessin et la loupe
+   * (`engine.inputInterceptor`), donc même exclusivité. Il rend `true` pour consommer
+   * l'événement : sinon le clic de placement déclencherait aussi un `click` de carte.
+   */
+  private readonly placementInterceptor: PointerInterceptor = (phase, latLng, e) => {
+    if (this.cameraMode !== 'pedestrian' || this.pedestrianPhase !== 'placing') return false
+    const root = this.canvas.parentElement
+    if (phase === 'move') {
+      // Validation EN DIRECT : le curseur dit si le clic passerait, avant de cliquer.
+      const ok = this.canPlacePedestrian(e.clientX, e.clientY)
+      root?.classList.toggle('m3d-pedestrian-ok', ok)
+      root?.classList.toggle('m3d-pedestrian-blocked', !ok)
+      return true
+    }
+    if (phase === 'up' && latLng) {
+      // Point invalide : IGNORÉ, sans quitter le mode — le curseur reste « interdit » et
+      // l'utilisateur vise ailleurs. Refuser en fermant punirait un simple ratage.
+      if (this.canPlacePedestrian(e.clientX, e.clientY)) this.enterPedestrian(latLng)
+      return true
+    }
+    return phase === 'down'
+  }
+
+  /**
+   * Vue rasante : near/far dédiés + brouillard. Le `far` borné fait couper les tuiles
+   * lointaines par le frustum culling — le `TilesRenderer` ne les demande jamais.
+   *
+   * ⚠️ Poser `scene.fog` à chaud ne recompile PAS les shaders déjà compilés : three décide
+   * du code brouillard à la compilation du programme. Sans l'invalidation qui suit, les
+   * tuiles déjà chargées resteraient nettes derrière un brouillard qui n'existerait que
+   * pour les suivantes.
+   */
+  private applyPedestrianView(): void {
+    const c = this.config.pedestrian
+    const v = pedestrianView(c.viewDistanceMeters, c.nearMeters, c.fogStartMeters)
+    if (!this.savedNearFar) this.savedNearFar = { near: this.threeCamera.near, far: this.threeCamera.far }
+    this.threeCamera.near = v.near
+    this.threeCamera.far = v.far
+    this.threeCamera.updateProjectionMatrix()
+    // Couleur lue du renderer plutôt que mémorisée : c'est la même source que le fond
+    // réellement peint, et elle ne peut donc pas en diverger.
+    this.renderer.getClearColor(this.fogColor)
+    const fog = this.scene.fog
+    if (fog instanceof THREE.Fog) {
+      fog.color.copy(this.fogColor)
+      fog.near = v.fogNear
+      fog.far = v.fogFar
+      return
+    }
+    this.scene.fog = new THREE.Fog(this.fogColor.getHex(), v.fogNear, v.fogFar)
+    this.refreshFogMaterials()
+  }
+
+  /** Rend à l'orbite ses near/far calculés (cf. `updateNearFar`) et retire le brouillard. */
+  private restoreOrbitView(): void {
+    const saved = this.savedNearFar
+    this.savedNearFar = null
+    if (this.scene.fog) {
+      this.scene.fog = null
+      this.refreshFogMaterials()
+    }
+    if (!saved) return
+    this.threeCamera.near = saved.near
+    this.threeCamera.far = saved.far
+    this.threeCamera.updateProjectionMatrix()
+  }
+
+  /**
+   * Invalide les programmes des matériaux déjà compilés — la seule façon de faire prendre
+   * (ou retirer) le brouillard sur ce qui est DÉJÀ à l'écran. Coût : une traversée, à
+   * l'entrée et à la sortie du mode. Jamais par frame.
+   */
+  private refreshFogMaterials(): void {
+    this.tiles.group.traverse((o) => {
+      const material = (o as THREE.Mesh).material
+      if (!material) return
+      if (Array.isArray(material)) for (const m of material) m.needsUpdate = true
+      else material.needsUpdate = true
+    })
   }
 
   /**
@@ -1543,10 +1794,24 @@ export class MapEngine {
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
     // Suspendu (barre espace) : la caméra reprend la main sans quitter l'outil.
     if (this.drawingMode && !this.drawingSuspended) this.freezeControlsPanRotate()
-    // Avant `controls.update()`, dont la garde au sol rattrape le mouvement dans la frame.
-    if (this.controls.enabled) this.applyKeyNav(dt)
-    if (!controlling && this.controls.enabled) this.controls.update()
-    this.clampZoom()
+    /**
+     * Le piéton est le TROISIÈME pilote (cf. `Camera.update`) et prime sur les deux autres :
+     * `GlobeControls` est gelé, et `applyKeyNav` — dont le modèle orbital fait TOURNER la
+     * caméra autour du centre du globe — laisse la place au modèle de marche. Les touches,
+     * elles, restent exactement les mêmes (`interaction.shortcuts.navigate`).
+     *
+     * `clampZoom` est sauté avec : il ramène la caméra au-dessus d'une altitude plancher,
+     * ce qui expulserait le piéton du sol à chaque frame.
+     */
+    if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
+      this.pedestrianCtl.update(dt)
+      this.syncPedestrian()
+    } else {
+      // Avant `controls.update()`, dont la garde au sol rattrape le mouvement dans la frame.
+      if (this.controls.enabled) this.applyKeyNav(dt)
+      if (!controlling && this.controls.enabled) this.controls.update()
+      this.clampZoom()
+    }
     this.threeCamera.updateMatrixWorld()
     // En mode 2D le tileset 3D est masqué : on gèle son update (aucun fetch/parse/LOD en
     // fond) tout en gardant son cache pour un retour instantané. `updateMatrixWorld` reste
@@ -1574,14 +1839,19 @@ export class MapEngine {
       this.internalSurface.updateMatrixWorld(true)
     }
     // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
-    if (this.mapMode === '3d') this.trackTerrainElevation()
+    // Sauté en piéton : le fond 2D n'est pas alimenté en 3D externe, et ce rayon
+    // centre-écran vise l'horizon à hauteur d'homme — il ne mesurerait rien d'utile.
+    if (this.mapMode === '3d' && this.cameraMode === 'orbit') this.trackTerrainElevation()
     this.updateIntro(now)
     this.checkReady(now)
 
     // État caméra calculé UNE fois par frame (chaque getState = inversion de matrice)
     // et réutilisé par updateNearFar/computeView/ctx.
     const state = this.camera.getState()
-    if (controlling) this.updateNearFar(state)
+    // En piéton, near/far sont posés par `applyPedestrianView` : les recalculer à l'orbitale
+    // (`near = altitude × 0,15`) mettrait le plan proche à des dizaines de mètres devant
+    // l'œil — plus rien de proche ne serait rendu.
+    if (controlling && this.cameraMode === 'orbit') this.updateNearFar(state)
 
     if (this.hasMoved(state)) {
       this.lastState = state
@@ -1608,8 +1878,16 @@ export class MapEngine {
      * et point visé sont donc calculés une seule fois pour les deux calques — ils l'étaient
      * deux fois, dont deux intersections d'ellipsoïde et leurs allocations, par frame.
      */
-    const feedBasemap = (this.mapMode !== '3d' || this.provider3d === 'internal') && this.basemap2d.hasSource
-    const feedBuildings = this.mapMode === '3d' && this.provider3d === 'internal'
+    /**
+     * Sauté en piéton : `computeView` y déclenche `viewportBounds` (grille de 25 raycasts
+     * d'ellipsoïde), dont la moitié des rayons part dans le ciel à l'horizontale au sol — et
+     * aucun des deux calques alimentés ici n'est à l'écran en 3D externe.
+     */
+    const feedBasemap =
+      this.cameraMode === 'orbit' &&
+      (this.mapMode !== '3d' || this.provider3d === 'internal') &&
+      this.basemap2d.hasSource
+    const feedBuildings = this.cameraMode === 'orbit' && this.mapMode === '3d' && this.provider3d === 'internal'
     if (feedBasemap || feedBuildings) {
       // Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
       // → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
@@ -1963,6 +2241,18 @@ export class MapEngine {
 
   private onPointerMove = (e: PointerEvent): void => {
     if (this.pointerDrag) this.pointerDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
+    /**
+     * Mode piéton, niveau exploration : le regard suit le glisser bouton gauche enfoncé.
+     * Exiger le bouton est ce qui garde markers et symboles cliquables — un clic « propre »
+     * (déplacement sous le seuil, cf. `onPointerUp`) reste un clic carte.
+     *
+     * Le delta est ACCUMULÉ ici et appliqué une seule fois dans le tick : `pointermove` peut
+     * tirer plusieurs fois par frame (spec §9).
+     */
+    if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active' && this.pointerDrag) {
+      this.pedestrianCtl.addLook(e.movementX, e.movementY)
+      return
+    }
     // Transmet le survol (pointer up) à l'outil aussi : indispensable au mode clic
     // du polygone (élastique + aimant de fermeture entre deux clics).
     if (this.toolsActive && this.inputInterceptor) {

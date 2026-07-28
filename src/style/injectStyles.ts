@@ -80,6 +80,18 @@ const CSS = `
 .m3d-root.m3d-inert canvas{cursor:default}
 .m3d-root.m3d-inert .m3d-css2d *,
 .m3d-root.m3d-inert .m3d-overlay > *{pointer-events:none!important}
+/* Mode piéton, phase de placement : le curseur DIT si le clic passerait. Deux curseurs
+   natifs plutôt qu'un SVG teinté — le retour est instantané et net à tout facteur
+   d'échelle, là où une image de curseur se pixellise et arrive avec une frame de retard. */
+.m3d-root.m3d-pedestrian-place canvas{cursor:crosshair}
+.m3d-root.m3d-pedestrian-place.m3d-pedestrian-blocked canvas{cursor:not-allowed}
+/* Liseré : le placement est un état MODAL, il doit se voir sans masquer la carte qu'on est
+   en train de viser. Sa couleur dit la validité, comme le curseur. */
+.m3d-root.m3d-pedestrian-place::after{content:'';position:absolute;inset:0;pointer-events:none;
+  z-index:var(--m3d-z-ui,999);
+  box-shadow:inset 0 0 0 2px var(--m3d-pedestrian-valid,transparent)}
+.m3d-root.m3d-pedestrian-place.m3d-pedestrian-blocked::after{
+  box-shadow:inset 0 0 0 2px var(--m3d-pedestrian-blocked,transparent)}
 /* Enveloppe ancrée : positionnée (transform) par le CSS2DRenderer chaque frame.
    PAS de will-change : la promotion en couche GPU désynchronise le marker du
    canvas WebGL pendant le déplacement (les 2 couches sont présentées à ~1 frame

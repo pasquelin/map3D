@@ -29,6 +29,9 @@ export const defaultTheme: MapTheme = {
     // Signaux opérationnels (pas décoratifs) : jaune vif pour « à traiter »,
     // rouge vif pour le viseur d'urgence — faits pour sauter aux yeux.
     attention: { sonar: '#ffd60a', target: '#ff3b30' },
+    // Mode piéton : reprend les couleurs d'état de l'interface plutôt que d'en inventer.
+    // Un curseur avec sa propre palette jurerait avec le reste de la carte.
+    pedestrian: { placeValid: '#2E7CF6', placeBlocked: '#d11a01', reticle: '#f8fafc' },
     path: { base: '#2E7CF6', casing: '#ffffff' },
     zone: { fill: '#079A7D', stroke: '#079A7D' },
     // Reprend à l'identique les replis qui vivaient dans la feuille de styles
