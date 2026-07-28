@@ -4,7 +4,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { normalizeSearch } from '../../search/match'
 import { symbolText } from '../../labels/mergeLabels'
 import type { SymbolEntry } from '../../symbols/types'
-import { useConfig, useLabels, useTheme } from '../context'
+import { useConfig, useLabels, useMapContext, useTheme } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
 import { useDrawing } from '../hooks/useDrawing'
 import { TOOL_ICONS } from './drawControls'
@@ -44,6 +44,7 @@ export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' |
   // Le relire depuis le contexte refermait le panneau — l'aller-retour ajoutait un
   // rendu, et `useDismiss` s'armait à temps pour prendre le clic d'ouverture pour
   // un clic extérieur.
+  const { engine } = useMapContext()
   const publish = symbols.setPaletteOpen
   useEffect(() => {
     publish(open)
@@ -63,7 +64,13 @@ export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' |
         shortcut={shortcuts.symbol}
         active={open}
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          // Ouvrir la palette quitte le pick de bâtiment : deux boutons allumés à la fois,
+          // et la barre ne dirait plus quel outil tient le clic. Les outils de tracé, eux,
+          // passent par `setDrawing`, qui s'en charge côté moteur.
+          if (!open) engine.setBuildingPickMode(false)
+          setOpen(!open)
+        }}
       />
       {open && <SymbolPanel position={position} />}
     </div>

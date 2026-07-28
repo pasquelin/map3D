@@ -9,7 +9,7 @@ import {
 import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
-import { zoomForAltitude } from '../../core/MapEngine'
+import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, useConfig, useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
@@ -111,9 +111,10 @@ export function Toolbar({
   // court-circuiterait dès qu'une prop est fournie — même piège que `ToolButton`.
   const config = useConfig()
   const minZoom = minZoomProp ?? config.interaction.drawToolbarMinZoom
-  const { engine } = useMapContext()
-  // Un outil externe actif (ex. loupe) doit "éteindre" la main : sinon `tool === null`
-  // surligne Naviguer alors qu'un autre outil est actif (deux items actifs à la fois).
+  // Un outil externe actif (loupe, pick de bâtiment) doit "éteindre" la main : sinon
+  // `tool === null` surligne Naviguer alors qu'un autre outil est actif (deux items
+  // actifs à la fois — exactement ce que la barre ne doit jamais montrer).
+  const { picking: pickingBuilding, engine } = useBuildingPick()
   const lens = useContext(LensContext)
   const labels = useLabels()
   const [hidden, setHidden] = useState(true)
@@ -185,14 +186,15 @@ export function Toolbar({
             tip={tip}
             shortcut={labels.keys.escape}
             // La main n'est active que si RIEN d'autre ne l'est — outils de tracé,
-            // loupe, palette de symboles. Une surface qui s'allume sans éteindre la
-            // main laisserait deux boutons allumés, et la barre ne dirait plus où on
-            // en est. (La palette, elle, se referme d'elle-même au clic hors d'elle.)
-            active={tool === null && !lens?.active && !symbols.paletteOpen}
+            // loupe, palette de symboles, pick de bâtiment. Une surface qui s'allume sans
+            // éteindre la main laisserait deux boutons allumés, et la barre ne dirait plus
+            // où on en est. (La palette, elle, se referme d'elle-même au clic hors d'elle.)
+            active={tool === null && !lens?.active && !symbols.paletteOpen && !pickingBuilding}
             className="m3d-btn-move"
             onClick={() => {
               setTool(null)
               lens?.deactivate() // quitter tout outil externe → la main devient l'outil actif
+              engine.setBuildingPickMode(false)
             }}
           />,
         )}
@@ -273,21 +275,31 @@ export function Toolbar({
  * SURVOL du côté opposé à la barre. Les sous-boutons affichent icône + libellé ;
  * le raccourci est dans leur tooltip (même convention que les autres boutons).
  */
+/**
+ * État de l'outil « bâtiment », lu au MOTEUR — sa seule source de vérité.
+ *
+ * Partagé par la barre (qui en a besoin pour savoir si la main est au repos) et par le
+ * sélecteur (qui porte sa ligne) : deux copies d'état auraient divergé, et c'est exactement
+ * la divergence qui laissait la main allumée sous un outil actif.
+ */
+function useBuildingPick(): { picking: boolean; canPick: boolean; engine: MapEngine } {
+  const { engine } = useMapContext()
+  const [picking, setPicking] = useState(() => engine.getBuildingPickMode())
+  useEffect(() => engine.on('buildingpickmode', setPicking), [engine])
+  const [canPick, setCanPick] = useState(() => engine.getBasemap().canPickBuildings)
+  useEffect(() => engine.on('basemap', (b) => setCanPick(b.canPickBuildings)), [engine])
+  return { picking, canPick, engine }
+}
+
 function SelectToolButton({ position, modes }: { position: 'left' | 'right'; modes?: SelectMode[] }) {
   const { tool, setTool, selectMode, setSelectMode, shortcuts } = useDrawing()
-  const { engine } = useMapContext()
+  const { picking: pickingBuilding, canPick: canPickBuildings, engine } = useBuildingPick()
+  const lens = useContext(LensContext)
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   const [open, setOpen] = useState(false)
   const [side, setFlyout] = useAnchoredPanel(position, { clampHeight: false })
   useCloseWhenHidden(useToolbar().retracted, setOpen)
-
-  // Ligne « bâtiment » du sélecteur : elle n'existe qu'avec du volume INTERNE à l'écran, et
-  // son état vit dans le moteur — c'est un outil de la carte, pas un mode du dessin.
-  const [canPickBuildings, setCanPick] = useState(() => engine.getBasemap().canPickBuildings)
-  useEffect(() => engine.on('basemap', (b) => setCanPick(b.canPickBuildings)), [engine])
-  const [pickingBuilding, setPicking] = useState(() => engine.getBuildingPickMode())
-  useEffect(() => engine.on('buildingpickmode', setPicking), [engine])
 
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
@@ -343,7 +355,13 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               className={`m3d-flyout-item${pickingBuilding ? ' m3d-on' : ''}`}
               onClick={() => {
                 const next = !pickingBuilding
-                if (next) setTool(null)
+                if (next) {
+                  // Armer le pick ÉTEINT les autres surfaces : la barre ne doit jamais
+                  // montrer deux outils allumés. Le dessin est coupé par le moteur (cf.
+                  // `setDrawing`), la loupe se relâche ici — comme la main le fait.
+                  setTool(null)
+                  lens?.deactivate()
+                }
                 engine.setBuildingPickMode(next)
                 setOpen(false)
               }}
