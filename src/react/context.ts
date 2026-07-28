@@ -201,8 +201,14 @@ export type DrawingApi = {
   }
 }
 
-/** Actions clavier du dessin (raccourcis configurables, en plus des outils). */
-export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso'
+/**
+ * Actions clavier du dessin (raccourcis configurables, en plus des outils).
+ *
+ * `selectBuilding` y figure parce qu'il partage le sélecteur et sa table de raccourcis —
+ * mais il n'arme aucun outil de dessin : c'est le pick de bâtiment du moteur, et il quitte
+ * le dessin au lieu de s'y ajouter.
+ */
+export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso' | 'selectBuilding'
 
 export const DrawingContext = createContext<DrawingApi | null>(null)
 

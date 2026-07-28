@@ -46,7 +46,6 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `controls.mode3d` | Basemap: photorealistic 3D tiles. | `'Vue 3D'` |
 | `controls.plan` | Basemap: Google 2D plan. | `'Plan'` |
 | `controls.traffic` | Google traffic overlay (plan mode only). | `'Trafic'` |
-| `controls.selectBuilding` | “Select a building” tool — internal volume only. | `'Sélectionner un bâtiment'` |
 
 ## `tags` — “Layers” panel
 
@@ -103,6 +102,8 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | Key | Description | Default |
 |---|---|---|
 | `toolbar.navigate` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Naviguer'` |
+| `buildingPick.label` | “Building” row of the selector — outside `selectModes`, which is keyed by `SelectMode`: picking a building is not a drawing selection mode. | `'Bâtiment'` |
+| `buildingPick.description` | Its tooltip. | `'Sélectionner un bâtiment (volume 3D interne)'` |
 | `toolbar.undo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Annuler'` |
 | `toolbar.redo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Rétablir'` |
 | `toolbar.clearAll` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Tout effacer'` |
@@ -348,7 +349,6 @@ import { imperialMeasure } from '@gosecure/map3d'
       zoomIn: 'Zoom in', zoomOut: 'Zoom out', tilt: 'Tilt', topDown: 'Top-down view',
       globe: 'Back to globe', fullscreen: 'Fullscreen', target: 'Back to target',
       mode3d: '3D view', plan: 'Plan', traffic: 'Traffic',
-      selectBuilding: 'Select a building',
     },
     tags: {
       button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',

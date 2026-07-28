@@ -167,7 +167,6 @@ compile error.
 | `interaction.shortcuts.controls.fullscreen` | Fullscreen. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Switch photorealistic 3D ↔ 2D plan. | `'b'` |
 | `interaction.shortcuts.controls.traffic` | Traffic overlay — the button only exists in plan mode. | `false` |
-| `interaction.shortcuts.controls.selectBuilding` | Toggles the “select a building” tool. | `'u'` |
 | `interaction.shortcuts.navigate.forward` | Move forward — held. Several keys: the arrows, universal, and a letter family that depends on keyboard layout. | `['arrowup', 'z']` |
 | `interaction.shortcuts.navigate.backward` | Move back. | `['arrowdown', 's']` |
 | `interaction.shortcuts.navigate.left` | Strafe left. | `['arrowleft', 'q']` |
@@ -176,6 +175,7 @@ compile error.
 | `interaction.shortcuts.draw.select` | Select tool. | `'v'` |
 | `interaction.shortcuts.draw.selectRect` | Rectangle selection. | `'1'` |
 | `interaction.shortcuts.draw.selectPoly` | Polygon selection. | `'2'` |
+| `interaction.shortcuts.draw.selectBuilding` | Selection of a **building** of the internal volume — a row of the same selector, but not a drawing selection mode: it arms an engine tool, and leaves drawing. | `'4'` |
 | `interaction.shortcuts.draw.selectLasso` | Lasso selection. | `'3'` |
 | `interaction.shortcuts.draw.line` | Line. | `'l'` |
 | `interaction.shortcuts.draw.polygon` | Polygon. | `'p'` |

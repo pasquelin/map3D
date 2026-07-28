@@ -452,7 +452,12 @@ export function DrawLayer(props: DrawLayerProps) {
         )
         if (!found) return
         const modeMeta = SELECT_MODE_META.find((m) => m.action === found[0])
-        if (modeMeta) {
+        if (found[0] === 'selectBuilding') {
+          // Ligne « bâtiment » du sélecteur : un outil du MOTEUR, exclusif du dessin. Le
+          // moteur refuse de lui-même hors volume interne, il n'y a rien à tester ici.
+          setTool(null)
+          engine.setBuildingPickMode(!engine.getBuildingPickMode())
+        } else if (modeMeta) {
           // Raccourci d'un mode de sélection : choisit le mode ET active l'outil.
           setSelectMode(modeMeta.mode)
           if (toolRef.current !== 'select') setTool('select')

@@ -840,6 +840,10 @@ export class MapEngine {
   setDrawing(active: boolean): void {
     this.drawingMode = active
     this.drawingSuspended = false
+    // Un outil de dessin et le pick de bâtiment se disputent le même clic : le dernier armé
+    // gagne. Ici plutôt que dans chaque bouton — tous les chemins qui arment un tracé
+    // (barre, raccourci, API) passent par là.
+    if (active) this.setBuildingPickMode(false)
     // Le mode figé PRIME : monter une couche de dessin sur une carte non
     // interactive ne doit pas lui rendre la navigation dans le dos de l'hôte.
     this.controls.enabled = this.interactiveMode === true

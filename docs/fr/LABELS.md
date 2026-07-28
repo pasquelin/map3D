@@ -38,7 +38,6 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `controls.mode3d` | Fond de carte : tuiles 3D photoréalistes. | `'Vue 3D'` |
 | `controls.plan` | Fond de carte : plan 2D Google. | `'Plan'` |
 | `controls.traffic` | Calque trafic Google (mode plan uniquement). | `'Trafic'` |
-| `controls.selectBuilding` | Outil « sélectionner un bâtiment » — volume interne seulement. | `'Sélectionner un bâtiment'` |
 
 ## `tags` — Panneau « Couches »
 
@@ -95,6 +94,8 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | Clé | Description | Défaut |
 |---|---|---|
 | `toolbar.navigate` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Naviguer'` |
+| `buildingPick.label` | Ligne « bâtiment » du sélecteur — hors de `selectModes`, qui est indexé par `SelectMode` : désigner un bâtiment n'est pas un mode de sélection de dessin. | `'Bâtiment'` |
+| `buildingPick.description` | Son infobulle. | `'Sélectionner un bâtiment (volume 3D interne)'` |
 | `toolbar.undo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Annuler'` |
 | `toolbar.redo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Rétablir'` |
 | `toolbar.clearAll` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Tout effacer'` |

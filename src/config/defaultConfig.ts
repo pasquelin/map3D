@@ -248,9 +248,6 @@ export const defaultConfig: MapConfig = {
         basemap: 'b',
         // Le bouton n'existe qu'en mode plan : un raccourci global serait déroutant.
         traffic: false,
-        // 'u' : les lettres mnémoniques sont prises (b = fond de carte, i = incliner,
-        // e = gomme). Le bouton n'existe qu'en volume interne, comme `traffic` en plan.
-        selectBuilding: 'u',
       },
       // Déplacement CONTINU : ces touches agissent tant qu'elles sont maintenues. Les
       // flèches marchent partout ; ZQSD suit la disposition AZERTY, une application
@@ -267,6 +264,8 @@ export const defaultConfig: MapConfig = {
         selectRect: '1',
         selectPoly: '2',
         selectLasso: '3',
+        // '4' : à la suite des trois modes de sélection, dont il partage le sélecteur.
+        selectBuilding: '4',
         line: 'l',
         polygon: 'p',
         rect: 'r',

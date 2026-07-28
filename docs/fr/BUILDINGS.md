@@ -28,7 +28,7 @@ bâtiment représente pour vous.
 
 | Geste | Effet |
 | --- | --- |
-| Bouton de la barre, ou `U` | arme ou quitte l'outil ; le curseur du canvas passe en croix |
+| Ligne « Bâtiment » du sélecteur de la barre d'outils, ou `4` | arme ou quitte l'outil ; le curseur du canvas passe en croix |
 | Survol | le bâtiment visé prend `theme.globe.buildingHoverColor` |
 | Clic **propre** | ouvre le menu de `buildingMenu`, au curseur |
 | Menu ouvert | le bâtiment garde `theme.globe.buildingSelectColor` **tant qu'il l'est** |
@@ -62,10 +62,12 @@ rend son curseur : il n'y a plus rien sous le pointeur à désigner.
 > Google sont un maillage texturé **fusionné**, où aucun bâtiment n'est distinct d'un
 > autre. Il n'y a rien à y sélectionner — ce n'est pas une limite de la lib.
 
-Comme tout bouton de la barre, il se masque au grain fin, et son raccourci part avec lui :
+La ligne vit dans le **sélecteur de la barre d'outils** (avec Rectangle / Polygone / Lasso).
+Elle disparaît donc avec la barre elle-même — `<Map draw={false}>` retire le dessin, sa
+barre, et cet outil avec eux. Le raccourci se retire seul :
 
 ```tsx
-<Map controls={{ buttons: { selectBuilding: false } }} />
+config={{ interaction: { shortcuts: { draw: { selectBuilding: false } } } }}
 ```
 
 ## 3. `buildingMenu` — le contrat
@@ -135,11 +137,11 @@ démarrage, pas un interrupteur à faire varier en cours de session.
 | --- | --- | --- |
 | `providers.buildings.pickFields` | `[]` | attributs MVT remontés dans `info.props` (§ 5) |
 | `interaction.buildingPick.cursor` | `'crosshair'` | curseur du canvas, l'outil armé — un curseur **système** |
-| `interaction.shortcuts.controls.selectBuilding` | `'u'` | raccourci de la bascule ; `false` le retire |
+| `interaction.shortcuts.draw.selectBuilding` | `'4'` | raccourci de la bascule ; `false` le retire |
 | `interaction.cleanClickPx` | — | partagé avec le clic carte : au-delà, le geste est un glissé |
 | `theme.globe.buildingHoverColor` | `'#F2B441'` | teinte du bâtiment survolé |
 | `theme.globe.buildingSelectColor` | `'#E8613C'` | teinte du bâtiment dont le menu est ouvert |
-| `labels.controls.selectBuilding` | `'Sélectionner un bâtiment'` | libellé du bouton et de son infobulle |
+| `labels.buildingPick` | `{ label: 'Bâtiment', … }` | libellé de la ligne et son infobulle |
 
 Les deux teintes **remplacent** la couleur des sommets de l'emprise, ombrage compris —
 c'est ce qui fait ressortir un bâtiment au milieu d'un quartier entier. Elles sont lues au

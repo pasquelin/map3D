@@ -28,7 +28,7 @@ building means to you.
 
 | Gesture | Effect |
 | --- | --- |
-| Toolbar button, or `U` | arms or leaves the tool; the canvas cursor becomes a crosshair |
+| “Building” row of the toolbar's selector, or `4` | arms or leaves the tool; the canvas cursor becomes a crosshair |
 | Hover | the targeted building takes `theme.globe.buildingHoverColor` |
 | **Clean** click | opens the `buildingMenu` menu, at the cursor |
 | Menu open | the building keeps `theme.globe.buildingSelectColor` **for as long as it is** |
@@ -59,11 +59,12 @@ restores its cursor: there is nothing left under the pointer to pick.
 > tiles are a **merged** textured mesh, in which no building is distinct from another.
 > There is nothing there to select — this is not a limitation of the library.
 
-Like every toolbar button, it can be hidden at the fine grain, and its shortcut goes with
-it:
+The row lives in the **toolbar's selector** (next to Rectangle / Polygon / Lasso). It
+therefore goes away with the bar itself — `<Map draw={false}>` removes drawing, its bar,
+and this tool along with them. The shortcut can be removed on its own:
 
 ```tsx
-<Map controls={{ buttons: { selectBuilding: false } }} />
+config={{ interaction: { shortcuts: { draw: { selectBuilding: false } } } }}
 ```
 
 ## 3. `buildingMenu` — the contract
@@ -133,11 +134,11 @@ a switch to flip mid-session.
 | --- | --- | --- |
 | `providers.buildings.pickFields` | `[]` | MVT attributes surfaced in `info.props` (§ 5) |
 | `interaction.buildingPick.cursor` | `'crosshair'` | canvas cursor while armed — a **system** cursor |
-| `interaction.shortcuts.controls.selectBuilding` | `'u'` | toggle shortcut; `false` removes it |
+| `interaction.shortcuts.draw.selectBuilding` | `'4'` | toggle shortcut; `false` removes it |
 | `interaction.cleanClickPx` | — | shared with the map click: beyond it, the gesture is a drag |
 | `theme.globe.buildingHoverColor` | `'#F2B441'` | hovered building's tint |
 | `theme.globe.buildingSelectColor` | `'#E8613C'` | tint of the building whose menu is open |
-| `labels.controls.selectBuilding` | `'Sélectionner un bâtiment'` | button label and tooltip |
+| `labels.buildingPick` | `{ label: 'Bâtiment', … }` | row label and its tooltip |
 
 Both tints **replace** the footprint's vertex colours, shading included — that is what
 makes one building stand out of a whole neighbourhood. They are read when the map mounts,

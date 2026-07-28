@@ -30,8 +30,6 @@ export type MapLabels = {
     plan: string
     /** Calque trafic Google (mode plan uniquement). */
     traffic: string
-    /** Outil « sélectionner un bâtiment » — volume interne seulement. */
-    selectBuilding: string
   }
   /** Bouton + panneau « Couches » (filtre par tag). */
   tags: {
@@ -124,6 +122,12 @@ export type MapLabels = {
    * distincte du label pour ne pas répéter le texte déjà visible.
    */
   selectModes: Record<SelectMode, { label: string; description: string }>
+  /**
+   * Ligne « bâtiment » du même sélecteur. Hors de `selectModes`, qui est indexé par
+   * `SelectMode` : désigner un bâtiment n'est pas un mode de sélection de dessin, c'est un
+   * outil du moteur qui partage seulement ce menu.
+   */
+  buildingPick: { label: string; description: string }
   /** Panneau de style (swatches, palette, presets) — libellés et aria. */
   style: {
     fill: string

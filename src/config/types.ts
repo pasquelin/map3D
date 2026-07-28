@@ -745,8 +745,6 @@ export type ControlShortcuts = {
   basemap: string | false
   /** Calque trafic — le bouton n'existe qu'en mode plan. */
   traffic: string | false
-  /** Bascule l'outil « sélectionner un bâtiment ». */
-  selectBuilding: string | false
 }
 
 /** Outils de dessin et modes de sélection — une touche simple chacun. */
@@ -757,6 +755,11 @@ export type DrawToolShortcuts = {
   selectRect: string | false
   /** Sélection au polygone. */
   selectPoly: string | false
+  /**
+   * Sélection d'un **bâtiment** du volume interne — une ligne du même sélecteur, mais pas
+   * un mode de sélection de dessin : elle arme un outil du moteur, et quitte le dessin.
+   */
+  selectBuilding: string | false
   /** Sélection au lasso. */
   selectLasso: string | false
   /** Ligne. */

@@ -16,7 +16,6 @@ export const defaultLabels: MapLabels = {
     mode3d: 'Vue 3D',
     plan: 'Plan',
     traffic: 'Trafic',
-    selectBuilding: 'Sélectionner un bâtiment',
   },
   tags: {
     button: 'Couches — filtrer par tag',
@@ -91,6 +90,7 @@ export const defaultLabels: MapLabels = {
     poly: { label: 'Polygone', description: 'Sélection par polygone' },
     lasso: { label: 'Lasso', description: 'Sélection au lasso' },
   },
+  buildingPick: { label: 'Bâtiment', description: 'Sélectionner un bâtiment (volume 3D interne)' },
   style: {
     fill: 'Couleur de fond',
     stroke: 'Couleur de bordure',

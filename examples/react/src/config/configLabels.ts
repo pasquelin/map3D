@@ -221,11 +221,11 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.controls.fullscreen': 'plein écran',
   'interaction.shortcuts.controls.basemap': 'bascule 3D / plan',
   'interaction.shortcuts.controls.traffic': 'calque trafic',
-  'interaction.shortcuts.controls.selectBuilding': 'sélectionner un bâtiment',
 
   'interaction.shortcuts.draw.select': 'sélection',
   'interaction.shortcuts.draw.selectRect': 'sélection rectangle',
   'interaction.shortcuts.draw.selectPoly': 'sélection polygone',
+  'interaction.shortcuts.draw.selectBuilding': 'sélection d’un bâtiment',
   'interaction.shortcuts.draw.selectLasso': 'sélection lasso',
   'interaction.shortcuts.draw.line': 'ligne',
   'interaction.shortcuts.draw.polygon': 'polygone',

@@ -164,7 +164,6 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.controls.fullscreen` | Plein écran. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Bascule 3D photoréaliste ↔ plan 2D. | `'b'` |
 | `interaction.shortcuts.controls.traffic` | Calque trafic — le bouton n'existe qu'en mode plan. | `false` |
-| `interaction.shortcuts.controls.selectBuilding` | Bascule l'outil « sélectionner un bâtiment ». | `'u'` |
 | `interaction.shortcuts.navigate.forward` | Avancer — maintenu. Plusieurs touches : les flèches, universelles, et une famille de lettres qui dépend de la disposition du clavier. | `['arrowup', 'z']` |
 | `interaction.shortcuts.navigate.backward` | Reculer. | `['arrowdown', 's']` |
 | `interaction.shortcuts.navigate.left` | Dériver à gauche. | `['arrowleft', 'q']` |
@@ -173,6 +172,7 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.draw.select` | Outil sélection. | `'v'` |
 | `interaction.shortcuts.draw.selectRect` | Sélection au rectangle. | `'1'` |
 | `interaction.shortcuts.draw.selectPoly` | Sélection au polygone. | `'2'` |
+| `interaction.shortcuts.draw.selectBuilding` | Sélection d'un **bâtiment** du volume interne — une ligne du même sélecteur, mais pas un mode de sélection de dessin : elle arme un outil du moteur, et quitte le dessin. | `'4'` |
 | `interaction.shortcuts.draw.selectLasso` | Sélection au lasso. | `'3'` |
 | `interaction.shortcuts.draw.line` | Ligne. | `'l'` |
 | `interaction.shortcuts.draw.polygon` | Polygone. | `'p'` |

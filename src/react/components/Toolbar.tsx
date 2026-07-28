@@ -1,4 +1,11 @@
-import { mdiCursorDefaultOutline, mdiHandBackRightOutline, mdiRedo, mdiTrashCanOutline, mdiUndo } from '@mdi/js'
+import {
+  mdiCursorDefaultOutline,
+  mdiHandBackRightOutline,
+  mdiOfficeBuildingOutline,
+  mdiRedo,
+  mdiTrashCanOutline,
+  mdiUndo,
+} from '@mdi/js'
 import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
@@ -268,15 +275,23 @@ export function Toolbar({
  */
 function SelectToolButton({ position, modes }: { position: 'left' | 'right'; modes?: SelectMode[] }) {
   const { tool, setTool, selectMode, setSelectMode, shortcuts } = useDrawing()
+  const { engine } = useMapContext()
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   const [open, setOpen] = useState(false)
   const [side, setFlyout] = useAnchoredPanel(position, { clampHeight: false })
   useCloseWhenHidden(useToolbar().retracted, setOpen)
 
+  // Ligne « bâtiment » du sélecteur : elle n'existe qu'avec du volume INTERNE à l'écran, et
+  // son état vit dans le moteur — c'est un outil de la carte, pas un mode du dessin.
+  const [canPickBuildings, setCanPick] = useState(() => engine.getBasemap().canPickBuildings)
+  useEffect(() => engine.on('basemap', (b) => setCanPick(b.canPickBuildings)), [engine])
+  const [pickingBuilding, setPicking] = useState(() => engine.getBuildingPickMode())
+  useEffect(() => engine.on('buildingpickmode', setPicking), [engine])
+
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
-  const hasFlyout = available.length > 1
+  const hasFlyout = available.length + (canPickBuildings ? 1 : 0) > 1
 
   return (
     <div
@@ -288,9 +303,12 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
         icon={mdiCursorDefaultOutline}
         label={labels.tools.select}
         shortcut={shortcuts.select}
-        active={active}
+        active={active || pickingBuilding}
         className={hasFlyout ? 'm3d-btn-flyout' : undefined}
         onClick={() => {
+          // Le bouton principal rend la main au dessin : il quitte le pick de bâtiment,
+          // qui n'est pas un mode de sélection mais un outil concurrent.
+          engine.setBuildingPickMode(false)
           // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
           if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
             setSelectMode(available[0]!.mode)
@@ -306,6 +324,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               {...tip(labels.selectModes[m.mode].description, shortcuts[m.action])}
               className={`m3d-flyout-item${active && selectMode === m.mode ? ' m3d-on' : ''}`}
               onClick={() => {
+                engine.setBuildingPickMode(false)
                 setSelectMode(m.mode)
                 setTool('select')
                 setOpen(false)
@@ -315,6 +334,24 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               <span className="m3d-flyout-label">{labels.selectModes[m.mode].label}</span>
             </button>
           ))}
+          {/* Désigner un bâtiment du volume 3D interne. Dans CE menu parce que c'est une
+              manière de sélectionner de plus — mais l'outil vit dans le moteur, et il est
+              exclusif du dessin : l'armer quitte l'outil de tracé, et inversement. */}
+          {canPickBuildings && (
+            <button
+              {...tip(labels.buildingPick.description, shortcuts.selectBuilding)}
+              className={`m3d-flyout-item${pickingBuilding ? ' m3d-on' : ''}`}
+              onClick={() => {
+                const next = !pickingBuilding
+                if (next) setTool(null)
+                engine.setBuildingPickMode(next)
+                setOpen(false)
+              }}
+            >
+              <UiIcon path={mdiOfficeBuildingOutline} />
+              <span className="m3d-flyout-label">{labels.buildingPick.label}</span>
+            </button>
+          )}
         </div>
       )}
     </div>
