@@ -243,3 +243,53 @@ describe('extrudeTile — ombrage cuit dans les sommets', () => {
     expect(b.shade[brightest]).toBe(Math.min(...b.shade.subarray(0, 16)))
   })
 })
+
+describe('table des bâtiments', () => {
+  it('donne des plages de sommets contiguës qui couvrent toute la géométrie', async () => {
+    const buffer = await encodeTile([
+      { rings: [square(100, 100, 200)], props: { render_height: 12 }, id: 41 },
+      { rings: [square(600, 600, 300)], props: { render_height: 30 }, id: 42 },
+    ])
+    const out = extrudeTile(buffer, cfg, frameFor(TILE.z, TILE.x, TILE.y), NO_SHADING)
+    const { vStart, featureIds, heights } = out.buildings
+    // n + 1 entrées : la sentinelle finale ferme la dernière plage.
+    expect(vStart.length).toBe(3)
+    expect(vStart[0]).toBe(0)
+    expect(vStart[1]).toBeGreaterThan(0)
+    // La sentinelle vaut le nombre total de sommets : aucune géométrie hors plage.
+    expect(vStart[2]).toBe(out.colorIndex.length)
+    expect(Array.from(featureIds)).toEqual([41, 42])
+    expect(heights[0]).toBe(12)
+    expect(heights[1]).toBe(0)
+    expect(heights[2]).toBe(30)
+  })
+
+  it('rend NaN pour une feature sans id', async () => {
+    const buffer = await encodeTile([{ rings: [square(100, 100, 200)], props: { render_height: 12 } }])
+    const out = extrudeTile(buffer, cfg, frameFor(TILE.z, TILE.x, TILE.y), NO_SHADING)
+    expect(Number.isNaN(out.buildings.featureIds[0]!)).toBe(true)
+  })
+
+  it('ne transporte aucun attribut sans pickFields, et seulement ceux-là avec', async () => {
+    const buffer = await encodeTile([
+      { rings: [square(100, 100, 200)], props: { render_height: 12, name: 'Halle', class: 'roof' }, id: 7 },
+    ])
+    const frame = frameFor(TILE.z, TILE.x, TILE.y)
+    expect(extrudeTile(buffer, cfg, frame, NO_SHADING).buildings.props).toBeNull()
+    const picky: BuildingsConfig = { ...cfg, pickFields: ['name'] }
+    const out = extrudeTile(buffer, picky, frame, NO_SHADING)
+    // Seul l'attribut demandé traverse : `class` reste dans la tuile.
+    expect(out.buildings.props).toEqual([{ name: 'Halle' }])
+  })
+
+  it('donne une plage par EMPRISE, pas par feature', async () => {
+    // Une feature MVT peut porter plusieurs contours : ils partagent alors le même
+    // `feature.id` mais occupent deux plages distinctes.
+    const buffer = await encodeTile([
+      { rings: [square(100, 100, 200), square(600, 600, 200)], props: { render_height: 9 }, id: 5 },
+    ])
+    const out = extrudeTile(buffer, cfg, frameFor(TILE.z, TILE.x, TILE.y), NO_SHADING)
+    expect(out.buildings.vStart.length).toBe(3)
+    expect(Array.from(out.buildings.featureIds)).toEqual([5, 5])
+  })
+})

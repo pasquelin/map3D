@@ -15,7 +15,7 @@ export type Point = { x: number; y: number }
  * ou trou, exactement comme dans les données réelles (vérifié : 2237 contours et 27 trous
  * sur une tuile de Monaco).
  */
-export async function encodeTile(features: { rings: Point[][]; props: Props }[]): Promise<ArrayBuffer> {
+export async function encodeTile(features: { rings: Point[][]; props: Props; id?: number }[]): Promise<ArrayBuffer> {
   // pbf 5 sépare lecture et écriture : le décodage prend `PbfReader`, ce banc `PbfWriter`.
   const { PbfWriter: Pbf } = await import('pbf')
   type P = InstanceType<typeof Pbf>
@@ -61,6 +61,8 @@ export async function encodeTile(features: { rings: Point[][]; props: Props }[])
       p.writeMessage(
         2,
         (__: unknown, fp: P) => {
+          // Champ 1 de la Feature : l'identifiant, optionnel dans le format.
+          if (f.id !== undefined) fp.writeVarintField(1, f.id)
           const tags: number[] = []
           for (const [k, v] of Object.entries(f.props)) tags.push(keys.indexOf(k), values.indexOf(v))
           fp.writePackedVarint(2, tags)

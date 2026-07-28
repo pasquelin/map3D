@@ -53,6 +53,12 @@ describe('decodeBuildings', () => {
     expect(decodeBuildings(buf, cfg).footprints[0]?.color).toBe('#d48741')
   })
 
+  it('conserve le feature.id sur chaque emprise', async () => {
+    const buf = await encodeTile([{ rings: [carre(0, 0, 100)], props: { render_height: 10 }, id: 1234 }])
+    const { footprints } = decodeBuildings(buf, cfg)
+    expect(footprints[0]!.featureId).toBe(1234)
+  })
+
   it('rend une tuile vide quand la couche demandée est absente', async () => {
     const buf = await encodeTile([{ rings: [carre(0, 0, 100)], props: { render_height: 8 } }])
     const out = decodeBuildings(buf, { ...cfg, sourceLayer: 'inexistante' })

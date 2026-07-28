@@ -34,6 +34,10 @@ export type Footprint = {
   minHeight: number
   /** Couleur portée par la donnée elle-même ; sinon le thème décide. */
   color?: string
+  /** `feature.id` MVT, `undefined` quand la donnée n'en porte pas. */
+  featureId: number | undefined
+  /** Attributs retenus par `cfg.pickFields` ; `undefined` quand la liste est vide. */
+  props: Record<string, unknown> | undefined
 }
 
 export type DecodedTile = {
@@ -89,6 +93,26 @@ export type Shading = {
   min: number
 }
 
+/**
+ * Ce qu'il faut pour désigner un bâtiment dans une tuile, sans attribut par sommet.
+ *
+ * `extrudeTile` écrit TOUS les sommets d'une emprise avant de passer à la suivante : les
+ * plages sont donc contiguës et croissantes, et une recherche binaire sur `vStart` suffit
+ * à retrouver le bâtiment d'un sommet. Un identifiant par sommet donnerait le même
+ * résultat pour ~100 fois plus d'octets, sur le tampon le plus lourd d'une tuile — et il
+ * ne servirait à aucun shader.
+ */
+export type TileBuildings = {
+  /** Début de plage de chaque bâtiment, en SOMMETS. `n + 1` entrées, la dernière = total. */
+  vStart: Uint32Array
+  /** `feature.id` MVT, `NaN` quand la feature n'en portait pas. */
+  featureIds: Float64Array
+  /** Hauteurs entrelacées `[height, minHeight, …]`, en mètres. */
+  heights: Float32Array
+  /** Attributs de `pickFields`, un objet par bâtiment. `null` quand la liste est vide. */
+  props: Record<string, unknown>[] | null
+}
+
 /** Géométrie d'une tuile, en mètres locaux — prête à devenir des `BufferAttribute`. */
 export type ExtrudedTile = {
   /**
@@ -113,6 +137,8 @@ export type ExtrudedTile = {
    */
   shade: Uint8Array
   palette: PaletteEntry[]
+  /** De quoi désigner un bâtiment sous le curseur (cf. `TileBuildings`). */
+  buildings: TileBuildings
 }
 
 /** Aire signée : positive pour un contour extérieur, négative pour un trou (spec MVT). */
@@ -135,6 +161,23 @@ function num(props: Record<string, string | number | boolean>, key: string, fall
 /** Borné à `[0, max]` — une hauteur négative n'a pas plus de sens qu'une hauteur absurde. */
 function clampTo(v: number, max: number): number {
   return v < 0 ? 0 : v > max ? max : v
+}
+
+/**
+ * Attributs retenus pour le pick de bâtiment. `undefined` sans `pickFields` — le cas par
+ * défaut, où rien n'est ni lu ni transporté.
+ */
+function pickProps(
+  props: Record<string, string | number | boolean>,
+  fields: readonly string[],
+): Record<string, unknown> | undefined {
+  if (fields.length === 0) return undefined
+  const out: Record<string, unknown> = {}
+  for (const f of fields) {
+    const v = props[f]
+    if (v !== undefined) out[f] = v
+  }
+  return out
 }
 
 /**
@@ -167,6 +210,10 @@ export function decodeBuildings(buffer: ArrayBuffer, cfg: BuildingsConfig): Deco
     if (height <= minHeight) continue
     const rawColor = props[cfg.colorField]
     const color = typeof rawColor === 'string' && rawColor ? rawColor : undefined
+    const featureId = feature.id
+    // Extraits UNE fois par feature et non par emprise : plusieurs contours d'une même
+    // feature partagent ses attributs, et la boucle en parcourt des milliers.
+    const picked = pickProps(props, cfg.pickFields)
 
     let current: { x: number; y: number }[][] | null = null
     for (const ring of feature.loadGeometry()) {
@@ -177,7 +224,7 @@ export function decodeBuildings(buffer: ArrayBuffer, cfg: BuildingsConfig): Deco
         // `color` toujours présent (`undefined` sans donnée) : une seule forme d'objet,
         // là où le spread conditionnel en produisait deux — et rendait polymorphes les
         // accès de la boucle d'extrusion, qui parcourt des milliers d'emprises.
-        footprints.push({ rings: current, height, minHeight, color })
+        footprints.push({ rings: current, height, minHeight, color, featureId, props: picked })
       } else if (current) {
         current.push(ring)
       }
@@ -242,6 +289,14 @@ export function extrudeTile(
   const shade = new Uint8Array(ringVerts * 5)
   const indices = new Uint32Array(ringVerts * 9)
 
+  // Un bâtiment = une emprise. `n + 1` pour la sentinelle qui ferme la dernière plage.
+  const vStart = new Uint32Array(footprints.length + 1)
+  const featureIds = new Float64Array(footprints.length)
+  const heights = new Float32Array(footprints.length * 2)
+  // `pickFields` vide → `props` reste `null` : rien à remplir, rien à cloner au transfert.
+  const pickedProps: Record<string, unknown>[] | null = cfg.pickFields.length === 0 ? null : []
+  let building = 0
+
   // Direction horizontale du soleil, en repère ENU (x = est, y = nord). L'azimut se compte
   // depuis le nord, sens horaire — convention des cartes, pas du cercle trigonométrique.
   const azRad = shading.azimuth * DEG2RAD
@@ -276,6 +331,15 @@ export function extrudeTile(
   let index = 0
 
   for (const fp of footprints) {
+    // La plage du bâtiment s'ouvre AVANT que ses murs ne s'écrivent — `vertex` est encore
+    // au bout du bâtiment précédent.
+    vStart[building] = vertex
+    featureIds[building] = fp.featureId ?? Number.NaN
+    heights[building * 2] = fp.height
+    heights[building * 2 + 1] = fp.minHeight
+    if (pickedProps) pickedProps.push(fp.props ?? {})
+    building++
+
     let wall = THEME_WALL
     let roof = THEME_ROOF
     if (fp.color) {
@@ -382,6 +446,8 @@ export function extrudeTile(
     for (let i = 0; i < faces.length; i++) indices[index++] = roofBase + faces[i]!
   }
 
+  // Sentinelle : elle ferme la dernière plage, et vaut le nombre total de sommets.
+  vStart[building] = vertex
   const used = positions.subarray(0, vertex * 3)
   const packed = cfg.positionPrecision === 'int16' ? packPositions(used) : { positions: used, positionScale: 1 }
   return {
@@ -390,6 +456,7 @@ export function extrudeTile(
     shade: shade.subarray(0, vertex),
     indices: indices.subarray(0, index),
     palette,
+    buildings: { vStart, featureIds, heights, props: pickedProps },
   }
 }
 
