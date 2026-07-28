@@ -113,8 +113,8 @@ export class BuildingsSource {
     if (!msg.ok) p.reject(new Error(msg.error))
     else if (msg.empty) p.resolve(null)
     else {
-      const { positions, positionScale, indices, colorIndex, shade, palette } = msg
-      p.resolve({ positions, positionScale, indices, colorIndex, shade, palette })
+      const { positions, positionScale, indices, colorIndex, shade, palette, buildings } = msg
+      p.resolve({ positions, positionScale, indices, colorIndex, shade, palette, buildings })
     }
   }
 

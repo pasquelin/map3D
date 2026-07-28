@@ -35,6 +35,25 @@ export type BuildResponse =
   | { id: number; ok: false; error: string }
 
 /**
+ * Tampons CÉDÉS (et non copiés) au thread principal : plusieurs mégaoctets par tuile
+ * dense qui changent de propriétaire sans traverser le sérialiseur.
+ *
+ * Extrait en fonction pour être testable : un tampon listé deux fois fait échouer
+ * `postMessage` à l'exécution, et rien dans le typage ne l'empêche.
+ */
+export function transferablesOf(tile: ExtrudedTile): Transferable[] {
+  return [
+    tile.positions.buffer,
+    tile.colorIndex.buffer,
+    tile.shade.buffer,
+    tile.indices.buffer,
+    tile.buildings.vStart.buffer,
+    tile.buildings.featureIds.buffer,
+    tile.buildings.heights.buffer,
+  ]
+}
+
+/**
  * `lib` contient DOM et WebWorker à la fois (la lib sert les deux) : `self` y est typé
  * pour la fenêtre. On rétablit localement le contrat réel du worker, plutôt que de
  * scinder le tsconfig pour un seul fichier.
@@ -66,14 +85,7 @@ ctx.onmessage = async (e: MessageEvent<BuildRequest>): Promise<void> => {
       ctx.postMessage({ id, ok: true, empty: true })
       return
     }
-    // Les quatre tampons sont TRANSFÉRÉS (et non copiés) : plusieurs mégaoctets par tuile
-    // dense qui changent de propriétaire sans traverser le sérialiseur.
-    ctx.postMessage({ id, ok: true, empty: false, ...out }, [
-      out.positions.buffer,
-      out.colorIndex.buffer,
-      out.shade.buffer,
-      out.indices.buffer,
-    ])
+    ctx.postMessage({ id, ok: true, empty: false, ...out }, transferablesOf(out))
   } catch (err) {
     if (abort.signal.aborted) return
     ctx.postMessage({ id, ok: false, error: err instanceof Error ? err.message : String(err) })
