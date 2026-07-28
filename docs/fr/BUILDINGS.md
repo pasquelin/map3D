@@ -34,6 +34,7 @@ bâtiment représente pour vous.
 | Menu ouvert | le bâtiment garde `theme.globe.buildingSelectColor` **tant qu'il l'est** |
 | Glissé | déplace la carte, comme d'habitude — aucun menu ne s'ouvre |
 | Échap, molette, clic dehors | referme le menu |
+| Échap à nouveau | quitte l'outil (le menu se referme en premier) |
 
 **La navigation caméra reste entière.** L'outil n'intercepte rien : il lit les mêmes
 événements de pointeur que la carte et ne retient que le clic propre, celui dont le

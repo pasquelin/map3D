@@ -34,6 +34,7 @@ building means to you.
 | Menu open | the building keeps `theme.globe.buildingSelectColor` **for as long as it is** |
 | Drag | pans the map as usual — no menu opens |
 | Escape, wheel, click outside | closes the menu |
+| Escape again | leaves the tool (the menu closes first) |
 
 **Camera navigation stays whole.** The tool intercepts nothing: it reads the same pointer
 events as the map and only keeps the clean click, the one whose movement stays under

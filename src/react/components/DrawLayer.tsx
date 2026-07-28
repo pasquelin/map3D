@@ -421,7 +421,13 @@ export function DrawLayer(props: DrawLayerProps) {
         // `setTool(null)` reprendrait quand même le slot partagé
         // `engine.inputInterceptor` (+ `setDrawing(false)`) alors qu'il appartient
         // à un outil externe (loupe) — celui-ci resterait affiché actif mais mort.
-        if (!coreRef.current?.escape() && toolRef.current !== null) setTool(null)
+        if (!coreRef.current?.escape()) {
+          if (toolRef.current !== null) setTool(null)
+          // Aucun outil de tracé : Échap quitte le pick de bâtiment, qui est armé sur le
+          // moteur et non sur cette couche. Les deux étant exclusifs, l'ordre suffit — et
+          // le menu contextuel, lui, capte déjà Échap pour son propre compte avant nous.
+          else engine.setBuildingPickMode(false)
+        }
       } else if (editKeys.delete.includes(e.key)) {
         coreRef.current?.deleteSelected()
       } else if (e.key.startsWith('Arrow') && selectionRef.current.length > 0) {

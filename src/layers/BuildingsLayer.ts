@@ -375,7 +375,8 @@ export class BuildingsLayer {
       built.shade.byteLength +
       built.buildings.vStart.byteLength +
       built.buildings.featureIds.byteLength +
-      built.buildings.heights.byteLength
+      built.buildings.heights.byteLength +
+      propsBytes(built.buildings.props)
     this.group.add(mesh)
   }
 
@@ -541,8 +542,23 @@ export class BuildingsLayer {
       Math.round(this.rgb.b * 255),
       tile.shade,
     )
-    attr.needsUpdate = true
+    this.uploadRange(attr, from, to)
     this.current[kind] = paint
+  }
+
+  /**
+   * Marque pour ré-upload la SEULE plage repeinte.
+   *
+   * Sans plage déclarée, three renvoie tout l'attribut à la carte graphique
+   * (`bufferSubData(0, array)`) : ~677 Kio pour une tuile z14 dense, à chaque bâtiment
+   * survolé, pour quelques centaines d'octets réellement modifiés. Three fusionne les
+   * plages adjacentes puis les vide de lui-même après l'upload.
+   */
+  private uploadRange(attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, from: number, to: number): void {
+    // `addUpdateRange` n'existe que sur `BufferAttribute` ; la géométrie des tuiles n'est
+    // jamais entrelacée, mais le type de retour de `getAttribute` couvre les deux.
+    if ('addUpdateRange' in attr) attr.addUpdateRange(from * 3, (to - from) * 3)
+    attr.needsUpdate = true
   }
 
   /** Rend ses couleurs d'origine à la plage surlignée d'un genre. */
@@ -557,7 +573,7 @@ export class BuildingsLayer {
     const to = tile?.buildings?.vStart[ref.index + 1]
     if (!attr || from === undefined || to === undefined) return
     restoreRange(attr.array as Uint8Array, from, keep, (to - from) * 3)
-    attr.needsUpdate = true
+    this.uploadRange(attr, from, to)
   }
 
   /** Tuile d'une clé — la file l'indexe déjà, inutile de parcourir le cache. */
@@ -592,6 +608,34 @@ export class BuildingsLayer {
     this.parent.remove(this.group)
   }
 }
+
+/**
+ * Poids RETENU par les attributs de `pickFields`, en octets — une estimation, mais du bon
+ * ordre de grandeur.
+ *
+ * Vide par défaut, donc gratuit ; mais un hôte qui demande deux attributs texte sur une
+ * tuile dense en retient plusieurs centaines de kilo-octets — davantage que tous les
+ * tampons de la table réunis. Les omettre du budget ferait déclencher l'éviction trop tard,
+ * et le plafond `maxBytes` serait dépassé sans que rien ne le voie.
+ */
+function propsBytes(props: Record<string, unknown>[] | null): number {
+  if (!props) return 0
+  let bytes = 0
+  for (const p of props) {
+    // En-tête d'objet + une entrée par clé ; les chaînes comptent leurs caractères (UTF-16).
+    bytes += OBJECT_OVERHEAD
+    for (const k in p) {
+      const v = p[k]
+      bytes += ENTRY_OVERHEAD + k.length * 2 + (typeof v === 'string' ? v.length * 2 : 0)
+    }
+  }
+  return bytes
+}
+
+/** Coût d'un objet JS vide en V8 (en-tête + carte cachée), arrondi. */
+const OBJECT_OVERHEAD = 56
+/** Coût d'une paire clé/valeur dans un objet, hors longueur des chaînes. */
+const ENTRY_OVERHEAD = 24
 
 /**
  * Écart (degrés) des différences finies qui mesurent les échelles locales — ~11 m :
