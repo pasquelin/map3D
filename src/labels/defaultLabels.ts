@@ -54,6 +54,13 @@ export const defaultLabels: MapLabels = {
     // anglophone y met ses traductions, clé par clé.
     catalog: {},
   },
+  plugins: {
+    button: 'Plugins',
+    title: 'Plugins',
+    empty: 'Aucun plugin disponible',
+    toggle: 'Activer {name}',
+    reset: 'Réinitialiser',
+  },
   search: {
     placeholder: 'Rechercher sur la carte…',
     inputLabel: 'Recherche',

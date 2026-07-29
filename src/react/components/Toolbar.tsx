@@ -18,6 +18,7 @@ import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
 import { useAnchoredPanel, useFitColumns } from './panelFit'
+import { PluginHubButton } from './PluginHubButton'
 import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
@@ -27,7 +28,7 @@ import { useTip } from './tooltip'
 
 /** Sections optionnelles de la barre : `false` pour masquer, ReactNode pour remplacer. */
 export type DrawToolbarSection =
-  'navigate' | 'select' | 'symbol' | 'lens' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
+  'navigate' | 'select' | 'symbol' | 'lens' | 'plugins' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
 
 export type DrawToolbarProps = {
   /** Côté d'ancrage de la barre. */
@@ -221,6 +222,7 @@ export function Toolbar({
         {/* Loupe : outil natif de la barre au même titre que les symboles. Le bouton
             s'efface tout seul si la carte est montée sans loupe (`toolbar={{ lens: false }}`). */}
         {slot('lens', <LensToolButton />)}
+        {slot('plugins', <PluginHubButton position={position} />)}
         {extraTools}
         {slot(
           'undo',

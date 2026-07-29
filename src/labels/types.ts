@@ -82,6 +82,19 @@ export type MapLabels = {
      */
     catalog: Record<string, { label?: string; description?: string }>
   }
+  /** Hub « Plugins » de la toolbar (bouton + panneau). */
+  plugins: {
+    /** Tooltip/aria du bouton du hub. */
+    button: string
+    /** Titre du panneau. */
+    title: string
+    /** Aucun plugin enregistré. */
+    empty: string
+    /** aria-label du toggle d'activation d'un plugin — `{name}`. */
+    toggle: string
+    /** Bouton de remise aux défauts d'un plugin. */
+    reset: string
+  }
   /** `<SearchBox>` (le prop `placeholder` du composant reste prioritaire). */
   search: {
     placeholder: string
