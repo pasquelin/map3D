@@ -502,7 +502,7 @@ chaque plugin (README de son paquet) ; il ne la duplique pas.
 | Nom | Paquet npm | Lien | Plage `map3d` compatible |
 |---|---|---|---|
 | Bâtiments France (BDTOPO) | `@map3d/plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
-| Caméras du quartier | `@map3d/plugin-cameras` | `plugingsMap3D/packages/cameras` | `>=0.1.0 <0.2.0` |
+| Caméras du quartier (démo) | `@map3d/plugin-cameras` | `plugingsMap3D/packages/cameras` | `>=0.1.0 <0.2.0` |
 | Plan 3D (placeholder) | `@map3d/plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
 
 Ce registre s'enrichit au fil des plugins officiels publiés dans `plugingsMap3D` —

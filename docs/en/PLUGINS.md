@@ -502,7 +502,7 @@ duplicate it.
 | Name | npm package | Link | Compatible `map3d` range |
 |---|---|---|---|
 | France buildings (BDTOPO) | `@map3d/plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
-| Neighborhood cameras | `@map3d/plugin-cameras` | `plugingsMap3D/packages/cameras` | `>=0.1.0 <0.2.0` |
+| Neighborhood cameras (demo) | `@map3d/plugin-cameras` | `plugingsMap3D/packages/cameras` | `>=0.1.0 <0.2.0` |
 | 3D plan (placeholder) | `@map3d/plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
 
 This registry grows with each official plugin published in `plugingsMap3D` — update
