@@ -22,6 +22,7 @@ import {
 } from './basemap'
 import { boundsOfCircle, boundsOfLatLngs } from './bounds'
 import { Camera, type CameraState } from './Camera'
+import { GroundedState } from './GroundedState'
 import { PedestrianController } from './PedestrianController'
 import { isGroundPlacement } from './pedestrianPlacement'
 import {
@@ -605,7 +606,16 @@ export class MapEngine {
     this.camera.setConfig(this.config)
     // Troisième pilote caméra, monté d'office : au repos il ne coûte rien (aucun rayon,
     // aucun calcul), et `cameraMode` décide seul de qui écrit dans la caméra.
-    this.pedestrianCtl = new PedestrianController(this.threeCamera, this.projection, this.navKeys)
+    // Repli de gravité = le sol ANALYTIQUE (plat, gratuit), jamais la couronne du placement :
+    // en interne il corrige la caméra suspendue au-dessus de la nappe raster non raycastable ;
+    // en externe il vaut `null`, et la gravité garde alors la hauteur précédente plutôt que de
+    // relancer les ~9 rayons de `sampleGroundHeight` à chaque frame au-dessus d'un trou de tuile.
+    this.pedestrianCtl = new PedestrianController(
+      this.threeCamera,
+      this.projection,
+      this.navKeys,
+      () => this.flatGroundElevation,
+    )
     this.pedestrianCtl.setConfig(this.config)
     if (opts.intro === false) {
       // Sans intro : survol nadir direct à l'altitude déduite du zoom (NB : comptée
@@ -859,8 +869,10 @@ export class MapEngine {
   addLayer(layer: Layer): void {
     this.layers.add(layer)
     // Config poussée à l'ajout : une couche montée après un `setConfig` doit partir
-    // avec les réglages courants, pas avec ses défauts.
+    // avec les réglages courants, pas avec ses défauts. Même raison pour la vue au ras
+    // du sol : une couche montée pendant la marche naîtrait sinon en réglage orbital.
     layer.setConfig?.(this.config)
+    if (this.grounded.active) layer.setGrounded?.(true)
   }
 
   removeLayer(layer: Layer): void {
@@ -1293,8 +1305,19 @@ export class MapEngine {
      * Le lire directement supprime au passage les neuf raycasts de la couronne à chaque
      * validation de survol.
      */
-    if (this.provider3d === 'internal') return this.basemap2d.groundElevation
-    return this.projection.sampleGroundHeight(p, ringRadiusMeters)
+    return this.flatGroundElevation ?? this.projection.sampleGroundHeight(p, ringRadiusMeters)
+  }
+
+  /**
+   * Sol ANALYTIQUE du fournisseur courant, ou `null` s'il faut un rayon pour le connaître.
+   *
+   * Le volume interne drape une nappe PLATE à hauteur connue, délibérément non raycastable
+   * (cf. `makeUnraycastable`) : la lire est exact ET gratuit. Source unique, lue par le
+   * placement, la gravité et le suivi de terrain — trois chemins qui divergeaient chacun à
+   * leur façon dès qu'un rayon revenait bredouille.
+   */
+  private get flatGroundElevation(): number | null {
+    return this.provider3d === 'internal' ? this.basemap2d.groundElevation : null
   }
 
   /**
@@ -1320,8 +1343,8 @@ export class MapEngine {
     this.controls.enabled = false
     this.pedestrianCtl.enter(p, ground)
     // Les formes drapées cessent de se dessiner par-dessus le décor : à hauteur d'homme
-    // elles recouvriraient tout l'écran (cf. `setAnnotationDepthTest`).
-    this.setAnnotationDepthTest(true)
+    // elles recouvriraient tout l'écran (cf. `setGroundedView`).
+    this.setGroundedView(true)
     this.applyPedestrianView()
     this.syncPedestrian()
     return true
@@ -1334,7 +1357,7 @@ export class MapEngine {
     this.pedestrianPhase = 'placing'
     this.immersion = 'explore'
     this.releasePlacement()
-    this.setAnnotationDepthTest(false)
+    this.setGroundedView(false)
     this.restoreOrbitView()
     this.controls.enabled = this.interactiveMode === true
     this.syncPedestrian()
@@ -1439,29 +1462,24 @@ export class MapEngine {
    * l'entrée et à la sortie du mode. Jamais par frame.
    */
   /**
-   * Rend (ou retire) le test de profondeur aux annotations drapées — formes, zones, tracés.
+   * Annonce aux couches que la caméra passe (ou non) au ras du sol — elles en déduisent le
+   * test de profondeur de leurs annotations plates (cf. `flatMaterial`).
    *
-   * ⚠️ `flatMaterial` les dessine PAR-DESSUS tout (`depthTest: false`) pour qu'une forme au
-   * sol ne soit pas occluse par le relief : c'est juste vu du ciel, où l'on regarde la zone
-   * d'en haut. À hauteur d'homme on est DEDANS, et la même règle la fait recouvrir tout
-   * l'écran — bâtiments compris, qui prennent alors sa teinte translucide.
-   *
-   * Rejoué à l'entrée et à la sortie seulement : une forme ajoutée pendant la marche garde
-   * son réglage d'origine jusqu'au prochain basculement.
+   * ⚠️ C'est une DIFFUSION, pas une retouche des matériaux en scène. Le balayage qu'elle
+   * remplace ne pouvait pas tenir, pour deux raisons mesurées :
+   * — il ne rattrapait pas les drapes reconstruits après lui (le resettle LOD en rebâtit
+   *   ~100 ms après l'entrée, avec le réglage par défaut) ;
+   * — il forçait le MÊME réglage à tous les matériaux d'annotation, donc en sortie il
+   *   passait aussi `volumeMaterial` et `edgeMaterial` à `false`, alors qu'un volume doit
+   *   toujours être occulté par le bâti qui passe devant lui.
    */
-  private setAnnotationDepthTest(enabled: boolean): void {
-    this.annotations.traverse((o) => {
-      const material = (o as THREE.Mesh).material
-      if (!material) return
-      const apply = (m: THREE.Material) => {
-        if (m.depthTest === enabled) return
-        m.depthTest = enabled
-        m.needsUpdate = true
-      }
-      if (Array.isArray(material)) for (const m of material) apply(m)
-      else apply(material)
-    })
+  private setGroundedView(grounded: boolean): void {
+    if (!this.grounded.set(grounded)) return
+    for (const layer of this.layers) layer.setGrounded?.(grounded)
   }
+
+  /** Vue au ras du sol courante — rejouée à l'ajout d'une couche (cf. `addLayer`). */
+  private readonly grounded = new GroundedState()
 
   private refreshFogMaterials(): void {
     // LES DEUX surfaces : le tileset photoréaliste ET la surface reconstruite localement
@@ -1651,7 +1669,20 @@ export class MapEngine {
   private trackTerrainElevation(): void {
     // Les bornes de plausibilité (artefacts du LOD racine) sont appliquées DANS
     // Projection.pickHeight/sampleSurfaceHeight — un seul endroit pour tous les appelants.
-    const e = this.projection.pickHeight(this.size.width / 2, this.size.height / 2, this.threeCamera)
+    const picked = this.projection.pickHeight(this.size.width / 2, this.size.height / 2, this.threeCamera)
+    /**
+     * Repli analytique quand le rayon ne touche rien — pas un confort, la condition de
+     * décollage de l'intro.
+     *
+     * ⚠️ En fournisseur INTERNE, la seule géométrie touchable est le bâti extrudé, qui ne
+     * se charge qu'à BASSE altitude. Or l'intro attend `terrainKnown` depuis la vue
+     * planétaire, et c'est elle qui fait descendre la caméra : la condition ne pouvait pas
+     * être satisfaite avant d'être devenue inutile. Le garde-fou de `introMaxWaitMs`
+     * partait donc à CHAQUE démarrage à froid — mesuré : intro décollée à 8,4 s, terrain
+     * réellement connu à 11,0 s. Le sol interne étant plat et à hauteur connue, il n'y a
+     * rien à attendre.
+     */
+    const e = picked ?? this.flatGroundElevation
     if (e !== null) {
       this.terrainElevation = e
       this.terrainKnown = true

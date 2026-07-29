@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import { EnuFrame } from '../core/enu'
+import { GroundedState } from '../core/GroundedState'
 import type { SymbolRenderer } from '../symbols/types'
 import { HEIGHT_EPSILON, HeightResettle } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
@@ -392,6 +393,21 @@ export class DrawLayer implements Layer {
   setConfig(config: MapConfig): void {
     this.config = config
     this.history.setDepth(config.interaction.history.depth)
+  }
+
+  /** Vue au ras du sol — cf. `Layer.setGrounded` et `GroundedState`. */
+  private readonly grounded = new GroundedState()
+
+  /** Test de profondeur des matériaux plats, relu à chaque `rebuildOne`. */
+  private get flatDepthTest(): boolean {
+    return this.grounded.active
+  }
+
+  setGrounded(grounded: boolean): void {
+    if (!this.grounded.set(grounded)) return
+    // Reconstruction plutôt que retouche : `rebuildOne` reste le seul endroit qui décide
+    // de la profondeur (cf. `DrapedLayer.setGrounded`). Deux fois par session piétonne.
+    for (const d of this.drawings) this.rebuildOne(d, false)
   }
 
   constructor(
@@ -1578,7 +1594,10 @@ export class DrawLayer implements Layer {
     if (closed && points.length > 2 && d.fillOpacity > 0) {
       const fg = fillGeo(points)
       if (fg) {
-        const m = new THREE.Mesh(fg, fillMaterial(d.fillColor ?? d.color, d.fillOpacity * (preview ? 0.6 : 1)))
+        const m = new THREE.Mesh(
+          fg,
+          fillMaterial(d.fillColor ?? d.color, this.flatDepthTest, d.fillOpacity * (preview ? 0.6 : 1)),
+        )
         m.renderOrder = this.renderOrder
         enu.add(m)
       }
@@ -1591,7 +1610,7 @@ export class DrawLayer implements Layer {
         rg = dashedRibbon(points, widthMeters, 8 * mpp, 6 * mpp, false)
         const tg = strokePolylines(endTicks(points, 10 * mpp), widthMeters)
         if (tg) {
-          const m = new THREE.Mesh(tg, strokeMaterial(d.color, strokeOpacity))
+          const m = new THREE.Mesh(tg, strokeMaterial(d.color, this.flatDepthTest, strokeOpacity))
           m.renderOrder = this.renderOrder + 1
           enu.add(m)
         }
@@ -1603,7 +1622,7 @@ export class DrawLayer implements Layer {
         rg = ribbon(points, widthMeters, closed)
       }
       if (rg) {
-        const m = new THREE.Mesh(rg, strokeMaterial(d.color, strokeOpacity))
+        const m = new THREE.Mesh(rg, strokeMaterial(d.color, this.flatDepthTest, strokeOpacity))
         m.renderOrder = this.renderOrder + 1
         enu.add(m)
       }
@@ -1611,7 +1630,7 @@ export class DrawLayer implements Layer {
     if (d.kind === 'arrow') {
       const ah = arrowHead(points, widthMeters)
       if (ah) {
-        const m = new THREE.Mesh(ah, strokeMaterial(d.color, strokeOpacity))
+        const m = new THREE.Mesh(ah, strokeMaterial(d.color, this.flatDepthTest, strokeOpacity))
         m.renderOrder = this.renderOrder + 1
         enu.add(m)
       }

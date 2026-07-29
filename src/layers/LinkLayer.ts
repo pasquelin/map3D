@@ -313,7 +313,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
         ),
       )
       if (!geo) return null
-      const material = fillMaterial(visual.color, visual.opacity)
+      const material = fillMaterial(visual.color, this.flatDepthTest, visual.opacity)
       const mesh = new THREE.Mesh(geo, material)
       mesh.renderOrder = order
       enu.add(mesh)
@@ -348,7 +348,11 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     if (this.defaults.casingWidth > 0 && !visual.dash) {
       const cg = build(width + this.defaults.casingWidth * mpp)
       if (cg) {
-        casing = strokeMaterial(this.defaults.casingColor, visual.opacity * CASING_OPACITY_RATIO)
+        casing = strokeMaterial(
+          this.defaults.casingColor,
+          this.flatDepthTest,
+          visual.opacity * CASING_OPACITY_RATIO,
+        )
         const cm = new THREE.Mesh(cg, casing)
         cm.renderOrder = order
         enu.add(cm)
@@ -360,14 +364,20 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     if (visual.dash) {
       // Longueurs posées juste après par `applyDash` (point de conversion unique) ;
       // les couleurs le sont par `applyColor`.
-      const dashed = dashedStrokeMaterial([visual.color], visual.opacity, 0, 0, visual.dash.gapOpacity)
+      const dashed = dashedStrokeMaterial([visual.color], {
+        depthTest: this.flatDepthTest,
+        opacity: visual.opacity,
+        dash: 0,
+        gap: 0,
+        gapOpacity: visual.dash.gapOpacity,
+      })
       // Le motif reprend là où le précédent en était : sans ce report, chaque rebuild
       // (palier de zoom, hauteur de drapage résolue) ferait sauter le pointillé.
       if (previous?.dash) dashed.dash.offset.value = previous.dash.material.dash.offset.value
       dash = { material: dashed, speed: 0 }
       material = dashed
     } else {
-      material = strokeMaterial(visual.color, visual.opacity)
+      material = strokeMaterial(visual.color, this.flatDepthTest, visual.opacity)
     }
     const mesh = new THREE.Mesh(geometry, material)
     mesh.renderOrder = order + 1

@@ -4,6 +4,7 @@ import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { Projection } from '../core/Projection'
 import { clearGroup, disposeObject3D } from '../core/geometry'
+import { GroundedState } from '../core/GroundedState'
 import { DrapeSync } from '../core/resettle'
 import type { LatLng } from '../shared'
 
@@ -73,10 +74,7 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
           return this.mpp(d.anchor, this.heightOf(d)) / d.mpp
         },
         rebuild: (i) => this.rebuildDrape(i),
-        remove: (i) => {
-          this.onDropDrape?.(this.drapes[i]!)
-          this.drapes.splice(i, 1)
-        },
+        remove: (i) => this.dropDrape(i),
         applyBasis: (i) => {
           const d = this.drapes[i]!
           this.projection.enuBasisFor(d.anchor, d.enu.matrix, this.heightOf(d))
@@ -95,6 +93,42 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
 
   setConfig(config: MapConfig): void {
     this.config = config
+  }
+
+  /** Vue au ras du sol — cf. `Layer.setGrounded` et `GroundedState`. */
+  private readonly grounded = new GroundedState()
+
+  /**
+   * Test de profondeur à donner aux matériaux PLATS, à relire dans chaque `buildDrape`.
+   *
+   * Volumes et arêtes n'en dépendent pas : ils testent toujours la profondeur (cf.
+   * `volumeMaterial`, `edgeMaterial`). Les confondre est ce qui rendait un balayage
+   * global faux dans un sens comme dans l'autre.
+   */
+  protected get flatDepthTest(): boolean {
+    return this.grounded.active
+  }
+
+  setGrounded(grounded: boolean): void {
+    if (!this.grounded.set(grounded)) return
+    /**
+     * On RECONSTRUIT plutôt que de retoucher les matériaux en place : `buildDrape` est
+     * alors le seul endroit qui décide de la profondeur, et il n'existe pas de second
+     * chemin susceptible de diverger. Retoucher aurait de toute façon laissé passer les
+     * drapes reconstruits ensuite par le resettle — le défaut même qu'on corrige ici.
+     *
+     * Deux fois par session piétonne (entrée, sortie), jamais par frame.
+     */
+    for (let i = this.drapes.length - 1; i >= 0; i--) {
+      if (this.rebuildDrape(i)) continue
+      this.dropDrape(i) // Échec = drape devenu invalide.
+    }
+  }
+
+  /** Retire un drape : libère son hors-scène (étiquette DOM…) puis le sort de la liste. */
+  private dropDrape(i: number): void {
+    this.onDropDrape?.(this.drapes[i]!)
+    this.drapes.splice(i, 1)
   }
 
   /** Ancre géo d'un item : origine de son repère ENU. Doit tolérer un item vide. */

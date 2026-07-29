@@ -106,6 +106,16 @@ export class PedestrianController {
     private readonly camera: THREE.PerspectiveCamera,
     private readonly projection: Projection,
     private readonly navKeys: NavKeys,
+    /**
+     * Niveau de rue ANALYTIQUE sous les pieds — plat et à hauteur connue —, repli de gravité
+     * quand AUCUN volume n'est touché sous les pieds.
+     *
+     * `null` = il faudrait un rayon pour le connaître (fournisseur externe) : on garde alors
+     * la hauteur précédente, sans JAMAIS relancer la couronne d'échantillonnage en boucle de
+     * marche. En interne la chaussée est une nappe raster non raycastable, donc le rayon court
+     * manque toujours et ce repli plat est le seul sol disponible.
+     */
+    private readonly flatGroundLevel: () => number | null,
   ) {}
 
   setConfig(config: MapConfig): void {
@@ -276,10 +286,24 @@ export class PedestrianController {
     this.rayFrom.copy(this.origin).addScaledVector(this.up, probeUp)
     this.rayDir.copy(this.up).negate()
     const distance = this.projection.castRay(this.rayFrom, this.rayDir, probeUp + c.groundProbeMeters, this.rayHit)
-    // Sol introuvable — hors de portée, ou surface non raycastable (le raster du volume
-    // interne) : on garde la hauteur précédente plutôt que de tomber au centre de la Terre.
-    if (distance === null) return
-    const sampled = this.groundHeight + probeUp - distance
+    /**
+     * Rayon dans le vide : il n'y a pas de VOLUME sous les pieds, ce qui ne veut pas dire
+     * qu'il n'y a pas de sol.
+     *
+     * ⚠️ En fournisseur INTERNE, la chaussée est une nappe raster plate et délibérément non
+     * raycastable (cf. `makeUnraycastable`) : aucun rayon ne la rencontre jamais, et la
+     * gravité restait donc inerte dès qu'on n'avait pas un bâtiment sous les pieds. Le
+     * piéton gardait sa hauteur précédente — d'où une caméra suspendue en l'air après un
+     * changement de fournisseur, qui déplace le sol sans la déplacer, elle.
+     *
+     * Ce sol-là est PLAT et à hauteur connue : il se résout analytiquement (`flatGroundLevel`),
+     * sans rayon. En fournisseur externe ce repli vaut `null` — on garde alors la hauteur
+     * précédente plutôt que de relancer la couronne d'échantillonnage à chaque frame.
+     */
+    const sampled = distance === null ? this.flatGroundLevel() : this.groundHeight + probeUp - distance
+    // Ni volume ni sol analytique : on garde la hauteur précédente plutôt que de tomber au
+    // centre de la Terre.
+    if (sampled === null) return
     // Une montée trop raide pendant un pas est un mur, pas une marche : on ne monte pas.
     const target = moved ? stepGround(this.groundHeight, sampled, c.collision.maxStepHeightMeters) : sampled
     if (target === null) return

@@ -199,7 +199,7 @@ export class ShapeLayer extends DrapedLayer<ShapeData> {
     if (closed && points.length > 2 && fillOpacity > 0) {
       const fg = fillGeo(points)
       if (fg) {
-        const m = new THREE.Mesh(fg, fillMaterial(color, fillOpacity))
+        const m = new THREE.Mesh(fg, fillMaterial(color, this.flatDepthTest, fillOpacity))
         m.renderOrder = this.defaults.renderOrder
         enu.add(m)
       }
@@ -214,7 +214,7 @@ export class ShapeLayer extends DrapedLayer<ShapeData> {
     if (extrude <= 0) {
       const rg = ribbon(points, width, closed)
       if (rg) {
-        const m = new THREE.Mesh(rg, strokeMaterial(color))
+        const m = new THREE.Mesh(rg, strokeMaterial(color, this.flatDepthTest))
         m.renderOrder = this.defaults.renderOrder + 1
         enu.add(m)
       }

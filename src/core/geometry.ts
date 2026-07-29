@@ -345,17 +345,30 @@ export function arrowHead(points: readonly Pt[], width: number): THREE.BufferGeo
 }
 
 /**
- * Matériau plat plaqué au sol (trait comme remplissage). `depthTest:false` →
- * l'annotation se dessine PAR-DESSUS les tuiles 3D (bâtiments), sinon une forme
- * au sol est occluse par le relief et devient invisible.
+ * Matériau plat plaqué au sol (trait comme remplissage).
+ *
+ * `depthTest` est un PARAMÈTRE, jamais une constante, et il est obligatoire : les deux
+ * réglages sont justes, mais pas dans la même vue.
+ * — Vue orbitale (`false`) : l'annotation se dessine par-dessus les tuiles 3D, sinon une
+ *   forme au sol est occluse par le relief et devient invisible.
+ * — Vue au ras du sol (`true`) : on est DEDANS, et la même règle la ferait recouvrir tout
+ *   l'écran, bâtiments compris, qui prendraient sa teinte translucide.
+ *
+ * La politique est décidée par le moteur et lue ICI, à la construction. Un balayage qui
+ * corrigerait les matériaux après coup ne peut PAS tenir : un resettle de drapage
+ * reconstruit les meshes une frame plus tard, et les rebâtit avec le réglage par défaut.
  */
-function flatMaterial(color: THREE.ColorRepresentation, opacity: number): THREE.MeshBasicMaterial {
+function flatMaterial(
+  color: THREE.ColorRepresentation,
+  depthTest: boolean,
+  opacity: number,
+): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
     color,
     side: THREE.DoubleSide,
     transparent: true,
     opacity,
-    depthTest: false,
+    depthTest,
     depthWrite: false,
   })
 }
@@ -373,12 +386,13 @@ export const DEFAULT_STROKE_OPACITY = 0.95
 /** La règle de mesure est volontairement plus discrète que les autres tracés. */
 export const MEASURE_STROKE_OPACITY = 0.85
 
-/** Matériau de trait plaqué au sol. */
+/** Matériau de trait plaqué au sol. `depthTest` : cf. `flatMaterial`. */
 export function strokeMaterial(
   color: THREE.ColorRepresentation,
+  depthTest: boolean,
   opacity = DEFAULT_STROKE_OPACITY,
 ): THREE.MeshBasicMaterial {
-  return flatMaterial(color, opacity)
+  return flatMaterial(color, depthTest, opacity)
 }
 
 /**
@@ -425,15 +439,15 @@ export const MAX_DASH_COLORS = 8
 
 export function dashedStrokeMaterial(
   colors: readonly THREE.ColorRepresentation[],
-  opacity: number,
-  dash: number,
-  gap: number,
-  gapOpacity: number,
+  // Objet d'options et non paramètres positionnels : `dash`, `gap` et `gapOpacity` sont trois
+  // nombres voisins qu'un ordre inversé mélangerait sans que le compilateur bronche.
+  opts: { depthTest: boolean; opacity: number; dash: number; gap: number; gapOpacity: number },
 ): DashedMaterial {
+  const { depthTest, opacity, dash, gap, gapOpacity } = opts
   // `color` du matériau = MULTIPLICATEUR, pas la teinte : la teinte vient du tableau
   // d'uniformes. C'est ce qui laisse `applyColor` assombrir un trait survolé sans
   // avoir à réécrire toutes ses couleurs (blanc = intact).
-  const material = flatMaterial(0xffffff, opacity) as DashedMaterial
+  const material = flatMaterial(0xffffff, depthTest, opacity) as DashedMaterial
   const uniforms = {
     dash: { value: dash },
     gap: { value: gap },
@@ -622,9 +636,13 @@ export function prismWalls(
   return g
 }
 
-/** Matériau de remplissage plaqué au sol. */
-export function fillMaterial(color: THREE.ColorRepresentation, opacity: number): THREE.MeshBasicMaterial {
-  return flatMaterial(color, opacity)
+/** Matériau de remplissage plaqué au sol. `depthTest` : cf. `flatMaterial`. */
+export function fillMaterial(
+  color: THREE.ColorRepresentation,
+  depthTest: boolean,
+  opacity: number,
+): THREE.MeshBasicMaterial {
+  return flatMaterial(color, depthTest, opacity)
 }
 
 /** Libère géométries + matériaux d'un objet Three et de toute sa descendance. */

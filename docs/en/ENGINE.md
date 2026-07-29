@@ -110,6 +110,7 @@ interface Layer {
   project(ctx: FrameContext): void   // writes the DOM overlays — a pure WRITE pass
   dispose(): void
   setConfig?(config: MapConfig): void
+  setGrounded?(grounded: boolean): void  // camera at ground level (pedestrian mode)
 }
 
 type FrameContext = {
@@ -130,6 +131,16 @@ than a handful of overlays.
 React wrapper: wired React-side, the child's effect would run before the parent's effect
 that sets the new config — so the layer would read the old one, without its dependency
 ever moving.
+
+`setGrounded` uses the same channel, on entering and leaving pedestrian mode. It is not a
+setting but a **view state**: it changes with the camera, not with what the host asks for.
+A layer that drapes flat annotations uses it to decide their depth test — seen from above,
+a ground-level shape draws over the terrain, otherwise it would be occluded and invisible;
+at eye level you are *inside* it, and the same rule would make it cover the whole screen.
+
+⚠️ Read this state **on every geometry build**, never once and for all: a drape can be
+rebuilt at any moment by the LOD resettle, and it would come back with the wrong setting.
+Patching the materials already in the scene is therefore not enough.
 
 ### Mounting it from React
 

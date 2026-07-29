@@ -442,11 +442,13 @@ export const defaultConfig: MapConfig = {
 
   pedestrian: {
     eyeHeightMeters: 1.7,
-    // 3 m/s : la marche réelle (1,4) donne l'impression de faire du surplace dans un décor
-    // à l'échelle. Un pas plus vif se lit mieux, et `sprintFactor` reste là pour couvrir
-    // du terrain. À ramener à 1,4 pour une vitesse fidèle.
-    walkSpeed: 3,
-    sprintFactor: 3,
+    // 5 m/s (18 km/h) : la marche réelle (1,4) donne l'impression de faire du surplace dans
+    // un décor à l'échelle, et 3 restait trop lent pour traverser un quartier. Le décor
+    // défile à un rythme lisible à hauteur d'homme. À ramener à 1,4 pour une vitesse fidèle.
+    walkSpeed: 5,
+    // 2 et non 3 : le facteur multiplie une base désormais plus vive. À 3, la touche `boost`
+    // donnait 15 m/s (54 km/h) — on ne lit plus rien de ce qu'on traverse.
+    sprintFactor: 2,
     lookSpeed: 0.15,
     // Convention du glisser de carte : tirer la souris vers le BAS relève la vue, comme le
     // pan de `GlobeControls`. Passer à `false` donne la convention FPS.

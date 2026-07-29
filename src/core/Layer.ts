@@ -40,4 +40,15 @@ export type Layer = {
    * config — la couche lisait donc l'ancienne, sans que sa dépendance rebouge.
    */
   setConfig?(config: MapConfig): void
+  /**
+   * Caméra au ras du sol (mode piéton) ou non. Diffusé par le moteur sur le même canal
+   * que `setConfig` : à l'ajout de la couche, puis à chaque bascule du mode.
+   *
+   * Ce n'est PAS un réglage mais un état de vue, d'où un canal distinct de `config` :
+   * il change avec la caméra, pas avec ce que l'hôte demande. Une couche qui drape des
+   * annotations plates s'en sert pour décider leur test de profondeur (cf.
+   * `flatMaterial`) — et doit le relire à CHAQUE construction, un drape pouvant être
+   * reconstruit à tout instant par le resettle LOD.
+   */
+  setGrounded?(grounded: boolean): void
 }

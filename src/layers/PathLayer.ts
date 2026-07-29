@@ -84,14 +84,17 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     if (path.casing ?? true) {
       const cg = ribbon(pts, width + this.defaults.casingWidth * mpp, false)
       if (cg) {
-        const mesh = new THREE.Mesh(cg, strokeMaterial(path.casingColor ?? this.defaults.casingColor, 0.9))
+        const mesh = new THREE.Mesh(
+          cg,
+          strokeMaterial(path.casingColor ?? this.defaults.casingColor, this.flatDepthTest, 0.9),
+        )
         mesh.renderOrder = this.defaults.renderOrder
         enu.add(mesh)
       }
     }
     const mg = ribbon(pts, width, false)
     if (mg) {
-      const mesh = new THREE.Mesh(mg, strokeMaterial(color))
+      const mesh = new THREE.Mesh(mg, strokeMaterial(color, this.flatDepthTest))
       mesh.renderOrder = this.defaults.renderOrder + 1
       enu.add(mesh)
     }
@@ -102,7 +105,7 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
       // visiblement plus facettée que les autres disques de la carte.
       const ring = fillGeo(circlePoints({ x: 0, z: 0 }, width * 1.6, this.config.performance.circleSegments))
       if (ring) {
-        const mat = fillMaterial(color, 0.5)
+        const mat = fillMaterial(color, this.flatDepthTest, 0.5)
         const mesh = new THREE.Mesh(ring, mat)
         mesh.position.set(last.x, 0, last.z)
         mesh.renderOrder = this.defaults.renderOrder + 2

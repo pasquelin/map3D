@@ -289,6 +289,30 @@ export function ConfigPane(props: ConfigPaneProps) {
     }
     addNodes(configPage, tree, 0)
 
+    /**
+     * Raccourci « Mode piéton » sur l'onglet Carte.
+     *
+     * Ce sont les MÊMES feuilles que dans « Réglages », pas une copie : les deux
+     * contrôleurs écrivent dans `flat`, ils ne peuvent donc pas diverger. Ces trois-là se
+     * règlent EN MARCHANT, et les chercher parmi deux cents champs repliés cassait le geste.
+     *
+     * Pas dans `uiTab` malgré l'apparence : cet onglet possède `UiSettings` (les surfaces
+     * de `<Map>`) et ignore `MapConfig` — y brancher de la config y dupliquerait l'état.
+     */
+    const PEDESTRIAN_SHORTCUTS = ['pedestrian.walkSpeed', 'pedestrian.sprintFactor', 'pedestrian.eyeHeightMeters']
+    const walkFolder = mapPage.addFolder({ title: 'Mode piéton', expanded: true })
+    for (const path of PEDESTRIAN_SHORTCUTS) {
+      const leaf = leaves.find((l) => l.path === path)
+      if (!leaf) continue
+      walkFolder.addBinding(flat, leaf.path, paramsFor(leaf)).on('change', (ev) => {
+        push(ev.last, leaf)
+        // Le jumeau dans « Réglages » doit suivre — mais à la FIN du geste seulement :
+        // rafraîchir la page à chaque `pointermove` repeindrait ses ~200 contrôleurs sur
+        // le thread qui rend la 3D, c'est-à-dire en faussant la fluidité qu'on juge.
+        if (ev.last) configPage.refresh()
+      })
+    }
+
     // ── Onglets « Interface » et « Données » ────────────────────────────────────
     // `propsRef` EST le contexte des deux onglets : `ConfigPaneProps` contient déjà
     // leurs champs, et c'est lui qui porte le dernier render. Un getter qui en

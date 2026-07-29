@@ -44,6 +44,8 @@ export class TiledGlobeLayer {
   readonly group = new THREE.Group()
   private readonly ocean: THREE.Mesh
   private readonly scratch = new THREE.Vector3()
+  /** Origine locale de la tuile en cours de construction (cf. `buildMesh`). */
+  private readonly tileOrigin = new THREE.Vector3()
   private elevation = 0
   private traffic = false
   private disposed = false
@@ -327,12 +329,36 @@ export class TiledGlobeLayer {
     return img
   }
 
-  /** Construit la géométrie (grille projetée sur l'ellipsoïde) + texture d'une tuile. */
+  /**
+   * Construit la géométrie (grille projetée sur l'ellipsoïde) + texture d'une tuile.
+   *
+   * ⚠️ Les sommets sont stockés RELATIVEMENT au centre de la tuile, dont la position monde
+   * est portée par la matrice du mesh — jamais en coordonnées ECEF absolues.
+   *
+   * Un `Float32BufferAttribute` ne garde que 24 bits de mantisse : à la magnitude d'un
+   * rayon terrestre (6,4·10⁶ m), son pas de quantification vaut **50 cm**. Les sommets
+   * étaient donc collés sur une grille de 50 cm, et surtout la `modelViewMatrix` — dont la
+   * translation valait elle aussi 6,4·10⁶ — était uploadée en float32 : le produit
+   * sommet × matrice perdait sa précision par cancellation, d'une façon qui CHANGE avec la
+   * position de la caméra. Mesuré à 65 m : 14 cm d'erreur, qui varient de 15 cm (≈ 2 px)
+   * pour 50 cm de déplacement, et d'un montant différent par sommet — le sol gondolait.
+   *
+   * En repère local, les sommets ne dépassent pas la taille de la tuile et la translation
+   * de la matrice est calculée en float64 côté CPU, puis réduite à (tuile − caméra) : deux
+   * grandeurs petites, donc justes. C'est le motif que `BuildingsLayer` applique déjà.
+   */
   private buildMesh(t: RasterTile): void {
     const seg = segFor(t.z)
     const positions: number[] = []
     const uvs: number[] = []
     const indices: number[] = []
+    const origin = this.tileOrigin
+    this.ellipsoid.getCartographicToPosition(
+      tileYToLat(t.y + 0.5, t.z) * DEG2RAD,
+      tileXToLng(t.x + 0.5, t.z) * DEG2RAD,
+      this.elevation,
+      origin,
+    )
     for (let iy = 0; iy <= seg; iy++) {
       for (let ix = 0; ix <= seg; ix++) {
         const fx = ix / seg
@@ -341,7 +367,8 @@ export class TiledGlobeLayer {
         const lng = tileXToLng(t.x + fx, t.z)
         const lat = tileYToLat(t.y + fy, t.z)
         this.ellipsoid.getCartographicToPosition(lat * DEG2RAD, lng * DEG2RAD, this.elevation, this.scratch)
-        positions.push(this.scratch.x, this.scratch.y, this.scratch.z)
+        // La soustraction se fait ICI, en float64 : c'est elle qui sauve la précision.
+        positions.push(this.scratch.x - origin.x, this.scratch.y - origin.y, this.scratch.z - origin.z)
         uvs.push(fx, fy)
       }
     }
@@ -385,6 +412,8 @@ export class TiledGlobeLayer {
     // renderOrder dans la bande (-1, 0) : au-dessus des étoiles (-1), sous les zones/
     // tracés/dessins (≥ 1). Fin (z élevé) → ordre plus haut → peint par-dessus la coarse.
     const mesh = new THREE.Mesh(geo, mat)
+    // La position monde vit dans la matrice, pas dans les sommets (cf. l'en-tête).
+    mesh.position.copy(origin)
     mesh.renderOrder = -0.8 + t.z * 0.005
     /**
      * Jamais touchée par un rayon, comme l'océan. Sous `TilesGroup`, ce fond ne l'était

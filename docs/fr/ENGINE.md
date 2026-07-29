@@ -110,6 +110,7 @@ interface Layer {
   project(ctx: FrameContext): void   // écrit les overlays DOM — passe d'ÉCRITURE pure
   dispose(): void
   setConfig?(config: MapConfig): void
+  setGrounded?(grounded: boolean): void  // caméra au ras du sol (mode piéton)
 }
 
 type FrameContext = {
@@ -130,6 +131,17 @@ un layout thrashing dès qu'il y a plus d'une poignée d'overlays.
 non par un wrapper React : câblé côté React, l'effet de l'enfant s'exécuterait avant
 celui du parent qui pose la nouvelle config — la couche lirait donc l'ancienne, sans
 que sa dépendance rebouge.
+
+`setGrounded` emprunte le même canal, à l'entrée et à la sortie du mode piéton. Ce n'est
+pas un réglage mais un **état de vue** : il change avec la caméra, pas avec ce que l'hôte
+demande. Une couche qui drape des annotations plates s'en sert pour décider leur test de
+profondeur — vue du ciel une forme au sol se dessine par-dessus le relief, sinon elle
+serait occluse et invisible ; à hauteur d'homme on est *dedans*, et la même règle lui
+ferait recouvrir tout l'écran.
+
+⚠️ Cet état se relit **à chaque construction de géométrie**, jamais une fois pour toutes :
+un drape peut être reconstruit à tout instant par le resettle LOD, et il renaîtrait avec
+le mauvais réglage. Retoucher les matériaux déjà en scène ne suffit donc pas.
 
 ### Le montage React
 
