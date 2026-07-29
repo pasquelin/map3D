@@ -38,6 +38,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 | [CAMERA.md](CAMERA.md) | position initiale, `ready`, vols, cadrage, carte figée, fond de carte |
 | [TILES.md](TILES.md) | fournisseur de tuiles : Google ou serveur auto-hébergé, capacités et boutons |
 | [BUILDINGS.md](BUILDINGS.md) | sélection d'un bâtiment du volume interne : outil, `buildingMenu`, attributs remontés |
+| [PLUGINS.md](PLUGINS.md) | guide auteur des plugins : contrat, config, source de données, enrichissement au pick, hub, registre des officiels |
 | [DATA.md](DATA.md) | viewport-driven, temps réel, tags, épinglage, persistance |
 | [HOOKS.md](HOOKS.md) | tous les hooks, et ce qui fait re-rendre quoi |
 | [ENGINE.md](ENGINE.md) | moteur, events, registres, couches custom |
@@ -66,6 +67,7 @@ ne peut diverger de ce que la lib applique :
 | servir vos tuiles depuis votre serveur | [TILES.md § 2](TILES.md#2-régler-le-serveur-interne) |
 | ouvrir un menu sur un bâtiment 3D | [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--le-contrat) |
 | écrire votre propre couche | [ENGINE.md § 3](ENGINE.md#3-écrire-une-couche) |
+| ajouter un plugin (source tierce) | [PLUGINS.md § 1](PLUGINS.md#1-concept-et-modèle-mental) |
 
 ### Les trois arbres de réglages
 

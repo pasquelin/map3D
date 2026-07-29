@@ -92,6 +92,7 @@ export function App() {
 | Search | [SEARCH.md](docs/fr/SEARCH.md) | [SEARCH.md](docs/en/SEARCH.md) |
 | Camera | [CAMERA.md](docs/fr/CAMERA.md) | [CAMERA.md](docs/en/CAMERA.md) |
 | Tiles | [TILES.md](docs/fr/TILES.md) | [TILES.md](docs/en/TILES.md) |
+| Plugins | [PLUGINS.md](docs/fr/PLUGINS.md) | [PLUGINS.md](docs/en/PLUGINS.md) |
 | Data | [DATA.md](docs/fr/DATA.md) | [DATA.md](docs/en/DATA.md) |
 | Hooks | [HOOKS.md](docs/fr/HOOKS.md) | [HOOKS.md](docs/en/HOOKS.md) |
 | Engine | [ENGINE.md](docs/fr/ENGINE.md) | [ENGINE.md](docs/en/ENGINE.md) |

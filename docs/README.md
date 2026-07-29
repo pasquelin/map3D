@@ -25,7 +25,7 @@ docs/
 │   ├── README.md      guide + index
 │   ├── MARKERS.md  ZONES.md  DRAWING.md  SYMBOLS.md  RELATIONS.md
 │   ├── LENS.md     SEARCH.md CAMERA.md   DATA.md     HOOKS.md  ENGINE.md
-│   ├── TILES.md    BUILDINGS.md
+│   ├── TILES.md    BUILDINGS.md PLUGINS.md
 │   └── CONFIG.md   THEME.md  LABELS.md   PROPS.md          ← références
 └── en/
     └── (mêmes fichiers / same files)
@@ -43,6 +43,7 @@ docs/
 | Recherche / Search | [fr](fr/SEARCH.md) | [en](en/SEARCH.md) |
 | Caméra / Camera | [fr](fr/CAMERA.md) | [en](en/CAMERA.md) |
 | Bâtiments / Buildings | [fr](fr/BUILDINGS.md) | [en](en/BUILDINGS.md) |
+| Plugins | [fr](fr/PLUGINS.md) | [en](en/PLUGINS.md) |
 | Données / Data | [fr](fr/DATA.md) | [en](en/DATA.md) |
 | Hooks | [fr](fr/HOOKS.md) | [en](en/HOOKS.md) |
 | Moteur / Engine | [fr](fr/ENGINE.md) | [en](en/ENGINE.md) |

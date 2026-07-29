@@ -300,6 +300,7 @@ partiel est une erreur de compilation.
 | `data.storageKeys.tagFilter` | Sélection du filtre « Couches ». | `'m3d:tag-filter'` |
 | `data.storageKeys.drawSettings` | Réglages de style par outil de dessin. | `'m3d:draw-settings'` |
 | `data.storageKeys.searchHistory` | Historique de la boîte de recherche. | `'m3d:search-history'` |
+| `data.storageKeys.plugins` | État des plugins (activation + config), cf. [PLUGINS.md § 8](PLUGINS.md#8-le-hub-et-la-config-utilisateur). | `'m3d:plugins'` |
 | `data.search.minQuery` | Longueur minimale de saisie avant d'interroger les fournisseurs. | `2` |
 | `data.search.debounceMs` | Anti-rebond de la frappe. 💰 Le levier le plus direct sur le nombre d'appels. | `250` |
 | `data.search.limitPerGroup` | Résultats affichés par rubrique. | `6` |

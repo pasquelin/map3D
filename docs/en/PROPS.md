@@ -32,6 +32,7 @@ Root — mounts the engine and every surface.
 | `positionStorageKey` | localStorage key of the last camera position (absent = no persistence). A remembered position replaces `center`/`zoom` at mount and turns the intro off. | — |
 | `resetStoredPosition` | Clears the remembered position at mount → normal intro and `center`/`zoom` (default: false). | — |
 | `tagStorageKey` | localStorage key of the “Layers” filter (`null` = no persistence; a distinct key per map if several `<Map>` coexist). Default: `m3d:tag-filter`. | — |
+| `pluginStorageKey` | localStorage key of the plugin state (`null` = no persistence). Default: `config.data.storageKeys.plugins`. | — |
 | `interactive` | Interactivity (default `true`). `'view'` freezes the camera while keeping markers and selection alive; `false` makes the map inert. In both frozen modes the tools (drawing, lens) are neutralised. Overlays, markers, shapes and paths keep being RENDERED — it is… | `true` |
 | `onReady` | The map is **usable**: the projection resolves heights, a `fitBounds` targets the real ground. Called once, and immediately if the map already was. To simply get hold of the engine, `useMap()` is enough — it is available from mount,… | — |
 | `onViewportChange` | Visible frame after the camera settles — wire it to a refetch. | — |
@@ -59,6 +60,7 @@ grouping **in the right nesting order**.
 | `draw` | Drawing layer (+ `selectionBadges`). `false` removes drawing AND the bar. | *(defaults)* |
 | `relations` | Tag relation engine (+ `statusBar`) — its presence enables it. | *(absent)* |
 | `layers` | Data layers, in render order (`markersLayer`, `shapesLayer`). | `[]` |
+| `plugins` | Plugins to make available ([PLUGINS.md](PLUGINS.md)). Registry fed at mount; the user enables/configures through the hub. | `[]` |
 | `cluster` | The map's grouping surface (see `<ClusterSurface>`). `false` turns grouping off. | *(defaults)* |
 | `markerMenu` | Marker menu, **shared** by the map, the lens and the selection panel. | *(absent)* |
 | `buildingMenu` | Menu of a **building** of the internal volume, opened on click while the “Select a building” tool is active. Receives a [`BuildingInfo`](BUILDINGS.md#4-buildinginfo). Without this prop the tool highlights on hover but clicking opens nothing. | *(absent)* |

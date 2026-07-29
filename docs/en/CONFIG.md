@@ -303,6 +303,7 @@ compile error.
 | `data.storageKeys.tagFilter` | “Layers” filter selection. | `'m3d:tag-filter'` |
 | `data.storageKeys.drawSettings` | Per-tool drawing style settings. | `'m3d:draw-settings'` |
 | `data.storageKeys.searchHistory` | Search box history. | `'m3d:search-history'` |
+| `data.storageKeys.plugins` | Plugin state (enabled + config), see [PLUGINS.md § 8](PLUGINS.md#8-the-hub-and-user-configuration). | `'m3d:plugins'` |
 | `data.search.minQuery` | Minimum input length before querying the providers. | `2` |
 | `data.search.debounceMs` | Keystroke debounce. 💰 The most direct lever on the number of calls. | `250` |
 | `data.search.limitPerGroup` | Results displayed per group. | `6` |

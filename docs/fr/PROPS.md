@@ -30,6 +30,7 @@ Racine — monte le moteur et toutes les surfaces.
 | `positionStorageKey` | Clé localStorage de la dernière position caméra (absent = pas de persistance). Une position mémorisée remplace `center`/`zoom` au montage et coupe l'intro. | — |
 | `resetStoredPosition` | Efface la position mémorisée au montage → intro et `center`/`zoom` normaux (défaut: false). | — |
 | `tagStorageKey` | Clé localStorage du filtre « Couches » (`null` = pas de persistance ; une clé distincte par carte si plusieurs `<Map>` cohabitent). Défaut : `m3d:tag-filter`. | — |
+| `pluginStorageKey` | Clé localStorage de l'état des plugins (`null` = pas de persistance). Défaut : `config.data.storageKeys.plugins`. | — |
 | `interactive` | Interactivité (défaut `true`). `'view'` fige la caméra en gardant markers et sélection vivants ; `false` rend la carte inerte. Dans les deux cas figés les outils (dessin, loupe) sont neutralisés. Overlays, markers, formes et tracés restent RENDUS — c'est… | `true` |
 | `onReady` | La carte est **exploitable** : la projection résout des hauteurs, un `fitBounds` vise le sol réel. Appelé une seule fois, et immédiatement si la carte l'était déjà. Pour simplement récupérer le moteur, `useMap()` suffit — il est disponible dès le montage,… | — |
 | `onViewportChange` | Cadre visible après stabilisation de la caméra — à brancher sur un refetch. | — |
@@ -57,6 +58,7 @@ couches et regroupement **dans le bon ordre d'imbrication**.
 | `draw` | Couche de dessin (+ `selectionBadges`). `false` retire le dessin ET la barre. | *(défauts)* |
 | `relations` | Moteur de relations par tags (+ `statusBar`) — sa présence l'active. | *(absent)* |
 | `layers` | Couches de données, dans l'ordre de rendu (`markersLayer`, `shapesLayer`). | `[]` |
+| `plugins` | Plugins à rendre disponibles ([PLUGINS.md](PLUGINS.md)). Registre alimenté au montage ; l'utilisateur active/config via le hub. | `[]` |
 | `cluster` | Surface de regroupement de la carte (cf. `<ClusterSurface>`). `false` coupe le regroupement. | *(défauts)* |
 | `markerMenu` | Menu d'un marker, **partagé** par la carte, la loupe et le panneau de sélection. | *(absent)* |
 | `buildingMenu` | Menu d'un **bâtiment** du volume interne, ouvert au clic quand l'outil « Sélectionner un bâtiment » est actif. Reçoit un [`BuildingInfo`](BUILDINGS.md#4-buildinginfo). Sans cette prop, l'outil surligne au survol mais le clic n'ouvre rien. | *(absent)* |
