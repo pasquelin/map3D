@@ -54,7 +54,7 @@ import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
 import { geopfBatiments } from '@map3d/plugin-geopf'
-import { cameras } from '@map3d/plugin-cameras'
+import { windyWebcams } from '@map3d/plugin-windy'
 import { plan3d } from '@map3d/plugin-plan-3d'
 
 /**
@@ -288,10 +288,13 @@ export function App() {
   /* Menu d'un bâtiment du volume 3D interne. La poignée est passée par REF : le menu se
      fabrique une fois, et lit la caméra au moment du clic. */
   const buildingMenu = useMemo(() => createBuildingMenu(map), [])
-  // Plateforme plugins : liste mémoïsée une fois — geopf/cameras/plan-3d viennent du
+  // Plateforme plugins : liste mémoïsée une fois — geopf/windy/plan-3d viennent du
   // monorepo plugingsMap3D (aliasés en local), ils ne sont pas embarqués dans l'exemple
   // de la lib. Les trois sont `enabledByDefault: false` : opt-in via le hub (bouton puzzle).
-  const plugins = useMemo(() => [geopfBatiments(), cameras(), plan3d()], [])
+  const plugins = useMemo(
+    () => [geopfBatiments(), windyWebcams({ apiKey: import.meta.env.VITE_WINDY_API_KEY }), plan3d()],
+    [],
+  )
 
   const markerMenu = useCallback<NonNullable<MapSurfaces<AnyData>['markerMenu']>>(
     (m, relations) => {
@@ -477,8 +480,8 @@ export function App() {
           // conditionner cette prop.
           buildingMenu={buildingMenu}
           // Plateforme plugins : hub (bouton puzzle) + dev panel. `geopf` enrichit au
-          // pick un bâtiment 3D interne (BDTOPO) ; `cameras` et `plan-3d` sont
-          // disponibles dans le hub (opt-in, désactivés par défaut).
+          // pick un bâtiment 3D interne (BDTOPO) ; `windy` (Windy Webcams) et `plan-3d`
+          // sont disponibles dans le hub (opt-in, désactivés par défaut).
           plugins={plugins}
           // ── Couches de données, dans l'ordre de rendu. Les fabriques `shapesLayer` /
           // `markersLayer<T>` rendent le typage sur VOS données, que le tableau
