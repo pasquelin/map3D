@@ -53,11 +53,11 @@ import { useEditablePin } from './hooks/useEditablePin'
 import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
-import { demoPlugin } from './plugins/demoPlugin'
+import { demo } from '@map3d/plugin-demo'
 
 /**
  * Preuve vivante de la plateforme plugins (voie A + config + enrichBuilding) : lit
- * `useBuildingEnrichment()`, alimenté par `demoPlugin` au clic sur un bâtiment 3D interne.
+ * `useBuildingEnrichment()`, alimenté par `@map3d/plugin-demo` au clic sur un bâtiment 3D interne.
  * Monté en enfant de `<Map>` pour hériter du contexte carte qu'exige le hook.
  */
 function DemoBuildingInfo() {
@@ -285,9 +285,9 @@ export function App() {
   /* Menu d'un bâtiment du volume 3D interne. La poignée est passée par REF : le menu se
      fabrique une fois, et lit la caméra au moment du clic. */
   const buildingMenu = useMemo(() => createBuildingMenu(map), [])
-  // Plateforme plugins : liste mémoïsée une fois — `demoPlugin` est la seule preuve
-  // vivante embarquée par l'exemple (jamais publiée, cf. `plugins/demoPlugin.tsx`).
-  const plugins = useMemo(() => [demoPlugin()], [])
+  // Plateforme plugins : liste mémoïsée une fois — `@map3d/plugin-demo` vient du monorepo
+  // plugingsMap3D (aliasé en local), il n'est plus embarqué dans l'exemple de la lib.
+  const plugins = useMemo(() => [demo()], [])
 
   const markerMenu = useCallback<NonNullable<MapSurfaces<AnyData>['markerMenu']>>(
     (m, relations) => {
@@ -473,7 +473,7 @@ export function App() {
           // conditionner cette prop.
           buildingMenu={buildingMenu}
           // Plateforme plugins : hub (bouton puzzle) + dev panel + markers procéduraux
-          // + enrichissement au pick, entièrement portés par `demoPlugin`.
+          // + enrichissement au pick, entièrement portés par `@map3d/plugin-demo`.
           plugins={plugins}
           // ── Couches de données, dans l'ordre de rendu. Les fabriques `shapesLayer` /
           // `markersLayer<T>` rendent le typage sur VOS données, que le tableau

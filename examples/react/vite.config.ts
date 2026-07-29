@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       map3d: resolve(__dirname, '../../src/index.ts'),
+      '@map3d/plugin-demo': resolve(__dirname, '../../../plugingsMap3D/packages/demo/src/index.ts'),
       'three/addons': resolve(__dirname, '../../node_modules/three/examples/jsm'),
     },
   },
