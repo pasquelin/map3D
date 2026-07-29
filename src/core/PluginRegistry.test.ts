@@ -81,4 +81,14 @@ describe('PluginRegistry', () => {
     expect(r.refreshTick('demo')).toBe(1)
     expect(n).toBe(1)
   })
+
+  it('on est appelable détaché (useSyncExternalStore le déstructure)', () => {
+    const r = new PluginRegistry(null)
+    const subscribe = r.on
+    let notified = 0
+    const unsub = subscribe(() => notified++)
+    r.register(demo())
+    expect(notified).toBe(1)
+    unsub()
+  })
 })

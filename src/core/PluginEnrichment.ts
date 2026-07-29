@@ -68,7 +68,9 @@ export class PluginEnrichment {
     return { loading, data: has ? data : null, tags: [...tags], error }
   }
 
-  on(listener: () => void): () => void {
+  // Champ fléché LIÉ : `useSyncExternalStore` reçoit `on` détaché de son receveur (sans
+  // `.call`), une méthode de classe classique y perdrait son `this`.
+  on = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }

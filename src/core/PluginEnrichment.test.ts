@@ -143,4 +143,13 @@ describe('PluginEnrichment', () => {
     expect(m.data).toEqual({ x: 1, y: 2 })
     expect([...m.tags].sort()).toEqual(['a', 'b'])
   })
+
+  it('on est appelable détaché (useSyncExternalStore le déstructure)', () => {
+    const engine = fakeEngine()
+    const reg = new PluginRegistry(null)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enr = new PluginEnrichment(engine as any, reg, defaultPluginFetchPolicy)
+    const subscribe = enr.on
+    expect(() => subscribe(() => {})).not.toThrow()
+  })
 })

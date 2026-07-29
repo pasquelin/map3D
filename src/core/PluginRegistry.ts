@@ -101,7 +101,9 @@ export class PluginRegistry {
     return this.ticks.get(id) ?? 0
   }
 
-  on(listener: () => void): () => void {
+  // Champ fléché LIÉ : `useSyncExternalStore` reçoit `engine.plugins.on` détaché de son
+  // receveur (sans `.call`), une méthode de classe classique y perdrait son `this`.
+  on = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
