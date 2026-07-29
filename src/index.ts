@@ -379,3 +379,27 @@ export { LinkLayer } from './layers/LinkLayer'
 export type { LinkVisual, LinkLayerDefaults } from './layers/LinkLayer'
 export { DefaultMarker } from './react/components/DefaultMarker'
 export { DefaultCluster } from './react/components/DefaultCluster'
+
+// ── Plugins (LA PLATEFORME — aucun plugin concret) ──
+// La lib expose le contrat + le registre + le hub + les hooks. Les plugins officiels
+// (Windy, geopf) vivent hors de la lib, dans le repo pluginsMap3D (@map3d/plugin-*).
+export { definePlugin } from './plugins/definePlugin'
+export { defaultPluginFetchPolicy } from './plugins/fetchPolicy'
+export type {
+  Plugin,
+  AnyPlugin,
+  PluginField,
+  PluginContext,
+  PluginDataContext,
+  PluginLayerContext,
+  BuildingEnrichmentResult,
+} from './plugins/types'
+export { PluginRegistry } from './core/PluginRegistry'
+export type { PluginState, PluginEntry } from './core/PluginRegistry'
+export { PluginEnrichment } from './core/PluginEnrichment'
+export type { EnrichmentState } from './core/PluginEnrichment'
+export { usePlugins } from './react/hooks/usePlugins'
+export type { PluginView } from './react/hooks/usePlugins'
+export { useBuildingEnrichment } from './react/hooks/useBuildingEnrichment'
+export type { BuildingEnrichment } from './react/hooks/useBuildingEnrichment'
+// `BuildingHit` / `BuildingInfo` sont déjà exportés (section Core).
