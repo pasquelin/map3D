@@ -119,6 +119,9 @@ export function Toolbar({
   const lens = useContext(LensContext)
   const labels = useLabels()
   const [hidden, setHidden] = useState(true)
+  // Remonté depuis `PluginHubButton` (composant contrôlé) : sans ça, Naviguer ne « voit »
+  // pas le hub ouvert et reste actif à côté du bouton puzzle — deux boutons allumés à la fois.
+  const [pluginHubOpen, setPluginHubOpen] = useState(false)
   useEffect(() => {
     const below = (altitude: number) => zoomForAltitude(Math.max(1, altitude - engine.terrainHeight)) < minZoom
     setHidden(below(engine.camera.getState().altitude))
@@ -190,12 +193,13 @@ export function Toolbar({
             // loupe, palette de symboles, pick de bâtiment. Une surface qui s'allume sans
             // éteindre la main laisserait deux boutons allumés, et la barre ne dirait plus
             // où on en est. (La palette, elle, se referme d'elle-même au clic hors d'elle.)
-            active={tool === null && !lens?.active && !symbols.paletteOpen && !pickingBuilding}
+            active={tool === null && !lens?.active && !symbols.paletteOpen && !pickingBuilding && !pluginHubOpen}
             className="m3d-btn-move"
             onClick={() => {
               setTool(null)
               lens?.deactivate() // quitter tout outil externe → la main devient l'outil actif
               engine.setBuildingPickMode(false)
+              setPluginHubOpen(false) // …et fermer le hub, sinon les deux boutons restent allumés
             }}
           />,
         )}
@@ -222,7 +226,7 @@ export function Toolbar({
         {/* Loupe : outil natif de la barre au même titre que les symboles. Le bouton
             s'efface tout seul si la carte est montée sans loupe (`toolbar={{ lens: false }}`). */}
         {slot('lens', <LensToolButton />)}
-        {slot('plugins', <PluginHubButton position={position} />)}
+        {slot('plugins', <PluginHubButton position={position} open={pluginHubOpen} onOpenChange={setPluginHubOpen} />)}
         {extraTools}
         {slot(
           'undo',

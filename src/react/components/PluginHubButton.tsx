@@ -1,5 +1,4 @@
 import { mdiPuzzleOutline } from '@mdi/js'
-import { useState } from 'react'
 import { useLabels } from '../context'
 import { usePlugins } from '../hooks/usePlugins'
 import { useAnchoredPanel } from './panelFit'
@@ -12,14 +11,25 @@ import { useCloseWhenHidden } from './useDismiss'
  * Bouton natif du hub « Plugins », rendu dans la `Toolbar` (slot `plugins`). Masqué s'il
  * n'y a AUCUN plugin enregistré. Flyout ancré (modèle `SelectToolButton`), se referme au
  * repli de la barre ou quand une autre surface native prend la main.
+ *
+ * `open` est CONTRÔLÉ par la `Toolbar` (pas de `useState` local) : le bouton Naviguer a
+ * besoin de savoir si le hub est ouvert pour rester inactif — un état invisible depuis la
+ * barre laisserait Naviguer ET le hub allumés en même temps.
  */
-export function PluginHubButton({ position }: { position: 'left' | 'right' }) {
+export function PluginHubButton({
+  position,
+  open,
+  onOpenChange,
+}: {
+  position: 'left' | 'right'
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const bar = useToolbar()
   const labels = useLabels()
   const { plugins } = usePlugins()
-  const [open, setOpen] = useState(false)
   const [side, setFlyout] = useAnchoredPanel(position, { clampHeight: false })
-  useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
+  useCloseWhenHidden(bar.retracted || bar.nativeActive, () => onOpenChange(false))
   if (plugins.length === 0) return null
   return (
     <>
@@ -29,7 +39,7 @@ export function PluginHubButton({ position }: { position: 'left' | 'right' }) {
         active={open}
         onClick={() => {
           if (!open) bar.claim()
-          setOpen(!open)
+          onOpenChange(!open)
         }}
       />
       {open && (

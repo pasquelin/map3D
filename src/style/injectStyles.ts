@@ -680,18 +680,26 @@ const CSS = `
 .m3d-tagrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
   cursor:pointer;font-size:var(--m3d-size-sm);user-select:none}
 .m3d-tagrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
-/* Checkbox custom au style du thème (case arrondie + coche dessinée en CSS). */
-.m3d-tagrow input{appearance:none;-webkit-appearance:none;margin:0;flex:none;cursor:pointer;
+/* Checkbox custom au style du thème (case arrondie + coche dessinée en CSS). Réutilisée
+   telle quelle par le hub de plugins (toggle + champs booléens de la config) — même
+   apparence, pas de coche dupliquée. */
+.m3d-tagrow input,.m3d-plugin-row-head input[type='checkbox'],.m3d-plugin-checkbox{
+  appearance:none;-webkit-appearance:none;margin:0;flex:none;cursor:pointer;
   width:15px;height:15px;border:1.5px solid color-mix(in srgb,var(--m3d-text) 35%,transparent);
   border-radius:5px;background:transparent;display:grid;place-items:center;
   transition:background .14s,border-color .14s}
-.m3d-tagrow:hover input{border-color:color-mix(in srgb,var(--m3d-text) 55%,transparent)}
-.m3d-tagrow input:checked{background:var(--m3d-accent);border-color:var(--m3d-accent)}
-.m3d-tagrow input::after{content:'';width:8px;height:4.5px;margin-top:-1.5px;opacity:0;
+.m3d-tagrow:hover input,.m3d-plugin-checkbox:hover,.m3d-plugin-row-head input[type='checkbox']:hover{
+  border-color:color-mix(in srgb,var(--m3d-text) 55%,transparent)}
+.m3d-tagrow input:checked,.m3d-plugin-row-head input[type='checkbox']:checked,.m3d-plugin-checkbox:checked{
+  background:var(--m3d-accent);border-color:var(--m3d-accent)}
+.m3d-tagrow input::after,.m3d-plugin-row-head input[type='checkbox']::after,.m3d-plugin-checkbox::after{
+  content:'';width:8px;height:4.5px;margin-top:-1.5px;opacity:0;
   border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(.5);
   transition:opacity .12s,transform .12s}
-.m3d-tagrow input:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
-.m3d-tagrow input:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+.m3d-tagrow input:checked::after,.m3d-plugin-row-head input[type='checkbox']:checked::after,
+.m3d-plugin-checkbox:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
+.m3d-tagrow input:focus-visible,.m3d-plugin-row-head input[type='checkbox']:focus-visible,
+.m3d-plugin-checkbox:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
 .m3d-tagdot{width:9px;height:9px;border-radius:50%;flex:none}
 .m3d-taglabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-tagcount{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
@@ -1113,11 +1121,6 @@ img.m3d-pin-media{object-fit:cover}
   font-family:inherit;font-size:var(--m3d-size-sm);color:var(--m3d-text);text-align:left;cursor:pointer;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-plugin-row-name:disabled{cursor:default}
-/* Toggle plugin + case des champs booléens de la config : même case native
-   teintée par le thème (accent-color), plus simple que la coche dessinée en
-   pseudo-élément de .m3d-tagrow — ici une case isolée, pas une liste dense. */
-.m3d-plugin-row-head input[type='checkbox'],.m3d-plugin-checkbox{
-  width:15px;height:15px;flex:none;cursor:pointer;accent-color:var(--m3d-accent)}
 .m3d-plugin-row-body{display:flex;flex-direction:column;gap:8px;padding:2px 8px 8px}
 .m3d-plugin-config{display:flex;flex-direction:column;gap:8px}
 .m3d-plugin-field{display:flex;flex-direction:column;gap:3px;font-size:12px}
@@ -1131,7 +1134,6 @@ img.m3d-pin-media{object-fit:cover}
   border-radius:7px;background:var(--m3d-bg);color:var(--m3d-text);font:inherit;font-size:11.5px}
 .m3d-plugin-select{cursor:pointer}
 .m3d-plugin-input:focus-visible,.m3d-plugin-select:focus-visible,
-.m3d-plugin-row-head input[type='checkbox']:focus-visible,.m3d-plugin-checkbox:focus-visible,
 .m3d-plugin-number input:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
 .m3d-plugin-reset{align-self:flex-start;padding:4px 9px;border:1px solid var(--m3d-border);
   border-radius:var(--m3d-radius-pill);background:transparent;color:var(--m3d-muted);
