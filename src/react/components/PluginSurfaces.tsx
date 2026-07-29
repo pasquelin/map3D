@@ -37,14 +37,20 @@ export function PluginSurfaces({ plugins }: { plugins?: readonly AnyPlugin[] }) 
   )
 }
 
-/** Une voie par plugin activé (A implémentée ici ; C/setup en Task 8). */
+/** Une voie par plugin activé : A (`data`), C (`layer`) et cycle de vie (`setup`). */
 function PluginHost({ id }: { id: string }) {
   const { engine } = useMapContext()
   useSyncExternalStore(engine.plugins.on, () => engine.plugins.version)
   const entry = engine.plugins.get(id)
   if (!entry) return null
   const { plugin, config } = entry
-  return <>{plugin.data && <PluginDataHost plugin={plugin} config={config} tick={engine.plugins.refreshTick(id)} />}</>
+  return (
+    <>
+      {plugin.data && <PluginDataHost plugin={plugin} config={config} tick={engine.plugins.refreshTick(id)} />}
+      {plugin.layer && <PluginLayerHost plugin={plugin} config={config} />}
+      {plugin.setup && <PluginSetupHost plugin={plugin} config={config} />}
+    </>
+  )
 }
 
 /** Signature des seuls champs `refetch: true` : ne relance `fetch` que sur eux (perf §9.5). */
@@ -122,4 +128,49 @@ function PluginDataHost({
       size={ml.size}
     />
   )
+}
+
+/**
+ * Voie C : contribue un `Layer` moteur brut. `Layer.setConfig` prend la config CARTE
+ * (pas la config plugin), donc on recrée le layer à chaque changement de config plugin
+ * (pas la garantie « jamais de remontage » de la voie markers — documenté).
+ */
+function PluginLayerHost({ plugin, config }: { plugin: AnyPlugin; config: Record<string, unknown> }) {
+  const { engine } = useMapContext()
+  const cfgSig = JSON.stringify(config)
+  useEffect(() => {
+    if (!plugin.layer) return
+    const ctrl = new AbortController()
+    const layer = plugin.layer({ engine, config, signal: ctrl.signal, fetchPolicy: defaultPluginFetchPolicy } as never)
+    engine.addLayer(layer)
+    return () => {
+      ctrl.abort()
+      engine.removeLayer(layer) // removeLayer appelle layer.dispose()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, plugin, cfgSig])
+  return null
+}
+
+/** Cycle de vie global : setup une fois à l'activation, teardown à la désactivation. Config via ref. */
+function PluginSetupHost({ plugin, config }: { plugin: AnyPlugin; config: Record<string, unknown> }) {
+  const { engine } = useMapContext()
+  const cfgRef = useRef(config)
+  cfgRef.current = config
+  useEffect(() => {
+    if (!plugin.setup) return
+    const ctrl = new AbortController()
+    const teardown = plugin.setup({
+      engine,
+      config: cfgRef.current,
+      signal: ctrl.signal,
+      fetchPolicy: defaultPluginFetchPolicy,
+    } as never)
+    return () => {
+      ctrl.abort()
+      if (typeof teardown === 'function') teardown()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, plugin])
+  return null
 }
