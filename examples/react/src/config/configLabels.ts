@@ -340,6 +340,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'data.storageKeys.tagFilter': 'filtre Couches',
   'data.storageKeys.drawSettings': 'réglages de dessin',
   'data.storageKeys.searchHistory': 'historique de recherche',
+  'data.storageKeys.plugins': 'état des plugins',
   'data.search.minQuery': 'saisie minimale',
   'data.search.debounceMs': 'anti-rebond de frappe (ms)',
   'data.search.limitPerGroup': 'résultats par rubrique',
