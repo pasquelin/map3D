@@ -533,6 +533,7 @@ export function App() {
           Hors de `<Map>` — il la pilote par ses props, il n'a besoin d'aucun contexte
           carte. */}
       <ConfigPane
+        engine={engine}
         initial={config}
         onChange={setConfig}
         onRemount={() => setMapKey((k) => k + 1)}

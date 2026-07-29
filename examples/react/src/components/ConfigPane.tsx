@@ -1,4 +1,4 @@
-import type { LatLng, MarkerData, PartialConfig } from 'map3d'
+import type { LatLng, MapEngine, MarkerData, PartialConfig } from 'map3d'
 import { defaultConfig, mergeConfig } from 'map3d'
 import { useEffect, useRef } from 'react'
 import type { BindingParams, FolderApi, NumberInputParams, StringInputParams, TabPageApi } from 'tweakpane'
@@ -27,6 +27,7 @@ import type { AnyData } from '../data/types'
 import type { UiSettings } from '../config/uiSettings'
 import type { DataSettings, DemoScene } from '../hooks/useDemoScene'
 import { buildDataTab } from './dataTab'
+import { buildPluginsTab } from '../config/pluginsTab'
 import { type UiTabContext, buildUiTab } from './uiTab'
 
 /**
@@ -50,6 +51,9 @@ import { type UiTabContext, buildUiTab } from './uiTab'
  */
 
 export type ConfigPaneProps = {
+  /** Moteur capté à `ready` (cf. `onReady` dans `App.tsx`) — `null` avant. Pilote l'onglet
+   * « Plugins », construit dans un effet séparé puisqu'il arrive après le montage du panneau. */
+  engine: MapEngine | null
   /** Réglages du montage — ce que `partialFromFlat` a produit la fois précédente. */
   initial: PartialConfig
   /** Chaque modification de `MapConfig`, sous forme de `PartialConfig` minimal. */
@@ -149,6 +153,11 @@ export function ConfigPane(props: ConfigPaneProps) {
   // seconde dès qu'un agent était sélectionné, puisque le flux en refait l'objet.
   const syncUiRef = useRef<(() => void) | null>(null)
   const syncDataRef = useRef<(() => void) | null>(null)
+  // L'onglet Plugins se construit à part (cf. l'effet ci-dessous) : `engine` n'existe
+  // qu'après `ready`, alors que ce panneau est monté une seule fois, avant. La page
+  // Tweakpane elle-même naît ici avec le reste — on la garde par ref pour cet autre effet.
+  const pluginsPageRef = useRef<TabPageApi | null>(null)
+  const syncPluginsRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const container = hostRef.current
@@ -156,10 +165,17 @@ export function ConfigPane(props: ConfigPaneProps) {
 
     const pane = new Pane({ container, title: 'Map Config' })
     const tab = pane.addTab({
-      pages: [{ title: 'Carte' }, { title: 'Interface' }, { title: 'Réglages' }, { title: 'Données' }],
+      pages: [
+        { title: 'Carte' },
+        { title: 'Interface' },
+        { title: 'Réglages' },
+        { title: 'Données' },
+        { title: 'Plugins' },
+      ],
     })
-    const [mapPage, uiPage, configPage, dataPage] = tab.pages
-    if (!mapPage || !uiPage || !configPage || !dataPage) return
+    const [mapPage, uiPage, configPage, dataPage, pluginsPage] = tab.pages
+    if (!mapPage || !uiPage || !configPage || !dataPage || !pluginsPage) return
+    pluginsPageRef.current = pluginsPage
 
     // ── Onglet « Carte » : les props de `<Map>` hors `MapConfig` ────────────────
     const mapDraft: MapPropsSettings = { ...propsRef.current.mapProps }
@@ -335,10 +351,33 @@ export function ConfigPane(props: ConfigPaneProps) {
     return () => {
       syncUiRef.current = null
       syncDataRef.current = null
+      pluginsPageRef.current = null
       window.clearTimeout(copyTimer)
       pane.dispose()
     }
   }, [])
+
+  // Onglet Plugins : à part, parce que `engine` (capté à `ready` dans `App.tsx`) arrive
+  // après le montage — jamais dans l'effet `[]` ci-dessus. Un remontage de la carte
+  // (bouton ❄) fait aussi arriver un NOUVEL `engine` : on vide d'abord la page des
+  // folders du tour précédent, sans quoi ils s'empileraient à chaque remontage.
+  useEffect(() => {
+    const page = pluginsPageRef.current
+    const engine = props.engine
+    if (!engine || !page) return
+
+    const pluginsTab = buildPluginsTab(page, engine)
+    syncPluginsRef.current = pluginsTab.sync
+    // Resync quand le hub in-map (dans la carte) toggle/règle un plugin : les deux
+    // surfaces partagent le même registre, elles doivent donc rester en phase.
+    const off = engine.plugins.on(() => syncPluginsRef.current?.())
+
+    return () => {
+      off()
+      syncPluginsRef.current = null
+      for (const child of [...page.children]) child.dispose()
+    }
+  }, [props.engine])
 
   // Déclarés APRÈS l'effet de montage : les effets s'exécutent dans l'ordre, donc les
   // deux refs sont déjà renseignées au premier passage.
