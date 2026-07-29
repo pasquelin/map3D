@@ -310,7 +310,7 @@ chaque `pointermove` d'un slider.
 
 **La lib ne ship aucun plugin concret** : elle expose uniquement la plateforme
 (contrat `Plugin`, `PluginRegistry`, hub, hooks). Les plugins officiels vivent
-**hors de la lib**, dans le monorepo `pluginsMap3D` (scope npm `@map3d`, un paquet
+**hors de la lib**, dans le monorepo `plugingsMap3D` (scope npm `@map3d`, un paquet
 par plugin — `@map3d/plugin-<nom>`), chacun avec `map3d` en **peerDependency**.
 
 Un plugin **tiers** suit le même contrat, livré en paquet npm publié ou en
@@ -494,16 +494,18 @@ plugin officiel du registre (§ 13) pour un exemple complet en conditions réell
 
 ## 13. Registre des plugins officiels
 
-Un plugin **officiel** est maintenu dans le monorepo `pluginsMap3D`, publié sous le
+Un plugin **officiel** est maintenu dans le monorepo `plugingsMap3D`, publié sous le
 scope npm `@map3d`, et listé ici. Techniquement identique à un plugin tiers —
 l'organisation et le scope font l'« officiel ». Ce tableau **lie** vers la doc de
 chaque plugin (README de son paquet) ; il ne la duplique pas.
 
 | Nom | Paquet npm | Lien | Plage `map3d` compatible |
 |---|---|---|---|
-| *(aucun officiel publié à ce jour)* | — | — | — |
+| Bâtiments France (BDTOPO) | `@map3d/plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
+| Caméras du quartier | `@map3d/plugin-cameras` | `plugingsMap3D/packages/cameras` | `>=0.1.0 <0.2.0` |
+| Plan 3D (placeholder) | `@map3d/plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
 
-Ce registre s'enrichit au fil des plugins officiels publiés dans `pluginsMap3D` —
+Ce registre s'enrichit au fil des plugins officiels publiés dans `plugingsMap3D` —
 à mettre à jour dans le même mouvement que leur première publication.
 
 ---
