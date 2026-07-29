@@ -10,7 +10,7 @@ const schema: readonly PluginField[] = [
 ]
 
 describe('defaultsOf', () => {
-  it('construit l\'objet de config initial depuis les défauts du schéma', () => {
+  it("construit l'objet de config initial depuis les défauts du schéma", () => {
     expect(defaultsOf(schema)).toEqual({ apiKey: '', max: 50, live: true, size: 'preview' })
   })
   it('schéma absent → objet vide', () => {
@@ -19,13 +19,16 @@ describe('defaultsOf', () => {
 })
 
 describe('partialOf', () => {
-  it('ne garde que l\'écart aux défauts', () => {
-    expect(partialOf({ apiKey: 'k', max: 50, live: false, size: 'preview' }, schema)).toEqual({ apiKey: 'k', live: false })
+  it("ne garde que l'écart aux défauts", () => {
+    expect(partialOf({ apiKey: 'k', max: 50, live: false, size: 'preview' }, schema)).toEqual({
+      apiKey: 'k',
+      live: false,
+    })
   })
 })
 
 describe('resolveConfig', () => {
-  it('défauts ⊕ partiels dans l\'ordre, ignore les clés inconnues du schéma', () => {
+  it("défauts ⊕ partiels dans l'ordre, ignore les clés inconnues du schéma", () => {
     expect(resolveConfig(schema, { max: 10, ghost: 1 }, { apiKey: 'k' })).toEqual({
       apiKey: 'k',
       max: 10,

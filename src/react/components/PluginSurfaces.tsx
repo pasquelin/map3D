@@ -71,7 +71,6 @@ function PluginDataHost({
 }) {
   const { engine } = useMapContext()
   const dataDef = plugin.data
-  const ml = plugin.markerLayer ?? {}
 
   // Config lue au moment du fetch (pas dans les deps du useMemo de la source) : les champs
   // cosmétiques ne recréent PAS la source, donc ne refetch pas — ils s'appliqueront au
@@ -107,25 +106,23 @@ function PluginDataHost({
         return dataDef.fetch(ctx as never)
       },
     }),
-    // refetchSig / tick (manuel) / intervalTick recréent la source ; cfgRef évite les cosmétiques.
+    // refetchSig / tick (manuel) / intervalTick sont des casse-cache VOLONTAIRES : ils ne
+    // sont lus par rien ci-dessus, mais recréer la source est le seul moyen de relancer le fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [engine, dataDef, policy, refetchSig, tick, intervalTick],
   )
 
-  // Callbacks mémoïsés : ne pas invalider les useMemo internes de MarkerLayer à chaque render (perf §9.10).
-  const menu = useMemo(() => ml.menu, [ml])
-  const tooltip = useMemo(() => ml.tooltip, [ml])
-  const icon = useMemo(() => ml.icon, [ml])
-  const typeLabel = useMemo(() => ml.typeLabel, [ml])
-
+  // `plugin` est stable (identité portée par l'hôte) : plugin.markerLayer?.xxx l'est donc aussi,
+  // pas besoin de useMemo dédié — passé directement à <MarkerLayer>.
   return (
     <MarkerLayer<unknown>
       source={source}
-      cluster={ml.cluster}
-      icon={icon}
-      tooltip={tooltip}
-      menu={menu}
-      typeLabel={typeLabel}
-      size={ml.size}
+      cluster={plugin.markerLayer?.cluster}
+      icon={plugin.markerLayer?.icon}
+      tooltip={plugin.markerLayer?.tooltip}
+      menu={plugin.markerLayer?.menu}
+      typeLabel={plugin.markerLayer?.typeLabel}
+      size={plugin.markerLayer?.size}
     />
   )
 }
@@ -170,7 +167,6 @@ function PluginSetupHost({ plugin, config }: { plugin: AnyPlugin; config: Record
       ctrl.abort()
       if (typeof teardown === 'function') teardown()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, plugin])
   return null
 }

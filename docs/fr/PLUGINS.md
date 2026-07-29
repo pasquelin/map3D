@@ -195,7 +195,7 @@ type). Sans `tags`, un marker reçoit `['marker', type]` par défaut.
   **même** regroupement que le reste de la carte (`engine.clusters`) — un seul
   index, pas un par plugin.
 - **Menu** et **infobulle** : mêmes contrats que `<MarkerLayer menu>`/`tooltip`
-  (cf. [MARKERS.md § 5-6](MARKERS.md#5-infobulle)).
+  (cf. [MARKERS.md § 5](MARKERS.md#5-infobulle)).
 - **Tags** : un plugin qui étiquette ses markers (`MarkerData.tags`) les inscrit
   d'office au filtre « Couches » — rien à câbler.
 
@@ -392,7 +392,7 @@ l'auteur :
 - Une clé embarquée dans un bundle **navigateur** reste visible côté client :
   documentez cette limite dans le README de votre plugin si l'API tierce ne
   supporte pas de restriction par référent (même remarque que pour
-  `createGoogleRoutesProvider`, cf. [docs/fr/README.md](README.md#relations-distances-et-temps-de-trajet-réels)).
+  `createGoogleRoutesProvider`, cf. [README.md](README.md#relations-distances-et-temps-de-trajet-réels)).
 
 ---
 

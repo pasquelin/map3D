@@ -1095,6 +1095,49 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-drag-ghost.m3d-symghost,.m3d-drag-ghost.m3d-symghost.m3d-drag-over{
   transform:translate(-50%,-50%) scale(1)}
 
+/* ── Hub de plugins (PluginHubButton → PluginHubPanel/PluginConfigControls) ───
+   Contenu du flyout .m3d-panel.m3d-flyout (déjà stylé : fond, bordure, ombre,
+   position par côté) — on ne pose ici que la mise en page interne : liste de
+   plugins avec toggle, corps dépliant, et les contrôles auto-rendus depuis le
+   schéma déclaratif (D4). Largeur alignée sur les autres flyouts de barre
+   (.m3d-tagpanel 236px, .m3d-settings 252px). */
+.m3d-plugin-hub{display:flex;flex-direction:column;gap:2px;width:250px;max-height:60vh;overflow-y:auto}
+.m3d-plugin-hub-title{margin:0;padding:2px 6px 6px;font-size:11px;font-weight:var(--m3d-weight-semibold);
+  color:var(--m3d-muted);text-transform:uppercase;letter-spacing:.04em}
+.m3d-plugin-hub-empty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
+.m3d-plugin-row{display:flex;flex-direction:column;border-radius:8px}
+.m3d-plugin-row-head{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
+  transition:background .14s}
+.m3d-plugin-row-head:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-plugin-row-name{flex:1;min-width:0;border:none;background:transparent;padding:0;margin:0;
+  font-family:inherit;font-size:var(--m3d-size-sm);color:var(--m3d-text);text-align:left;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-plugin-row-name:disabled{cursor:default}
+/* Toggle plugin + case des champs booléens de la config : même case native
+   teintée par le thème (accent-color), plus simple que la coche dessinée en
+   pseudo-élément de .m3d-tagrow — ici une case isolée, pas une liste dense. */
+.m3d-plugin-row-head input[type='checkbox'],.m3d-plugin-checkbox{
+  width:15px;height:15px;flex:none;cursor:pointer;accent-color:var(--m3d-accent)}
+.m3d-plugin-row-body{display:flex;flex-direction:column;gap:8px;padding:2px 8px 8px}
+.m3d-plugin-config{display:flex;flex-direction:column;gap:8px}
+.m3d-plugin-field{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.m3d-plugin-field-label{color:var(--m3d-muted);font-size:11px}
+.m3d-plugin-number{display:flex;align-items:center;gap:8px}
+.m3d-plugin-number input[type='range']{flex:1;accent-color:var(--m3d-accent);cursor:pointer}
+.m3d-plugin-number input[type='number']{width:52px;flex:none;padding:3px 5px;
+  border:1px solid var(--m3d-border);border-radius:6px;background:transparent;color:var(--m3d-text);
+  font:inherit;font-size:11.5px;font-variant-numeric:tabular-nums}
+.m3d-plugin-input,.m3d-plugin-select{width:100%;padding:5px 7px;border:1px solid var(--m3d-border);
+  border-radius:7px;background:var(--m3d-bg);color:var(--m3d-text);font:inherit;font-size:11.5px}
+.m3d-plugin-select{cursor:pointer}
+.m3d-plugin-input:focus-visible,.m3d-plugin-select:focus-visible,
+.m3d-plugin-row-head input[type='checkbox']:focus-visible,.m3d-plugin-checkbox:focus-visible,
+.m3d-plugin-number input:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
+.m3d-plugin-reset{align-self:flex-start;padding:4px 9px;border:1px solid var(--m3d-border);
+  border-radius:var(--m3d-radius-pill);background:transparent;color:var(--m3d-muted);
+  font:inherit;font-size:11px;cursor:pointer;transition:background .14s,color .14s}
+.m3d-plugin-reset:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);color:var(--m3d-text)}
+
 @media(prefers-reduced-motion:reduce){
   .m3d-root *{animation-duration:.001ms!important;animation-iteration-count:1!important}
 }

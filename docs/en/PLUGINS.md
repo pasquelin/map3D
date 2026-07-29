@@ -196,7 +196,7 @@ recycling instead of recreation), `position`, `type` (colour, search group),
   the **same** grouping as the rest of the map (`engine.clusters`) — a single
   index, not one per plugin.
 - **Menu** and **tooltip**: the same contracts as `<MarkerLayer menu>`/`tooltip`
-  (see [MARKERS.md § 5-6](MARKERS.md#5-tooltip)).
+  (see [MARKERS.md § 5](MARKERS.md#5-tooltip)).
 - **Tags**: a plugin that tags its markers (`MarkerData.tags`) registers them into
   the “Layers” filter automatically — nothing to wire.
 
@@ -390,7 +390,7 @@ responsibility:
 - A key embedded in a **browser** bundle stays visible client-side: document that
   limitation in your plugin's README if the third-party API does not support
   referrer restrictions (the same caveat as for `createGoogleRoutesProvider`, see
-  [docs/en/README.md](README.md#relations-real-distances-and-travel-times)).
+  [README.md](README.md#relations-real-distances-and-travel-times)).
 
 ---
 
