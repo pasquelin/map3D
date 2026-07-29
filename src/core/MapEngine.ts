@@ -528,6 +528,11 @@ export class MapEngine {
       this.config.providers.internal,
       opts.oceanColor,
     )
+    // Anisotropie résolue une fois : `0` en config = le maximum que le GPU sait faire.
+    // C'est ce qui tient un sol net en vue rasante, où un mipmap seul produit du moiré.
+    const maxAniso = this.renderer.capabilities.getMaxAnisotropy()
+    const wanted = this.config.performance.textureAnisotropy
+    this.basemap2d.anisotropy = wanted > 0 ? Math.min(wanted, maxAniso) : maxAniso
     // Volume interne. Même règle que le fond 2D : monté d'office, inerte sans origine.
     this.buildings = new BuildingsLayer(
       this.internalSurface,

@@ -161,6 +161,13 @@ export class TiledGlobeLayer {
    * quand elle change significativement (rare : une fois par bascule 2D).
    */
   /**
+   * Filtrage anisotrope appliqué aux textures montées, posé par `MapEngine` depuis
+   * `performance.textureAnisotropy` (0 = maximum du matériel, résolu à la construction).
+   * Les tuiles déjà montées gardent leur réglage : il ne change pas en cours de session.
+   */
+  anisotropy = 1
+
+  /**
    * Hauteur (m au-dessus de l'ellipsoïde) à laquelle le fond est réellement drapé.
    *
    * C'est LE niveau du sol du volume interne : la nappe est plate et **non raycastable**
@@ -356,6 +363,15 @@ export class TiledGlobeLayer {
     const tex = new THREE.Texture(t.img!)
     tex.colorSpace = THREE.SRGBColorSpace
     tex.flipY = false
+    /**
+     * Filtrage anisotrope — indispensable dès que le sol se regarde de biais.
+     *
+     * Un mipmap seul choisit UN niveau de détail pour les deux axes de la texture. Sur une
+     * nappe vue en rasant, l'axe fuyant est bien plus comprimé que l'autre : le niveau
+     * retenu est trop fin dans un sens (moiré) ou trop grossier dans l'autre (flou), et le
+     * motif change au moindre déplacement de la caméra — le sol paraît alors grouiller.
+     */
+    tex.anisotropy = this.anisotropy
     tex.needsUpdate = true
     // Algorithme du peintre : pas de depth test, ordre = zoom (fine au-dessus de coarse).
     // `FrontSide` cule l'hémisphère arrière (winding sortant) → seul l'avant est peint,

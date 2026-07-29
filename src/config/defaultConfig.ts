@@ -305,6 +305,9 @@ export const defaultConfig: MapConfig = {
   performance: {
     pixelRatio: 1,
     antialias: true,
+    // 0 = maximum du matériel (typiquement 16). Le coût GPU est négligeable devant le gain :
+    // c'est ce qui rend un sol lisible en vue rasante au lieu d'un moiré scintillant.
+    textureAnisotropy: 0,
     boundsPickGrid: 5,
     boundsMargin: 0.15,
     viewportSettleFrames: 4,

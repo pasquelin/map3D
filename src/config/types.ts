@@ -612,6 +612,16 @@ export type PerformanceConfig = {
    * ⚠️ Lu à la **création** du contexte : le changer à chaud n'a pas d'effet.
    */
   antialias: boolean
+  /**
+   * Filtrage anisotrope des textures de tuiles. `0` = maximum du matériel, `1` = aucun.
+   *
+   * ⚠️ Décisif en vue RASANTE. Sans lui, une texture regardée sous un angle faible est
+   * échantillonnée par un mipmap trop grossier dans une direction et trop fin dans l'autre :
+   * il en sort un moiré en éventail qui se recalcule à chaque frame, si bien que le sol
+   * semble grouiller alors que rien ne bouge. Invisible vu du ciel, insupportable à hauteur
+   * d'homme — c'est le mode piéton qui l'a révélé.
+   */
+  textureAnisotropy: number
   cameraMoveEpsilon: CameraMoveEpsilon
   groundSample: GroundSampleConfig
   /**

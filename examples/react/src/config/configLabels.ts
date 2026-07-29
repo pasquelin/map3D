@@ -255,6 +255,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.lens.toggle': 'bascule de la loupe',
 
   // ── performance ────────────────────────────────────────────────────────────
+  'performance.textureAnisotropy': 'filtrage anisotrope (0 = max)',
   'performance.pixelRatio': 'densité de pixels',
   'performance.antialias': 'anticrénelage',
   'performance.boundsPickGrid': 'grille de raycasts',

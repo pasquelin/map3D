@@ -245,6 +245,7 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
 
   // ③ performance ─────────────────────────────────────────────────────────────
   'performance.pixelRatio': { min: 0.5, max: 3, step: 0.25 },
+  'performance.textureAnisotropy': { min: 0, max: 16, step: 1 },
   'performance.antialias': { cold: true },
   'performance.boundsPickGrid': { min: 2, max: 12, step: 1 },
   'performance.boundsMargin': { min: 0, max: 2, step: 0.05 },
