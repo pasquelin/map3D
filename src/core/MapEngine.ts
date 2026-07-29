@@ -33,6 +33,7 @@ import {
   samePedestrianState,
 } from './pedestrianState'
 import { pedestrianView } from './pedestrianView'
+import { PluginRegistry } from './PluginRegistry'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
 import type { FrameContext, Layer, MapView } from './Layer'
@@ -139,6 +140,11 @@ export type MapEngineOptions = {
    * `<Map>` cohabitent sur le même origin. Défaut : `m3d:tag-filter`.
    */
   tagStorageKey?: string | null
+  /**
+   * Clé localStorage de l'état des plugins (`null` = pas de persistance). Défaut :
+   * `config.data.storageKeys.plugins`.
+   */
+  pluginStorageKey?: string | null
   /**
    * Réglages complets (cf. `MapConfig`). Optionnel : le moteur retombe sur
    * `defaultConfig`, si bien qu'il reste utilisable seul, hors React.
@@ -259,6 +265,8 @@ export class MapEngine {
   readonly projection = new Projection()
   /** Filtre de visibilité par tags, partagé par toutes les couches (markers, dessins). */
   readonly tags: TagFilter
+  /** Registre des plugins (contrat, activation, config) — partagé, agnostique React. */
+  readonly plugins: PluginRegistry
   /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
   readonly selectables = new SelectableRegistry()
   /** Registre d'inventaire des markers (données sources, clusters inclus) consommé par l'outil loupe. */
@@ -457,6 +465,8 @@ export class MapEngine {
     this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
     this.tags = new TagFilter(opts.tagStorageKey)
+    const pluginKey = opts.pluginStorageKey === undefined ? this.config.data.storageKeys.plugins : opts.pluginStorageKey
+    this.plugins = new PluginRegistry(pluginKey, this.config.data.positionSaveDebounceMs)
     this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: this.config.performance.antialias })
     // DPR configurable (`performance.pixelRatio`, défaut 1) : à 1 le canvas fait
     // EXACTEMENT la taille du parent, sans ×2 rétine sur le backing store.
@@ -2489,6 +2499,7 @@ export class MapEngine {
       ;(this.stars.material as THREE.Material).dispose()
     }
     if (this.sky) this.sky.dispose()
+    this.plugins.dispose()
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
   }
