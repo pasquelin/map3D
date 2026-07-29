@@ -32,7 +32,7 @@ Hôte (app React)
         │     • voie A : data.fetch → MarkerLayer
         │     • voie C : engine.addLayer(plugin.layer(ctx))
         │     • enrichBuilding : orchestré par engine.enrichment au clic bâtiment
-        └─ Toolbar → hub « Plugins » (toggle + config auto-rendue)
+        └─ Toolbar → Réglages → hub « Plugins » (toggle + config auto-rendue)
 ```
 
 **La lib ne ship aucun plugin concret.** Elle expose la plateforme (contrat,
@@ -274,10 +274,11 @@ Monté via `engine.addLayer(layer)` à l'activation, `engine.removeLayer(layer)`
 ## 8. Le hub et la config utilisateur
 
 **Le hub « Plugins » est le seul point d'UI end-user des plugins** (pas de bouton
-par plugin) — un bouton natif de la `<Toolbar>` (masqué s'il n'y a aucun plugin
-enregistré), ouvrant un panneau : par ligne, icône + nom + toggle on/off, et si le
-plugin a un `config`, un dépliant avec les contrôles **auto-rendus** depuis le
-schéma (§ 3) — checkbox, slider+nombre, `input type=password` si `secret`, select.
+par plugin) — une ligne du menu **Réglages** de la `<Toolbar>` (masquée s'il n'y a
+aucun plugin enregistré), ouvrant un sous-panneau latéral : par ligne, icône + nom
++ toggle on/off, et si le plugin a un `config`, un dépliant avec les contrôles
+**auto-rendus** depuis le schéma (§ 3) — checkbox, slider+nombre, `input
+type=password` si `secret`, select.
 
 Côté hôte, `usePlugins()` donne le même accès programmatique :
 

@@ -32,7 +32,7 @@ Host (React app)
         │     • path A: data.fetch → MarkerLayer
         │     • path C: engine.addLayer(plugin.layer(ctx))
         │     • enrichBuilding: orchestrated by engine.enrichment on building click
-        └─ Toolbar → “Plugins” hub (toggle + auto-rendered config)
+        └─ Toolbar → Settings → “Plugins” hub (toggle + auto-rendered config)
 ```
 
 **The library ships no concrete plugin.** It exposes the platform (contract,
@@ -274,10 +274,11 @@ calls `dispose()`) on disable.
 ## 8. The hub and user configuration
 
 **The “Plugins” hub is the sole end-user UI surface for plugins** (no per-plugin
-button) — a native `<Toolbar>` button (hidden if no plugin is registered), opening
-a panel: per row, icon + name + on/off toggle, and if the plugin has a `config`, a
-disclosure with **auto-rendered** controls from the schema (§ 3) — checkbox,
-slider+number, `input type=password` if `secret`, select.
+button) — a row in the `<Toolbar>`'s **Settings** menu (hidden if no plugin is
+registered), opening a lateral sub-panel: per row, icon + name + on/off toggle,
+and if the plugin has a `config`, a disclosure with **auto-rendered** controls
+from the schema (§ 3) — checkbox, slider+number, `input type=password` if
+`secret`, select.
 
 On the host side, `usePlugins()` gives the same programmatic access:
 

@@ -1,4 +1,4 @@
-import { mdiChevronRight, mdiCog, mdiKeyboardOutline, mdiRestore } from '@mdi/js'
+import { mdiChevronRight, mdiCog, mdiKeyboardOutline, mdiPuzzleOutline, mdiRestore } from '@mdi/js'
 import { UiIcon } from './UiIcon'
 import { useMemo, useRef, useState } from 'react'
 import type { EditShortcut } from '../../config/types'
@@ -8,9 +8,11 @@ import type { ToolSettings } from '../../layers/draw/DrawSettings'
 import { useConfig, useDrawPresets, useLabels, useTheme } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDrawSettings } from '../hooks/useDrawSettings'
+import { usePlugins } from '../hooks/usePlugins'
 import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
 import { maxRadiusOf } from './drawPresets'
 import { useAnchoredPanel } from './panelFit'
+import { PluginHubPanel } from './PluginHubPanel'
 import { formatEdit } from './shortcuts'
 import { useToolbar } from './Toolbar'
 import { ToolButton } from './ToolButton'
@@ -25,8 +27,8 @@ import { useCloseWhenHidden, useDismiss } from './useDismiss'
  */
 const UNSTYLED_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['select', 'erase', 'symbol'])
 
-/** Entrées du panneau ouvrant un sous-panneau latéral : un outil ou le récap raccourcis. */
-type SubKey = DrawTool | 'shortcuts'
+/** Entrées du panneau ouvrant un sous-panneau latéral : un outil, le récap raccourcis ou le hub plugins. */
+type SubKey = DrawTool | 'shortcuts' | 'plugins'
 
 /**
  * Bouton engrenage + panneau « Réglages des outils » : chaque outil garde ses
@@ -49,6 +51,9 @@ export function DrawSettingsButton({
   const submenuCloseMs = useConfig().interaction.menu.submenuCloseMs
   const { tools } = useDrawing()
   const styleableTools = useMemo(() => tools.filter((t) => !UNSTYLED_TOOLS.has(t)), [tools])
+  // Ligne « Plugins » masquée s'il n'y a AUCUN plugin enregistré — même condition
+  // que le bouton dédié de la barre qu'elle remplace.
+  const hasPlugins = usePlugins().plugins.length > 0
   const [open, setOpen] = useState(false)
   const [openSub, setOpenSub] = useState<SubKey | null>(null)
   /** Offset vertical du sous-panneau = ligne survolée (repère : panneau). */
@@ -118,7 +123,7 @@ export function DrawSettingsButton({
     </div>
   )
 
-  const openedTool = openSub && openSub !== 'shortcuts' ? openSub : null
+  const openedTool = openSub && openSub !== 'shortcuts' && openSub !== 'plugins' ? openSub : null
   const openedSettings = openedTool ? settings.get(openedTool) : null
 
   return (
@@ -160,6 +165,7 @@ export function DrawSettingsButton({
           </div>
           <div className="m3d-settings-footer">
             {row('shortcuts', mdiKeyboardOutline, labels.settings.shortcutsTitle)}
+            {hasPlugins && row('plugins', mdiPuzzleOutline, labels.plugins.title)}
           </div>
           {openSub && (
             <div
@@ -192,6 +198,8 @@ export function DrawSettingsButton({
                     {labels.settings.resetTool}
                   </button>
                 </>
+              ) : openSub === 'plugins' ? (
+                <PluginHubPanel />
               ) : (
                 <ShortcutsList />
               )}

@@ -1103,13 +1103,12 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-drag-ghost.m3d-symghost,.m3d-drag-ghost.m3d-symghost.m3d-drag-over{
   transform:translate(-50%,-50%) scale(1)}
 
-/* ── Hub de plugins (PluginHubButton → PluginHubPanel/PluginConfigControls) ───
-   Contenu du flyout .m3d-panel.m3d-flyout (déjà stylé : fond, bordure, ombre,
-   position par côté) — on ne pose ici que la mise en page interne : liste de
-   plugins avec toggle, corps dépliant, et les contrôles auto-rendus depuis le
-   schéma déclaratif (D4). Largeur alignée sur les autres flyouts de barre
-   (.m3d-tagpanel 236px, .m3d-settings 252px). */
-.m3d-plugin-hub{display:flex;flex-direction:column;gap:2px;width:250px;max-height:60vh;overflow-y:auto}
+/* ── Hub de plugins (ligne « Plugins » du menu Réglages → PluginHubPanel/
+   PluginConfigControls). Contenu du sous-panneau .m3d-panel.m3d-settings-sub
+   (déjà stylé : fond, bordure, ombre, largeur, scroll) — on ne pose ici que la
+   mise en page interne : liste de plugins avec toggle, corps dépliant, et les
+   contrôles auto-rendus depuis le schéma déclaratif (D4). */
+.m3d-plugin-hub{display:flex;flex-direction:column;gap:2px}
 .m3d-plugin-hub-title{margin:0;padding:2px 6px 6px;font-size:11px;font-weight:var(--m3d-weight-semibold);
   color:var(--m3d-muted);text-transform:uppercase;letter-spacing:.04em}
 .m3d-plugin-hub-empty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
