@@ -33,7 +33,9 @@ import {
   samePedestrianState,
 } from './pedestrianState'
 import { pedestrianView } from './pedestrianView'
+import { PluginEnrichment } from './PluginEnrichment'
 import { PluginRegistry } from './PluginRegistry'
+import { defaultPluginFetchPolicy } from '../plugins/fetchPolicy'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
 import type { FrameContext, Layer, MapView } from './Layer'
@@ -267,6 +269,8 @@ export class MapEngine {
   readonly tags: TagFilter
   /** Registre des plugins (contrat, activation, config) — partagé, agnostique React. */
   readonly plugins: PluginRegistry
+  /** Orchestrateur d'enrichissement au pick de bâtiment (event-driven sur `buildingclick`). */
+  readonly enrichment: PluginEnrichment
   /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
   readonly selectables = new SelectableRegistry()
   /** Registre d'inventaire des markers (données sources, clusters inclus) consommé par l'outil loupe. */
@@ -467,6 +471,7 @@ export class MapEngine {
     this.tags = new TagFilter(opts.tagStorageKey)
     const pluginKey = opts.pluginStorageKey === undefined ? this.config.data.storageKeys.plugins : opts.pluginStorageKey
     this.plugins = new PluginRegistry(pluginKey, this.config.data.positionSaveDebounceMs)
+    this.enrichment = new PluginEnrichment(this, this.plugins, defaultPluginFetchPolicy)
     this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: this.config.performance.antialias })
     // DPR configurable (`performance.pixelRatio`, défaut 1) : à 1 le canvas fait
     // EXACTEMENT la taille du parent, sans ×2 rétine sur le backing store.
@@ -2499,6 +2504,7 @@ export class MapEngine {
       ;(this.stars.material as THREE.Material).dispose()
     }
     if (this.sky) this.sky.dispose()
+    this.enrichment.dispose()
     this.plugins.dispose()
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
