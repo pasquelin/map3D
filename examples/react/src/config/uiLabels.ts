@@ -40,6 +40,7 @@ export const SECTION_LABELS: Record<DrawToolbarSection, string> = {
   select: defaultLabels.tools.select,
   symbol: defaultLabels.symbols.button,
   lens: defaultLabels.lens.tool,
+  plugins: defaultLabels.plugins.title,
   stylePanel: 'Style de tracé',
   settings: defaultLabels.settings.title,
   undo: defaultLabels.toolbar.undo,
