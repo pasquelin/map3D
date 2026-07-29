@@ -44,7 +44,11 @@ export const defaultMapProps: MapPropsSettings = {
   interactive: 'true',
   fallbackGlobe: true,
   intro: true,
-  errorTarget: 16,
+  // 8 et non 16 (le défaut de `3d-tiles-renderer`) : le mode piéton regarde la géométrie à
+  // 1,70 m, où une erreur d'écran de 16 px laisse les façades molles. Diviser la cible par
+  // deux densifie le maillage proche.
+  // 💰 Le raffinement supplémentaire se paie en tuiles demandées au fournisseur.
+  errorTarget: 8,
 }
 
 /** `<Map interactive>` accepte `true | 'view' | false` ; le panneau n'a que du texte. */
