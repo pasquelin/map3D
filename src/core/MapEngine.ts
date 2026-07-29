@@ -1314,6 +1314,9 @@ export class MapEngine {
     // gardant son état interne pour le retour en orbite.
     this.controls.enabled = false
     this.pedestrianCtl.enter(p, ground)
+    // Les formes drapées cessent de se dessiner par-dessus le décor : à hauteur d'homme
+    // elles recouvriraient tout l'écran (cf. `setAnnotationDepthTest`).
+    this.setAnnotationDepthTest(true)
     this.applyPedestrianView()
     this.syncPedestrian()
     return true
@@ -1326,6 +1329,7 @@ export class MapEngine {
     this.pedestrianPhase = 'placing'
     this.immersion = 'explore'
     this.releasePlacement()
+    this.setAnnotationDepthTest(false)
     this.restoreOrbitView()
     this.controls.enabled = this.interactiveMode === true
     this.syncPedestrian()
@@ -1429,6 +1433,31 @@ export class MapEngine {
    * (ou retirer) le brouillard sur ce qui est DÉJÀ à l'écran. Coût : une traversée, à
    * l'entrée et à la sortie du mode. Jamais par frame.
    */
+  /**
+   * Rend (ou retire) le test de profondeur aux annotations drapées — formes, zones, tracés.
+   *
+   * ⚠️ `flatMaterial` les dessine PAR-DESSUS tout (`depthTest: false`) pour qu'une forme au
+   * sol ne soit pas occluse par le relief : c'est juste vu du ciel, où l'on regarde la zone
+   * d'en haut. À hauteur d'homme on est DEDANS, et la même règle la fait recouvrir tout
+   * l'écran — bâtiments compris, qui prennent alors sa teinte translucide.
+   *
+   * Rejoué à l'entrée et à la sortie seulement : une forme ajoutée pendant la marche garde
+   * son réglage d'origine jusqu'au prochain basculement.
+   */
+  private setAnnotationDepthTest(enabled: boolean): void {
+    this.annotations.traverse((o) => {
+      const material = (o as THREE.Mesh).material
+      if (!material) return
+      const apply = (m: THREE.Material) => {
+        if (m.depthTest === enabled) return
+        m.depthTest = enabled
+        m.needsUpdate = true
+      }
+      if (Array.isArray(material)) for (const m of material) apply(m)
+      else apply(material)
+    })
+  }
+
   private refreshFogMaterials(): void {
     // LES DEUX surfaces : le tileset photoréaliste ET la surface reconstruite localement
     // (raster interne + bâtiments extrudés). Le mode piéton s'ouvre sur l'un comme sur
