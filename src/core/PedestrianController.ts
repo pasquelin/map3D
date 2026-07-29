@@ -66,7 +66,17 @@ export function headingAfterLook(heading: number, dxPx: number, lookSpeedDegPerP
 export class PedestrianController {
   private config: MapConfig = defaultConfig
 
-  /** Position au sol du piéton, et hauteur de sol lissée sous ses pieds. */
+  /**
+   * Position au sol du piéton, en coordonnées MONDE — la source de vérité.
+   *
+   * ⚠️ Et non en lat/lng : reconstruire la pose depuis des degrés à chaque frame impose un
+   * aller-retour monde → cartographique → monde sur des coordonnées géocentriques de
+   * 6 400 km. L'arrondi y est de l'ordre du centimètre : invisible en vue orbitale, il fait
+   * TREMBLER le décor à hauteur d'homme. `at` en reste la projection, dérivée mais jamais
+   * réinjectée.
+   */
+  private readonly groundWorld = new THREE.Vector3()
+  /** Projection lat/lng de `groundWorld` — dérivée, pour la gravité et l'événement. */
   private readonly at: LatLng = { lat: 0, lng: 0 }
   private groundHeight = 0
   private headingRad = 0
@@ -115,6 +125,7 @@ export class PedestrianController {
     this.lookDx = 0
     this.lookDy = 0
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, groundHeight)
+    this.groundWorld.copy(this.origin)
     // Axe de visée courant projeté sur le plan tangent → cap. Au nadir il dégénère (on
     // regarde le long de la verticale) : le haut de l'écran prend alors le relais, exactement
     // comme dans `applyKeyNav`.
@@ -162,8 +173,10 @@ export class PedestrianController {
     const c = this.config.pedestrian
     this.applyLook(c)
     // Base tangente au point courant, recalculée chaque frame : le repère du tileset peut
-    // avoir changé (rebase d'origine), et « tout droit » doit suivre la rue.
+    // avoir changé (rebase d'origine), et « tout droit » doit suivre la rue. Seuls les AXES
+    // en sont retenus — l'origine reste `groundWorld`, qu'aucun aller-retour n'altère.
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, this.groundHeight)
+    this.origin.copy(this.groundWorld)
     const moved = this.applyWalk(dt)
     this.applyGravity(dt, moved)
     this.applyPose()
@@ -206,10 +219,14 @@ export class PedestrianController {
     const slid = slideMove(this.move, this.hits, c.collision.radiusMeters)
     if (slid.east === 0 && slid.north === 0) return false
 
-    // Local (m) → monde, puis retour en lat/lng : le pas est court, l'écart au plan tangent
-    // est négligeable (cf. `EnuFrame.toLatLng`).
-    this.eye.copy(this.origin).addScaledVector(this.east, slid.east).addScaledVector(this.north, slid.north)
-    const next = this.projection.worldToLatLng(this.eye)
+    /**
+     * Le pas s'ajoute DIRECTEMENT à la position monde, en mètres le long des axes tangents.
+     * `at` n'en est ensuite qu'une lecture : il alimente la gravité et l'événement, mais ne
+     * revient jamais dans `groundWorld` — c'est ce retour qui faisait trembler le décor.
+     */
+    this.groundWorld.addScaledVector(this.east, slid.east).addScaledVector(this.north, slid.north)
+    this.origin.copy(this.groundWorld)
+    const next = this.projection.worldToLatLng(this.groundWorld)
     this.at.lat = next.lat
     this.at.lng = next.lng
     return true
@@ -266,14 +283,22 @@ export class PedestrianController {
     // Une montée trop raide pendant un pas est un mur, pas une marche : on ne monte pas.
     const target = moved ? stepGround(this.groundHeight, sampled, c.collision.maxStepHeightMeters) : sampled
     if (target === null) return
-    this.groundHeight = smoothHeight(this.groundHeight, target, c.groundSmoothing, dt)
+    const next = smoothHeight(this.groundHeight, target, c.groundSmoothing, dt)
+    // La montée/descente s'applique à la position MONDE le long de la verticale locale :
+    // `groundHeight` seul ne suffirait plus, puisque la pose ne se reconstruit plus depuis
+    // lat/lng + hauteur mais depuis `groundWorld`.
+    this.groundWorld.addScaledVector(this.up, next - this.groundHeight)
+    this.origin.copy(this.groundWorld)
+    this.groundHeight = next
   }
 
   /** Écrit position et orientation dans la caméra Three, depuis (point, cap, tangage). */
   private applyPose(): void {
     const c = this.config.pedestrian
+    // Axes seulement : l'œil se pose sur `groundWorld`, jamais sur une origine reconstruite
+    // depuis lat/lng (cf. le champ, et le tremblement que cela provoquait).
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, this.groundHeight)
-    this.eye.copy(this.origin).addScaledVector(this.up, c.eyeHeightMeters)
+    this.eye.copy(this.groundWorld).addScaledVector(this.up, c.eyeHeightMeters)
     const sin = Math.sin(this.headingRad)
     const cos = Math.cos(this.headingRad)
     // Cap dans le plan tangent, puis tangage autour de l'axe « droite » local.

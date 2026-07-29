@@ -788,9 +788,16 @@ export class MapEngine {
     this.projection.worldNormal(state, u.up.value)
     this.projection.worldNormal(this.subsolar, u.sunPosition.value)
     sky.position.copy(this.threeCamera.position)
-    // Grand devant la caméra pour remplir l'écran sans être rognée par le near ; la
-    // profondeur est de toute façon forcée au far par le shader.
-    sky.scale.setScalar(Math.max(this.threeCamera.far * 0.5, 1e5))
+    /**
+     * Grand devant la caméra pour remplir l'écran sans être rogné par le near ; la
+     * profondeur est de toute façon forcée au far par le shader.
+     *
+     * ⚠️ Le plancher était ABSOLU (100 km). En mode piéton le far tombe à la distance de
+     * vue (~1 km) : le dôme se retrouvait entièrement au-delà du plan lointain, donc éliminé
+     * par le frustum culling — ciel noir. Le plancher est désormais relatif au near, ce qui
+     * garde le dôme DANS le frustum quelle que soit la profondeur de vue.
+     */
+    sky.scale.setScalar(Math.max(this.threeCamera.far * 0.5, this.threeCamera.near * 100))
   }
 
   // ── Cycle de vie ──
