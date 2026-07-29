@@ -400,6 +400,7 @@ export const defaultConfig: MapConfig = {
       tagFilter: 'm3d:tag-filter',
       drawSettings: 'm3d:draw-settings',
       searchHistory: 'm3d:search-history',
+      plugins: 'm3d:plugins',
     },
     search: {
       minQuery: 2,

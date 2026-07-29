@@ -699,6 +699,8 @@ export type StorageKeysConfig = {
   drawSettings: string
   /** Historique de la boîte de recherche. */
   searchHistory: string
+  /** État des plugins (activation + config), format `{ [id]: PluginState }`. */
+  plugins: string
 }
 
 /** Boîte de recherche — 💰 chaque frappe non amortie est un appel Places facturé. */
