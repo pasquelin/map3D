@@ -10,7 +10,9 @@ export default defineConfig({
   resolve: {
     alias: {
       map3d: resolve(__dirname, '../../src/index.ts'),
-      '@map3d/plugin-demo': resolve(__dirname, '../../../plugingsMap3D/packages/demo/src/index.ts'),
+      '@map3d/plugin-geopf': resolve(__dirname, '../../../plugingsMap3D/packages/geopf/src/index.ts'),
+      '@map3d/plugin-cameras': resolve(__dirname, '../../../plugingsMap3D/packages/cameras/src/index.ts'),
+      '@map3d/plugin-plan-3d': resolve(__dirname, '../../../plugingsMap3D/packages/plan-3d/src/index.ts'),
       'three/addons': resolve(__dirname, '../../node_modules/three/examples/jsm'),
     },
   },
