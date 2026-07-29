@@ -44,6 +44,7 @@ import { SelectionBadges, type SelectionBadgesProps } from './components/Selecti
 import { ShapeLayer } from './components/ShapeLayer'
 import { Toolbar, type DrawToolbarProps } from './components/Toolbar'
 import { ClusterSurface } from './components/ClusterSurface'
+import { PluginSurfaces } from './components/PluginSurfaces'
 import type { LayerSpec, MapSurfaces as Surfaces, MarkersSpec, RelationsConfig } from './mapConfig'
 
 /** Clé React d'une couche : son `id` si fourni, son rang sinon. */
@@ -241,6 +242,7 @@ export function MapSurfaces<T, TPin>({
   cluster,
   markerMenu,
   buildingMenu,
+  plugins,
   children,
   apis,
 }: Surfaces<T, TPin> & { apis: MutableRefObject<BridgedApis> }) {
@@ -256,6 +258,7 @@ export function MapSurfaces<T, TPin>({
         {children}
         {/* SOUS les trois couches (relations montée par `<Map>`, loupe, dessin) :
             c'est la seule position d'où il voit les TROIS contextes. */}
+        <PluginSurfaces plugins={plugins} />
         <ApiBridge target={apis} />
       </Layers>
       {drawEnabled && selectionBadges !== false && (

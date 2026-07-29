@@ -225,6 +225,8 @@ export type MapSurfaces<T = unknown, TPin = unknown> = {
   relations?: RelationsConfig
   /** Couches de données, dans l'ordre de rendu. */
   layers?: LayerSpec[]
+  /** Plugins à rendre disponibles. Registre alimenté au montage ; l'utilisateur active/config via le hub. */
+  plugins?: readonly import('../plugins/types').AnyPlugin[]
   /**
    * Menu d'un marker, **partagé par les trois surfaces qui en proposent un** : le
    * marker sur la carte, l'inventaire de la loupe et le panneau de sélection. Un

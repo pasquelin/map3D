@@ -59,6 +59,8 @@ export type MapProps<T = unknown, TPin = unknown> = {
    * distincte par carte si plusieurs `<Map>` cohabitent). Défaut : `m3d:tag-filter`.
    */
   tagStorageKey?: string | null
+  /** Clé localStorage de l'état des plugins (`null` = pas de persistance). Défaut : `config.data.storageKeys.plugins`. */
+  pluginStorageKey?: string | null
   /**
    * Interactivité (défaut `true`). `'view'` fige la caméra en gardant markers et
    * sélection vivants ; `false` rend la carte inerte. Dans les deux cas figés les
@@ -219,6 +221,7 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       errorTarget: props.errorTarget,
       intro: stored ? false : props.intro,
       tagStorageKey: props.tagStorageKey,
+      pluginStorageKey: props.pluginStorageKey,
       config: configRef.current,
       fov: config.camera.fov,
     })
