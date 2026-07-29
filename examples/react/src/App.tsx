@@ -17,6 +17,7 @@ import {
   markerGroupId,
   markersLayer,
   shapesLayer,
+  useBuildingEnrichment,
 } from 'map3d'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -52,6 +53,28 @@ import { useEditablePin } from './hooks/useEditablePin'
 import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
+import { demoPlugin } from './plugins/demoPlugin'
+
+/**
+ * Preuve vivante de la plateforme plugins (voie A + config + enrichBuilding) : lit
+ * `useBuildingEnrichment()`, alimenté par `demoPlugin` au clic sur un bâtiment 3D interne.
+ * Monté en enfant de `<Map>` pour hériter du contexte carte qu'exige le hook.
+ */
+function DemoBuildingInfo() {
+  const enrichment = useBuildingEnrichment()
+  if (enrichment.loading) return <div className="demo-enrich">Chargement…</div>
+  if (enrichment.error) return <div className="demo-enrich">Erreur : {enrichment.error.message}</div>
+  if (!enrichment.data) return null
+  return (
+    <div className="demo-enrich">
+      {Object.entries(enrichment.data).map(([k, v]) => (
+        <div key={k}>
+          <b>{k}</b> : {String(v)}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /**
  * Réglages de départ : le dernier état stocké, complété par l'origine du serveur de
@@ -262,6 +285,9 @@ export function App() {
   /* Menu d'un bâtiment du volume 3D interne. La poignée est passée par REF : le menu se
      fabrique une fois, et lit la caméra au moment du clic. */
   const buildingMenu = useMemo(() => createBuildingMenu(map), [])
+  // Plateforme plugins : liste mémoïsée une fois — `demoPlugin` est la seule preuve
+  // vivante embarquée par l'exemple (jamais publiée, cf. `plugins/demoPlugin.tsx`).
+  const plugins = useMemo(() => [demoPlugin()], [])
 
   const markerMenu = useCallback<NonNullable<MapSurfaces<AnyData>['markerMenu']>>(
     (m, relations) => {
@@ -446,6 +472,9 @@ export function App() {
           // qu'en 3D interne, ce que `basemap.canPickBuildings` décide seul — inutile de
           // conditionner cette prop.
           buildingMenu={buildingMenu}
+          // Plateforme plugins : hub (bouton puzzle) + dev panel + markers procéduraux
+          // + enrichissement au pick, entièrement portés par `demoPlugin`.
+          plugins={plugins}
           // ── Couches de données, dans l'ordre de rendu. Les fabriques `shapesLayer` /
           // `markersLayer<T>` rendent le typage sur VOS données, que le tableau
           // hétérogène ne peut pas porter seul.
@@ -495,6 +524,9 @@ export function App() {
               `.m3d-root`. Il lit le renderer public (capté à `ready`), donc `engine`
               peut être encore null au premier rendu — le composant l'attend. */}
           {ui.stats && <StatsOverlay engine={engine} />}
+          {/* Preuve vivante de l'enrichissement au pick : lit `useBuildingEnrichment()`,
+              qui EXIGE le contexte carte — doit rester enfant de `<Map>`. */}
+          <DemoBuildingInfo />
         </Map>
       </MapErrorBoundary>
       {/* Banc d'essai : `MapConfig` en entier, les props hors config, et la scène.
