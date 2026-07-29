@@ -1,5 +1,5 @@
 import type { FetchPolicy } from '../config/types'
-import type { AnyPlugin } from '../plugins/types'
+import type { AnyPlugin, BuildingEnrichmentResult } from '../plugins/types'
 import type { BuildingHit, MapEngine } from './MapEngine'
 import type { PluginRegistry } from './PluginRegistry'
 
@@ -13,7 +13,7 @@ export type EnrichmentState = {
   error: Error | null
 }
 
-const EMPTY: EnrichmentState = { loading: false, data: null, tags: [], error: null }
+const EMPTY: EnrichmentState = Object.freeze({ loading: false, data: null, tags: [], error: null })
 
 /**
  * Orchestrateur d'enrichissement au pick. Agnostique React. Écoute `buildingclick` :
@@ -94,23 +94,31 @@ export class PluginEnrichment {
     for (const e of enrichers) {
       const id = e.plugin.meta.id
       const ctx = { engine: this.engine, config: e.config, signal: ctrl.signal, fetchPolicy: this.policy }
-      Promise.resolve((e.plugin.enrichBuilding as NonNullable<AnyPlugin['enrichBuilding']>)(hit, ctx))
-        .then((res) => {
-          if (ctrl.signal.aborted) return
-          this.states.set(id, { loading: false, data: res.attrs, tags: res.tags ?? [id], error: null })
-          this.reportTags()
-          this.emit()
+      const fn = e.plugin.enrichBuilding as NonNullable<AnyPlugin['enrichBuilding']>
+      // `fn` peut lever SYNCHRONE (légal au runtime malgré le type `Promise<...>`) : le try/catch
+      // capture ce cas avant l'attache du `.then/.catch`, sinon le throw remonterait hors de `run()`
+      // et hors du listener `buildingclick` — MapEngine.emit n'entoure pas ses listeners d'un try/catch.
+      let p: Promise<BuildingEnrichmentResult>
+      try {
+        p = Promise.resolve(fn(hit, ctx))
+      } catch (err) {
+        p = Promise.reject(err)
+      }
+      p.then((res) => {
+        if (ctrl.signal.aborted) return
+        this.states.set(id, { loading: false, data: res.attrs, tags: res.tags ?? [id], error: null })
+        this.reportTags()
+        this.emit()
+      }).catch((err: unknown) => {
+        if (ctrl.signal.aborted) return
+        this.states.set(id, {
+          loading: false,
+          data: null,
+          tags: [id],
+          error: err instanceof Error ? err : new Error(String(err)),
         })
-        .catch((err: unknown) => {
-          if (ctrl.signal.aborted) return
-          this.states.set(id, {
-            loading: false,
-            data: null,
-            tags: [id],
-            error: err instanceof Error ? err : new Error(String(err)),
-          })
-          this.emit()
-        })
+        this.emit()
+      })
     }
   }
 

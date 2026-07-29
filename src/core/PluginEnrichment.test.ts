@@ -106,6 +106,27 @@ describe('PluginEnrichment', () => {
     expect(enr.get('a').data).toBeNull()
   })
 
+  it('throw SYNCHRONE (non-async) → capturé en error, sans casser les autres enrichisseurs', async () => {
+    const engine = fakeEngine()
+    const reg = new PluginRegistry(null)
+    reg.register(
+      enricher('a', () => {
+        throw new Error('sync boom')
+      }),
+    )
+    reg.register(enricher('b', async () => ({ attrs: { y: 2 } })))
+    reg.setEnabled('a', true)
+    reg.setEnabled('b', true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enr = new PluginEnrichment(engine as any, reg, defaultPluginFetchPolicy)
+    expect(() => engine.fire(hit)).not.toThrow()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(enr.get('a').error?.message).toBe('sync boom')
+    expect(enr.get('a').data).toBeNull()
+    expect(enr.get('b').data).toEqual({ y: 2 })
+  })
+
   it('merged fusionne les attrs + union des tags des enrichisseurs actifs', async () => {
     const engine = fakeEngine()
     const reg = new PluginRegistry(null)
