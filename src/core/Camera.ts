@@ -237,9 +237,7 @@ export class Camera {
     const z = new THREE.Vector3().addScaledVector(up, Math.cos(tilt)).addScaledVector(bearing, -Math.sin(tilt))
     const y = new THREE.Vector3().addScaledVector(bearing, Math.cos(tilt)).addScaledVector(up, Math.sin(tilt))
     const x = new THREE.Vector3().crossVectors(y, z)
-    outQuat.setFromRotationMatrix(
-      new THREE.Matrix4().makeBasis(x.normalize(), y.normalize(), z.normalize()),
-    )
+    outQuat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x.normalize(), y.normalize(), z.normalize()))
   }
 
   /** Positionne instantanément la caméra à la verticale d'un point. */

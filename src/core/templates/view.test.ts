@@ -223,10 +223,7 @@ describe('applyView', () => {
    */
   it('n’impose pas d’immersion quand l’entrée en piéton échoue', () => {
     const f = fakeEngine({ canEnterPedestrian: false })
-    applyView(
-      f.engine,
-      orbitView({ pedestrian: { lat: 43.7, lng: 7.26, heading: 0, pitch: 0, immersion: 'full' } }),
-    )
+    applyView(f.engine, orbitView({ pedestrian: { lat: 43.7, lng: 7.26, heading: 0, pitch: 0, immersion: 'full' } }))
     expect(f.at('enterPedestrian')).toBeGreaterThanOrEqual(0)
     expect(f.at('setPedestrianImmersion')).toBe(-1)
   })
