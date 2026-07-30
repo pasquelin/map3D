@@ -12,7 +12,12 @@ export type CameraState = {
   lng: number
   /** Altitude de la caméra au-dessus de la surface (mètres). */
   altitude: number
+  /**
+   * Cap (rad), 0 = nord, positif vers l'est. **Toujours `0` dans `getState()`** — seul
+   * `getPose()` le renseigne réellement (cf. son JSDoc pour le pourquoi).
+   */
   heading: number
+  /** Inclinaison (rad), 0 = nadir, π/2 = horizon. Même réserve que `heading`. */
   tilt: number
 }
 
@@ -71,6 +76,13 @@ export class Camera {
   zoomDuration = 0.4
   /** Altitude max (m) au-dessus de la surface — borne le dézoom des vols/boutons. */
   maxAltitude = Infinity
+  /**
+   * Inclinaison max (rad) des poses reposées par `jumpToPose`/`flyToPose`. Posée par
+   * `MapEngine.applyCameraLimits` depuis `camera.maxTilt2d`/`maxTilt3d` — comme
+   * `maxAltitude`, la borne dépend du MODE et n'a donc pas sa place ici en dur : une vue
+   * mémorisée en 3D et rechargée sur une carte plate se redresse au lieu de basculer.
+   */
+  maxTilt = Infinity
 
   private fly: Fly | null = null
   private followFn: (() => LatLng | null) | null = null
@@ -115,6 +127,44 @@ export class Camera {
   }
 
   /**
+   * Pose COMPLÈTE : `getState()` avec un cap et une inclinaison réels, dans les
+   * conventions du mode piéton (`PedestrianController`) — rad, 0 = nord / 0 = nadir.
+   *
+   * Méthode distincte, et non un `getState()` enrichi : ce dernier est appelé plusieurs
+   * fois par frame (vol, suivi, `hasMoved`, near/far) et n'a pas besoin du repère tangent
+   * que le cap réclame. Ici on est sur un chemin FROID — mémoriser ou relire une vue —,
+   * donc les axes ENU et les vecteurs de travail se paient sans conséquence.
+   *
+   * `lat`/`lng` désignent le point au sol **sous l'œil**, jamais le point visé : c'est ce
+   * qui rend l'aller-retour avec `jumpToPose` exact quelle que soit l'inclinaison.
+   */
+  getPose(): CameraState {
+    const state = this.getState()
+    if (!this.projection.isReady()) return state
+    // Le cap et l'inclinaison se lisent sur `matrixWorld`, que seule la boucle du moteur
+    // rafraîchit : lue depuis un clic d'interface — ou juste après le `update()` d'un vol —
+    // elle a une frame de retard, et la vue mémorisée serait celle d'AVANT. Le recalcul est
+    // gratuit hors boucle de frame, et c'est le seul point qui rend cette lecture fiable.
+    this.camera.updateMatrixWorld()
+    const origin = new THREE.Vector3()
+    const east = new THREE.Vector3()
+    const north = new THREE.Vector3()
+    const up = new THREE.Vector3()
+    this.projection.getENUAxes(state, origin, east, north, up)
+    // Axe +Z caméra = son « arrière », c'est-à-dire la verticale en vue nadir : l'angle
+    // qu'il fait avec la normale au sol EST l'inclinaison, sans raycast ni point visé.
+    const back = new THREE.Vector3(0, 0, 1).transformDirection(this.camera.matrixWorld)
+    const tilt = up.angleTo(back)
+    // Visée projetée à plat, repli sur le haut de l'écran quand elle dégénère (nadir :
+    // on regarde le long de la verticale) — la règle d'`applyKeyNav` et de l'entrée en
+    // piéton. À l'horizon c'est l'inverse qui dégénère, d'où l'ordre : visée d'abord.
+    const dir = new THREE.Vector3(0, 0, -1).transformDirection(this.camera.matrixWorld).projectOnPlane(up)
+    if (dir.lengthSq() < 1e-8) dir.set(0, 1, 0).transformDirection(this.camera.matrixWorld).projectOnPlane(up)
+    const heading = dir.lengthSq() < 1e-8 ? 0 : Math.atan2(dir.dot(east), dir.dot(north))
+    return { ...state, heading, tilt }
+  }
+
+  /**
    * Borne une altitude de destination : ≤ `maxAltitude` ET ≥ sol réel (tuiles) +
    * `minGroundClearance`. Sol inconnu (tuiles pas chargées) → repli ellipsoïde ;
    * le géoïde négatif (mer Morte) reste légitime, le plancher le suit.
@@ -150,6 +200,48 @@ export class Camera {
     outQuat.setFromRotationMatrix(this.nadirMatrix)
   }
 
+  /**
+   * Généralisation de `placeNadir` à un cap et une inclinaison — `heading = tilt = 0` en
+   * redonne exactement la pose (le « nord approximé par l'axe polaire projeté » de
+   * `placeNadir` EST le nord ENU).
+   *
+   * L'inclinaison se prend SUR PLACE : la caméra pivote, elle n'orbite pas autour d'un
+   * point visé. `p` reste donc le point au sol sous l'œil de part et d'autre, ce qui rend
+   * `getPose` exactement inversible — une vue rechargée est celle qu'on avait mémorisée.
+   *
+   * Chemin froid (une pose par chargement de vue, puis l'interpolation du vol travaille
+   * sur les quaternions déjà calculés) : les vecteurs de travail sont locaux, contrairement
+   * à `placeNadir` que le mode suivi appelle par frame.
+   */
+  private placeOrbit(
+    p: LatLng,
+    altitude: number,
+    heading: number,
+    tilt: number,
+    outPos: THREE.Vector3,
+    outQuat: THREE.Quaternion,
+  ): void {
+    const origin = new THREE.Vector3()
+    const east = new THREE.Vector3()
+    const north = new THREE.Vector3()
+    const up = new THREE.Vector3()
+    this.projection.getENUAxes(p, origin, east, north, up)
+    outPos.copy(origin).addScaledVector(up, altitude)
+    // Direction du cap dans le plan tangent, puis base caméra three.js (X = droite,
+    // Y = haut de l'écran, Z = arrière). Écrite d'un seul tenant plutôt qu'en deux
+    // rotations enchaînées : au nadir le cap se lit sur Y, à l'horizon sur −Z, et cette
+    // base est continue entre les deux — donc aucun cas limite à traiter à part.
+    const bearing = new THREE.Vector3()
+      .addScaledVector(north, Math.cos(heading))
+      .addScaledVector(east, Math.sin(heading))
+    const z = new THREE.Vector3().addScaledVector(up, Math.cos(tilt)).addScaledVector(bearing, -Math.sin(tilt))
+    const y = new THREE.Vector3().addScaledVector(bearing, Math.cos(tilt)).addScaledVector(up, Math.sin(tilt))
+    const x = new THREE.Vector3().crossVectors(y, z)
+    outQuat.setFromRotationMatrix(
+      new THREE.Matrix4().makeBasis(x.normalize(), y.normalize(), z.normalize()),
+    )
+  }
+
   /** Positionne instantanément la caméra à la verticale d'un point. */
   jumpTo(p: LatLng, altitude: number): void {
     const pos = new THREE.Vector3()
@@ -158,6 +250,54 @@ export class Camera {
     this.camera.position.copy(pos)
     this.camera.quaternion.copy(quat)
     this.camera.updateMatrixWorld()
+  }
+
+  /**
+   * Repose instantanément une pose rendue par `getPose` — restaurer une vue mémorisée.
+   *
+   * Coupe vol ET suivi : recharger une vue est une prise de main, elle ne doit pas se
+   * faire écraser à la frame suivante par un déplacement programmé qui courait encore.
+   * L'altitude passe par `clampAltitude` (sol réel) et l'inclinaison par `maxTilt` (borne
+   * du mode courant) : une vue reste chargeable sur une carte qui n'a plus les mêmes
+   * capacités que celle où elle a été prise.
+   */
+  jumpToPose(pose: CameraState): void {
+    this.fly = null
+    this.followFn = null
+    const pos = new THREE.Vector3()
+    const quat = new THREE.Quaternion()
+    const p: LatLng = { lat: pose.lat, lng: pose.lng }
+    this.placeOrbit(p, this.clampAltitude(p, pose.altitude), pose.heading, this.clampTilt(pose.tilt), pos, quat)
+    this.camera.position.copy(pos)
+    this.camera.quaternion.copy(quat)
+    this.camera.updateMatrixWorld()
+  }
+
+  /** Version animée de `jumpToPose` — mêmes bornes, même prise de main. */
+  flyToPose(pose: CameraState, opts: FlyOptions = {}): void {
+    this.followFn = null
+    const target: LatLng = { lat: pose.lat, lng: pose.lng }
+    const altitude = this.clampAltitude(target, opts.altitude ?? pose.altitude)
+    const toPos = new THREE.Vector3()
+    const toQuat = new THREE.Quaternion()
+    this.placeOrbit(target, altitude, pose.heading, this.clampTilt(pose.tilt), toPos, toQuat)
+    const duration = Math.max(0.05, opts.duration ?? this.flyDuration)
+    this.fly = {
+      fromPos: this.camera.position.clone(),
+      fromQuat: this.camera.quaternion.clone(),
+      toPos,
+      toQuat,
+      t: 0,
+      speed: 1 / (duration * 60),
+      target,
+      altitude,
+      tag: opts.tag,
+    }
+  }
+
+  /** Inclinaison bornée au mode courant, jamais négative (pas de bascule tête en bas). */
+  private clampTilt(tilt: number): number {
+    return clamp(tilt, 0, this.maxTilt)
   }
 
   flyTo(dest: Partial<LatLng> & { altitude?: number }, opts: FlyOptions = {}): void {
