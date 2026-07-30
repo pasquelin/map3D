@@ -169,6 +169,16 @@ export class TileQueue<T extends Tile, R> {
     return this.tiles.size
   }
 
+  /**
+   * Un chargement est en cours ou en attente — donc l'image va encore changer.
+   *
+   * Lu par le rendu à la demande (`performance.renderOnDemand`) : tant que la file
+   * travaille, chaque frame apporte potentiellement une tuile de plus à peindre.
+   */
+  get busy(): boolean {
+    return this.inflight > 0 || this.queue.length > 0 || this.toMount.length > 0
+  }
+
   /** Tuile d'une clé, `undefined` si elle n'est pas (ou plus) en cache. */
   get(key: string): T | undefined {
     return this.tiles.get(key)

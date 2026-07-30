@@ -348,11 +348,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     if (this.defaults.casingWidth > 0 && !visual.dash) {
       const cg = build(width + this.defaults.casingWidth * mpp)
       if (cg) {
-        casing = strokeMaterial(
-          this.defaults.casingColor,
-          this.flatDepthTest,
-          visual.opacity * CASING_OPACITY_RATIO,
-        )
+        casing = strokeMaterial(this.defaults.casingColor, this.flatDepthTest, visual.opacity * CASING_OPACITY_RATIO)
         const cm = new THREE.Mesh(cg, casing)
         cm.renderOrder = order
         enu.add(cm)
@@ -395,6 +391,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
    * n'est touchée, et les traits pleins ne coûtent rien du tout.
    */
   protected onUpdate(ctx: FrameContext): void {
+    let marching = false
     for (const d of this.drapes) {
       if (!d.dash) continue
       const { dash, gap, offset, count } = d.dash.material.dash
@@ -403,10 +400,14 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       // le trait d'une couleur à l'autre à chaque tour.
       const cycle = (dash.value + gap.value) * count.value
       if (!(cycle > 0)) continue
+      marching = true
       // Remis dans le cycle à chaque tour : un décalage qui croît sans fin finit par
       // perdre sa précision en float 32 bits côté GPU, et le motif se met à saccader.
       offset.value = (offset.value + d.dash.speed * ctx.dt) % cycle
     }
+    // Tirets qui défilent = image qui change, carte immobile comprise. Signalé une fois
+    // pour la couche : le drapeau est global, le poser par lien ne l'est pas plus.
+    if (marching) ctx.invalidate()
   }
 
   /** Crée, met à jour ou retire l'étiquette d'un lien selon son `label` courant. */

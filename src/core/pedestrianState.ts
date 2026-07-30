@@ -28,6 +28,15 @@ export type PedestrianState = {
 }
 
 /**
+ * Caméra au ras du sol : on MARCHE, le placement ne compte pas (la caméra y est encore en
+ * orbite). SOURCE UNIQUE de la condition que `MapEngine.setGroundedView` diffuse aux
+ * couches — un consommateur React la relit ici plutôt que de recomposer le `&&` chez lui.
+ */
+export function isGroundedView(state: PedestrianState): boolean {
+  return state.mode === 'pedestrian' && state.phase === 'active'
+}
+
+/**
  * Seuil (rad) sous lequel une rotation ne vaut pas une réémission. ≈0,06° : invisible à
  * l'écran, alors que la caméra bouge à CHAQUE frame en mode piéton. Sans lui, l'événement
  * se comporterait comme `camera` (continu) là où l'UI attend un `basemap` (par changement).

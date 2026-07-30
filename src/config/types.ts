@@ -139,6 +139,20 @@ export type TilesConfig = {
    */
   baseZoom: number
   /**
+   * Prolonge le fond tuilé jusqu'aux pôles (défaut `true`).
+   *
+   * Web Mercator ne peut pas les atteindre — la projection les envoie à l'infini et la
+   * pyramide s'arrête à ±85,0511°. Il restait donc une calotte d'environ 5° de latitude
+   * (~550 km de rayon) sans aucune tuile, où affleurait la sphère de repli : un disque de
+   * couleur d'océan au beau milieu de l'Antarctique.
+   *
+   * Activé, les tuiles de la rangée extrême portent une ligne de sommets supplémentaire
+   * posée AU pôle, avec la coordonnée de texture du bord : la dernière ligne de texels est
+   * étirée jusqu'au bout, sans requête ni texture en plus. À couper si vous préférez voir
+   * franchement la limite réelle de la donnée.
+   */
+  fillPoles: boolean
+  /**
    * Zoom de tuile maximal demandé. ⚠️ Était codé en dur (22, plafond de Google roadmap) :
    * un serveur interne dont le style s'arrête plus tôt réclamait des niveaux inexistants.
    */
@@ -587,8 +601,13 @@ export type CameraMoveEpsilon = {
 export type GroundSampleConfig = {
   /** Durée de validité d'un échantillon mémoïsé. */
   ttlMs: number
-  /** Quantification spatiale du cache (degrés) — `1e-4` ≈ 11 m. */
+  /** Quantification spatiale du cache (degrés) — `1e-4` ≈ 11 m. `0` retire la mémoïsation. */
   cellDeg: number
+  /**
+   * Cellules retenues avant purge du cache de niveau de rue (`sampleGroundHeightCached`).
+   * Borne la mémoire d'une session qui parcourt beaucoup de terrain.
+   */
+  cacheMaxCells: number
   /** Altitude d'où part le rayon descendant. */
   rayOriginMeters: number
   /** Portée du rayon. Doit rester cohérente avec `rayOriginMeters`. */
@@ -613,6 +632,35 @@ export type PerformanceConfig = {
    */
   antialias: boolean
   /**
+   * Arbitrage GPU demandé au navigateur à la création du contexte.
+   *
+   * `'high-performance'` réclame le GPU dédié : sur un portable à double carte, le défaut
+   * du navigateur (`'default'`) laisse volontiers une carte 3D plein écran sur le circuit
+   * intégré. `'low-power'` fait le choix inverse, batterie d'abord.
+   *
+   * ⚠️ Lu à la **création** du contexte : le changer à chaud n'a pas d'effet.
+   */
+  powerPreference: 'default' | 'high-performance' | 'low-power'
+  /**
+   * Résolution de rendu qui s'adapte à la charge : sous la cadence visée, le canvas est
+   * peint à moins de pixels (le CSS le rétablit à la taille du conteneur), et remonte dès
+   * que la carte respire. C'est le seul levier qui rende du temps GPU en proportion —
+   * diviser le ratio par deux, c'est diviser par quatre les pixels à remplir.
+   *
+   * Le plancher (`minRatio`) borne la perte de netteté ; le plafond reste `pixelRatio`.
+   */
+  adaptiveResolution: {
+    enabled: boolean
+    /** Cadence visée (ms/frame). Au-delà, la résolution descend. */
+    targetFrameMs: number
+    /** Plancher du ratio, en fraction de `pixelRatio` (0.5 = moitié moins large). */
+    minRatio: number
+    /** Pas de descente/remontée, en fraction de `pixelRatio`. */
+    step: number
+    /** Frames consécutives hors cadence avant d'agir — ignore les à-coups isolés. */
+    sampleFrames: number
+  }
+  /**
    * Filtrage anisotrope des textures de tuiles. `0` = maximum du matériel, `1` = aucun.
    *
    * ⚠️ Décisif en vue RASANTE. Sans lui, une texture regardée sous un angle faible est
@@ -622,6 +670,46 @@ export type PerformanceConfig = {
    * d'homme — c'est le mode piéton qui l'a révélé.
    */
   textureAnisotropy: number
+  /**
+   * Plage de profondeur (m) dans laquelle un overlay DOM reste projeté.
+   *
+   * Volontairement bien plus large que celle du rendu 3D, que `GlobeControls` resserre
+   * pour la précision de profondeur : le `CSS2DRenderer` masque tout ce qui en sort, si
+   * bien qu'un marker lointain vu en oblique disparaissait. Ces bornes n'agissent QUE sur
+   * le z de clipping des overlays — jamais sur leur position à l'écran, ni sur la 3D.
+   */
+  overlayDepth: {
+    nearMeters: number
+    farMeters: number
+  }
+  /**
+   * Ne peindre que ce qui a changé.
+   *
+   * La boucle de frame tourne toujours (les couches avancent, les tuiles arrivent, les
+   * gestes répondent) : ce qui est sauté, c'est le RENDU — la passe WebGL et celle des
+   * overlays DOM. Carte immobile, elles reproduisent pourtant une image identique, 60 fois
+   * par seconde, pendant des heures sur un poste qui garde la carte ouverte.
+   *
+   * Une frame est peinte dès que quoi que ce soit le demande : caméra qui bouge, tuile qui
+   * arrive, marker qui glisse, geste, changement de réglage… Une couche le signale par
+   * `ctx.invalidate()`, l'hôte par `MapEngine.invalidate()`.
+   */
+  renderOnDemand: {
+    enabled: boolean
+    /**
+     * Frames peintes APRÈS la dernière demande. Un fondu ou une transition qui se termine
+     * en deux frames n'a pas à se déclarer à chaque pas.
+     */
+    idleFrames: number
+    /**
+     * Délai (ms) au-delà duquel une frame est peinte même sans demande.
+     *
+     * Filet de sécurité, pas un rafraîchissement : il borne le prix d'un mouvement que
+     * personne n'aurait signalé (couche tierce, plugin) à « saccadé » au lieu de « figé ».
+     * `0` le retire.
+     */
+    maxIdleMs: number
+  }
   cameraMoveEpsilon: CameraMoveEpsilon
   groundSample: GroundSampleConfig
   /**
@@ -1210,6 +1298,11 @@ export type PedestrianConfig = {
    * Distance de vue (m) : borne le `far` de la caméra, donc le frustum culling, donc les
    * tuiles que le `TilesRenderer` demande. C'est le levier de performance n°1 de la vue
    * rasante — la baisser coûte de l'horizon et rend de la fluidité.
+   *
+   * Elle borne AUSSI les markers et les pastilles de regroupement : un overlay DOM garde sa
+   * taille écran quelle que soit la distance, si bien qu'une alerte à 700 km s'affichait sur
+   * la ligne d'horizon au même gabarit que celle d'en face. Un marker cesse donc d'être
+   * affiché là où le décor cesse de l'être, jamais au-dessus du vide.
    */
   viewDistanceMeters: number
   /** Début du brouillard (m). Il finit toujours à `viewDistanceMeters` — cf. `pedestrianView`. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type PedestrianState, samePedestrianState } from './pedestrianState'
+import { isGroundedView, type PedestrianState, samePedestrianState } from './pedestrianState'
 
 const base: PedestrianState = {
   mode: 'orbit',
@@ -44,5 +44,20 @@ describe('samePedestrianState', () => {
   it('applique le même seuil au tangage', () => {
     expect(samePedestrianState(base, { ...base, pitch: 1e-5 })).toBe(true)
     expect(samePedestrianState(base, { ...base, pitch: 0.1 })).toBe(false)
+  })
+})
+
+describe('isGroundedView', () => {
+  it('est vrai pendant la marche', () => {
+    expect(isGroundedView({ ...base, mode: 'pedestrian', phase: 'active' })).toBe(true)
+  })
+
+  /** Le placement vise un point de rue depuis l'orbite : la caméra n'est pas encore au sol. */
+  it('est faux pendant le placement', () => {
+    expect(isGroundedView({ ...base, mode: 'pedestrian', phase: 'placing' })).toBe(false)
+  })
+
+  it('est faux en orbite', () => {
+    expect(isGroundedView({ ...base, mode: 'orbit', phase: 'active' })).toBe(false)
   })
 })

@@ -39,6 +39,8 @@ export class AnchorHeightCache {
   private entries = new Map<string | number, Entry>()
   /** Cache en construction pendant une passe — `null` hors mode passe. */
   private pass: Map<string | number, Entry> | null = null
+  /** Map libre, permutée avec `entries` à chaque passe (cf. `beginPass`). */
+  private spare = new Map<string | number, Entry>()
   private epoch = -1
   private tick = 0
   private retryNow = false
@@ -63,12 +65,16 @@ export class AnchorHeightCache {
       this.entries.clear()
     }
     this.retryNow = ++this.tick % this.retryFrames === 0
-    this.pass = new Map()
+    // Les deux Maps sont permutées, jamais réallouées : une passe par frame, c'est une
+    // Map neuve par frame — et son contenu survit juste assez pour atteindre le GC.
+    this.pass = this.spare
+    this.pass.clear()
   }
 
   /** Adopte le cache de la passe : les éléments non revus en sortent d'eux-mêmes. */
   endPass(): void {
     if (!this.pass) return
+    this.spare = this.entries
     this.entries = this.pass
     this.pass = null
   }

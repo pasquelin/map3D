@@ -114,28 +114,20 @@ export class Camera {
     return { lat: ll.lat, lng: ll.lng, altitude, heading: 0, tilt: 0 }
   }
 
-  /** Dernier échantillon de sol — `sampleGroundHeight` coûte ~9 raycasts BVH, et
-   *  certains appelants reviennent sur la même cible par frame (retarget d'intro,
-   *  follow). Expiré après 2 s : le sol se raffine avec le streaming des tuiles. */
-  private groundCache: { lat: number; lng: number; ground: number | null; at: number } | null = null
-
   /**
    * Borne une altitude de destination : ≤ `maxAltitude` ET ≥ sol réel (tuiles) +
    * `minGroundClearance`. Sol inconnu (tuiles pas chargées) → repli ellipsoïde ;
    * le géoïde négatif (mer Morte) reste légitime, le plancher le suit.
    * NB : le zoom molette ne passe pas ici — il est couvert par l'anti-collision
    * de GlobeControls.
+   *
+   * La mémoïsation des ~9 raycasts vit dans `Projection` (`sampleGroundHeightCached`), sur
+   * les mêmes clés de config. Cette classe en tenait sa propre copie à UNE entrée — sans
+   * effet dès que deux cibles alternaient, et surtout aveugle à `heightEpoch` : après une
+   * bascule 2D/3D, un vol se clampait encore sur l'ancienne surface.
    */
   private clampAltitude(p: LatLng, altitude: number): number {
-    const now = performance.now()
-    const c = this.groundCache
-    // TTL et quantification du cache d'échantillon : ils évitent de relancer
-    // `sampleGroundHeight` (≈9 raycasts BVH) à chaque frame d'un mouvement, et
-    // c'est un arbitrage coût/fraîcheur — donc un réglage, pas un invariant.
-    const { ttlMs, cellDeg } = this.config.performance.groundSample
-    const cached = c && now - c.at < ttlMs && Math.abs(c.lat - p.lat) < cellDeg && Math.abs(c.lng - p.lng) < cellDeg
-    const ground = cached ? c.ground : this.projection.sampleGroundHeight(p)
-    if (!cached) this.groundCache = { lat: p.lat, lng: p.lng, ground, at: now }
+    const ground = this.projection.sampleGroundHeightCached(p)
     return Math.max(Math.min(altitude, this.maxAltitude), (ground ?? 0) + this.config.camera.minGroundClearance)
   }
 

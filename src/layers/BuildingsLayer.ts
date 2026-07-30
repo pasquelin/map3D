@@ -166,6 +166,11 @@ export class BuildingsLayer {
     this.setConfig(cfg, server)
   }
 
+  /** Des tuiles sont en vol ou en attente de montage — l'image va encore changer. */
+  get busy(): boolean {
+    return this.cache.busy
+  }
+
   /**
    * Montre ou retire les volumes.
    *

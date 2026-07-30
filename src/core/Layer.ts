@@ -19,6 +19,16 @@ export type FrameContext = {
   size: { width: number; height: number }
   /** Delta de temps (secondes) depuis la frame précédente. */
   dt: number
+  /**
+   * « J'ai de quoi changer l'image » — à appeler tant que la couche a du travail en cours
+   * (animation, arrivée de données, géométrie en construction).
+   *
+   * Sans cet appel, le moteur peut sauter le rendu de la frame
+   * (`performance.renderOnDemand`) : la couche continue d'être `update`/`project`, mais
+   * son résultat n'est pas peint. Le signaler ne coûte rien ; l'oublier fige l'animation
+   * jusqu'au prochain mouvement (ou jusqu'à `maxIdleMs`).
+   */
+  invalidate(): void
 }
 
 /**

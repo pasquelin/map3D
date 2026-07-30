@@ -8,6 +8,7 @@ import type { Projection, ScreenPoint } from '../core/Projection'
 import type { SelectableScreenItem } from '../core/Selectables'
 import { clamp, DEG2RAD, shortestLngDelta } from '../core/math'
 import type { LatLng } from '../shared'
+import { isInsideFrame, isWithinViewDistance } from './markerCull'
 
 export type OverlayItem = {
   id: string | number
@@ -116,6 +117,8 @@ export class MarkerLayer implements Layer {
   /** Curseur tournant + compteur pour re-échantillonner les markers fixes par lots. */
   private settleCursor = 0
   private settleTick = 0
+  /** Liste de travail de `settleStatic`, réutilisée d'une passe à l'autre. */
+  private readonly staticScratch: Node[] = []
   /**
    * Fenêtre (en frames) pendant laquelle on re-échantillonne le sol des markers
    * fixes. Ouverte à l'ajout de markers ou au mouvement caméra (les tuiles arrivent
@@ -140,13 +143,30 @@ export class MarkerLayer implements Layer {
     private readonly onUnmount: (id: string | number) => void,
   ) {}
 
+  /**
+   * Caméra au ras du sol (mode piéton). Diffusé par le moteur (`setGroundedView`), au même
+   * titre que `setConfig` — cette couche était la seule à ne pas l'écouter.
+   */
+  private grounded = false
+
   setConfig(config: MapConfig): void {
     this.config = config
   }
 
-  /** Écrit la position ECEF **locale** (repère de `tiles.group`) à une hauteur donnée. */
+  setGrounded(grounded: boolean): void {
+    this.grounded = grounded
+  }
+
+  /**
+   * Écrit la position ECEF **locale** (repère de `tiles.group`) à une hauteur donnée.
+   *
+   * `updateMatrix()` explicite parce que `matrixAutoUpdate` est coupé sur ces objets (cf.
+   * `createNode`) : c'est ce qui fait qu'un marker immobile ne recompose plus sa matrice à
+   * chaque frame, et le seul endroit d'où leur position bouge.
+   */
   private writePosition(obj: CSS2DObject, p: LatLng, height: number): void {
     this.ellipsoid.getCartographicToPosition(p.lat * DEG2RAD, p.lng * DEG2RAD, height, obj.position)
+    obj.updateMatrix()
   }
 
   /**
@@ -157,7 +177,9 @@ export class MarkerLayer implements Layer {
   private settle(node: Node): void {
     if (this.settleToGround) {
       // Niveau de la rue (min local), pas le toit : sinon parallaxe → rue parallèle.
-      const h = this.projection.sampleGroundHeight(node.cur)
+      // Version MÉMOÏSÉE : un marker en mouvement passe ici à chaque frame, et le calcul
+      // exact coûte neuf raycasts (cf. `sampleGroundHeightCached`).
+      const h = this.projection.sampleGroundHeightCached(node.cur)
       if (h !== null) node.groundHeight = h
     }
     this.writePosition(node.obj, node.cur, node.groundHeight)
@@ -171,13 +193,20 @@ export class MarkerLayer implements Layer {
   private settleStatic(): void {
     if (!this.settleToGround || this.resettleFrames <= 0) return
     this.resettleFrames--
-    if (++this.settleTick % 3 !== 0) return
-    const list: Node[] = []
+    if (++this.settleTick % this.config.performance.resettle.everyNFrames !== 0) return
+    // Tableau REUTILISÉ : cette passe revient à cette cadence pendant toute la fenêtre de
+    // recalage, et repartir d'un tableau neuf y allouait au rythme des markers.
+    const list = this.staticScratch
     for (const n of this.nodes.values()) if (n.t >= 1) list.push(n)
-    if (list.length === 0) return
-    const k = Math.min(this.config.performance.resettle.batch, list.length)
-    for (let i = 0; i < k; i++) this.settle(list[(this.settleCursor + i) % list.length]!)
-    this.settleCursor = (this.settleCursor + k) % list.length
+    if (list.length > 0) {
+      const k = Math.min(this.config.performance.resettle.batch, list.length)
+      for (let i = 0; i < k; i++) this.settle(list[(this.settleCursor + i) % list.length]!)
+      this.settleCursor = (this.settleCursor + k) % list.length
+    }
+    // Vidé À LA SORTIE, jamais à l'entrée : la fenêtre se referme sur un `return` plus haut,
+    // et le tableau retenait alors des nœuds — donc leur `CSS2DObject` et son élément DOM —
+    // longtemps après que `setItems` les a retirés.
+    list.length = 0
   }
 
   /** Ouvre la fenêtre de re-échantillonnage si la caméra a bougé (streaming imminent). */
@@ -238,6 +267,11 @@ export class MarkerLayer implements Layer {
         // center (0,0) → coin haut-gauche ancré au point : le contenu se recentre
         // via ses marges négatives, comme l'ancien `translate3d(sx,sy)`.
         obj.center.set(0, 0)
+        // Matrice locale pilotée à la main (cf. `writePosition`) : à `true`, CHAQUE marker
+        // la recomposait par frame, immobile compris, et marquait sa matrice monde à
+        // recalculer dans la foulée. Un marker ne bouge qu'aux pas de son tween ou à un
+        // recalage de sol — le reste du temps il n'y a rien à refaire.
+        obj.matrixAutoUpdate = false
         this.group.add(obj)
         const node: Node = {
           id: item.id,
@@ -357,11 +391,17 @@ export class MarkerLayer implements Layer {
    */
   screenPositions(camera: THREE.Camera): SelectableScreenItem[] {
     const out: SelectableScreenItem[] = []
+    // Chemin FROID (finalize du marquee), d'où le `getWorldPosition` par nœud : hors frame,
+    // personne n'a descendu les matrices pour nous.
+    this.projection.setViewDirection(camera)
     for (const node of this.nodes.values()) {
       if (!node.visible) continue
       const world = node.obj.getWorldPosition(this.worldScratch)
-      const s = this.projection.worldToScreen(world, camera)
-      if (s.z <= 1) out.push({ id: node.id, x: s.sx, y: s.sy })
+      // Même verdict que le cull de `project` : le dos de la caméra se lit sur le sens de
+      // visée, jamais sur `z > 1`, qui confond « derrière moi » et « au-delà du far ».
+      if (this.projection.isBehindCamera(world, camera.position)) continue
+      const s = this.projection.worldToScreen(world, camera, this.screen)
+      out.push({ id: node.id, x: s.sx, y: s.sy })
     }
     return out
   }
@@ -452,8 +492,11 @@ export class MarkerLayer implements Layer {
    */
   update(ctx: FrameContext): void {
     const dur = Math.max(1, this.moveTween.durationMs) / 1000
+    // Recalage en cours (streaming des tuiles) : les markers vont encore se déplacer.
+    let moving = this.resettleFrames > 0
     for (const node of this.nodes.values()) {
       if (node.t >= 1) continue
+      moving = true
       node.t = clamp(node.t + ctx.dt / dur, 0, 1)
       const e = this.moveTween.easing(node.t)
       node.cur.lat = node.from.lat + (node.to.lat - node.from.lat) * e
@@ -465,6 +508,9 @@ export class MarkerLayer implements Layer {
     this.noteCamera(ctx.cameraState)
     // Markers fixes : re-échantillonnage tournant pour suivre le streaming des tuiles.
     this.settleStatic()
+    // Un seul signalement pour toute la couche : le drapeau est global et idempotent, le
+    // demander par marker revenait à le reposer mille fois pour le même effet.
+    if (moving) ctx.invalidate()
   }
 
   /**
@@ -477,22 +523,50 @@ export class MarkerLayer implements Layer {
    * pas. L'horizon est testé en PREMIER : il ne coûte qu'un produit scalaire, là où le
    * cadre coûte une projection complète, qu'on évite ainsi pour tout l'hémisphère
    * caché.
+   *
+   * ⚠️ Au ras du sol, la PORTÉE DE VUE remplace l'horizon. Celui-ci ne distingue plus le
+   * globe de la simple différence de hauteur à cette altitude, et masquait tout marker posé
+   * plus haut que les yeux — un toit, donc la quasi-totalité d'entre eux en ville. Mais le
+   * retirer sans rien mettre à la place laissait les markers d'une ville à 700 km alignés
+   * sur la ligne d'horizon, à la taille de ceux d'en face (un overlay DOM ne rapetisse pas
+   * avec la distance). La portée est celle du far de la caméra et de la fin du brouillard :
+   * un marker cesse d'être affiché là où le décor cesse de l'être, jamais au-dessus du vide.
    */
   project(ctx: FrameContext): void {
     const cull = this.cullMargin > 0
-    if (!this.occlude && !cull) return
+    const occlude = this.occlude && !this.grounded
+    // Hors marche, aucune borne : la scène porte jusqu'à l'horizon, que l'occlusion gère.
+    const range = this.grounded ? this.config.pedestrian.viewDistanceMeters : 0
+    if (!occlude && !cull && range <= 0) return
     const camPos = ctx.camera.position
     const { width, height } = ctx.size
-    const m = this.cullMargin
+    // Hors marche, la borne de distance est inerte — mais l'argument, lui, serait quand
+    // même calculé : un carré de distance par marker pour un test toujours vrai.
+    const ranged = range > 0
+    // Sens de visée de la frame, posé une fois pour toute la boucle (cf. `setViewDirection`).
+    if (cull) this.projection.setViewDirection(ctx.camera)
     for (const node of this.nodes.values()) {
-      const world = node.obj.getWorldPosition(this.worldScratch)
-      let visible = !this.occlude || this.projection.isAboveHorizon(world, camPos)
+      /**
+       * Lecture DIRECTE de la matrice monde, sans `getWorldPosition` : celui-ci commence
+       * par `updateWorldMatrix(true, false)`, soit une remontée de toute la chaîne de
+       * parents — par marker et par frame. Le moteur a descendu la scène des overlays une
+       * fois, juste avant cette passe (cf. `MapEngine.tick`), et une passe de projection
+       * n'a de toute façon pas à écrire quoi que ce soit.
+       */
+      const world = this.worldScratch.setFromMatrixPosition(node.obj.matrixWorld)
+      let visible =
+        (!occlude || this.projection.isAboveHorizon(world, camPos)) &&
+        (!ranged || isWithinViewDistance(camPos.distanceToSquared(world), range))
       if (visible && cull) {
-        const s = this.projection.worldToScreen(world, ctx.camera, this.screen)
-        // `z > 1` = derrière la caméra : le `CSS2DRenderer` le masque déjà, mais le
-        // dire ici évite qu'un point projeté au dos de l'écran soit lu comme « dans le
-        // cadre » — la projection replie l'arrière sur l'avant.
-        visible = s.z <= 1 && s.sx >= -m && s.sy >= -m && s.sx <= width + m && s.sy <= height + m
+        // Le dos de la caméra se lit sur le sens de visée, PAS sur `z > 1` : celui-ci dit
+        // aussi « au-delà du far », que le mode piéton resserre à la distance de vue.
+        // Testé AVANT la projection — un produit scalaire contre une projection complète,
+        // épargnée pour tout l'hémisphère arrière (même raisonnement que l'horizon).
+        visible = !this.projection.isBehindCamera(world, camPos)
+        if (visible) {
+          const s = this.projection.worldToScreen(world, ctx.camera, this.screen)
+          visible = isInsideFrame(s.sx, s.sy, width, height, this.cullMargin)
+        }
       }
       if (visible !== node.visible) {
         node.obj.visible = visible

@@ -15,6 +15,7 @@ export type {
   MapMode,
   BasemapState,
   MapEvents,
+  MapStats,
   DragMode,
   InteractiveMode,
   PointerInterceptor,

@@ -214,6 +214,9 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
     this.lastCamera = ctx.camera
     this.viewH = ctx.size.height
     if (this.projection.isReady()) this.sync.update(ctx.cameraState)
+    // Recalage en cours : les drapes se reposent sur la surface au fil du streaming, donc
+    // l'image change encore sans que rien d'autre ne bouge.
+    if (this.sync.active) ctx.invalidate()
     this.onUpdate?.(ctx)
   }
 

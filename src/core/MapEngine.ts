@@ -49,6 +49,7 @@ import {
   easeInOutCubic,
   zoomForAltitude,
 } from './math'
+import { viewScaleDistance } from './viewScale'
 import { Sky } from './Sky'
 import { subsolarPoint } from './sun'
 import { DragRegistry } from './DragRegistry'
@@ -204,6 +205,28 @@ export type BuildingInfo = {
 /** Le bâtiment désigné, et de quoi le re-désigner (mise en évidence). */
 export type BuildingHit = { ref: BuildingRef; info: BuildingInfo }
 
+/**
+ * Compteurs de rendu (cf. `MapEngine.stats`).
+ *
+ * Ce qu'il faut regarder en premier : `drawCalls` (coût par objet dessiné), `painted` face
+ * à `frames`, et `resolutionScale` (le GPU tient-il la cadence). `overlays` compte les
+ * markers suivis, masqués compris — c'est lui qui pilote le coût du `CSS2DRenderer`.
+ */
+export type MapStats = {
+  /** État de la dernière frame peinte. */
+  drawCalls: number
+  triangles: number
+  geometries: number
+  textures: number
+  /** `CSS2DObject` suivis (markers montés, visibles ou non). */
+  overlays: number
+  /** Résolution courante, en fraction de `performance.pixelRatio`. */
+  resolutionScale: number
+  /** CUMULS depuis le démarrage — à lire en différence entre deux relevés. */
+  painted: number
+  frames: number
+}
+
 export type MapEvents = {
   camera: CameraState
   viewport: MapView
@@ -254,6 +277,9 @@ export const WHEEL_SURFACE_ATTR = 'data-m3d-wheel-surface'
 // exacte importe peu : le rayon monde est recalé chaque frame sous le far courant.
 const STAR_RADIUS = 1e7
 
+/** Garde-fou sous `adaptiveResolution.minRatio` : à zéro, le tampon de rendu n'existe plus. */
+const MIN_RESOLUTION_SCALE = 0.05
+
 /**
  * Cœur du moteur : scène Three, `TilesRenderer` (Google Photorealistic 3D Tiles
  * ou tileset custom), `GlobeControls` (navigation façon Google Earth), globe
@@ -263,6 +289,13 @@ const STAR_RADIUS = 1e7
 export class MapEngine {
   readonly scene = new THREE.Scene()
   readonly threeCamera: THREE.PerspectiveCamera
+  /**
+   * Jumelle de `threeCamera` réservée au `CSS2DRenderer` : même pose, même champ, plage de
+   * profondeur élargie (`performance.overlayDepth`). Sa matrice monde est RECOPIÉE au
+   * moment du rendu — d'où `matrixWorldAutoUpdate = false`, sans quoi le `CSS2DRenderer`
+   * la recalculerait depuis une position qu'on ne lui a jamais donnée.
+   */
+  private readonly labelCamera: THREE.PerspectiveCamera
   readonly camera: Camera
   readonly projection = new Projection()
   /** Filtre de visibilité par tags, partagé par toutes les couches (markers, dessins). */
@@ -295,11 +328,18 @@ export class MapEngine {
   readonly tiles: TilesRenderer
   readonly controls: GlobeControls
   /**
-   * Ancre (enfant de `tiles.group`, transformée identité) pour les overlays qui doivent
-   * hériter du repère du tileset mais rester visibles même quand la 3D est masquée (mode
-   * 2D) — les markers `CSS2DObject` s'y attachent au lieu de `tiles.group` directement.
+   * Ancre des overlays DOM (markers `CSS2DObject`) — repère du tileset, mais visible même
+   * quand la 3D est masquée (mode 2D). FRÈRE du groupe de tuiles et non son enfant, comme
+   * `internalSurface` : sa matrice en est recopiée (cf. `mirrorTileFrame`).
+   *
+   * Sous `tiles.group`, le `CSS2DRenderer` traversait le tileset photoréaliste entier —
+   * deux fois par frame, projection puis tri z — pour trouver quelques dizaines de markers.
+   * Et `TilesGroup.updateMatrixWorld` ignorant `force`, un marker déplacé n'y voyait jamais
+   * sa matrice monde recalculée autrement que par un `getWorldPosition()` par marker.
    */
   readonly overlayAnchor = new THREE.Group()
+  /** Racine des overlays DOM, imposée par le tri z du `CSS2DRenderer`. Jamais rendue en WebGL. */
+  private readonly labelScene = new THREE.Scene()
   /**
    * Parent commun des couches d'annotation WebGL (formes, dessins, tracés) : leur
    * donne un interrupteur de visibilité unique — masquées pendant l'intro, comme
@@ -469,10 +509,21 @@ export class MapEngine {
     this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
     this.tags = new TagFilter(opts.tagStorageKey)
+    /**
+     * Le filtre « Couches » bascule la visibilité de meshes WebGL (`DrawLayer`, formes,
+     * tracés) depuis une case à cocher d'un panneau — sans geste sur le canvas, sans
+     * mouvement de caméra, sans recalage. Le brancher ICI, sur le registre plutôt que sur
+     * chaque couche qui l'écoute, couvre tout abonné présent et à venir.
+     */
+    this.unbindTagPaint = this.tags.onSelection(this.invalidate)
     const pluginKey = opts.pluginStorageKey === undefined ? this.config.data.storageKeys.plugins : opts.pluginStorageKey
     this.plugins = new PluginRegistry(pluginKey, this.config.data.positionSaveDebounceMs)
     this.enrichment = new PluginEnrichment(this, this.plugins, defaultPluginFetchPolicy)
-    this.renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: this.config.performance.antialias })
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: opts.canvas,
+      antialias: this.config.performance.antialias,
+      powerPreference: this.config.performance.powerPreference,
+    })
     // DPR configurable (`performance.pixelRatio`, défaut 1) : à 1 le canvas fait
     // EXACTEMENT la taille du parent, sans ×2 rétine sur le backing store.
     this.renderer.setPixelRatio(this.config.performance.pixelRatio)
@@ -483,6 +534,14 @@ export class MapEngine {
     // résolutions périmées un peu partout — d'où l'absence de setter.
     this.threeCamera = new THREE.PerspectiveCamera(opts.fov ?? CAMERA_FOV, 1, 1, 1e8)
     this.threeCamera.position.set(0, 0, 2e7)
+    const overlayDepth = this.config.performance.overlayDepth
+    this.labelCamera = new THREE.PerspectiveCamera(
+      this.threeCamera.fov,
+      1,
+      overlayDepth.nearMeters,
+      overlayDepth.farMeters,
+    )
+    this.labelCamera.matrixWorldAutoUpdate = false
 
     // Source de tuiles 3D : Cesium Ion (token) en priorité, sinon Google Maps Platform
     // en direct (clé). NB : les Photorealistic 3D Tiles Google sont bloquées pour les
@@ -511,10 +570,19 @@ export class MapEngine {
     this.tiles.setCamera(this.threeCamera)
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     this.scene.add(this.tiles.group)
-    // Ancre des overlays (markers) : partage la transformée du tileset mais n'est jamais
-    // masquée avec les tuiles 3D (cf. setTiles3DVisible).
+    // Ancre des overlays (markers) : partage la transformée du tileset sans en être
+    // l'enfant, et vit dans sa propre scène (cf. `overlayAnchor`).
     this.overlayAnchor.name = 'm3d-overlay-anchor'
-    this.tiles.group.add(this.overlayAnchor)
+    this.overlayAnchor.matrixAutoUpdate = false
+    this.labelScene.add(this.overlayAnchor)
+    // Les matrices monde de `labelScene` sont mises à jour par le moteur, ENTRE la passe
+    // de lecture et la passe d'écriture (cf. `tick`) : le `CSS2DRenderer` la refaire
+    // rendrait la descente deux fois, et `MarkerLayer.project` lirait la première.
+    this.labelScene.matrixWorldAutoUpdate = false
+    // Racine immobile : sans ça, son `updateMatrix()` par frame marquait sa matrice monde
+    // à recalculer, ce que la descente propage ensuite à TOUT le sous-arbre — soit une
+    // matrice monde recomposée par marker et par frame, quand bien même aucun n'a bougé.
+    this.labelScene.matrixAutoUpdate = false
     this.annotations.name = 'm3d-annotations'
     this.scene.add(this.annotations)
 
@@ -874,8 +942,13 @@ export class MapEngine {
     this.renderer.setSize(w, h, true)
     this.threeCamera.aspect = w / h
     this.threeCamera.updateProjectionMatrix()
+    // La jumelle des overlays suit le cadrage, jamais la plage de profondeur (cf.
+    // `labelCamera`) : c'est le seul moment où sa projection a besoin d'être refaite.
+    this.labelCamera.aspect = this.threeCamera.aspect
+    this.labelCamera.updateProjectionMatrix()
     this.projection.setViewportSize(w, h)
     this.labelRenderer.setSize(w, h)
+    this.invalidate()
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     // La taille du viewport change les bounds : invalide la vue mémoïsée.
     this.viewDirty = true
@@ -888,11 +961,13 @@ export class MapEngine {
     // du sol : une couche montée pendant la marche naîtrait sinon en réglage orbital.
     layer.setConfig?.(this.config)
     if (this.grounded.active) layer.setGrounded?.(true)
+    this.invalidate()
   }
 
   removeLayer(layer: Layer): void {
     this.layers.delete(layer)
     layer.dispose()
+    this.invalidate()
   }
 
   on<E extends keyof MapEvents>(event: E, cb: Listener<E>): () => void {
@@ -938,9 +1013,13 @@ export class MapEngine {
     if (this.config === config) return
     const prev = this.config
     this.config = config
-    if (prev.performance.pixelRatio !== config.performance.pixelRatio) {
-      this.renderer.setPixelRatio(config.performance.pixelRatio)
-      this.renderer.setSize(this.size.width, this.size.height, false)
+    this.invalidate()
+    if (prev.performance.pixelRatio !== config.performance.pixelRatio) this.applyResolution()
+    const depth = config.performance.overlayDepth
+    if (prev.performance.overlayDepth !== depth) {
+      this.labelCamera.near = depth.nearMeters
+      this.labelCamera.far = depth.farMeters
+      this.labelCamera.updateProjectionMatrix()
     }
     this.controls.enableDamping = config.interaction.damping
     // Relu AVANT le fond : c'est lui qui décide du fournisseur effectif de celui-ci
@@ -1308,19 +1387,13 @@ export class MapEngine {
    */
   private groundLevelAt(p: LatLng, ringRadiusMeters: number): number | null {
     /**
-     * Volume INTERNE : le sol est la nappe raster, **plate et non raycastable** (cf.
-     * `makeUnraycastable`). Aucun rayon ne peut donc le retrouver — échantillonner ne
-     * ramènerait que des TOITS, et sur une emprise plus large que la couronne le toit
-     * devenait son propre « niveau de rue » : écart nul, placement autorisé dessus.
-     *
-     * ⚠️ Et surtout PAS `terrainElevation` : en 3D il suit la surface sous le centre écran,
-     * c'est-à-dire les toits eux aussi (cf. `applyModeVisibility`). S'en servir posait le
-     * piéton à hauteur de toit, au-dessus du vide.
-     *
-     * Le lire directement supprime au passage les neuf raycasts de la couronne à chaque
-     * validation de survol.
+     * Le court-circuit du sol analytique vit désormais DANS `sampleGroundHeight` (cf.
+     * `Projection.setGroundPlane`, poussé par `syncGroundPlane`) : il servait au placement
+     * piéton, à la gravité et au suivi de terrain, mais pas aux markers, qui appellent la
+     * projection directement et se posaient donc sur les toits. Une seule porte pour tout
+     * le monde, et cette méthode n'est plus qu'un nom pour le rayon de couronne.
      */
-    return this.flatGroundElevation ?? this.projection.sampleGroundHeight(p, ringRadiusMeters)
+    return this.projection.sampleGroundHeight(p, ringRadiusMeters)
   }
 
   /**
@@ -1333,6 +1406,18 @@ export class MapEngine {
    */
   private get flatGroundElevation(): number | null {
     return this.provider3d === 'internal' ? this.basemap2d.groundElevation : null
+  }
+
+  /**
+   * Pousse le sol analytique à la projection, par frame. Le setter court-circuite à valeur
+   * égale — c'est donc une comparaison, pas un travail.
+   *
+   * Par frame et non au changement de fournisseur : la nappe suit l'élévation du terrain, qui
+   * se précise avec le streaming des tuiles. Un seul point de synchronisation vaut mieux que
+   * de traquer chaque écriture de `basemap2d.setElevation`.
+   */
+  private syncGroundPlane(): void {
+    this.projection.setGroundPlane(this.flatGroundElevation)
   }
 
   /**
@@ -1540,6 +1625,9 @@ export class MapEngine {
    * à la source : hiérarchie de tuiles côté externe, BVH côté interne.
    */
   private applyModeVisibility(): void {
+    // Point de convergence de tout ce qui change la composition de l'image (mode 2D/3D,
+    // fournisseur, trafic) : une seule demande de peinture y suffit pour tous.
+    this.invalidate()
     const in2d = this.mapMode !== '3d'
     const external3d = this.provider3d === 'external'
     // Le fond peut devoir changer de fournisseur avec le mode (cf. `effectiveTilesConfig`).
@@ -1604,12 +1692,9 @@ export class MapEngine {
 
   /** Masque/affiche uniquement les tuiles 3D — jamais l'ancre des markers ni le globe 2D. */
   private setTiles3DVisible(visible: boolean): void {
-    for (const child of this.tiles.group.children) {
-      // L'ancre des overlays reste visible ; la surface interne, elle, n'est plus ici
-      // (cf. `internalSurface`) et se pilote séparément.
-      if (child === this.overlayAnchor) continue
-      child.visible = visible
-    }
+    // L'ancre des overlays comme la surface interne vivent désormais HORS de ce groupe
+    // (cf. `overlayAnchor`, `internalSurface`) : il ne reste ici que des tuiles.
+    for (const child of this.tiles.group.children) child.visible = visible
   }
 
   /** Altitude du terrain (m) sous le centre écran, suivie en continu en mode 3D et
@@ -1677,6 +1762,7 @@ export class MapEngine {
     this.overlayAnchor.visible = visible
     this.annotations.visible = visible
     this.canvas.parentElement?.classList.toggle('m3d-intro', !visible)
+    this.invalidate()
   }
 
   /** (Ré)échantillonne l'altitude du terrain sous le centre écran (raycast BVH). No-op
@@ -1964,9 +2050,143 @@ export class MapEngine {
 
   // ── Boucle ──
 
+  /** Frames de rendu encore dues. Décrémenté à chaque peinture (cf. `invalidate`). */
+  private dirtyFrames = 1
+  /** Date de la dernière frame réellement peinte — origine du filet `maxIdleMs`. */
+  private paintedAt = 0
+  /** Pose de la caméra à la dernière frame — détecteur de mouvement du rendu à la demande. */
+  private readonly lastCamMatrix = new THREE.Matrix4()
+  /** Désabonnement du repaint sur le filtre de tags (cf. constructeur). */
+  private readonly unbindTagPaint: () => void
+
+  /**
+   * Demande à peindre les prochaines frames (`performance.renderOnDemand.idleFrames`).
+   *
+   * À appeler dès qu'on change quelque chose de VISIBLE hors boucle de frame : données
+   * d'une couche, thème, réglages, sélection, taille. Le moteur le fait déjà pour tout ce
+   * qu'il pilote (caméra, tuiles, modes) et les couches pour leur travail en cours
+   * (`ctx.invalidate`) — c'est l'hôte qui touche à la scène directement, ou une couche
+   * tierce, qui en a l'usage.
+   *
+   * Flèche liée : passée telle quelle dans le `FrameContext` de chaque frame.
+   */
+  readonly invalidate = (): void => {
+    this.dirtyFrames = Math.max(this.dirtyFrames, this.config.performance.renderOnDemand.idleFrames)
+  }
+
+  /**
+   * Cette frame doit-elle être peinte ?
+   *
+   * Consomme une frame due, sinon retombe sur le filet `maxIdleMs`. Le travail EN COURS
+   * (tuiles en vol, montages en attente) est une condition CONTINUE, pas une demande : on
+   * la teste en dernier, quand la carte est par ailleurs au repos — pendant un déplacement
+   * la frame est déjà due, et l'interroger coûterait un `loadProgress` pour rien.
+   */
+  private shouldPaint(now: number): boolean {
+    const cfg = this.config.performance.renderOnDemand
+    if (!cfg.enabled) return true
+    if (this.dirtyFrames > 0) {
+      this.dirtyFrames--
+      return true
+    }
+    if (this.tilesBusy()) return true
+    return cfg.maxIdleMs > 0 && now - this.paintedAt >= cfg.maxIdleMs
+  }
+
+  /** Ratio de résolution courant, en fraction de `performance.pixelRatio`. */
+  private resolutionScale = 1
+  /** Frames peintes depuis la dernière décision de résolution, et leur temps cumulé. */
+  private frameSamples = 0
+  private frameMsTotal = 0
+
+  /**
+   * SEUL point d'écriture de la résolution de rendu, qui n'est jamais que
+   * `pixelRatio × resolutionScale`. Le réglage et la charge y arrivent par deux chemins
+   * (`setConfig`, `adaptResolution`), et les tenir séparément revenait à ce que chacun
+   * écrase le facteur de l'autre.
+   *
+   * `setPixelRatio` refait lui-même le `setSize` avec la dernière taille CSS connue : le
+   * redemander ici réallouait le tampon de rendu deux fois par palier.
+   *
+   * ⚠️ Écrire `canvas.width/height` VIDE le tampon de rendu : tout appelant doit repeindre
+   * dans la foulée, sinon le navigateur compose un canvas noir. D'où `invalidate()` ici —
+   * qui garantit la peinture, mais à la frame SUIVANTE : un appel en cours de `tick` doit
+   * en plus se placer avant les passes de rendu (cf. son site d'appel dans `tick`).
+   */
+  private applyResolution(): void {
+    this.invalidate()
+    this.renderer.setPixelRatio(this.config.performance.pixelRatio * this.resolutionScale)
+    // La résolution entre dans le calcul d'erreur d'écran des tuiles : sans ça, le LOD
+    // continuerait de viser la finesse de l'ancienne définition.
+    this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
+  }
+
+  /**
+   * Ajuste la résolution de rendu sur la charge réelle (`performance.adaptiveResolution`).
+   *
+   * Échantillonné sur les seules frames PEINTES, mais la grandeur mesurée reste l'intervalle
+   * entre TICKS : c'est lui qui monte quand le CPU ou le GPU sature, et il reste nominal
+   * quand la carte se repose — au repos on peut donc remonter à pleine définition, ce qui
+   * est exactement le moment de le faire.
+   */
+  private adaptResolution(frameMs: number): void {
+    const cfg = this.config.performance.adaptiveResolution
+    // Désactivée à chaud : la résolution est RENDUE avant de sortir, sinon le canvas
+    // resterait figé au dernier palier réduit, sans plus personne pour le relever.
+    if (!cfg.enabled) {
+      if (this.resolutionScale !== 1) {
+        this.resolutionScale = 1
+        this.applyResolution()
+      }
+      return
+    }
+    this.frameMsTotal += frameMs
+    if (++this.frameSamples < cfg.sampleFrames) return
+    const avg = this.frameMsTotal / this.frameSamples
+    this.frameSamples = 0
+    this.frameMsTotal = 0
+    // Plancher de SÛRETÉ et non de réglage : à ratio nul le tampon de rendu ferait zéro
+    // pixel de côté, ce qui casse le contexte — `minRatio` décide au-dessus.
+    const min = Math.max(MIN_RESOLUTION_SCALE, cfg.minRatio)
+    let next = this.resolutionScale
+    if (avg > cfg.targetFrameMs) next = Math.max(min, next - cfg.step)
+    // Remontée seulement avec de la marge (80 % du budget) : au ras de la cible, monter
+    // d'un cran repasse au-dessus, et la résolution se met à osciller à chaque fenêtre.
+    else if (avg < cfg.targetFrameMs * 0.8) next = Math.min(1, next + cfg.step)
+    if (next === this.resolutionScale) return
+    this.resolutionScale = next
+    this.applyResolution()
+  }
+
+  /** Compteurs de rendu — de quoi juger une optimisation au lieu de la supposer (`MapStats`). */
+  stats(): MapStats {
+    const info = this.renderer.info
+    return {
+      drawCalls: info.render.calls,
+      triangles: info.render.triangles,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      overlays: this.overlayAnchor.children.length,
+      resolutionScale: this.resolutionScale,
+      painted: this.paintedFrames,
+      frames: this.totalFrames,
+    }
+  }
+
+  /** Frames écoulées / réellement peintes — dénominateur et numérateur de `stats()`. */
+  private totalFrames = 0
+  private paintedFrames = 0
+
+  /** Un fournisseur de tuiles a-t-il du travail en vol (téléchargement, parse, montage) ? */
+  private tilesBusy(): boolean {
+    if (this.mapMode === '3d' && this.provider3d === 'external') return this.tiles.loadProgress < 1
+    return this.basemap2d.busy || this.buildings.busy
+  }
+
   private tick(now: number): void {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000)
     this.lastTime = now
+    this.totalFrames++
 
     const controlling = this.camera.update()
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
@@ -2003,24 +2223,18 @@ export class MapEngine {
       this.tiles.update()
     }
     this.tiles.group.updateMatrixWorld(true)
-    /**
-     * Même repère que les tuiles, sans être leur enfant (cf. `internalSurface`). La
-     * recopie n'a lieu QUE si la transformée du tileset a bougé — en pratique jamais.
-     *
-     * Forcer `updateMatrixWorld(true)` à chaque frame recalculait la matrice monde des
-     * centaines de tuiles raster et de bâtiments : c'est exactement le travail que
-     * `TilesGroup` évitait à ses enfants, et le perdre suffisait à faire ramer la carte,
-     * fournisseur externe compris.
-     */
-    if (!this.internalSurface.matrix.equals(this.tiles.group.matrix)) {
-      this.internalSurface.matrix.copy(this.tiles.group.matrix)
-      this.internalSurface.updateMatrixWorld(true)
-    }
+    // Les deux groupes qui partagent le repère du tileset sans en être enfants.
+    // `internalSurface` descend sur place (ses tuiles sont posées) ; l'ancre des overlays
+    // attend que les couches aient écrit les positions de leurs markers, plus bas.
+    if (this.mirrorTileFrame(this.internalSurface)) this.internalSurface.updateMatrixWorld(true)
+    this.mirrorTileFrame(this.overlayAnchor)
     // Suit l'altitude du terrain sous le centre écran (pour aligner le fond 2D au switch).
     // Sauté seulement quand on MARCHE : ce rayon centre-écran vise alors l'horizon et ne
     // mesure rien d'utile. Pendant le placement il reste indispensable — c'est le repli de
     // sol du fournisseur interne (cf. `groundLevelAt`), qui serait figé sans lui.
     if (this.mapMode === '3d' && this.pedestrianPhase !== 'active') this.trackTerrainElevation()
+    // Après le suivi de terrain : c'est lui qui fait bouger la nappe du fournisseur interne.
+    this.syncGroundPlane()
     this.updateIntro(now)
     this.checkReady(now)
 
@@ -2031,6 +2245,17 @@ export class MapEngine {
     // (`near = altitude × 0,15`) mettrait le plan proche à des dizaines de mètres devant
     // l'œil — plus rien de proche ne serait rendu.
     if (controlling && this.cameraMode === 'orbit') this.updateNearFar(state)
+
+    /**
+     * Une caméra qui a bougé, si peu que ce soit, repeint tout l'écran — c'est donc la
+     * matrice monde qu'on compare, et pas `hasMoved`. Celui-ci porte un seuil MÉTIER (il
+     * décide de l'événement `camera` et des re-échantillonnages) qui ignore l'orientation :
+     * tourner la tête sur place ne déplace ni lat, ni lng, ni altitude.
+     */
+    if (!this.lastCamMatrix.equals(this.threeCamera.matrixWorld)) {
+      this.lastCamMatrix.copy(this.threeCamera.matrixWorld)
+      this.invalidate()
+    }
 
     if (this.hasMoved(state)) {
       this.lastState = state
@@ -2113,9 +2338,45 @@ export class MapEngine {
       },
       size: this.size,
       dt,
+      invalidate: this.invalidate,
     }
     for (const layer of this.layers) layer.update(ctx)
+    /**
+     * Charnière entre la passe de LECTURE et la passe d'ÉCRITURE : `update` vient de poser
+     * les positions locales des overlays, `project` va lire leurs matrices monde, et le
+     * `CSS2DRenderer` les lira encore plus bas. UNE descente pour les trois — c'est ce qui
+     * autorise `MarkerLayer` à lire `obj.matrixWorld` directement, au lieu de remonter la
+     * chaîne par marker via `getWorldPosition`.
+     */
+    this.labelScene.updateMatrixWorld()
     for (const layer of this.layers) layer.project(ctx)
+
+    /**
+     * Rien à peindre : la frame s'arrête ici.
+     *
+     * Tout ce qui précède a bien eu lieu — les couches ont avancé, les tuiles ont progressé,
+     * les overlays DOM sont à jour. Seules les deux passes de RENDU sont sautées, et elles
+     * ne reproduiraient qu'une image identique. C'est aussi ce qui rend la bascule sûre :
+     * aucun état ne dépend d'avoir été peint.
+     */
+    if (!this.shouldPaint(now)) return
+    this.paintedAt = now
+    this.paintedFrames++
+
+    /**
+     * Charge mesurée sur l'INTERVALLE entre frames, pas sur le temps passé dans `tick`.
+     *
+     * `render()` ne fait qu'empiler des commandes : chronométrer notre propre code ne
+     * verrait jamais un GPU saturé — le CPU rendrait la main aussitôt, et le navigateur
+     * absorberait le retard en espaçant les frames. C'est justement cet espacement qui le
+     * dit, et il capte les deux goulots d'un coup.
+     *
+     * Échantillonné sur les seules frames PEINTES — d'où sa place APRÈS la garde, mais
+     * ⚠️ AVANT les passes de rendu : changer de palier réalloue le tampon (cf.
+     * `applyResolution`), et le faire une fois la frame peinte la jetait juste avant que le
+     * navigateur ne la compose — un écran noir d'une frame à chaque palier.
+     */
+    this.adaptResolution(dt * 1000)
 
     // Étoiles en skybox : collées à la caméra, et surtout RECALÉES sous le far courant.
     // GlobeControls resserre le far à ~distance-horizon (bien < STAR_RADIUS) en vue posée :
@@ -2130,21 +2391,40 @@ export class MapEngine {
     // Ciel atmosphérique : fondu + orientation (sort tôt et gratuit en vue globe).
     this.updateSky(state)
     this.renderer.render(this.scene, this.threeCamera)
-    // Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls
-    // garde une plage serrée pour la précision de profondeur du rendu WebGL — mais le
-    // CSS2DRenderer masque tout marker dont le z sort de cette plage (un marker lointain
-    // en vue inclinée passe au-delà du `far` → disparaît). Or near/far n'affecte QUE le z
-    // de clipping, PAS la position x/y à l'écran : en l'élargissant juste pour les labels,
-    // une alerte n'est jamais masquée par la caméra, sans dégrader la 3D.
-    const savedNear = this.threeCamera.near
-    const savedFar = this.threeCamera.far
-    this.threeCamera.near = 0.1
-    this.threeCamera.far = 1e9
-    this.threeCamera.updateProjectionMatrix()
-    this.labelRenderer.render(this.scene, this.threeCamera)
-    this.threeCamera.near = savedNear
-    this.threeCamera.far = savedFar
-    this.threeCamera.updateProjectionMatrix()
+    /**
+     * Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls garde
+     * une plage serrée pour la précision de profondeur du rendu WebGL — mais le
+     * `CSS2DRenderer` masque tout marker dont le z sort de cette plage (un marker lointain
+     * en vue inclinée passe au-delà du `far` → disparaît). Or near/far n'affecte QUE le z
+     * de clipping, PAS la position x/y à l'écran : en l'élargissant juste pour les labels,
+     * une alerte n'est jamais masquée par la caméra, sans dégrader la 3D.
+     *
+     * L'élargissement se fait sur une caméra JUMELLE, jamais sur celle du rendu : la
+     * déborner puis la reborner coûtait deux `updateProjectionMatrix` par frame, et
+     * laissait surtout, l'espace de deux instructions, une caméra dont le near/far mentait
+     * à quiconque la lisait (couche, plugin, hôte).
+     */
+    this.labelCamera.matrixWorld.copy(this.threeCamera.matrixWorld)
+    this.labelCamera.matrixWorldInverse.copy(this.threeCamera.matrixWorldInverse)
+    this.labelRenderer.render(this.labelScene, this.labelCamera)
+  }
+
+  /**
+   * Aligne un groupe FRÈRE sur le repère du tileset, et dit si la transformée a bougé (en
+   * pratique jamais). `matrixAutoUpdate` étant coupé sur ces groupes, c'est ici que se pose
+   * le drapeau qui autorisera la prochaine descente à recalculer leur matrice monde.
+   *
+   * ⚠️ La recopie est gardée, et pas seulement par économie : un `copy()` par frame ne
+   * suffirait pas — il ne lève aucun drapeau — tandis que forcer `updateMatrixWorld(true)`
+   * recalculerait la matrice monde des centaines de tuiles raster et de bâtiments. C'est
+   * exactement le travail que `TilesGroup` épargne à ses enfants, et le perdre suffisait à
+   * faire ramer la carte, fournisseur externe compris.
+   */
+  private mirrorTileFrame(target: THREE.Object3D): boolean {
+    if (target.matrix.equals(this.tiles.group.matrix)) return false
+    target.matrix.copy(this.tiles.group.matrix)
+    target.matrixWorldNeedsUpdate = true
+    return true
   }
 
   /** Empêche de dézoomer au-delà de `maxCameraDistance` (Terre jamais un point). */
@@ -2190,13 +2470,41 @@ export class MapEngine {
     if (!this.viewDirty && this.cachedView) return this.cachedView
     const view: MapView = {
       center: { lat: state.lat, lng: state.lng },
-      zoom: zoomForAltitude(state.altitude),
+      zoom: zoomForAltitude(this.scaleDistance(state)),
       bounds: this.viewportBounds(state),
     }
     this.cachedView = view
     this.viewDirty = false
     return view
   }
+
+  /**
+   * Distance qui donne l'échelle de la vue : caméra → point VISÉ, et non altitude.
+   *
+   * `altitude = distance × cos(tilt)` : s'incliner la fait chuter sans que rien ne change à
+   * l'écran, et le zoom qui en dérivait grimpait d'autant (mesuré : 14,75 à plat, 18,46 à
+   * 85°, de quoi franchir `clustering.maxZoom` et éteindre tous les regroupements). Le même
+   * piège coûtait déjà ses tuiles au fond raster, d'où `tileZoomAtCenter` — mais `MapView.zoom`,
+   * lui, était resté sur l'altitude, et il commande le décor `static`, les clusters, et
+   * l'event `viewport` que l'hôte écoute.
+   *
+   * À plat, le point visé est sous la caméra : la distance VAUT l'altitude, et rien ne change.
+   */
+  private scaleDistance(state: CameraState): number {
+    const aim = this.projection.pickEllipsoidLatLng(this.size.width / 2, this.size.height / 2, this.threeCamera)
+    let picked: number | null = null
+    if (aim) {
+      this.projection.latLngToWorld(aim, this.scaleScratch, this.terrainElevation)
+      picked = this.threeCamera.position.distanceTo(this.scaleScratch)
+    }
+    // En marche, le regard porte jusqu'à l'horizon : sans borne, le piéton lirait l'échelle
+    // de son point de fuite et passerait sous les seuils d'affichage du décor. Même distance
+    // de référence que le niveau de détail des tuiles (cf. `tileZoomWalking`).
+    const cap = this.cameraMode === 'pedestrian' ? this.config.pedestrian.tileDetailDistanceMeters : 0
+    return viewScaleDistance(picked, state.altitude, cap)
+  }
+
+  private readonly scaleScratch = new THREE.Vector3()
 
   private viewportBounds(center: CameraState): Bounds {
     const { width, height } = this.size
@@ -2306,9 +2614,21 @@ export class MapEngine {
    * Mise en évidence des bâtiments, ouverte à la couche React : c'est elle qui tient le
    * menu contextuel ouvert, donc elle seule sait combien de temps un bâtiment reste
    * « sélectionné ». Le survol, lui, appartient au moteur.
+   *
+   * Façade et non la couche nue : recolorer un mesh change l'image, et l'appelant est du
+   * DOM hors canvas (ouverture ET fermeture du menu, Échap, clic dans un résultat de
+   * recherche) — donc rien que les listeners du canvas puissent voir. Sans ce relais, le
+   * bâtiment restait teinté jusqu'à la frame de sécurité.
    */
   get buildingPicker(): { setHighlight(ref: BuildingRef | null, kind: BuildingHighlight): void } {
-    return this.buildings
+    return this.buildingPickerFacade
+  }
+
+  private readonly buildingPickerFacade = {
+    setHighlight: (ref: BuildingRef | null, kind: BuildingHighlight): void => {
+      this.buildings.setHighlight(ref, kind)
+      this.invalidate()
+    },
   }
 
   /**
@@ -2351,6 +2671,21 @@ export class MapEngine {
 
   private bindInput(): void {
     this.navKeys.bind()
+    /**
+     * Toute interaction repeint, sans chercher à savoir ce qu'elle a changé.
+     *
+     * Filet posé À LA SOURCE plutôt qu'au fil des dizaines de conséquences possibles
+     * (survol d'un bâtiment, poignée de dessin saisie, inertie de `GlobeControls`, geste
+     * d'un plugin) : une interaction dure quelques centaines de millisecondes, et peindre
+     * pendant ce temps est exactement ce qu'on veut. Ce sont les longues plages SANS
+     * interaction que le rendu à la demande vise.
+     */
+    this.canvas.addEventListener('pointerdown', this.invalidate)
+    this.canvas.addEventListener('pointermove', this.invalidate)
+    window.addEventListener('pointerup', this.invalidate)
+    this.canvas.addEventListener('wheel', this.invalidate, { passive: true })
+    // Le clavier n'a rien à signaler : `applyKeyNav` déplace la caméra AVANT le test de
+    // pose de cette même frame, qui la voit donc bouger.
     window.addEventListener('pointerdown', this.forceRotateModifier, true)
     this.canvas.addEventListener('pointerdown', this.onPointerDown)
     this.canvas.addEventListener('pointermove', this.onPointerMove)
@@ -2362,6 +2697,10 @@ export class MapEngine {
 
   private unbindInput(): void {
     this.navKeys.unbind()
+    this.canvas.removeEventListener('pointerdown', this.invalidate)
+    this.canvas.removeEventListener('pointermove', this.invalidate)
+    window.removeEventListener('pointerup', this.invalidate)
+    this.canvas.removeEventListener('wheel', this.invalidate)
     window.removeEventListener('pointerdown', this.forceRotateModifier, true)
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
@@ -2491,6 +2830,7 @@ export class MapEngine {
     this.stop()
     this.canvas.style.cursor = ''
     this.unbindInput()
+    this.unbindTagPaint()
     for (const layer of this.layers) layer.dispose()
     this.layers.clear()
     this.basemap2d.dispose()

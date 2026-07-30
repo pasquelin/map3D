@@ -5,6 +5,7 @@ import { WORLD_BOUNDS } from '../../core/bounds'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { VisualNode } from '../../core/MarkerQuery'
 import type { MarkerLayer as CoreMarkerLayer, OverlayItem } from '../../layers/MarkerLayer'
+import { isWithinViewDistance } from '../../layers/markerCull'
 import {
   ClusterEngine,
   type ClusterEntry,
@@ -18,6 +19,7 @@ import type { LatLng } from '../../shared'
 import { useConfig, useLabels, useMapContext } from '../context'
 import { useEntriesSignature } from '../hooks/useEntriesSignature'
 import { useOverlayLayer } from '../hooks/useOverlayLayer'
+import { useGroundedView } from '../hooks/usePedestrian'
 import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { MarkerContent, svgToDataUri } from './MarkerLayer'
@@ -74,6 +76,20 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
   const config = useConfig()
   const labels = useLabels()
   const clustering = config.clustering
+  /**
+   * Au ras du sol, il ne reste du regroupement que le DÉCLUTTER ÉCRAN — et c'est justement
+   * celui qui a un sens à hauteur d'homme : ce qui se superpose à l'œil devient une
+   * pastille, où que soient les points. Les deux autres sont coupés ici :
+   *
+   * — le regroupement GÉOGRAPHIQUE, parce que la proximité au sol ne dit rien de ce qu'on
+   *   voit : deux points distants de vingt mètres se confondent à huit cents mètres et se
+   *   séparent nettement à cinq. Seule la distance à l'œil compte, et c'est le déclutter
+   *   qui la mesure ;
+   * — l'auto-ÉVENTAIL, dont le rayon sort de `metersPerPixelAtZoom`, résolution d'une carte
+   *   2D SOUS la caméra, qui ne dit rien de la distance d'un marker en vue rasante (elle va
+   *   d'un mètre à la portée de vue). Il écarterait de quelques centimètres, ~1 px à l'écran.
+   */
+  const grounded = useGroundedView()
 
   const engineRef = useRef<ClusterEngine | null>(null)
   /** Points contribués par uid — résout les feuilles sans repasser par les couches. */
@@ -87,8 +103,8 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
   const [rev, signature] = useEntriesSignature()
 
   const clusterSize = size ?? Math.round(theme.markers.size * 1.18)
-  const latest = useRef({ chrome, clustering, config, theme, clusterSize })
-  latest.current = { chrome, clustering, config, theme, clusterSize }
+  const latest = useRef({ chrome, clustering, config, theme, clusterSize, grounded })
+  latest.current = { chrome, clustering, config, theme, clusterSize, grounded }
 
   // Couche DOM dédiée aux pastilles : les markers gardent la leur (cf. `useOverlayLayer`).
   const { layerRef: coreRef, nodes: els } = useOverlayLayer(
@@ -149,7 +165,17 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     const items: OverlayItem[] = []
     if (index) {
       const view = engine.getView()
-      const geo = index.getClusters(WORLD_BOUNDS, view.zoom)
+      const atGround = latest.current.grounded
+      /**
+       * Au ras du sol, on demande un cran AU-DELÀ de `maxZoom` : supercluster rend alors tous
+       * les points individuellement, et seul le déclutter écran décide (cf. `grounded`).
+       *
+       * Explicite, et non plus par accident : le zoom du piéton dépassait `maxZoom` de
+       * lui-même tant qu'il dérivait de l'altitude (24,5 à hauteur d'homme). Depuis qu'il suit
+       * l'échelle réellement perçue, il retombe à ~18,3 — assez pour que supercluster se
+       * remette à regrouper au sol, ce qu'on ne veut pas ici.
+       */
+      const geo = index.getClusters(WORLD_BOUNDS, atGround ? latest.current.clustering.maxZoom + 1 : view.zoom)
 
       // Déclutter ÉCRAN : le regroupement géographique n'empêche pas deux nœuds de se
       // SUPERPOSER en vue oblique (l'un derrière l'autre → illisible). On projette, on
@@ -159,12 +185,37 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
       const proj = engine.projection
       const mergePx = latest.current.clustering.radius
       const r2 = mergePx * mergePx
-      const projected = geo
-        .map((entry) => {
-          const sp = proj.worldToScreen(proj.latLngToWorld(entry.position), cam)
-          return { entry, sx: sp.sx, sy: sp.sy, z: sp.z }
-        })
-        .sort((a, b) => a.z - b.z)
+      /**
+       * Portée de vue au ras du sol — la même borne que `MarkerLayer`, et pour une raison
+       * qui lui est propre : sans elle, un point hors de portée qui se projette sur un point
+       * proche entrerait dans son bin, et la pastille compterait ce que personne ne voit.
+       */
+      const range = atGround ? latest.current.config.pedestrian.viewDistanceMeters : 0
+      const projected: { entry: ClusterEntry; sx: number; sy: number; z: number }[] = []
+      for (const entry of geo) {
+        // Distance mesurée sur l'ellipsoïde, avant tout raycast : la borne est kilométrique,
+        // les quelques dizaines de mètres du relief ne la font pas basculer.
+        const flat = proj.latLngToWorld(entry.position)
+        if (!isWithinViewDistance(cam.position.distanceToSquared(flat), range)) continue
+        // Hauteur RÉELLE seulement en vue rasante : le marker est posé au sol (cf.
+        // `MarkerLayer.settle`), et l'écart avec l'ellipsoïde y pèse plusieurs écrans — le
+        // déclutter fusionnait des points qui ne se superposent pas. Vu du ciel il vaut
+        // quelques pixels sur un disque de 60, et ne vaut pas un raycast par point et par
+        // recompute.
+        // `sampleGroundHeightCached` et non `resolveAnchorHeight` : la MÊME source que
+        // `MarkerLayer.settle`, sinon le déclutter projetterait le point sur le toit pendant
+        // que la couche le pose dans la rue. Gratuit sous fournisseur interne, où le niveau
+        // de rue est analytique (cf. `Projection.setGroundPlane`) ; sous tuiles photoréalistes
+        // c'est neuf raycasts BVH par point, et ce recompute revient à chaque mouvement de
+        // caméra — soit exactement la boucle que la mémoïsation dégage, partagée en prime
+        // avec les markers, qui interrogent les mêmes cellules.
+        const world = atGround
+          ? proj.latLngToWorld(entry.position, undefined, proj.sampleGroundHeightCached(entry.position) ?? 0)
+          : flat
+        const sp = proj.worldToScreen(world, cam)
+        projected.push({ entry, sx: sp.sx, sy: sp.sy, z: sp.z })
+      }
+      projected.sort((a, b) => a.z - b.z)
 
       type Bin = { sx: number; sy: number; members: ClusterEntry[]; counts: Record<string, number>; position: LatLng }
       const countsOf = (e: ClusterEntry): Record<string, number> =>
@@ -193,7 +244,8 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
       }
 
       const spiderfy = latest.current.config.interaction.spiderfy
-      const explode = view.zoom >= latest.current.clustering.maxZoom - spiderfy.zoomEpsilon
+      // Jamais au ras du sol : l'éventail y écarterait de quelques centimètres (cf. `grounded`).
+      const explode = !atGround && view.zoom >= latest.current.clustering.maxZoom - spiderfy.zoomEpsilon
       for (const bin of bins) {
         const solo = bin.members.length === 1 ? bin.members[0]! : null
         // Un marker seul dans son disque n'est PAS un regroupement : sa couche le pose
@@ -294,6 +346,13 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
       off()
     }
   }, [engine, enabled, clustering, recompute])
+
+  // L'entrée et la sortie du mode piéton changent les règles du regroupement (portée,
+  // hauteur de projection, éventail) sans passer par les données ni par `clustering` : on
+  // refait le calcul tout de suite, sans attendre le prochain mouvement de caméra.
+  useEffect(() => {
+    if (enabled) recompute()
+  }, [enabled, grounded, recompute])
 
   // Regroupement recalculé au déplacement caméra, THROTTLÉ : les pastilles restent
   // ancrées en 3D et suivent la carte à 60 fps, seul le RE-groupement tourne moins

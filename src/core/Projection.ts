@@ -5,6 +5,22 @@ import type { Ellipsoid } from '3d-tiles-renderer'
 import type { LatLng } from '../shared'
 import { CAMERA_FOV, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
 
+/**
+ * Empaquetage des deux index de cellule du cache de niveau de rue en UN entier (cf.
+ * `sampleGroundHeightCached`). L'index de longitude occupe les bits bas, la latitude les
+ * hauts. Deux conditions, et la première est la plus étroite :
+ *
+ * — INJECTIVITÉ : `|lngIdx| ≤ 180 / cellDeg`, donc la plage occupe `360 / cellDeg + 1`
+ *   valeurs, qui doivent tenir dans `LNG_CELL_SPAN`. À la maille minimale : 72 000 001
+ *   contre 2²⁷. Sous cette marge, un report de longitude s'ajoute à la latitude voisine et
+ *   deux cellules distinctes partagent une hauteur, sans bruit ;
+ * — EXACTITUDE : `latIdx × LNG_CELL_SPAN` reste sous 2⁵³ (2,4 × 10¹⁵ à la maille minimale).
+ *
+ * Les deux sont figées par `Projection.test.ts` — elles ne se relisent pas dans le code.
+ */
+const LNG_CELL_SPAN = 1 << 27
+const CELL_DEG_MIN = 5e-6
+
 export type { LatLng } from '../shared'
 export type ScreenPoint = { sx: number; sy: number; z: number }
 
@@ -105,6 +121,30 @@ export class Projection {
     if (h === this.flatHeight) return
     this.flatHeight = h
     this.heightEpoch++
+  }
+
+  /**
+   * Niveau de rue ANALYTIQUE du fournisseur courant, ou `null` s'il faut un rayon pour le
+   * connaître (tuiles photoréalistes, où le sol est une vraie surface).
+   *
+   * Le fournisseur INTERNE drape une nappe raster plate, délibérément **non raycastable**
+   * (cf. `makeUnraycastable`) : seul le bâti extrudé y est un volume. Échantillonner le sol
+   * n'y ramenait donc que des TOITS, et les markers se posaient au sommet des immeubles.
+   *
+   * À ne pas confondre avec `flatHeight`, qui court-circuite AUSSI les picks écran : ici on
+   * veut toujours pouvoir cliquer un bâtiment, seul le « niveau de rue » est analytique.
+   *
+   * ⚠️ Ne fait PAS tourner `heightEpoch`, contrairement aux deux setters voisins. Le drapage
+   * résout ses ancres par `resolveAnchorHeight`, qui passe par `flatHeight` puis
+   * `sampleSurfaceHeight` — jamais par ce plan : il n'y a donc rien à réinvalider. Et cette
+   * valeur suit l'élévation du terrain, donc bouge en cours de route : faire tourner l'époque
+   * remettait à `null` toutes les hauteurs drapées et rouvrait une fenêtre de raycasts (cf.
+   * `DrapeSync.update`) — 120 fps tombés à 30.
+   */
+  private groundPlane: number | null = null
+
+  setGroundPlane(h: number | null): void {
+    this.groundPlane = h
   }
 
   /**
@@ -347,6 +387,8 @@ export class Projection {
    * ce qui donne l'impression qu'il saute d'une rue à la rue parallèle.
    */
   sampleGroundHeight(p: LatLng, radiusMeters = this.config.performance.groundSample.radiusMeters): number | null {
+    // Sol analytique : exact ET gratuit, là où la couronne ne trouverait que des toits.
+    if (this.groundPlane !== null) return this.groundPlane
     const center = this.sampleSurfaceHeight(p)
     if (center === null) return null
     let min = center
@@ -365,6 +407,54 @@ export class Projection {
       if (h !== null && h < min) min = h
     }
     return min
+  }
+
+  /** Niveau de rue mémoïsé par cellule (cf. `sampleGroundHeightCached`). */
+  private readonly groundCache = new Map<number, { h: number | null; at: number }>()
+  /** Époque des hauteurs qu'a servie le cache — au désaccord, tout est périmé d'un bloc. */
+  private groundCacheEpoch = -1
+
+  /**
+   * `sampleGroundHeight` mémoïsé sur une grille de `groundSample.cellDeg`, pour
+   * `groundSample.ttlMs`.
+   *
+   * Un appel coûte `1 + samples` raycasts BVH (9 par défaut), et la pose des markers en
+   * réclame un PAR MARKER ET PAR FRAME tant qu'ils se déplacent : un flux temps réel d'une
+   * centaine d'agents y consommait le budget de rayons de toute la carte, pour redemander
+   * quatre-vingt-dix-neuf fois sur cent une hauteur déjà connue.
+   *
+   * La maille (~11 m au défaut) est du même ordre que la couronne échantillonnée (18 m) :
+   * deux points d'une même cellule interrogent, à peu de chose près, la même surface. Un
+   * `cellDeg` nul retire la mémoïsation.
+   *
+   * `null` (aucune tuile sous le point) est mémoïsé comme le reste : c'est un verdict aussi
+   * coûteux à obtenir, et le TTL suffit à le reconsidérer quand les tuiles arrivent.
+   */
+  sampleGroundHeightCached(p: LatLng): number | null {
+    // Sol analytique : rendu par un test de champ, sans rayon (cf. `sampleGroundHeight`).
+    // Testé AVANT la clé — mémoïser une lecture de champ coûterait plus qu'elle.
+    if (this.groundPlane !== null) return this.groundPlane
+    // Maille nulle = mémoïsation retirée ; maille sous `CELL_DEG_MIN` = clé qui
+    // collisionnerait en silence (cf. son commentaire). Dans les deux cas le repli est le
+    // calcul direct, et le cache n'a pas même à être touché.
+    const { cellDeg, ttlMs, cacheMaxCells } = this.config.performance.groundSample
+    if (!(cellDeg >= CELL_DEG_MIN)) return this.sampleGroundHeight(p)
+    if (this.groundCacheEpoch !== this.heightEpoch) {
+      this.groundCacheEpoch = this.heightEpoch
+      this.groundCache.clear()
+    }
+    // Clé NUMÉRIQUE : un `${lat}:${lng}` allouait une chaîne à chaque appel, y compris
+    // quand la réponse était déjà là — sur le chemin même que cette mémoïsation dégage.
+    const key = Math.round(p.lat / cellDeg) * LNG_CELL_SPAN + Math.round(p.lng / cellDeg)
+    const now = performance.now()
+    const hit = this.groundCache.get(key)
+    if (hit && now - hit.at < ttlMs) return hit.h
+    const h = this.sampleGroundHeight(p)
+    // Purge en bloc : le cache est une fenêtre glissante sur la zone regardée, et une
+    // éviction LRU coûterait plus cher à tenir que les quelques rayons qu'elle épargne.
+    if (this.groundCache.size >= cacheMaxCells) this.groundCache.clear()
+    this.groundCache.set(key, { h, at: now })
+    return h
   }
 
   /**
@@ -395,8 +485,48 @@ export class Projection {
   }
 
   /**
+   * Point monde situé derrière la caméra (ou dans son plan).
+   *
+   * Le cull d'overlay lisait `z > 1` en NDC pour le dire. Ça marche tant que le far est
+   * large, mais `z > 1` signifie AUSSI « au-delà du far » — et le mode piéton resserre le
+   * far à `pedestrian.viewDistanceMeters`. Tout marker plus lointain se lisait alors comme
+   * « derrière moi », alors même que `MapEngine.render` élargit near/far pour le rendu des
+   * overlays afin qu'un point lointain ne soit jamais coupé. Le sens de visée, lui, ne
+   * dépend d'aucune borne de profondeur.
+   *
+   * ⚠️ Exige `setViewDirection(camera)` en tête de passe — c'est ce qui fait tout le prix
+   * du test (une inversion de matrice pour la passe entière au lieu d'une par point). Sans
+   * lui, le sens de visée est le vecteur nul et TOUT se lit comme étant derrière la caméra.
+   */
+  isBehindCamera(worldPos: THREE.Vector3, camPos: THREE.Vector3): boolean {
+    return this.viewDir.dot(this.viewToPoint.subVectors(worldPos, camPos)) <= 0
+  }
+
+  /**
+   * Fixe le sens de visée que lira `isBehindCamera` — une fois par passe, avant la boucle.
+   *
+   * `getWorldDirection` n'est pas un accesseur : il commence par `updateWorldMatrix`, que
+   * `THREE.Camera` surcharge pour réinverser sa matrice monde. L'appeler par marker, c'est
+   * une inversion 4×4 par marker et par frame — exactement la remontée de chaîne que
+   * `MarkerLayer.project` a cessé de payer sur les positions. Et cette direction est
+   * constante sur toute la passe.
+   */
+  setViewDirection(camera: THREE.Camera): void {
+    camera.getWorldDirection(this.viewDir)
+  }
+
+  /** Scratch du test de dos de caméra — appelé par marker et par frame (zéro alloc). */
+  private readonly viewDir = new THREE.Vector3()
+  private readonly viewToPoint = new THREE.Vector3()
+
+  /**
    * Un point monde est visible s'il fait face à la caméra (test d'horizon sur
    * l'ellipsoïde) : évite d'afficher les markers passés derrière le globe.
+   *
+   * ⚠️ Ne vaut que si la caméra DOMINE la scène. À hauteur d'homme (mode piéton) la
+   * courbure ne pèse que quelques millimètres sur la portée de vue, et le test se réduit à
+   * « le point est-il plus bas que les yeux » — d'où `MarkerLayer.setGrounded`, qui le
+   * désactive au ras du sol plutôt que de faire disparaître tout ce qui est posé en hauteur.
    */
   isAboveHorizon(worldPos: THREE.Vector3, cameraPos: THREE.Vector3): boolean {
     if (!this.ellipsoid || !this.group) return true

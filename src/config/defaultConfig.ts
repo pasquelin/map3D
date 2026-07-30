@@ -32,6 +32,9 @@ export const defaultConfig: MapConfig = {
       // ⚠️ Étaient BASE_Z / MAX_Z, deux littéraux dans `TiledGlobeLayer` — donc le
       // plafond de zoom d'un fournisseur, écrit dans le code d'un calque.
       baseZoom: 2,
+      // ⚠️ Nouveau : sans lui, la calotte de ±85° à ±90° laissait voir la sphère de repli
+      // — le disque bleu nuit au centre de l'Antarctique et de l'Arctique.
+      fillPoles: true,
       maxZoom: 22,
       // ⚠️ Nouveau : le cran de la cascade de détail (cf. son JSDoc). 5 tuiles de côté,
       // soit le quart central déjà couvert par le niveau plus fin et une couronne autour.
@@ -305,9 +308,18 @@ export const defaultConfig: MapConfig = {
   performance: {
     pixelRatio: 1,
     antialias: true,
+    powerPreference: 'high-performance',
+    // Cible 60 fps avec la marge habituelle (16,7 ms de budget) ; on ne descend qu'à
+    // partir de 22 ms, soit un tiers de frame perdue, et jamais sous la demi-résolution —
+    // en deçà le sol photogrammétrique devient franchement flou.
+    adaptiveResolution: { enabled: true, targetFrameMs: 22, minRatio: 0.5, step: 0.1, sampleFrames: 30 },
     // 0 = maximum du matériel (typiquement 16). Le coût GPU est négligeable devant le gain :
     // c'est ce qui rend un sol lisible en vue rasante au lieu d'un moiré scintillant.
     textureAnisotropy: 0,
+    // Valeurs historiques du créneau near/far posé autour du rendu des overlays, désormais
+    // portées par la caméra jumelle (cf. `MapEngine.labelCamera`).
+    overlayDepth: { nearMeters: 0.1, farMeters: 1e9 },
+    renderOnDemand: { enabled: true, idleFrames: 3, maxIdleMs: 1_000 },
     boundsPickGrid: 5,
     boundsMargin: 0.15,
     viewportSettleFrames: 4,
@@ -319,6 +331,8 @@ export const defaultConfig: MapConfig = {
     groundSample: {
       ttlMs: 2_000,
       cellDeg: 1e-4,
+      // ~11 m de côté par cellule : de quoi couvrir largement une vue de ville avant purge.
+      cacheMaxCells: 4_096,
       rayOriginMeters: 12_000,
       rayFarMeters: 40_000,
       radiusMeters: 18,

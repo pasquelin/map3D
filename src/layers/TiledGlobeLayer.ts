@@ -23,6 +23,34 @@ function segFor(z: number): number {
   return 2
 }
 
+/** Une ligne de sommets du maillage d'une tuile : sa latitude, et le `v` qu'elle échantillonne. */
+export type MeshRow = { lat: number; v: number }
+
+/**
+ * Lignes de latitude du maillage d'une tuile, calottes polaires comprises.
+ *
+ * Web Mercator ne peut pas atteindre les pôles — la projection les envoie à l'infini, et
+ * la pyramide s'arrête à ±85,0511°. Il reste donc, à chaque pôle, une calotte d'environ
+ * 5° de latitude (~550 km de rayon) qu'AUCUNE tuile ne couvre : c'est la sphère de repli
+ * qui y affleurait, d'où le disque de couleur d'océan au milieu de l'Antarctique.
+ *
+ * Une tuile de la rangée extrême reçoit donc une ligne SUPPLÉMENTAIRE, posée au pôle et
+ * portant le `v` du bord (0 au nord, 1 au sud). Les deux lignes partageant la même
+ * coordonnée de texture, le quad qui les relie n'échantillonne QUE la dernière ligne de
+ * texels : le bord de l'image est étiré jusqu'au pôle au lieu d'être extrapolé. Rien à
+ * télécharger, rien à décoder — la banquise continue simplement jusqu'au bout.
+ */
+export function meshRows(y: number, z: number, seg: number, fillPoles: boolean): MeshRow[] {
+  const rows: MeshRow[] = []
+  if (fillPoles && y === 0) rows.push({ lat: 90, v: 0 })
+  for (let iy = 0; iy <= seg; iy++) {
+    const fy = iy / seg
+    rows.push({ lat: tileYToLat(y + fy, z), v: fy })
+  }
+  if (fillPoles && y === 2 ** z - 1) rows.push({ lat: -90, v: 1 })
+  return rows
+}
+
 /** Réglages qui décident de QUELLE source sert les tuiles (origine du serveur incluse). */
 function sourceSignature(cfg: TilesConfig, origin: string): string {
   return [cfg.provider, origin, cfg.style, cfg.retina, cfg.internalTileUrl, cfg.tileUrl, cfg.sessionUrl].join(' ')
@@ -103,6 +131,11 @@ export class TiledGlobeLayer {
     // Pas d'`add` ici : le groupe n'entre dans le graphe qu'une fois visible (cf. `setVisible`).
   }
 
+  /** Des tuiles sont en vol ou en attente de montage — l'image va encore changer. */
+  get busy(): boolean {
+    return this.cache.busy
+  }
+
   /**
    * Montre ou retire le fond tuilé.
    *
@@ -152,7 +185,15 @@ export class TiledGlobeLayer {
     }
     this.source?.setConfig(cfg, server.origin)
     const urlChanged = prev.mapType !== cfg.mapType || prev.language !== cfg.language || prev.region !== cfg.region
-    if (urlChanged) this.cache.clear()
+    // Le remplissage polaire est cuit DANS la géométrie (une ligne de sommets en plus) :
+    // le basculer ne change aucune URL, mais impose de reconstruire les maillages, sans
+    // quoi le réglage ne prendrait effet qu'au gré des évictions.
+    if (urlChanged || prev.fillPoles !== cfg.fillPoles) this.cache.clear()
+  }
+
+  /** Remplissage des calottes polaires — relu à chaud depuis la config (cf. `meshRows`). */
+  private get fillPoles(): boolean {
+    return this.cfg.fillPoles
   }
 
   /**
@@ -304,8 +345,16 @@ export class TiledGlobeLayer {
     }
   }
 
+  /**
+   * Bornes DÉCLARÉES étendues au pôle pour les rangées extrêmes, en même temps que la
+   * géométrie l'est : `intersectsView` décide de la visibilité sur ces bornes, et les
+   * laisser à ±85° aurait masqué la tuile — donc rouvert le trou — dès que la vue ne
+   * cadrait plus que la calotte.
+   */
   private ensureTile(z: number, x: number, y: number): void {
-    this.cache.ensure(z, x, y, tileXToLng(x, z), tileXToLng(x + 1, z), tileYToLat(y, z), tileYToLat(y + 1, z))
+    const nord = this.fillPoles && y === 0 ? 90 : tileYToLat(y, z)
+    const sud = this.fillPoles && y === 2 ** z - 1 ? -90 : tileYToLat(y + 1, z)
+    this.cache.ensure(z, x, y, tileXToLng(x, z), tileXToLng(x + 1, z), nord, sud)
   }
 
   /**
@@ -359,21 +408,23 @@ export class TiledGlobeLayer {
       this.elevation,
       origin,
     )
-    for (let iy = 0; iy <= seg; iy++) {
+    // Lignes de latitude, calotte polaire comprise pour les tuiles des rangées extrêmes.
+    const rows = meshRows(t.y, t.z, seg, this.fillPoles)
+    for (const { lat, v } of rows) {
       for (let ix = 0; ix <= seg; ix++) {
         const fx = ix / seg
-        const fy = iy / seg
         // Mercator : lng linéaire en X, lat non-linéaire en Y (interpole en espace tuile).
         const lng = tileXToLng(t.x + fx, t.z)
-        const lat = tileYToLat(t.y + fy, t.z)
         this.ellipsoid.getCartographicToPosition(lat * DEG2RAD, lng * DEG2RAD, this.elevation, this.scratch)
         // La soustraction se fait ICI, en float64 : c'est elle qui sauve la précision.
         positions.push(this.scratch.x - origin.x, this.scratch.y - origin.y, this.scratch.z - origin.z)
-        uvs.push(fx, fy)
+        uvs.push(fx, v)
       }
     }
     const row = seg + 1
-    for (let iy = 0; iy < seg; iy++) {
+    // Bornée par le nombre RÉEL de lignes, pas par `seg` : une tuile polaire en porte une
+    // de plus, et la sauter laissait la calotte sans triangles — donc le trou intact.
+    for (let iy = 0; iy < rows.length - 1; iy++) {
       for (let ix = 0; ix < seg; ix++) {
         const a = iy * row + ix
         const b = a + 1

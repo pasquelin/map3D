@@ -358,11 +358,7 @@ export function arrowHead(points: readonly Pt[], width: number): THREE.BufferGeo
  * corrigerait les matériaux après coup ne peut PAS tenir : un resettle de drapage
  * reconstruit les meshes une frame plus tard, et les rebâtit avec le réglage par défaut.
  */
-function flatMaterial(
-  color: THREE.ColorRepresentation,
-  depthTest: boolean,
-  opacity: number,
-): THREE.MeshBasicMaterial {
+function flatMaterial(color: THREE.ColorRepresentation, depthTest: boolean, opacity: number): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
     color,
     side: THREE.DoubleSide,

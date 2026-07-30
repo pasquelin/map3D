@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ImmersionLevel, PedestrianState } from '../../core/pedestrianState'
+import { isGroundedView, type ImmersionLevel, type PedestrianState } from '../../core/pedestrianState'
 import type { LatLng } from '../../shared'
 import { useMap } from '../context'
 
@@ -34,4 +34,19 @@ export function usePedestrian(): PedestrianApi {
     exit: () => engine.exitPedestrian(),
     setImmersion: (level) => engine.setPedestrianImmersion(level),
   }
+}
+
+/**
+ * Caméra au ras du sol — le pendant React de ce que le moteur diffuse aux couches par
+ * `setGrounded`.
+ *
+ * Ne rend QUE le booléen, là où `usePedestrian` rend l'état complet : celui-ci porte le cap
+ * et le tangage, réémis dès qu'on tourne la tête (cf. `ANGLE_EPSILON`). Un consommateur
+ * coûteux qui ne s'intéresse qu'au mode se re-rendrait alors à chaque rotation.
+ */
+export function useGroundedView(): boolean {
+  const engine = useMap()
+  const [grounded, setGrounded] = useState(() => isGroundedView(engine.getPedestrian()))
+  useEffect(() => engine.on('pedestrian', (s) => setGrounded(isGroundedView(s))), [engine])
+  return grounded
 }

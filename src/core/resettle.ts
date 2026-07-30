@@ -46,6 +46,11 @@ export class HeightResettle {
     this.frames = 0
   }
 
+  /** Fenêtre ouverte : des géométries peuvent encore se recaler, donc l'image changer. */
+  get active(): boolean {
+    return this.frames > 0
+  }
+
   /**
    * Ouvre la fenêtre si la caméra a bougé depuis le dernier appel, et renvoie ce
    * booléen : il sert AUSSI de garde « caméra immobile » aux appelants (les calculs
@@ -133,6 +138,11 @@ export class DrapeSync {
 
   private perf(): ResettleConfig {
     return this.cfg().performance.resettle
+  }
+
+  /** Du recalage est en cours : la géométrie drapée peut encore bouger à l'écran. */
+  get active(): boolean {
+    return this.resettle.active
   }
 
   /** À appeler après un (re)build d'éléments : rouvre la fenêtre de re-échantillonnage. */

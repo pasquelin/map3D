@@ -168,6 +168,44 @@ describe('TileQueue — montage étalé', () => {
   })
 })
 
+/**
+ * Le rendu à la demande (`performance.renderOnDemand`) ne peint que ce qui a changé, et
+ * une tuile qui arrive change l'image sans que personne d'autre ne le signale. `busy` est
+ * ce que le moteur interroge pour ça : il doit couvrir les TROIS temps du chargement —
+ * en file, en vol, et monté en attente de frame — sinon la dernière tuile d'une vue
+ * n'apparaît qu'au prochain mouvement de caméra.
+ */
+describe('TileQueue — travail en cours', () => {
+  it('se déclare occupée de la mise en file au montage', async () => {
+    const { queue, ensure } = makeQueue({ mountPerFrame: 0 })
+    expect(queue.busy).toBe(false)
+
+    queue.beginFrame()
+    ensure(14, 0, 0)
+    // En file, pas encore partie.
+    expect(queue.busy).toBe(true)
+    queue.pump()
+    expect(queue.busy).toBe(true)
+
+    // Chargement abouti, mais `mountPerFrame: 0` le retient : le travail n'est PAS fini,
+    // et c'est le cas que le compte des chargements en vol ne voyait pas.
+    await settle()
+    queue.beginFrame()
+    expect(queue.busy).toBe(true)
+  })
+
+  it('redevient disponible une fois la tuile montée', async () => {
+    const { queue, mounted, ensure } = makeQueue()
+    queue.beginFrame()
+    ensure(14, 0, 0)
+    queue.pump()
+    await settle()
+    queue.beginFrame()
+    expect(mounted).toHaveLength(1)
+    expect(queue.busy).toBe(false)
+  })
+})
+
 describe('TileQueue — annulation', () => {
   it('abandonne le chargement d’une tuile évincée', async () => {
     const seen: AbortSignal[] = []

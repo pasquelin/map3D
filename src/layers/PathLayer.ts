@@ -122,10 +122,15 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     const t = (this.time % 1.6) / 1.6
     const scale = 1 + t * 1.4
     const opacity = 0.5 * (1 - t)
+    let pulsing = false
     for (const d of this.drapes) {
       if (!d.head) continue
+      pulsing = true
       d.head.mesh.scale.set(scale, scale, scale)
       d.head.mat.opacity = opacity
     }
+    // Une tête qui pulse fait changer l'image sans que rien ne bouge par ailleurs. Signalé
+    // une fois pour la couche : le drapeau est global, le poser par tracé ne l'est pas plus.
+    if (pulsing) ctx.invalidate()
   }
 }

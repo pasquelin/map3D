@@ -1699,6 +1699,9 @@ export class DrawLayer implements Layer {
     this.hoverChecked = false
     this.overlayRect = null
     this.flushEmit()
+    // Recalage LOD en cours, ou forme en cours d'édition à reconstruire : dans les deux
+    // cas la géométrie va changer cette frame ou les suivantes.
+    if (this.resettle.active || this.pendingEdit.size > 0) ctx.invalidate()
     // Rebuild coalescé des formes en cours d'édition (1×/frame max).
     if (this.pendingEdit.size > 0) {
       for (const id of this.pendingEdit) {
