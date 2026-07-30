@@ -166,12 +166,13 @@ export function buildDataTab(page: TabPageApi, ctxRef: ContextRef, refresh: () =
   // désactivés pour les autres — un champ « sévérité » grisé sur un agent laisserait
   // croire qu'un agent en a une.
   const severity = selection.addBinding(sel, 'severity', { label: 'sévérité', options: SEVERITIES })
-  // Repli explicite, comme pour le statut et la pose d'alerte : l'indexation d'un
-  // `Record` rend `undefined` sous `noUncheckedIndexedAccess`, et les trois cas doivent
-  // se lire pareil.
-  severity.on('change', () => patch({ severity: SEVERITIES[sel.severity] ?? 'medium' }))
+  // Tweakpane écrit la VALEUR de l'option choisie (pas son libellé) dans `sel.severity` :
+  // c'est déjà une `Severity`, on la transmet telle quelle. La ré-indexer par SEVERITIES
+  // (table libellé→valeur) donnait `undefined` → repli forcé sur 'medium', repeignant
+  // toute sélection en `alert-medium`.
+  severity.on('change', () => patch({ severity: sel.severity as Severity }))
   const status = selection.addBinding(sel, 'status', { label: 'statut', options: STATUSES })
-  status.on('change', () => patch({ status: STATUSES[sel.status] ?? 'available' }))
+  status.on('change', () => patch({ status: sel.status as AgentStatus }))
 
   selection.addBinding(sel, 'urgent', { label: 'urgent (viseur)' }).on('change', () => patch({ urgent: sel.urgent }))
   selection.addBinding(sel, 'new', { label: 'nouveau (sonar)' }).on('change', () => patch({ new: sel.new }))

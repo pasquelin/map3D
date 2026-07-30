@@ -10,12 +10,14 @@ const fmt = (n: number): string =>
  * Moniteur de performance, monté en haut à droite de la carte.
  *
  * FPS / ms / Mo via stats.js (un panneau à la fois, clic pour cycler), complété par
- * les compteurs `renderer.info` de three.js — appels de rendu, triangles, géométries,
- * textures — que stats.js n'expose pas.
+ * `engine.stats()` — appels de rendu, triangles, mémoire, mais aussi les deux compteurs
+ * qui disent où passe vraiment le temps sur cette carte : la part de frames RÉELLEMENT
+ * peintes (`performance.renderOnDemand`) et la résolution courante
+ * (`performance.adaptiveResolution`).
  *
  * La mesure reste EXTERNE au moteur : on ne se greffe pas dans sa boucle, on pilote
- * notre propre `requestAnimationFrame` et on LIT le renderer public (`engine.renderer`).
- * Aucune API de la lib n'est touchée.
+ * notre propre `requestAnimationFrame` et on lit une API publique. Aucun code de la lib
+ * n'est touché.
  *
  * Monté en enfant de `<Map>` (comme `DrawDebug`), il atterrit dans `.m3d-root`
  * (`position:relative`) — d'où l'ancrage absolu en bas à droite, loin de la barre
@@ -47,17 +49,36 @@ export function StatsOverlay({ engine }: { engine: MapEngine | null }) {
 
     let raf = 0
     let lastInfo = 0
+    // Bornes de la fenêtre glissante : le taux de peinture doit refléter ce que la carte
+    // fait MAINTENANT, pas la moyenne depuis le démarrage (que les cumuls donneraient).
+    let prevFrames = 0
+    let prevPainted = 0
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop)
       stats.update()
-      // Les compteurs three.js bougent lentement : ~4 Hz suffit et évite de brasser le
-      // DOM 60 fois par seconde. Le canvas de stats.js, lui, tourne à pleine cadence.
+      // Les compteurs bougent lentement : ~4 Hz suffit et évite de brasser le DOM 60 fois
+      // par seconde. Le canvas de stats.js, lui, tourne à pleine cadence.
       if (t - lastInfo < 250) return
       lastInfo = t
-      const r = engineRef.current?.renderer
-      info.textContent = r
-        ? `calls ${r.info.render.calls}\ntris  ${fmt(r.info.render.triangles)}\ngeom  ${r.info.memory.geometries}\ntex   ${r.info.memory.textures}`
-        : '— en attente —'
+      const s = engineRef.current?.stats()
+      if (!s) {
+        info.textContent = '— en attente —'
+        return
+      }
+      const dFrames = s.frames - prevFrames
+      const dPainted = s.painted - prevPainted
+      prevFrames = s.frames
+      prevPainted = s.painted
+      const paint = dFrames > 0 ? Math.round((dPainted / dFrames) * 100) : 0
+      info.textContent = [
+        `calls ${s.drawCalls}`,
+        `tris  ${fmt(s.triangles)}`,
+        `geom  ${s.geometries}`,
+        `tex   ${s.textures}`,
+        `paint ${paint}%`,
+        `res   ${Math.round(s.resolutionScale * 100)}%`,
+        `ovl   ${s.overlays}`,
+      ].join('\n')
     }
     raf = requestAnimationFrame(loop)
 
