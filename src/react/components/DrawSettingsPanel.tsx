@@ -11,13 +11,10 @@ import { useDrawSettings } from '../hooks/useDrawSettings'
 import { usePlugins } from '../hooks/usePlugins'
 import { StyleEditor, TOOL_ICONS, type SwatchTarget } from './drawControls'
 import { maxRadiusOf } from './drawPresets'
-import { useAnchoredPanel } from './panelFit'
+import { Dropdown, DropdownSurface } from './Dropdown'
 import { PluginHubPanel } from './PluginHubPanel'
 import { formatEdit } from './shortcuts'
-import { useToolbar } from './Toolbar'
-import { ToolButton } from './ToolButton'
 import { formatKey } from './tooltip'
-import { useCloseWhenHidden, useDismiss } from './useDismiss'
 
 /**
  * Outils SANS réglage de style : `select` ne dessine rien, `erase` supprime, et les
@@ -54,26 +51,12 @@ export function DrawSettingsButton({
   // Ligne « Plugins » masquée s'il n'y a AUCUN plugin enregistré — même condition
   // que le bouton dédié de la barre qu'elle remplace.
   const hasPlugins = usePlugins().plugins.length > 0
-  const [open, setOpen] = useState(false)
   const [openSub, setOpenSub] = useState<SubKey | null>(null)
-  /** Offset vertical du sous-panneau = ligne survolée (repère : panneau). */
-  const [subTop, setSubTop] = useState(0)
+  /** Ligne survolée : c'est elle qui ANCRE le sous-menu, comme un bouton ancre le sien. */
+  const [subRow, setSubRow] = useState<HTMLElement | null>(null)
   const [target, setTarget] = useState<SwatchTarget>('fill')
-  const rootRef = useRef<HTMLDivElement>(null)
-  useDismiss(rootRef, open, () => setOpen(false))
-  useCloseWhenHidden(useToolbar().retracted, setOpen)
-
-  // Placement : le panneau est calé sur le BAS du bouton (il grandit vers le haut),
-  // le sous-panneau sur la ligne survolée — les deux clampés au conteneur.
-  const [panelSide, setPanel] = useAnchoredPanel(position, {
-    edge: 'bottom',
-    maxHeight: theme.sizing.panelMaxHeight.settings,
-  })
-  const [subSide, setSubEl] = useAnchoredPanel(position, {
-    desiredTop: subTop,
-    maxHeight: theme.sizing.panelMaxHeight.settingsSub,
-  })
-
+  // Ouverture, fermeture au clic extérieur, ancrage et `aria-expanded` appartiennent à
+  // `<Dropdown>` ; le sous-menu passe par la même surface, ancré sur la ligne survolée.
   // Fermeture différée : le pointeur doit pouvoir traverser l'écart ligne →
   // sous-panneau sans que celui-ci se referme (même rôle que le pont ::before
   // du flyout, mais robuste aux trajectoires diagonales).
@@ -95,9 +78,7 @@ export function DrawSettingsButton({
       setOpenSub(key)
       return
     }
-    // Le panneau est un ancêtre de la ligne : `closest` évite d'en garder une ref.
-    const panel = row.closest('.m3d-settings')
-    if (panel) setSubTop(Math.round(row.getBoundingClientRect().top - panel.getBoundingClientRect().top))
+    setSubRow(row)
     setOpenSub(key)
   }
 
@@ -127,17 +108,19 @@ export function DrawSettingsButton({
   const openedSettings = openedTool ? settings.get(openedTool) : null
 
   return (
-    <div ref={rootRef} className="m3d-settingswrap">
-      <ToolButton
-        icon={mdiCog}
-        label={labels.settings.title}
-        tip={tip}
-        active={open}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      />
-      {open && (
-        <div ref={setPanel} className={`m3d-panel m3d-settings m3d-${panelSide}`}>
+    <Dropdown
+      icon={mdiCog}
+      label={labels.settings.title}
+      tip={tip}
+      position={position}
+      edge="bottom"
+      maxHeight={theme.sizing.panelMaxHeight.settings}
+      panelClassName="m3d-settings"
+      className="m3d-settingswrap"
+      grouped
+    >
+      {() => (
+        <>
           <div className="m3d-settings-head">
             <span>{labels.settings.title}</span>
             <button
@@ -168,9 +151,11 @@ export function DrawSettingsButton({
             {hasPlugins && row('plugins', mdiPuzzleOutline, labels.plugins.title)}
           </div>
           {openSub && (
-            <div
-              ref={setSubEl}
-              className={`m3d-panel m3d-settings-sub m3d-${subSide}`}
+            <DropdownSurface
+              anchor={subRow}
+              position={position}
+              maxHeight={theme.sizing.panelMaxHeight.settingsSub}
+              panelClassName="m3d-settings-sub"
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >
@@ -203,11 +188,11 @@ export function DrawSettingsButton({
               ) : (
                 <ShortcutsList />
               )}
-            </div>
+            </DropdownSurface>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </Dropdown>
   )
 }
 

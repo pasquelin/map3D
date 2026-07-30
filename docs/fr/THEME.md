@@ -150,11 +150,13 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 |---|---|---|
 | `sizing.lensPanelW` | Largeur du panneau d'inventaire de la loupe (px). | `252` |
 | `sizing.selectionPanelW` | Largeur du panneau de sélection (px). | `236` |
+| `sizing.templatesPanelW` | Largeur du panneau de templates (px). | `288` |
 | `sizing.panelMaxHeight.tags` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `380` |
 | `sizing.panelMaxHeight.symbols` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `420` |
 | `sizing.panelMaxHeight.search` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `340` |
 | `sizing.panelMaxHeight.settings` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `560` |
 | `sizing.panelMaxHeight.settingsSub` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `520` |
+| `sizing.panelMaxHeight.templates` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `460` |
 | `sizing.iconSize` | Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue. | `0.8` |
 
 ## `tiles` — Traitement colorimétrique du fond de carte (mode sombre)

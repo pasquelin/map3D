@@ -43,6 +43,7 @@ cover each one **in depth**.
 | [ZONES.md](ZONES.md) | zones and draped shapes, volumetric extrusion, geodesic predicates, framing, paths |
 | [DRAWING.md](DRAWING.md) | tools, selection, editing, style, history, GeoJSON, CRUD by identity, constraints |
 | [SYMBOLS.md](SYMBOLS.md) | drag-and-drop icon catalogue, MIL-STD-2525D symbology |
+| [TEMPLATES.md](TEMPLATES.md) | named drawing saves, local or API storage, sharing, `.m3dt` export |
 | [RELATIONS.md](RELATIONS.md) | tag links, real distances and travel times |
 | [LENS.md](LENS.md) | lens: inventory of the markers in an area |
 | [SEARCH.md](SEARCH.md) | unified map + place search |

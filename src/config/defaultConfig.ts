@@ -201,6 +201,18 @@ export const defaultConfig: MapConfig = {
 
     // ⚠️ Nouveau : le cache de vignettes n'avait ni plafond ni éviction.
     symbols: { cacheMaxEntries: 200 },
+
+    // Gestionnaire de templates. Défauts non optionnels (l'onglet Config de l'exemple
+    // n'affiche pas les clés purement optionnelles). `baseUrl:''` = localStorage seul.
+    templates: {
+      baseUrl: '',
+      headers: {},
+      fetch: { timeoutMs: 10_000, retries: 1, backoffMs: 300 },
+      categories: ['shapes', 'freehand', 'symbols'],
+      defaultCategories: ['shapes', 'freehand', 'symbols'],
+      defaultApply: 'merge',
+      allowExport: true,
+    },
   },
 
   interaction: {
@@ -356,15 +368,31 @@ export const defaultConfig: MapConfig = {
   // styles. Valeurs reprises à l'identique.
   style: {
     zIndex: {
+      // ── Plan RACINE ────────────────────────────────────────────────────────
+      // `mapOverlay` enferme TOUT ce que la carte dessine (markers, poignées,
+      // loupe) sous les surfaces d'UI. Il valait 999 comme les barres : les
+      // poignées d'édition perçaient donc les panneaux, et les ancres de markers
+      // (`z-index: 1..N` posés par CSS2DRenderer) passaient devant le HUD dès
+      // qu'il y avait plus de ~20 markers à l'écran.
+      mapOverlay: 100,
+      // Valait 20 — soit SOUS l'overlay carte, l'inverse de ce que sa doc annonçait.
+      floatingHud: 900,
+      dock: 990,
+      ui: 991,
+      menu: 992,
+      // Au-dessus des menus : une modale (confirmation) doit couvrir toute l'UI.
+      modal: 1092,
+      // ── Plan CARTE (à l'intérieur de `.m3d-overlay`) ───────────────────────
       relationBar: 6,
       editOverlay: 15,
-      floatingHud: 20,
-      markerSelected: 80,
-      tooltip: 90,
       listMenu: 96,
-      dock: 998,
-      ui: 999,
-      menu: 9999,
+      // ── Plan LOCAL (dans la surface porteuse) ──────────────────────────────
+      // Infobulles : enfermées dans l'ancre du marker ou dans le panneau qui les
+      // rend, deux contextes isolés. `2` ne les met donc pas « sous » relationBar :
+      // les deux ne se comparent jamais. Cf. la note sur le type.
+      tooltip: 2,
+      // Dans l'ancre d'un marker seulement — cf. la note sur le type.
+      markerSelected: 80,
     },
   },
 
@@ -415,6 +443,7 @@ export const defaultConfig: MapConfig = {
       drawSettings: 'm3d:draw-settings',
       searchHistory: 'm3d:search-history',
       plugins: 'm3d:plugins',
+      templates: 'm3d:templates',
     },
     search: {
       minQuery: 2,

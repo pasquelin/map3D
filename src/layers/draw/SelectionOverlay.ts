@@ -49,6 +49,18 @@ export class SelectionOverlay {
     overlay.appendChild(this.svg)
   }
 
+  /**
+   * L'élément qui porte l'emprise écran de la sélection.
+   *
+   * Publié parce qu'il est la seule chose qui sache OÙ est la sélection à l'écran : le
+   * panneau de style s'ancre dessus pour s'ouvrir au niveau de la forme, et non au
+   * niveau du bouton de la barre — un panneau qui règle une forme doit se trouver près
+   * d'elle. Rendu en lecture seule : personne d'autre n'écrit dedans.
+   */
+  get boxEl(): SVGRectElement {
+    return this.bboxRect
+  }
+
   /** Resynchronise contours + bbox + marquee + poignées (chaque frame, passe projection). */
   sync(
     shapes: readonly OverlayShape[],

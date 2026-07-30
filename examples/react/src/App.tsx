@@ -31,6 +31,7 @@ import { clusterTypeLabel, markerLabel } from './config/labels'
 import { createBuildingMenu } from './config/buildingMenu'
 import { createMarkerMenu } from './config/markerMenus'
 import { RELATION_RULES } from './config/relations'
+import { createDemoTemplateProvider } from './config/templatesProvider'
 import { loadStoredPartial } from './config/configSchema'
 import { type MapPropsSettings, defaultMapProps, toInteractiveMode } from './config/mapProps'
 import { SELECTION_RING, theme } from './config/theme'
@@ -265,6 +266,14 @@ export function App() {
     () => ui.cluster && { typeIcon: clusterTypeIcon, typeLabel: clusterTypeLabel, tooltip: clusterTip },
     [ui.cluster],
   )
+
+  // Provider de templates de démo (in-memory), stable pour la vie du composant : sa
+  // liste prime sur le localStorage quand « API démo » est coché dans l'onglet Interface.
+  const demoTemplateProvider = useMemo(() => createDemoTemplateProvider(), [])
+  const templatesProp = useMemo<MapSurfaces<AnyData>['templates']>(
+    () => ui.templates.enabled && { provider: ui.templates.useApi ? demoTemplateProvider : undefined },
+    [ui.templates, demoTemplateProvider],
+  )
   // Les favoris se déclarent avant les menus : l'entrée « Épingler » lit leur état
   // et les bascule, elle ne tient aucun état à elle.
   const favorites = useFavorites(allMarkers)
@@ -465,6 +474,11 @@ export function App() {
           // d'être saisissables, au lieu d'offrir un geste qui n'aboutirait nulle part.
           // La dock reste CONTRÔLÉE : `useFavorites` tient les ids et leur ordre.
           dock={dockProp}
+          // Gestionnaire de templates (haut-droite) : sauvegardes de dessin (formes +
+          // main levée + symboles). Le toggle « API démo » de l'onglet Interface branche
+          // un provider in-memory dont la liste PRIME sur le localStorage, et dont un
+          // template arrive en lecture seule (« partagé » par un autre utilisateur).
+          templates={templatesProp}
           // Moteur de relations : la lib le monte AUTOUR des couches de markers, ce qui
           // fait arriver « Distance autour › » dans leur menu (2ᵉ argument de `menu`).
           // Ce n'est pas une couche — il ne rend rien de lui-même.

@@ -80,7 +80,12 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   // Glissé minimal pour qu'un geste compte comme un tracé de zone : en deçà, c'est un
   // clic, qui ne doit RIEN créer.
   const config = useConfig()
-  const minDrag = config.interaction.lens.minDragPx
+  // Lu par ref, pas capturé : `interceptor` est un `useRef(fn).current` écrit UNE fois,
+  // donc un `minDrag` capturé resterait celui du montage — et `abortDraft`, hors de ce
+  // gel, divergerait du seuil qu'applique le tracé. Un ref donne le même seuil courant
+  // aux deux chemins et rend le réglage modifiable à chaud comme le reste de `config`.
+  const minDragRef = useRef(config.interaction.lens.minDragPx)
+  minDragRef.current = config.interaction.lens.minDragPx
   const labels = useLabels()
   const getId = props.getId ?? defaultGetId
   const container = overlay.parentElement as HTMLElement | null
@@ -98,8 +103,16 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   const rectRef = useRef(rect)
   rectRef.current = rect
   const invSigRef = useRef('')
-  const scratch = useRef(new THREE.Vector3()).current
-  const screenScratch = useRef<ScreenPoint>({ sx: 0, sy: 0, z: 0 }).current
+  // Init PARESSEUSE (`??=`, comme `heights` plus bas) : `useRef(new THREE.Vector3())`
+  // évalue son argument à chaque render pour le jeter aussitôt — le ref ne retient que
+  // le premier. Sur une couche qui se re-rend au fil de la caméra, c'est un Vector3
+  // alloué par render pour rien.
+  const scratchRef = useRef<THREE.Vector3 | null>(null)
+  scratchRef.current ??= new THREE.Vector3()
+  const scratch = scratchRef.current
+  const screenScratchRef = useRef<ScreenPoint | null>(null)
+  screenScratchRef.current ??= { sx: 0, sy: 0, z: 0 }
+  const screenScratch = screenScratchRef.current
   /**
    * Hauteurs d'ancre des markers — un marker se projette à la hauteur du sol SOUS
    * LUI, pas à celle du centre de la zone (sinon décalage écran sur relief, donc
@@ -233,6 +246,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     draftRef.current = null
     setDrafting(false)
     const r = rectRef.current
+    const minDrag = minDragRef.current
     if (r && r.w < minDrag && r.h < minDrag) setRect(null)
   }, [])
 
@@ -264,6 +278,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     if (phase === 'move') {
       const d = draftRef.current
       // Seuil : le marquee n'apparaît qu'à partir d'un vrai glissé (pas un micro-tremblement).
+      const minDrag = minDragRef.current
       if (d && (rectRef.current || Math.abs(x - d.x0) >= minDrag || Math.abs(y - d.y0) >= minDrag)) {
         setRect(norm(d.x0, d.y0, x, y))
       }
@@ -275,6 +290,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     setDrafting(false)
     if (d) {
       const r = norm(d.x0, d.y0, x, y)
+      const minDrag = minDragRef.current
       setRect(r.w < minDrag && r.h < minDrag ? null : r)
     }
     return true

@@ -1,13 +1,10 @@
 import { mdiFilterRemoveOutline, mdiLayersOutline, mdiMagnify } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { normalizeSearch } from '../../search/match'
 import { useLabels, useMapContext } from '../context'
 import { useTags, useTagSelection } from '../hooks/useTags'
-import { useAnchoredPanel } from './panelFit'
-import { plainKey } from './shortcuts'
-import { ToolButton } from './ToolButton'
-import { useDismiss } from './useDismiss'
+import { Dropdown, useToggleShortcut } from './Dropdown'
 import { useTip } from './tooltip'
 import { tagColorOf } from '../../theme/colors'
 
@@ -20,6 +17,12 @@ export type TagFilterControlProps = {
   shortcut?: string | false
   /** Libellé lisible d'un tag dans le panneau (défaut : le tag brut). */
   tagLabel?: (tag: string) => string
+  /**
+   * Rendu SANS sa propre carte `.m3d-controls-group` — pour cohabiter avec un autre
+   * contrôle (ex. « Templates ») dans un groupe partagé de la barre. Défaut : `false`
+   * (le bouton porte sa carte, usage autonome).
+   */
+  grouped?: boolean
 }
 
 /**
@@ -33,67 +36,55 @@ export type TagFilterControlProps = {
  * monté qu'ouvert — panneau fermé, les évolutions de compteurs des flux temps
  * réel ne re-rendent rien.
  */
-export function TagFilterControl({ position = 'right', tipId, shortcut, tagLabel }: TagFilterControlProps) {
+export function TagFilterControl({ position = 'right', tipId, shortcut, tagLabel, grouped }: TagFilterControlProps) {
   const tags = useTagSelection()
   const labels = useLabels()
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const { theme } = useMapContext()
+  const toggleRef = useRef<() => void>(() => {})
 
   // Raccourci d'ouverture/fermeture du panneau (lettre seule, hors champ de saisie).
-  useEffect(() => {
-    if (!shortcut) return
-    const onKey = (e: KeyboardEvent) => {
-      if (plainKey(e) !== shortcut) return
-      // Sans preventDefault, la lettre du raccourci serait insérée dans le champ
-      // de recherche que l'ouverture vient de focaliser (autoFocus synchrone).
-      e.preventDefault()
-      setOpen((v) => !v)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [shortcut])
-
-  // Fermeture au clic hors panneau ou Échap.
-  useDismiss(rootRef, open, () => setOpen(false))
+  useToggleShortcut(shortcut, toggleRef)
 
   const active = tags.selected.size
-  const label = labels.tags.button
   // Hook appelé inconditionnellement (règles des hooks) ; c'est le PASSAGE du tip
   // au bouton qui est conditionné par la présence d'une barre hôte.
   const tip = useTip(tipId ?? '')
 
   return (
-    <div className="m3d-controls-group m3d-tags" ref={rootRef}>
-      {/* `tipId` absent (bouton monté hors d'une barre hôte) : `ToolButton` retombe
-          sur l'aria-label seul — le nom accessible reste porté. */}
-      <ToolButton
-        icon={mdiLayersOutline}
-        label={label}
-        tip={tipId ? tip : undefined}
-        shortcut={shortcut}
-        active={active > 0}
-        className="m3d-tagbtn"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {active > 0 && <span className="m3d-tag-badge">{active}</span>}
-      </ToolButton>
-      {open && <TagPanel position={position} tagLabel={tagLabel} />}
-    </div>
+    // `tipId` absent (bouton monté hors d'une barre hôte) : `ToolButton` retombe sur
+    // l'aria-label seul — le nom accessible reste porté.
+    <Dropdown
+      icon={mdiLayersOutline}
+      label={labels.tags.button}
+      tip={tipId ? tip : undefined}
+      shortcut={shortcut}
+      position={position}
+      maxHeight={theme.sizing.panelMaxHeight.tags}
+      buttonClassName="m3d-tagbtn"
+      panelClassName="m3d-tagpanel"
+      className="m3d-tags"
+      grouped={grouped}
+      active={active > 0}
+      badge={active > 0 ? <span className="m3d-tag-badge">{active}</span> : undefined}
+      toggleRef={toggleRef}
+    >
+      {() => <TagPanel tagLabel={tagLabel} />}
+    </Dropdown>
   )
 }
 
-/** Contenu du panneau — monté uniquement ouvert (seul abonné au registre des tags). */
-function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel?: (tag: string) => string }) {
+/**
+ * Contenu du panneau — monté uniquement ouvert (seul abonné au registre des tags).
+ *
+ * Ancrage, côté et clamp de hauteur appartiennent à `<Dropdown>` : le bouton « Couches »
+ * est bas dans la barre, et sans clamp un panneau bien rempli déborde sous le conteneur.
+ */
+function TagPanel({ tagLabel }: { tagLabel?: (tag: string) => string }) {
   const labelOf = (tag: string) => tagLabel?.(tag) ?? tag
   const { theme } = useMapContext()
   const tags = useTags()
   const labels = useLabels()
   const [query, setQuery] = useState('')
-  // Le bouton « Couches » est bas dans la barre : sans clamp, un panneau bien
-  // rempli déborde sous le conteneur et sa moitié basse (liste + « Tout
-  // afficher ») devient inatteignable.
-  const [side, setPanel] = useAnchoredPanel(position, { maxHeight: theme.sizing.panelMaxHeight.tags })
 
   // Fusion+tri seulement quand registre ou sélection changent — pas à chaque
   // frappe dans la recherche. (La sélection compte : un tag fantôme sélectionné
@@ -112,7 +103,7 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
   const active = tags.selected.size
 
   return (
-    <div ref={setPanel} className={`m3d-panel m3d-tagpanel m3d-${side}`}>
+    <>
       <div className="m3d-tagsearch">
         <UiIcon path={mdiMagnify} />
         <input
@@ -135,10 +126,10 @@ function TagPanel({ position, tagLabel }: { position: 'left' | 'right'; tagLabel
           <div className="m3d-tagempty">{entries.length === 0 ? labels.tags.empty : labels.tags.noMatch}</div>
         )}
       </div>
-      <button className="m3d-tagclear" onClick={() => tags.clear()} disabled={active === 0}>
+      <button type="button" className="m3d-tagclear" onClick={() => tags.clear()} disabled={active === 0}>
         <UiIcon path={mdiFilterRemoveOutline} />
         {labels.tags.showAll}
       </button>
-    </div>
+    </>
   )
 }

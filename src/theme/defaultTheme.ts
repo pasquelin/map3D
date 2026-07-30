@@ -1,5 +1,5 @@
 import { easeInOutCubic } from '../core/math'
-import { BAR_INSET, EDGE, GAP, LENS_PANEL_W, SELECTION_PANEL_W } from '../style/panelGeometry'
+import { BAR_INSET, EDGE, GAP, LENS_PANEL_W, SELECTION_PANEL_W, TEMPLATES_PANEL_W } from '../style/panelGeometry'
 import type { MapTheme } from './types'
 
 /** Thème neutre par défaut (base du merge profond). Tout est surchargeable. */
@@ -19,7 +19,10 @@ export const defaultTheme: MapTheme = {
       default: '#2E7CF6',
     },
     ui: {
-      panel: 'rgba(20,26,30,0.92)',
+      // Verre dépoli : l'opacité doit rester LÉGÈRE pour que le `backdrop-filter` des
+      // surfaces se voie. À 0.92 il ne restait que 8 % de fond visible — le flou était
+      // bien appliqué, mais invisible, et toutes les surfaces paraissaient opaques.
+      panel: 'rgba(20,26,30,0.9)',
       text: '#f8fafc',
       muted: '#94a3b8',
       accent: '#2E7CF6',
@@ -93,7 +96,8 @@ export const defaultTheme: MapTheme = {
   sizing: {
     lensPanelW: LENS_PANEL_W,
     selectionPanelW: SELECTION_PANEL_W,
-    panelMaxHeight: { tags: 380, symbols: 420, search: 340, settings: 560, settingsSub: 520 },
+    templatesPanelW: TEMPLATES_PANEL_W,
+    panelMaxHeight: { tags: 380, symbols: 420, search: 340, settings: 560, settingsSub: 520, templates: 460 },
     iconSize: 0.8,
   },
   // Fond de carte accordé au thème SOMBRE par défaut : les tuiles Google sont

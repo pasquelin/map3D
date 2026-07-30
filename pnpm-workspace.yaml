@@ -1,2 +1,14 @@
 allowBuilds:
   esbuild: true
+
+# Durcissement supply-chain — À FAIRE, mais pas en ajoutant ces lignes seules.
+#
+#   minimumReleaseAge: 10080   # 7 jours : un paquet malveillant est le plus souvent
+#                              # repéré et dépublié dans les heures qui suivent
+#   trustPolicy: no-downgrade  # refuse une version dont la provenance/les signatures
+#                              # se sont affaiblies depuis la précédente
+#
+# Les deux REJETTENT le lockfile actuel (`pnpm` refuse alors de démarrer, y compris
+# `pnpm dev:example`). Les adopter suppose `pnpm clean --lockfile && pnpm install`,
+# donc une re-résolution complète de l'arbre à faire et à tester sciemment — pas un
+# effet de bord d'un audit.

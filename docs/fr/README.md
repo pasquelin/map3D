@@ -32,6 +32,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 | [ZONES.md](ZONES.md) | zones et formes drapées, extrusion volumétrique, prédicats géodésiques, cadrage, tracés |
 | [DRAWING.md](DRAWING.md) | outils, sélection, édition, style, historique, GeoJSON, CRUD par identité, contraintes |
 | [SYMBOLS.md](SYMBOLS.md) | catalogue d'icônes au glisser-déposer, symbologie MIL-STD-2525D |
+| [TEMPLATES.md](TEMPLATES.md) | sauvegardes nommées du dessin, stockage local ou API, partage, export `.m3dt` |
 | [RELATIONS.md](RELATIONS.md) | liens par tags, distances et temps de trajet réels |
 | [LENS.md](LENS.md) | loupe : inventaire des markers d'une zone |
 | [SEARCH.md](SEARCH.md) | recherche unifiée carte + lieux |

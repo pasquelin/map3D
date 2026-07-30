@@ -62,6 +62,11 @@ export type VisualNode = {
  * cluster reste inventorié. La mécanique register/notify vient de
  * `ProviderRegistry`, commune à tous les registres du moteur.
  */
+/** Vue figée de l'inventaire — cf. `MarkerRegistry.snapshot`. */
+export type MarkerSnapshot = {
+  markerById(id: string | number): MarkerData | null
+}
+
 export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
   /** Tous les markers d'un cadre géo (concat des fournisseurs). */
   markersInBounds(bounds: Bounds): MarkerData[] {
@@ -71,6 +76,25 @@ export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
       if (found) out.push(...found)
     }
     return out
+  }
+
+  private cachedSnapshot: { token: object; view: MarkerSnapshot } | null = null
+
+  /**
+   * Instantané interrogeable de l'inventaire : **même référence** tant que rien ne
+   * bouge, **nouvelle référence** à chaque `itemsChanged()`.
+   *
+   * C'est ce qui permet à un composant React de dépendre de l'inventaire pour de vrai.
+   * Avec `markerById()` seul, un consommateur devait mémoïser sur un compteur de
+   * révision qu'aucune ligne de son calcul ne nommait : ni le linter ni un relecteur ne
+   * pouvaient voir le lien, et retirer le compteur figeait l'affichage en silence.
+   * Ici la dépendance EST l'objet qu'on interroge.
+   */
+  get snapshot(): MarkerSnapshot {
+    if (this.cachedSnapshot?.token !== this.snapshotToken) {
+      this.cachedSnapshot = { token: this.snapshotToken, view: { markerById: (id) => this.markerById(id) } }
+    }
+    return this.cachedSnapshot.view
   }
 
   /** Donnée complète d'un marker par id (1er fournisseur qui le connaît), ou null. */

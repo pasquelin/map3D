@@ -114,6 +114,15 @@ compile error.
 | `providers.buildings.pickFields` | MVT attributes surfaced by the building pick (`buildingMenu`). **Empty by default**: the data carries dozens per footprint, and carrying them all would cost, per tile, more than the whole geometry. The host asks for what it displays. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Cesium Ion asset served by default (Google Photorealistic 3D Tiles). ⚠️ The identifier used to be written in the engine and repeated in TWO documentation blocks: three copies of a value that designates a provider, the only one of its kind living outside `providers`. | `'2275207'` |
 | `providers.symbols.cacheMaxEntries` | Cap of the rendered thumbnail cache. ⚠️ Unbounded until now. | `200` |
+| `providers.templates.baseUrl` | Root of the templates REST API. Empty = no backend (local cache only). | `''` |
+| `providers.templates.headers` | Headers of the default HTTP provider (auth of a server-side proxy). | `{}` |
+| `providers.templates.fetch.timeoutMs` | Give up on a request with no response. `0` = no limit. | `10000` |
+| `providers.templates.fetch.retries` | Retries after a network failure or 5xx. `0` = none. | `1` |
+| `providers.templates.fetch.backoffMs` | Wait before the first retry, doubled on each round, with a random share. | `300` |
+| `providers.templates.categories` | Categories offered when saving — configurable, never hard-coded in the UI. | `["shapes", "freehand", "symbols"]` |
+| `providers.templates.defaultCategories` | Categories ticked by default in the “Save” form. | `["shapes", "freehand", "symbols"]` |
+| `providers.templates.defaultApply` | Default mode for applying a template to the current drawing. | `'merge'` |
+| `providers.templates.allowExport` | Allow `.m3dt` file export/import. | `true` |
 
 ## `interaction` — Gesture thresholds, pointer tolerances, shortcuts
 
@@ -251,17 +260,33 @@ compile error.
 
 ## `style` — Surface stacking
 
+⚠️ **Two planes, not a single list.** `.m3d-overlay` and `.m3d-css2d` each create a stacking
+context: the values living INSIDE them are never compared with those OUTSIDE. Setting a level
+of the map plane beyond `mapOverlay` will therefore NOT raise it above the UI — `mapOverlay`
+is what carries that whole plane.
+
+- **Root plane** (children of `.m3d-root`): `mapOverlay` < `floatingHud` < `dock` < `ui` < `menu`
+- **Map plane** (inside `.m3d-overlay`): `relationBar` < `editOverlay` < `listMenu`
+- **Local plane** (inside the carrying surface): `tooltip`, `markerSelected` — locked inside
+  a marker anchor or a panel, they never compare with either of the other two planes. Their
+  small values are not an anomaly; raising them raises nothing.
+
+⚠️ **Every default value changed** when moving to two planes. An application that pinned its
+own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
+
 | Key | Description | Default |
 |---|---|---|
-| `style.zIndex.relationBar` | Status bar of a relation, resting on the map. | `6` |
-| `style.zIndex.editOverlay` | SVG selection overlay (transformation handles). | `15` |
-| `style.zIndex.floatingHud` | Floating HUD (selection, lens). | `20` |
-| `style.zIndex.markerSelected` | Selected marker — above its neighbours, below the UI surfaces. | `80` |
-| `style.zIndex.tooltip` | Tooltips (marker and bars). | `90` |
-| `style.zIndex.listMenu` | Actions menu of a list row. | `96` |
-| `style.zIndex.dock` | Favourites dock — deliberately BELOW the bars. | `998` |
-| `style.zIndex.ui` | Bars, panels, search box: the UI surface plane. | `999` |
-| `style.zIndex.menu` | Context menus and drag-and-drop ghosts: at the top. | `9999` |
+| `style.zIndex.mapOverlay` | ROOT plane. MAP surfaces: markers (`.m3d-css2d`), edit handles, lens zone, link anchors. Below every UI surface — this is what guarantees a panel is never pierced by a handle, and that the number of on-screen markers does not affect stacking (CSS2DRenderer writes `1..N` on the anchors; this level locks them inside one context). | `100` |
+| `style.zIndex.floatingHud` | ROOT plane. Floating HUD (selection, lens): above the map, below the bars. | `900` |
+| `style.zIndex.dock` | ROOT plane. Favourites dock — deliberately BELOW the bars. | `990` |
+| `style.zIndex.ui` | ROOT plane. Bars, panels, search box: the UI surface plane. | `991` |
+| `style.zIndex.menu` | ROOT plane. Context menus and drag-and-drop ghosts: at the top. | `992` |
+| `style.zIndex.modal` | ROOT plane. Modals (confirmation dialog): above everything, menus included. | `1092` |
+| `style.zIndex.relationBar` | MAP plane. Status bar of a relation, resting on the map. | `6` |
+| `style.zIndex.editOverlay` | MAP plane. SVG selection overlay (transformation handles). | `15` |
+| `style.zIndex.tooltip` | LOCAL plane. Tooltips, INSIDE the surface carrying them: the marker anchor for `.m3d-markertip`, the bar or panel for `.m3d-tip`. Both are isolated stacking contexts (anchor z-index written by CSS2DRenderer, a panel's `backdrop-filter`), so this value never compares with the MAP plane levels. Raising it will put the tooltip above nothing. | `2` |
+| `style.zIndex.listMenu` | MAP plane. Actions menu of a list row. | `96` |
+| `style.zIndex.markerSelected` | Selected marker, INSIDE its own marker anchor. ⚠️ Do not raise it above neighbouring markers: the anchor carries a numeric `z-index`, so it creates a context and this value stays locked inside it. The order BETWEEN markers is decided by the `renderOrder` the engine gives to CSS2DRenderer (see `setRaised`), not here. | `80` |
 
 ## `camera` — Navigation limits and command steps
 
@@ -317,6 +342,7 @@ compile error.
 | `data.storageKeys.drawSettings` | Per-tool drawing style settings. | `'m3d:draw-settings'` |
 | `data.storageKeys.searchHistory` | Search box history. | `'m3d:search-history'` |
 | `data.storageKeys.plugins` | Plugin state (enabled + config), see [PLUGINS.md § 8](PLUGINS.md#8-the-hub-and-user-configuration). | `'m3d:plugins'` |
+| `data.storageKeys.templates` | Local drawing templates (`Template[]` array), see [TEMPLATES.md](TEMPLATES.md). | `'m3d:templates'` |
 | `data.search.minQuery` | Minimum input length before querying the providers. | `2` |
 | `data.search.debounceMs` | Keystroke debounce. 💰 The most direct lever on the number of calls. | `250` |
 | `data.search.limitPerGroup` | Results displayed per group. | `6` |

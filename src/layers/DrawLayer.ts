@@ -841,6 +841,14 @@ export class DrawLayer implements Layer {
     this.selection.deselectExternal(ids)
   }
 
+  /**
+   * Emprise écran de la sélection, comme élément — l'ancre du panneau de style quand
+   * c'est une forme qui l'ouvre. `null` tant que l'overlay n'est pas monté.
+   */
+  selectionBoxEl(): SVGRectElement | null {
+    return this.overlaySel?.boxEl ?? null
+  }
+
   /** Détail des formes sélectionnées (kind par id) — pour les badges de sélection. */
   selectionDetails(): Array<{ id: string; kind: DrawTool }> {
     const out: Array<{ id: string; kind: DrawTool }> = []

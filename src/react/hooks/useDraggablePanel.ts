@@ -106,7 +106,7 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
     })
     ro.observe(parent)
     return () => ro.disconnect()
-  }, [pinned])
+  }, [pinned, EDGE])
 
   // Collision avec les bords : la position par défaut (non épinglée, ex. ancrée à
   // une zone) est ramenée DANS le conteneur. L'observer est créé UNE fois (pas
@@ -140,7 +140,9 @@ export function useDraggablePanel<E extends HTMLElement = HTMLDivElement>(
     ro.observe(panel)
     ro.observe(parent)
     return () => ro.disconnect()
-  }, [pinned, hasDefault])
+    // `EDGE` vient de `theme.spacing` : sans lui, une charte remplacée à chaud gardait
+    // la marge de bord du montage. C'est une primitive — pas de recréation parasite.
+  }, [pinned, hasDefault, EDGE])
   // Ré-applique le clamp quand l'ancre bouge — sans recréer l'observer.
   useLayoutEffect(() => {
     if (!pinned && hasDefault) applyRef.current()

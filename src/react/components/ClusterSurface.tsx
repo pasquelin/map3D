@@ -94,6 +94,8 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
   const engineRef = useRef<ClusterEngine | null>(null)
   /** Points contribués par uid — résout les feuilles sans repasser par les couches. */
   const byUidRef = useRef(new Map<string, ClusterPoint>())
+  /** Révision des données de clustering — graine de la signature d'entrées. */
+  const dataRevRef = useRef(0)
   const nodesRef = useRef(new Map<string | number, Node>())
   /** Index `id de marker → nœud visuel`, construit À LA DEMANDE (cf. `visualNodeOf`). */
   const visualIndexRef = useRef<Map<string | number, VisualNode> | null>(null)
@@ -282,7 +284,7 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
 
     // Pendant un pan où le regroupement ne change pas, le recompute à ~11 Hz ne
     // re-rend AUCUN portail — et la détection elle-même n'alloue rien.
-    signature.begin(0)
+    signature.begin(dataRevRef.current)
     for (const [k, n] of nodes) signature.add(k, n.cluster.total)
     signature.end()
   }, [coreRef, engine, forEachLeaf, leavesOf, signature])
@@ -297,6 +299,12 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
       return
     }
     const rebuild = () => {
+      // Révision des DONNÉES, graine de la signature (cf. `useEntriesSignature`) : sans
+      // elle, la signature ne pesait que `total` par clé, et deux compositions
+      // différentes de même clé et même effectif — 8 agents + 2 véhicules devenus 5 + 5 —
+      // étaient indiscernables. Le camembert de répartition et l'infobulle, eux, sont
+      // rendus depuis les MEMBRES : ils restaient sur l'ancienne composition.
+      dataRevRef.current++
       const points = engine.clusters.allPoints()
       const byUid = new Map<string, ClusterPoint>()
       const uidByMarker = new Map<MarkerData, string>()

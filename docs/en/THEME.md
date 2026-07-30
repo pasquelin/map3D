@@ -153,11 +153,13 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 |---|---|---|
 | `sizing.lensPanelW` | Width of the lens inventory panel (px). | `252` |
 | `sizing.selectionPanelW` | Width of the selection panel (px). | `236` |
+| `sizing.templatesPanelW` | Width of the templates panel (px). | `288` |
 | `sizing.panelMaxHeight.tags` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `380` |
 | `sizing.panelMaxHeight.symbols` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `420` |
 | `sizing.panelMaxHeight.search` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `340` |
 | `sizing.panelMaxHeight.settings` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `560` |
 | `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `520` |
+| `sizing.panelMaxHeight.templates` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `460` |
 | `sizing.iconSize` | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out. | `0.8` |
 
 ## `tiles` — Colour treatment of the basemap (dark mode)

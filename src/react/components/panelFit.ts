@@ -173,6 +173,14 @@ export type AnchoredOptions = {
    * placement vertical. Ces surfaces sont courtes par construction.
    */
   clampHeight?: boolean
+  /**
+   * `false` : NE PAS observer l'ancre en continu, placer une seule fois. Pour une
+   * ancre RÉÉCRITE à chaque frame (l'emprise SVG d'une sélection change de taille dès
+   * que la caméra bouge), l'observer déclencherait un `getBoundingClientRect` — donc un
+   * reflow — par frame de navigation. On veut « s'ouvrir près d'elle », pas la suivre :
+   * l'hôte force le replacement en remontant la surface (`key`) quand la cible change.
+   */
+  observeAnchor?: boolean
 }
 
 /**
@@ -245,6 +253,70 @@ export function useAnchoredPanel(
   useLayoutEffect(() => {
     replace.current?.()
   }, [desiredTop])
+
+  return [effective, ref]
+}
+
+/**
+ * Même placement que `useAnchoredPanel`, mais pour un panneau **porté à la racine de
+ * la carte** au lieu d'être rendu dans la barre qui l'ouvre.
+ *
+ * Pourquoi le portail : une barre porte `backdrop-filter`, ce qui en fait une **racine
+ * de fond**. Un panneau rendu dedans ne peut plus flouter la carte — il ne floute que
+ * la barre. Deux panneaux au CSS rigoureusement identique n'avaient donc pas le même
+ * fond selon l'endroit d'où ils sortaient, et aucune valeur calculée ne le montrait.
+ *
+ * La différence avec `useAnchoredPanel` tient à ce que le parent n'est plus l'ancre :
+ * les deux axes s'écrivent en coordonnées CONTENEUR, là où l'autre pouvait laisser
+ * l'horizontal au CSS (`left: calc(100% + gap)`). Le reste — bornage de hauteur,
+ * clamp vertical, bascule de côté — est le même code, appelé depuis le même socle.
+ *
+ * @param anchor le bouton déclencheur, dont le rect fixe la position
+ */
+export function useAnchoredPortal(
+  /** L'ancre peut être un SVG (l'emprise écran d'une sélection), pas seulement un bouton. */
+  anchor: Element | null,
+  side: PanelSide,
+  { edge = 'top', maxHeight, clampHeight = true, observeAnchor = true }: AnchoredOptions = {},
+): [PanelSide, PanelRef] {
+  const [effective, setEffective] = useState<PanelSide>(side)
+  const { gap, edge: edgeGap } = useTheme().spacing
+
+  const ref = usePlacement(
+    (el, root) => {
+      const place = () => {
+        if (!anchor) return
+        const b = boundsOf(root)
+        const a = anchor.getBoundingClientRect()
+
+        const h = clampHeight ? fitHeight(el, Math.max(0, b.height - 2 * edgeGap), maxHeight) : el.offsetHeight
+        const w = el.offsetWidth
+
+        // Vertical — identique à l'ancré, à ceci près que l'offset est relatif au
+        // conteneur et non à l'ancre.
+        const wanted = edge === 'bottom' ? a.bottom - h : a.top
+        const y = clamp(wanted, b.top + edgeGap, Math.max(b.top + edgeGap, b.bottom - edgeGap - h))
+        const topPx = `${Math.round(y - b.top)}px`
+        if (el.style.top !== topPx) el.style.top = topPx
+
+        // Horizontal — même arbitrage de côté, mais la coordonnée est écrite ici : le
+        // panneau n'est plus voisin du bouton, le CSS ne peut plus la déduire.
+        const room = (s: PanelSide) => (s === 'right' ? a.left - gap - b.left : b.right - (a.right + gap))
+        const other: PanelSide = side === 'right' ? 'left' : 'right'
+        const eff: PanelSide = room(side) >= w || room(side) >= room(other) ? side : other
+        setEffective(eff)
+        const x = eff === 'right' ? a.left - gap - w : a.right + gap
+        const cx = clamp(x, b.left + edgeGap, Math.max(b.left + edgeGap, b.right - edgeGap - w))
+        const leftPx = `${Math.round(cx - b.left)}px`
+        if (el.style.left !== leftPx) el.style.left = leftPx
+      }
+      // L'ancre stable est observée : la barre qui se compacte ou passe en deux colonnes
+      // la déplace, et le panneau doit suivre sans être remonté. Une ancre mutée par frame
+      // (`observeAnchor: false`) ne l'est PAS — sinon un reflow par frame de navigation.
+      return { run: place, targets: observeAnchor ? [anchor] : [] }
+    },
+    [anchor, side, edge, maxHeight, clampHeight, observeAnchor, gap, edgeGap],
+  )
 
   return [effective, ref]
 }

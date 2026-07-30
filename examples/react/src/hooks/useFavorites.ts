@@ -5,7 +5,10 @@ import { markerLabel } from '../config/labels'
 import type { AnyData } from '../data/types'
 import { iconDataUri, svgToDataUri } from '../icons/markerIcons'
 
-const STORAGE_KEY = 'm3d-demo-favs'
+// Versionné : le jour où un favori cesse d'être un simple id (objet avec libellé, date),
+// une liste ancienne relue telle quelle casserait la résolution. Le suffixe permet de
+// l'abandonner plutôt que de la lire.
+const STORAGE_KEY = 'm3d-demo-favs:v1'
 
 type Favorites = {
   items: PinnedItem<MarkerData<AnyData>>[]

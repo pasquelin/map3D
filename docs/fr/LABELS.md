@@ -71,6 +71,41 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `symbols.affiliations.neutral` | Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Neutre'` |
 | `symbols.affiliations.unknown` | Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Inconnu'` |
 
+## `templates` — Gestionnaire de templates
+
+Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.md).
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `templates.title` | Tooltip/aria du bouton d'ouverture + titre du panneau. | `'Templates'` |
+| `templates.save` | Bouton d'ouverture du formulaire de sauvegarde. | `'Sauvegarder'` |
+| `templates.saveHint` | Consigne du formulaire de sauvegarde. | `'Nommez ce template et choisissez ce qu’il contient'` |
+| `templates.name` | Placeholder/aria du champ nom. | `'Nom du template'` |
+| `templates.empty` | Aucun template enregistré. | `'Aucun template'` |
+| `templates.delete` | aria-label de la croix de suppression — `{name}`. | `'Supprimer {name}'` |
+| `templates.deleteConfirm` | Message de confirmation de suppression — `{name}`. | `'Supprimer « {name} » ? Cette action est définitive.'` |
+| `templates.confirm` | Bouton de confirmation (dialogue + validation du renommage). | `'Confirmer'` |
+| `templates.cancel` | Bouton d'annulation (dialogue + annulation du renommage). | `'Annuler'` |
+| `templates.rename` | aria-label du renommage inline — `{name}`. | `'Renommer {name}'` |
+| `templates.update` | Bouton « mettre à jour le template avec le dessin courant » — `{name}`. | `'Mettre à jour « {name} » avec le dessin courant'` |
+| `templates.updateConfirm` | Message de confirmation d'écrasement — `{name}`. | `'Mettre à jour « {name} » avec le dessin courant ? L’ancien contenu sera écrasé.'` |
+| `templates.apply` | Bouton d'application d'un template au dessin courant. | `'Charger ce template'` |
+| `templates.applyMode` | Intitulé du choix du mode d'application au clic sur un template. | `'Au clic sur un template :'` |
+| `templates.merge` | Option d'application : ajoute au dessin existant. | `'Ajouter'` |
+| `templates.replace` | Option d'application : remplace le dessin existant. | `'Remplacer'` |
+| `templates.remove` | Option d'application : retire du dessin les formes venues de ce template. | `'Retirer'` |
+| `templates.export` | Bouton d'export `.m3dt`. | `'Exporter en fichier .m3dt'` |
+| `templates.import` | Bouton d'import `.m3dt`. | `'Importer'` |
+| `templates.shared` | Badge d'un template partagé (venu de l'API). | `'Partagé'` |
+| `templates.readOnly` | Badge/aria d'un template en lecture seule. | `'Lecture seule'` |
+| `templates.defaultName` | Nom de repli d'un template sauvegardé sans nom. | `'template'` |
+| `templates.importedName` | Nom de repli d'un template importé sans nom. | `'Import'` |
+| `templates.category.shapes` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Formes'` |
+| `templates.category.freehand` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Main levée'` |
+| `templates.category.symbols` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Symboles'` |
+| `templates.stats.pair` | Stats compactes : paire « libellé nombre ». | `'{label} {count}'` |
+| `templates.stats.bytes` | Stats compactes : gabarit de poids (`{count}`). | `'{count} o'` |
+
 ## `search` — Recherche unifiée
 
 | Clé | Description | Défaut |
@@ -149,6 +184,8 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `style.cornerRadius` | Preset de rayon d'angle — `{radius}` = % du petit côté. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Titre du panneau quand 1 forme est sélectionnée — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. | `'{count} formes'` |
+| `style.expand` | Bouton qui déplie le panneau réduit. | `'Modifier le style'` |
+| `style.collapse` | Bouton qui réduit le panneau à son seul bouton. | `'Réduire'` |
 
 ## `selection` — Panneau de sélection
 

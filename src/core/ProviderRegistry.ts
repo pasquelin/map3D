@@ -12,6 +12,14 @@
 export class ProviderRegistry<P> {
   protected readonly providers = new Set<P>()
   private readonly changeListeners = new Set<() => void>()
+  /**
+   * Jeton d'identité du jeu d'éléments : nouvelle référence à chaque mutation, la même
+   * entre deux mutations. Il permet à un registre concret de publier un INSTANTANÉ
+   * interrogeable plutôt qu'un compteur de révision — la différence est qu'un
+   * instantané est nommé par le code qui l'interroge, donc c'est une vraie dépendance
+   * React, là où un compteur reste un casse-cache que rien ne relie au calcul.
+   */
+  protected snapshotToken: object = {}
 
   /** Inscrit un fournisseur ; la fonction rendue le retire. Notifie dans les deux sens. */
   register(p: P): () => void {
@@ -23,8 +31,13 @@ export class ProviderRegistry<P> {
     }
   }
 
-  /** S'abonne au changement du jeu d'éléments (données, filtre tags…). */
-  onItemsChanged(cb: () => void): () => void {
+  /**
+   * S'abonne au changement du jeu d'éléments (données, filtre tags…).
+   *
+   * Champ fléché et non méthode de prototype : `useSyncExternalStore` appelle la
+   * fonction d'abonnement DÉTACHÉE de son objet, ce qui perdrait `this`.
+   */
+  onItemsChanged = (cb: () => void): (() => void) => {
     this.changeListeners.add(cb)
     return () => {
       this.changeListeners.delete(cb)
@@ -33,6 +46,7 @@ export class ProviderRegistry<P> {
 
   /** Signale que le jeu d'éléments a changé (appelé par les fournisseurs). */
   itemsChanged(): void {
+    this.snapshotToken = {}
     for (const cb of this.changeListeners) cb()
   }
 }

@@ -1,5 +1,5 @@
 import { mdiRotateRight } from '@mdi/js'
-import { BAR_INSET, GAP, LENS_PANEL_W, SELECTION_PANEL_W } from './panelGeometry'
+import { BAR_INSET, LENS_PANEL_W, SELECTION_PANEL_W } from './panelGeometry'
 
 const STYLE_ID = 'm3d-styles'
 
@@ -63,13 +63,24 @@ const CSS = `
 .m3d-root canvas:active{cursor:grabbing}
 .m3d-root.m3d-drawing canvas{cursor:crosshair}
 /* overflow visible : sinon les menus/sous-menus ancrés aux markers sont coupés */
-.m3d-overlay{position:absolute;inset:0;z-index:var(--m3d-z-ui,999);pointer-events:none;overflow:visible;transition:opacity var(--m3d-intro-fade,500ms)}
+/* +1 sur la surface des markers, à dessein : les poignées d'édition et la zone de
+   loupe doivent rester devant les markers (la zone se saisit à la souris, un marker
+   par-dessus la rendrait inattrapable). Un seul réglage porte donc les deux plans,
+   et leur ordre relatif ne peut plus être cassé par inadvertance. */
+.m3d-overlay{position:absolute;inset:0;z-index:calc(var(--m3d-z-map-overlay,100) + 1);pointer-events:none;overflow:visible;transition:opacity var(--m3d-intro-fade,500ms)}
 .m3d-overlay > *{pointer-events:auto}
 /* Intro : labels/popups ancrés à la carte masqués avec les markers (fondu à l'entrée). */
 .m3d-root.m3d-intro .m3d-overlay{opacity:0}
 .m3d-root.m3d-intro .m3d-overlay > *{pointer-events:none!important}
 /* Overlay HTML piloté par le CSS2DRenderer (superposé au canvas). */
-.m3d-css2d{pointer-events:none;transition:opacity var(--m3d-intro-fade,500ms)}
+/* Le z-index est ici pour créer un CONTEXTE D'EMPILEMENT (l'élément est déjà en
+   position:absolute, posée en ligne par MapEngine). CSS2DRenderer écrit un z-index de
+   1 à N sur chaque ancre pour les trier par profondeur ; sans contexte, ces valeurs
+   remontaient jusqu'à la racine et concurrençaient les surfaces d'UI — le 21ᵉ marker
+   à l'écran passait devant le HUD flottant. Enfermées ici, elles ne trient plus que
+   les markers entre eux, ce qui est leur seul rôle. */
+.m3d-css2d{z-index:var(--m3d-z-map-overlay,100);pointer-events:none;
+  transition:opacity var(--m3d-intro-fade,500ms)}
 /* Intro (vol globe → cible) : markers/clusters masqués jusqu'à l'atterrissage —
    sinon ils flottent sur le vide pendant que la planète streame. Fondu à l'entrée. */
 .m3d-root.m3d-intro .m3d-css2d{opacity:0}
@@ -213,9 +224,7 @@ const CSS = `
   display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;
   /* Enfant d'une ancre de largeur nulle : sans cela le flex la comprimerait. */
   flex:none;
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);backdrop-filter:blur(12px);
-  border-radius:var(--m3d-radius-pill);box-shadow:var(--m3d-shadow-sm);
-  font-size:12px;color:var(--m3d-text);white-space:nowrap}
+  font-size:12px;white-space:nowrap}
 /* Pas la place à droite : la barre passe de l'autre côté du socle plutôt que d'être
    coupée par le bord du conteneur. Le hook de placement (useNudgeInside) en décide
    sur la place réelle autour de l'ANCRE — jamais sur la position courante, qui
@@ -351,9 +360,7 @@ const CSS = `
    Ancrée au-dessus du marker (--m3d-tiplift = rayon + marge), non interactive. */
 .m3d-markertip{position:absolute;left:0;top:0;pointer-events:none;z-index:var(--m3d-z-tooltip,90);
   transform:translate(-50%,calc(-100% - var(--m3d-tiplift,32px)));
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-lg);
-  backdrop-filter:blur(12px);padding:8px 11px;min-width:120px;max-width:240px;
+  padding:8px 11px;min-width:120px;max-width:240px;
   animation:m3d-tip-in .16s ease-out}
 .m3d-markertip-title{font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-semibold);color:var(--m3d-text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -389,9 +396,6 @@ const CSS = `
    __place-*), jamais les classes CSS-modules hashées
    (core-styles-module_tooltip__xxxxx), dont le hash change à chaque version. */
 .m3d-tip{z-index:var(--m3d-z-tooltip,90);width:max-content;max-width:260px;padding:6px 9px;
-  background:var(--m3d-panel);color:var(--m3d-text);
-  border:1px solid var(--m3d-border);border-radius:var(--m3d-radius-md);
-  box-shadow:var(--m3d-shadow-lg);backdrop-filter:blur(12px);
   font-size:11.5px;font-weight:var(--m3d-weight-medium);line-height:1.35}
 /* Deux classes = spécificité supérieure au « show » du core (opacité .9) : opaque
    franc, comme les autres surfaces de la lib. */
@@ -479,9 +483,45 @@ const CSS = `
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
 
-.m3d-panel{background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);
+/* ══ CHÂSSIS DES SURFACES ══════════════════════════════════════════════════════
+   Fond, bordure et flou : UNE déclaration pour les onze surfaces. Ils étaient recopiés
+   à la main partout, et chaque copie avait dérivé — flou 20px / 12px / aucun. Le menu
+   contextuel était le seul à ne pas être flouté, une infobulle portait une ombre PLUS
+   forte qu'un panneau. C'est cette dérive qu'on lit comme « un design par élément ».
+
+   Ce qui reste distinct est nommé et volontaire : DEUX profondeurs, parce que les deux
+   familles ne jouent pas le même rôle. Une barre est un meuble, toujours là, elle ne
+   doit pas peser ; une surface flottante vient de s'ouvrir PAR-DESSUS et doit se
+   détacher. Le rayon suit la taille de la surface, pas son rôle. */
+.m3d-panel,.m3d-markertip,.m3d-tip,.m3d-menu-panel,.m3d-relbar,
+.m3d-controls-group,.m3d-drawbar,.m3d-search-box,.m3d-pindock,.m3d-pindock-toggle,.m3d-lenszone-x{
+  background:var(--m3d-panel);border:1px solid var(--m3d-border);
   backdrop-filter:blur(20px);color:var(--m3d-text)}
+/* Meubles : posés sur la carte, ombre discrète. */
+.m3d-controls-group,.m3d-drawbar,.m3d-search-box,.m3d-pindock,.m3d-pindock-toggle,.m3d-lenszone-x{
+  box-shadow:var(--m3d-shadow-sm)}
+/* Surfaces flottantes : ouvertes au-dessus, elles se détachent. */
+.m3d-panel,.m3d-markertip,.m3d-tip,.m3d-menu-panel,.m3d-relbar{box-shadow:var(--m3d-shadow-md)}
+/* Tout le mobilier — barres, champ de recherche, dock, panneaux — partage le même
+   rayon. Les deux barres d'outils l'avaient différent (10 d'un côté, 14 de l'autre) :
+   deux meubles jumeaux posés face à face, aux coins qui ne se répondaient pas. */
+.m3d-panel,.m3d-drawbar,.m3d-pindock,.m3d-controls-group,.m3d-search-box{
+  border-radius:var(--m3d-radius-lg)}
+/* Seules les surfaces TRANSITOIRES et petites gardent le rayon moyen : 14px sur une
+   infobulle de deux lignes mange le texte. */
+.m3d-markertip,.m3d-tip,.m3d-menu-panel{border-radius:var(--m3d-radius-md)}
+/* Formes qui PORTENT du sens, pas des écarts de charte : la barre de relation se lit
+   comme un badge posé sur son marker, la croix de la loupe est un bouton rond. */
+.m3d-relbar{border-radius:var(--m3d-radius-pill)}
+
+/* Panneau d'une surface déroulante. PORTÉ à la racine de la carte, jamais rendu dans la
+   barre qui l'ouvre : une barre porte backdrop-filter, ce qui en fait une racine de
+   fond, et un panneau rendu dedans ne peut plus flouter la carte — seulement la barre.
+   Deux panneaux au CSS identique n'avaient donc pas le même fond selon leur origine.
+   Position écrite par useAnchoredPortal : plus de left:calc(100%+gap) ni de top, qui
+   supposaient un parent-ancre. Les variantes ne gardent que largeur et padding. */
+.m3d-dropdown{position:absolute;top:0;left:0;z-index:var(--m3d-z-ui,999);
+  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
 
 /* Barres : toute la géométrie est proportionnelle à --m3d-bar-scale, que
    useFitColumns réduit quand la carte est trop courte (puis passe en colonnes).
@@ -493,13 +533,17 @@ const CSS = `
 .m3d-controls.m3d-left{left:var(--m3d-bar-inset, ${BAR_INSET}px)}
 .m3d-controls-group{display:flex;flex-direction:column;gap:2px;
   padding:calc(5px * var(--m3d-bar-scale,1));
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px)}
+  }
 .m3d-btn{width:calc(38px * var(--m3d-bar-scale,1));height:calc(38px * var(--m3d-bar-scale,1));
   border:none;background:transparent;border-radius:9px;outline:none;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--m3d-text);
   transition:background .14s}
 .m3d-btn:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent)}
+/* Panneau ouvert : plus de survol sur les boutons de barre. Un bouton survolé pendant
+   qu'une surface est ouverte s'allumait en plus de l'outil actif ET du bouton du
+   panneau — trois boutons marqués, sans qu'aucun ne dise lequel compte. Les boutons
+   ACTIFS gardent leur état : c'est l'information, pas le survol. */
+.m3d-root.m3d-dropdown-open .m3d-btn:hover:not(.m3d-on){background:transparent}
 .m3d-btn.m3d-on{background:var(--m3d-accent);color:#fff}
 /* :focus-visible ne s'active qu'au clavier (pas au clic) : indispensable pour
    naviguer les barres à la tabulation (WCAG 2.4.7). .m3d-btn en est retiré
@@ -518,8 +562,6 @@ const CSS = `
 .m3d-drawbar{position:absolute;top:50%;z-index:var(--m3d-z-ui,999);display:flex;flex-direction:column;
   align-content:flex-start;gap:calc(2px * var(--m3d-bar-scale,1));
   padding:calc(6px * var(--m3d-bar-scale,1));
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px);
   transform:translateY(-50%);
   transition:transform .28s cubic-bezier(.4,0,.2,1),opacity .28s}
 .m3d-drawbar.m3d-left{left:var(--m3d-bar-inset, ${BAR_INSET}px)}
@@ -536,10 +578,12 @@ const CSS = `
 /* Flyout vertical ouvert au survol : rangées auto-explicatives (icône + libellé
    + raccourci) — pas de tooltips. Le ::before comble l'écart bouton↔flyout pour
    que le survol ne se coupe pas en traversant les 12px de vide. */
-.m3d-flyout{position:absolute;top:0;display:flex;flex-direction:column;gap:2px;padding:5px;z-index:var(--m3d-z-ui,999);
-  min-width:150px;animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-flyout.m3d-left{left:calc(100% + var(--m3d-gap, ${GAP}px))}
-.m3d-flyout.m3d-right{right:calc(100% + var(--m3d-gap, ${GAP}px))}
+/* Positionnement et animation viennent de .m3d-dropdown : ce sous-menu passe par la
+   MEME surface que les autres. Il était rendu dans la barre, qui porte backdrop-filter
+   et fait donc racine de fond — son flou ne pouvait pas jouer comme ailleurs, et il
+   paraissait venir d'un autre composant. Ne restent ici que son gabarit et le pont
+   invisible qui laisse traverser l'écart au pointeur. */
+.m3d-flyout{display:flex;flex-direction:column;gap:2px;padding:5px;min-width:150px}
 .m3d-flyout.m3d-left::before{content:'';position:absolute;left:calc(-1 * (var(--m3d-gap,12px) + 2px));top:0;bottom:0;width:calc(var(--m3d-gap,12px) + 2px)}
 .m3d-flyout.m3d-right::before{content:'';position:absolute;right:calc(-1 * (var(--m3d-gap,12px) + 2px));top:0;bottom:0;width:calc(var(--m3d-gap,12px) + 2px)}
 .m3d-flyout-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;
@@ -554,20 +598,18 @@ const CSS = `
 /* Panneau de style : à côté de la drawbar (défauts de l'outil actif OU restyle de
    la sélection). Swatches fond/bordure superposés façon Photoshop + palette +
    presets visuels (épaisseur, style de trait, opacité, angles). */
-.m3d-stylepanel{position:absolute;top:50%;transform:translateY(-50%);z-index:var(--m3d-z-ui,999);
-  width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;
-  animation:m3d-style-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-/* Décalé de la largeur RÉELLE de la drawbar (publiée par useFitColumns) : en deux
-   colonnes elle double, et un offset figé la ferait recouvrir. */
-.m3d-stylepanel.m3d-left{left:calc(var(--m3d-bar-inset, ${BAR_INSET}px) + var(--m3d-gap, ${GAP}px) + var(--m3d-drawbar-w,52px));--m3d-fly-dx:-10px}
-.m3d-stylepanel.m3d-right{right:calc(var(--m3d-bar-inset, ${BAR_INSET}px) + var(--m3d-gap, ${GAP}px) + var(--m3d-drawbar-w,52px));--m3d-fly-dx:10px}
-/* Fermeture = animation inverse (le composant reste monté le temps de la jouer).
-   Les keyframes embarquent le translateY(-50%) de centrage, sinon il sauterait. */
-.m3d-stylepanel.m3d-closing{animation:m3d-style-out var(--m3d-menu-dur,200ms) ease-in forwards}
-@keyframes m3d-style-in{from{opacity:0;transform:translateY(-50%) translateX(var(--m3d-fly-dx,-10px)) scale(.97)}
-  to{opacity:1;transform:translateY(-50%)}}
-@keyframes m3d-style-out{from{opacity:1;transform:translateY(-50%)}
-  to{opacity:0;transform:translateY(-50%) translateX(var(--m3d-fly-dx,-10px)) scale(.97)}}
+/* Positionnement, empilement et animation viennent de .m3d-dropdown, comme pour toute
+   autre surface : ce panneau avait les siens — centrage vertical, offset calculé sur la
+   largeur de la barre, paire de keyframes propre — et c'est ce qui en faisait le seul à
+   ne pas se poser au niveau de la barre. Ne restent ici que sa largeur et son gabarit. */
+.m3d-stylepanel{width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
+/* État RÉDUIT : la surface se resserre sur son seul bouton. C'est le défaut quand une
+   forme est sélectionnée — sélectionner n'est pas restyler, et le panneau déplié monte
+   une palette entière de vignettes pour une intention qui n'est pas encore là. */
+.m3d-stylemini{padding:4px;display:flex}
+/* Bouton de repli, aligné à droite du panneau au-dessus de l'éditeur. */
+.m3d-stylefold{align-self:flex-end;width:26px;height:26px;margin:-3px -3px -6px 0;color:var(--m3d-muted)}
+.m3d-stylefold:hover{color:var(--m3d-text)}
 .m3d-style-head{display:flex;align-items:center;gap:12px}
 .m3d-style-title{font-size:11.5px;color:var(--m3d-muted)}
 .m3d-swatches{position:relative;width:46px;height:46px;flex:none}
@@ -613,11 +655,7 @@ const CSS = `
    opposé à la barre, aligné sur la ligne — jamais coupé par le scroll de la liste.
    Ancré en bas → grandit vers le haut (le bouton est en bas de barre). */
 .m3d-settingswrap{position:relative}
-.m3d-settings{position:absolute;bottom:0;width:252px;padding:10px;z-index:var(--m3d-z-ui,999);
-  display:flex;flex-direction:column;gap:8px;
-  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-settings.m3d-left{left:calc(100% + var(--m3d-gap, ${GAP}px))}
-.m3d-settings.m3d-right{right:calc(100% + var(--m3d-gap, ${GAP}px))}
+.m3d-settings{width:252px;padding:10px;display:flex;flex-direction:column;gap:8px}
 .m3d-settings-head{display:flex;align-items:center;justify-content:space-between;
   font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-semibold);padding:2px 2px 0}
 .m3d-settings-reset{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
@@ -637,13 +675,9 @@ const CSS = `
    par le composant (top = ligne survolée, clampé au viewport). Le franchissement
    de l'écart ligne↔sous-panneau est couvert par la fermeture différée du
    composant (timer) — pas de pont ::before. */
-.m3d-settings-sub{position:absolute;width:212px;padding:11px;z-index:var(--m3d-z-ui,999);
-  display:flex;flex-direction:column;gap:9px;overflow-y:auto;
-  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-/* 12px comme toutes les surfaces ancrées : c'est l'écart que le GAP de panelFit
-   suppose pour calculer la place disponible de chaque côté. */
-.m3d-settings-sub.m3d-left{left:calc(100% + var(--m3d-gap, ${GAP}px))}
-.m3d-settings-sub.m3d-right{right:calc(100% + var(--m3d-gap, ${GAP}px))}
+/* Positionnement et animation viennent de .m3d-dropdown : ce sous-menu passe par la
+   MEME surface que tous les autres. Ne restent ici que sa largeur et son gabarit. */
+.m3d-settings-sub{width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
 .m3d-settings-subtitle{font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
   text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
@@ -665,11 +699,7 @@ const CSS = `
 .m3d-btn.m3d-on .m3d-tag-badge{background:#fff;color:var(--m3d-accent)}
 /* Flyout ancré à un bouton de barre — partagé avec la palette de symboles
    (.m3d-sympanel), qui ne surcharge que sa largeur. */
-.m3d-tagpanel,.m3d-sympanel{position:absolute;top:0;width:236px;padding:8px;z-index:var(--m3d-z-ui,999);
-  display:flex;flex-direction:column;gap:7px;
-  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
-.m3d-tagpanel.m3d-right,.m3d-sympanel.m3d-right{right:calc(100% + var(--m3d-gap, ${GAP}px))}
-.m3d-tagpanel.m3d-left,.m3d-sympanel.m3d-left{left:calc(100% + var(--m3d-gap, ${GAP}px))}
+.m3d-tagpanel,.m3d-sympanel{width:236px;padding:8px;display:flex;flex-direction:column;gap:7px}
 .m3d-tagsearch{display:flex;align-items:center;gap:2px;padding:7px 9px;
   border:1px solid var(--m3d-border);border-radius:9px;color:var(--m3d-muted)}
 .m3d-tagsearch input{border:none;background:none;outline:none;flex:1;min-width:0;
@@ -711,10 +741,93 @@ const CSS = `
 .m3d-tagclear:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-tagclear:disabled{opacity:.45;cursor:default}
 
+/* ── Gestionnaire de templates ──
+   MÊME structure que « Couches » : bouton dans un .m3d-controls-group de la barre,
+   flyout latéral ancré au bouton (mêmes règles de côté/animation que .m3d-tagpanel).
+   Réutilise .m3d-tagrow/checkbox (catégories) et .m3d-tag-badge (compteur). */
+.m3d-templates{position:relative}
+.m3d-tplbtn{position:relative}
+.m3d-tplpanel{width:var(--m3d-templates-panel-w,288px);max-height:var(--m3d-templates-panel-maxh,460px);
+  padding:8px;display:flex;flex-direction:column;gap:8px}
+.m3d-tplpanel *{box-sizing:border-box}
+.m3d-tplsave{display:flex;flex-direction:column;gap:7px}
+.m3d-tplsave-hint{font-size:var(--m3d-size-xs);color:var(--m3d-muted);margin-top:-2px}
+.m3d-tplname-input,.m3d-tplname-edit{width:100%;border:1px solid var(--m3d-border);background:transparent;
+  border-radius:8px;padding:7px 9px;font-family:inherit;font-size:var(--m3d-size-sm);color:var(--m3d-text);outline:none}
+.m3d-tplname-input:focus,.m3d-tplname-edit:focus{border-color:var(--m3d-accent)}
+/* Rangée de sélection (catégories, modes d'application) : 3 colonnes égales, posée sur
+   une pilule discrète — même habillage pour les deux lignes. */
+.m3d-tplcats{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+  padding:4px 7px;border-radius:8px;background:color-mix(in srgb,var(--m3d-text) 6%,transparent)}
+.m3d-tplcat{cursor:pointer;gap:5px;padding:5px 4px}
+.m3d-tplcat .m3d-taglabel{font-size:var(--m3d-size-xs)}
+/* Boutons pleine largeur uniformes (Sauvegarder + Importer) : même hauteur, même
+   langage. Le principal en accent, le secondaire bordé (ghost). */
+.m3d-tplbtn-full{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 9px;
+  border:1px solid transparent;border-radius:9px;background:var(--m3d-accent);color:#fff;cursor:pointer;
+  font-family:inherit;font-size:var(--m3d-size-sm);transition:opacity .14s,background .14s}
+.m3d-tplbtn-full:disabled{opacity:.4;cursor:default}
+.m3d-tplbtn-full svg{width:16px;height:16px}
+.m3d-tplbtn-ghost{background:transparent;border-color:var(--m3d-border);color:var(--m3d-text)}
+.m3d-tplbtn-ghost:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-tpllist{display:flex;flex-direction:column;gap:4px;flex:1 1 auto;min-height:0;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
+/* Section « mode d'application » : phrase d'explication au-dessus de sa rangée de modes. */
+.m3d-tplapply{display:flex;flex-direction:column;gap:4px}
+/* Ligne : le geste principal (charger) est un vrai bouton frère des actions — l'anneau
+   de focus reste dessiné sur la LIGNE via :has(). L'actif se voit (bordure accent). */
+.m3d-tplrow{display:flex;gap:9px;padding:7px;border-radius:10px;
+  border:1px solid transparent;background:color-mix(in srgb,var(--m3d-text) 4%,transparent);
+  transition:background .14s,border-color .14s}
+.m3d-tplrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-tplrow:has(.m3d-tplmain:focus-visible){outline:2px solid var(--m3d-accent);outline-offset:1px}
+.m3d-tplmain{flex:1;min-width:0;display:flex;gap:9px;padding:0;border:none;background:transparent;
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.m3d-tpl-thumb{flex:0 0 auto;border:1px solid var(--m3d-border);border-radius:7px;
+  background:color-mix(in srgb,var(--m3d-text) 6%,transparent)}
+.m3d-tplmeta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;justify-content:center}
+.m3d-tplrow-head{display:flex;align-items:center;gap:5px;min-width:0}
+.m3d-tplname{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-medium);color:var(--m3d-text)}
+.m3d-tplname-edit{padding:2px 5px;font-weight:var(--m3d-weight-medium)}
+.m3d-tpl-tag{flex:0 0 auto;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--m3d-muted);
+  border:1px solid var(--m3d-border);border-radius:999px;padding:1px 5px}
+.m3d-tpl-ro{display:inline-flex;align-items:center;padding:1px 3px}
+.m3d-tpl-ro svg{width:11px;height:11px}
+.m3d-tplstats{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Actions en grille 2×2 compacte, alignée verticalement à la vignette. */
+.m3d-tplactions{flex:0 0 auto;display:grid;grid-template-columns:repeat(2,24px);gap:2px;align-content:center}
+.m3d-tplico{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;
+  background:transparent;border-radius:6px;cursor:pointer;color:var(--m3d-muted);transition:background .14s,color .14s}
+.m3d-tplico:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
+.m3d-tplico svg{width:15px;height:15px}
+/* Suppression : croix ROUGE (pas un rond) ; validation / mise à jour : accent. */
+.m3d-tplico-danger{color:var(--m3d-error)}
+.m3d-tplico-danger:hover{background:color-mix(in srgb,var(--m3d-error) 16%,transparent);color:var(--m3d-error)}
+.m3d-tplico-ok{color:var(--m3d-accent)}
+.m3d-tplico-ok:hover{background:color-mix(in srgb,var(--m3d-accent) 16%,transparent);color:var(--m3d-accent)}
+.m3d-tplempty{padding:14px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
+
+/* ── Dialogue de confirmation (composant Confirm) ── */
+/* Modal : au-dessus de TOUT (barres z-ui/menu, markers, poignées d'édition). */
+.m3d-confirm-backdrop{position:absolute;inset:0;z-index:var(--m3d-z-modal,1092);pointer-events:auto;
+  display:flex;align-items:center;justify-content:center}
+.m3d-confirm{box-sizing:border-box;width:min(300px,80%);padding:16px;display:flex;flex-direction:column;gap:14px}
+.m3d-confirm-msg{font-size:var(--m3d-size-sm);color:var(--m3d-text);line-height:1.45}
+.m3d-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.m3d-confirm-cancel,.m3d-confirm-ok{padding:7px 14px;border-radius:9px;cursor:pointer;font-family:inherit;
+  font-size:var(--m3d-size-sm);border:1px solid var(--m3d-border);background:transparent;color:var(--m3d-text);
+  transition:background .14s}
+.m3d-confirm-cancel:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-confirm-ok{border-color:transparent;background:var(--m3d-accent);color:#fff}
+.m3d-confirm-ok:hover{background:color-mix(in srgb,var(--m3d-accent) 85%,#000)}
+.m3d-confirm-danger{background:var(--m3d-error)}
+.m3d-confirm-danger:hover{background:color-mix(in srgb,var(--m3d-error) 85%,#000)}
+
 .m3d-search{position:absolute;left:16px;top:16px;z-index:var(--m3d-z-ui,999);width:320px}
 .m3d-search-box{display:flex;align-items:center;gap:9px;padding:11px 13px;
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px)}
+  }
 .m3d-search-box input{border:none;background:none;outline:none;flex:1;min-width:0;
   font-family:inherit;font-size:var(--m3d-size-md);color:var(--m3d-text)}
 .m3d-search-box input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
@@ -775,8 +888,7 @@ const CSS = `
    quand le menu est plus haut que la carte. */
 .m3d-menu-panel{position:absolute;left:14px;top:-14px;min-width:186px;padding:5px;z-index:var(--m3d-z-menu,9999);
   display:flex;flex-direction:column;align-content:flex-start;
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-md);box-shadow:var(--m3d-shadow-lg);pointer-events:auto;
+  pointer-events:auto;
   animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
 .m3d-menu-item{display:flex;align-items:center;gap:9px;padding:7px 10px;
   border-radius:8px;font-size:var(--m3d-size-sm);cursor:pointer;user-select:none;color:var(--m3d-text);
@@ -866,8 +978,6 @@ const CSS = `
   max-width:calc(100% - 32px);transform:translateX(-50%)}
 .m3d-pindock{position:relative;
   display:flex;align-items:center;gap:10px;padding:10px;overflow:visible;box-sizing:border-box;
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  border-radius:var(--m3d-radius-lg);box-shadow:var(--m3d-shadow-md);backdrop-filter:blur(20px);
   transform-origin:bottom center;
   animation:m3d-pindock-in .24s cubic-bezier(.32,1.25,.5,1) backwards;
   transition:transform .34s cubic-bezier(.4,0,.2,1),opacity .22s ease}
@@ -889,8 +999,7 @@ const CSS = `
 .m3d-pindock-toggle{position:absolute;left:50%;top:0;transform:translate(-50%,-110%);z-index:2;
   min-width:34px;height:34px;padding:0;border-radius:17px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;font:inherit;
-  background:var(--m3d-panel);border:1px solid var(--m3d-border);
-  box-shadow:var(--m3d-shadow-sm);backdrop-filter:blur(20px);color:var(--m3d-muted);
+  color:var(--m3d-muted);
   transition:top .14s cubic-bezier(.4,0,.2,1),padding .28s cubic-bezier(.4,0,.2,1),
     background .14s,color .14s,border-color .14s}
 .m3d-collapsed .m3d-pindock-toggle{top:100%;padding:0 13px 0 7px}
@@ -1014,7 +1123,11 @@ img.m3d-pin-media{object-fit:cover}
    Fenêtre écran 2D. Le cadre lui-même réutilise les classes partagées
    .m3d-marquee-under / .m3d-marquee du sélecteur (voir plus haut) — la loupe ne
    définit donc que sa géométrie et ses affordances propres. */
-.m3d-lenszone{position:absolute;z-index:var(--m3d-z-ui,999);box-sizing:border-box;pointer-events:auto;cursor:move}
+/* Sommet du plan CARTE, pas du plan UI : la zone vit dans .m3d-overlay, donc emprunter
+   --m3d-z-ui n'y changeait rien (le contexte la borne) mais laissait croire qu'elle
+   rivalisait avec les barres. C'est ce genre d'emprunt qui a fait passer les poignées
+   d'édition devant les panneaux. */
+.m3d-lenszone{position:absolute;z-index:calc(var(--m3d-z-list-menu,96) + 1);box-sizing:border-box;pointer-events:auto;cursor:move}
 .m3d-lenszone-preview{pointer-events:none;cursor:default}
 /* Barre espace maintenue : le rectangle (et ses poignées) devient traversant →
    le glissé atteint la carte et la déplace, où que soit le curseur. */
@@ -1023,8 +1136,7 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-lenszone-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 /* Croix de fermeture (haut-droite), neutre — pas de pastille pleine « stop ». */
 .m3d-lenszone-x{position:absolute;top:-11px;right:-11px;width:22px;height:22px;z-index:2;
-  display:flex;align-items:center;justify-content:center;border:1px solid var(--m3d-border);border-radius:50%;padding:0;
-  background:var(--m3d-panel);color:var(--m3d-text);cursor:pointer;box-shadow:var(--m3d-shadow-sm)}
+  display:flex;align-items:center;justify-content:center;border-radius:50%;padding:0;cursor:pointer}
 .m3d-lenszone-x:hover{background:color-mix(in srgb,var(--m3d-text) 10%,var(--m3d-panel))}
 /* Poignées : mêmes tokens --m3d-handle-* que .m3d-handle (le sélecteur), y compris
    au survol — seules les PROPRIÉTÉS diffèrent (span DOM ici, rect SVG là-bas). */
@@ -1041,9 +1153,16 @@ img.m3d-pin-media{object-fit:cover}
 
 /* ── Liste de markers partagée (sélection + loupe) : 1 ligne par marker ──────── */
 .m3d-mllist{display:flex;flex-direction:column;gap:1px;max-height:44vh;overflow-y:auto;margin:0 -2px;padding:0 2px}
-.m3d-mlrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;color:inherit}
+.m3d-mlrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px}
 .m3d-mlrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
-.m3d-mlrow:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:-2px}
+/* Le geste principal de la ligne est un vrai bouton, frère des actions (imbriquer un
+   contrôle focusable dans un autre est invalide). Il reprend les propriétés que la
+   ligne portait pour lui — reset de bouton, curseur, alignement — et l'anneau de focus
+   reste dessiné sur la LIGNE, pour que le repère visuel ne change pas. */
+.m3d-mlmain{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:0;border:none;
+  background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.m3d-mlrow:has(.m3d-mlmain:focus-visible){outline:2px solid var(--m3d-accent);outline-offset:-2px}
+.m3d-mlmain:focus-visible{outline:none}
 .m3d-mldot{width:10px;height:10px;border-radius:50%;flex:none}
 .m3d-mlavatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex:none;border:1.5px solid var(--m3d-border)}
 /* Icône de ligne : même gabarit que l'avatar pour que les lignes restent alignées,

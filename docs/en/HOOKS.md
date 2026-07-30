@@ -109,6 +109,13 @@ in [DRAWING.md § 16](DRAWING.md#16-drawingapi--the-reference).
 `{ rules, menuFor, run, snapshots, hubHosts, setMode, routeColor, familyColor, untrace,
 clear }`. Details in [RELATIONS.md § 9](RELATIONS.md#9-relationapi).
 
+### `useTemplates(options?): TemplatesView` — under `<MapProvider>`
+
+`{ templates, categories, defaultCategories, defaultApply, allowExport, busy,
+saveCurrent, updateFromDrawing, apply, rename, remove, refresh, exportFile, importFile }`.
+Reactive view + actions of the drawing-template manager (localStorage only or an API
+provider). Details in [TEMPLATES.md § 8](TEMPLATES.md#8-usetemplates-hook).
+
 ### `useToolbar(): ToolbarApi`
 
 ```ts

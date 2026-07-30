@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from 'react'
+import { type RefObject, useEffect, useRef } from 'react'
 
 export type DismissOptions = {
   /**
@@ -23,22 +23,39 @@ export type DismissOptions = {
  * fonctionne tant que le nœud passé en `ref` est bien celui rendu à distance.
  */
 export function useDismiss(
-  ref: RefObject<HTMLElement | null>,
+  /**
+   * La ou les zones qui comptent comme « dedans ». Plusieurs sont nécessaires dès
+   * qu'une surface est PORTÉE ailleurs dans le DOM : le déclencheur reste dans la
+   * barre pendant que son panneau est rendu à la racine de la carte, et un seul des
+   * deux ne suffirait pas — le clic dans le panneau passerait pour un clic extérieur
+   * et le refermerait aussitôt ouvert.
+   */
+  ref: RefObject<HTMLElement | null> | ReadonlyArray<RefObject<HTMLElement | null>>,
   open: boolean,
   onClose: () => void,
   { wheel = false, captureEscape = false }: DismissOptions = {},
 ): void {
+  // `onClose` par ref, pas capturé : les écouteurs vivent tant que la surface est
+  // ouverte, donc un `onClose` capturé serait celui du render d'OUVERTURE. Les
+  // appelants d'aujourd'hui n'y perdent rien (tous ferment via un setter `setState`),
+  // mais un `onClose` qui lirait une donnée — « enregistrer la ligne courante puis
+  // fermer » — enregistrerait la valeur d'il y a plusieurs secondes, sans rien pour
+  // le signaler. Le ref rend le piège impossible plutôt que de compter dessus.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   useEffect(() => {
     if (!open) return
+    const close = () => onCloseRef.current()
+    const zones = Array.isArray(ref) ? ref : [ref as RefObject<HTMLElement | null>]
     const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose()
+      if (!zones.some((z) => z.current?.contains(e.target as Node))) close()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (captureEscape) e.stopPropagation()
-      onClose()
+      close()
     }
-    const onWheel = () => onClose()
+    const onWheel = () => close()
     document.addEventListener('pointerdown', onDown)
     window.addEventListener('keydown', onKey, captureEscape)
     if (wheel) window.addEventListener('wheel', onWheel, { passive: true })
@@ -47,8 +64,7 @@ export function useDismiss(
       window.removeEventListener('keydown', onKey, captureEscape)
       if (wheel) window.removeEventListener('wheel', onWheel)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, wheel, captureEscape])
+  }, [ref, open, wheel, captureEscape])
 }
 
 /**
@@ -60,8 +76,11 @@ export function useDismiss(
  * barre qui relâche ce qu'elle possède, comme elle relâche l'outil actif.
  */
 export function useCloseWhenHidden(hidden: boolean | undefined, close: (open: false) => void): void {
+  // Même raison qu'au-dessus, en plus simple : l'effet ne se rejoue qu'au changement de
+  // `hidden`, donc dépendre de `close` le relancerait à chaque render de l'appelant.
+  const closeRef = useRef(close)
+  closeRef.current = close
   useEffect(() => {
-    if (hidden) close(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (hidden) closeRef.current(false)
   }, [hidden])
 }

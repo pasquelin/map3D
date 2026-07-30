@@ -13,6 +13,7 @@ import type { PartialLabels } from '../labels/types'
 import type { MapTheme, ThemeInput } from '../theme/types'
 import { MapProvider } from './MapProvider'
 import { DragOverlay } from './components/DragOverlay'
+import { DropdownProvider } from './components/Dropdown'
 import { MapContext, useConfig, useTheme } from './context'
 import type { MapHandle, MapSurfaces } from './mapConfig'
 import {
@@ -324,6 +325,14 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   // monte, parce qu'elle seule enveloppe tout l'arbre.
   const lens = lensOf(props.toolbar)
 
+  // Valeur de contexte mémoïsée — 60 sites la consomment. Un littéral en JSX en
+  // recréait l'identité à chaque render de l'hôte : sans barrière `memo` sous la carte
+  // ça ne coûtait rien encore, mais ça neutralisait d'avance la première qu'on poserait.
+  // `overlayRef.current` est écrit au montage sur un div rendu inconditionnellement,
+  // donc l'objet ne change plus qu'avec le moteur ou le thème.
+  const overlay = overlayRef.current
+  const mapCtx = useMemo(() => (engine && overlay ? { engine, overlay, theme } : null), [engine, overlay, theme])
+
   // APIs qui vivent dans les contextes internes, recopiées par `ApiBridge`.
   const apis = useRef<BridgedApis>({
     drawing: null,
@@ -377,8 +386,8 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       <canvas ref={canvasRef} />
       {/* Surface carte : la molette au-dessus des formes/du marquee zoome la carte. */}
       <div ref={overlayRef} className="m3d-overlay" {...{ [WHEEL_SURFACE_ATTR]: '' }} />
-      {engine && overlayRef.current && (
-        <MapContext.Provider value={{ engine, overlay: overlayRef.current, theme }}>
+      {mapCtx && (
+        <MapContext.Provider value={mapCtx}>
           {/* La loupe enveloppe l'arbre : elle FOURNIT son contexte (bouton de barre,
               `useLens()`) et les couches montées dessous — dessin compris — le
               consomment. C'est ce sens de lecture qui permet à `<DrawLayer>` de
@@ -389,11 +398,17 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
               l'inventaire de la loupe et au panneau de sélection d'offrir le même
               menu qu'un marker, entrées de relations comprises. `LensHost` monte
               la loupe dessous et lui lie ce menu (un hook, donc pas ici). */}
-          <RelationsHost relations={props.relations}>
-            <LensHost<T> lens={lens} markerMenu={props.markerMenu as MarkerMenuOf}>
-              <MapSurfacesHost {...props} apis={apis} />
-            </LensHost>
-          </RelationsHost>
+          {/* Exclusivité des surfaces déroulantes. Monté ICI et pas dans une barre :
+              elles sont réparties entre `<Toolbar>` (style, réglages, symboles) et
+              `<MapControls>` (couches, templates), et deux barres ne peuvent pas
+              s'accorder sans un registre qui les enveloppe toutes les deux. */}
+          <DropdownProvider>
+            <RelationsHost relations={props.relations}>
+              <LensHost<T> lens={lens} markerMenu={props.markerMenu as MarkerMenuOf}>
+                <MapSurfacesHost {...props} apis={apis} />
+              </LensHost>
+            </RelationsHost>
+          </DropdownProvider>
           <DragOverlay />
         </MapContext.Provider>
       )}

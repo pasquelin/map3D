@@ -130,8 +130,7 @@ export type DrawLayerProps = {
 function useYieldsTool(taken: boolean, toolRef: RefObject<DrawTool | null>, setTool: (t: DrawTool | null) => void) {
   useEffect(() => {
     if (taken && toolRef.current !== null) setTool(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taken, setTool])
+  }, [taken, setTool, toolRef])
 }
 
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */
@@ -238,27 +237,39 @@ export function DrawLayer(props: DrawLayerProps) {
 
   // Défauts de base (thème/props) — construit UNE fois par rendu, consommé par le
   // store de réglages, le core et sa resynchronisation.
-  const base: ToolSettings = {
-    color: props.defaults?.color ?? theme.colors.draw.default,
-    width: props.defaults?.width ?? 8,
-    fillOpacity: props.defaults?.fillOpacity ?? 0.3,
-    stroke: 'solid',
-  }
+  // Mémoïsé, et les consommateurs dépendent de l'OBJET : trois hooks plus bas
+  // énuméraient chacun `base.color`, `base.width`, `base.fillOpacity`. Ces trois listes
+  // jumelles couvraient bien toute la surface mutable d'aujourd'hui — mais exposer un
+  // quatrième champ de `ToolSettings` (`radius`, `fillColor`, `strokeOpacity`) aurait
+  // demandé de penser à trois tableaux de dépendances distincts, et le champ manquant
+  // serait passé inaperçu. Un seul endroit à tenir désormais.
+  const base = useMemo<ToolSettings>(
+    () => ({
+      color: props.defaults?.color ?? theme.colors.draw.default,
+      width: props.defaults?.width ?? 8,
+      fillOpacity: props.defaults?.fillOpacity ?? 0.3,
+      stroke: 'solid',
+    }),
+    [props.defaults?.color, props.defaults?.width, props.defaults?.fillOpacity, theme.colors.draw.default],
+  )
   // Réglages par outil, persistés (localStorage) : base < overrides utilisateur.
+  // `base` par ref, à dessein : il n'entre ici qu'à la CONSTRUCTION du store, et le
+  // reconstruire sur un changement de base effacerait les overrides utilisateur qu'il
+  // porte. Les changements de base sont poussés par l'effet juste en dessous.
+  const baseRef = useRef(base)
+  baseRef.current = base
   const settings = useMemo(
     () =>
       new DrawSettings(
-        base,
+        baseRef.current,
         props.settingsStorage === 'none' || typeof localStorage === 'undefined' ? null : localStorage,
         props.settingsStorageKey,
       ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [props.settingsStorage, props.settingsStorageKey],
   )
   useEffect(() => {
     settings.setBase(base)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, base.color, base.width, base.fillOpacity])
+  }, [settings, base])
   const settingsRef = useRef(settings)
   settingsRef.current = settings
   const labelsRef = useRef(labels)
@@ -296,6 +307,12 @@ export function DrawLayer(props: DrawLayerProps) {
     engine.addLayer(core)
     coreRef.current = core
     setCoreReady(true)
+    // Pont pour le gestionnaire de templates : lui donne accès au dessin depuis la
+    // barre de contrôles (hors ce contexte React), comme « Couches » lit `engine.tags`.
+    engine.templates.drawPort = {
+      toGeoJSON: () => core.toGeoJSON(),
+      fromGeoJSON: (fc) => core.fromGeoJSON(fc),
+    }
     // Un core recréé (engine/overlay changés) repart vide : on rejoue l'import
     // contrôlé — sinon les dessins de l'hôte disparaissent de la carte.
     if (valueRef.current) core.fromGeoJSON(valueRef.current)
@@ -310,6 +327,7 @@ export function DrawLayer(props: DrawLayerProps) {
       engine.inputInterceptor = null
       engine.setDrawing(false)
       engine.removeLayer(core)
+      engine.templates.drawPort = null
       engine.tags.unreport(tagSource)
       // Pas de curseur fantôme (crosshair/flèche/main) après démontage outil actif.
       overlay.parentElement?.classList.remove('m3d-drawing', 'm3d-selecting', 'm3d-space-pan')
@@ -328,8 +346,7 @@ export function DrawLayer(props: DrawLayerProps) {
   // Applique les defaults quand ils changent.
   useEffect(() => {
     coreRef.current?.setDefaults(base)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base.color, base.width, base.fillOpacity])
+  }, [base])
 
   // Import GeoJSON contrôlé — l'écho de notre propre émission est ignoré
   // (identité), sinon value → import → onChange → setValue bouclerait sans fin.
@@ -503,7 +520,10 @@ export function DrawLayer(props: DrawLayerProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [props.shortcuts, setTool])
+    // `drawKeys`/`editKeys` viennent de `config.interaction.shortcuts` : sans eux, seule
+    // la prop `shortcuts` rebranchait le clavier, et remapper les raccourcis par la
+    // config restait sans effet. Identités stables (arbre mergé), donc pas de churn.
+  }, [props.shortcuts, setTool, drawKeys, editKeys, engine])
 
   // Hors du memo `api` (qui recompute à chaque `rev`, jusqu'à 1×/frame pendant
   // un restyle) : kind par id ne change qu'avec la sélection elle-même.
@@ -720,6 +740,7 @@ export function DrawLayer(props: DrawLayerProps) {
         }
       })(),
       selectionHasRect: coreRef.current?.selectionHas('rect') ?? false,
+      selectionBoxEl: coreRef.current?.selectionBoxEl() ?? null,
       settings,
       lock: (ids) => coreRef.current?.setLocked(ids, true),
       unlock: (ids) => coreRef.current?.setLocked(ids, false),

@@ -14,10 +14,11 @@ import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, useConfig, useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
+import { DropdownSurface, useYieldsToDropdown } from './Dropdown'
 import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
-import { useAnchoredPanel, useFitColumns } from './panelFit'
+import { useFitColumns } from './panelFit'
 import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
@@ -66,12 +67,30 @@ export type ToolbarApi = {
   nativeActive: boolean
   /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
   claim: () => void
+  /**
+   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre.
+   *
+   * Le panneau de style n'a pas de bouton déclencheur (il suit l'outil actif) : sans
+   * ancre il se centrait verticalement, donc il ne se posait jamais au niveau de la
+   * barre comme les autres surfaces. Il lui faut la même référence qu'à elles.
+   */
+  el: HTMLElement | null
+  /**
+   * Le bouton de l'outil ACTIF — l'ancre du panneau de style, qui règle précisément
+   * cet outil-là. S'ancrer sur la barre le collait en haut quel que soit l'outil : la
+   * surface doit s'ouvrir à la hauteur de l'item auquel elle se rapporte.
+   * `null` quand aucun outil n'est actif (le panneau ouvert par une sélection retombe
+   * alors sur la barre).
+   */
+  activeToolEl: HTMLElement | null
 }
 
 const ToolbarContext = createContext<ToolbarApi>({
   retracted: false,
   nativeActive: false,
   claim: () => {},
+  el: null,
+  activeToolEl: null,
 })
 
 /**
@@ -136,19 +155,24 @@ export function Toolbar({
   // relâcherait l'outil et la loupe au montage de toute carte — y compris une carte
   // montée déjà zoomée, ou un outil pré-armé par l'hôte.
   const wasHidden = useRef(hidden)
+  // `setTool`/`lens` par ref : l'effet ne doit se déclencher QUE sur la transition de
+  // `hidden`, jamais parce que l'un des deux a changé d'identité.
+  const release = useRef({ setTool, lens })
+  release.current = { setTool, lens }
   useEffect(() => {
     const justRetracted = hidden && !wasHidden.current
     wasHidden.current = hidden
     if (!justRetracted) return
-    setTool(null)
-    lens?.deactivate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    release.current.setTool(null)
+    release.current.lens?.deactivate()
   }, [hidden])
 
   // Ce que la barre offre à ses outils. `nativeActive` est la MÊME condition que le
   // bouton Naviguer plus bas (inversée) : un outil applicatif s'éteint exactement
   // quand la main se rallumerait, donc il ne peut plus rester allumé à côté d'elle.
   const nativeActive = tool !== null || !!lens?.active || symbols.paletteOpen
+  const [barEl, setBarEl] = useState<HTMLElement | null>(null)
+  const [activeToolEl, setActiveToolEl] = useState<HTMLElement | null>(null)
   const bar = useMemo<ToolbarApi>(
     () => ({
       retracted: hidden,
@@ -157,15 +181,20 @@ export function Toolbar({
         setTool(null)
         lens?.deactivate()
       },
+      el: barEl,
+      activeToolEl,
     }),
-    [hidden, nativeActive, setTool, lens],
+    [hidden, nativeActive, setTool, lens, barEl, activeToolEl],
   )
 
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
-  // La largeur publiée sert au panneau de style, posé juste à côté de la barre : en
-  // deux colonnes elle double, il doit se décaler d'autant.
-  const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search', widthVar: '--m3d-drawbar-w' })
+  // `widthVar` retiré avec le CSS du panneau de style : il publiait la largeur de la
+  // barre pour que le panneau s'en décale par un `calc()`. Le panneau s'ancre désormais
+  // sur le RECT de la barre, qui tient déjà compte des deux colonnes — la variable
+  // n'avait plus aucun lecteur.
+  const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
+  const dropdownOuvert = useYieldsToDropdown()
   const tip = useTip(TIP_ID)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
   // Étiquettes composées depuis les raccourcis effectifs (cf. `formatEdit`).
@@ -177,7 +206,13 @@ export function Toolbar({
 
   return (
     <ToolbarContext.Provider value={bar}>
-      <div ref={setBar} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
+      <div
+        ref={(el) => {
+          setBar(el)
+          setBarEl(el)
+        }}
+        className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}
+      >
         {slot(
           'navigate',
           <ToolButton
@@ -209,6 +244,10 @@ export function Toolbar({
           ) : (
             <ToolButton
               key={t}
+              // Le bouton ACTIF se publie comme ancre : c'est lui que le panneau de
+              // style doit longer. React détache l'ancienne ref avant d'attacher la
+              // nouvelle, donc la bascule d'outil se règle en un commit.
+              ref={tool === t ? setActiveToolEl : null}
               icon={TOOL_ICONS[t]}
               label={labels.tools[t]}
               tip={tip}
@@ -259,11 +298,14 @@ export function Toolbar({
       {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
+      {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé
+          venait se poser SUR le panneau qu'on est en train de lire. */}
       <Tooltip
         id={TIP_ID}
         place={position === 'left' ? 'right' : 'left'}
         className="m3d-tip"
         classNameArrow="m3d-tip-arrow"
+        hidden={dropdownOuvert}
         disableStyleInjection
       />
     </ToolbarContext.Provider>
@@ -298,15 +340,22 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   const [open, setOpen] = useState(false)
-  const [side, setFlyout] = useAnchoredPanel(position, { clampHeight: false })
+  const wrapRef = useRef<HTMLDivElement>(null)
   useCloseWhenHidden(useToolbar().retracted, setOpen)
 
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
-  const hasFlyout = available.length + (canPickBuildings ? 1 : 0) > 1
+  // Sous-menu de SURVOL, pas une surface déroulante : son bouton active l'outil au lieu
+  // de déplier, d'où l'absence assumée d'`aria-expanded` et de fermeture au clic
+  // extérieur (le pointeur qui sort suffit). Il partage seulement le châssis du panneau.
+  // Mais il occupe la même bande que les vrais dropdowns : le survol ne doit pas venir
+  // poser une seconde surface par-dessus celle que l'utilisateur a ouverte.
+  const dropdownOuvert = useYieldsToDropdown()
+  const hasFlyout = available.length + (canPickBuildings ? 1 : 0) > 1 && !dropdownOuvert
 
   return (
     <div
+      ref={wrapRef}
       className="m3d-selectwrap"
       onPointerEnter={hasFlyout ? () => setOpen(true) : undefined}
       onPointerLeave={hasFlyout ? () => setOpen(false) : undefined}
@@ -325,8 +374,13 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
           setTool(active ? null : 'select')
         }}
       />
+      {/* MÊME surface que les autres sous-menus — portée à la racine de la carte, même
+          châssis, même placement. Elle était rendue DANS la barre : la barre porte
+          backdrop-filter, donc son flou ne pouvait pas jouer comme ailleurs, et c'est
+          ce qui la faisait paraître d'un autre composant. Seule la façon de l'OUVRIR
+          reste propre à ce bouton (survol, pas clic). */}
       {open && hasFlyout && (
-        <div ref={setFlyout} className={`m3d-panel m3d-flyout m3d-${side}`}>
+        <DropdownSurface anchor={wrapRef.current} position={position} clampHeight={false} panelClassName="m3d-flyout">
           {available.map((m) => (
             <button
               key={m.mode}
@@ -362,7 +416,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               <span className="m3d-flyout-label">{labels.buildingPick.label}</span>
             </button>
           )}
-        </div>
+        </DropdownSurface>
       )}
     </div>
   )

@@ -16,6 +16,7 @@ import type { MapConfig } from '../config/types'
 export function configToVars(config: MapConfig): Record<string, string> {
   const z = config.style.zIndex
   return {
+    '--m3d-z-map-overlay': String(z.mapOverlay),
     '--m3d-z-relation-bar': String(z.relationBar),
     '--m3d-z-edit-overlay': String(z.editOverlay),
     '--m3d-z-floating-hud': String(z.floatingHud),
@@ -25,6 +26,7 @@ export function configToVars(config: MapConfig): Record<string, string> {
     '--m3d-z-dock': String(z.dock),
     '--m3d-z-ui': String(z.ui),
     '--m3d-z-menu': String(z.menu),
+    '--m3d-z-modal': String(z.modal),
     // Cible cliquable du point au sol : une tolérance de pointeur, donc du même
     // ressort que les autres de `interaction` — elle vivait pourtant dans le CSS.
     '--m3d-reposition-hit': `${config.interaction.repositionHitPx}px`,

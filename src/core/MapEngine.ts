@@ -35,6 +35,8 @@ import {
 import { pedestrianView } from './pedestrianView'
 import { PluginEnrichment } from './PluginEnrichment'
 import { PluginRegistry } from './PluginRegistry'
+import { TemplateRegistry } from './templates/TemplateRegistry'
+import type { ApplyMode, Template } from './templates/types'
 import { defaultPluginFetchPolicy } from '../plugins/fetchPolicy'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
@@ -149,6 +151,11 @@ export type MapEngineOptions = {
    */
   pluginStorageKey?: string | null
   /**
+   * Clé localStorage des templates de dessin (`null` = pas de persistance). Défaut :
+   * `config.data.storageKeys.templates`.
+   */
+  templateStorageKey?: string | null
+  /**
    * Réglages complets (cf. `MapConfig`). Optionnel : le moteur retombe sur
    * `defaultConfig`, si bien qu'il reste utilisable seul, hors React.
    */
@@ -245,6 +252,12 @@ export type MapEvents = {
    * d'elle-même : c'est `<Map buildingMenu>` qui décide de ce qui s'ouvre.
    */
   buildingclick: { hit: BuildingHit; originalEvent: PointerEvent }
+  /** Un template a été créé/renommé (`engine.templates.save`/`rename`). */
+  templatesave: Template
+  /** Un template a été supprimé. */
+  templateremove: { id: string }
+  /** Un template a été appliqué au dessin courant. */
+  templateapply: { id: string; mode: ApplyMode }
   /**
    * La carte est **exploitable** : la projection résout des hauteurs, et un
    * `fitBounds`/`flyTo` vise le sol réel plutôt que l'ellipsoïde nu.
@@ -302,6 +315,8 @@ export class MapEngine {
   readonly tags: TagFilter
   /** Registre des plugins (contrat, activation, config) — partagé, agnostique React. */
   readonly plugins: PluginRegistry
+  /** Registre des templates de dessin (sauvegardes nommées) — partagé, agnostique React. */
+  readonly templates: TemplateRegistry
   /** Orchestrateur d'enrichissement au pick de bâtiment (event-driven sur `buildingclick`). */
   readonly enrichment: PluginEnrichment
   /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
@@ -363,6 +378,9 @@ export class MapEngine {
     pedestrian: new Set(),
     buildingpickmode: new Set(),
     buildingclick: new Set(),
+    templatesave: new Set(),
+    templateremove: new Set(),
+    templateapply: new Set(),
     ready: new Set(),
   }
   private dragMode: DragMode = 'pan'
@@ -519,6 +537,13 @@ export class MapEngine {
     const pluginKey = opts.pluginStorageKey === undefined ? this.config.data.storageKeys.plugins : opts.pluginStorageKey
     this.plugins = new PluginRegistry(pluginKey, this.config.data.positionSaveDebounceMs)
     this.enrichment = new PluginEnrichment(this, this.plugins, defaultPluginFetchPolicy)
+    const templateKey =
+      opts.templateStorageKey === undefined ? this.config.data.storageKeys.templates : opts.templateStorageKey
+    this.templates = new TemplateRegistry(templateKey, this.config.data.positionSaveDebounceMs)
+    // Le registre relaie ses changements aux abonnés `engine.on('template…')`.
+    this.templates.onSave = (t) => this.emit('templatesave', t)
+    this.templates.onRemove = (id) => this.emit('templateremove', { id })
+    this.templates.onApply = (id, mode) => this.emit('templateapply', { id, mode })
     this.renderer = new THREE.WebGLRenderer({
       canvas: opts.canvas,
       antialias: this.config.performance.antialias,
@@ -2846,6 +2871,7 @@ export class MapEngine {
     if (this.sky) this.sky.dispose()
     this.enrichment.dispose()
     this.plugins.dispose()
+    this.templates.dispose()
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
   }

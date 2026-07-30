@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import { useLabels } from '../context'
 import { withShortcut } from './tooltip'
 import { UiIcon } from './UiIcon'
@@ -27,6 +27,12 @@ export type ToolButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
   iconSize?: number
   /** Contenu additionnel DANS le bouton, après l'icône (ex. badge de compteur). */
   children?: ReactNode
+  /**
+   * Le `<button>` lui-même — une barre doit pouvoir publier son bouton actif comme
+   * ANCRE : une surface s'ouvre à la hauteur de l'item auquel elle se rapporte, pas
+   * en haut de la barre.
+   */
+  ref?: Ref<HTMLButtonElement>
 }
 
 /**

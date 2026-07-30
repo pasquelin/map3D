@@ -1,0 +1,178 @@
+# Templates — full guide
+
+[Français](../fr/TEMPLATES.md) · **English** · [↑ Index](README.md)
+
+A **template** is a **named save of the drawing**: shapes, freehand strokes and
+MIL-STD-2525D symbols. It contains **no zones, no markers, no paths, no links** — only
+what the user drew. The content is the drawing layer's `GeoJSONFeatureCollection` (see
+[DRAWING.md](DRAWING.md)), filterable by category.
+
+The manager lives **in the controls bar, under “Layers”** (same structure). Storage is
+**localStorage by default**, overridable by an **external API**: as soon as a
+`TemplateProvider` is wired in, its list **takes precedence** over the local cache
+(templates may have been published by other users).
+
+## 1. In two minutes
+
+```tsx
+import { Map } from 'map3d'
+
+<Map draw templates />
+```
+
+`templates` mounts the button under “Layers”. It opens a panel to **save** the current
+drawing (name + checked categories), **list** templates (preview thumbnail, stats,
+editable name, delete), **apply** them to the drawing (merge or replace), and
+**export/import** a `.m3dt` file.
+
+> The button lives in the controls bar, so `controls` must be enabled (the default).
+> A template saves the drawing, so `draw` must be enabled.
+
+## 2. What a template holds
+
+The content is split by **category**, derived from each shape's `kind`:
+
+| Category | `kind` | Included |
+|----------|--------|----------|
+| `shapes` | `line`, `polygon`, `rect`, `circle`, `arrow`, `measure` | ✅ |
+| `freehand` | `freehand` | ✅ |
+| `symbols` | `symbol` | ✅ |
+| Zones (`ShapeLayer`), markers, paths, links | — | ❌ |
+
+When saving, the **checkboxes** pick which categories are kept. The offered categories
+and their default selection are configurable (see §5).
+
+Data type:
+
+```ts
+type Template = {
+  id: string
+  name: string
+  content: { draw: GeoJSONFeatureCollection }
+  origin: 'local' | 'api'   // 'api' = served by the provider (may be readOnly)
+  readOnly?: boolean
+  author?: string
+  createdAt?: number
+  updatedAt?: number
+  stats?: TemplateStats     // per-category counts, extent, size
+}
+```
+
+## 3. Applying a template
+
+Three modes (`ApplyMode`), chosen in the panel:
+
+- **Merge** — adds the template's shapes to the current drawing. The operation is
+  **idempotent by identity**: re-clicking the same template does not stack its shapes.
+- **Replace** — replaces the current drawing with the template's.
+- **Remove** — removes from the drawing the shapes coming from this template (the
+  inverse of Merge).
+
+`defaultApply` (config/prop) deliberately exposes only `merge`/`replace`: “remove” is a
+one-off action, not a sensible default.
+
+Applying goes through `fromGeoJSON` (the drawing's canonical import path: handles
+symbols, closed polygons and locked shapes).
+
+## 4. Local storage vs API (the provider)
+
+Without a provider everything is **local** and persisted to localStorage
+(`config.data.storageKeys.templates`, default `m3d:templates`).
+
+With a provider, **the API is authoritative**: its list is loaded on mount and
+overwrites the view; mutations (save, rename, delete) go through it.
+
+```tsx
+import { Map, createHttpTemplateProvider } from 'map3d'
+
+const provider = createHttpTemplateProvider() // reads config.providers.templates
+
+<Map draw templates={{ provider }} config={{ providers: { templates: {
+  baseUrl: 'https://my-api.example/templates',
+  headers: { Authorization: 'Bearer …' },
+} } }} />
+```
+
+The contract (to implement for a custom backend):
+
+```ts
+type TemplateProvider = {
+  list(signal?): Promise<Template[]>
+  save(template, signal?): Promise<Template>
+  update(id, patch, signal?): Promise<Template>
+  remove(id, signal?): Promise<void>
+  setConfig?(config: TemplatesConfig): void
+}
+```
+
+`createHttpTemplateProvider` ships a default REST implementation (`GET baseUrl`,
+`POST baseUrl`, `PATCH baseUrl/:id`, `DELETE baseUrl/:id`) over `fetchWithPolicy`
+(timeout + bounded retries).
+
+`origin:'api'` templates may be marked `readOnly` (published by another user): they
+are shown with a lock, and cannot be renamed or deleted locally.
+
+## 5. Settings (`config.providers.templates`)
+
+```ts
+type TemplatesConfig = {
+  baseUrl: string                         // '' = no API (local only)
+  headers: Record<string, string>
+  fetch: FetchPolicy                      // { timeoutMs, retries, backoffMs }
+  categories: TemplateCategory[]          // categories offered when saving
+  defaultCategories: TemplateCategory[]   // checked by default
+  defaultApply: 'merge' | 'replace'       // default apply mode
+  allowExport: boolean                    // .m3dt export/import
+}
+```
+
+Every setting is overridable by a panel prop
+(`<Map templates={{ categories, defaultApply, … }}>`). **Nothing is hardcoded.**
+
+## 6. `.m3dt` file export / import
+
+When `allowExport` is true, each row offers an export button (downloads a
+self-contained JSON `{ format: 'm3dt', version, template }`) and the panel footer an
+import button. An imported template is added to the **local** cache with a fresh id.
+
+## 7. Events (non-React host)
+
+The engine emits (see [ENGINE.md](ENGINE.md)):
+
+```ts
+engine.on('templatesave', (t) => …)             // created or renamed
+engine.on('templateremove', ({ id }) => …)
+engine.on('templateapply', ({ id, mode }) => …)
+```
+
+Mutations accept `{ silent: true }` (on `engine.templates`) to NOT re-emit —
+essential when the host re-injects what it just received from its backend, to avoid an
+echo.
+
+## 8. `useTemplates` hook
+
+To drive the manager from your own components:
+
+```ts
+const t = useTemplates({ provider })
+t.templates            // reactive list
+t.saveCurrent(name, ['shapes', 'symbols'])
+t.apply(id, 'merge')
+t.rename(id, name); t.remove(id)
+t.exportFile(id); t.importFile(file)
+t.refresh()            // reload from the provider
+```
+
+## 9. Internationalization
+
+No text is hardcoded: everything comes from `labels.templates.*` (title, actions,
+categories, stats). Provide your own strings via `<MapProvider labels>` / `<Map labels>`
+for any language. See [LABELS.md](LABELS.md).
+
+## 10. `engine.templates` registry
+
+The engine owns the registry (`engine.templates`, a `TemplateRegistry`), like
+`engine.tags` for the “Layers” filter. The drawing layer wires a **`drawPort`**
+(`toGeoJSON`/`fromGeoJSON`) into it: that is what lets the button live in the controls
+bar, outside the drawing's React context. See [ENGINE.md](ENGINE.md) for
+engine-owned registries.

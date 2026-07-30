@@ -79,6 +79,41 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `symbols.affiliations.neutral` | Label per affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Neutre'` |
 | `symbols.affiliations.unknown` | Label per affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Inconnu'` |
 
+## `templates` — Templates manager
+
+Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
+
+| Key | Description | Default |
+|---|---|---|
+| `templates.title` | Tooltip/aria of the open button + panel title. | `'Templates'` |
+| `templates.save` | Button that opens the save form. | `'Sauvegarder'` |
+| `templates.saveHint` | Instruction of the save form. | `'Nommez ce template et choisissez ce qu’il contient'` |
+| `templates.name` | Placeholder/aria of the name field. | `'Nom du template'` |
+| `templates.empty` | No template saved. | `'Aucun template'` |
+| `templates.delete` | aria-label of the delete cross — `{name}`. | `'Supprimer {name}'` |
+| `templates.deleteConfirm` | Deletion confirmation message — `{name}`. | `'Supprimer « {name} » ? Cette action est définitive.'` |
+| `templates.confirm` | Confirmation button (dialog + rename commit). | `'Confirmer'` |
+| `templates.cancel` | Cancel button (dialog + rename cancel). | `'Annuler'` |
+| `templates.rename` | aria-label of the inline rename — `{name}`. | `'Renommer {name}'` |
+| `templates.update` | “Update the template with the current drawing” button — `{name}`. | `'Mettre à jour « {name} » avec le dessin courant'` |
+| `templates.updateConfirm` | Overwrite confirmation message — `{name}`. | `'Mettre à jour « {name} » avec le dessin courant ? L’ancien contenu sera écrasé.'` |
+| `templates.apply` | Button applying a template to the current drawing. | `'Charger ce template'` |
+| `templates.applyMode` | Heading of the apply-mode choice when clicking a template. | `'Au clic sur un template :'` |
+| `templates.merge` | Apply option: adds to the existing drawing. | `'Ajouter'` |
+| `templates.replace` | Apply option: replaces the existing drawing. | `'Remplacer'` |
+| `templates.remove` | Apply option: removes from the drawing the shapes coming from this template. | `'Retirer'` |
+| `templates.export` | `.m3dt` export button. | `'Exporter en fichier .m3dt'` |
+| `templates.import` | `.m3dt` import button. | `'Importer'` |
+| `templates.shared` | Badge of a shared template (coming from the API). | `'Partagé'` |
+| `templates.readOnly` | Badge/aria of a read-only template. | `'Lecture seule'` |
+| `templates.defaultName` | Fallback name of a template saved without a name. | `'template'` |
+| `templates.importedName` | Fallback name of a template imported without a name. | `'Import'` |
+| `templates.category.shapes` | Label of a saveable category (checkbox + stats — count-invariant). | `'Formes'` |
+| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Main levée'` |
+| `templates.category.symbols` | Label of a saveable category (checkbox + stats — count-invariant). | `'Symboles'` |
+| `templates.stats.pair` | Compact stats: “label count” pair. | `'{label} {count}'` |
+| `templates.stats.bytes` | Compact stats: weight template (`{count}`). | `'{count} o'` |
+
 ## `search` — Unified search
 
 | Key | Description | Default |
@@ -157,6 +192,8 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `style.cornerRadius` | Corner radius preset — `{radius}` = % of the short side. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Panel title when 1 shape is selected — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Panel title when several shapes are selected — `{count}`. | `'{count} formes'` |
+| `style.expand` | Button that unfolds the collapsed panel. | `'Modifier le style'` |
+| `style.collapse` | Button that collapses the panel down to its single button. | `'Réduire'` |
 
 ## `selection` — Selection panel
 

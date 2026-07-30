@@ -111,6 +111,15 @@ partiel est une erreur de compilation.
 | `providers.buildings.pickFields` | Attributs MVT remontés par le pick de bâtiment (`buildingMenu`). **Vide par défaut** : la donnée en porte des dizaines par emprise, et les transporter toutes coûterait, par tuile, plus que toute la géométrie. L'hôte demande ce qu'il affiche. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles). ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de documentation : trois copies d'une valeur qui désigne un fournisseur, seule de son espèce à vivre hors de `providers`. | `'2275207'` |
 | `providers.symbols.cacheMaxEntries` | Plafond du cache de vignettes rendues. ⚠️ Non borné jusqu'ici. | `200` |
+| `providers.templates.baseUrl` | Racine de l'API REST des templates. Vide = pas de backend (cache local seul). | `''` |
+| `providers.templates.headers` | En-têtes du provider HTTP par défaut (auth d'un proxy serveur). | `{}` |
+| `providers.templates.fetch.timeoutMs` | Abandon d'une requête sans réponse. `0` = pas de limite. | `10000` |
+| `providers.templates.fetch.retries` | Réessais après échec réseau ou 5xx. `0` = aucun. | `1` |
+| `providers.templates.fetch.backoffMs` | Attente avant le premier réessai, doublée à chaque tour, avec une part aléatoire. | `300` |
+| `providers.templates.categories` | Catégories offertes à la sauvegarde — réglable, jamais en dur dans l'UI. | `["shapes", "freehand", "symbols"]` |
+| `providers.templates.defaultCategories` | Catégories cochées par défaut dans le formulaire « Sauver ». | `["shapes", "freehand", "symbols"]` |
+| `providers.templates.defaultApply` | Mode d'application par défaut d'un template sur le dessin courant. | `'merge'` |
+| `providers.templates.allowExport` | Autorise l'export/import de fichiers `.m3dt`. | `true` |
 
 ## `interaction` — Seuils de geste, tolérances de pointeur, raccourcis
 
@@ -248,17 +257,35 @@ partiel est une erreur de compilation.
 
 ## `style` — Empilement des surfaces
 
+⚠️ **Deux plans, pas une seule liste.** `.m3d-overlay` et `.m3d-css2d` créent chacun un
+contexte d'empilement : les valeurs qui vivent DEDANS ne sont jamais comparées à celles du
+DEHORS. Régler un niveau du plan carte au-delà de `mapOverlay` ne le fera donc PAS remonter
+au-dessus de l'UI — c'est `mapOverlay` qui porte tout ce plan.
+
+- **Plan racine** (enfants de `.m3d-root`) : `mapOverlay` < `floatingHud` < `dock` < `ui` < `menu`
+- **Plan carte** (dans `.m3d-overlay`) : `relationBar` < `editOverlay` < `listMenu`
+- **Plan local** (dans la surface porteuse) : `tooltip`, `markerSelected` — enfermés dans
+  une ancre de marker ou dans un panneau, ils ne se comparent à aucun des deux autres
+  plans. Leurs petites valeurs ne sont pas une anomalie ; les monter ne les fait remonter
+  nulle part.
+
+⚠️ **Toutes les valeurs par défaut ont changé** avec le passage à deux plans. Une
+application qui avait calé ses propres modales sur les anciennes (`ui: 999`, `menu: 9999`)
+doit les revoir.
+
 | Clé | Description | Défaut |
 |---|---|---|
-| `style.zIndex.relationBar` | Barre d'état d'une relation, posée sur la carte. | `6` |
-| `style.zIndex.editOverlay` | Overlay SVG de sélection (poignées de transformation). | `15` |
-| `style.zIndex.floatingHud` | HUD flottant (sélection, loupe). | `20` |
-| `style.zIndex.markerSelected` | Marker sélectionné — au-dessus de ses voisins, sous les surfaces d'UI. | `80` |
-| `style.zIndex.tooltip` | Infobulles (marker et barres). | `90` |
-| `style.zIndex.listMenu` | Menu d'actions d'une ligne de liste. | `96` |
-| `style.zIndex.dock` | Dock des favoris — volontairement SOUS les barres. | `998` |
-| `style.zIndex.ui` | Barres, panneaux, boîte de recherche : le plan des surfaces d'UI. | `999` |
-| `style.zIndex.menu` | Menus contextuels et ghosts de glisser-déposer : au sommet. | `9999` |
+| `style.zIndex.mapOverlay` | Plan RACINE. Surfaces de la CARTE : markers (`.m3d-css2d`), poignées d'édition, zone de loupe, ancres de liens. Sous toutes les surfaces d'UI — c'est ce qui garantit qu'un panneau n'est jamais percé par une poignée, et que le nombre de markers à l'écran n'influe pas sur l'empilement (CSS2DRenderer écrit `1..N` sur les ancres ; ce niveau les enferme dans un contexte). | `100` |
+| `style.zIndex.floatingHud` | Plan RACINE. HUD flottant (sélection, loupe) : au-dessus de la carte, sous les barres. | `900` |
+| `style.zIndex.dock` | Plan RACINE. Dock des favoris — volontairement SOUS les barres. | `990` |
+| `style.zIndex.ui` | Plan RACINE. Barres, panneaux, boîte de recherche : le plan des surfaces d'UI. | `991` |
+| `style.zIndex.menu` | Plan RACINE. Menus contextuels et ghosts de glisser-déposer : au sommet. | `992` |
+| `style.zIndex.modal` | Plan RACINE. Modales (dialogue de confirmation) : au-dessus de tout, menus compris. | `1092` |
+| `style.zIndex.relationBar` | Plan CARTE. Barre d'état d'une relation, posée sur la carte. | `6` |
+| `style.zIndex.editOverlay` | Plan CARTE. Overlay SVG de sélection (poignées de transformation). | `15` |
+| `style.zIndex.tooltip` | Plan LOCAL. Infobulles, DANS la surface qui les porte : l'ancre du marker pour `.m3d-markertip`, la barre ou le panneau pour `.m3d-tip`. Toutes deux sont des contextes d'empilement isolés (z-index d'ancre écrit par CSS2DRenderer, `backdrop-filter` d'un panneau), si bien que cette valeur ne se compare jamais aux niveaux du plan CARTE. La monter ne fera passer l'infobulle au-dessus de rien. | `2` |
+| `style.zIndex.listMenu` | Plan CARTE. Menu d'actions d'une ligne de liste. | `96` |
+| `style.zIndex.markerSelected` | Marker sélectionné, DANS l'ancre de son propre marker. ⚠️ Ne le hisse pas au-dessus des markers voisins : l'ancre porte un `z-index` numérique, donc elle crée un contexte et cette valeur y reste enfermée. L'ordre ENTRE markers est décidé par le `renderOrder` que le moteur donne à CSS2DRenderer (cf. `setRaised`), pas ici. | `80` |
 
 ## `camera` — Limites de navigation et pas des commandes
 
@@ -314,6 +341,7 @@ partiel est une erreur de compilation.
 | `data.storageKeys.drawSettings` | Réglages de style par outil de dessin. | `'m3d:draw-settings'` |
 | `data.storageKeys.searchHistory` | Historique de la boîte de recherche. | `'m3d:search-history'` |
 | `data.storageKeys.plugins` | État des plugins (activation + config), cf. [PLUGINS.md § 8](PLUGINS.md#8-le-hub-et-la-config-utilisateur). | `'m3d:plugins'` |
+| `data.storageKeys.templates` | Templates de dessin locaux (tableau `Template[]`), cf. [TEMPLATES.md](TEMPLATES.md). | `'m3d:templates'` |
 | `data.search.minQuery` | Longueur minimale de saisie avant d'interroger les fournisseurs. | `2` |
 | `data.search.debounceMs` | Anti-rebond de la frappe. 💰 Le levier le plus direct sur le nombre d'appels. | `250` |
 | `data.search.limitPerGroup` | Résultats affichés par rubrique. | `6` |

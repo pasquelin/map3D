@@ -220,6 +220,8 @@ export type MapTheme = {
     lensPanelW: number
     /** Largeur du panneau de sélection (px). */
     selectionPanelW: number
+    /** Largeur du panneau de templates (px). */
+    templatesPanelW: number
     /**
      * Hauteurs maximales des panneaux quand la place le permet (px). Elles
      * divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520).
@@ -230,6 +232,7 @@ export type MapTheme = {
       search: number
       settings: number
       settingsSub: number
+      templates: number
     }
     /**
      * Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là

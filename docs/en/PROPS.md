@@ -57,6 +57,7 @@ grouping **in the right nesting order**.
 | `controls` | Navigation controls. `false` = no controls. | *(defaults)* |
 | `search` | Unified search: `true` for the defaults, an object to configure it. Absent = no box. | *(absent)* |
 | `dock` | Favourites dock — its presence enables it (and makes markers grabbable). | *(absent)* |
+| `templates` | Templates manager: named saves of the drawing. The button lives IN the controls bar, below “Layers” — so `controls` must be active. `false`/absent removes it; an object configures it (API provider, categories…). Acts on the drawing through `engine.templates.drawPort` (set by `draw`). See [TEMPLATES.md](TEMPLATES.md). | *(absent)* |
 | `draw` | Drawing layer (+ `selectionBadges`). `false` removes drawing AND the bar. | *(defaults)* |
 | `relations` | Tag relation engine (+ `statusBar`) — its presence enables it. | *(absent)* |
 | `layers` | Data layers, in render order (`markersLayer`, `shapesLayer`). | `[]` |
@@ -283,3 +284,44 @@ Reusable marker list.
 | `targetZoom` | Zoom of the “target” flight (default 17). | — |
 | `actions` | Actions of the dropdown menu, in addition to “Target”. | — |
 | `menu` | Menu of a row, in the SAME shape as `<MarkerLayer menu>`: this is what lets a row's “…” button offer exactly the marker's map menu, submenus and separators included. When provided, it takes precedence over `actions`. “Target” stays… | — |
+
+## `<TemplatesPanel>`
+
+Bar button + panel of the template manager (drawing snapshots). Also accepts all
+[`useTemplates`](HOOKS.md) options below. Details in [TEMPLATES.md](TEMPLATES.md).
+
+| Prop | Description | Default |
+|---|---|---|
+| `provider` | Template backend. Absent = localStorage cache only. Present = authoritative (its list overwrites the view on mount, mutations go through it). | — |
+| `categories` | Categories offered when saving. | `config.providers.templates.categories` |
+| `defaultCategories` | Categories checked by default in the “Save” form. | `config.providers.templates.defaultCategories` |
+| `defaultApply` | Default apply mode on click (`'merge'` \| `'replace'`). | `config.providers.templates.defaultApply` |
+| `allowExport` | Allows `.m3dt` file export/import. | `config.providers.templates.allowExport` |
+| `position` | Side of the host bar: the panel opens on the opposite side. | `'right'` |
+| `tipId` | id of the host bar's shared `<Tooltip>` (MapControls). | — |
+| `shortcut` | Key (single letter) that opens/closes the panel. `false` = no shortcut. | — |
+| `grouped` | Rendered WITHOUT its own `.m3d-controls-group` card — for a shared group (with “Layers”). | — |
+
+## `<Confirm>`
+
+Modal confirmation dialog (above everything, `style.zIndex.modal`). Closes on Enter
+(confirm), Escape, the cross or a click outside the dialog.
+
+| Prop | Description | Default |
+|---|---|---|
+| `message` **(required)** | Displayed message (already formatted). | — |
+| `confirmLabel` **(required)** | Confirmation button label. | — |
+| `cancelLabel` **(required)** | Cancel button label. | — |
+| `danger` | Destructive action: the confirmation button turns red. | — |
+| `onConfirm` **(required)** | Called on confirmation. | — |
+| `onCancel` **(required)** | Called on cancel (cross, Escape, outside click). | — |
+
+## `<TemplateThumb>`
+
+SVG preview thumbnail of a template's content — projected, auto-framed geometries, no
+three.js and no GPU.
+
+| Prop | Description | Default |
+|---|---|---|
+| `draw` **(required)** | GeoJSON FeatureCollection of the drawing to preview. | — |
+| `size` | Side of the render square (px). | `40` |

@@ -29,6 +29,7 @@ import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
 import { TagFilterControl } from './TagFilterControl'
+import { TemplatesPanel, type TemplatesPanelProps } from './TemplatesPanel'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 
@@ -93,6 +94,11 @@ export type MapControlsProps = {
   /** Libellé lisible d'un tag dans le panneau « Couches » (défaut : le tag brut). */
   tagLabel?: (tag: string) => string
   /**
+   * Gestionnaire de templates (bouton sous « Couches », même structure). `false`/absent
+   * le retire ; un objet le règle (provider API, catégories…). Fourni par `<Map templates>`.
+   */
+  templates?: false | TemplatesPanelProps
+  /**
    * Point de référence de l'écran (l'alerte consultée, l'événement en cours…) :
    * fournir cette prop ajoute un bouton **« revenir à la cible »** à la barre ;
    * l'omettre le retire. La carte n'a pas à savoir ce que la cible représente,
@@ -130,6 +136,7 @@ export function MapControls({
   buttons = {},
   shortcuts,
   tagLabel,
+  templates,
   target,
 }: MapControlsProps) {
   const { engine, theme } = useMapContext()
@@ -162,7 +169,9 @@ export function MapControls({
   }, [engine, target])
 
   // Mode du drag gauche (déplacer / pivoter) — source de vérité côté moteur.
-  const [dragMode, setDragModeState] = useState(engine.getDragMode())
+  // Initialiseur PARESSEUX : passé par valeur, `engine.getDragMode()` s'appelle à
+  // chaque render pour un résultat que React jette après le premier.
+  const [dragMode, setDragModeState] = useState(() => engine.getDragMode())
   useEffect(() => engine.on('dragmode', setDragModeState), [engine])
 
   // Fond de carte (3D / plan / trafic) — également piloté par le moteur, qui éteint
@@ -286,7 +295,10 @@ export function MapControls({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [engine, topDown, zoomBy, tiltUp, globe, toggleFs])
+    // Les deux facteurs de zoom sont des primitives lues dans la closure (le `stateRef`
+    // ci-dessus ne couvre que ce qui change d'identité à chaque render) : sans eux, un
+    // `config` revu à chaud gardait le facteur du montage.
+  }, [engine, topDown, zoomBy, tiltUp, globe, toggleFs, config.camera.zoomFactor.in, config.camera.zoomFactor.out])
 
   return (
     <div ref={setBar} className={`m3d-controls m3d-${position}`}>
@@ -477,10 +489,18 @@ export function MapControls({
         ),
       )}
 
+      {/* « Couches » et « Templates » dans le MÊME groupe : le filtre par tag et les
+          sauvegardes de dessin sont la gestion du contenu de la carte, réunie en une
+          carte. Chacun garde son propre bouton + flyout (ancré, dismiss). */}
       {slot(
         'layers',
-        btn('layers') && (
-          <TagFilterControl position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
+        (btn('layers') || templates) && (
+          <div className="m3d-controls-group">
+            {btn('layers') && (
+              <TagFilterControl grouped position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
+            )}
+            {templates && <TemplatesPanel grouped {...templates} position={position} tipId={TIP_ID} />}
+          </div>
         ),
       )}
 

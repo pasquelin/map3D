@@ -78,9 +78,13 @@ export class SelectionManager {
    * notifie alors UNE fois (au lieu d'une notification par population).
    */
   private write(shapeIds: readonly string[], markerIds: ReadonlyArray<string | number>): boolean {
+    // `Set` et non `shapeIds.includes` : les deux listes grandissent ENSEMBLE (un
+    // marquee sélectionne d'autant plus d'ids qu'il y a de formes), donc le `includes`
+    // en boucle était le seul O(n·m) du chemin de sélection.
+    const wanted = new Set(shapeIds)
     const shapes = new Set<string>()
     for (const d of this.host.list()) {
-      if (shapeIds.includes(d.id) && this.host.isSelectable(d)) shapes.add(d.id)
+      if (wanted.has(d.id) && this.host.isSelectable(d)) shapes.add(d.id)
     }
     const markers = new Set(markerIds)
     const changed = !sameSet(shapes, this.sel) || !sameSet(markers, this.extSel)

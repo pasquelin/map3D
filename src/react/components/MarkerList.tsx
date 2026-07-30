@@ -144,35 +144,33 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
         const id = getId(m)
         const idStr = String(id)
         return (
-          <div
-            key={id}
-            className="m3d-mlrow"
-            role="button"
-            tabIndex={0}
-            onClick={() => target(m)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                target(m)
-              }
-            }}
-          >
-            <Swatch avatar={m.avatar} icon={m.icon} color={markerColorOf(theme, m.type).base} />
-            <div className="m3d-mltext">
-              {/* `renderItem` décide de TOUT le titre, teinte comprise : la même règle
-                  de précédence que `tooltip` face à `title`/`titleColor` sur la donnée
-                  — la render-prop l'emporte, elle ne se fait pas colorer par surprise. */}
-              <span
-                className="m3d-mltitle"
-                style={!props.renderItem && m.titleColor ? { color: m.titleColor } : undefined}
-              >
-                {props.renderItem ? props.renderItem(m) : (m.title ?? idStr)}
-              </span>
-              {(() => {
-                const sub = props.renderSubtitle ? props.renderSubtitle(m) : (props.markerTypeLabel?.(m.type) ?? m.type)
-                return sub != null && sub !== '' ? <span className="m3d-mlsub">{sub}</span> : null
-              })()}
-            </div>
+          // La ligne n'est plus elle-même un bouton : elle en CONTIENT (actions,
+          // suppression), et un contrôle focusable dans un contrôle focusable est une
+          // imbrication invalide — les lecteurs d'écran l'aplatissent, et la ligne
+          // coûtait trois arrêts de tabulation dont un sans sémantique propre. Le geste
+          // « viser ce marker » vit maintenant sur un vrai `<button>` frère des deux
+          // autres, ce qui rend chaque action indépendante.
+          <div key={id} className="m3d-mlrow">
+            <button type="button" className="m3d-mlmain" onClick={() => target(m)}>
+              <Swatch avatar={m.avatar} icon={m.icon} color={markerColorOf(theme, m.type).base} />
+              <div className="m3d-mltext">
+                {/* `renderItem` décide de TOUT le titre, teinte comprise : la même règle
+                    de précédence que `tooltip` face à `title`/`titleColor` sur la donnée
+                    — la render-prop l'emporte, elle ne se fait pas colorer par surprise. */}
+                <span
+                  className="m3d-mltitle"
+                  style={!props.renderItem && m.titleColor ? { color: m.titleColor } : undefined}
+                >
+                  {props.renderItem ? props.renderItem(m) : (m.title ?? idStr)}
+                </span>
+                {(() => {
+                  const sub = props.renderSubtitle
+                    ? props.renderSubtitle(m)
+                    : (props.markerTypeLabel?.(m.type) ?? m.type)
+                  return sub != null && sub !== '' ? <span className="m3d-mlsub">{sub}</span> : null
+                })()}
+              </div>
+            </button>
             <button
               type="button"
               className="m3d-mlact"

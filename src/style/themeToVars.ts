@@ -48,6 +48,8 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-menu-dur': `${theme.animations.menuOpen.duration}ms`,
     '--m3d-lens-panel-w': `${theme.sizing.lensPanelW}px`,
     '--m3d-selection-panel-w': `${theme.sizing.selectionPanelW}px`,
+    '--m3d-templates-panel-w': `${theme.sizing.templatesPanelW}px`,
+    '--m3d-templates-panel-maxh': `${theme.sizing.panelMaxHeight.templates}px`,
     // Épaisseur d'anneau d'un marker. La feuille de styles écrivait `2.5px` pour
     // l'avatar quand le thème annonçait `3` : deux valeurs pour le même trait, dont
     // une seule surchargeable — et c'était la morte.

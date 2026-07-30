@@ -1,6 +1,6 @@
 import { mdiClose, mdiSelectionOff } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
+import { type ReactNode, useCallback, useMemo, useRef, useSyncExternalStore } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { DrawTool } from '../../layers/DrawLayer'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -43,11 +43,12 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   // survit à une désélection au lieu de repartir du coin par défaut.
   const panel = useDraggablePanel()
 
-  // Version des données markers : la liste doit refléter un flux temps réel
-  // (position, avatar) même à sélection CONSTANTE — sans ce signal, la mémoïsation
-  // ci-dessous figerait des lignes périmées.
-  const [dataRev, bumpData] = useReducer((x: number) => x + 1, 0)
-  useEffect(() => engine.markers.onItemsChanged(bumpData), [engine])
+  // Instantané de l'inventaire markers : la liste doit refléter un flux temps réel
+  // (position, avatar) même à sélection CONSTANTE. Un compteur de révision aurait suffi
+  // à déclencher le recalcul, mais il n'aurait été nommé nulle part dans le corps du
+  // memo — donc invisible pour qui relit, et retirable par mégarde sans que rien ne
+  // proteste. L'instantané EST l'objet interrogé : la dépendance se voit.
+  const snapshot = useSyncExternalStore(engine.markers.onItemsChanged, () => engine.markers.snapshot)
 
   // Markers sélectionnés → donnée complète (position, avatar…) pour la liste
   // partagée. On MÉMORISE l'id d'origine : c'est celui du `getId` de `MarkerLayer`
@@ -62,13 +63,13 @@ export function SelectionBadges(props: SelectionBadgesProps) {
     const markers: MarkerData[] = []
     const idOf = new Map<MarkerData, string | number>()
     for (const id of markerSelection) {
-      const m = engine.markers.markerById(id)
+      const m = snapshot.markerById(id)
       if (!m) continue
       markers.push(m)
       idOf.set(m, id)
     }
     return { markers, idOf }
-  }, [markerSelection, engine, dataRev])
+  }, [markerSelection, snapshot])
   const getId = useCallback((m: MarkerData) => idOf.get(m) ?? m.id, [idOf])
   // `deselectMarkers` est recréé à chaque révision de l'API de dessin : passer par
   // un ref donne au callback une identité DÉFINITIVE, seule façon de ne pas

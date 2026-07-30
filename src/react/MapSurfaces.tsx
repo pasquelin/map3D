@@ -237,6 +237,7 @@ export function MapSurfaces<T, TPin>({
   controls,
   search,
   dock,
+  templates,
   draw,
   layers,
   cluster,
@@ -273,7 +274,9 @@ export function MapSurfaces<T, TPin>({
       {/* APRÈS les couches : elles se sont inscrites au registre, la surface n'a plus
           qu'à regrouper. Elle rend les pastilles ; chaque couche rend ses markers. */}
       {cluster !== false && <ClusterSurface {...(cluster ?? {})} />}
-      {controls !== false && <MapControls {...(controls ?? {})} />}
+      {/* Le gestionnaire de templates vit DANS la barre de contrôles (bouton sous
+          « Couches »), d'où qu'il reçoive `templates` — même famille que le filtre par tag. */}
+      {controls !== false && <MapControls {...(controls ?? {})} templates={templates} />}
       {/* Sans `buildingMenu`, rien à monter : l'outil surligne au survol, le clic n'ouvre
           rien — la lib n'a aucun contenu à mettre dans ce menu. */}
       {buildingMenu && <BuildingMenuHost menu={buildingMenu} />}

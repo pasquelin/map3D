@@ -579,6 +579,9 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // Rubriques DÉCLARÉES (et non demandées) : `points` est remplacé à chaque tick d'un
   // flux temps réel, alors que les rubriques ne bougent quasiment jamais. Le registre
   // compare avant d'émettre, donc les abonnés ne se re-rendent que sur changement réel.
+  // Déstructuré hors de l'effet : appeler `props.typeLabel?.()` ferait réclamer `props`
+  // entier en dépendance, donc un re-report à chaque prop qui bouge.
+  const { typeLabel } = props
   useEffect(() => {
     const counts = new Map<string, SearchGroup>()
     for (const p of points) {
@@ -589,13 +592,13 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       else
         counts.set(id, {
           id,
-          label: props.typeLabel?.(p.type) ?? p.type,
+          label: typeLabel?.(p.type) ?? p.type,
           color: markerColorOf(theme, p.type).base,
           count: 1,
         })
     }
     engine.search.report(searchSource, [...counts.values()])
-  }, [engine, points, props.typeLabel, theme, searchSource])
+  }, [engine, points, typeLabel, theme, searchSource])
   useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
 
   // Sélection — réappliquée quand un nœud (ré)apparaît.
@@ -611,10 +614,13 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   useEffect(() => engine.on('click', () => latest.current.onSelect?.(null)), [engine])
 
   // Taille de l'anneau de multi-sélection : le core la pose par nœud à la
-  // création — ici seule la resynchronisation au changement de valeur.
+  // création — ici seule la resynchronisation au changement de valeur. Les DEUX
+  // diamètres en dépendent : `avatarRing` suit `markerSize` alors que `ringSize` se
+  // fige dès que l'hôte passe `selectionRing`, et l'oublier gelait alors l'anneau
+  // d'avatar sur sa taille de montage.
   useEffect(() => {
     coreRef.current?.setSelectionRing(ringSize, avatarRing)
-  }, [coreRef, ringSize])
+  }, [coreRef, ringSize, avatarRing])
 
   // Relève le marker dont le menu est ouvert — ou survolé (infobulle) —
   // au-dessus des clusters/markers voisins (le CSS2DRenderer trie le z-index par

@@ -27,10 +27,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",
+    "react-doctor": "npx react-doctor@latest --no-telemetry",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "dev:example": "vite --config examples/react/vite.config.ts",
-    "build:example": "vite build --config examples/react/vite.config.ts"
+    "build:example": "vite build --config examples/react/vite.config.ts",
+    "validater": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
   },
   "peerDependencies": {
     "react": "^19.0.0",

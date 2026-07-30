@@ -95,6 +95,59 @@ export type MapLabels = {
     /** Bouton de remise aux défauts d'un plugin. */
     reset: string
   }
+  /** Gestionnaire de templates (panneau haut-droite : liste, sauvegarde, partage). */
+  templates: {
+    /** Tooltip/aria du bouton d'ouverture + titre du panneau. */
+    title: string
+    /** Bouton d'ouverture du formulaire de sauvegarde. */
+    save: string
+    /** Consigne du formulaire de sauvegarde. */
+    saveHint: string
+    /** Placeholder/aria du champ nom. */
+    name: string
+    /** Aucun template enregistré. */
+    empty: string
+    /** aria-label de la croix de suppression — `{name}`. */
+    delete: string
+    /** Message de confirmation de suppression — `{name}`. */
+    deleteConfirm: string
+    /** Bouton de confirmation (dialogue + validation du renommage). */
+    confirm: string
+    /** Bouton d'annulation (dialogue + annulation du renommage). */
+    cancel: string
+    /** aria-label du renommage inline — `{name}`. */
+    rename: string
+    /** Bouton « mettre à jour le template avec le dessin courant » — `{name}`. */
+    update: string
+    /** Message de confirmation d'écrasement — `{name}`. */
+    updateConfirm: string
+    /** Bouton d'application d'un template au dessin courant. */
+    apply: string
+    /** Phrase d'explication au-dessus des modes d'application (et aria-label du groupe). */
+    applyMode: string
+    /** Option d'application : ajoute au dessin existant. */
+    merge: string
+    /** Option d'application : remplace le dessin existant. */
+    replace: string
+    /** Option d'application : retire du dessin les formes venues de ce template. */
+    remove: string
+    /** Bouton d'export `.m3dt`. */
+    export: string
+    /** Bouton d'import `.m3dt`. */
+    import: string
+    /** Badge d'un template partagé (venu de l'API). */
+    shared: string
+    /** Badge/aria d'un template en lecture seule. */
+    readOnly: string
+    /** Nom de fichier `.m3dt` de repli à l'export quand le template n'a pas de nom. */
+    defaultName: string
+    /** Nom de repli d'un template importé qui n'en portait pas. */
+    importedName: string
+    /** Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). */
+    category: { shapes: string; freehand: string; symbols: string }
+    /** Stats compactes : paire « libellé nombre » et gabarit de poids (`{count}`). */
+    stats: { pair: string; bytes: string }
+  }
   /** `<SearchBox>` (le prop `placeholder` du composant reste prioritaire). */
   search: {
     placeholder: string
@@ -176,6 +229,10 @@ export type MapLabels = {
     selectionCount: string
     /** Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. */
     selectionCountPlural: string
+    /** Bouton qui déplie le panneau réduit. */
+    expand: string
+    /** Bouton qui réduit le panneau à son seul bouton. */
+    collapse: string
   }
   /** Panneau de sélection (liste des éléments sélectionnés, par groupe). */
   selection: {

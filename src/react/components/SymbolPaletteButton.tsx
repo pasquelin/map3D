@@ -1,6 +1,6 @@
 import { mdiInformationOutline, mdiMagnify } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { normalizeSearch } from '../../search/match'
 import { symbolText } from '../../labels/mergeLabels'
 import type { SymbolEntry } from '../../symbols/types'
@@ -8,11 +8,9 @@ import { useConfig, useLabels, useMapContext, useTheme } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
 import { useDrawing } from '../hooks/useDrawing'
 import { TOOL_ICONS } from './drawControls'
-import { useAnchoredPanel } from './panelFit'
-import { ToolButton } from './ToolButton'
+import { Dropdown } from './Dropdown'
 import { useTip } from './tooltip'
-import { TIP_ID, useToolbar } from './Toolbar'
-import { useCloseWhenHidden, useDismiss } from './useDismiss'
+import { TIP_ID } from './Toolbar'
 
 /** Type de charge d'un drag venant de la palette (consommé par la zone carte). */
 export const SYMBOL_DRAG_TYPE = 'm3d-symbol'
@@ -32,59 +30,53 @@ export const SYMBOL_DRAG_TYPE = 'm3d-symbol'
 export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' | 'right' }) {
   const labels = useLabels()
   const { symbols, shortcuts } = useDrawing()
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
   const tip = useTip(TIP_ID)
-
-  useDismiss(rootRef, open, () => setOpen(false))
-  useCloseWhenHidden(useToolbar().retracted, setOpen)
-
-  // L'ouverture est PUBLIÉE (la barre éteint la main, la symbologie se charge), et
-  // publiée depuis un EFFET : `open` reste l'état local qui commande l'affichage.
-  // Le relire depuis le contexte refermait le panneau — l'aller-retour ajoutait un
-  // rendu, et `useDismiss` s'armait à temps pour prendre le clic d'ouverture pour
-  // un clic extérieur.
+  const theme = useTheme()
   const { engine } = useMapContext()
+
+  // L'ouverture est PUBLIÉE (la barre éteint la main, la symbologie se charge) depuis un
+  // EFFET, jamais pendant le clic : `Dropdown` s'en charge via `onOpenChange`.
   const publish = symbols.setPaletteOpen
-  useEffect(() => {
-    publish(open)
-    // Une barre démontée (vue quittée, outil masqué) laisserait sinon la carte
-    // croire la palette encore ouverte.
-    return () => publish(false)
-  }, [open, publish])
+  const onOpenChange = useCallback(
+    (open: boolean) => {
+      publish(open)
+      // Ouvrir la palette quitte le pick de bâtiment : deux boutons allumés à la fois, et
+      // la barre ne dirait plus quel outil tient le clic. Les outils de tracé, eux,
+      // passent par `setDrawing`, qui s'en charge côté moteur.
+      if (open) engine.setBuildingPickMode(false)
+    },
+    [publish, engine],
+  )
+  // Une barre démontée (vue quittée, outil masqué) laisserait sinon la carte croire la
+  // palette encore ouverte.
+  useEffect(() => () => publish(false), [publish])
 
   if (!symbols.enabled) return null
 
   return (
-    <div className="m3d-sympalette" ref={rootRef}>
-      <ToolButton
-        icon={TOOL_ICONS.symbol}
-        label={labels.tools.symbol}
-        tip={tip}
-        shortcut={shortcuts.symbol}
-        active={open}
-        aria-expanded={open}
-        onClick={() => {
-          // Ouvrir la palette quitte le pick de bâtiment : deux boutons allumés à la fois,
-          // et la barre ne dirait plus quel outil tient le clic. Les outils de tracé, eux,
-          // passent par `setDrawing`, qui s'en charge côté moteur.
-          if (!open) engine.setBuildingPickMode(false)
-          setOpen(!open)
-        }}
-      />
-      {open && <SymbolPanel position={position} />}
-    </div>
+    <Dropdown
+      icon={TOOL_ICONS.symbol}
+      label={labels.tools.symbol}
+      tip={tip}
+      shortcut={shortcuts.symbol}
+      position={position}
+      maxHeight={theme.sizing.panelMaxHeight.symbols}
+      panelClassName="m3d-sympanel"
+      className="m3d-sympalette"
+      grouped
+      onOpenChange={onOpenChange}
+    >
+      {() => <SymbolPanel />}
+    </Dropdown>
   )
 }
 
 /** Contenu du panneau — monté uniquement ouvert (aucun rendu de vignette fermé). */
-function SymbolPanel({ position }: { position: 'left' | 'right' }) {
-  const theme = useTheme()
+function SymbolPanel() {
   const labels = useLabels()
   const previewSize = useConfig().interaction.symbols.previewSizePx
   const { symbols } = useDrawing()
   const [query, setQuery] = useState('')
-  const [side, setPanel] = useAnchoredPanel(position, { maxHeight: theme.sizing.panelMaxHeight.symbols })
 
   // `normalizeSearch` et non un `toLowerCase` : « etat-major » doit trouver
   // « État-major », comme la recherche de la carte.
@@ -111,7 +103,9 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
       else byCategory.set(entry.category, [entry])
     }
     return [...byCategory]
-  }, [symbols.catalog, q])
+    // `labels` : le filtre porte sur les textes TRADUITS (`symbolText`) — l'omettre
+    // laissait une recherche en cours filtrer sur la langue précédente.
+  }, [symbols.catalog, q, labels])
 
   const total = groups.reduce((n, [, list]) => n + list.length, 0)
 
@@ -148,7 +142,7 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
   const affiliations = variantColors ? Object.keys(variantColors) : []
 
   return (
-    <div ref={setPanel} className={`m3d-panel m3d-sympanel m3d-${side}`}>
+    <>
       <div className="m3d-tagsearch">
         <UiIcon path={mdiMagnify} />
         <input
@@ -167,6 +161,7 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
             return (
               <button
                 key={value}
+                type="button"
                 className={`m3d-symvariant${actif ? ' m3d-on' : ''}`}
                 onClick={() => symbols.setAffiliation(value)}
                 aria-pressed={actif}
@@ -214,7 +209,7 @@ function SymbolPanel({ position }: { position: 'left' | 'right' }) {
         ))}
         {total === 0 && <div className="m3d-tagempty">{labels.symbols.noMatch}</div>}
       </div>
-    </div>
+    </>
   )
 }
 

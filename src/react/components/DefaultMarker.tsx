@@ -22,9 +22,11 @@ export function DefaultMarker({ marker, theme, label }: DefaultMarkerProps) {
       className="m3d-marker"
       // Boîte, centrage et curseur sont en CSS (`.m3d-marker`) : seule la taille varie.
       style={{ '--m3d-sprite': `${size}px` } as CSSProperties}
-      tabIndex={0}
-      role="button"
-      aria-label={label ?? String(marker.id)}
+      // PRÉSENTATIONNEL, comme la branche `<img alt="">` qui lui fait face dans
+      // `MarkerLayer` : ce composant est le CONTENU d'un nœud de marker qui porte déjà
+      // `role="button"`, `tabIndex` et son `aria-label`. Les reprendre ici imbriquait un
+      // bouton dans un bouton, doublait l'arrêt de tabulation et faisait annoncer le
+      // libellé deux fois. L'interactivité appartient au nœud qui tient le clic.
     >
       <svg viewBox={`0 0 ${size} ${size}`}>
         <defs>

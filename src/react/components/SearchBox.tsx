@@ -8,7 +8,7 @@ import {
   mdiTrashCanOutline,
 } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../../core/storage'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -162,6 +162,8 @@ export function SearchBox({
   const [scopeOpen, setScopeOpen] = useState(false)
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
+  const listId = useId()
+  const optionId = (i: number) => `${listId}-o${i}`
   const [rowMenu, setRowMenu] = useState<{ key: string; left: number; top: number } | null>(null)
   /** null = aucune réponse aboutie du géocodeur pour la requête courante. */
   const [placeEntries, setPlaceEntries] = useState<SearchEntry[] | null>(null)
@@ -203,7 +205,7 @@ export function SearchBox({
     }
     const timer = setTimeout(() => setDebounced(q), debounceMs)
     return () => clearTimeout(timer)
-  }, [q, showingHistory])
+  }, [q, showingHistory, debounceMs])
 
   // Balayage local : synchrone, donc jamais de résultat périmé à arbitrer. Le centre
   // de la vue est lu à l'instant du calcul (et non suivi en état) — sans quoi chaque
@@ -290,9 +292,13 @@ export function SearchBox({
   // Une rubrique disparaît quand son dernier élément quitte la carte (dernière alerte
   // critique clôturée). Rester dessus afficherait son id brut sur le bouton et dans le
   // message vide, sur une portée que le menu ne propose même plus : on revient à Tout.
-  useEffect(() => {
-    if (scopeGroup !== null && !groupById.has(scopeGroup)) setScopeGroup(null)
-  }, [scopeGroup, groupById])
+  // Ajusté PENDANT le render, pas dans un effet : en effet, la portée périmée était
+  // peinte une frame avant d'être corrigée — le bouton montrait l'id brut de la rubrique
+  // disparue, et le message vide la nommait. React ré-exécute le composant sans rien
+  // afficher entre les deux, donc l'état intermédiaire n'atteint jamais l'écran.
+  // (Dériver la portée à la place demanderait de réordonner le composant : `scopeGroups`
+  // se calcule à partir de résultats déjà filtrés par `scopeGroup`.)
+  if (scopeGroup !== null && !groupById.has(scopeGroup)) setScopeGroup(null)
 
   // Regroupement + ordre. « Lieux » OUVRE la liste : chercher une ville est le geste
   // de cadrage le plus courant, et c'est aussi la rubrique la plus stable — les
@@ -336,7 +342,9 @@ export function SearchBox({
       if (bounds) engine.camera.fitBounds(bounds, { padding: searchCfg.fitPadding })
       else engine.camera.flyTo({ ...position, altitude: flyAltitude })
     },
-    [engine, flyAltitude],
+    // `fitPadding` vient du même `searchCfg` que `flyAltitude` : le second était suivi,
+    // pas le premier — le cadrage restait sur la marge du montage.
+    [engine, flyAltitude, searchCfg.fitPadding],
   )
 
   const remember = useCallback(
@@ -368,7 +376,7 @@ export function SearchBox({
       engine.search
         .query(normalizeSearch(title), { group, limit: searchCfg.resolveLimit })
         .entries.find((e) => String(e.id) === id),
-    [engine],
+    [engine, searchCfg.resolveLimit],
   )
 
   const choose = (e: SearchEntry) => {
@@ -471,7 +479,17 @@ export function SearchBox({
           onKeyDown={onKeyDown}
           placeholder={placeholder ?? labels.search.placeholder}
           aria-label={labels.search.inputLabel}
+          // Câblage combobox COMPLET. `aria-expanded` seul était inerte : un `input` a le
+          // rôle `textbox`, qui ne le supporte pas — la boîte s'ouvrait sans que rien ne
+          // soit annoncé. Et les lignes portaient `role="option"` sans `listbox` parent ni
+          // moyen d'être désignées : les flèches déplaçaient une surbrillance que seul un
+          // œil voyait. `aria-activedescendant` est ce qui la rend audible, sans jamais
+          // sortir le focus du champ (une option ne se tabule pas dans ce motif).
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls={listId}
           aria-expanded={showPanel}
+          aria-activedescendant={showPanel ? optionId(highlight) : undefined}
         />
         {query.length > 0 && (
           <button
@@ -549,13 +567,14 @@ export function SearchBox({
       </div>
 
       {showPanel && (
-        <div ref={setResultsPanel} className="m3d-search-results m3d-panel">
+        <div ref={setResultsPanel} className="m3d-search-results m3d-panel" id={listId} role="listbox">
           {showingHistory ? (
             <>
               <div className="m3d-settings-subtitle m3d-search-subtitle">{labels.search.historyTitle}</div>
               {history.map((h, i) => (
                 <SearchRow
                   key={`${h.group}-${h.id}`}
+                  id={optionId(i)}
                   leading={<UiIcon path={mdiHistory} className="m3d-search-icon" />}
                   title={h.title}
                   subtitle={groupLabelOf(h.group)}
@@ -584,6 +603,7 @@ export function SearchBox({
                   return (
                     <SearchRow
                       key={key}
+                      id={optionId(index)}
                       leading={
                         e.avatar || e.icon || e.color ? (
                           <Swatch avatar={e.avatar} icon={e.icon} color={e.color ?? 'currentColor'} />
@@ -650,6 +670,8 @@ export function SearchBox({
 }
 
 type SearchRowProps = {
+  /** Identifiant de l'option — cible d'`aria-activedescendant` sur le champ. */
+  id: string
   /** Repère visuel : pastille/avatar/icône d'un résultat, horloge d'un historique. */
   leading: ReactNode
   title: string
@@ -668,9 +690,10 @@ type SearchRowProps = {
  * les deux rendus étaient deux copies de la même structure, qui divergeaient au
  * premier ajustement (un padding, un `aria`, un état de surbrillance).
  */
-function SearchRow({ leading, title, titleColor, subtitle, active, onHover, onSelect, trailing }: SearchRowProps) {
+function SearchRow({ id, leading, title, titleColor, subtitle, active, onHover, onSelect, trailing }: SearchRowProps) {
   return (
     <div
+      id={id}
       role="option"
       aria-selected={active}
       className={`m3d-search-item${active ? ' m3d-active' : ''}`}

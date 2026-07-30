@@ -66,6 +66,10 @@ export function buildUiTab(page: TabPageApi, ctxRef: UiContextRef, refresh: () =
   surfaces.addBinding(draft.controls, 'enabled', { label: 'contrôles de navigation' }).on('change', emit)
   surfaces.addBinding(draft, 'search', { label: 'recherche' }).on('change', emit)
   surfaces.addBinding(draft, 'dock', { label: 'dock des favoris' }).on('change', emit)
+  surfaces.addBinding(draft.templates, 'enabled', { label: 'gestionnaire de templates' }).on('change', emit)
+  // Coché : provider in-memory de démo (sa liste prime sur le localStorage, 1 template
+  // en lecture seule). Décoché : localStorage seul, entièrement local et persistant.
+  surfaces.addBinding(draft.templates, 'useApi', { label: '↳ provider API (démo)' }).on('change', emit)
   // Retirer le dessin retire AUSSI la barre qui le pilote : c'est le contrat de la lib.
   surfaces.addBinding(draft, 'draw', { label: 'couche de dessin' }).on('change', () => {
     syncDebugToggle()

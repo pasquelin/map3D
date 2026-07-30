@@ -14,6 +14,7 @@
 // `DeepPartial` vient de `theme/types` : une seconde définition ici aurait été un
 // doublon libre de diverger, exactement ce que ce module cherche à supprimer ailleurs.
 import type { DeepPartial } from '../theme/types'
+import type { ApplyDefault, TemplateCategory } from '../core/templates/types'
 
 /**
  * `'auto'` = déduit de l'environnement au moment de l'appel (`navigator.language`),
@@ -428,6 +429,27 @@ export type BuildingsConfig = {
   pickFields: readonly string[]
 } & TileCacheBudget
 
+/**
+ * Gestionnaire de templates (sauvegardes de dessin). Valeurs pures uniquement — le
+ * `TemplateProvider` async, lui, est injecté en prop du panneau (comme les autres
+ * fournisseurs), jamais dans la config. `baseUrl:''` = pas d'API, localStorage seul.
+ */
+export type TemplatesConfig = {
+  /** Racine de l'API REST des templates. Vide = pas de backend (cache local seul). */
+  baseUrl: string
+  /** En-têtes du provider HTTP par défaut (auth d'un proxy serveur). */
+  headers: Readonly<Record<string, string>>
+  fetch: FetchPolicy
+  /** Catégories offertes à la sauvegarde — réglable, jamais en dur dans l'UI. */
+  categories: readonly TemplateCategory[]
+  /** Catégories cochées par défaut dans le formulaire « Sauver ». */
+  defaultCategories: readonly TemplateCategory[]
+  /** Mode d'application par défaut d'un template sur le dessin courant. */
+  defaultApply: ApplyDefault
+  /** Autorise l'export/import de fichiers `.m3dt`. */
+  allowExport: boolean
+}
+
 export type ProvidersConfig = {
   /** Serveur auto-hébergé, partagé par le fond 2D et le volume. */
   internal: InternalServerConfig
@@ -437,6 +459,7 @@ export type ProvidersConfig = {
   routing: RoutingConfig
   places: PlacesConfig
   symbols: SymbolsProviderConfig
+  templates: TemplatesConfig
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -789,6 +812,8 @@ export type StorageKeysConfig = {
   searchHistory: string
   /** État des plugins (activation + config), format `{ [id]: PluginState }`. */
   plugins: string
+  /** Templates de dessin locaux (tableau `Template[]`). */
+  templates: string
 }
 
 /** Boîte de recherche — 💰 chaque frappe non amortie est un appel Places facturé. */
@@ -1062,25 +1087,73 @@ export type CameraConfig = {
  * collant) n'en font pas partie : ils n'ont de sens que les uns par rapport aux
  * autres, à l'intérieur d'une surface qui, elle, est placée par cette échelle.
  */
+/**
+ * Échelle d'empilement — **deux plans, pas une seule liste**.
+ *
+ * La distinction est structurelle, pas cosmétique : `.m3d-overlay` et `.m3d-css2d`
+ * créent chacun un contexte d'empilement, donc les valeurs qui vivent DEDANS ne sont
+ * jamais comparées à celles du DEHORS. Les mélanger a déjà produit un bug — un
+ * `floatingHud: 20` qu'on croyait au-dessus d'un `editOverlay: 15` passait en réalité
+ * dessous, parce que les poignées héritaient du 999 de leur overlay conteneur.
+ *
+ * ── Plan RACINE (enfants de `.m3d-root`, comparés entre eux) ────────────────────
+ *   `mapOverlay` < `floatingHud` < `dock` < `ui` < `menu` < `modal`
+ *
+ * ── Plan CARTE (dans `.m3d-overlay`, comparés entre eux seulement) ──────────────
+ *   `relationBar` < `editOverlay` < `listMenu`
+ *
+ * Régler un niveau du plan carte au-delà de `mapOverlay` ne le fera PAS remonter
+ * au-dessus de l'UI : c'est `mapOverlay` qui porte tout ce plan.
+ *
+ * ── Plan LOCAL (dans la surface qui les porte) ──────────────────────────────────
+ *   `tooltip` et `markerSelected` ne se comparent à RIEN de ce qui précède : ils
+ *   vivent dans une ancre de marker (`.m3d-css2d` en écrit une par marker) ou dans
+ *   un panneau à `backdrop-filter`, deux contextes d'empilement isolés. Leurs
+ *   petites valeurs ne sont donc pas une anomalie — les monter ne les ferait
+ *   remonter nulle part.
+ */
 export type ZIndexConfig = {
-  /** Barre d'état d'une relation, posée sur la carte. */
-  relationBar: number
-  /** Overlay SVG de sélection (poignées de transformation). */
-  editOverlay: number
-  /** HUD flottant (sélection, loupe). */
+  /**
+   * Plan RACINE. Surfaces de la CARTE : markers (`.m3d-css2d`), poignées d'édition,
+   * zone de loupe, ancres de liens. Sous toutes les surfaces d'UI — c'est ce qui
+   * garantit qu'un panneau n'est jamais percé par une poignée, et que le nombre de
+   * markers à l'écran n'influe pas sur l'empilement (CSS2DRenderer écrit `1..N` sur
+   * les ancres ; ce niveau les enferme dans un contexte).
+   */
+  mapOverlay: number
+  /** Plan RACINE. HUD flottant (sélection, loupe) : au-dessus de la carte, sous les barres. */
   floatingHud: number
-  /** Marker sélectionné — au-dessus de ses voisins, sous les surfaces d'UI. */
-  markerSelected: number
-  /** Infobulles (marker et barres). */
-  tooltip: number
-  /** Menu d'actions d'une ligne de liste. */
-  listMenu: number
-  /** Dock des favoris — volontairement SOUS les barres. */
+  /** Plan RACINE. Dock des favoris — volontairement SOUS les barres. */
   dock: number
-  /** Barres, panneaux, boîte de recherche : le plan des surfaces d'UI. */
+  /** Plan RACINE. Barres, panneaux, boîte de recherche : le plan des surfaces d'UI. */
   ui: number
-  /** Menus contextuels et ghosts de glisser-déposer : au sommet. */
+  /** Plan RACINE. Menus contextuels et ghosts de glisser-déposer : au sommet. */
   menu: number
+  /** Plan RACINE. Modales (dialogue de confirmation) : au-dessus de tout, menus compris. */
+  modal: number
+  /** Plan CARTE. Barre d'état d'une relation, posée sur la carte. */
+  relationBar: number
+  /** Plan CARTE. Overlay SVG de sélection (poignées de transformation). */
+  editOverlay: number
+  /**
+   * Plan LOCAL. Infobulles, DANS la surface qui les porte : l'ancre du marker pour
+   * `.m3d-markertip`, la barre ou le panneau pour `.m3d-tip`. Toutes deux sont des
+   * contextes d'empilement isolés (z-index d'ancre écrit par CSS2DRenderer,
+   * `backdrop-filter` d'un panneau), si bien que cette valeur ne se compare jamais
+   * aux niveaux du plan CARTE. La monter ne fera passer l'infobulle au-dessus de rien.
+   */
+  tooltip: number
+  /** Plan CARTE. Menu d'actions d'une ligne de liste. */
+  listMenu: number
+  /**
+   * Marker sélectionné, DANS l'ancre de son propre marker.
+   *
+   * ⚠️ Ne le hisse pas au-dessus des markers voisins : l'ancre porte un `z-index`
+   * numérique, donc elle crée un contexte et cette valeur y reste enfermée. L'ordre
+   * ENTRE markers est décidé par le `renderOrder` que le moteur donne à
+   * CSS2DRenderer (cf. `setRaised`), pas ici.
+   */
+  markerSelected: number
 }
 
 /**

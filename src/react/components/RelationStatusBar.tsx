@@ -93,7 +93,7 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
         ...(rule.mode === mode ? { icon: labels.glyphs.check } : {}),
         onSelect: () => setMode(source.id, mode),
       })),
-    [labels, rule.mode, setMode, source.id],
+    [labels, modes, rule.mode, setMode, source.id],
   )
 
   // Bascule de famille : la sélection courante est conservée, seule la cible change.
@@ -107,7 +107,9 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
         ...(r.id === rule.id ? { icon: labels.glyphs.check } : {}),
         onSelect: () => run(source, { ...r, mode: rule.mode, selection: rule.selection }),
       })),
-    [rules, rule, run, source, familyColor],
+    // `labels` y figure pour la coche (`labels.glyphs.check`) : sans lui, un changement
+    // de langue laissait le menu « famille » sur l'ancien glyphe.
+    [rules, rule, run, source, familyColor, labels],
   )
 
   const nameFor = (p: MapPoint): string => (nameOf ? nameOf(p) : p.id)

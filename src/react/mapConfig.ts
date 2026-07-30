@@ -30,6 +30,7 @@ import type { RelationStatusBarProps } from './components/RelationStatusBar'
 import type { SearchBoxProps } from './components/SearchBox'
 import type { SelectionBadgesProps } from './components/SelectionBadges'
 import type { ShapeLayerProps } from './components/ShapeLayer'
+import type { TemplatesPanelProps } from './components/TemplatesPanel'
 import type { DrawToolbarProps } from './components/Toolbar'
 
 /**
@@ -210,6 +211,13 @@ export type MapSurfaces<T = unknown, TPin = unknown> = {
   search?: boolean | SearchConfig
   /** Dock des favoris — sa présence l'active (et rend les markers saisissables). */
   dock?: DockConfig<TPin>
+  /**
+   * Gestionnaire de templates : sauvegardes nommées du dessin. Le bouton vit DANS la
+   * barre de contrôles, **sous « Couches »** (même structure) — il faut donc `controls`
+   * actif. `false`/absent (défaut) le retire ; un objet le règle (provider API,
+   * catégories…). Agit sur le dessin via `engine.templates.drawPort` (posé par `draw`).
+   */
+  templates?: false | TemplatesPanelProps
   /** Couche de dessin. `false` retire le dessin ET la barre qui le pilote. */
   draw?: false | DrawConfig
   /** Moteur de relations par tags — sa présence l'active (cf. `RelationsConfig`). */

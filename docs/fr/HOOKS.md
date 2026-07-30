@@ -111,6 +111,13 @@ patch)`, `reset(tool?)`, `isCustomized(tool)`.
 `{ rules, menuFor, run, snapshots, hubHosts, setMode, routeColor, familyColor,
 untrace, clear }`. Détail dans [RELATIONS.md § 9](RELATIONS.md#9-relationapi).
 
+### `useTemplates(options?): TemplatesView` — sous `<MapProvider>`
+
+`{ templates, categories, defaultCategories, defaultApply, allowExport, busy,
+saveCurrent, updateFromDrawing, apply, rename, remove, refresh, exportFile, importFile }`.
+Vue réactive + actions du gestionnaire de sauvegardes de dessin (localStorage seul ou
+provider API). Détail dans [TEMPLATES.md § 8](TEMPLATES.md#8-hook-usetemplates).
+
 ### `useToolbar(): ToolbarApi`
 
 ```ts

@@ -697,7 +697,12 @@ export function withLeaf(partial: PartialConfig, leaf: Leaf, raw: unknown): Part
  * Clé PROPRE À LA DÉMO, volontairement distincte des `data.storageKeys` de la lib :
  * ce n'est pas la carte qui écrit ici, c'est le banc de réglages autour d'elle.
  */
-const CONFIG_STORAGE_KEY = 'm3d:demo-config'
+// Suffixe de version : ce qu'on relit est un `PartialConfig`, dont la forme suit
+// `MapConfig` et bouge donc à chaque évolution de la lib. Sans version, une entrée écrite
+// par une ancienne forme est réinjectée telle quelle dans le merge — au mieux ignorée, au
+// pire elle réintroduit une clé qui n'existe plus. Incrémenter le suffixe ABANDONNE le
+// stockage ancien au lieu de le charger.
+const CONFIG_STORAGE_KEY = 'm3d:demo-config:v1'
 
 /**
  * La valeur stockée a-t-elle la NATURE attendue pour cette feuille ?

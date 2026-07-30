@@ -164,6 +164,7 @@ export type {
   SkyConfig,
   StorageKeysConfig,
   SymbolsProviderConfig,
+  TemplatesConfig,
   TileMapType,
   TileProvider,
   TilesConfig,
@@ -404,3 +405,26 @@ export type { PluginView } from './react/hooks/usePlugins'
 export { useBuildingEnrichment } from './react/hooks/useBuildingEnrichment'
 export type { BuildingEnrichment } from './react/hooks/useBuildingEnrichment'
 // `BuildingHit` / `BuildingInfo` sont déjà exportés (section Core).
+
+// ── Templates (sauvegardes de dessin : formes + main levée + symboles) ──
+export { TemplateRegistry } from './core/templates/TemplateRegistry'
+export type { TemplateMutateOptions, TemplateDrawPort } from './core/templates/TemplateRegistry'
+export type {
+  ApplyMode,
+  ApplyDefault,
+  Template,
+  TemplateContent,
+  TemplateStats,
+  TemplateCategory,
+} from './core/templates/types'
+export { createHttpTemplateProvider } from './core/templates/TemplateProvider'
+export type { TemplateProvider } from './core/templates/TemplateProvider'
+export { categoryOf, filterByCategories, statsOf, mergeCollections } from './core/templates/collect'
+export { TemplatesPanel } from './react/components/TemplatesPanel'
+export type { TemplatesPanelProps } from './react/components/TemplatesPanel'
+export { Confirm } from './react/components/Confirm'
+export type { ConfirmProps } from './react/components/Confirm'
+export { TemplateThumb } from './react/components/TemplateThumb'
+export type { TemplateThumbProps } from './react/components/TemplateThumb'
+export { useTemplates } from './react/hooks/useTemplates'
+export type { UseTemplatesOptions, TemplatesView } from './react/hooks/useTemplates'

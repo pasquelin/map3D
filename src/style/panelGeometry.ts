@@ -7,6 +7,10 @@
  * de chaque côté. La divergence ne casse rien de visible — elle fausse en silence le
  * choix du côté d'ouverture — et elle s'était déjà produite (un panneau à 10px).
  * D'où ce module sans dépendance, importé par les deux.
+ *
+ * `GAP` n'a plus qu'un lecteur depuis que toutes les surfaces déroulantes sont placées
+ * en JS (`useAnchoredPortal`) : le CSS ne calcule plus aucun décalage. La divergence
+ * décrite ci-dessus est donc devenue impossible, pas seulement surveillée.
  */
 
 /** Écart entre une surface ancrée et son ancre (px). */
@@ -25,3 +29,5 @@ export const BAR_INSET = 16
 export const LENS_PANEL_W = 252
 /** Largeur du panneau de sélection (px). */
 export const SELECTION_PANEL_W = 236
+/** Largeur du panneau de templates (px). */
+export const TEMPLATES_PANEL_W = 288

@@ -55,6 +55,7 @@ couches et regroupement **dans le bon ordre d'imbrication**.
 | `controls` | Contrôles de navigation. `false` = aucun contrôle. | *(défauts)* |
 | `search` | Recherche unifiée : `true` pour les défauts, un objet pour la régler. Absente = pas de boîte. | *(absent)* |
 | `dock` | Dock des favoris — sa présence l'active (et rend les markers saisissables). | *(absent)* |
+| `templates` | Gestionnaire de templates : sauvegardes nommées du dessin. Le bouton vit DANS la barre de contrôles, sous « Couches » — il faut donc `controls` actif. `false`/absent le retire ; un objet le règle (provider API, catégories…). Agit sur le dessin via `engine.templates.drawPort` (posé par `draw`). Cf. [TEMPLATES.md](TEMPLATES.md). | *(absent)* |
 | `draw` | Couche de dessin (+ `selectionBadges`). `false` retire le dessin ET la barre. | *(défauts)* |
 | `relations` | Moteur de relations par tags (+ `statusBar`) — sa présence l'active. | *(absent)* |
 | `layers` | Couches de données, dans l'ordre de rendu (`markersLayer`, `shapesLayer`). | `[]` |
@@ -280,3 +281,45 @@ Liste de markers réutilisable.
 | `targetZoom` | Zoom du vol « cibler » (défaut 17). | — |
 | `actions` | Actions du menu déroulant, en plus de « Cibler ». | — |
 | `menu` | Menu d'une ligne, dans la MÊME forme que `<MarkerLayer menu>` : c'est ce qui permet au bouton « … » d'une ligne d'offrir exactement le menu du marker sur la carte, sous-menus et séparateurs compris. Fourni, il l'emporte sur `actions`. « Cibler » reste… | — |
+
+## `<TemplatesPanel>`
+
+Bouton de barre + panneau du gestionnaire de templates (sauvegardes de dessin). Accepte
+en plus toutes les options de [`useTemplates`](HOOKS.md) ci-dessous. Détail dans
+[TEMPLATES.md](TEMPLATES.md).
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `provider` | Backend des templates. Absent = cache localStorage seul. Présent = il fait autorité (sa liste écrase la vue au montage, les mutations passent par lui). | — |
+| `categories` | Catégories offertes à la sauvegarde. | `config.providers.templates.categories` |
+| `defaultCategories` | Catégories cochées par défaut dans le formulaire « Sauver ». | `config.providers.templates.defaultCategories` |
+| `defaultApply` | Mode d'application par défaut au clic (`'merge'` \| `'replace'`). | `config.providers.templates.defaultApply` |
+| `allowExport` | Autorise l'export/import de fichiers `.m3dt`. | `config.providers.templates.allowExport` |
+| `position` | Côté de la barre hôte : le panneau s'ouvre du côté opposé. | `'right'` |
+| `tipId` | id du `<Tooltip>` partagé de la barre hôte (MapControls). | — |
+| `shortcut` | Touche (lettre seule) qui ouvre/ferme le panneau. `false` = aucun raccourci. | — |
+| `grouped` | Rendu SANS sa propre carte `.m3d-controls-group` — pour un groupe partagé (avec « Couches »). | — |
+
+## `<Confirm>`
+
+Dialogue modal de confirmation (au-dessus de tout, `style.zIndex.modal`). Se referme sur
+Entrée (confirmer), Échap, la croix ou un clic hors dialogue.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `message` **(requis)** | Message affiché (déjà formaté). | — |
+| `confirmLabel` **(requis)** | Libellé du bouton de confirmation. | — |
+| `cancelLabel` **(requis)** | Libellé du bouton d'annulation. | — |
+| `danger` | Action destructive : le bouton de confirmation passe en rouge. | — |
+| `onConfirm` **(requis)** | Appelé à la confirmation. | — |
+| `onCancel` **(requis)** | Appelé à l'annulation (croix, Échap, clic extérieur). | — |
+
+## `<TemplateThumb>`
+
+Vignette SVG d'aperçu du contenu d'un template — géométries projetées et auto-cadrées,
+aucun three.js ni GPU.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `draw` **(requis)** | FeatureCollection GeoJSON du dessin à prévisualiser. | — |
+| `size` | Côté du carré de rendu (px). | `40` |

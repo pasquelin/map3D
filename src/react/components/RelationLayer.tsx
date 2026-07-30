@@ -241,10 +241,17 @@ export function RelationLayer({
     provider.setConfig?.(routing)
   }, [provider, routing])
 
+  // Init PARESSEUSE (`??=`) pour les deux : `useRef(new X())` construit son argument à
+  // CHAQUE render et le jette — le ref ne garde que le premier. Ici c'était un cache de
+  // géométries entier alloué puis abandonné à chaque révision de relation.
   /** Géométries mémoïsées, validées par leurs extrémités (cf. `RelationGeometryCache`). */
-  const geometry = useRef(new RelationGeometryCache())
+  const geometryRef = useRef<RelationGeometryCache | null>(null)
+  geometryRef.current ??= new RelationGeometryCache()
+  const geometry = geometryRef.current
   /** Dernier appel réseau par relation/itinéraire — plafonne le débit de rafraîchissement. */
-  const lastRefresh = useRef(new Map<string, number>())
+  const lastRefreshRef = useRef<Map<string, number> | null>(null)
+  lastRefreshRef.current ??= new Map<string, number>()
+  const lastRefresh = lastRefreshRef.current
 
   // Palier de zoom courant. Le clustering est stable à zoom entier constant (cf.
   // `ClusterEngine`) : on ne recalcule donc le regroupement visuel qu'au changement
@@ -431,8 +438,8 @@ export function RelationLayer({
       // toutes les quelques secondes et lancerait un appel à chaque fois.
       const now = Date.now()
       const due = (key: string): boolean => {
-        if (now - (lastRefresh.current.get(key) ?? 0) < refreshIntervalMs) return false
-        lastRefresh.current.set(key, now)
+        if (now - (lastRefresh.get(key) ?? 0) < refreshIntervalMs) return false
+        lastRefresh.set(key, now)
         return true
       }
       // Refaire la matrice d'une relation dont on regarde justement l'itinéraire est
@@ -449,18 +456,20 @@ export function RelationLayer({
       }
       // Les relations disparues emportent leur compteur de débit : sans cette purge,
       // la table accumule une entrée par source et par lien vus depuis le montage.
-      if (lastRefresh.current.size > 0) {
+      if (lastRefresh.size > 0) {
         const live = new Set<string>()
         for (const s of relationEngine.snapshots) {
           live.add(`matrix:${s.source.id}`)
           for (const l of s.links) live.add(`route:${l.id}`)
         }
-        for (const key of lastRefresh.current.keys()) {
-          if (!live.has(key)) lastRefresh.current.delete(key)
+        for (const key of lastRefresh.keys()) {
+          if (!live.has(key)) lastRefresh.delete(key)
         }
       }
     })
-  }, [engine, relationEngine, resolvePoint, staleMeters, refreshIntervalMs, run])
+    // `lastRefresh` est l'objet Map lui-même, d'identité définitive (init paresseuse) :
+    // le lister ne rejoue rien, mais rend la dépendance explicite.
+  }, [engine, relationEngine, resolvePoint, staleMeters, refreshIntervalMs, run, lastRefresh])
 
   const visualStyle = useMemo(
     (): RelationVisualStyle => ({ width, routeColor, hubRadius, minOpacity, dash: linkDash || null }),
@@ -491,7 +500,7 @@ export function RelationLayer({
           fanMaxLegs: fanMaxLegs ?? relationsPerf.fanMaxLegs,
           perf: relationsPerf,
         },
-        geometry.current,
+        geometry,
       ),
     // `version` et `clusterTick` sont les dépendances réelles restantes : le moteur
     // mute ses instantanés en place, et le regroupement visuel dépend du palier de zoom.

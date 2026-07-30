@@ -27,6 +27,9 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles3d': 'Tuiles 3D',
   'providers.buildings': 'Bâtiments 3D',
   'providers.symbols': 'Symboles tactiques',
+  'providers.templates': 'Templates de dessin',
+  'providers.templates.headers': 'En-têtes HTTP',
+  'providers.templates.fetch': 'Politique réseau',
 
   interaction: 'Interaction',
   'interaction.lens': 'Loupe',
@@ -149,6 +152,16 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.places.retries': 'réessais',
   'providers.places.backoffMs': 'attente avant réessai (ms)',
   'providers.places.headers': 'en-têtes HTTP (JSON)',
+
+  // ── providers.templates ────────────────────────────────────────────────────
+  'providers.templates.baseUrl': 'URL de l’API (vide = local)',
+  'providers.templates.fetch.timeoutMs': 'délai d’abandon (ms)',
+  'providers.templates.fetch.retries': 'réessais',
+  'providers.templates.fetch.backoffMs': 'attente avant réessai (ms)',
+  'providers.templates.categories': 'catégories offertes',
+  'providers.templates.defaultCategories': 'catégories cochées par défaut',
+  'providers.templates.defaultApply': 'mode d’application par défaut',
+  'providers.templates.allowExport': 'export/import .m3dt',
 
   // ── providers, divers ──────────────────────────────────────────────────────
   'providers.tiles3d.provider': 'fournisseur du volume',
@@ -302,6 +315,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'performance.groundHeightRange': 'altitudes admises (m)',
 
   // ── style.zIndex ───────────────────────────────────────────────────────────
+  'style.zIndex.mapOverlay': 'surfaces de la carte',
   'style.zIndex.relationBar': 'barre de relation',
   'style.zIndex.editOverlay': 'poignées d’édition',
   'style.zIndex.floatingHud': 'HUD flottant',
@@ -311,6 +325,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'style.zIndex.dock': 'dock des favoris',
   'style.zIndex.ui': 'barres et panneaux',
   'style.zIndex.menu': 'menus contextuels',
+  'style.zIndex.modal': 'modales et confirmations',
 
   // ── camera ─────────────────────────────────────────────────────────────────
   'camera.minZoom': 'zoom minimal',
@@ -357,6 +372,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'data.storageKeys.drawSettings': 'réglages de dessin',
   'data.storageKeys.searchHistory': 'historique de recherche',
   'data.storageKeys.plugins': 'état des plugins',
+  'data.storageKeys.templates': 'templates de dessin',
   'data.search.minQuery': 'saisie minimale',
   'data.search.debounceMs': 'anti-rebond de frappe (ms)',
   'data.search.limitPerGroup': 'résultats par rubrique',

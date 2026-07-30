@@ -104,6 +104,12 @@ export type UiSettings = {
   }
   search: boolean
   dock: boolean
+  /** Gestionnaire de templates (haut-droite) : sauvegardes de dessin. */
+  templates: {
+    enabled: boolean
+    /** `true` : provider API de démo (in-memory, prime sur le local). `false` : localStorage seul. */
+    useApi: boolean
+  }
   draw: boolean
   cluster: boolean
   relations: boolean
@@ -136,6 +142,7 @@ export const defaultUiSettings: UiSettings = {
   },
   search: true,
   dock: true,
+  templates: { enabled: true, useApi: false },
   draw: true,
   cluster: true,
   relations: true,
