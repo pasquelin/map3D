@@ -105,6 +105,34 @@ export class TagFilter {
     this.emitSelection()
   }
 
+  /**
+   * Remplace toute la sélection d'un coup — restituer un filtre mémorisé (vue de template,
+   * réglage venu de l'hôte). En `toggle` par tag, chaque appel refiltrait toutes les couches
+   * et réécrivait le localStorage : une sélection de dix tags coûtait dix passes pour un
+   * seul état visible. Sélection identique = aucune émission.
+   *
+   * Ce sont des NOMS de tags, jamais de la donnée : un tag absent de la carte au moment du
+   * rechargement (couches différentes, données pas encore arrivées) filtre sans être porté
+   * par quoi que ce soit, mais `all()` le liste quand même à compte 0 — donc il reste
+   * décochable, et une sélection restituée ne peut pas enfermer l'utilisateur.
+   */
+  setSelection(tags: Iterable<string>): void {
+    const next = new Set(tags)
+    if (next.size === this.selection.size) {
+      let same = true
+      for (const t of next) {
+        if (!this.selection.has(t)) {
+          same = false
+          break
+        }
+      }
+      if (same) return
+    }
+    this.selection.clear()
+    for (const t of next) this.selection.add(t)
+    this.emitSelection()
+  }
+
   clear(): void {
     if (this.selection.size === 0) return
     this.selection.clear()
