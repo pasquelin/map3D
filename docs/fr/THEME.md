@@ -150,7 +150,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 |---|---|---|
 | `sizing.lensPanelW` | Largeur du panneau d'inventaire de la loupe (px). | `252` |
 | `sizing.selectionPanelW` | Largeur du panneau de sélection (px). | `236` |
-| `sizing.templatesPanelW` | Largeur du panneau de templates (px). | `288` |
+| `sizing.templatesPanelW` | Largeur du panneau de templates (px), calée sur sa rangée de cases la plus chargée (catégories + « Vue »). | `352` |
 | `sizing.panelMaxHeight.tags` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `380` |
 | `sizing.panelMaxHeight.symbols` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `420` |
 | `sizing.panelMaxHeight.search` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `340` |

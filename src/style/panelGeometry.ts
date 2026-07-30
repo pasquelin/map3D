@@ -29,5 +29,12 @@ export const BAR_INSET = 16
 export const LENS_PANEL_W = 252
 /** Largeur du panneau de sélection (px). */
 export const SELECTION_PANEL_W = 236
-/** Largeur du panneau de templates (px). */
-export const TEMPLATES_PANEL_W = 288
+/**
+ * Largeur du panneau de templates (px).
+ *
+ * Dimensionnée par sa rangée de cases la plus chargée — les catégories de dessin PLUS
+ * « Vue », soit quatre colonnes. À 288 px il restait 34 px de texte par case : « Symboles »
+ * en demande ~50 px, et se serait coupé en plein mot. Le compte : 4 × (50 texte + 15
+ * case + 5 gap + 8 padding) + 3 × 3 gap + 14 + 16 padding ≈ 352.
+ */
+export const TEMPLATES_PANEL_W = 352

@@ -153,7 +153,7 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 |---|---|---|
 | `sizing.lensPanelW` | Width of the lens inventory panel (px). | `252` |
 | `sizing.selectionPanelW` | Width of the selection panel (px). | `236` |
-| `sizing.templatesPanelW` | Width of the templates panel (px). | `288` |
+| `sizing.templatesPanelW` | Width of the templates panel (px), sized after its busiest checkbox row (categories + “View”). | `352` |
 | `sizing.panelMaxHeight.tags` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `380` |
 | `sizing.panelMaxHeight.symbols` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `420` |
 | `sizing.panelMaxHeight.search` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `340` |

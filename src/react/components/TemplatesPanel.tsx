@@ -10,7 +10,7 @@ import {
   mdiTrayArrowDown,
   mdiTrayArrowUp,
 } from '@mdi/js'
-import { useId, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useId, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import type { ApplyMode, TemplateCategory } from '../../core/templates/types'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -91,6 +91,8 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
    * ferait filtrer des formes par une case qui ne parle pas de formes.
    */
   const [withView, setWithView] = useState(view.defaultSaveView)
+  /** Cases de la rangée = catégories offertes, plus « Vue » quand elle l'est. */
+  const slots = view.categories.length + (view.saveView ? 1 : 0)
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null)
   /** Mode d'application au clic sur une ligne, initialisé sur `providers.templates.defaultApply`. */
   const [applyMode, setApplyMode] = useState<ApplyMode>(view.defaultApply)
@@ -131,27 +133,27 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
           onKeyDown={(e) => e.key === 'Enter' && onSave()}
         />
         <div className="m3d-tplsave-hint">{t.saveHint}</div>
-        <div className="m3d-tplcats">
+        {/* Une seule rangée pour tout ce qu'on peut mettre dans un template. Le nombre de
+            colonnes SUIT le contenu (`--m3d-tplcats-n`) plutôt que d'être figé : les
+            catégories offertes sont réglables, et une valeur en dur laisserait des cases
+            vides — ou serrerait tout — dès qu'un hôte n'en offre qu'une ou deux. */}
+        <div className="m3d-tplcats" style={{ '--m3d-tplcats-n': slots } as CSSProperties}>
           {view.categories.map((c) => (
             <label key={c} className="m3d-tagrow m3d-tplcat">
               <input type="checkbox" checked={cats.has(c)} onChange={() => toggleCat(c)} />
               <span className="m3d-taglabel">{t.category[c]}</span>
             </label>
           ))}
+          {/* Dernière case de la rangée, mais pas une catégorie pour autant : elle ne
+              nourrit pas `cats` (cf. `withView`), elle garde sa propre consigne dessous. */}
+          {view.saveView && (
+            <label className="m3d-tagrow m3d-tplcat">
+              <input type="checkbox" checked={withView} onChange={() => setWithView((v) => !v)} />
+              <span className="m3d-taglabel">{t.view}</span>
+            </label>
+          )}
         </div>
-        {/* Groupe SÉPARÉ des catégories : ce qu'on mémorise ici n'est pas du dessin mais
-            l'endroit d'où on le regarde — d'où sa propre consigne. */}
-        {view.saveView && (
-          <>
-            <div className="m3d-tplcats">
-              <label className="m3d-tagrow m3d-tplcat">
-                <input type="checkbox" checked={withView} onChange={() => setWithView((v) => !v)} />
-                <span className="m3d-taglabel">{t.view}</span>
-              </label>
-            </div>
-            <div className="m3d-tplsave-hint">{t.viewHint}</div>
-          </>
-        )}
+        {view.saveView && <div className="m3d-tplsave-hint">{t.viewHint}</div>}
         <button className="m3d-tplbtn-full" onClick={onSave} disabled={!canSave}>
           <UiIcon path={mdiPlus} />
           {t.save}

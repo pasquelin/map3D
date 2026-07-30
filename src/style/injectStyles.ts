@@ -755,12 +755,20 @@ const CSS = `
 .m3d-tplname-input,.m3d-tplname-edit{width:100%;border:1px solid var(--m3d-border);background:transparent;
   border-radius:8px;padding:7px 9px;font-family:inherit;font-size:var(--m3d-size-sm);color:var(--m3d-text);outline:none}
 .m3d-tplname-input:focus,.m3d-tplname-edit:focus{border-color:var(--m3d-accent)}
-/* Rangée de sélection (catégories, modes d'application) : 3 colonnes égales, posée sur
-   une pilule discrète — même habillage pour les deux lignes. */
-.m3d-tplcats{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+/* Rangée de sélection (contenu d'un template, modes d'application) : colonnes égales,
+   posée sur une pilule discrète — même habillage pour les deux lignes. Le NOMBRE de
+   colonnes est passé par le composant (--m3d-tplcats-n), les catégories offertes étant
+   réglables ; 3 reste le défaut, celui de la rangée des modes d'application. */
+.m3d-tplcats{display:grid;grid-template-columns:repeat(var(--m3d-tplcats-n,3),1fr);gap:3px;
   padding:4px 7px;border-radius:8px;background:color-mix(in srgb,var(--m3d-text) 6%,transparent)}
-.m3d-tplcat{cursor:pointer;gap:5px;padding:5px 4px}
-.m3d-tplcat .m3d-taglabel{font-size:var(--m3d-size-xs)}
+.m3d-tplcat{cursor:pointer;gap:5px;padding:5px 4px;min-width:0}
+/* Le libellé REVIENT À LA LIGNE ici, contrairement au nowrap des listes de tags : à quatre
+   colonnes une case tient un mot, pas deux, et l'ellipsis ne montrerait que « Main l… ».
+   « Main levée » passe donc sur deux lignes — entre les mots, sans coupure au milieu de
+   l'un d'eux (la largeur du panneau est calée sur le mot le plus long, cf. panelGeometry).
+   Ciblé sur cette rangée seule : le panneau « Couches » doit garder ses tags sur une ligne. */
+.m3d-tplcat .m3d-taglabel{font-size:var(--m3d-size-xs);white-space:normal;line-height:1.2;
+  text-overflow:clip;overflow:visible}
 /* Boutons pleine largeur uniformes (Sauvegarder + Importer) : même hauteur, même
    langage. Le principal en accent, le secondaire bordé (ghost). */
 .m3d-tplbtn-full{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 9px;
