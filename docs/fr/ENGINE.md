@@ -324,6 +324,13 @@ Source de vérité du drag-and-drop : zones (`registerZone`), acceptation
 (`acceptsAny(payload)`), phase du geste, `onZonesChange`. Piloté par la couche React —
 `useDraggable`, `useDropZone`, `useMapDropZone`.
 
+### `PersistedVersionedStore` (socle de `engine.plugins` / `engine.templates`)
+
+Base commune des deux registres persistés : store versionné pour `useSyncExternalStore`
+(`version`, `on`) + persistance localStorage **débouncée** (`dispose()` flush au démontage).
+La sous-classe n'implémente que `serialize()` — ce qu'elle écrit. Exportée pour bâtir un
+registre custom sans réécrire ces précautions.
+
 ---
 
 ## 6. Interception de pointeur

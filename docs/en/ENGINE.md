@@ -323,6 +323,13 @@ The drag-and-drop source of truth: zones (`registerZone`), acceptance
 (`acceptsAny(payload)`), gesture phase, `onZonesChange`. Driven by the React layer —
 `useDraggable`, `useDropZone`, `useMapDropZone`.
 
+### `PersistedVersionedStore` (base of `engine.plugins` / `engine.templates`)
+
+Shared base of both persisted registries: a versioned store for `useSyncExternalStore`
+(`version`, `on`) + **debounced** localStorage persistence (`dispose()` flushes on
+unmount). A subclass only implements `serialize()` — what it writes. Exported so a custom
+registry can be built without rewriting these safeguards.
+
 ---
 
 ## 6. Pointer interception

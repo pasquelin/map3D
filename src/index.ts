@@ -396,6 +396,10 @@ export type {
   PluginLayerContext,
   BuildingEnrichmentResult,
 } from './plugins/types'
+// Socle commun des registres versionnés-persistés (`engine.plugins`, `engine.templates`) :
+// store `useSyncExternalStore` + persistance localStorage débouncée. Exposé pour qu'une
+// couche custom bâtisse son propre registre sans réécrire ces précautions.
+export { PersistedVersionedStore } from './core/PersistedVersionedStore'
 export { PluginRegistry } from './core/PluginRegistry'
 export type { PluginState, PluginEntry } from './core/PluginRegistry'
 export { PluginEnrichment } from './core/PluginEnrichment'

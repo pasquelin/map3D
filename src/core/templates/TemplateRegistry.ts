@@ -1,6 +1,7 @@
 import { defaultConfig } from '../../config/defaultConfig'
 import type { GeoJSONFeatureCollection } from '../../layers/DrawLayer'
-import { readStoredJSON, writeStoredJSON } from '../storage'
+import { PersistedVersionedStore } from '../PersistedVersionedStore'
+import { readStoredJSON } from '../storage'
 import type { ApplyMode, Template } from './types'
 
 /**
@@ -23,22 +24,17 @@ export type TemplateMutateOptions = { silent?: boolean }
 
 /**
  * Registre des templates, porté par le moteur (`engine.templates`), agnostique React.
- * Calqué sur `PluginRegistry` : store versionné pour `useSyncExternalStore`,
- * persistance localStorage DÉBOUNCÉE (renommage inline en rafale). Ne persiste que les
- * templates `origin:'local'` — ceux d'`origin:'api'` ont leur source de vérité côté
- * backend (le hook les réinjecte à chaque synchro).
+ * Store versionné + persistance débouncée hérités de `PersistedVersionedStore` (renommage
+ * inline en rafale). Ne persiste que les templates `origin:'local'` — ceux d'`origin:'api'`
+ * ont leur source de vérité côté backend (le hook les réinjecte à chaque synchro).
  *
  * Le registre ne parle PAS au réseau : c'est le hook React qui pilote un éventuel
  * `TemplateProvider` et reflète son résultat ici (`setAll`/`save` en `origin:'api'`).
  * L'API prime donc naturellement : quand un provider est branché, sa liste écrase la
  * vue via `setAll`.
  */
-export class TemplateRegistry {
+export class TemplateRegistry extends PersistedVersionedStore {
   private entries = new Map<string, Template>()
-  private readonly listeners = new Set<() => void>()
-  /** Snapshot pour `useSyncExternalStore`. */
-  version = 0
-  private saveTimer: ReturnType<typeof setTimeout> | undefined
 
   /** Relais des events hôte, posés par le moteur (`engine.on('templatesave', …)`). */
   onSave?: (template: Template) => void
@@ -49,9 +45,10 @@ export class TemplateRegistry {
   drawPort: TemplateDrawPort | null = null
 
   constructor(
-    private readonly storageKey: string | null = defaultConfig.data.storageKeys.templates,
-    private readonly persistDebounceMs: number = defaultConfig.data.positionSaveDebounceMs,
+    storageKey: string | null = defaultConfig.data.storageKeys.templates,
+    persistDebounceMs: number = defaultConfig.data.positionSaveDebounceMs,
   ) {
+    super(storageKey, persistDebounceMs)
     const raw = this.storageKey ? (readStoredJSON(this.storageKey) as Template[] | null) : null
     if (Array.isArray(raw)) for (const t of raw) if (t?.id) this.entries.set(t.id, { ...t, origin: 'local' })
   }
@@ -107,40 +104,8 @@ export class TemplateRegistry {
     this.onApply?.(id, mode)
   }
 
-  // Champ fléché LIÉ : `useSyncExternalStore` reçoit `engine.templates.on` détaché de
-  // son receveur — une méthode de classe classique y perdrait son `this`.
-  on = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
-
-  /** Flush la persistance en attente (démontage du moteur). */
-  dispose(): void {
-    if (this.saveTimer !== undefined) {
-      clearTimeout(this.saveTimer)
-      this.saveTimer = undefined
-      this.persistNow()
-    }
-  }
-
-  private bump(): void {
-    this.version++
-    for (const cb of this.listeners) cb()
-  }
-
-  private persistLater(): void {
-    if (!this.storageKey) return
-    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
-    this.saveTimer = setTimeout(() => {
-      this.saveTimer = undefined
-      this.persistNow()
-    }, this.persistDebounceMs)
-  }
-
-  private persistNow(): void {
-    if (!this.storageKey) return
-    // Seuls les templates locaux sont persistés : ceux de l'API font foi côté backend.
-    const locals = [...this.entries.values()].filter((t) => t.origin === 'local')
-    writeStoredJSON(this.storageKey, locals)
+  // Seuls les templates locaux sont persistés : ceux de l'API font foi côté backend.
+  protected serialize(): Template[] {
+    return [...this.entries.values()].filter((t) => t.origin === 'local')
   }
 }

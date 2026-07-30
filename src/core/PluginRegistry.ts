@@ -1,7 +1,8 @@
 import { defaultConfig } from '../config/defaultConfig'
 import { defaultsOf, filterKnown, partialOf, resolveConfig } from '../plugins/defaults'
 import type { AnyPlugin } from '../plugins/types'
-import { readStoredJSON, writeStoredJSON } from './storage'
+import { PersistedVersionedStore } from './PersistedVersionedStore'
+import { readStoredJSON } from './storage'
 
 export type PluginState = { enabled: boolean; config: Record<string, unknown> }
 
@@ -13,24 +14,21 @@ export type PluginEntry = {
 
 /**
  * Registre des plugins, porté par le moteur (`engine.plugins`), agnostique React.
- * Calqué sur `TagFilter` : store versionné pour `useSyncExternalStore`, persistance
- * localStorage auto-contenue mais DÉBOUNCÉE (les sliders du hub appellent `setConfig`
- * en rafale). Seul le PARTIEL (écart aux défauts) est persisté, pour survivre aux
- * évolutions de schéma ; une clé inconnue au chargement est ignorée (schéma = vérité).
+ * Store versionné + persistance débouncée hérités de `PersistedVersionedStore` (les
+ * sliders du hub appellent `setConfig` en rafale). Seul le PARTIEL (écart aux défauts)
+ * est persisté, pour survivre aux évolutions de schéma ; une clé inconnue au chargement
+ * est ignorée (schéma = vérité).
  */
-export class PluginRegistry {
+export class PluginRegistry extends PersistedVersionedStore {
   private readonly entries = new Map<string, PluginEntry>()
   private readonly stored: Record<string, PluginState>
   private readonly ticks = new Map<string, number>()
-  private readonly listeners = new Set<() => void>()
-  /** Snapshot pour `useSyncExternalStore`. */
-  version = 0
-  private saveTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(
-    private readonly storageKey: string | null = defaultConfig.data.storageKeys.plugins,
-    private readonly persistDebounceMs: number = defaultConfig.data.positionSaveDebounceMs,
+    storageKey: string | null = defaultConfig.data.storageKeys.plugins,
+    persistDebounceMs: number = defaultConfig.data.positionSaveDebounceMs,
   ) {
+    super(storageKey, persistDebounceMs)
     const raw = this.storageKey ? (readStoredJSON(this.storageKey) as Record<string, PluginState> | null) : null
     this.stored = raw ?? {}
   }
@@ -41,13 +39,13 @@ export class PluginRegistry {
     const config = resolveConfig(plugin.config, initial?.config, persisted?.config)
     const enabled = persisted?.enabled ?? initial?.enabled ?? plugin.enabledByDefault ?? false
     this.entries.set(id, { plugin, enabled, config })
-    this.emit()
+    this.bump()
   }
 
   unregister(id: string): void {
     if (this.entries.delete(id)) {
       this.ticks.delete(id)
-      this.emit()
+      this.bump()
     }
   }
 
@@ -68,7 +66,7 @@ export class PluginRegistry {
     if (!e || e.enabled === on) return
     e.enabled = on
     this.persistLater()
-    this.emit()
+    this.bump()
   }
 
   getConfig<C>(id: string): C {
@@ -80,7 +78,7 @@ export class PluginRegistry {
     if (!e) return
     e.config = { ...e.config, ...filterKnown(patch, e.plugin.config) }
     this.persistLater()
-    this.emit()
+    this.bump()
   }
 
   resetConfig(id: string): void {
@@ -88,53 +86,23 @@ export class PluginRegistry {
     if (!e) return
     e.config = defaultsOf(e.plugin.config)
     this.persistLater()
-    this.emit()
+    this.bump()
   }
 
   /** Rafraîchissement manuel (`data.refresh === 'manual'`) : le `PluginHost` observe le tick. */
   requestRefresh(id: string): void {
     this.ticks.set(id, (this.ticks.get(id) ?? 0) + 1)
-    this.emit()
+    this.bump()
   }
 
   refreshTick(id: string): number {
     return this.ticks.get(id) ?? 0
   }
 
-  // Champ fléché LIÉ : `useSyncExternalStore` reçoit `engine.plugins.on` détaché de son
-  // receveur (sans `.call`), une méthode de classe classique y perdrait son `this`.
-  on = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
-
-  /** Flush la persistance en attente (démontage du moteur). */
-  dispose(): void {
-    if (this.saveTimer !== undefined) {
-      clearTimeout(this.saveTimer)
-      this.saveTimer = undefined
-      this.persistNow()
-    }
-  }
-
-  private emit(): void {
-    this.version++
-    for (const cb of this.listeners) cb()
-  }
-
-  private persistLater(): void {
-    if (!this.storageKey) return
-    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
-    this.saveTimer = setTimeout(() => {
-      this.saveTimer = undefined
-      this.persistNow()
-    }, this.persistDebounceMs)
-  }
-
-  private persistNow(): void {
-    if (!this.storageKey) return
+  // Persiste le PARTIEL (écart aux défauts) : survit aux évolutions de schéma.
+  protected serialize(): Record<string, PluginState> {
     const out: Record<string, PluginState> = {}
     for (const [id, e] of this.entries) out[id] = { enabled: e.enabled, config: partialOf(e.config, e.plugin.config) }
-    writeStoredJSON(this.storageKey, out)
+    return out
   }
 }
