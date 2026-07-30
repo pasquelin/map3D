@@ -126,16 +126,25 @@ export class PedestrianController {
    * Entre en première personne au-dessus d'un point de rue validé. Le cap initial reprend
    * l'azimut courant de la caméra projeté au sol : l'utilisateur continue de regarder dans
    * la direction qu'il regardait, et la plongée ne le désoriente pas.
+   *
+   * `look` court-circuite cette reprise : c'est le chemin d'une vue MÉMORISÉE, où le regard
+   * à restituer est celui d'alors, pas celui de la caméra qu'on quitte. Le tangage y passe
+   * par `clampPitch`, comme tout regard qui vient du dehors.
    */
-  enter(p: LatLng, groundHeight: number): void {
+  enter(p: LatLng, groundHeight: number, look?: { heading: number; pitch: number }): void {
     this.at.lat = p.lat
     this.at.lng = p.lng
     this.groundHeight = groundHeight
-    this.pitchRad = 0
+    this.pitchRad = look ? clampPitch(look.pitch, this.config.pedestrian.pitchMaxDeg) : 0
     this.lookDx = 0
     this.lookDy = 0
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, groundHeight)
     this.groundWorld.copy(this.origin)
+    if (look) {
+      this.headingRad = look.heading
+      this.applyPose()
+      return
+    }
     // Axe de visée courant projeté sur le plan tangent → cap. Au nadir il dégénère (on
     // regarde le long de la verticale) : le haut de l'écran prend alors le relais, exactement
     // comme dans `applyKeyNav`.
