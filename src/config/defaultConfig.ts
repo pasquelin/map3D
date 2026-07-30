@@ -126,7 +126,7 @@ export const defaultConfig: MapConfig = {
     // ⚠️ Le volume venait NÉCESSAIREMENT des tuiles photoréalistes dès qu'un token ou une
     // clé était fourni. Il vient désormais du serveur interne (bâtiments extrudés) ;
     // `'external'` rétablit les tuiles photoréalistes.
-    tiles3d: { provider: 'internal', cesiumIonAssetId: '2275207' },
+    tiles3d: { provider: 'internal', cesiumIonAssetId: '2275207', autoHide: { hideBelowZoom: 14, showAboveZoom: 15 } },
 
     // Volume du fournisseur interne. Les noms d'attributs sont ceux du schéma
     // OpenMapTiles ; ils se règlent pour un serveur qui en publierait d'autres.
@@ -212,6 +212,14 @@ export const defaultConfig: MapConfig = {
       defaultCategories: ['shapes', 'freehand', 'symbols'],
       defaultApply: 'merge',
       allowExport: true,
+      // ⚠️ Nouveau : la vue mémorisée. Proposée mais DÉCOCHÉE d'avance — un template
+      // reste d'abord un dessin, et rejouer un cadrage qu'on n'a pas demandé serait la
+      // pire surprise possible. Rejouée en revanche dès qu'un template en porte une,
+      // sans quoi la sauvegarder n'aurait aucun effet visible.
+      saveView: true,
+      defaultSaveView: false,
+      applyView: true,
+      viewFlyDuration: 1.2,
     },
   },
 

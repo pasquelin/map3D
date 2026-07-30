@@ -3,6 +3,7 @@ import {
   mdiClose,
   mdiContentSaveEditOutline,
   mdiContentSaveOutline,
+  mdiCrosshairsGps,
   mdiLockOutline,
   mdiPencilOutline,
   mdiPlus,
@@ -84,6 +85,12 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
   const tipOf = (label: string): Record<string, string> => tipProps(tid, label, undefined, labels.format.shortcut)
   const [name, setName] = useState('')
   const [cats, setCats] = useState<Set<TemplateCategory>>(() => new Set(view.defaultCategories))
+  /**
+   * « Mémoriser aussi la vue ». Volontairement HORS de `cats` : une vue n'est pas une
+   * catégorie de dessin (`TemplateCategory` se dérive d'un `DrawTool`), et les mélanger
+   * ferait filtrer des formes par une case qui ne parle pas de formes.
+   */
+  const [withView, setWithView] = useState(view.defaultSaveView)
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null)
   /** Mode d'application au clic sur une ligne, initialisé sur `providers.templates.defaultApply`. */
   const [applyMode, setApplyMode] = useState<ApplyMode>(view.defaultApply)
@@ -99,10 +106,12 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
       return next
     })
 
-  const canSave = name.trim().length > 0 && cats.size > 0 && !view.busy
+  // Un template de VUE SEULE est légitime (« Vernon », « Nice ») : sans la case cochée il
+  // faut au moins une catégorie, avec elle il y a déjà quelque chose à enregistrer.
+  const canSave = name.trim().length > 0 && (cats.size > 0 || withView) && !view.busy
   const onSave = () => {
     if (!canSave) return
-    void view.saveCurrent(name.trim(), [...cats])
+    void view.saveCurrent(name.trim(), [...cats], { view: withView })
     setName('')
   }
 
@@ -130,6 +139,19 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
             </label>
           ))}
         </div>
+        {/* Groupe SÉPARÉ des catégories : ce qu'on mémorise ici n'est pas du dessin mais
+            l'endroit d'où on le regarde — d'où sa propre consigne. */}
+        {view.saveView && (
+          <>
+            <div className="m3d-tplcats">
+              <label className="m3d-tagrow m3d-tplcat">
+                <input type="checkbox" checked={withView} onChange={() => setWithView((v) => !v)} />
+                <span className="m3d-taglabel">{t.view}</span>
+              </label>
+            </div>
+            <div className="m3d-tplsave-hint">{t.viewHint}</div>
+          </>
+        )}
         <button className="m3d-tplbtn-full" onClick={onSave} disabled={!canSave}>
           <UiIcon path={mdiPlus} />
           {t.save}
@@ -182,6 +204,13 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
               <div className="m3d-tplmeta">
                 <div className="m3d-tplrow-head">
                   {nameEl}
+                  {/* Un clic ne fait pas la même chose selon que le template porte une vue
+                      ou non (il déplace la carte) : ça doit se voir AVANT de cliquer. */}
+                  {tpl.content.view && (
+                    <span className="m3d-tpl-tag" {...tipOf(t.hasView)}>
+                      <UiIcon path={mdiCrosshairsGps} />
+                    </span>
+                  )}
                   {tpl.origin === 'api' && <span className="m3d-tpl-tag">{t.shared}</span>}
                   {tpl.readOnly && (
                     <span className="m3d-tpl-tag m3d-tpl-ro" {...tipOf(t.readOnly)}>
@@ -289,7 +318,10 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
           danger={pending.kind === 'delete'}
           onConfirm={() => {
             if (pending.kind === 'delete') void view.remove(pending.id)
-            else void view.updateFromDrawing(pending.id)
+            // La case « Vue » du formulaire vaut aussi ici : mettre à jour, c'est
+            // réenregistrer l'état courant tel qu'il est coché. Décochée, la vue déjà
+            // enregistrée est CONSERVÉE — on met à jour ce qui est demandé, on n'efface pas.
+            else void view.updateFromDrawing(pending.id, { view: withView })
             setPending(null)
           }}
           onCancel={() => setPending(null)}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import {
+  EMPTY_COLLECTION,
   filterByCategories,
   mergeTemplateInto,
   namespaceTemplate,
@@ -8,6 +9,7 @@ import {
 } from '../../core/templates/collect'
 import type { TemplateProvider } from '../../core/templates/TemplateProvider'
 import type { ApplyDefault, ApplyMode, Template, TemplateCategory } from '../../core/templates/types'
+import { applyView, captureView } from '../../core/templates/view'
 import { useConfig, useLabels, useMapContext } from '../context'
 
 /** Réglages du gestionnaire, tous optionnels (retombent sur `config.providers.templates`). */
@@ -25,6 +27,20 @@ export type UseTemplatesOptions = {
   defaultApply?: ApplyDefault
   /** Autorise l'export/import `.m3dt`. */
   allowExport?: boolean
+  /** Offre la case « Vue » à la sauvegarde (cf. `TemplateView`). */
+  saveView?: boolean
+  /** Case « Vue » cochée d'avance. */
+  defaultSaveView?: boolean
+  /** Rejoue la vue d'un template à son chargement. */
+  applyView?: boolean
+  /** Durée (s) du trajet vers la vue chargée ; `0` = instantané. */
+  viewFlyDuration?: number
+}
+
+/** Ce qu'une sauvegarde emporte en plus du dessin. */
+export type SaveTemplateOptions = {
+  /** Mémorise la vue courante (pose caméra, fond de carte, couches, piéton). */
+  view?: boolean
 }
 
 /** Vue réactive + actions du gestionnaire de templates, consommée par `TemplatesPanel`. */
@@ -34,11 +50,19 @@ export type TemplatesView = {
   defaultCategories: readonly TemplateCategory[]
   defaultApply: ApplyDefault
   allowExport: boolean
+  /** La case « Vue » est-elle offerte au formulaire ? */
+  saveView: boolean
+  /** État initial de cette case. */
+  defaultSaveView: boolean
   /** Une opération réseau (provider) est en cours. */
   busy: boolean
-  saveCurrent: (name: string, cats: readonly TemplateCategory[]) => Promise<void>
-  /** Écrase le contenu d'un template existant avec le dessin courant (mise à jour). */
-  updateFromDrawing: (id: string) => Promise<void>
+  saveCurrent: (name: string, cats: readonly TemplateCategory[], opts?: SaveTemplateOptions) => Promise<void>
+  /**
+   * Écrase le contenu d'un template existant par l'état courant (mise à jour) : le dessin
+   * dans les catégories offertes, et la vue si `opts.view` — un template dont on veut
+   * corriger le seul cadrage n'a pas à être supprimé puis recréé.
+   */
+  updateFromDrawing: (id: string, opts?: SaveTemplateOptions) => Promise<void>
   apply: (id: string, mode: ApplyMode) => void
   rename: (id: string, name: string) => Promise<void>
   remove: (id: string) => Promise<void>
@@ -76,9 +100,18 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
   const defaultCategories = opts.defaultCategories ?? cfg.defaultCategories
   const defaultApply = opts.defaultApply ?? cfg.defaultApply
   const allowExport = opts.allowExport ?? cfg.allowExport
+  const saveView = opts.saveView ?? cfg.saveView
+  const defaultSaveView = opts.defaultSaveView ?? cfg.defaultSaveView
   // Ref pour lire les catégories dans `updateFromDrawing` sans le recréer à chaque render.
   const categoriesRef = useRef(categories)
   categoriesRef.current = categories
+  // Même raison pour les réglages de vue, lus par `apply` : les mettre en dépendance
+  // recréerait le callback (donc re-rendrait toutes les lignes) au moindre ajustement.
+  const viewRef = useRef({
+    apply: opts.applyView ?? cfg.applyView,
+    duration: opts.viewFlyDuration ?? cfg.viewFlyDuration,
+  })
+  viewRef.current = { apply: opts.applyView ?? cfg.applyView, duration: opts.viewFlyDuration ?? cfg.viewFlyDuration }
 
   // Config transmise au provider (endpoints, en-têtes) à la première frame puis à
   // chaque changement — même contrat que `RoutingProvider.setConfig`.
@@ -106,17 +139,19 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
   }, [refresh])
 
   const saveCurrent = useCallback(
-    async (name: string, cats: readonly TemplateCategory[]) => {
+    async (name: string, cats: readonly TemplateCategory[], saveOpts: SaveTemplateOptions = {}) => {
+      // Dessin ABSENT ≠ échec : sans `<DrawLayer>` monté (ou sans catégorie cochée), il
+      // reste une vue à mémoriser. Refuser ici rendait tout template de vue seule
+      // impossible, alors que c'est justement le cas « un template par site ».
       const port = reg.drawPort
-      if (!port) return
-      const draw = filterByCategories(port.toGeoJSON(), cats)
+      const draw = port ? filterByCategories(port.toGeoJSON(), cats) : EMPTY_COLLECTION
       const now = Date.now()
       const provider = providerRef.current
       const base: Template = {
         id: newId(),
         name,
         origin: provider ? 'api' : 'local',
-        content: { draw },
+        content: saveOpts.view ? { draw, view: captureView(engine) } : { draw },
         stats: statsOf(draw),
         createdAt: now,
         updatedAt: now,
@@ -133,17 +168,27 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
         reg.save(base)
       }
     },
-    [reg],
+    [reg, engine],
   )
 
   const updateFromDrawing = useCallback(
-    async (id: string) => {
+    async (id: string, saveOpts: SaveTemplateOptions = {}) => {
       const port = reg.drawPort
       const current = reg.get(id)
-      if (!port || !current || current.readOnly) return
+      if (!current || current.readOnly) return
       // Recapture le dessin courant avec les catégories offertes (mêmes que la sauvegarde).
-      const draw = filterByCategories(port.toGeoJSON(), categoriesRef.current)
-      const next: Template = { ...current, content: { draw }, stats: statsOf(draw), updatedAt: Date.now() }
+      // Sans couche de dessin, le contenu déjà enregistré est CONSERVÉ : une mise à jour ne
+      // doit pas vider un dessin au prétexte qu'on ne peut pas le relire.
+      const draw = port ? filterByCategories(port.toGeoJSON(), categoriesRef.current) : current.content.draw
+      // Vue non demandée = celle déjà en place, pas une suppression : on met à jour ce qui
+      // est coché, on n'efface pas ce qui ne l'est pas.
+      const view = saveOpts.view ? captureView(engine) : current.content.view
+      const next: Template = {
+        ...current,
+        content: view ? { draw, view } : { draw },
+        stats: statsOf(draw),
+        updatedAt: Date.now(),
+      }
       const provider = providerRef.current
       if (provider && current.origin === 'api') {
         setBusy(true)
@@ -157,32 +202,41 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
         reg.save(next)
       }
     },
-    [reg],
+    [reg, engine],
   )
 
   const apply = useCallback(
     (id: string, mode: ApplyMode) => {
-      const port = reg.drawPort
       const t = reg.get(id)
-      if (!port || !t) return
+      if (!t) return
+      // Le dessin ne se pose que s'il y a une couche pour l'accueillir ; la VUE s'applique
+      // dans tous les cas — un template de site peut n'avoir aucune forme.
+      const port = reg.drawPort
       const fc = t.content.draw
       // `fromGeoJSON` est le chemin d'import canonique (gère symbole/polygone/verrou).
-      if (mode === 'replace') {
-        // Namespacé même en remplacement : « retirer » retrouve alors ces formes après
-        // coup, quel que soit le mode par lequel le template a été chargé.
-        port.fromGeoJSON(namespaceTemplate(fc, id))
-      } else {
-        // Fusion et retrait partagent la clé namespacée (`templateId:featureId`) : la
-        // fusion la pose, le retrait la reconnaît. D'où l'idempotence de l'un et la
-        // précision de l'autre, sans correspondance géométrique approximative.
-        const current = port.toGeoJSON()
-        const next = mode === 'remove' ? removeTemplateFrom(current, fc, id) : mergeTemplateInto(current, fc, id)
-        if (next.features.length === current.features.length) return // rien à changer
-        port.fromGeoJSON(next)
+      if (port) {
+        if (mode === 'replace') {
+          // Namespacé même en remplacement : « retirer » retrouve alors ces formes après
+          // coup, quel que soit le mode par lequel le template a été chargé.
+          port.fromGeoJSON(namespaceTemplate(fc, id))
+        } else {
+          // Fusion et retrait partagent la clé namespacée (`templateId:featureId`) : la
+          // fusion la pose, le retrait la reconnaît. D'où l'idempotence de l'un et la
+          // précision de l'autre, sans correspondance géométrique approximative.
+          const current = port.toGeoJSON()
+          const next = mode === 'remove' ? removeTemplateFrom(current, fc, id) : mergeTemplateInto(current, fc, id)
+          // Longueur inchangée = rien à poser. Un `return` ici coupait aussi la vue :
+          // recliquer un template déjà chargé doit au moins y ramener la caméra.
+          if (next.features.length !== current.features.length) port.fromGeoJSON(next)
+        }
+      }
+      // « Retirer » ne déplace JAMAIS la carte : on enlève des formes, on ne visite pas.
+      if (t.content.view && mode !== 'remove' && viewRef.current.apply) {
+        applyView(engine, t.content.view, { duration: viewRef.current.duration })
       }
       reg.notifyApply(id, mode)
     },
-    [reg],
+    [reg, engine],
   )
 
   const rename = useCallback(
@@ -241,15 +295,20 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
   const importFile = useCallback(
     async (file: File) => {
       const parsed = JSON.parse(await file.text()) as { format?: string; template?: Template }
-      if (parsed.format !== M3DT_FORMAT || !parsed.template?.content?.draw) return
-      const draw = parsed.template.content.draw
+      if (parsed.format !== M3DT_FORMAT || !parsed.template?.content) return
+      // Un fichier de vue seule n'a pas de dessin : exiger `draw` rejetait tout template
+      // de site. La collection vide est un contenu valide, pas un trou.
+      const draw = parsed.template.content.draw ?? EMPTY_COLLECTION
+      const view = parsed.template.content.view
       const now = Date.now()
       // Importé = local : identité neuve pour ne pas percuter un id backend existant.
       reg.save({
         id: newId(),
         name: parsed.template.name || labels.importedName,
         origin: 'local',
-        content: { draw },
+        // La vue traverse l'import : sans ça, exporter puis réimporter un template de site
+        // en perdait silencieusement tout l'intérêt.
+        content: view ? { draw, view } : { draw },
         stats: statsOf(draw),
         createdAt: now,
         updatedAt: now,
@@ -270,6 +329,8 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
     defaultCategories,
     defaultApply,
     allowExport,
+    saveView,
+    defaultSaveView,
     busy,
     saveCurrent,
     updateFromDrawing,

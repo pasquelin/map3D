@@ -358,6 +358,27 @@ export type Tiles3dConfig = {
    * son espèce à vivre hors de `providers`.
    */
   cesiumIonAssetId: string
+  /** Extinction automatique du volume au dézoom — cf. `VolumeAutoHide`. */
+  autoHide: VolumeAutoHide
+}
+
+/**
+ * Dézoom auto-désactivant le volume 3D. Au-delà (zoom bas), le volume — tuiles
+ * photoréalistes OU bâtiments extrudés, indifféremment — n'apporte plus rien de lisible,
+ * et son chargement borné au budget laisse un « carré » de détail dans le vide. La garde
+ * le **gèle** (aucune requête, ressources et facturation calmées) et le masque au profit
+ * du seul fond 2D plan.
+ *
+ * La bande `[hideBelowZoom, showAboveZoom]` fait DEUX choses à la fois : l'hystérésis (pas
+ * de clignotement à la frontière) et la zone de **fondu** (opacité du volume interpolée sur
+ * la bande, même courbe que le fondu du ciel). `hideBelowZoom <= 0` désactive la garde —
+ * comportement historique, le volume reste allumé quel que soit le zoom.
+ */
+export type VolumeAutoHide = {
+  /** Zoom sous lequel le volume est totalement éteint (fond 2D seul). `<= 0` = jamais. */
+  hideBelowZoom: number
+  /** Zoom au-dessus duquel le volume est plein. Entre les deux bornes : fondu. */
+  showAboveZoom: number
 }
 
 /**
@@ -440,7 +461,7 @@ export type TemplatesConfig = {
   /** En-têtes du provider HTTP par défaut (auth d'un proxy serveur). */
   headers: Readonly<Record<string, string>>
   fetch: FetchPolicy
-  /** Catégories offertes à la sauvegarde — réglable, jamais en dur dans l'UI. */
+  /** Catégories de DESSIN offertes à la sauvegarde — réglable, jamais en dur dans l'UI. */
   categories: readonly TemplateCategory[]
   /** Catégories cochées par défaut dans le formulaire « Sauver ». */
   defaultCategories: readonly TemplateCategory[]
@@ -448,6 +469,22 @@ export type TemplatesConfig = {
   defaultApply: ApplyDefault
   /** Autorise l'export/import de fichiers `.m3dt`. */
   allowExport: boolean
+  /**
+   * Offre la case « Vue » au formulaire : un template mémorise alors AUSSI d'où on
+   * regarde (pose caméra, fond de carte, filtre « Couches », vue piéton) — de quoi avoir
+   * un template par site plutôt qu'un dessin sans lieu. Cf. `TemplateView`.
+   */
+  saveView: boolean
+  /** Case « Vue » cochée d'avance. Sans effet si `saveView` est faux. */
+  defaultSaveView: boolean
+  /**
+   * Rejoue la vue d'un template à son chargement (modes « ajouter » et « remplacer » —
+   * « retirer » ne déplace jamais la carte). `false` charge les formes sans bouger : le
+   * réglage d'une application qui pilote son cadrage elle-même.
+   */
+  applyView: boolean
+  /** Durée (s) du trajet vers la vue chargée ; `0` = repositionnement instantané. */
+  viewFlyDuration: number
 }
 
 export type ProvidersConfig = {

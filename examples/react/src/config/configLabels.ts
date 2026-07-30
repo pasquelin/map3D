@@ -162,6 +162,10 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.templates.defaultCategories': 'catégories cochées par défaut',
   'providers.templates.defaultApply': 'mode d’application par défaut',
   'providers.templates.allowExport': 'export/import .m3dt',
+  'providers.templates.saveView': 'proposer de mémoriser la vue',
+  'providers.templates.defaultSaveView': 'vue cochée par défaut',
+  'providers.templates.applyView': 'rejouer la vue au chargement',
+  'providers.templates.viewFlyDuration': 'durée du trajet vers la vue (s)',
 
   // ── providers, divers ──────────────────────────────────────────────────────
   'providers.tiles3d.provider': 'fournisseur du volume',
@@ -190,6 +194,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.retryDelays': 'délais entre essais (ms)',
   'providers.buildings.pickFields': 'attributs remontés au clic',
   'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
+  'providers.tiles3d.autoHide': 'extinction 3D au dézoom',
+  'providers.tiles3d.autoHide.hideBelowZoom': 'zoom d’extinction',
+  'providers.tiles3d.autoHide.showAboveZoom': 'zoom de plein volume',
   'providers.symbols.cacheMaxEntries': 'cache de vignettes',
 
   // ── interaction ────────────────────────────────────────────────────────────

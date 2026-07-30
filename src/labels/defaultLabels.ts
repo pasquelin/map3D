@@ -87,6 +87,9 @@ export const defaultLabels: MapLabels = {
     importedName: 'Import',
     category: { shapes: 'Formes', freehand: 'Main levée', symbols: 'Symboles' },
     stats: { pair: '{label} {count}', bytes: '{count} o' },
+    view: 'Vue',
+    viewHint: 'Position, orientation, type de carte et couches affichées',
+    hasView: 'Ce template rouvre sa vue',
   },
   search: {
     placeholder: 'Rechercher sur la carte…',

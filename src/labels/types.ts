@@ -147,6 +147,12 @@ export type MapLabels = {
     category: { shapes: string; freehand: string; symbols: string }
     /** Stats compactes : paire « libellé nombre » et gabarit de poids (`{count}`). */
     stats: { pair: string; bytes: string }
+    /** Case « mémoriser la vue » du formulaire de sauvegarde. */
+    view: string
+    /** Consigne de la case « Vue » — ce qu'elle emporte réellement. */
+    viewHint: string
+    /** Badge/aria d'un template qui porte une vue. */
+    hasView: string
   }
   /** `<SearchBox>` (le prop `placeholder` du composant reste prioritaire). */
   search: {
