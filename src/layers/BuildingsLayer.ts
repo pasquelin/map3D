@@ -190,6 +190,30 @@ export class BuildingsLayer {
   }
 
   /**
+   * Opacité globale des volumes (fondu d'extinction au dézoom). Un SEUL matériau partagé :
+   * une écriture suffit pour toutes les tuiles, aucune traversée. `transparent` n'est activé
+   * que pendant le fondu (< 1) — à 1 le rendu reste opaque, sans coût de blending.
+   */
+  setOpacity(opacity: number): void {
+    const transparent = opacity < 1
+    if (this.material.opacity === opacity && this.material.transparent === transparent) return
+    // `opacity` seul est un uniform ré-uploadé à chaque rendu : inutile de lever `needsUpdate`
+    // à chaque frame du fondu. Seul le basculement de `transparent` (blending/depth) impose une
+    // re-évaluation du programme — sans ce garde, ~1 re-éval de matériau était payée par frame.
+    if (this.material.transparent !== transparent) this.material.needsUpdate = true
+    this.material.opacity = opacity
+    this.material.transparent = transparent
+  }
+
+  /**
+   * Libère TOUTES les tuiles montées (géométries + matériaux GPU) — pour rendre la RAM/VRAM
+   * quand le volume est masqué au dézoom. Le `feed` les redemandera au retour sous le seuil.
+   */
+  releaseAll(): void {
+    this.cache.clear()
+  }
+
+  /**
    * Réglages à chaud. Un changement d'origine, de gabarit ou de sémantique des attributs
    * invalide tout ce qui est déjà extrudé — la géométrie en dépend, contrairement aux
    * budgets, qui ne pèsent que sur les demandes suivantes.

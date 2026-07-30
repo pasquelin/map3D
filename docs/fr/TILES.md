@@ -42,6 +42,18 @@ Le fournisseur ne change **que le fond de carte**. Recherche de lieux, routage e
 > justifiait autrefois de traiter l'interne à part était son coût de lancer de rayon ; il
 > est réglé à la source (cf. § 5), pas contourné par un cas particulier.
 
+**Masquage automatique du volume au dézoom.** Vus de loin — ou avec un point visé lointain
+en vue inclinée — les bâtiments internes ne couvrent que quelques pixels, et leur chargement
+borné laisse un « carré » de détail dans le vide. Au-delà, ils sont masqués, **gelés et
+détruits** (RAM/VRAM rendues, rechargés au retour), laissant le seul fond 2D **sans quitter
+le mode `'3d'`** : rezoomer les fait revenir. Le critère est le zoom *perçu* au point visé
+(résolution × distance), donc **valable à toute inclinaison**. Seuls les bâtiments extrudés
+internes sont concernés — pas les tuiles 3D photoréalistes. Réglé par
+`providers.tiles3d.hideVolumeWhenClamped` (`false` = bâtiments toujours affichés), le fondu
+par `providers.tiles3d.volumeFadeMs` (`0` = net) ; `providers.buildings.showZoomOffset`
+accorde quelques crans de sursis sous `providers.buildings.minViewZoom` pour que la 3D et
+les empreintes 2D se relaient proprement.
+
 ## 2. Régler le serveur interne
 
 Une seule valeur change entre un poste de développement et la production :

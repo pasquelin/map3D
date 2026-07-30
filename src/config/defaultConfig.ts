@@ -75,9 +75,15 @@ export const defaultConfig: MapConfig = {
       mountPerFrame: 8,
       maxInflight: 12,
       margin: 1,
-      maxRequest: 140,
+      // ⚠️ 140 → 200 : en vue du dessus, le fond demande UN niveau unique sur toute la vue
+      // (cf. `uniformDetail`). 200 laisse ce niveau atteindre celui des bâtiments (~z14) sur
+      // une vue d'agglomération avant de retomber sur du plus grossier. maxTiles=700 borne.
+      maxRequest: 200,
       maxAttempts: 3,
       retryDelays: [1000, 4000],
+      // Un seul niveau sur toute l'emprise (pas de boîte de détail au centre), à plat comme
+      // incliné. Cascade gardée seulement en marche (piéton).
+      uniformDetail: true,
     },
 
     routing: {
@@ -126,7 +132,12 @@ export const defaultConfig: MapConfig = {
     // ⚠️ Le volume venait NÉCESSAIREMENT des tuiles photoréalistes dès qu'un token ou une
     // clé était fourni. Il vient désormais du serveur interne (bâtiments extrudés) ;
     // `'external'` rétablit les tuiles photoréalistes.
-    tiles3d: { provider: 'internal', cesiumIonAssetId: '2275207', autoHide: { hideBelowZoom: 14, showAboveZoom: 15 } },
+    tiles3d: {
+      provider: 'internal',
+      cesiumIonAssetId: '2275207',
+      hideVolumeWhenClamped: true,
+      volumeFadeMs: 250,
+    },
 
     // Volume du fournisseur interne. Les noms d'attributs sont ceux du schéma
     // OpenMapTiles ; ils se règlent pour un serveur qui en publierait d'autres.
@@ -151,6 +162,9 @@ export const defaultConfig: MapConfig = {
       // caméra (l'emprise s'élargit), donc un seuil à 14 laissait une carte à `zoom={14}`
       // sans le moindre bâtiment. Le budget `maxRequest` borne ce que ce niveau réclame.
       minViewZoom: 13,
+      // 1 : la 3D reste affichée un cran de plus au dézoom (≥ zoom 12), pour démarrer/finir
+      // en même temps que les empreintes de bâtiments du fond 2D (dessinées ~1 zoom plus haut).
+      showZoomOffset: 1,
       margin: 0,
       // ⚠️ Étaient 64 / 4 / 24, calqués sur les budgets du raster — sans rapport avec ce
       // que pèse une tuile de VOLUME (~131 000 triangles pour une tuile z14 parisienne).
@@ -165,7 +179,9 @@ export const defaultConfig: MapConfig = {
       //
       // `maxTiles` doit rester nettement au-dessus de `maxRequest`, sinon un pan évince ce
       // qu'il vient de demander et la file repart en boucle.
-      maxTiles: 36,
+      // ⚠️ 36 → 80 : couvre le carré 7×7 élargi (`maxRequest: 49`) plus la marge de pan.
+      // Reste « nettement au-dessus » de `maxRequest`.
+      maxTiles: 80,
       /**
        * ⚠️ Nouveau — un FILET, pas un budget actif. Une tuile z14 dense pèse ~1,5 Mo de
        * positions (en `int16`), 780 Ko de couleurs, 1,9 Mo d'indices et ~0,7 Mo d'arbre de
@@ -179,7 +195,9 @@ export const defaultConfig: MapConfig = {
        * ELLE qu'il faut baisser pour protéger une machine modeste — le panneau de
        * l'exemple la règle en direct, et l'éviction se voit à l'œil.
        */
-      maxBytes: 256 * 1024 * 1024,
+      // ⚠️ 256 → 448 Mio : suit l'élargissement du carré (80 tuiles denses ≈ 392 Mo). C'est
+      // ELLE qu'il faut BAISSER sur une machine modeste (perte de contexte WebGL sinon).
+      maxBytes: 448 * 1024 * 1024,
       // ⚠️ Étaient les littéraux 10 et 16 de `BuildingsLayer.evict`. Marge plus serrée que
       // celle du raster : une tuile de volume coûte vingt fois plus qu'une texture.
       evictEvery: 10,
@@ -190,7 +208,10 @@ export const defaultConfig: MapConfig = {
       // vue nouvelle arrivait. Étalées, la carte perd une frame au lieu de trois.
       mountPerFrame: 1,
       maxInflight: 2,
-      maxRequest: 25,
+      // ⚠️ 25 → 49 : carré 7×7 (~11 km à Paris) au lieu de 5×5 (~8 km), pour que le volume
+      // remplisse davantage la vue inclinée au lieu d'un petit bloc. Chaque tuile dense pesant
+      // ~4,9 Mo, monter ce budget se paie en RAM (cf. `maxTiles`/`maxBytes`, relevés d'autant).
+      maxRequest: 49,
       maxAttempts: 3,
       retryDelays: [1000, 4000],
       // Vide : un attribut demandé traverse le worker pour CHAQUE emprise de CHAQUE tuile

@@ -257,7 +257,7 @@ export class TiledGlobeLayer {
    * soit plus d'un millier de tuiles jamais regardées — de quoi épuiser le quota
    * Google Map Tiles à chaque chargement de page.
    */
-  update(bounds: Bounds, zoom: number, aim: LatLng, refine = true): void {
+  update(bounds: Bounds, zoom: number, aim: LatLng, refine = true, uniform = false): void {
     if (this.disposed) return
     // Sans source (fournisseur non configuré), ne RIEN mettre en file : les tuiles
     // s'empileraient en attente d'un chargement impossible, pour être rejouées telles
@@ -299,16 +299,36 @@ export class TiledGlobeLayer {
      * couvrent d'immenses surfaces, donc ils sont demandés une fois puis resservis pendant
      * toute la session. Seul le niveau le plus fin se renouvelle en se déplaçant.
      */
+    // Calculé quand on raffine OU en uniforme (le rendu plafonne alors au niveau `covering`) ;
+    // inutile sur le chemin `!refine && !uniform`, on évite alors sa boucle et ses allocations.
+    const { finest, covering } = refine || uniform ? lodLevels(bounds, zoom, this.cfg) : ZERO_LOD
     if (refine) {
-      const { finest, covering } = lodLevels(bounds, zoom, this.cfg)
-      for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
-      if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
+      if (uniform) {
+        // Vue du dessus : niveau `covering` sur toute l'emprise, PLUS chaque niveau plus
+        // grossier en dessous (toujours sur l'emprise entière, jamais en anneau local — donc
+        // aucune boîte de détail). Les niveaux grossiers sont peu nombreux (une tuile y couvre
+        // énormément), chargés d'AVANCE : ils servent de repli net pendant qu'un cran se
+        // charge → transition douce, sans le flash « base floue » d'un niveau unique. C'est le
+        // PREFETCH qui rend le dézoom fluide. Bâtiments partout tant que `covering` atteint
+        // leur niveau (relever `maxRequest` le repousse), sinon uniformément grossier.
+        for (let z = covering; z > baseZ; z--) this.requestLevel(z, bounds, this.cfg.margin)
+      } else {
+        for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
+        if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
+      }
     }
 
     // Rendu : toute tuile prête qui intersecte la vue (base incluse), la plus fine
     // au-dessus (renderOrder + polygonOffset par zoom).
+    //
+    // ⚠️ En UNIFORME, on plafonne au niveau `covering` : sans ça, les tuiles PLUS FINES
+    // laissées en cache (celles qui dessinent les bâtiments, chargées quand on était zoomé)
+    // continuaient d'être peintes par-dessus le niveau uniforme — la « boîte » de détail
+    // réapparaissait au dézoom. Masquées, elles ne sont plus marquées vues → l'éviction les
+    // libère (RAM rendue). C'est le « refresh » de tout le fond à un seul niveau cohérent.
+    const maxRenderZ = uniform ? covering : Infinity
     for (const t of this.cache.values()) {
-      const inView = t.z === baseZ || intersectsView(t, bounds)
+      const inView = t.z === baseZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
       if (t.state === 'ready' && inView) {
         if (!t.mesh) this.buildMesh(t)
         t.mesh!.visible = true
@@ -547,6 +567,10 @@ export type LodLevels = {
    */
   covering: number
 }
+
+// Repli figé quand on ne raffine pas et qu'on n'est pas en uniforme : ses champs ne sont alors
+// jamais lus, mais évite d'appeler `lodLevels` (boucle + allocations) et de réallouer un littéral.
+const ZERO_LOD: LodLevels = { finest: 0, covering: 0 }
 
 /**
  * Bornes de la cascade de détail pour une vue.

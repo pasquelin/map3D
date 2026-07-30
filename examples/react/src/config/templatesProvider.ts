@@ -1,12 +1,10 @@
-import { statsOf, type Template, type TemplateProvider, type TemplateView } from 'map3d'
+import { MapMath, statsOf, type Template, type TemplateProvider, type TemplateView } from 'map3d'
 
 /* ══════════════════ PROVIDER DE TEMPLATES — DÉMO IN-MEMORY ══════════════════
    Simule un backend REST sans serveur : la liste distante prime sur le localStorage,
    et un template « partagé par un autre utilisateur » arrive en lecture seule. Ça
    prouve le contrat (l'API prend la main) dans `pnpm dev:example`, sans dépendance.
    Une vraie app remplacerait ceci par `createHttpTemplateProvider({ baseUrl })`. */
-
-const DEG2RAD = Math.PI / 180
 
 /**
  * Vue mémorisée d'un secteur — ce qui fait qu'un template ROUVRE son cadrage au lieu de
@@ -18,7 +16,7 @@ const demoView = (lat: number, lng: number, altitude: number, tiltDeg: number): 
   lng,
   altitude,
   heading: 0, // plein nord : le secteur est au-dessus du point de vue
-  tilt: tiltDeg * DEG2RAD,
+  tilt: tiltDeg * MapMath.DEG2RAD,
   mapMode: '3d',
   traffic: false,
 })

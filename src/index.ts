@@ -159,7 +159,6 @@ export type {
   RoutingConfig,
   RoutingPresets,
   Tiles3dConfig,
-  VolumeAutoHide,
   DataSearchConfig,
   StartupConfig,
   SkyConfig,

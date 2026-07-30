@@ -54,3 +54,30 @@ export class EnuFrame {
     return g
   }
 }
+
+/** En deçà, la visée projetée est jugée dégénérée (on regarde le long de la verticale). */
+export const HEADING_EPSILON = 1e-8
+
+/**
+ * Direction « devant » de la caméra projetée sur le plan tangent (`up`), avec le repli
+ * délibéré sur le HAUT DE L'ÉCRAN quand la visée dégénère (au nadir on regarde le long de
+ * la verticale, à l'horizon c'est l'inverse — d'où l'ordre : visée d'abord). Écrit dans
+ * `out` (non normalisé) et le retourne ; l'appelant teste `out.lengthSq() < HEADING_EPSILON`
+ * pour la dégénérescence complète (nadir pur).
+ *
+ * Règle unique partagée par `applyKeyNav` (qui exploite le vecteur), `Camera.getPose` et
+ * l'entrée en piéton (qui en tirent un cap via `headingFromForward`).
+ */
+export const projectViewForward = (
+  matrixWorld: THREE.Matrix4,
+  up: THREE.Vector3,
+  out: THREE.Vector3,
+): THREE.Vector3 => {
+  out.set(0, 0, -1).transformDirection(matrixWorld).projectOnPlane(up)
+  if (out.lengthSq() < HEADING_EPSILON) out.set(0, 1, 0).transformDirection(matrixWorld).projectOnPlane(up)
+  return out
+}
+
+/** Cap (rad, 0 = nord, positif vers l'est) d'une visée projetée ; `0` si elle a dégénéré. */
+export const headingFromForward = (forward: THREE.Vector3, east: THREE.Vector3, north: THREE.Vector3): number =>
+  forward.lengthSq() < HEADING_EPSILON ? 0 : Math.atan2(forward.dot(east), forward.dot(north))

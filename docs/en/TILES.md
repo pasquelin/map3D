@@ -42,6 +42,18 @@ tiles remain external services, configured separately (`providers.places`,
 > as a special case was its ray-casting cost; that is fixed at the source (see § 5), not
 > worked around with a special case.
 
+**Volume auto-hide on zoom-out.** Zoomed out — or with a distant aim point in a tilted
+view — the internal buildings cover only a few pixels, and their budget-bounded loading
+leaves a "square" of detail in the void. Past that point they are hidden, **frozen and
+destroyed** (RAM/VRAM freed, reloaded on the way back), leaving the 2D basemap alone
+**without leaving `'3d'` mode**: zooming back in brings them back. The criterion is the
+*perceived* zoom at the aim point (resolution × distance), so it holds **at any tilt**.
+Only the internal extruded buildings are affected — photorealistic 3D tiles are not.
+Toggled by `providers.tiles3d.hideVolumeWhenClamped` (`false` keeps buildings always on),
+the fade by `providers.tiles3d.volumeFadeMs` (`0` = instant); `providers.buildings.showZoomOffset`
+grants a few zoom levels of reprieve below `providers.buildings.minViewZoom` so the 3D and
+the 2D footprints hand off cleanly.
+
 ## 2. Configuring the internal server
 
 A single value changes between a development machine and production:

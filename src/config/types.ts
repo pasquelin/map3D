@@ -209,6 +209,16 @@ export type TilesConfig = {
   maxAttempts: number
   /** Backoff entre deux essais d'une même tuile. */
   retryDelays: readonly number[]
+  /**
+   * Demander UN SEUL niveau de détail sur toute l'emprise (celui qui la couvre dans le budget
+   * `maxRequest`) au lieu de la cascade d'anneaux fins autour du point visé. La cascade
+   * concentre le détail en une **boîte** au centre, grossière autour. Uniforme = même niveau
+   * partout, jamais de boîte partielle — le zoom au point visé décide déjà de la finesse, à
+   * plat comme en vue inclinée. Relever `maxRequest` étend la portée du niveau fin (plus de
+   * RAM). La cascade n'est gardée qu'en **marche** (piéton), où le gradient près→loin à
+   * hauteur d'homme est voulu. `false` = cascade partout (comportement d'origine).
+   */
+  uniformDetail: boolean
 } & TileCacheBudget
 
 /** Réglages communs à un appel réseau sortant. */
@@ -358,27 +368,19 @@ export type Tiles3dConfig = {
    * son espèce à vivre hors de `providers`.
    */
   cesiumIonAssetId: string
-  /** Extinction automatique du volume au dézoom — cf. `VolumeAutoHide`. */
-  autoHide: VolumeAutoHide
-}
-
-/**
- * Dézoom auto-désactivant le volume 3D. Au-delà (zoom bas), le volume — tuiles
- * photoréalistes OU bâtiments extrudés, indifféremment — n'apporte plus rien de lisible,
- * et son chargement borné au budget laisse un « carré » de détail dans le vide. La garde
- * le **gèle** (aucune requête, ressources et facturation calmées) et le masque au profit
- * du seul fond 2D plan.
- *
- * La bande `[hideBelowZoom, showAboveZoom]` fait DEUX choses à la fois : l'hystérésis (pas
- * de clignotement à la frontière) et la zone de **fondu** (opacité du volume interpolée sur
- * la bande, même courbe que le fondu du ciel). `hideBelowZoom <= 0` désactive la garde —
- * comportement historique, le volume reste allumé quel que soit le zoom.
- */
-export type VolumeAutoHide = {
-  /** Zoom sous lequel le volume est totalement éteint (fond 2D seul). `<= 0` = jamais. */
-  hideBelowZoom: number
-  /** Zoom au-dessus duquel le volume est plein. Entre les deux bornes : fondu. */
-  showAboveZoom: number
+  /**
+   * Masque les bâtiments internes quand le zoom AU POINT VISÉ passe sous
+   * `providers.buildings.minViewZoom` (dézoom, ou point visé lointain en vue inclinée) : de
+   * loin ils ne couvrent que quelques pixels et leur chargement borné laisse un « carré »
+   * dans le vide. Ils sont alors masqués, gelés ET **détruits** (RAM/VRAM rendues, rechargés
+   * au retour). Le critère est le zoom perçu (résolution × distance), donc **valable à toute
+   * inclinaison** — contrairement à l'emprise, qui explose à l'horizon dès qu'on incline.
+   * **Le mode ne change pas** (on reste en `'3d'`). `false` = bâtiments toujours affichés.
+   * Interne seulement.
+   */
+  hideVolumeWhenClamped: boolean
+  /** Durée du fondu d'opacité des bâtiments à l'apparition/disparition (ms). `0` = net. */
+  volumeFadeMs: number
 }
 
 /**
@@ -432,6 +434,14 @@ export type BuildingsConfig = {
    * ville pour rien.
    */
   minViewZoom: number
+  /**
+   * Nombre de crans de zoom pendant lesquels les bâtiments 3D restent AFFICHÉS au dézoom
+   * sous `minViewZoom`, avant d'être masqués (cf. `tiles3d.hideVolumeWhenClamped`). Le fond
+   * 2D dessine ses empreintes de bâtiments ~1 zoom au-dessus du zoom utile de la 3D : sans
+   * ce décalage, la 3D disparaît un cran avant les empreintes 2D, laissant un moment où l'on
+   * voit les empreintes sans volume. `1` aligne les deux. `0` = masquage pile à `minViewZoom`.
+   */
+  showZoomOffset: number
   /** Anneau de tuiles préchargées autour du viewport. */
   margin: number
   /** Téléchargements simultanés. */

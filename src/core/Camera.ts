@@ -3,7 +3,7 @@ import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Bounds, LatLng } from '../shared'
 import { type AltitudeForBoundsOptions, altitudeForBounds, centerOfBounds } from './bounds'
-import { EnuFrame } from './enu'
+import { EnuFrame, headingFromForward, projectViewForward } from './enu'
 import type { Projection } from './Projection'
 import { altitudeForZoom, clamp, easeInOutCubic, metersPerPixelAt, zoomForAltitude } from './math'
 
@@ -155,12 +155,10 @@ export class Camera {
     // qu'il fait avec la normale au sol EST l'inclinaison, sans raycast ni point visé.
     const back = new THREE.Vector3(0, 0, 1).transformDirection(this.camera.matrixWorld)
     const tilt = up.angleTo(back)
-    // Visée projetée à plat, repli sur le haut de l'écran quand elle dégénère (nadir :
-    // on regarde le long de la verticale) — la règle d'`applyKeyNav` et de l'entrée en
-    // piéton. À l'horizon c'est l'inverse qui dégénère, d'où l'ordre : visée d'abord.
-    const dir = new THREE.Vector3(0, 0, -1).transformDirection(this.camera.matrixWorld).projectOnPlane(up)
-    if (dir.lengthSq() < 1e-8) dir.set(0, 1, 0).transformDirection(this.camera.matrixWorld).projectOnPlane(up)
-    const heading = dir.lengthSq() < 1e-8 ? 0 : Math.atan2(dir.dot(east), dir.dot(north))
+    // Visée projetée à plat, repli sur le haut de l'écran quand elle dégénère — la règle
+    // partagée par `applyKeyNav` et l'entrée en piéton (cf. `projectViewForward`).
+    const dir = projectViewForward(this.camera.matrixWorld, up, new THREE.Vector3())
+    const heading = headingFromForward(dir, east, north)
     return { ...state, heading, tilt }
   }
 
@@ -271,6 +269,33 @@ export class Camera {
     this.camera.updateMatrixWorld()
   }
 
+  /**
+   * Monte le tween de vol commun à `flyTo`/`flyToPose` — même interpolation, seule la
+   * destination (nadir ou orbitale) diffère. `duration` en secondes (défaut `flyDuration`),
+   * plancher `0.05` s ; `speed` normalise sur 60 fps (le tween avance par frame).
+   */
+  private startFly(
+    toPos: THREE.Vector3,
+    toQuat: THREE.Quaternion,
+    target: LatLng,
+    altitude: number,
+    duration: number | undefined,
+    tag?: string,
+  ): void {
+    const secs = Math.max(0.05, duration ?? this.flyDuration)
+    this.fly = {
+      fromPos: this.camera.position.clone(),
+      fromQuat: this.camera.quaternion.clone(),
+      toPos,
+      toQuat,
+      t: 0,
+      speed: 1 / (secs * 60),
+      target,
+      altitude,
+      tag,
+    }
+  }
+
   /** Version animée de `jumpToPose` — mêmes bornes, même prise de main. */
   flyToPose(pose: CameraState, opts: FlyOptions = {}): void {
     this.followFn = null
@@ -279,18 +304,7 @@ export class Camera {
     const toPos = new THREE.Vector3()
     const toQuat = new THREE.Quaternion()
     this.placeOrbit(target, altitude, pose.heading, this.clampTilt(pose.tilt), toPos, toQuat)
-    const duration = Math.max(0.05, opts.duration ?? this.flyDuration)
-    this.fly = {
-      fromPos: this.camera.position.clone(),
-      fromQuat: this.camera.quaternion.clone(),
-      toPos,
-      toQuat,
-      t: 0,
-      speed: 1 / (duration * 60),
-      target,
-      altitude,
-      tag: opts.tag,
-    }
+    this.startFly(toPos, toQuat, target, altitude, opts.duration, opts.tag)
   }
 
   /** Inclinaison bornée au mode courant, jamais négative (pas de bascule tête en bas). */
@@ -306,18 +320,7 @@ export class Camera {
     const toPos = new THREE.Vector3()
     const toQuat = new THREE.Quaternion()
     this.placeNadir(target, altitude, toPos, toQuat)
-    const duration = Math.max(0.05, opts.duration ?? this.flyDuration)
-    this.fly = {
-      fromPos: this.camera.position.clone(),
-      fromQuat: this.camera.quaternion.clone(),
-      toPos,
-      toQuat,
-      t: 0,
-      speed: 1 / (duration * 60),
-      target,
-      altitude,
-      tag: opts.tag,
-    }
+    this.startFly(toPos, toQuat, target, altitude, opts.duration, opts.tag)
   }
 
   /**

@@ -19,16 +19,17 @@ import {
   canEnterMode,
   deriveBasemapCapabilities,
   type MapMode,
-  volumeFadeForZoom,
 } from './basemap'
 import { boundsOfCircle, boundsOfLatLngs } from './bounds'
 import { Camera, type CameraState } from './Camera'
+import { HEADING_EPSILON, projectViewForward } from './enu'
 import { GroundedState } from './GroundedState'
 import { PedestrianController, type PedestrianPose } from './PedestrianController'
 import { isGroundPlacement } from './pedestrianPlacement'
 import {
   type CameraMode,
   type ImmersionLevel,
+  type LookAngles,
   type PedestrianPhase,
   type PedestrianState,
   samePedestrianState,
@@ -1188,12 +1189,6 @@ export class MapEngine {
 
   /** Type de carte affiché — cf. `MapMode` : 'plan' = carte plate, '3d' = volume. */
   private mapMode: MapMode = '3d'
-  /**
-   * Fondu d'extinction du volume au dézoom (cf. `tiles3d.autoHide`) : `1` = volume plein,
-   * `0` = éteint (fond 2D seul), entre = transition. Recalculé par frame depuis le zoom,
-   * appliqué par `applyVolumeComposition` au seul franchissement — cf. `updateVolumeFade`.
-   */
-  private volumeFade = 1
   private basemapState: BasemapState = deriveBasemapCapabilities(
     '3d',
     {
@@ -1477,7 +1472,7 @@ export class MapEngine {
    * caméra qu'on quitte : c'est ce qui rend une vue piéton MÉMORISABLE, `getPedestrianPose`
    * en étant la lecture symétrique.
    */
-  enterPedestrian(p: LatLng, look?: { heading: number; pitch: number }): boolean {
+  enterPedestrian(p: LatLng, look?: LookAngles): boolean {
     if (!this.pedestrianAvailable()) return false
     const c = this.config.pedestrian.placement
     // Même repli que la validation du curseur : les deux doivent voir le MÊME sol, sinon un
@@ -1735,38 +1730,48 @@ export class MapEngine {
     const rayTarget = external3d ? this.tiles.group : this.internalSurface
     this.controls.setScene(rayTarget)
     this.projection.setRaycastRoot(rayTarget === this.tiles.group ? null : rayTarget)
-    // Visibilité/opacité du volume et du fond 2D : décision commune à la bascule de mode
-    // ET à l'extinction au dézoom (par frame), d'où un point unique — cf. `show3dTileset`
-    // qui n'existe plus qu'à travers `applyVolumeComposition`.
-    void show3dTileset
-    this.applyVolumeComposition()
+    // Le tileset 3D reste en cache (retour instantané) mais n'est ni rendu ni piloté.
+    this.setTiles3DVisible(show3dTileset)
+    this.basemap2d.setVisible(in2d || !external3d)
+    // Les volumes internes n'ont de sens qu'en mode '3d', et seulement si c'est d'eux que
+    // le volume doit venir. `buildingsHidden` : masqués en plus quand ils ne peuvent couvrir
+    // toute la vue (cf. `updateBuildingsFade`) — SANS toucher au fond 2D ni au mode.
+    this.buildings.setVisible(!in2d && !external3d && !this.buildingsHidden)
   }
 
+  /** Bâtiments internes masqués car incapables de couvrir toute la vue (cf. `updateBuildingsFade`). */
+  private buildingsHidden = false
+  /** Opacité courante des bâtiments, animée dans le temps (0 = masqués, 1 = pleins). */
+  private buildingsOpacity = 1
+
   /**
-   * Compose volume 3D + fond 2D selon le mode ET le fondu d'extinction au dézoom
-   * (`this.volumeFade`, cf. `tiles3d.autoHide`). Point d'autorité UNIQUE, appelé par
-   * `applyModeVisibility` (bascule) et par `tick` (franchissement de seuil de zoom) —
-   * les deux écrivent la même chose, `setVisible`/`setOpacity` court-circuitant sur égalité.
-   *
-   * Principe : on éteint le VOLUME (tuiles externes ou bâtiments internes, indifféremment)
-   * et on révèle le fond 2D dessous. En interne le 2D est déjà là ; en externe on l'amène
-   * dès que le volume n'est plus plein (`fade < 1`), et les tuiles se fondent au-dessus.
+   * Affiche les bâtiments internes SEULEMENT s'ils couvrent toute la vue (`want`), sinon les
+   * fond puis les masque, gèle et **détruit** (RAM/VRAM rendues, rechargés au retour). Tout
+   * ou rien — jamais de carré partiel. Fondu piloté par le TEMPS (`volumeFadeMs`), pas par le
+   * zoom : disparition/apparition douce. Ne touche NI le mode NI le fond 2D. Interne seulement.
    */
-  private applyVolumeComposition(): void {
-    const in2d = this.mapMode !== '3d'
-    const external3d = this.provider3d === 'external'
-    // En plan, aucun volume : fade forcé à 0. En 3D, le fondu piloté par le zoom.
-    const fade = in2d ? 0 : this.volumeFade
-    const showVolume = !in2d && fade > 0
-    // Tileset externe : masqué hors 3D, hors budget, ou éteint au dézoom ; opacité = fondu.
-    this.setTiles3DVisible(external3d && showVolume)
-    if (external3d) this.setTiles3DOpacity(fade)
-    // Bâtiments internes : n'ont de sens qu'en 3D interne, et s'éteignent au dézoom.
-    this.buildings.setVisible(!external3d && showVolume)
-    if (!external3d) this.buildings.setOpacity(fade)
-    // Fond 2D : visible en plan, en interne (toujours sous le volume), ou en externe dès que
-    // le volume n'est plus plein — c'est lui qu'on révèle sous les tuiles qui s'effacent.
-    this.basemap2d.setVisible(in2d || !external3d || fade < 1)
+  private updateBuildingsFade(dt: number, want: boolean): void {
+    const cfg = this.config.providers.tiles3d
+    const target = !cfg.hideVolumeWhenClamped || want ? 1 : 0
+    if (this.buildingsOpacity === target && this.buildingsHidden === target <= 0) return
+    // Apparition : montrer AVANT de faire monter l'opacité (sinon le fondu est invisible).
+    if (target > 0 && this.buildingsHidden) {
+      this.buildingsHidden = false
+      this.buildings.setVisible(this.mapMode === '3d' && this.provider3d === 'internal')
+    }
+    const step = cfg.volumeFadeMs > 0 ? (dt * 1000) / cfg.volumeFadeMs : 1
+    this.buildingsOpacity =
+      target > this.buildingsOpacity
+        ? Math.min(target, this.buildingsOpacity + step)
+        : Math.max(target, this.buildingsOpacity - step)
+    this.buildings.setOpacity(this.buildingsOpacity)
+    this.invalidate()
+    // Fondu terminé à 0 : masquer + LIBÉRER la mémoire (le feed recharge au retour).
+    if (this.buildingsOpacity <= 0 && !this.buildingsHidden) {
+      this.buildingsHidden = true
+      this.buildings.setVisible(false)
+      this.buildings.releaseAll()
+    }
   }
 
   /** Masque/affiche uniquement les tuiles 3D — jamais l'ancre des markers ni le globe 2D. */
@@ -1774,49 +1779,6 @@ export class MapEngine {
     // L'ancre des overlays comme la surface interne vivent désormais HORS de ce groupe
     // (cf. `overlayAnchor`, `internalSurface`) : il ne reste ici que des tuiles.
     for (const child of this.tiles.group.children) child.visible = visible
-  }
-
-  /**
-   * Opacité globale du tileset externe (fondu d'extinction au dézoom). Contrairement aux
-   * bâtiments (un matériau partagé), les tuiles photoréalistes portent un matériau chacune,
-   * gérés par le `TilesRenderer` : on traverse. Sauté quand `fade === 1` (cas courant) — le
-   * `transparent` n'est activé que pendant la bande de fondu, jamais en régime opaque.
-   */
-  private setTiles3DOpacity(fade: number): void {
-    if (fade >= 1 && !this.tilesFaded) return
-    this.tilesFaded = fade < 1
-    const transparent = fade < 1
-    this.tiles.group.traverse((o) => {
-      const mat = (o as THREE.Mesh).material as THREE.Material | undefined
-      if (mat && 'opacity' in mat) {
-        mat.opacity = fade
-        mat.transparent = transparent
-      }
-    })
-  }
-
-  /** `true` tant que le tileset porte des matériaux `transparent` (à remettre opaques une fois). */
-  private tilesFaded = false
-
-  /**
-   * Recalcule le fondu du volume depuis le zoom (état de la frame précédente) et l'applique
-   * dès qu'il change. En pleine bande de transition, `volumeFadeForZoom` renvoie une valeur
-   * différente à chaque frame → l'opacité suit ; stable (plein/éteint, ou zoom immobile),
-   * la garde d'égalité coupe court et rien n'est retouché.
-   *
-   * Ne dépend QUE du zoom au centre (stable en vue inclinée, contrairement à `MapView.zoom`)
-   * et de la présence d'un volume (`can3d`) : en plan ou sans volume, le fondu vaut 1 (inerte).
-   */
-  private updateVolumeFade(state: CameraState | null): void {
-    const target =
-      state && this.mapMode === '3d' && this.basemapState.can3d
-        ? volumeFadeForZoom(this.tileZoomAtCenter(state), this.config.providers.tiles3d.autoHide)
-        : 1
-    if (target === this.volumeFade) return
-    this.volumeFade = target
-    this.applyVolumeComposition()
-    // Le volume (dis)paraît ou change d'opacité : une peinture est due sous rendu-à-la-demande.
-    this.invalidate()
   }
 
   /** Altitude du terrain (m) sous le centre écran, suivie en continu en mode 3D et
@@ -2112,14 +2074,11 @@ export class MapEngine {
     if (radius < 1) return
     this.navUp.divideScalar(radius)
 
-    // Axe de visée projeté à plat. Au nadir il devient dégénéré (on regarde le long de la
-    // verticale) : le haut de l'écran prend alors le relais, ce qui est exactement la
-    // direction que l'utilisateur lit comme « devant ».
-    this.navForward.set(0, 0, -1).transformDirection(cam.matrixWorld).projectOnPlane(this.navUp)
-    if (this.navForward.lengthSq() < 1e-8) {
-      this.navForward.set(0, 1, 0).transformDirection(cam.matrixWorld).projectOnPlane(this.navUp)
-    }
-    if (this.navForward.lengthSq() < 1e-8) return
+    // Axe de visée projeté à plat, repli haut-écran au nadir (cf. `projectViewForward`,
+    // règle partagée avec l'entrée en piéton et `getPose`) — la direction que l'utilisateur
+    // lit comme « devant ». Nadir pur : la projection reste nulle, on renonce à la frame.
+    projectViewForward(cam.matrixWorld, this.navUp, this.navForward)
+    if (this.navForward.lengthSq() < HEADING_EPSILON) return
     this.navForward.normalize()
     this.navRight.crossVectors(this.navForward, this.navUp).normalize()
 
@@ -2339,20 +2298,13 @@ export class MapEngine {
       this.clampZoom()
     }
     this.threeCamera.updateMatrixWorld()
-    // Extinction du volume au dézoom (cf. `tiles3d.autoHide`) : recalculée sur l'état de la
-    // frame PRÉCÉDENTE (`lastState`) — une latence d'une frame sur un seuil de zoom est
-    // invisible, et l'état courant n'est calculé que plus bas. Elle décide du gel de l'update
-    // ci-dessous et de l'alimentation du fond 2D plus loin.
-    this.updateVolumeFade(this.lastState)
     // En mode 2D le tileset 3D est masqué : on gèle son update (aucun fetch/parse/LOD en
     // fond) tout en gardant son cache pour un retour instantané. `updateMatrixWorld` reste
     // appelé — le repère du groupe sert encore à la projection (ancrage overlays/2D).
     // Volume interne : même en mode '3d', le tileset photoréaliste reste gelé — c'est ce
     // qui garantit qu'il n'émet aucune requête (donc aucune facturation) quand l'hôte a
     // choisi de reconstruire le volume depuis son propre serveur.
-    // Éteint au dézoom (`volumeFade === 0`) : gelé de même — c'est là tout l'intérêt, ne
-    // plus rien streamer quand le volume n'est pas montré.
-    if (this.mapMode === '3d' && this.provider3d === 'external' && this.volumeFade > 0) {
+    if (this.mapMode === '3d' && this.provider3d === 'external') {
       // Résolution requise par le calcul d'erreur d'écran des tuiles (LOD).
       this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
       this.tiles.update()
@@ -2422,14 +2374,9 @@ export class MapEngine {
      * d'ellipsoïde), dont la moitié des rayons part dans le ciel à l'horizontale au sol — et
      * aucun des deux calques alimentés ici n'est à l'écran en 3D externe.
      */
-    // Externe éteint/en fondu au dézoom (`volumeFade < 1`) : on alimente le fond 2D pour
-    // qu'il soit prêt sous les tuiles qui s'effacent — sinon le 2D resterait figé/vide.
-    const external3dFading = this.mapMode === '3d' && this.provider3d === 'external' && this.volumeFade < 1
-    const feedBasemap =
-      (this.mapMode !== '3d' || this.provider3d === 'internal' || external3dFading) && this.basemap2d.hasSource
-    // Bâtiments internes gelés quand le volume est éteint au dézoom (rien à streamer).
-    const feedBuildings = this.mapMode === '3d' && this.provider3d === 'internal' && this.volumeFade > 0
-    if (feedBasemap || feedBuildings) {
+    const feedBasemap = (this.mapMode !== '3d' || this.provider3d === 'internal') && this.basemap2d.hasSource
+    const internal3d = this.mapMode === '3d' && this.provider3d === 'internal'
+    if (feedBasemap || internal3d) {
       /**
        * Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
        * → la couverture remplit la vue, pas juste une boîte centrale (sinon globe nu autour).
@@ -2458,8 +2405,28 @@ export class MapEngine {
         : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
       const tileZoom = walking ? this.tileZoomWalking(state) : this.tileZoomAtCenter(state)
       const aim = view ? this.aimPoint(view) : this.pedestrianCtl.position
-      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling)
-      if (feedBuildings && due) this.buildings.update(bounds, tileZoom, aim)
+      // Bâtiments internes : affichés seulement quand le zoom AU POINT VISÉ est suffisant.
+      // `tileZoom` tient compte de la DISTANCE (résolution mètres/pixel au centre) : haut/loin
+      // ou dézoomé → zoom bas → masqués ; proche → zoom haut → affichés. Critère indépendant
+      // de l'inclinaison (contrairement à l'emprise, qui explose à l'horizon dès qu'on incline).
+      // Sous `minViewZoom`, les bâtiments « ne couvrent que quelques pixels » (cf. son JSDoc) :
+      // même seuil pour les masquer ET arrêter de les demander. Fondu + destruction RAM inchangés.
+      if (this.provider3d === 'internal') {
+        const b = this.config.providers.buildings
+        // Seuil décalé de `showZoomOffset` : la 3D reste affichée un cran de plus au dézoom,
+        // pour s'aligner sur les empreintes du fond 2D (dessinées ~1 zoom au-dessus).
+        const showAt = b.minViewZoom - b.showZoomOffset
+        const enabled = this.config.providers.tiles3d.hideVolumeWhenClamped
+        this.updateBuildingsFade(dt, internal3d && (!enabled || tileZoom >= showAt))
+      }
+      // Fond 2D en UN niveau uniforme sur toute l'emprise (pas de boîte de détail au centre),
+      // à plat COMME en vue inclinée : le zoom au point visé décide déjà du niveau, l'inclinaison
+      // n'a pas à y changer quoi que ce soit. La cascade n'est gardée qu'en marche (piéton), où
+      // le gradient près→loin à hauteur d'homme est justement voulu.
+      const uniform = this.config.providers.tiles.uniformDetail && !walking
+      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling, uniform)
+      // Gelé quand les bâtiments sont masqués (rien à streamer).
+      if (internal3d && !this.buildingsHidden && due) this.buildings.update(bounds, tileZoom, aim)
     }
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :

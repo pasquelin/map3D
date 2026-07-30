@@ -115,6 +115,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.maxInflight': 'téléchargements simultanés',
   'providers.tiles.margin': 'anneau de préchargement',
   'providers.tiles.maxRequest': 'budget de tuiles par zoom',
+  'providers.tiles.uniformDetail': 'détail uniforme (un seul niveau)',
   'providers.tiles.maxAttempts': 'essais par tuile',
   'providers.tiles.retryDelays': 'délais entre essais (ms)',
 
@@ -190,13 +191,13 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.mountPerFrame': 'tuiles montées par frame',
   'providers.buildings.maxInflight': 'téléchargements simultanés',
   'providers.buildings.maxRequest': 'budget de tuiles par vue',
+  'providers.buildings.showZoomOffset': 'crans d’affichage en plus (dézoom)',
   'providers.buildings.maxAttempts': 'essais par tuile',
   'providers.buildings.retryDelays': 'délais entre essais (ms)',
   'providers.buildings.pickFields': 'attributs remontés au clic',
   'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
-  'providers.tiles3d.autoHide': 'extinction 3D au dézoom',
-  'providers.tiles3d.autoHide.hideBelowZoom': 'zoom d’extinction',
-  'providers.tiles3d.autoHide.showAboveZoom': 'zoom de plein volume',
+  'providers.tiles3d.hideVolumeWhenClamped': 'masquer la 3D si vue non couverte',
+  'providers.tiles3d.volumeFadeMs': 'durée du fondu (ms)',
   'providers.symbols.cacheMaxEntries': 'cache de vignettes',
 
   // ── interaction ────────────────────────────────────────────────────────────

@@ -8,6 +8,12 @@ export type PedestrianPhase = 'placing' | 'active'
 export type ImmersionLevel = 'explore' | 'full'
 
 /**
+ * Regard restitué à l'entrée en piéton — cap et tangage d'une vue MÉMORISÉE, au lieu de
+ * reprendre celui de la caméra qu'on quitte. Rad ; `heading` 0 = nord, `pitch` 0 = horizon.
+ */
+export type LookAngles = { heading: number; pitch: number }
+
+/**
  * État diffusé par l'événement `pedestrian` — patron exact de `BasemapState` : l'objet est
  * STABLE tant que rien ne change, si bien qu'un consommateur React peut le mettre en état
  * sans se re-rendre à chaque émission.

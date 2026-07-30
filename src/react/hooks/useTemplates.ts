@@ -107,11 +107,10 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
   categoriesRef.current = categories
   // Même raison pour les réglages de vue, lus par `apply` : les mettre en dépendance
   // recréerait le callback (donc re-rendrait toutes les lignes) au moindre ajustement.
-  const viewRef = useRef({
-    apply: opts.applyView ?? cfg.applyView,
-    duration: opts.viewFlyDuration ?? cfg.viewFlyDuration,
-  })
-  viewRef.current = { apply: opts.applyView ?? cfg.applyView, duration: opts.viewFlyDuration ?? cfg.viewFlyDuration }
+  const applyEnabled = opts.applyView ?? cfg.applyView
+  const viewFlyDuration = opts.viewFlyDuration ?? cfg.viewFlyDuration
+  const viewRef = useRef({ apply: applyEnabled, duration: viewFlyDuration })
+  viewRef.current = { apply: applyEnabled, duration: viewFlyDuration }
 
   // Config transmise au provider (endpoints, en-têtes) à la première frame puis à
   // chaque changement — même contrat que `RoutingProvider.setConfig`.

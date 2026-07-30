@@ -2,8 +2,10 @@ import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import type { LatLng } from '../shared'
+import { headingFromForward, projectViewForward } from './enu'
 import type { NavKeys } from './NavKeys'
 import { type FeelerHit, slideMove, smoothHeight, stepGround } from './pedestrianCollision'
+import type { LookAngles } from './pedestrianState'
 import type { Projection } from './Projection'
 
 /** Où en est le piéton — lu par `MapEngine` pour composer l'événement `pedestrian`. */
@@ -131,7 +133,7 @@ export class PedestrianController {
    * à restituer est celui d'alors, pas celui de la caméra qu'on quitte. Le tangage y passe
    * par `clampPitch`, comme tout regard qui vient du dehors.
    */
-  enter(p: LatLng, groundHeight: number, look?: { heading: number; pitch: number }): void {
+  enter(p: LatLng, groundHeight: number, look?: LookAngles): void {
     this.at.lat = p.lat
     this.at.lng = p.lng
     this.groundHeight = groundHeight
@@ -145,15 +147,10 @@ export class PedestrianController {
       this.applyPose()
       return
     }
-    // Axe de visée courant projeté sur le plan tangent → cap. Au nadir il dégénère (on
-    // regarde le long de la verticale) : le haut de l'écran prend alors le relais, exactement
-    // comme dans `applyKeyNav`.
-    this.forward.set(0, 0, -1).transformDirection(this.camera.matrixWorld).projectOnPlane(this.up)
-    if (this.forward.lengthSq() < 1e-8) {
-      this.forward.set(0, 1, 0).transformDirection(this.camera.matrixWorld).projectOnPlane(this.up)
-    }
-    this.headingRad =
-      this.forward.lengthSq() < 1e-8 ? 0 : Math.atan2(this.forward.dot(this.east), this.forward.dot(this.north))
+    // Axe de visée courant projeté sur le plan tangent → cap, avec le repli haut-écran au
+    // nadir (cf. `projectViewForward`, règle partagée avec `applyKeyNav` et `getPose`).
+    projectViewForward(this.camera.matrixWorld, this.up, this.forward)
+    this.headingRad = headingFromForward(this.forward, this.east, this.north)
     this.applyPose()
   }
 
