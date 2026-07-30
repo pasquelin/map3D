@@ -378,8 +378,9 @@ Au passage :
 ### ⚠️ Rupture — le fournisseur par défaut devient `'internal'`
 
 `providers.tiles.provider` et `providers.tiles3d.provider` valent désormais `'internal'`,
-et `providers.internal.origin` désigne le serveur de tuiles auto-hébergé du projet.
-Une carte tourne donc **sans aucune clé d'API**, fond 2D et volume compris.
+et `providers.internal.origin` désigne le serveur de tuiles du projet
+(`https://map.gosecure.site`). Une carte tourne donc **sans aucune clé d'API**, fond 2D et
+volume compris.
 
 Conséquences pour un hôte existant :
 

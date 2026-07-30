@@ -141,10 +141,13 @@ describe('applyView', () => {
     expect(f.calls.find((c) => c.name === 'setTrafficVisible')?.arg).toBe(true)
   })
 
+  // `toMatchObject` et non `toEqual` : la vue est passée EN BLOC à `jumpToPose` (elle EST
+  // une `CameraState`), elle porte donc en plus les réglages de carte, que la caméra ignore.
+  // Ce qui compte est que les cinq champs de pose soient ceux qu'on avait sauvés.
   it('repose exactement la pose sauvée', () => {
     const f = fakeEngine()
     applyView(f.engine, orbitView())
-    expect(f.calls.find((c) => c.name === 'jumpToPose')?.arg).toEqual({
+    expect(f.calls.find((c) => c.name === 'jumpToPose')?.arg).toMatchObject({
       lat: 49.09,
       lng: 1.48,
       altitude: 1200,
@@ -196,7 +199,9 @@ describe('applyView', () => {
       f.engine,
       orbitView({ pedestrian: { lat: 43.7, lng: 7.26, heading: 1.2, pitch: -0.1, immersion: 'full' } }),
     )
-    expect(f.calls.find((c) => c.name === 'enterPedestrian')?.arg).toEqual({
+    // Le regard est la vue piéton elle-même (elle EST des `LookAngles`) : elle porte aussi
+    // son point de station et son immersion, dont `enterPedestrian` ne fait rien.
+    expect(f.calls.find((c) => c.name === 'enterPedestrian')?.arg).toMatchObject({
       p: { lat: 43.7, lng: 7.26 },
       look: { heading: 1.2, pitch: -0.1 },
     })
@@ -241,7 +246,7 @@ describe('captureView → applyView', () => {
     const view = captureView(source.engine)
     const target = fakeEngine()
     applyView(target.engine, view)
-    expect(target.calls.find((c) => c.name === 'jumpToPose')?.arg).toEqual({
+    expect(target.calls.find((c) => c.name === 'jumpToPose')?.arg).toMatchObject({
       lat: 43.7,
       lng: 7.26,
       altitude: 800,

@@ -118,25 +118,17 @@ export class TagFilter {
    */
   setSelection(tags: Iterable<string>): void {
     const next = new Set(tags)
-    if (next.size === this.selection.size) {
-      let same = true
-      for (const t of next) {
-        if (!this.selection.has(t)) {
-          same = false
-          break
-        }
-      }
-      if (same) return
-    }
+    // Chemin froid (un chargement de vue, un clic « tout décocher ») : la comparaison
+    // matérialise le tableau plutôt que de dérouler la boucle à la main.
+    if (next.size === this.selection.size && [...next].every((t) => this.selection.has(t))) return
     this.selection.clear()
     for (const t of next) this.selection.add(t)
     this.emitSelection()
   }
 
+  /** Tout décocher — cas particulier de `setSelection`, pour que les deux ne divergent pas. */
   clear(): void {
-    if (this.selection.size === 0) return
-    this.selection.clear()
-    this.emitSelection()
+    this.setSelection([])
   }
 
   /**

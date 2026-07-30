@@ -8,7 +8,15 @@ import {
   statsOf,
 } from '../../core/templates/collect'
 import type { TemplateProvider } from '../../core/templates/TemplateProvider'
-import type { ApplyDefault, ApplyMode, Template, TemplateCategory } from '../../core/templates/types'
+import type {
+  ApplyDefault,
+  ApplyMode,
+  Template,
+  TemplateCategory,
+  TemplateContent,
+  TemplateView,
+} from '../../core/templates/types'
+import type { GeoJSONFeatureCollection } from '../../layers/DrawLayer'
 import { applyView, captureView } from '../../core/templates/view'
 import { useConfig, useLabels, useMapContext } from '../context'
 
@@ -73,6 +81,11 @@ export type TemplatesView = {
 }
 
 const M3DT_FORMAT = 'm3dt'
+
+/** Contenu d'un template — `view` n'est posée que si elle existe (pas de clé `undefined`
+ *  dans le JSON sérialisé). Un 3ᵉ volet s'ajoute ici, pas dans les trois appelants. */
+const contentOf = (draw: GeoJSONFeatureCollection, view?: TemplateView): TemplateContent =>
+  view ? { draw, view } : { draw }
 
 const newId = (): string => {
   const g = globalThis as { crypto?: { randomUUID?: () => string } }
@@ -150,7 +163,7 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
         id: newId(),
         name,
         origin: provider ? 'api' : 'local',
-        content: saveOpts.view ? { draw, view: captureView(engine) } : { draw },
+        content: contentOf(draw, saveOpts.view ? captureView(engine) : undefined),
         stats: statsOf(draw),
         createdAt: now,
         updatedAt: now,
@@ -184,8 +197,11 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
       const view = saveOpts.view ? captureView(engine) : current.content.view
       const next: Template = {
         ...current,
-        content: view ? { draw, view } : { draw },
-        stats: statsOf(draw),
+        content: contentOf(draw, view),
+        // Sans couche de dessin, `draw` EST le contenu déjà enregistré : le re-mesurer
+        // (parcours + `JSON.stringify` + encodage UTF-8 de tout le dessin) reproduirait
+        // octet pour octet des stats qu'on a déjà.
+        stats: port ? statsOf(draw) : current.stats,
         updatedAt: Date.now(),
       }
       const provider = providerRef.current
@@ -218,10 +234,12 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
           // Namespacé même en remplacement : « retirer » retrouve alors ces formes après
           // coup, quel que soit le mode par lequel le template a été chargé.
           port.fromGeoJSON(namespaceTemplate(fc, id))
-        } else {
+        } else if (fc.features.length) {
           // Fusion et retrait partagent la clé namespacée (`templateId:featureId`) : la
           // fusion la pose, le retrait la reconnaît. D'où l'idempotence de l'un et la
           // précision de l'autre, sans correspondance géométrique approximative.
+          // Template sans forme (une vue seule) : rien à fusionner ni à retirer, et les deux
+          // sérialisations complètes du dessin courant seraient pour rien.
           const current = port.toGeoJSON()
           const next = mode === 'remove' ? removeTemplateFrom(current, fc, id) : mergeTemplateInto(current, fc, id)
           // Longueur inchangée = rien à poser. Un `return` ici coupait aussi la vue :
@@ -307,7 +325,7 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
         origin: 'local',
         // La vue traverse l'import : sans ça, exporter puis réimporter un template de site
         // en perdait silencieusement tout l'intérêt.
-        content: view ? { draw, view } : { draw },
+        content: contentOf(draw, view),
         stats: statsOf(draw),
         createdAt: now,
         updatedAt: now,

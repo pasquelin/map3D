@@ -22,7 +22,7 @@ import {
 } from './basemap'
 import { boundsOfCircle, boundsOfLatLngs } from './bounds'
 import { Camera, type CameraState } from './Camera'
-import { HEADING_EPSILON, projectViewForward } from './enu'
+import { HEADING_EPSILON, projectViewForward, tiltFromNadir } from './enu'
 import { GroundedState } from './GroundedState'
 import { PedestrianController, type PedestrianPose } from './PedestrianController'
 import { isGroundPlacement } from './pedestrianPlacement'
@@ -1150,8 +1150,8 @@ export class MapEngine {
     const savePos = cam.position.clone()
     const saveQuat = cam.quaternion.clone()
 
-    const tiltFromNadir = (): number => up.angleTo(back.set(0, 0, 1).transformDirection(cam.matrixWorld))
-    const current = tiltFromNadir()
+    const currentTilt = (): number => tiltFromNadir(cam.matrixWorld, up, back)
+    const current = currentTilt()
     const max = Math.min(this.controls.maxAltitude, this.config.camera.maxTilt3d)
     const target = clamp(current + step, 0, max)
     const delta = target - current
@@ -1162,7 +1162,7 @@ export class MapEngine {
       cam.position.copy(savePos).sub(pivot).applyQuaternion(q).add(pivot)
       cam.quaternion.copy(saveQuat).premultiply(q)
       cam.updateMatrixWorld()
-      return tiltFromNadir()
+      return currentTilt()
     }
     // L'axe `right` peut incliner dans un sens ou l'autre : on essaie +δ, et si le
     // résultat n'atteint pas la cible (mauvais sens), on prend −δ.
@@ -1654,7 +1654,16 @@ export class MapEngine {
    */
   private effectiveTilesConfig(): TilesConfig {
     const tiles = this.config.providers.tiles
-    return this.mapMode === '3d' && this.provider3d === 'internal' ? { ...tiles, provider: 'internal' } : tiles
+    return this.internalVolume ? { ...tiles, provider: 'internal' } : tiles
+  }
+
+  /**
+   * Le volume vient-il de `BuildingsLayer` (mode 3D, fournisseur interne) ? Écrite une fois
+   * plutôt que ré-dérivée à chaque site — dont deux en négatif (`!in2d && !external3d`) —,
+   * pour qu'un 3ᵉ fournisseur ou une condition supplémentaire ne s'applique pas à moitié.
+   */
+  private get internalVolume(): boolean {
+    return this.mapMode === '3d' && this.provider3d === 'internal'
   }
 
   /**
@@ -1736,7 +1745,7 @@ export class MapEngine {
     // Les volumes internes n'ont de sens qu'en mode '3d', et seulement si c'est d'eux que
     // le volume doit venir. `buildingsHidden` : masqués en plus quand ils ne peuvent couvrir
     // toute la vue (cf. `updateBuildingsFade`) — SANS toucher au fond 2D ni au mode.
-    this.buildings.setVisible(!in2d && !external3d && !this.buildingsHidden)
+    this.buildings.setVisible(this.internalVolume && !this.buildingsHidden)
   }
 
   /** Bâtiments internes masqués car incapables de couvrir toute la vue (cf. `updateBuildingsFade`). */
@@ -1753,11 +1762,14 @@ export class MapEngine {
   private updateBuildingsFade(dt: number, want: boolean): void {
     const cfg = this.config.providers.tiles3d
     const target = !cfg.hideVolumeWhenClamped || want ? 1 : 0
-    if (this.buildingsOpacity === target && this.buildingsHidden === target <= 0) return
+    // Sortie anticipée seulement si le fondu est arrivé ET que la visibilité correspond —
+    // sinon il reste le masquage (et la libération mémoire) à faire, plus bas.
+    const targetHidden = target <= 0
+    if (this.buildingsOpacity === target && this.buildingsHidden === targetHidden) return
     // Apparition : montrer AVANT de faire monter l'opacité (sinon le fondu est invisible).
     if (target > 0 && this.buildingsHidden) {
       this.buildingsHidden = false
-      this.buildings.setVisible(this.mapMode === '3d' && this.provider3d === 'internal')
+      this.buildings.setVisible(this.internalVolume)
     }
     const step = cfg.volumeFadeMs > 0 ? (dt * 1000) / cfg.volumeFadeMs : 1
     this.buildingsOpacity =
@@ -2375,7 +2387,7 @@ export class MapEngine {
      * aucun des deux calques alimentés ici n'est à l'écran en 3D externe.
      */
     const feedBasemap = (this.mapMode !== '3d' || this.provider3d === 'internal') && this.basemap2d.hasSource
-    const internal3d = this.mapMode === '3d' && this.provider3d === 'internal'
+    const internal3d = this.internalVolume
     if (feedBasemap || internal3d) {
       /**
        * Emprise = TOUT le terrain visible (viewportBounds, borné par l'inclinaison limitée)
@@ -2404,27 +2416,34 @@ export class MapEngine {
         ? view.bounds
         : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
       const tileZoom = walking ? this.tileZoomWalking(state) : this.tileZoomAtCenter(state)
-      const aim = view ? this.aimPoint(view) : this.pedestrianCtl.position
+      // Le point visé ne sert qu'aux anneaux de détail (couche 2D hors uniforme) et aux
+      // bâtiments : ailleurs, son raycast d'ellipsoïde par frame serait pour rien.
+      const uniform = this.config.providers.tiles.uniformDetail && !walking
+      const aim = !view ? this.pedestrianCtl.position : internal3d || !uniform ? this.aimPoint(view) : view.center
       // Bâtiments internes : affichés seulement quand le zoom AU POINT VISÉ est suffisant.
       // `tileZoom` tient compte de la DISTANCE (résolution mètres/pixel au centre) : haut/loin
       // ou dézoomé → zoom bas → masqués ; proche → zoom haut → affichés. Critère indépendant
       // de l'inclinaison (contrairement à l'emprise, qui explose à l'horizon dès qu'on incline).
       // Sous `minViewZoom`, les bâtiments « ne couvrent que quelques pixels » (cf. son JSDoc) :
-      // même seuil pour les masquer ET arrêter de les demander. Fondu + destruction RAM inchangés.
-      if (this.provider3d === 'internal') {
+      // même seuil pour les masquer ET arrêter de les demander.
+      //
+      // Fondu réservé au volume RÉELLEMENT à l'écran : hors mode 3D interne, il n'y a rien à
+      // faire fondre (`applyModeVisibility` a déjà sorti le groupe du graphe), et le faire
+      // quand même réveillait la boucle ~15 frames par bascule 2D pour finir par DÉTRUIRE un
+      // cache de volumes que le retour en 3D doit re-télécharger.
+      if (internal3d) {
         const b = this.config.providers.buildings
         // Seuil décalé de `showZoomOffset` : la 3D reste affichée un cran de plus au dézoom,
         // pour s'aligner sur les empreintes du fond 2D (dessinées ~1 zoom au-dessus).
-        const showAt = b.minViewZoom - b.showZoomOffset
-        const enabled = this.config.providers.tiles3d.hideVolumeWhenClamped
-        this.updateBuildingsFade(dt, internal3d && (!enabled || tileZoom >= showAt))
+        // `hideVolumeWhenClamped` est relu par `updateBuildingsFade`, pas ici : une seule
+        // formulation de la règle, sinon les deux ne restent équivalentes que par chance.
+        this.updateBuildingsFade(dt, tileZoom >= b.minViewZoom - b.showZoomOffset)
       }
       // Fond 2D en UN niveau uniforme sur toute l'emprise (pas de boîte de détail au centre),
       // à plat COMME en vue inclinée : le zoom au point visé décide déjà du niveau, l'inclinaison
-      // n'a pas à y changer quoi que ce soit. La cascade n'est gardée qu'en marche (piéton), où
-      // le gradient près→loin à hauteur d'homme est justement voulu.
-      const uniform = this.config.providers.tiles.uniformDetail && !walking
-      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling, uniform)
+      // n'a pas à y changer quoi que ce soit. La couche lit `uniformDetail` elle-même ; seul
+      // l'état de MARCHE lui vient d'ici, car lui seul est hors de sa config.
+      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling, walking)
       // Gelé quand les bâtiments sont masqués (rien à streamer).
       if (internal3d && !this.buildingsHidden && due) this.buildings.update(bounds, tileZoom, aim)
     }

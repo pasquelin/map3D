@@ -3,7 +3,7 @@ import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Bounds, LatLng } from '../shared'
 import { type AltitudeForBoundsOptions, altitudeForBounds, centerOfBounds } from './bounds'
-import { EnuFrame, headingFromForward, projectViewForward } from './enu'
+import { EnuFrame, bearingFromHeading, headingFromForward, projectViewForward, tiltFromNadir } from './enu'
 import type { Projection } from './Projection'
 import { altitudeForZoom, clamp, easeInOutCubic, metersPerPixelAt, zoomForAltitude } from './math'
 
@@ -146,19 +146,12 @@ export class Camera {
     // elle a une frame de retard, et la vue mémorisée serait celle d'AVANT. Le recalcul est
     // gratuit hors boucle de frame, et c'est le seul point qui rend cette lecture fiable.
     this.camera.updateMatrixWorld()
-    const origin = new THREE.Vector3()
-    const east = new THREE.Vector3()
-    const north = new THREE.Vector3()
-    const up = new THREE.Vector3()
-    this.projection.getENUAxes(state, origin, east, north, up)
-    // Axe +Z caméra = son « arrière », c'est-à-dire la verticale en vue nadir : l'angle
-    // qu'il fait avec la normale au sol EST l'inclinaison, sans raycast ni point visé.
-    const back = new THREE.Vector3(0, 0, 1).transformDirection(this.camera.matrixWorld)
-    const tilt = up.angleTo(back)
+    const frame = new EnuFrame(this.projection, state)
+    const tilt = tiltFromNadir(this.camera.matrixWorld, frame.up, new THREE.Vector3())
     // Visée projetée à plat, repli sur le haut de l'écran quand elle dégénère — la règle
     // partagée par `applyKeyNav` et l'entrée en piéton (cf. `projectViewForward`).
-    const dir = projectViewForward(this.camera.matrixWorld, up, new THREE.Vector3())
-    const heading = headingFromForward(dir, east, north)
+    const dir = projectViewForward(this.camera.matrixWorld, frame.up, new THREE.Vector3())
+    const heading = headingFromForward(dir, frame.east, frame.north)
     return { ...state, heading, tilt }
   }
 
@@ -219,19 +212,13 @@ export class Camera {
     outPos: THREE.Vector3,
     outQuat: THREE.Quaternion,
   ): void {
-    const origin = new THREE.Vector3()
-    const east = new THREE.Vector3()
-    const north = new THREE.Vector3()
-    const up = new THREE.Vector3()
-    this.projection.getENUAxes(p, origin, east, north, up)
+    const { origin, east, north, up } = new EnuFrame(this.projection, p)
     outPos.copy(origin).addScaledVector(up, altitude)
     // Direction du cap dans le plan tangent, puis base caméra three.js (X = droite,
     // Y = haut de l'écran, Z = arrière). Écrite d'un seul tenant plutôt qu'en deux
     // rotations enchaînées : au nadir le cap se lit sur Y, à l'horizon sur −Z, et cette
     // base est continue entre les deux — donc aucun cas limite à traiter à part.
-    const bearing = new THREE.Vector3()
-      .addScaledVector(north, Math.cos(heading))
-      .addScaledVector(east, Math.sin(heading))
+    const bearing = bearingFromHeading(heading, east, north, new THREE.Vector3())
     const z = new THREE.Vector3().addScaledVector(up, Math.cos(tilt)).addScaledVector(bearing, -Math.sin(tilt))
     const y = new THREE.Vector3().addScaledVector(bearing, Math.cos(tilt)).addScaledVector(up, Math.sin(tilt))
     const x = new THREE.Vector3().crossVectors(y, z)
@@ -260,13 +247,28 @@ export class Camera {
   jumpToPose(pose: CameraState): void {
     this.fly = null
     this.followFn = null
-    const pos = new THREE.Vector3()
-    const quat = new THREE.Quaternion()
-    const p: LatLng = { lat: pose.lat, lng: pose.lng }
-    this.placeOrbit(p, this.clampAltitude(p, pose.altitude), pose.heading, this.clampTilt(pose.tilt), pos, quat)
+    const { pos, quat } = this.poseTarget(pose)
     this.camera.position.copy(pos)
     this.camera.quaternion.copy(quat)
     this.camera.updateMatrixWorld()
+  }
+
+  /**
+   * Destination bornée d'une pose mémorisée — le calcul commun à `jumpToPose` et
+   * `flyToPose`, dont seule la SUITE diffère (poser la caméra, ou l'y emmener). Les deux
+   * bornes doivent rester appliquées ensemble : un correctif sur l'une ne peut pas oublier
+   * l'autre chemin.
+   */
+  private poseTarget(
+    pose: CameraState,
+    altitudeOverride?: number,
+  ): { target: LatLng; altitude: number; pos: THREE.Vector3; quat: THREE.Quaternion } {
+    const target: LatLng = { lat: pose.lat, lng: pose.lng }
+    const altitude = this.clampAltitude(target, altitudeOverride ?? pose.altitude)
+    const pos = new THREE.Vector3()
+    const quat = new THREE.Quaternion()
+    this.placeOrbit(target, altitude, pose.heading, this.clampTilt(pose.tilt), pos, quat)
+    return { target, altitude, pos, quat }
   }
 
   /**
@@ -299,12 +301,8 @@ export class Camera {
   /** Version animée de `jumpToPose` — mêmes bornes, même prise de main. */
   flyToPose(pose: CameraState, opts: FlyOptions = {}): void {
     this.followFn = null
-    const target: LatLng = { lat: pose.lat, lng: pose.lng }
-    const altitude = this.clampAltitude(target, opts.altitude ?? pose.altitude)
-    const toPos = new THREE.Vector3()
-    const toQuat = new THREE.Quaternion()
-    this.placeOrbit(target, altitude, pose.heading, this.clampTilt(pose.tilt), toPos, toQuat)
-    this.startFly(toPos, toQuat, target, altitude, opts.duration, opts.tag)
+    const { target, altitude, pos, quat } = this.poseTarget(pose, opts.altitude)
+    this.startFly(pos, quat, target, altitude, opts.duration, opts.tag)
   }
 
   /** Inclinaison bornée au mode courant, jamais négative (pas de bascule tête en bas). */

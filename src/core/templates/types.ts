@@ -6,7 +6,8 @@
 // de chaque feature.
 
 import type { MapMode } from '../basemap'
-import type { ImmersionLevel } from '../pedestrianState'
+import type { CameraState } from '../Camera'
+import type { ImmersionLevel, LookAngles } from '../pedestrianState'
 import type { GeoJSONFeatureCollection } from '../../layers/DrawLayer'
 import type { Bounds } from '../../shared'
 
@@ -39,13 +40,9 @@ export type TemplateStats = {
  * la hauteur du sol se remesure à l'arrivée (`enterPedestrian` la raycaste), et une
  * valeur figée dans un fichier vieillirait avec les tuiles.
  */
-export type TemplatePedestrianView = {
+export type TemplatePedestrianView = LookAngles & {
   lat: number
   lng: number
-  /** Cap (rad), 0 = nord. */
-  heading: number
-  /** Regard vertical (rad), 0 = horizon. */
-  pitch: number
   immersion: ImmersionLevel
 }
 
@@ -59,21 +56,13 @@ export type TemplatePedestrianView = {
  * l'altitude (`zoomForAltitude`) et l'emprise de la pose — les figer serait deux vérités
  * pour un même état, qui divergeraient au premier changement de taille de conteneur.
  */
-export type TemplateView = {
-  lat: number
-  lng: number
-  /** Hauteur de la caméra (m au-dessus de la surface). */
-  altitude: number
-  /** Cap (rad), 0 = nord, positif vers l'est. */
-  heading: number
-  /** Inclinaison (rad), 0 = nadir, π/2 = horizon. */
-  tilt: number
+export type TemplateView = CameraState & {
   mapMode: MapMode
   traffic: boolean
   /**
-   * Sélection du filtre « Couches » — des NOMS de tags, jamais les éléments qu'ils
-   * portent. Absent = ne pas toucher au filtre en place (une vue peut vouloir cadrer
-   * sans rien masquer).
+   * Sélection du filtre « Couches » — des NOMS de tags, jamais les éléments qu'ils portent.
+   * `captureView` l'écrit TOUJOURS (`[]` compris : une vue sans filtre en rétablit un vide).
+   * Absent = ne pas toucher au filtre en place — le cas d'un `.m3dt` d'avant ce champ.
    */
   tags?: readonly string[]
   /** Vue première personne, si c'est là qu'on était. */

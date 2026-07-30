@@ -20,14 +20,11 @@ export type ApplyViewOptions = { duration?: number }
  * alors qu'une copie figée divergerait dès que le conteneur change de taille.
  */
 export function captureView(engine: MapEngine): TemplateView {
-  const pose = engine.camera.getPose()
   const basemap = engine.getBasemap()
+  // La pose est reprise EN BLOC (`TemplateView` étend `CameraState`) : un champ qui s'y
+  // ajoute traverse la capture et la restitution sans édition, donc sans oubli silencieux.
   const view: TemplateView = {
-    lat: pose.lat,
-    lng: pose.lng,
-    altitude: pose.altitude,
-    heading: pose.heading,
-    tilt: pose.tilt,
+    ...engine.camera.getPose(),
     mapMode: basemap.mode,
     traffic: basemap.traffic,
     // Des noms de tags, jamais les éléments qu'ils portent — cf. `TagFilter.setSelection`.
@@ -72,15 +69,16 @@ export function applyView(engine: MapEngine, view: TemplateView, opts: ApplyView
   if (view.tags) engine.tags.setSelection(view.tags)
   if (engine.getPedestrian().mode === 'pedestrian') engine.exitPedestrian()
 
-  const pose = { lat: view.lat, lng: view.lng, altitude: view.altitude, heading: view.heading, tilt: view.tilt }
   // Une vue piéton se pose d'un trait : `enterPedestrian` coupe les vols de toute façon, et
   // un survol interrompu à mi-course pour plonger au sol ne serait qu'un à-coup.
-  const duration = view.pedestrian ? 0 : opts.duration
-  if (duration === undefined || duration <= 0) engine.camera.jumpToPose(pose)
-  else engine.camera.flyToPose(pose, { duration })
+  const duration = view.pedestrian ? 0 : (opts.duration ?? 0)
+  // `view` EST une pose (`CameraState`) : passée telle quelle, aucun champ ne se perd.
+  if (duration > 0) engine.camera.flyToPose(view, { duration })
+  else engine.camera.jumpToPose(view)
 
   const walk = view.pedestrian
   if (!walk) return
-  const entered = engine.enterPedestrian({ lat: walk.lat, lng: walk.lng }, { heading: walk.heading, pitch: walk.pitch })
+  // `walk` porte `LookAngles` : il est le regard, pas besoin de le recomposer.
+  const entered = engine.enterPedestrian({ lat: walk.lat, lng: walk.lng }, walk)
   if (entered) engine.setPedestrianImmersion(walk.immersion)
 }

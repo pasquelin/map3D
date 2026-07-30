@@ -256,8 +256,12 @@ export class TiledGlobeLayer {
    * cela, une descente d'intro (zoom 3 → 14) réclame les onze niveaux traversés,
    * soit plus d'un millier de tuiles jamais regardées — de quoi épuiser le quota
    * Google Map Tiles à chaque chargement de page.
+   *
+   * `walking` (piéton en marche) est la seule chose que l'appelant sait et que la couche
+   * ignore : `uniformDetail` est SA config, elle la lit elle-même — sinon la clé n'aurait
+   * pas de propriétaire et un hôte la changerait sans passer par `setConfig`.
    */
-  update(bounds: Bounds, zoom: number, aim: LatLng, refine = true, uniform = false): void {
+  update(bounds: Bounds, zoom: number, aim: LatLng, refine = true, walking = false): void {
     if (this.disposed) return
     // Sans source (fournisseur non configuré), ne RIEN mettre en file : les tuiles
     // s'empileraient en attente d'un chargement impossible, pour être rejouées telles
@@ -299,10 +303,14 @@ export class TiledGlobeLayer {
      * couvrent d'immenses surfaces, donc ils sont demandés une fois puis resservis pendant
      * toute la session. Seul le niveau le plus fin se renouvelle en se déplaçant.
      */
+    // Détail uniforme SAUF en marche, où le gradient près→loin à hauteur d'homme est voulu.
+    const uniform = this.cfg.uniformDetail && !walking
     // Calculé quand on raffine OU en uniforme (le rendu plafonne alors au niveau `covering`) ;
-    // inutile sur le chemin `!refine && !uniform`, on évite alors sa boucle et ses allocations.
-    const { finest, covering } = refine || uniform ? lodLevels(bounds, zoom, this.cfg) : ZERO_LOD
-    if (refine) {
+    // inutile sur le chemin `!refine && !uniform` — `undefined` rend cette absence visible
+    // dans le type, là où un objet de zéros typecheckait comme un vrai LOD.
+    const lod = refine || uniform ? lodLevels(bounds, zoom, this.cfg) : undefined
+    if (refine && lod) {
+      const { finest, covering } = lod
       if (uniform) {
         // Vue du dessus : niveau `covering` sur toute l'emprise, PLUS chaque niveau plus
         // grossier en dessous (toujours sur l'emprise entière, jamais en anneau local — donc
@@ -326,7 +334,7 @@ export class TiledGlobeLayer {
     // continuaient d'être peintes par-dessus le niveau uniforme — la « boîte » de détail
     // réapparaissait au dézoom. Masquées, elles ne sont plus marquées vues → l'éviction les
     // libère (RAM rendue). C'est le « refresh » de tout le fond à un seul niveau cohérent.
-    const maxRenderZ = uniform ? covering : Infinity
+    const maxRenderZ = uniform && lod ? lod.covering : Infinity
     for (const t of this.cache.values()) {
       const inView = t.z === baseZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
       if (t.state === 'ready' && inView) {
@@ -567,10 +575,6 @@ export type LodLevels = {
    */
   covering: number
 }
-
-// Repli figé quand on ne raffine pas et qu'on n'est pas en uniforme : ses champs ne sont alors
-// jamais lus, mais évite d'appeler `lodLevels` (boucle + allocations) et de réallouer un littéral.
-const ZERO_LOD: LodLevels = { finest: 0, covering: 0 }
 
 /**
  * Bornes de la cascade de détail pour une vue.

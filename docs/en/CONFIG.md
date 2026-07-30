@@ -30,7 +30,7 @@ compile error.
 
 | Key | Description | Default |
 |---|---|---|
-| `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ Empty by default: a host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `''` |
+| `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ The default is THE PROJECT's production server, not a public service: a third-party host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `'https://map.gosecure.site'` |
 | `providers.internal.elevationEpsilon` | Ground-elevation change (m) below which the raster basemap and the volumes are NOT rebuilt. Elevation is baked into both layers' geometry: tracking it to the centimetre would replay the whole cache every frame. Shared setting — both must use the exact same reference. ⚠️ Was a literal copied into both layers. | `1` |
 | `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota, **no traffic**). See [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | URL template for an internal raster tile — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` and `{r}` are substituted. No query string is appended: the internal server signs nothing. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |

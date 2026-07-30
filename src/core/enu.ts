@@ -81,3 +81,27 @@ export const projectViewForward = (
 /** Cap (rad, 0 = nord, positif vers l'est) d'une visée projetée ; `0` si elle a dégénéré. */
 export const headingFromForward = (forward: THREE.Vector3, east: THREE.Vector3, north: THREE.Vector3): number =>
   forward.lengthSq() < HEADING_EPSILON ? 0 : Math.atan2(forward.dot(east), forward.dot(north))
+
+/**
+ * Inverse de `headingFromForward` : direction tangente d'un cap. Écrit dans `out` et le
+ * retourne. Le couple (cos → nord, sin → est) EST la convention « 0 = nord, positif vers
+ * l'est » : la tenir ici évite qu'un producteur de cap et un lecteur divergent de 90°.
+ */
+export const bearingFromHeading = (
+  heading: number,
+  east: THREE.Vector3,
+  north: THREE.Vector3,
+  out: THREE.Vector3,
+): THREE.Vector3 => out.set(0, 0, 0).addScaledVector(north, Math.cos(heading)).addScaledVector(east, Math.sin(heading))
+
+/**
+ * Inclinaison (rad, 0 = nadir, π/2 = horizon) lue sur la matrice monde d'une caméra : l'axe
+ * +Z caméra est son « arrière », c'est-à-dire la verticale en vue nadir, donc l'angle qu'il
+ * fait avec la normale au sol EST l'inclinaison — sans raycast ni point visé.
+ *
+ * Partagée par le PRODUCTEUR (`MapEngine.tiltBy`, à la souris) et le LECTEUR
+ * (`Camera.getPose`, pour la mémorisation) : écrite deux fois, une vue rechargée aurait fini
+ * par ne plus correspondre à ce que les boutons produisent. `out` est un scratch de travail.
+ */
+export const tiltFromNadir = (matrixWorld: THREE.Matrix4, up: THREE.Vector3, out: THREE.Vector3): number =>
+  up.angleTo(out.set(0, 0, 1).transformDirection(matrixWorld))

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import type { LatLng } from '../shared'
-import { headingFromForward, projectViewForward } from './enu'
+import { bearingFromHeading, headingFromForward, projectViewForward } from './enu'
 import type { NavKeys } from './NavKeys'
 import { type FeelerHit, slideMove, smoothHeight, stepGround } from './pedestrianCollision'
 import type { LookAngles } from './pedestrianState'
@@ -329,10 +329,8 @@ export class PedestrianController {
     // depuis lat/lng (cf. le champ, et le tremblement que cela provoquait).
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, this.groundHeight)
     this.eye.copy(this.groundWorld).addScaledVector(this.up, c.eyeHeightMeters)
-    const sin = Math.sin(this.headingRad)
-    const cos = Math.cos(this.headingRad)
     // Cap dans le plan tangent, puis tangage autour de l'axe « droite » local.
-    this.forward.set(0, 0, 0).addScaledVector(this.north, cos).addScaledVector(this.east, sin)
+    bearingFromHeading(this.headingRad, this.east, this.north, this.forward)
     this.right.crossVectors(this.forward, this.up).normalize()
     this.forward.applyAxisAngle(this.right, -this.pitchRad).normalize()
     this.lookTarget.copy(this.eye).add(this.forward)
