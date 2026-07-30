@@ -19,14 +19,19 @@ export function categoryOf(kind: DrawTool): TemplateCategory | null {
   return 'shapes'
 }
 
-const EMPTY: GeoJSONFeatureCollection = { type: 'FeatureCollection', features: [] }
+/**
+ * Collection vide partagée — sans formes à sauver (aucune catégorie cochée, pas de couche
+ * de dessin montée) le contenu d'un template reste une collection valide, pas un trou.
+ * Jamais mutée : chaque transformation d'ici rend une nouvelle collection.
+ */
+export const EMPTY_COLLECTION: GeoJSONFeatureCollection = { type: 'FeatureCollection', features: [] }
 
 /** Sous-collection ne gardant que les features des catégories demandées. */
 export function filterByCategories(
   fc: GeoJSONFeatureCollection,
   cats: readonly TemplateCategory[],
 ): GeoJSONFeatureCollection {
-  if (!cats.length) return EMPTY
+  if (!cats.length) return EMPTY_COLLECTION
   const set = new Set(cats)
   const features = fc.features.filter((f) => {
     const c = categoryOf(f.properties.kind)
