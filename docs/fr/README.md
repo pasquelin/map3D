@@ -1,10 +1,10 @@
-# @gosecure/map3d — documentation française
+# map3d — documentation française
 
 **Français** · [English](../en/README.md) · [↑ Racine](../../README.md)
 
 Bibliothèque **React de cartographie 3D** (Three.js) : globe → carte plate, markers/clusters DOM, tracés, formes, outils de dessin, données temps réel — **entièrement thémable**.
 
-Conçue pour le *Dashboard Opérateur* GoSecure (alertes par sévérité, agents mobiles géolocalisés), mais générique et agnostique du transport (aucune dépendance Apollo/Socket.IO).
+Conçue pour un *Dashboard Opérateur* (alertes par sévérité, agents mobiles géolocalisés), mais générique et agnostique du transport (aucune dépendance Apollo/Socket.IO).
 
 ## Points clés
 
@@ -93,7 +93,7 @@ carte.
 ## Installation
 
 ```bash
-npm i @gosecure/map3d three react react-dom
+npm i map3d three react react-dom
 ```
 
 `three` et `react`/`react-dom` (19) sont des **peer dependencies**.
@@ -106,7 +106,7 @@ Le SDK de symbologie MIL-STD (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 Mo) es
 import {
   MapProvider, Map, MarkerLayer, MapControls,
   defaultTheme, type MarkerData,
-} from '@gosecure/map3d'
+} from 'map3d'
 
 type Alert = { title: string }
 
@@ -135,7 +135,7 @@ export function App() {
 ## Données dynamiques (bbox + temps réel)
 
 ```tsx
-import type { DataSource, MarkerData } from '@gosecure/map3d'
+import type { DataSource, MarkerData } from 'map3d'
 
 // Rechargé au déplacement (gate de zoom + debounce + annulation intégrés).
 const source: DataSource<MarkerData<Alert>> = {
@@ -772,7 +772,7 @@ Par défaut `altitudeForBounds` borne à `[350 m, 6000 km]` avec une marge de 1.
 
 ⚠️ **Quota** — le fond 2D consomme le quota **Map Tiles API de votre clé Google**, alors que la 3D via `cesiumIonToken` est servie par Cesium Ion : démarrer en 2D *déplace* le coût, il ne le supprime pas. Deux garde-fous côté lib : pendant un vol caméra (l'intro notamment) seuls les niveaux de base sont demandés, au lieu des onze niveaux traversés ; et une tuile en échec est réessayée avec du recul (1 s puis 4 s, trois essais) au lieu d'être abandonnée — un simple `429` laissait sinon des trous définitifs dans la carte. Si vous voyez des `429 Too Many Requests`, vérifiez aussi les quotas par minute du projet dans la console Google Cloud.
 
-## Exemple complet (Dashboard GoSecure)
+## Exemple complet (Dashboard Opérateur)
 
 ```bash
 npm install

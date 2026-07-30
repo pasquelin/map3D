@@ -1,11 +1,11 @@
-# @gosecure/map3d — English documentation
+# map3d — English documentation
 
 [Français](../fr/README.md) · **English** · [↑ Root](../../README.md)
 
 **React 3D mapping library** (Three.js): globe → flat map, DOM markers/clusters, paths,
 shapes, drawing tools, real-time data — **fully themable**.
 
-Built for the GoSecure *Operator Dashboard* (severity-graded alerts, geolocated mobile
+Built for an *Operator Dashboard* (severity-graded alerts, geolocated mobile
 agents), but generic and transport-agnostic (no Apollo/Socket.IO dependency).
 
 ## Highlights
@@ -103,7 +103,7 @@ for one instance: passing nothing follows the map.
 ## Install
 
 ```bash
-npm i @gosecure/map3d three react react-dom
+npm i map3d three react react-dom
 ```
 
 `three` and `react`/`react-dom` (19) are **peer dependencies**.
@@ -118,7 +118,7 @@ not display symbols (see [Symbols](#symbols-a-drag-and-drop-icon-catalogue)).
 import {
   MapProvider, Map, MarkerLayer, MapControls,
   defaultTheme, type MarkerData,
-} from '@gosecure/map3d'
+} from 'map3d'
 
 type Alert = { title: string }
 
@@ -147,7 +147,7 @@ export function App() {
 ## Dynamic data (bbox + real time)
 
 ```tsx
-import type { DataSource, MarkerData } from '@gosecure/map3d'
+import type { DataSource, MarkerData } from 'map3d'
 
 // Refetched on move (zoom gate + debounce + cancellation built in).
 const source: DataSource<MarkerData<Alert>> = {
@@ -1077,7 +1077,7 @@ instead of being abandoned — a single `429` otherwise left permanent holes in 
 you see `429 Too Many Requests`, also check the project's per-minute quotas in the Google
 Cloud console.
 
-## Full example (GoSecure Dashboard)
+## Full example (Operator Dashboard)
 
 ```bash
 npm install

@@ -1,4 +1,4 @@
-# @gosecure/map3d
+# map3d
 
 **React 3D mapping library** (Three.js): globe → flat map, DOM markers/clusters, paths,
 shapes, drawing tools, real-time data — **fully themable**.
@@ -38,7 +38,7 @@ markers/clusters DOM, tracés, formes, outils de dessin, données temps réel �
 ## Install · Installation
 
 ```bash
-npm i @gosecure/map3d three react react-dom
+npm i map3d three react react-dom
 ```
 
 `three` and `react`/`react-dom` (19) are **peer dependencies**.
@@ -50,7 +50,7 @@ not display symbols.
 ## Quick start · Démarrage rapide
 
 ```tsx
-import { Map, markersLayer, type MarkerData } from '@gosecure/map3d'
+import { Map, markersLayer, type MarkerData } from 'map3d'
 
 type Alert = { title: string }
 
@@ -115,7 +115,7 @@ cp examples/react/.env.example examples/react/.env   # set VITE_CESIUM_ION_TOKEN
 pnpm dev:example
 ```
 
-Reproduces the GoSecure operator dashboard: 3D map, severity-clustered alerts refetched
+Reproduces an operator dashboard: 3D map, severity-clustered alerts refetched
 on move, animated agents with camera follow, zones, drawing, light/dark toggle,
 alternative neon theme, fallback globe.
 

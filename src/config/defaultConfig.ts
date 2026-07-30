@@ -11,10 +11,10 @@ import type { MapConfig } from './types'
 export const defaultConfig: MapConfig = {
   providers: {
     // Serveur auto-hébergé, partagé par le fond 2D ET le volume (raster, bâtiments).
-    // Sa production. À remplacer par la vôtre : cette origine est celle du projet, pas
-    // un service public.
+    // Vide par défaut : l'hôte doit renseigner sa propre origine (ou choisir les
+    // fournisseurs `'external'`). Sans elle, les fournisseurs `'internal'` restent inertes.
     internal: {
-      origin: 'https://map.gosecure.site',
+      origin: '',
       // ⚠️ Était le littéral `1` recopié dans les deux calques. Un mètre : sous la
       // précision du suivi d'altitude, et assez grand pour qu'une reconstruction de cache
       // reste un événement rare (une par bascule de mode, en pratique).
@@ -22,8 +22,8 @@ export const defaultConfig: MapConfig = {
     },
 
     tiles: {
-      // ⚠️ Le fond 2D était nécessairement Google, et sa clé obligatoire. Le défaut est
-      // désormais le serveur auto-hébergé : une carte tourne sans aucune clé d'API.
+      // ⚠️ Le fond 2D était nécessairement Google, et sa clé obligatoire. Le défaut vise
+      // désormais le serveur auto-hébergé (`internal.origin`, à renseigner par l'hôte).
       // `'external'` rétablit le fond Google.
       provider: 'internal',
       internalTileUrl: '{origin}/styles/{style}/{z}/{x}/{y}{r}.png',

@@ -106,13 +106,11 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
     kind: 'list',
     options: { 'Google (externe)': 'external', 'serveur interne': 'internal' },
   },
-  // Choix fermé plutôt que saisie libre : les deux origines réellement utilisées sont la
-  // production et le serveur local, et une URL tapée à la main ne se teste qu'en voyant
-  // la carte rester vide. `localhost` dépanne quand la production est hors d'atteinte.
+  // Choix fermé plutôt que saisie libre : une URL tapée à la main ne se teste qu'en
+  // voyant la carte rester vide. `localhost` est le serveur de tuiles de développement.
   'providers.internal.origin': {
     kind: 'list',
     options: {
-      'production — map.gosecure.site': 'https://map.gosecure.site',
       'local — localhost:8090': 'http://localhost:8090',
     },
   },
