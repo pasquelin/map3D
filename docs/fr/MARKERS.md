@@ -174,6 +174,16 @@ symboles tactiques, dont le point d'ancrage est porté par le graphisme lui-mêm
 > `leaderLine` décide de la **structure DOM** d'un nœud à sa création : ce n'est pas
 > un réglage vivant, contrairement à `cullMargin`.
 
+### Où le marker se pose
+
+`settleToGround` (défaut `true`) pose le marker sur la surface réelle et non sur
+l'ellipsoïde — sans quoi il « glisse » vers la rue parallèle au pan (parallaxe). La
+hauteur retenue est le **niveau de rue**, jamais un toit : sous fournisseur interne
+elle est lue analytiquement (la nappe raster, plate et non raycastable), sous tuiles
+photoréalistes c'est le minimum d'une couronne de
+`performance.groundSample.radiusMeters`. La nuance ne se voit pas d'en haut ; à
+hauteur d'homme, un marker calé sur un toit flotte à trente mètres au-dessus de vous.
+
 ### Icône custom
 
 ```tsx
@@ -432,6 +442,19 @@ markers de plusieurs couches, rien ne garantit un `data` commun.
 3. **Éventail automatique** — au-delà de `maxZoom`, tout nœud encore fusionné est un
    chevauchement écran : il est décollé en éventail, chaque marker gardant son propre
    fil vertical vers son point au sol. Replié dès qu'on dézoome.
+4. **Au ras du sol, le déclutter seul** — en mode piéton il ne reste que lui, et c'est le
+   seul qui ait un sens à hauteur d'homme : ce qui se superpose à l'œil devient une
+   pastille, où que soient les points. Le regroupement géographique s'éteint de lui-même
+   (le zoom dérivé de l'altitude passe au-delà de `maxZoom`) et l'éventail est coupé — son
+   rayon vient d'une résolution de carte 2D sous la caméra, qui ne dit rien de la distance
+   d'un marker en vue rasante. Le déclutter, lui, projette alors à la **hauteur réelle** du
+   point : à hauteur d'homme, l'écart entre le sol et l'ellipsoïde pèse plusieurs écrans.
+   Rien à régler : c'est le signal de vue rasante que le moteur diffuse aux couches (cf.
+   [ENGINE § 3](ENGINE.md#3-écrire-une-couche)).
+5. **Borné par la portée de vue** — markers ET pastilles disparaissent au-delà de
+   `pedestrian.viewDistanceMeters`, la borne du `far` et de la fin du brouillard. Un
+   overlay DOM garde sa taille écran quelle que soit la distance : sans cette borne, les
+   alertes d'une ville à 700 km s'alignaient sur l'horizon au gabarit de celles d'en face.
 
 ### Apparence
 

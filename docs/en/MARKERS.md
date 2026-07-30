@@ -173,6 +173,16 @@ symbols, whose anchor point is carried by the artwork itself.
 > `leaderLine` decides the **DOM structure** of a node at creation time: it is not a
 > live setting, unlike `cullMargin`.
 
+### Where the marker settles
+
+`settleToGround` (default `true`) settles the marker on the real surface rather than on
+the ellipsoid — otherwise it "slides" towards the parallel street as you pan (parallax).
+The height used is the **street level**, never a roof: under the internal provider it is
+read analytically (the raster sheet, flat and non-raycastable), under photorealistic tiles
+it is the minimum over a ring of `performance.groundSample.radiusMeters`. The distinction
+is invisible from above; at eye level, a marker settled on a roof floats thirty metres
+over your head.
+
 ### Custom icon
 
 ```tsx
@@ -429,6 +439,20 @@ markers from several layers, so nothing guarantees a common `data`.
 3. **Automatic fan-out** — beyond `maxZoom`, any node still merged is a screen overlap:
    it is spread into a fan, each marker keeping its own vertical thread down to its
    ground point. Folded back as soon as you zoom out.
+4. **At ground level, declutter only** — in pedestrian mode it is the only one left, and
+   the only one that makes sense at eye level: whatever overlaps to the eye becomes a
+   badge, wherever the points are. Geographic clustering switches itself off (the zoom
+   derived from altitude goes past `maxZoom`) and the fan-out is disabled — its radius
+   comes from a 2D map resolution under the camera, which says nothing about a marker's
+   distance in a ground-level view. Declutter then projects at the marker's **real
+   height**: at eye level, the gap between the ground and the ellipsoid spans several
+   screens. Nothing to configure: it is the ground-level view signal the engine broadcasts
+   to layers (see [ENGINE § 3](ENGINE.md#3-writing-a-layer)).
+5. **Bounded by the view distance** — markers AND badges disappear beyond
+   `pedestrian.viewDistanceMeters`, the same bound as the `far` plane and the end of the
+   fog. A DOM overlay keeps its screen size whatever the distance: without this bound,
+   alerts from a city 700 km away lined up on the horizon at the same size as those across
+   the street.
 
 ### Appearance
 

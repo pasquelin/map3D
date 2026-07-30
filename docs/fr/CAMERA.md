@@ -162,6 +162,14 @@ onCameraChange, onClick, onReady })`.
 
 Un `Viewport` porte `{ bounds, center, zoom }`.
 
+Son `zoom` est l'échelle **réellement perçue** : il se déduit de la distance caméra → point
+visé, pas de l'altitude. La nuance compte en vue inclinée, où `altitude = distance × cos(tilt)`
+— à 85°, l'altitude tombe au dixième sans que l'écran change, et un zoom qui la suivrait
+gagnerait 3,5 niveaux, assez pour franchir des seuils comme `clustering.maxZoom`. À plat les
+deux coïncident : le point visé est sous la caméra. En vue rasante (mode piéton), la distance
+est bornée par `pedestrian.tileDetailDistanceMeters` — sinon le regard porterait à l'horizon
+et l'échelle lue serait celle du point de fuite.
+
 ---
 
 ## 6. Carte figée (`interactive`)

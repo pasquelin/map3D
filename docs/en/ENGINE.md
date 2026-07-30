@@ -54,12 +54,35 @@ engine.setDragMode('pan' | 'rotate') / engine.getDragMode()
 engine.getView()                                     // { center, zoom, bounds }
 engine.pickLatLngAtClient(clientX, clientY, fallbackToEllipsoid?)
 engine.terrainHeight
+engine.invalidate() / engine.stats()
 engine.start() / engine.stop() / engine.setSize(w, h) / engine.dispose()
 ```
 
 `pickLatLngAtClient` is the bridge between a `PointerEvent` and a coordinate: a raycast
 against the terrain, with an optional ellipsoid fallback when the pointer leaves the
 globe.
+
+### On-demand rendering
+
+With the map standing still, the loop used to reproduce an identical image sixty times a
+second. It still runs — layers advance, tiles arrive, gestures respond — but the two
+**render** passes (WebGL and DOM overlays) only run if something asked for them
+(`performance.renderOnDemand`).
+
+The engine does it for everything it drives: camera movement, interaction, tiles in
+flight, mode or setting changes. A layer does it for its own ongoing work, through
+`ctx.invalidate()`. That leaves the host with `engine.invalidate()` only when it touches
+the three.js scene directly.
+
+```ts
+engine.invalidate()          // paint the next few frames
+engine.stats()               // → MapStats: drawCalls, triangles, painted/frames, …
+```
+
+`stats()` reads counters the renderer already keeps (no cost). The two to look at first:
+`painted` against `frames` — with the map still, the gap measures exactly what on-demand
+rendering saves — and `resolutionScale`, which tells whether the GPU is keeping up
+(`performance.adaptiveResolution`).
 
 ---
 
@@ -120,12 +143,23 @@ type FrameContext = {
   view: MapView
   size: { width: number; height: number }
   dt: number                          // seconds since the previous frame
+  invalidate(): void                  // "I have something that changes the image"
 }
 ```
 
 The `update` / `project` split is not cosmetic: **all layout reads happen in `update`,
 all writes in `project`**. Mixing them causes layout thrashing as soon as there are more
 than a handful of overlays.
+
+Call `invalidate()` for as long as the layer has work in progress — an animation, geometry
+being built, data arriving. Without it the engine may skip the frame's render: the layer
+still gets `update`/`project`, but its result is not painted, and the animation freezes
+until the next movement. Signalling costs nothing.
+
+⚠️ The `project` pass **reads** world matrices, it does not write them: the engine walks
+the overlay scene once, between the two passes. A layer calling `getWorldPosition()` per
+item therefore redoes, per item and per frame, a parent-chain update already done for all
+of them — reading `obj.matrixWorld` is enough.
 
 `setConfig` is broadcast **by the engine** (on add, then on every `setConfig`), not by a
 React wrapper: wired React-side, the child's effect would run before the parent's effect
@@ -141,6 +175,12 @@ at eye level you are *inside* it, and the same rule would make it cover the whol
 ⚠️ Read this state **on every geometry build**, never once and for all: a drape can be
 rebuilt at any moment by the LOD resettle, and it would come back with the wrong setting.
 Patching the materials already in the scene is therefore not enough.
+
+The marker layer listens too, for a different reason: it **switches off its horizon test**
+there. `isAboveHorizon` assumes a camera towering over the scene; at eye level curvature no
+longer matters over the view distance, and the test collapses into "is the point lower than
+my eyes" — which hid every marker settled up high, that is, on a roof, hence nearly all of
+them in a city.
 
 ### Mounting it from React
 
@@ -196,10 +236,13 @@ of raycasting yourself.
 | `pickHeight(x, y, camera)` / `heightAtWorld(v)` | height under a point |
 | `resolveAnchorHeight(p)` | anchor height, `null` if unresolved |
 | `sampleGroundHeight(p, radius?)` / `sampleSurfaceHeight(p, maxDrop?)` | ground sampling |
+| `sampleGroundHeightCached(p)` | the above, memoised per cell (`performance.groundSample`) — prefer it inside a frame loop: an exact call costs 9 raycasts |
+| `setGroundPlane(h)` | **analytic** street level — short-circuits `sampleGroundHeight` |
 | `metersPerPixel(p, camera, viewportH, height?)` | resolution — this is what converts a px width into metres |
 | `groundDistance(a, b)` | ground distance |
 | `getENUAxes(...)` / `enuBasis(...)` / `enuBasisFor(anchor, out, height?)` | local frame |
-| `isAboveHorizon(worldPos, cameraPos)` | globe occlusion |
+| `isAboveHorizon(worldPos, cameraPos)` | globe occlusion — only valid when the camera towers over the scene (see `setGrounded`) |
+| `setViewDirection(camera)` then `isBehindCamera(worldPos, camPos)` | behind the camera, regardless of `far`. The view direction is set **once per pass**: `getWorldDirection` re-inverts the camera's world matrix on every call |
 | `isReady()` | the projection resolves heights |
 
 `EnuFrame` is the convenient façade: `frame.local(latLng)` / `frame.toLatLng(pt)` /

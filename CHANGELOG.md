@@ -6,6 +6,63 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Performance — ne peindre que ce qui change
+
+Chantier mesuré de bout en bout : le moteur ne consommait qu'~1 ms de JS par frame sur un
+budget de 8,3 ms, et repeignait pourtant une image identique 60 fois par seconde. Ce qui
+coûtait était ailleurs — la traversée du tileset par le renderer d'overlays, la remontée
+des matrices par marker, les raycasts de sol redemandés à chaque frame.
+
+- **Rendu à la demande** (`performance.renderOnDemand`, actif par défaut). La boucle
+  continue de tourner — les couches avancent, les tuiles arrivent, les gestes répondent —
+  mais les deux passes de RENDU sont sautées tant que rien n'a changé. Une couche signale
+  son travail en cours par `ctx.invalidate()`, l'hôte par `MapEngine.invalidate()`, et un
+  filet (`maxIdleMs`, 1 s) borne le prix d'un mouvement que personne n'aurait signalé.
+  ⚠️ Un hôte qui écrit **directement** dans la scène three.js doit appeler `invalidate()`,
+  ou couper le réglage.
+- **Résolution adaptative** (`performance.adaptiveResolution`). Sous la cadence visée, le
+  canvas est peint à moins de pixels et remonte dès que la carte respire : c'est le seul
+  levier qui rende du temps GPU en proportion — diviser le ratio par deux, c'est diviser
+  par quatre les pixels à remplir. La charge est mesurée sur l'intervalle entre frames, la
+  seule grandeur qui voie un GPU saturé.
+- **Overlays sortis du tileset.** Les markers vivaient sous `tiles.group` : le
+  `CSS2DRenderer` traversait le tileset photoréaliste entier, deux fois par frame, pour
+  trouver quelques dizaines de nœuds. Ils ont désormais leur propre scène, dont les
+  matrices descendent UNE fois par frame, et une caméra jumelle porte l'élargissement
+  near/far (`performance.overlayDepth`) au lieu de déborner celle du rendu.
+- **Niveau de rue mémoïsé** (`Projection.sampleGroundHeightCached`,
+  `performance.groundSample.cacheMaxCells`). Un appel coûte neuf raycasts BVH, et la pose
+  des markers en réclamait un par marker et par frame. `Camera` y remplace son cache maison
+  à une entrée, qui était aveugle aux changements d'époque.
+- **Compteurs de rendu** : `MapEngine.stats()` (type `MapStats`) — appels de rendu,
+  triangles, mémoire, overlays suivis, part de frames réellement peintes et résolution
+  courante. De quoi juger une optimisation au lieu de la supposer.
+- `performance.powerPreference` (défaut `'high-performance'`) réclame le GPU dédié : sur un
+  portable à double carte, le défaut du navigateur laissait volontiers la 3D plein écran
+  sur le circuit intégré.
+
+### Corrigé
+
+- **Le zoom de `MapView` suivait l'altitude, pas l'échelle perçue.** `altitude =
+  distance × cos(tilt)` : s'incliner la faisait chuter sans que rien ne change à l'écran, et
+  le zoom grimpait d'autant — mesuré, 14,75 à plat contre 18,46 à 85°, de quoi franchir
+  `clustering.maxZoom` et éteindre tous les regroupements. Il dérive maintenant de la
+  distance au point visé. Affecte les clusters, le décor `static` et l'événement `viewport`.
+- **Markers masqués en vue rasante.** Le cull lisait « derrière la caméra » sur `z > 1` en
+  NDC, qui signifie aussi « au-delà du far » — que le mode piéton resserre à la distance de
+  vue. Le verdict se prend désormais sur le sens de visée, qui ne dépend d'aucune borne de
+  profondeur. Au ras du sol, l'occlusion par l'horizon (qui masquait tout marker posé plus
+  haut que les yeux, donc tous les toits) cède la place à la portée de vue.
+- **Markers posés sur les toits sous fournisseur interne.** Le sol y est une nappe raster
+  plate et non raycastable : échantillonner ne ramenait que des toits. Le court-circuit
+  analytique, jusque-là réservé au placement piéton, vit maintenant dans `Projection` — une
+  seule porte pour tous les consommateurs du niveau de rue.
+- **Calottes polaires** (`providers.tiles.fillPoles`, défaut `true`). Web Mercator s'arrête
+  à ±85,0511° : il restait à chaque pôle une calotte de ~550 km de rayon où affleurait la
+  sphère de repli, soit un disque couleur d'océan au milieu de l'Antarctique. Les tuiles de
+  la rangée extrême portent désormais une ligne de sommets posée AU pôle, à la coordonnée de
+  texture du bord — sans requête ni texture supplémentaire.
+
 ### ⚠️ Correctifs de mémoire et de collision (revue avant publication)
 
 Quatre défauts trouvés en relecture du volume interne, dont deux qui se voyaient à l'écran.

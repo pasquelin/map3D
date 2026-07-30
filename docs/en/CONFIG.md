@@ -37,6 +37,7 @@ compile error.
 | `providers.tiles.style` | Name of the style rendered by the internal server, substituted for `{style}`. | `'liberty'` |
 | `providers.tiles.retina` | Request internal tiles at double density (`{r}` → `@2x`). Defaults to `false`: the canvas follows `performance.pixelRatio` (1 by default), where an @2x tile quadruples the bytes without adding anything on screen. | `false` |
 | `providers.tiles.baseZoom` | Always-loaded base level covering the whole globe — what keeps the map hole-free while finer levels arrive. ⚠️ Was hard-coded (2). | `2` |
+| `providers.tiles.fillPoles` | Extends the tiled basemap all the way to the poles. Web Mercator stops at ±85.0511°: without this, a cap of roughly 5° of latitude (~550 km radius) has no tile at all and lets the fallback sphere show through — an ocean-coloured disc in the middle of Antarctica and the Arctic. When enabled, the outermost tile row gets an extra vertex row placed AT the pole, carrying the edge's texture coordinate: the last row of texels is stretched to the pole, with no extra request and no extra texture. | `true` |
 | `providers.tiles.maxZoom` | Highest tile zoom requested. ⚠️ Was hard-coded (22, the Google roadmap ceiling): an internal server whose style stops earlier was asked for levels that do not exist. | `22` |
 | `providers.tiles.lodRing` | Side (in tiles) of the ring requested at each **intermediate** level of the detail cascade, around the looked-at point. ⚠️ New: the layer only knew two levels, so in a tilted view the distance dropped straight to the base level — a flat wash of colour. Each step reaches twice as far as the previous one. | `5` |
 | `providers.tiles.language` | Language of the labels baked into the tiles. `'auto'` follows the browser. ⚠️ Hard-coded to `'fr-FR'` until now: the map displayed French names whatever the application's locale. | `'auto'` |
@@ -209,6 +210,17 @@ compile error.
 |---|---|---|
 | `performance.pixelRatio` | Device pixel ratio of the rendering. `1` forces non-retina rendering: half as many pixels to fill, a smoother globe on a high-density display. | `1` |
 | `performance.antialias` | Antialiasing of the WebGL context. A quality/GPU-load trade-off of the same order as `pixelRatio`, which was exposed — this one was not. ⚠️ Read at context **creation**: changing it at runtime has no effect. | `true` |
+| `performance.powerPreference` | GPU trade-off requested from the browser. `'high-performance'` asks for the discrete GPU: on a dual-GPU laptop, the browser default happily leaves a full-screen 3D map on the integrated chip. ⚠️ Read at context **creation**. | `'high-performance'` |
+| `performance.adaptiveResolution.enabled` | Lower the render resolution when below the target frame rate, raise it back when idle. The only lever that returns GPU time proportionally: halving the ratio quarters the pixels to fill. | `true` |
+| `performance.adaptiveResolution.targetFrameMs` | Target frame time (ms). Above it, resolution steps down. | `22` |
+| `performance.adaptiveResolution.minRatio` | Floor of the ratio, as a fraction of `pixelRatio`. | `0.5` |
+| `performance.adaptiveResolution.step` | Step down/up, as a fraction of `pixelRatio`. | `0.1` |
+| `performance.adaptiveResolution.sampleFrames` | Frames measured before acting — ignores isolated hiccups. | `30` |
+| `performance.renderOnDemand.enabled` | Paint only what changed. The frame loop always runs; what is skipped is the RENDER (WebGL pass + DOM overlays) when nothing asked for it. | `true` |
+| `performance.renderOnDemand.idleFrames` | Frames painted after the last request. | `3` |
+| `performance.renderOnDemand.maxIdleMs` | Delay after which a frame is painted even without a request (safety net). `0` removes it. | `1000` |
+| `performance.overlayDepth.nearMeters` | Near plane of the DOM overlay projection — deliberately much wider than the 3D render's, which would hide distant markers. | `0.1` |
+| `performance.overlayDepth.farMeters` | Far plane of the same projection. | `1e9` |
 | `performance.boundsPickGrid` | Side of the raycast grid that derives the visible bounds (`n²` per frame). | `5` |
 | `performance.boundsMargin` | Widening of the bbox emitted by `onViewportChange`. **Directly drives the volume of data the application loads.** | `0.15` |
 | `performance.viewportSettleFrames` | Frames of stillness before emitting the `viewport` event. | `4` |
@@ -217,7 +229,8 @@ compile error.
 | `performance.cameraMoveEpsilon.altitudeRatio` | Altitude difference, as a fraction of the current altitude. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Absolute floor of the previous one (m) — near the ground, a ratio alone never triggers. | `1` |
 | `performance.groundSample.ttlMs` | Validity duration of a memoised sample. | `2000` |
-| `performance.groundSample.cellDeg` | Spatial quantisation of the cache (degrees) — `1e-4` ≈ 11 m. | `0.0001` |
+| `performance.groundSample.cellDeg` | Spatial quantisation of the cache (degrees) — `1e-4` ≈ 11 m. `0` removes memoisation. | `0.0001` |
+| `performance.groundSample.cacheMaxCells` | Cells kept before the street-level cache is purged. Bounds the memory of a session that covers a lot of ground. | `4096` |
 | `performance.groundSample.rayOriginMeters` | Altitude the downward ray starts from. | `12000` |
 | `performance.groundSample.rayFarMeters` | Ray range. Must stay consistent with `rayOriginMeters`. | `40000` |
 | `performance.groundSample.radiusMeters` | Radius of the “street level” sample ring (local minimum under the roof). | `18` |

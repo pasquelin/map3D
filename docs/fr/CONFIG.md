@@ -34,6 +34,7 @@ partiel est une erreur de compilation.
 | `providers.tiles.style` | Nom du style rendu par le serveur interne, substitué à `{style}`. | `'liberty'` |
 | `providers.tiles.retina` | Demander les tuiles internes en double densité (`{r}` → `@2x`). Défaut `false` : le canvas suit `performance.pixelRatio` (1 par défaut), où une tuile @2x quadruple les octets sans rien ajouter à l'écran. | `false` |
 | `providers.tiles.baseZoom` | Niveau de base, toujours chargé, qui couvre le globe entier — c'est lui qui garantit l'absence de trou pendant que les niveaux fins arrivent. ⚠️ Était codé en dur (2). | `2` |
+| `providers.tiles.fillPoles` | Prolonge le fond tuilé jusqu'aux pôles. Web Mercator s'arrête à ±85,0511° : sans ce réglage, une calotte d'environ 5° de latitude (~550 km de rayon) reste sans tuile et laisse affleurer la sphère de repli — un disque de couleur d'océan au milieu de l'Antarctique et de l'Arctique. Activé, la rangée de tuiles extrême reçoit une ligne de sommets posée AU pôle qui reprend la coordonnée de texture du bord : la dernière ligne de texels est étirée jusqu'au bout, sans requête ni texture supplémentaire. | `true` |
 | `providers.tiles.maxZoom` | Zoom de tuile maximal demandé. ⚠️ Était codé en dur (22, plafond de Google roadmap) : un serveur interne dont le style s'arrête plus tôt réclamait des niveaux inexistants. | `22` |
 | `providers.tiles.lodRing` | Côté (en tuiles) de l'anneau demandé à chaque niveau **intermédiaire** de la cascade de détail, autour du point visé. ⚠️ Nouveau : le calque ne connaissait que deux niveaux, si bien qu'en vue inclinée le lointain tombait d'un coup sur le niveau de base — un aplat uniforme. Chaque cran porte deux fois plus loin que le précédent. | `5` |
 | `providers.tiles.language` | Langue des libellés gravés dans les tuiles. `'auto'` suit le navigateur. ⚠️ Codé en dur sur `'fr-FR'` jusqu'ici : la carte affichait des noms français quelle que soit la locale de l'application. | `'auto'` |
@@ -206,6 +207,17 @@ partiel est une erreur de compilation.
 |---|---|---|
 | `performance.pixelRatio` | Device pixel ratio du rendu. `1` force un rendu non-retina : deux fois moins de pixels à remplir, un globe plus doux sur écran haute densité. | `1` |
 | `performance.antialias` | Anticrénelage du contexte WebGL. Arbitrage qualité/charge GPU du même ordre que `pixelRatio`, qui lui était exposé — celui-ci ne l'était pas. ⚠️ Lu à la **création** du contexte : le changer à chaud n'a pas d'effet. | `true` |
+| `performance.powerPreference` | Arbitrage GPU demandé au navigateur. `'high-performance'` réclame le GPU dédié : sur un portable à double carte, le défaut du navigateur laisse volontiers une carte 3D plein écran sur le circuit intégré. ⚠️ Lu à la **création** du contexte. | `'high-performance'` |
+| `performance.adaptiveResolution.enabled` | Baisser la résolution de rendu sous la cadence visée, la remonter au repos. Le seul levier qui rende du temps GPU en proportion : diviser le ratio par deux, c'est diviser par quatre les pixels à remplir. | `true` |
+| `performance.adaptiveResolution.targetFrameMs` | Cadence visée (ms/frame). Au-delà, la résolution descend. | `22` |
+| `performance.adaptiveResolution.minRatio` | Plancher du ratio, en fraction de `pixelRatio`. | `0.5` |
+| `performance.adaptiveResolution.step` | Pas de descente/remontée, en fraction de `pixelRatio`. | `0.1` |
+| `performance.adaptiveResolution.sampleFrames` | Frames mesurées avant d'agir — ignore les à-coups isolés. | `30` |
+| `performance.renderOnDemand.enabled` | Ne peindre que ce qui a changé. La boucle de frame tourne toujours ; ce qui est sauté, c'est le RENDU (passe WebGL + overlays DOM) quand rien ne l'a demandé. | `true` |
+| `performance.renderOnDemand.idleFrames` | Frames peintes après la dernière demande. | `3` |
+| `performance.renderOnDemand.maxIdleMs` | Délai au-delà duquel une frame est peinte même sans demande (filet de sécurité). `0` le retire. | `1000` |
+| `performance.overlayDepth.nearMeters` | Plan proche de la projection des overlays DOM — volontairement bien plus large que celle du rendu 3D, qui masquerait les markers lointains. | `0.1` |
+| `performance.overlayDepth.farMeters` | Plan lointain de la même projection. | `1e9` |
 | `performance.boundsPickGrid` | Côté de la grille de raycasts qui déduit les bounds visibles (`n²` par frame). | `5` |
 | `performance.boundsMargin` | Élargissement de la bbox émise par `onViewportChange`. **Pilote directement le volume de données que l'application charge.** | `0.15` |
 | `performance.viewportSettleFrames` | Frames d'immobilité avant d'émettre l'événement `viewport`. | `4` |
@@ -214,7 +226,8 @@ partiel est une erreur de compilation.
 | `performance.cameraMoveEpsilon.altitudeRatio` | Écart d'altitude, en fraction de l'altitude courante. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Plancher absolu du précédent (m) — près du sol, un ratio seul ne déclenche jamais. | `1` |
 | `performance.groundSample.ttlMs` | Durée de validité d'un échantillon mémoïsé. | `2000` |
-| `performance.groundSample.cellDeg` | Quantification spatiale du cache (degrés) — `1e-4` ≈ 11 m. | `0.0001` |
+| `performance.groundSample.cellDeg` | Quantification spatiale du cache (degrés) — `1e-4` ≈ 11 m. `0` retire la mémoïsation. | `0.0001` |
+| `performance.groundSample.cacheMaxCells` | Cellules retenues avant purge du cache de niveau de rue. Borne la mémoire d'une session qui parcourt beaucoup de terrain. | `4096` |
 | `performance.groundSample.rayOriginMeters` | Altitude d'où part le rayon descendant. | `12000` |
 | `performance.groundSample.rayFarMeters` | Portée du rayon. Doit rester cohérente avec `rayOriginMeters`. | `40000` |
 | `performance.groundSample.radiusMeters` | Rayon de la couronne d'échantillons « niveau de la rue » (min local sous le toit). | `18` |

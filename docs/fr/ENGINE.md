@@ -55,11 +55,34 @@ engine.setDragMode('pan' | 'rotate') / engine.getDragMode()
 engine.getView()                                     // { center, zoom, bounds }
 engine.pickLatLngAtClient(clientX, clientY, fallbackToEllipsoid?)
 engine.terrainHeight
+engine.invalidate() / engine.stats()
 engine.start() / engine.stop() / engine.setSize(w, h) / engine.dispose()
 ```
 
 `pickLatLngAtClient` est le pont entre un `PointerEvent` et une coordonnée : raycast
 sur le terrain, repli optionnel sur l'ellipsoïde si le pointeur sort du globe.
+
+### Rendu à la demande
+
+Carte immobile, la boucle reproduisait 60 fois par seconde une image identique. Elle
+tourne toujours — les couches avancent, les tuiles arrivent, les gestes répondent — mais
+les deux passes de **rendu** (WebGL et overlays DOM) ne s'exécutent que si quelque chose
+l'a demandé (`performance.renderOnDemand`).
+
+Le moteur le fait pour tout ce qu'il pilote : mouvement de caméra, interaction, tuiles en
+vol, changement de mode ou de réglage. Une couche le fait pour son travail en cours, via
+`ctx.invalidate()`. Il ne reste à l'hôte qu'à appeler `engine.invalidate()` s'il touche à
+la scène three.js directement.
+
+```ts
+engine.invalidate()          // peindre les prochaines frames
+engine.stats()               // → MapStats : drawCalls, triangles, painted/frames, …
+```
+
+`stats()` lit les compteurs que le renderer tient déjà (coût nul). Les deux à regarder en
+premier : `painted` face à `frames` — à carte immobile, l'écart mesure exactement ce que le
+rendu à la demande économise — et `resolutionScale`, qui dit si le GPU tient la cadence
+(`performance.adaptiveResolution`).
 
 ---
 
@@ -120,12 +143,23 @@ type FrameContext = {
   view: MapView
   size: { width: number; height: number }
   dt: number                          // secondes depuis la frame précédente
+  invalidate(): void                  // « j'ai de quoi changer l'image »
 }
 ```
 
 La séparation `update` / `project` n'est pas cosmétique : **toutes les lectures de
 layout se font en `update`, toutes les écritures en `project`**. Les mélanger provoque
 un layout thrashing dès qu'il y a plus d'une poignée d'overlays.
+
+`invalidate()` est à appeler tant que la couche a du travail en cours — animation,
+géométrie en construction, données qui arrivent. Sans lui, le moteur peut sauter le rendu
+de la frame : la couche continue d'être `update`/`project`, mais son résultat n'est pas
+peint, et l'animation se fige jusqu'au prochain mouvement. Le signaler ne coûte rien.
+
+⚠️ La passe `project` **lit** les matrices monde, elle ne les écrit pas : le moteur descend
+la scène des overlays une fois, entre les deux passes. Une couche qui appelle
+`getWorldPosition()` par élément refait donc, par élément et par frame, une remontée de
+chaîne déjà faite pour tous — lire `obj.matrixWorld` suffit.
 
 `setConfig` est diffusé **par le moteur** (à l'ajout, puis à chaque `setConfig`), et
 non par un wrapper React : câblé côté React, l'effet de l'enfant s'exécuterait avant
@@ -142,6 +176,12 @@ ferait recouvrir tout l'écran.
 ⚠️ Cet état se relit **à chaque construction de géométrie**, jamais une fois pour toutes :
 un drape peut être reconstruit à tout instant par le resettle LOD, et il renaîtrait avec
 le mauvais réglage. Retoucher les matériaux déjà en scène ne suffit donc pas.
+
+La couche de markers l'écoute aussi, pour une autre raison : elle y **coupe son test
+d'horizon**. `isAboveHorizon` suppose une caméra qui domine la scène ; à hauteur d'homme la
+courbure ne pèse plus rien sur la portée de vue, et le test se réduit à « le point est-il
+plus bas que les yeux » — il masquait alors tout marker posé en hauteur, c'est-à-dire sur
+un toit, donc la quasi-totalité d'entre eux en ville.
 
 ### Le montage React
 
@@ -197,10 +237,13 @@ plutôt que de raycaster vous-même.
 | `pickHeight(x, y, camera)` / `heightAtWorld(v)` | hauteur sous un point |
 | `resolveAnchorHeight(p)` | hauteur d'ancre, `null` si non résolue |
 | `sampleGroundHeight(p, radius?)` / `sampleSurfaceHeight(p, maxDrop?)` | échantillonnage du sol |
+| `sampleGroundHeightCached(p)` | le précédent, mémoïsé par cellule (`performance.groundSample`) — à préférer dans une boucle de frame : un appel exact coûte 9 raycasts |
+| `setGroundPlane(h)` | niveau de rue **analytique** — court-circuite `sampleGroundHeight` |
 | `metersPerPixel(p, camera, viewportH, height?)` | résolution — c'est ce qui convertit une épaisseur px → mètres |
 | `groundDistance(a, b)` | distance au sol |
 | `getENUAxes(...)` / `enuBasis(...)` / `enuBasisFor(anchor, out, height?)` | repère local |
-| `isAboveHorizon(worldPos, cameraPos)` | occlusion par le globe |
+| `isAboveHorizon(worldPos, cameraPos)` | occlusion par le globe — ne vaut que si la caméra domine la scène (cf. `setGrounded`) |
+| `setViewDirection(camera)` puis `isBehindCamera(worldPos, camPos)` | dos de la caméra, indépendamment du `far`. Le sens de visée se pose **une fois par passe** : `getWorldDirection` réinverse la matrice monde de la caméra à chaque appel |
 | `isReady()` | la projection résout des hauteurs |
 
 `EnuFrame` est la façade pratique : `frame.local(latLng)` / `frame.toLatLng(pt)` /

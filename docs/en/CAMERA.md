@@ -159,6 +159,15 @@ onCameraChange, onClick, onReady })`.
 
 A `Viewport` carries `{ bounds, center, zoom }`.
 
+Its `zoom` is the **actually perceived** scale: it derives from the camera → aimed point
+distance, not from altitude. The distinction matters in a tilted view, where
+`altitude = distance × cos(tilt)` — at 85° the altitude drops tenfold without the screen
+changing, and a zoom following it would gain 3.5 levels, enough to cross thresholds such as
+`clustering.maxZoom`. Flat, the two coincide: the aimed point sits under the camera. In a
+ground-level view (pedestrian mode) the distance is capped by
+`pedestrian.tileDetailDistanceMeters` — otherwise the gaze would reach the horizon and the
+scale read would be that of the vanishing point.
+
 ---
 
 ## 6. Frozen map (`interactive`)
