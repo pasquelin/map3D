@@ -11,8 +11,11 @@
  *   1. `pnpm dev:example`, laisser la carte se stabiliser (le fond arrête de charger).
  *   2. Ouvrir la console du navigateur, puis :
  *
- *        await import('/perf-probe.js')
+ *        await import('/tools/perf-probe.js')
  *        await m3dPerf()
+ *
+ *      L'URL est relative à la racine Vite de l'exemple (`root: examples/react`), qui
+ *      sert ce dossier tel quel en dev — la sonde n'est ni buildée ni bundlée.
  *
  *      Ne pas toucher à la souris pendant la mesure (~40 s) : un geste de caméra
  *      fausse les relevés au repos.
