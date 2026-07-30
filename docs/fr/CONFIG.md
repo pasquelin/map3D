@@ -27,7 +27,7 @@ partiel est une erreur de compilation.
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `providers.internal.origin` | Origine du serveur auto-hébergé (schéma + hôte + port, sans `/` final), substituée à `{origin}` dans TOUS les gabarits internes — fond 2D **et** volume, qui sortent du même serveur. ⚠️ Le défaut désigne le serveur du projet : un hôte tiers **doit** y mettre le sien, ou choisir les fournisseurs `'external'`. Vide, les fournisseurs `'internal'` restent sans effet. | `'https://map.gosecure.site'` |
+| `providers.internal.origin` | Origine du serveur auto-hébergé (schéma + hôte + port, sans `/` final), substituée à `{origin}` dans TOUS les gabarits internes — fond 2D **et** volume, qui sortent du même serveur. ⚠️ Vide par défaut : un hôte **doit** y mettre la sienne, ou choisir les fournisseurs `'external'`. Vide, les fournisseurs `'internal'` restent sans effet. | `''` |
 | `providers.internal.elevationEpsilon` | Écart d'altitude du sol (m) en deçà duquel le fond raster et les volumes ne sont PAS reconstruits. L'altitude est intégrée à la géométrie des deux calques : la suivre au centimètre rejouerait tout le cache à chaque frame. Réglage commun, les deux devant partager la même référence. ⚠️ Était un littéral recopié dans les deux calques. | `1` |
 | `providers.tiles.provider` | Fournisseur des tuiles du fond de carte : `'external'` (Google Map Tiles, session + clé, trafic disponible) ou `'internal'` (serveur auto-hébergé, simples URLs XYZ, sans clé ni quota, **sans trafic**). Cf. [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | Gabarit d'URL d'une tuile raster interne — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` et `{r}` sont substitués. Aucune query n'est ajoutée : le serveur interne ne signe rien. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
@@ -110,6 +110,8 @@ partiel est une erreur de compilation.
 | `providers.buildings.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
 | `providers.buildings.pickFields` | Attributs MVT remontés par le pick de bâtiment (`buildingMenu`). **Vide par défaut** : la donnée en porte des dizaines par emprise, et les transporter toutes coûterait, par tuile, plus que toute la géométrie. L'hôte demande ce qu'il affiche. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles). ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de documentation : trois copies d'une valeur qui désigne un fournisseur, seule de son espèce à vivre hors de `providers`. | `'2275207'` |
+| `providers.tiles3d.autoHide.hideBelowZoom` | Zoom sous lequel le volume 3D (tuiles photoréalistes OU bâtiments extrudés, indifféremment) est **gelé** (aucune requête, ressources et facturation calmées) et masqué au profit du seul fond 2D — au dézoom la 3D n'est plus lisible et son chargement borné laisse un « carré » de détail dans le vide. `<= 0` désactive la garde. | `16` |
+| `providers.tiles3d.autoHide.showAboveZoom` | Zoom au-dessus duquel le volume est plein. Entre `hideBelowZoom` et cette borne, il se **fond** (opacité interpolée) ; la bande sert aussi d'hystérésis (pas de clignotement à la frontière). | `17` |
 | `providers.symbols.cacheMaxEntries` | Plafond du cache de vignettes rendues. ⚠️ Non borné jusqu'ici. | `200` |
 | `providers.templates.baseUrl` | Racine de l'API REST des templates. Vide = pas de backend (cache local seul). | `''` |
 | `providers.templates.headers` | En-têtes du provider HTTP par défaut (auth d'un proxy serveur). | `{}` |
@@ -120,6 +122,10 @@ partiel est une erreur de compilation.
 | `providers.templates.defaultCategories` | Catégories cochées par défaut dans le formulaire « Sauver ». | `["shapes", "freehand", "symbols"]` |
 | `providers.templates.defaultApply` | Mode d'application par défaut d'un template sur le dessin courant. | `'merge'` |
 | `providers.templates.allowExport` | Autorise l'export/import de fichiers `.m3dt`. | `true` |
+| `providers.templates.saveView` | Offre la case « Vue » au formulaire : le template mémorise aussi d'où on regarde (pose caméra, fond de carte, filtre « Couches », vue piéton). | `true` |
+| `providers.templates.defaultSaveView` | Case « Vue » cochée d'avance. Sans effet si `saveView` est faux. | `false` |
+| `providers.templates.applyView` | Rejoue la vue d'un template à son chargement (« ajouter » et « remplacer » ; jamais « retirer »). | `true` |
+| `providers.templates.viewFlyDuration` | Durée (s) du trajet vers la vue chargée ; `0` = repositionnement instantané. | `1.2` |
 
 ## `interaction` — Seuils de geste, tolérances de pointeur, raccourcis
 

@@ -105,6 +105,9 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `templates.category.symbols` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Symboles'` |
 | `templates.stats.pair` | Stats compactes : paire « libellé nombre ». | `'{label} {count}'` |
 | `templates.stats.bytes` | Stats compactes : gabarit de poids (`{count}`). | `'{count} o'` |
+| `templates.view` | Case « mémoriser la vue » du formulaire de sauvegarde. | `'Vue'` |
+| `templates.viewHint` | Consigne de la case « Vue » — ce qu'elle emporte réellement. | `'Position, orientation, type de carte et couches affichées'` |
+| `templates.hasView` | Badge/aria d'un template qui porte une vue. | `'Ce template rouvre sa vue'` |
 
 ## `search` — Recherche unifiée
 

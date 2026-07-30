@@ -113,6 +113,9 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `templates.category.symbols` | Label of a saveable category (checkbox + stats — count-invariant). | `'Symboles'` |
 | `templates.stats.pair` | Compact stats: “label count” pair. | `'{label} {count}'` |
 | `templates.stats.bytes` | Compact stats: weight template (`{count}`). | `'{count} o'` |
+| `templates.view` | “Also save the view” checkbox in the save form. | `'Vue'` |
+| `templates.viewHint` | Hint for the “View” checkbox — what it actually carries. | `'Position, orientation, type de carte et couches affichées'` |
+| `templates.hasView` | Badge/aria for a template that carries a view. | `'Ce template rouvre sa vue'` |
 
 ## `search` — Unified search
 
@@ -377,7 +380,7 @@ A ready-to-paste starting point. Only the visible strings are translated; templa
 their `{variables}`.
 
 ```tsx
-import { imperialMeasure } from '@gosecure/map3d'
+import { imperialMeasure } from 'map3d'
 
 <MapProvider
   labels={{

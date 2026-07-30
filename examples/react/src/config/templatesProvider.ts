@@ -1,4 +1,4 @@
-import { statsOf, type Template, type TemplateProvider } from 'map3d'
+import { statsOf, type Template, type TemplateProvider, type TemplateView } from 'map3d'
 
 /* ══════════════════ PROVIDER DE TEMPLATES — DÉMO IN-MEMORY ══════════════════
    Simule un backend REST sans serveur : la liste distante prime sur le localStorage,
@@ -6,8 +6,25 @@ import { statsOf, type Template, type TemplateProvider } from 'map3d'
    prouve le contrat (l'API prend la main) dans `pnpm dev:example`, sans dépendance.
    Une vraie app remplacerait ceci par `createHttpTemplateProvider({ baseUrl })`. */
 
+const DEG2RAD = Math.PI / 180
+
+/**
+ * Vue mémorisée d'un secteur — ce qui fait qu'un template ROUVRE son cadrage au lieu de
+ * poser ses formes n'importe où. Les deux templates de démo en ont une différente : de
+ * quoi voir la carte voler de l'un à l'autre, et l'inclinaison changer avec.
+ */
+const demoView = (lat: number, lng: number, altitude: number, tiltDeg: number): TemplateView => ({
+  lat,
+  lng,
+  altitude,
+  heading: 0, // plein nord : le secteur est au-dessus du point de vue
+  tilt: tiltDeg * DEG2RAD,
+  mapMode: '3d',
+  traffic: false,
+})
+
 /** Petit polygone + symbole autour de Paris, pour peupler la vignette d'aperçu. */
-const demoDraw = (dx: number) => {
+const demoDraw = (dx: number, view: TemplateView) => {
   const draw = {
     type: 'FeatureCollection' as const,
     features: [
@@ -42,13 +59,15 @@ const demoDraw = (dx: number) => {
       },
     ],
   }
-  return { content: { draw }, stats: statsOf(draw) }
+  return { content: { draw, view }, stats: statsOf(draw) }
 }
 
 const seed = (): Map<string, Template> => {
   const now = Date.now()
-  const a = demoDraw(0)
-  const b = demoDraw(0.05)
+  // Secteur A vu du dessus ; le plan d'équipe vu en oblique depuis le sud — deux
+  // cadrages qu'un clic sur l'une ou l'autre ligne doit reproduire tels quels.
+  const a = demoDraw(0, demoView(48.86, 2.35, 1500, 0))
+  const b = demoDraw(0.05, demoView(48.848, 2.4, 900, 55))
   return new Map<string, Template>([
     ['srv-reco', { id: 'srv-reco', name: 'Repérage secteur A', origin: 'api', createdAt: now, updatedAt: now, ...a }],
     [

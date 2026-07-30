@@ -30,7 +30,7 @@ compile error.
 
 | Key | Description | Default |
 |---|---|---|
-| `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ The default points at the project's own server: a third-party host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `'https://map.gosecure.site'` |
+| `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ Empty by default: a host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `''` |
 | `providers.internal.elevationEpsilon` | Ground-elevation change (m) below which the raster basemap and the volumes are NOT rebuilt. Elevation is baked into both layers' geometry: tracking it to the centimetre would replay the whole cache every frame. Shared setting — both must use the exact same reference. ⚠️ Was a literal copied into both layers. | `1` |
 | `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota, **no traffic**). See [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | URL template for an internal raster tile — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` and `{r}` are substituted. No query string is appended: the internal server signs nothing. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
@@ -113,6 +113,8 @@ compile error.
 | `providers.buildings.retryDelays` | Backoff between two attempts on the same tile. | `[1000, 4000]` |
 | `providers.buildings.pickFields` | MVT attributes surfaced by the building pick (`buildingMenu`). **Empty by default**: the data carries dozens per footprint, and carrying them all would cost, per tile, more than the whole geometry. The host asks for what it displays. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Cesium Ion asset served by default (Google Photorealistic 3D Tiles). ⚠️ The identifier used to be written in the engine and repeated in TWO documentation blocks: three copies of a value that designates a provider, the only one of its kind living outside `providers`. | `'2275207'` |
+| `providers.tiles3d.autoHide.hideBelowZoom` | Zoom below which the 3D volume (photorealistic tiles OR extruded buildings alike) is **frozen** (no request, resources and billing calmed) and hidden in favor of the 2D basemap alone — when zoomed out the 3D is no longer legible and its budget-bounded loading leaves a "square" of detail in the void. `<= 0` disables the guard. | `16` |
+| `providers.tiles3d.autoHide.showAboveZoom` | Zoom above which the volume is full. Between `hideBelowZoom` and this bound it **fades** (interpolated opacity); the band also acts as hysteresis (no flicker at the boundary). | `17` |
 | `providers.symbols.cacheMaxEntries` | Cap of the rendered thumbnail cache. ⚠️ Unbounded until now. | `200` |
 | `providers.templates.baseUrl` | Root of the templates REST API. Empty = no backend (local cache only). | `''` |
 | `providers.templates.headers` | Headers of the default HTTP provider (auth of a server-side proxy). | `{}` |
@@ -123,6 +125,10 @@ compile error.
 | `providers.templates.defaultCategories` | Categories ticked by default in the “Save” form. | `["shapes", "freehand", "symbols"]` |
 | `providers.templates.defaultApply` | Default mode for applying a template to the current drawing. | `'merge'` |
 | `providers.templates.allowExport` | Allow `.m3dt` file export/import. | `true` |
+| `providers.templates.saveView` | Offer the “View” checkbox: the template also stores where you look from (camera pose, basemap, “Layers” filter, pedestrian view). | `true` |
+| `providers.templates.defaultSaveView` | “View” checkbox checked upfront. No effect when `saveView` is false. | `false` |
+| `providers.templates.applyView` | Replay a template's view when loading it (“merge” and “replace”; never “remove”). | `true` |
+| `providers.templates.viewFlyDuration` | Travel duration (s) towards the loaded view; `0` = instant reposition. | `1.2` |
 
 ## `interaction` — Gesture thresholds, pointer tolerances, shortcuts
 

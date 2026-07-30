@@ -42,13 +42,18 @@ The content is split by **category**, derived from each shape's `kind`:
 When saving, the **checkboxes** pick which categories are kept. The offered categories
 and their default selection are configurable (see §5).
 
+A **separate** checkbox, “View”, adds to the template the place you are looking from —
+camera pose, basemap, visible layers. That is what tells a “Vernon” template apart from a
+“Nice” one when both hold the same drawing. It is not one of the categories because a view
+is not drawing: see §11.
+
 Data type:
 
 ```ts
 type Template = {
   id: string
   name: string
-  content: { draw: GeoJSONFeatureCollection }
+  content: { draw: GeoJSONFeatureCollection; view?: TemplateView }
   origin: 'local' | 'api'   // 'api' = served by the provider (may be readOnly)
   readOnly?: boolean
   author?: string
@@ -73,6 +78,10 @@ one-off action, not a sensible default.
 
 Applying goes through `fromGeoJSON` (the drawing's canonical import path: handles
 symbols, closed polygons and locked shapes).
+
+If the template holds a **view**, it is replayed on `merge` and `replace` — never on
+`remove`: taking shapes away is no reason to move the map. A template with no shapes at
+all still applies: only its view is replayed.
 
 ## 4. Local storage vs API (the provider)
 
@@ -123,6 +132,10 @@ type TemplatesConfig = {
   defaultCategories: TemplateCategory[]   // checked by default
   defaultApply: 'merge' | 'replace'       // default apply mode
   allowExport: boolean                    // .m3dt export/import
+  saveView: boolean                       // offer the “View” checkbox
+  defaultSaveView: boolean                // “View” checked upfront
+  applyView: boolean                      // replay the view when loading
+  viewFlyDuration: number                 // travel duration (s); 0 = instant
 }
 ```
 
@@ -156,7 +169,8 @@ To drive the manager from your own components:
 ```ts
 const t = useTemplates({ provider })
 t.templates            // reactive list
-t.saveCurrent(name, ['shapes', 'symbols'])
+t.saveCurrent(name, ['shapes', 'symbols'], { view: true })  // { view } is optional
+t.saveCurrent('Vernon', [], { view: true })                 // view only, no drawing
 t.apply(id, 'merge')
 t.rename(id, name); t.remove(id)
 t.exportFile(id); t.importFile(file)
@@ -176,3 +190,58 @@ The engine owns the registry (`engine.templates`, a `TemplateRegistry`), like
 (`toGeoJSON`/`fromGeoJSON`) into it: that is what lets the button live in the controls
 bar, outside the drawing's React context. See [ENGINE.md](ENGINE.md) for
 engine-owned registries.
+
+## 11. Saved view
+
+A template can hold the **view** its drawing is looked at from. That is what gives you one
+template per site — “Vernon”, “Nice” — rather than a drawing with no place.
+
+```ts
+type TemplateView = {
+  lat: number; lng: number; altitude: number   // ground point UNDER THE EYE, and height
+  heading: number                              // bearing (rad), 0 = north, positive eastwards
+  tilt: number                                 // tilt (rad), 0 = nadir, π/2 = horizon
+  mapMode: '3d' | 'plan'
+  traffic: boolean
+  tags?: readonly string[]                     // “Layers” filter — tag NAMES
+  pedestrian?: TemplatePedestrianView          // standing point + gaze + immersion
+}
+```
+
+**Usage only.** No data goes in: no marker, no zone, no path. The `tags` are names, not
+the items they designate.
+
+**Nothing derived is stored** — no zoom, no extent: altitude and pose give them back,
+whereas a frozen copy would drift as soon as the container is resized. Same for the ground
+height under the pedestrian, re-measured on arrival.
+
+### Degradation
+
+A view taken on a better-equipped map stays loadable; each setting degrades on its own,
+without failing the others:
+
+| Situation | Effect |
+|-----------|--------|
+| `plan` mode with no servable 2D basemap (or `3d` with no volume) | mode unchanged |
+| `traffic: true` outside the layer's conditions | traffic ignored |
+| View taken in 3D, reloaded in `plan` | tilt **clamped** to the mode's limit |
+| Saved tag absent from the map | it filters, but stays **uncheckable** (listed at count 0) |
+| Pedestrian view, ground not streamed yet or volume unavailable | camera pose stands: same place, same bearing |
+
+### Outside the panel
+
+`captureView` / `applyView` are exported for hosts managing their own views — a “back to
+here” button, a default view on mount:
+
+```ts
+import { captureView, applyView } from 'map3d'
+
+const view = captureView(engine)                    // store it wherever you like
+applyView(engine, view, { duration: 1.2 })          // 0 or omitted = instant
+```
+
+`applyView`'s internal order is not cosmetic: taking control comes first (otherwise the
+intro flight grabs the camera back), the basemap mode precedes the pose (it is what sets
+the tilt limit), leaving pedestrian mode precedes the pose (otherwise the controller
+overwrites it on the next frame), and entering pedestrian mode comes last (its standing
+point is validated by raycast, so you must have arrived).

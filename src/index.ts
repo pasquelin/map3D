@@ -1,4 +1,4 @@
-// Point d'entrée public de @gosecure/map3d.
+// Point d'entrée public de map3d.
 
 export const VERSION = '0.1.0'
 
@@ -159,6 +159,7 @@ export type {
   RoutingConfig,
   RoutingPresets,
   Tiles3dConfig,
+  VolumeAutoHide,
   DataSearchConfig,
   StartupConfig,
   SkyConfig,
@@ -420,10 +421,17 @@ export type {
   TemplateContent,
   TemplateStats,
   TemplateCategory,
+  TemplateView,
+  TemplatePedestrianView,
 } from './core/templates/types'
 export { createHttpTemplateProvider } from './core/templates/TemplateProvider'
 export type { TemplateProvider } from './core/templates/TemplateProvider'
 export { categoryOf, filterByCategories, statsOf, mergeCollections } from './core/templates/collect'
+// Capture/restitution de la vue d'un template — exposées pour l'hôte qui gère ses
+// propres vues mémorisées (bouton « revenir ici » maison, vue par défaut au montage)
+// sans passer par le panneau.
+export { captureView, applyView } from './core/templates/view'
+export type { ApplyViewOptions } from './core/templates/view'
 export { TemplatesPanel } from './react/components/TemplatesPanel'
 export type { TemplatesPanelProps } from './react/components/TemplatesPanel'
 export { Confirm } from './react/components/Confirm'
@@ -431,4 +439,4 @@ export type { ConfirmProps } from './react/components/Confirm'
 export { TemplateThumb } from './react/components/TemplateThumb'
 export type { TemplateThumbProps } from './react/components/TemplateThumb'
 export { useTemplates } from './react/hooks/useTemplates'
-export type { UseTemplatesOptions, TemplatesView } from './react/hooks/useTemplates'
+export type { UseTemplatesOptions, TemplatesView, SaveTemplateOptions } from './react/hooks/useTemplates'

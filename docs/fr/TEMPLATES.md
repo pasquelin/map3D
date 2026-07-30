@@ -43,13 +43,18 @@ Le contenu est découpé par **catégorie**, déduite du `kind` de chaque forme 
 Au moment de sauvegarder, les **cases à cocher** choisissent les catégories retenues.
 Les catégories offertes et leur pré-sélection se règlent (cf. §5).
 
+Une case **séparée**, « Vue », ajoute au template l'endroit d'où on regarde — pose
+caméra, fond de carte, couches affichées. C'est ce qui distingue un template « Vernon »
+d'un template « Nice » là où les deux porteraient le même dessin. Elle ne fait pas
+partie des catégories parce qu'une vue n'est pas du dessin : cf. §11.
+
 Type de donnée :
 
 ```ts
 type Template = {
   id: string
   name: string
-  content: { draw: GeoJSONFeatureCollection }
+  content: { draw: GeoJSONFeatureCollection; view?: TemplateView }
   origin: 'local' | 'api'   // 'api' = servi par le provider (peut être readOnly)
   readOnly?: boolean
   author?: string
@@ -75,6 +80,10 @@ est une action ponctuelle, pas un défaut sensé.
 
 L'application passe par `fromGeoJSON` (chemin d'import canonique du dessin : gère
 symboles, polygones fermés et formes verrouillées).
+
+Si le template porte une **vue**, elle est rejouée en `merge` et `replace` — jamais en
+`remove` : retirer des formes n'est pas une raison de déplacer la carte. Un template
+sans aucune forme s'applique quand même : seule sa vue est alors rejouée.
 
 ## 4. Stockage local vs API (le provider)
 
@@ -126,6 +135,10 @@ type TemplatesConfig = {
   defaultCategories: TemplateCategory[]   // cochées par défaut
   defaultApply: 'merge' | 'replace'       // mode d'application par défaut
   allowExport: boolean                    // export/import .m3dt
+  saveView: boolean                       // offrir la case « Vue »
+  defaultSaveView: boolean                // case « Vue » cochée d'avance
+  applyView: boolean                      // rejouer la vue au chargement
+  viewFlyDuration: number                 // durée (s) du trajet ; 0 = instantané
 }
 ```
 
@@ -160,7 +173,8 @@ Pour piloter le gestionnaire depuis vos propres composants :
 ```ts
 const t = useTemplates({ provider })
 t.templates            // liste réactive
-t.saveCurrent(name, ['shapes', 'symbols'])
+t.saveCurrent(name, ['shapes', 'symbols'], { view: true })  // { view } est optionnel
+t.saveCurrent('Vernon', [], { view: true })                 // vue seule, sans dessin
 t.apply(id, 'merge')
 t.rename(id, name); t.remove(id)
 t.exportFile(id); t.importFile(file)
@@ -180,3 +194,58 @@ Le moteur porte le registre (`engine.templates`, un `TemplateRegistry`), comme
 **`drawPort`** (`toGeoJSON`/`fromGeoJSON`) : c'est ce qui permet au bouton de vivre
 dans la barre de contrôles, hors du contexte React du dessin. Voir
 [ENGINE.md](ENGINE.md) pour les registres portés par le moteur.
+
+## 11. Vue mémorisée
+
+Un template peut porter la **vue** d'où son dessin se regarde. C'est ce qui permet
+d'avoir un template par site — « Vernon », « Nice » — plutôt qu'un dessin sans lieu.
+
+```ts
+type TemplateView = {
+  lat: number; lng: number; altitude: number   // point au sol SOUS L'ŒIL, et hauteur
+  heading: number                              // cap (rad), 0 = nord, positif vers l'est
+  tilt: number                                 // inclinaison (rad), 0 = nadir, π/2 = horizon
+  mapMode: '3d' | 'plan'
+  traffic: boolean
+  tags?: readonly string[]                     // filtre « Couches » — des NOMS de tags
+  pedestrian?: TemplatePedestrianView          // point de station + regard + immersion
+}
+```
+
+**Uniquement de l'usage.** Aucune donnée n'y entre : ni marker, ni zone, ni tracé. Les
+`tags` sont des noms, pas les éléments qu'ils désignent.
+
+**Rien de dérivé n'est stocké** — ni zoom, ni emprise : l'altitude et la pose les
+redonnent, alors qu'une copie figée divergerait dès que le conteneur change de taille.
+Idem pour la hauteur du sol sous le piéton, remesurée à l'arrivée.
+
+### Dégradation
+
+Une vue prise sur une carte mieux dotée reste chargeable ; chaque réglage se dégrade
+seul, sans faire échouer les autres :
+
+| Situation | Effet |
+|-----------|-------|
+| Mode `plan` sans fond 2D servable (ou `3d` sans volume) | mode inchangé |
+| `traffic: true` hors des conditions du calque | trafic ignoré |
+| Vue prise en 3D, rechargée en `plan` | inclinaison **ramenée** à la limite du mode |
+| Tag mémorisé absent de la carte | il filtre, mais reste **décochable** (listé à compte 0) |
+| Vue piéton, sol pas encore chargé ou volume indisponible | reste la pose caméra : même endroit, même cap |
+
+### Hors du panneau
+
+`captureView` / `applyView` sont exportées pour l'hôte qui gère ses propres vues — un
+bouton « revenir ici », une vue par défaut au montage :
+
+```ts
+import { captureView, applyView } from 'map3d'
+
+const vue = captureView(engine)                     // à mémoriser où vous voulez
+applyView(engine, vue, { duration: 1.2 })           // 0 ou omis = instantané
+```
+
+L'ordre interne d'`applyView` n'est pas cosmétique : la prise de main précède tout (sinon
+le vol d'intro reprend la caméra), le mode de carte précède la pose (c'est lui qui fixe la
+borne d'inclinaison), la sortie du mode piéton précède la pose (sinon le contrôleur
+l'écrase à la frame suivante), et l'entrée en piéton vient en dernier (son point de
+station se valide au lancer de rayon, il faut être arrivé).
