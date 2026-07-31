@@ -3,24 +3,26 @@ import { Tooltip } from 'react-tooltip'
 import { useMapContext } from '../context'
 
 /**
- * L'infobulle partagée d'une barre, **portée à la racine de la carte**.
+ * Une instance d'infobulle de la carte, **portée à la racine**. Point de montage UNIQUE
+ * pour les trois qui coexistaient (contrôles, dessin, templates).
  *
  * Le portail n'est pas un détail : une barre est `position:absolute` AVEC un `z-index`,
- * donc une racine d'empilement. Une infobulle rendue dedans ne peut plus se comparer
- * qu'à ses frères de la barre — et se retrouve derrière les panneaux, qui sont portés à
- * la racine au même niveau mais plus loin dans le DOM. Aucun `z-index` posé sur
- * l'infobulle ne pouvait la sortir de là : c'était son PARENT qui la plafonnait.
+ * donc une racine d'empilement, et un panneau porte un `backdrop-filter`, qui en est une
+ * aussi. Une infobulle rendue dans l'une ou l'autre ne se compare qu'à ses frères de
+ * cette boîte — aucun `z-index` ne l'en sort, c'est son PARENT qui la plafonne. C'est ce
+ * qui avait conduit `TemplatesPanel` à monter sa PROPRE instance dans son panneau : la
+ * seule façon, alors, de passer au-dessus de lui.
  *
- * Sortie de la barre, elle redevient sœur des panneaux et son `z-index` compte à
- * nouveau — ce qui la remet au-dessus, là où on survole les contrôles à expliquer.
+ * Portée à la racine, elle devient sœur des barres ET des panneaux, donc son `z-index`
+ * décide de nouveau — et une seule instance par barre suffit à tout couvrir.
  */
-export function BarTooltip({
+export function MapTooltip({
   id,
   place,
   hidden,
 }: {
   id: string
-  place: 'left' | 'right'
+  place: 'left' | 'right' | 'top' | 'bottom'
   /**
    * Éteindre l'infobulle. La barre de DESSIN s'en sert quand une de ses surfaces est
    * ouverte : l'infobulle d'un bouton survolé venait se poser sur le panneau qu'on est

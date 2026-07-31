@@ -11,12 +11,12 @@ import {
   mdiTrayArrowUp,
 } from '@mdi/js'
 import { type CSSProperties, useId, useMemo, useRef, useState } from 'react'
-import { Tooltip } from 'react-tooltip'
 import type { ApplyMode, TemplateCategory } from '../../core/templates/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels, useMapContext } from '../context'
 import { type UseTemplatesOptions, useTemplates, type TemplatesView } from '../hooks/useTemplates'
 import { Confirm } from './Confirm'
+import { MapTooltip } from './MapTooltip'
 import { Dropdown, useToggleShortcut } from './Dropdown'
 import { TemplateThumb } from './TemplateThumb'
 import { tipProps, useTip } from './tooltip'
@@ -75,11 +75,10 @@ export function TemplatesPanel({ position = 'right', tipId, shortcut, grouped, .
 function TemplatesBody({ view }: { view: TemplatesView }) {
   const labels = useLabels()
   const t = labels.templates
-  // Instance de tooltip PROPRE au panneau, rendue DEDANS (cf. `<Tooltip>` en fin de
-  // fragment). Indispensable : `.m3d-panel` a un `backdrop-filter`, qui crée un contexte
-  // d'empilement isolé — la bulle partagée de la barre (rendue ailleurs) ne pourrait
-  // jamais passer au-dessus du panneau, quel que soit son z-index. Ici elle vit dans le
-  // même contexte que les lignes, donc au-dessus. `place:'top'` la garde collée à l'ancre.
+  // Instance PROPRE au panneau — pour son `place:'top'` et pour que ses lignes n'entrent
+  // pas en concurrence avec la barre, pas pour une raison d'empilement : `<MapTooltip>`
+  // la porte à la racine, où elle est sœur du panneau et passe donc au-dessus de lui.
+  // (Elle était auparavant rendue DEDANS, seule façon d'y arriver à l'époque.)
   const tid = useId()
   // Ces lignes n'ont pas de raccourci : `tipProps` (convention partagée) réduit alors au libellé seul.
   const tipOf = (label: string): Record<string, string> => tipProps(tid, label, undefined, labels.format.shortcut)
@@ -332,7 +331,7 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
 
       {/* Tooltip DU panneau (même contexte d'empilement que les lignes) — apparence
           `.m3d-tip` du thème, comme la barre. */}
-      <Tooltip id={tid} place="top" className="m3d-tip" classNameArrow="m3d-tip-arrow" disableStyleInjection />
+      <MapTooltip id={tid} place="top" />
     </>
   )
 }

@@ -28,7 +28,7 @@ import { usePedestrian } from '../hooks/usePedestrian'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
-import { BarTooltip } from './BarTooltip'
+import { MapTooltip } from './MapTooltip'
 import { CatalogControl } from './CatalogControl'
 import { TagFilterControl } from './TagFilterControl'
 import { TemplatesPanel, type TemplatesPanelProps } from './TemplatesPanel'
@@ -513,7 +513,7 @@ export function MapControls({
 
       {/* Apparence pilotée par `.m3d-tip` (thème) : le style « base » du paquet est
           coupé, son « core » (position/opacité/transitions) reste injecté. */}
-      <BarTooltip id={TIP_ID} place={position === 'right' ? 'left' : 'right'} />
+      <MapTooltip id={TIP_ID} place={position === 'right' ? 'left' : 'right'} />
     </div>
   )
 }

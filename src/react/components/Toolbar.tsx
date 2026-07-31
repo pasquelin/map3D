@@ -23,7 +23,7 @@ import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
 import { SymbolPaletteButton } from './SymbolPaletteButton'
-import { BarTooltip } from './BarTooltip'
+import { MapTooltip } from './MapTooltip'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 
@@ -372,7 +372,7 @@ export function Toolbar({
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
       {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé
           venait se poser SUR le panneau qu'on est en train de lire. */}
-      <BarTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
+      <MapTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
     </ToolbarContext.Provider>
   )
 }
