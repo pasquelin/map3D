@@ -301,6 +301,9 @@ export const defaultConfig: MapConfig = {
         tilt: 'i',
         globe: 'g',
         layers: 't',
+        // 'c' pour catalogue — libre, et voisin de 't' (Couches) avec qui il partage
+        // son groupe dans la barre.
+        catalog: 'c',
         fullscreen: 'f',
         basemap: 'b',
         // 'k' faute de mieux : 'g' (grille) est pris par `globe`, et aucune autre lettre

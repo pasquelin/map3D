@@ -44,6 +44,7 @@ import { SearchBox } from './components/SearchBox'
 import { SelectionBadges, type SelectionBadgesProps } from './components/SelectionBadges'
 import { ShapeLayer } from './components/ShapeLayer'
 import { Toolbar, type DrawToolbarProps } from './components/Toolbar'
+import { CatalogSurface } from './components/CatalogSurface'
 import { ClusterSurface } from './components/ClusterSurface'
 import { PluginSurfaces } from './components/PluginSurfaces'
 import type { LayerSpec, MapSurfaces as Surfaces, MarkersSpec, RelationsConfig } from './mapConfig'
@@ -276,6 +277,11 @@ export function MapSurfaces<T, TPin>({
       {/* APRÈS les couches : elles se sont inscrites au registre, la surface n'a plus
           qu'à regrouper. Elle rend les pastilles ; chaque couche rend ses markers. */}
       {cluster !== false && <ClusterSurface {...(cluster ?? {})} />}
+      {/* Toujours montée, indépendamment du panneau : ce qu'on a affiché depuis le
+          catalogue doit rester sur la carte quand on referme la liste. Elle porte aussi
+          la restauration de la session précédente, qui n'a donc pas à attendre une
+          ouverture du panneau. Sans élément affiché, elle ne rend rien. */}
+      <CatalogSurface />
       {/* Le gestionnaire de templates vit DANS la barre de contrôles (bouton sous
           « Couches »), d'où qu'il reçoive `templates` — même famille que le filtre par tag. */}
       {controls !== false && <MapControls {...(controls ?? {})} templates={templates} />}

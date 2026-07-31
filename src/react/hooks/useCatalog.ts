@@ -23,50 +23,30 @@ export type CatalogApi = {
 }
 
 /** S'abonne à l'état partagé du catalogue (`engine.catalogState`). */
-function useCatalogState(): void {
+function useCatalogStore() {
   const { engine } = useMapContext()
-  const subscribe = useCallback((cb: () => void) => engine.catalogState.onChanged(cb), [engine])
-  useSyncExternalStore(
+  const store = engine.catalogState
+  const subscribe = useCallback((cb: () => void) => store.onChanged(cb), [store])
+  const token = useSyncExternalStore(
     subscribe,
-    () => engine.catalogState.snapshot(),
-    () => engine.catalogState.snapshot(),
+    () => store.snapshot(),
+    () => store.snapshot(),
   )
+  return { store, token }
 }
 
 /**
  * Ce qui est affiché depuis le catalogue, et les gestes qui le changent.
  *
- * L'état vit dans `engine.catalogState` ; ce hook n'en est qu'une façade réactive.
- * `<ShapeLayer>` fait tout le reste — drapage sur le relief, extrusion, thème, et
- * l'inscription à la recherche qui rend cherchable ce qu'on vient d'afficher.
+ * **Sans aucun effet de montage** : ce hook a plusieurs consommateurs simultanés (le
+ * panneau, chaque ligne, la surface d'affichage). Les effets qui doivent n'avoir lieu
+ * QU'UNE FOIS — configuration du stockage, purge, restauration — vivent dans
+ * `useCatalogHost`, que seule `<CatalogSurface>` appelle. Les avoir laissés ici aurait
+ * déclenché autant de restaurations concurrentes que de composants montés.
  */
 export function useCatalog(): CatalogApi {
   const { engine, theme } = useMapContext()
-  const config = useConfig()
-  const sources = useCatalogSources()
-  const store = engine.catalogState
-
-  useCatalogState()
-
-  // Clés de stockage : connues de la config, que le moteur n'a pas. Idempotent.
-  useEffect(() => {
-    store.configure({
-      selection: config.data.storageKeys.catalog,
-      settings: config.data.storageKeys.catalogSettings,
-    })
-  }, [store, config.data.storageKeys.catalog, config.data.storageKeys.catalogSettings])
-
-  // Un chargement par clé, annulable — retirer un élément pendant sa requête doit
-  // couper le réseau, pas attendre qu'il revienne pour le jeter.
-  const abortsRef = useRef(new Map<CatalogKey, AbortController>())
-
-  useEffect(() => {
-    const aborts = abortsRef.current
-    return () => {
-      for (const c of aborts.values()) c.abort()
-      aborts.clear()
-    }
-  }, [])
+  const { store, token } = useCatalogStore()
 
   const fit = useCallback(
     (bounds: Bounds) => {
@@ -79,47 +59,40 @@ export function useCatalog(): CatalogApi {
     [engine, theme.sizing.catalogPanelW],
   )
 
-  const load = useCallback(
-    async (source: CatalogSource, item: CatalogItem, key: CatalogKey, withFit: boolean) => {
-      const ctrl = new AbortController()
-      abortsRef.current.get(key)?.abort()
-      abortsRef.current.set(key, ctrl)
-      try {
-        const shapes = await source.geometry(item.id, ctrl.signal)
-        // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
-        if (ctrl.signal.aborted || !store.isShown(key)) return
-        // Une forme sans nom est invisible pour la recherche (cf. ZONES.md § 5) : on lui
-        // prête celui de son élément de catalogue, qui est précisément ce qu'on a cliqué.
-        const named = shapes.map((s) => (s.title ? s : { ...s, title: item.title }))
-        store.setGeometry(key, named)
-        engine.invalidate()
-        if (!withFit) return
-        const b = boundsOfShapes(named)
-        if (b) fit(b)
-      } catch {
-        if (ctrl.signal.aborted) return
-        store.remove(key, true)
-        engine.invalidate()
-      } finally {
-        if (abortsRef.current.get(key) === ctrl) abortsRef.current.delete(key)
-      }
-    },
-    [engine, fit, store],
-  )
-
   const toggle = useCallback(
     (source: CatalogSource, item: CatalogItem) => {
       const key = catalogKey(source.id, item.id)
       if (store.isShown(key)) {
-        abortsRef.current.get(key)?.abort()
+        store.abortLoad(key)
         store.remove(key)
         engine.invalidate()
         return
       }
       store.markSelected(key)
-      void load(source, item, key, store.getSettings().fitOnAdd)
+      const withFit = store.getSettings().fitOnAdd
+      const ctrl = store.beginLoad(key)
+      void source
+        .geometry(item.id, ctrl.signal)
+        .then((shapes) => {
+          // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
+          if (ctrl.signal.aborted || !store.isShown(key)) return
+          // Une forme sans nom est invisible pour la recherche (cf. ZONES.md § 5) : on
+          // lui prête celui de son élément, qui est précisément ce qu'on a cliqué.
+          const named = shapes.map((s) => (s.title ? s : { ...s, title: item.title }))
+          store.setGeometry(key, named)
+          engine.invalidate()
+          if (!withFit) return
+          const b = boundsOfShapes(named)
+          if (b) fit(b)
+        })
+        .catch(() => {
+          if (ctrl.signal.aborted) return
+          store.remove(key, true)
+          engine.invalidate()
+        })
+        .finally(() => store.endLoad(key, ctrl))
     },
-    [engine, load, store],
+    [engine, fit, store],
   )
 
   const target = useCallback(
@@ -145,11 +118,46 @@ export function useCatalog(): CatalogApi {
   )
 
   const clear = useCallback(() => {
-    for (const c of abortsRef.current.values()) c.abort()
-    abortsRef.current.clear()
+    store.abortAll()
     store.clear()
     engine.invalidate()
   }, [engine, store])
+
+  return useMemo(
+    () => ({
+      selection: store.selection(),
+      isShown: (k: CatalogKey) => store.isShown(k),
+      isPending: (k: CatalogKey) => store.isPending(k),
+      hasError: (k: CatalogKey) => store.hasError(k),
+      toggle,
+      target,
+      clear,
+      shapes: store.shapes(),
+    }),
+    // `token` est la dépendance réelle : le store mute en place, et `useCatalogStore`
+    // a déjà provoqué le re-render au bon moment.
+    [store, token, toggle, target, clear],
+  )
+}
+
+/**
+ * Effets à instance UNIQUE du catalogue : configuration du stockage, purge des sources
+ * disparues, restauration de la session précédente. Appelé par `<CatalogSurface>`, que
+ * `<Map>` monte une seule fois.
+ */
+export function useCatalogHost(): readonly ShapeData[] {
+  const { engine } = useMapContext()
+  const config = useConfig()
+  const sources = useCatalogSources()
+  const { store, token } = useCatalogStore()
+
+  // Clés de stockage : connues de la config, que le moteur n'a pas. Idempotent.
+  useEffect(() => {
+    store.configure({
+      selection: config.data.storageKeys.catalog,
+      settings: config.data.storageKeys.catalogSettings,
+    })
+  }, [store, config.data.storageKeys.catalog, config.data.storageKeys.catalogSettings])
 
   // Une source démontée emporte ce qu'elle avait mis sur la carte : garder ses formes
   // laisserait des zones que plus aucun panneau ne sait retirer.
@@ -158,14 +166,14 @@ export function useCatalog(): CatalogApi {
     engine.invalidate()
   }, [engine, sources, store])
 
-  // Clés déjà traitées à la restauration — une clé dont la source n'est pas encore
-  // inscrite n'y entre PAS, pour être retentée quand le plugin qui la porte arrivera.
+  // Clés déjà traitées — une clé dont la source n'est pas encore inscrite n'y entre
+  // PAS, pour être retentée quand le plugin qui la porte arrivera.
   const restoredRef = useRef(new Set<CatalogKey>())
 
   /**
    * Recharge ce que la session précédente affichait.
    *
-   * Seules les CLÉS ont été persistées : la géométrie est la réponse d'une API à un
+   * Seules les CLÉS ont été persistées : une géométrie est la réponse d'une API à un
    * instant donné, et la resservir depuis un stockage local ferait afficher un périmètre
    * que le backend a peut-être déplacé depuis. On la redemande donc, sans cadrer (on
    * restaure une vue, on ne la vole pas) et sans signaler d'échec — une zone supprimée
@@ -179,8 +187,7 @@ export function useCatalog(): CatalogApi {
       const source = sources.find((s) => s.id === parsed.sourceId)
       if (!source) continue
       restoredRef.current.add(key)
-      const ctrl = new AbortController()
-      abortsRef.current.set(key, ctrl)
+      const ctrl = store.beginLoad(key)
       void source
         .geometry(restoreCatalogId(parsed.itemId), ctrl.signal)
         .then((shapes) => {
@@ -193,31 +200,16 @@ export function useCatalog(): CatalogApi {
           store.remove(key)
           engine.invalidate()
         })
-        .finally(() => {
-          if (abortsRef.current.get(key) === ctrl) abortsRef.current.delete(key)
-        })
+        .finally(() => store.endLoad(key, ctrl))
     }
-    // `store.snapshot()` : la sélection restaurée n'arrive qu'après `configure`, donc
-    // après le premier rendu — sans cette dépendance, la restauration n'aurait jamais lieu.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine, sources, store, store.snapshot()])
+    // `token` : la sélection restaurée n'arrive qu'après `configure`, donc après le
+    // premier rendu — sans cette dépendance, la restauration n'aurait jamais lieu.
+  }, [engine, sources, store, token])
 
-  return useMemo(
-    () => ({
-      selection: store.selection(),
-      isShown: (k: CatalogKey) => store.isShown(k),
-      isPending: (k: CatalogKey) => store.isPending(k),
-      hasError: (k: CatalogKey) => store.hasError(k),
-      toggle,
-      target,
-      clear,
-      shapes: store.shapes(),
-    }),
-    // `store.snapshot()` est la dépendance réelle : le store mute en place, et
-    // `useCatalogState` a déjà provoqué le re-render au bon moment.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, store.snapshot(), toggle, target, clear],
-  )
+  // Carte démontée : couper tout ce qui est en vol.
+  useEffect(() => () => store.abortAll(), [store])
+
+  return store.shapes()
 }
 
 export type CatalogSettingsApi = CatalogSettings & {
@@ -227,14 +219,10 @@ export type CatalogSettingsApi = CatalogSettings & {
 
 /** Réglages du catalogue — partagés avec `useCatalog`, donc jamais désynchronisés. */
 export function useCatalogSettings(): CatalogSettingsApi {
-  const { engine } = useMapContext()
-  const store = engine.catalogState
-
-  useCatalogState()
+  const { store, token } = useCatalogStore()
 
   const setPersist = useCallback((v: boolean) => store.setSettings({ persist: v }), [store])
   const setFitOnAdd = useCallback((v: boolean) => store.setSettings({ fitOnAdd: v }), [store])
 
-  const settings = store.getSettings()
-  return useMemo(() => ({ ...settings, setPersist, setFitOnAdd }), [settings, setPersist, setFitOnAdd])
+  return useMemo(() => ({ ...store.getSettings(), setPersist, setFitOnAdd }), [store, token, setPersist, setFitOnAdd])
 }

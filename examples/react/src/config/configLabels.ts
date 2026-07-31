@@ -257,6 +257,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.controls.tilt': 'inclinaison',
   'interaction.shortcuts.controls.globe': 'vue globe',
   'interaction.shortcuts.controls.layers': 'panneau Couches',
+  'interaction.shortcuts.controls.catalog': 'panneau Catalogue',
   'interaction.shortcuts.controls.fullscreen': 'plein écran',
   'interaction.shortcuts.controls.basemap': 'bascule 3D / plan',
   'interaction.shortcuts.controls.traffic': 'calque trafic',

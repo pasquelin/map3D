@@ -981,6 +981,8 @@ export type ControlShortcuts = {
   graticule: string | false
   /** Ouvre le panneau « Couches » (filtre par tag). */
   layers: string | false
+  /** Ouvre le panneau « Catalogue ». Sans source déclarée, la touche est inactive. */
+  catalog: string | false
   /** Plein écran. */
   fullscreen: string | false
   /** Bascule 3D photoréaliste ↔ plan 2D. */

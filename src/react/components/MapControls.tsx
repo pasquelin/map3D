@@ -29,6 +29,7 @@ import { usePedestrian } from '../hooks/usePedestrian'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
+import { CatalogControl } from './CatalogControl'
 import { TagFilterControl } from './TagFilterControl'
 import { TemplatesPanel, type TemplatesPanelProps } from './TemplatesPanel'
 import { ToolButton } from './ToolButton'
@@ -42,6 +43,7 @@ export type MapControlAction =
   | 'globe'
   | 'graticule'
   | 'layers'
+  | 'catalog'
   | 'fullscreen'
   /** Bascule 3D ↔ plan 2D. */
   | 'basemap'
@@ -62,6 +64,8 @@ export type MapControlButton =
    *  sous-menu « Mesures » qu'elle partage — pas dans `shortcuts.controls`. */
   | 'graticule'
   | 'layers'
+  /** Catalogue d'entités distantes — partage le groupe `layers` avec « Couches ». */
+  | 'catalog'
   | 'fullscreen'
   | 'mode3d'
   | 'plan'
@@ -474,16 +478,19 @@ export function MapControls({
         ),
       )}
 
-      {/* « Couches » et « Templates » dans le MÊME groupe : le filtre par tag et les
-          sauvegardes de dessin sont la gestion du contenu de la carte, réunie en une
-          carte. Chacun garde son propre bouton + flyout (ancré, dismiss). */}
+      {/* « Couches », « Catalogue » et « Templates » dans le MÊME groupe : filtrer par
+          tag, parcourir un référentiel et rappeler une sauvegarde sont la gestion du
+          contenu de la carte, réunie en une carte. Chacun garde son propre bouton +
+          flyout (ancré, dismiss), et l'exclusivité de `Dropdown` fait qu'un seul
+          s'ouvre à la fois. `<CatalogControl>` ne rend rien sans source déclarée. */}
       {slot(
         'layers',
-        (btn('layers') || templates) && (
+        (btn('layers') || btn('catalog') || templates) && (
           <div className="m3d-controls-group">
             {btn('layers') && (
               <TagFilterControl grouped position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
             )}
+            {btn('catalog') && <CatalogControl grouped position={position} tipId={TIP_ID} shortcut={keys.catalog} />}
             {templates && <TemplatesPanel grouped {...templates} position={position} tipId={TIP_ID} />}
           </div>
         ),

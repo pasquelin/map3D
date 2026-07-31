@@ -45,6 +45,15 @@ export class CatalogStore {
   private shapesCache: readonly ShapeData[] = []
   private readonly listeners = new Set<() => void>()
   private keys: CatalogStoreKeys | null = null
+  /**
+   * Chargements en vol, par clé.
+   *
+   * Ici et non dans un hook : retirer un élément pendant sa requête doit couper le
+   * réseau, et le panneau qui a lancé la requête peut très bien avoir été démonté
+   * entre-temps (il ne l'est qu'à la fermeture). Un `useRef` par consommateur aurait
+   * abandonné les chargements d'un autre.
+   */
+  private readonly loads = new Map<CatalogKey, AbortController>()
 
   /**
    * Branche les clés de stockage et relit ce qui avait été retenu.
@@ -171,6 +180,31 @@ export class CatalogStore {
     if (!this.settings.persist && this.keys) clearStorage(this.keys.selection)
     else this.persistSelection()
     this.bump()
+  }
+
+  // ── Chargements en vol ──
+
+  /** Ouvre un chargement pour `key`, en abandonnant celui qu'elle avait déjà. */
+  beginLoad(key: CatalogKey): AbortController {
+    this.loads.get(key)?.abort()
+    const ctrl = new AbortController()
+    this.loads.set(key, ctrl)
+    return ctrl
+  }
+
+  /** Referme un chargement — sans toucher à celui qui l'aurait déjà remplacé. */
+  endLoad(key: CatalogKey, ctrl: AbortController): void {
+    if (this.loads.get(key) === ctrl) this.loads.delete(key)
+  }
+
+  abortLoad(key: CatalogKey): void {
+    this.loads.get(key)?.abort()
+    this.loads.delete(key)
+  }
+
+  abortAll(): void {
+    for (const c of this.loads.values()) c.abort()
+    this.loads.clear()
   }
 
   // ── Interne ──
