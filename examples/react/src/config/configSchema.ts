@@ -163,7 +163,9 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
     options: { 'int16 (2× plus léger)': 'int16', float32: 'float32' },
   },
   'providers.buildings.zoom': { min: 10, max: 16, step: 1 },
-  'providers.buildings.minViewZoom': { min: 10, max: 18, step: 1 },
+  'providers.buildings.maxViewAltitude': { min: 200, max: 5000, step: 100 },
+  'providers.buildings.requestAltitudeFactor': { min: 1, max: 2, step: 0.1 },
+  'providers.buildings.maxViewDistance': { min: 2000, max: 12_000, step: 500 },
   'providers.buildings.margin': { min: 0, max: 3, step: 1 },
   // Bornes RESSERRÉES : une tuile z14 dense pèse ~131 000 triangles, sans commune mesure
   // avec une tuile raster. Les plafonds d'avant (256 / 16 / 128) étaient calqués sur ceux
