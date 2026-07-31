@@ -121,6 +121,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.margin': 'anneau de préchargement',
   'providers.tiles.maxRequest': 'budget de tuiles par zoom',
   'providers.tiles.uniformDetail': 'détail uniforme (un seul niveau)',
+  'providers.tiles.uniformMaxSpread': 'écart toléré avant cascade (crans)',
   'providers.tiles.maxAttempts': 'essais par tuile',
   'providers.tiles.retryDelays': 'délais entre essais (ms)',
 

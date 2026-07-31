@@ -220,6 +220,21 @@ export type TilesConfig = {
    * hauteur d'homme est voulu. `false` = cascade partout (comportement d'origine).
    */
   uniformDetail: boolean
+  /**
+   * Écart de zoom toléré, en crans, entre ce que réclame le sol REGARDÉ et ce que la vue
+   * entière permet, avant que `uniformDetail` ne cède la place à la cascade.
+   *
+   * ⚠️ Un niveau uniforme prend nécessairement celui qu'impose le point le plus LOINTAIN, et
+   * le premier plan en hérite. À plat les deux sont du même ordre : l'écart est nul et
+   * `uniformDetail` joue son rôle, qui est d'éviter une boîte de détail au centre de l'écran.
+   * En vue rasante le rapport explose — mesuré à 73 m d'altitude et 73° d'inclinaison,
+   * l'emprise s'étale sur 6,3 × 12,5 km quand le sol regardé est à 73 m, et le niveau tombait
+   * à des tuiles de 805 m, onze fois la hauteur de l'œil : sol flou et étiquettes géantes.
+   *
+   * `1` tolère un cran (invisible) et bascule au-delà. `0` = cascade dès le moindre écart ;
+   * une valeur très haute revient à l'ancien comportement, uniforme quoi qu'il arrive.
+   */
+  uniformMaxSpread: number
 } & TileCacheBudget
 
 /** Réglages communs à un appel réseau sortant. */

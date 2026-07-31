@@ -2048,21 +2048,6 @@ export class MapEngine {
   }
 
   /**
-   * Sol sous le CENTRE DE L'ÉCRAN — le point réellement regardé, autour duquel se
-   * centrent les couronnes de tuiles (cascade du fond, volume des bâtiments).
-   *
-   * À distinguer de `view.center`, qui est le point sous la CAMÉRA : en vue inclinée les
-   * deux sont très éloignés, et centrer sur la caméra dépense le budget derrière
-   * l'observateur. Intersection analytique de l'ellipsoïde — aucun rayon lancé dans la
-   * scène, donc gratuit par frame ; repli sur le point caméra si la vue porte sur le vide.
-   */
-  private aimPoint(view: MapView): LatLng {
-    return (
-      this.projection.pickEllipsoidLatLng(this.size.width / 2, this.size.height / 2, this.threeCamera) ?? view.center
-    )
-  }
-
-  /**
    * Déplacement au clavier — translation de la caméra dans le PLAN TANGENT au sol, dans
    * le repère de la vue : « tout droit » suit le sol, jamais la ligne de visée.
    *
@@ -2428,21 +2413,17 @@ export class MapEngine {
         ? view.bounds
         : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
       const tileZoom = walking ? this.tileZoomWalking(state) : this.tileZoomAtCenter(state)
-      // Le point visé ne sert qu'aux anneaux de détail (couche 2D hors uniforme) et aux
-      // bâtiments : ailleurs, son raycast d'ellipsoïde par frame serait pour rien.
-      const uniform = this.config.providers.tiles.uniformDetail && !walking
-      const aim = !view ? this.pedestrianCtl.position : internal3d || !uniform ? this.aimPoint(view) : view.center
-      // Bâtiments internes : affichés seulement quand le zoom AU POINT VISÉ est suffisant.
-      // `tileZoom` tient compte de la DISTANCE (résolution mètres/pixel au centre) : haut/loin
-      // ou dézoomé → zoom bas → masqués ; proche → zoom haut → affichés. Critère indépendant
-      // de l'inclinaison (contrairement à l'emprise, qui explose à l'horizon dès qu'on incline).
-      // Sous `minViewZoom`, les bâtiments « ne couvrent que quelques pixels » (cf. son JSDoc) :
-      // même seuil pour les masquer ET arrêter de les demander.
-      //
-      // Fondu réservé au volume RÉELLEMENT à l'écran : hors mode 3D interne, il n'y a rien à
-      // faire fondre (`applyModeVisibility` a déjà sorti le groupe du graphe), et le faire
-      // quand même réveillait la boucle ~15 frames par bascule 2D pour finir par DÉTRUIRE un
-      // cache de volumes que le retour en 3D doit re-télécharger.
+      /**
+       * ⚠️ Le point VISÉ (`aimPoint`) était calculé ici à chaque frame — un raycast
+       * d'ellipsoïde — pour centrer les anneaux de détail du fond et la couverture des
+       * bâtiments. Les deux se centrent désormais sous la CAMÉRA, pour ne dépendre ni du cap
+       * ni de l'inclinaison : plus personne ne le consomme, et le raycast disparaît avec lui.
+       *
+       * Fondu réservé au volume RÉELLEMENT à l'écran : hors mode 3D interne, il n'y a rien à
+       * faire fondre (`applyModeVisibility` a déjà sorti le groupe du graphe), et le faire
+       * quand même réveillait la boucle ~15 frames par bascule 2D pour finir par DÉTRUIRE un
+       * cache de volumes que le retour en 3D doit re-télécharger.
+       */
       if (internal3d) {
         const b = this.config.providers.buildings
         // Hauteur au-dessus du SOL, jamais du toit : `terrainElevation` vient d'un raycast au
@@ -2470,7 +2451,7 @@ export class MapEngine {
       // pour que celle-ci ne dépende ni du cap ni de l'inclinaison. Sans plafond, contrairement
       // au volume : le fond suit l'échelle de la vue. En marche, le disque piéton joue ce rôle.
       if (feedBasemap && due) {
-        this.basemap2d.update(bounds, view ? this.steadyBounds(state) : bounds, tileZoom, aim, !controlling, walking)
+        this.basemap2d.update(bounds, view ? this.steadyBounds(state) : bounds, tileZoom, !controlling, walking)
       }
     }
 

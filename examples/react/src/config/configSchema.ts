@@ -122,6 +122,7 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   // Impair : l'anneau est centré sur le point visé. Au-delà de 7 on paie surtout des
   // tuiles redondantes — le niveau plus fin couvre déjà le quart central.
   'providers.tiles.lodRing': { min: 1, max: 9, step: 2, billing: true },
+  'providers.tiles.uniformMaxSpread': { min: 0, max: 6, step: 1 },
   'providers.tiles.language': { kind: 'list', options: LOCALES },
   'providers.tiles.region': { kind: 'list', options: REGIONS },
   // Les CLÉS s'affichent, les valeurs partent au fournisseur : elles restent les

@@ -13,7 +13,7 @@ const HORIZON: Bounds = { west: -2, east: 8, south: 45, north: 52 }
 describe('lodLevels — cascade de détail du fond raster', () => {
   it('ne demande qu’un niveau quand il couvre déjà toute la vue', () => {
     // `finest === covering` : aucun anneau, un seul niveau demandé en plein.
-    expect(lodLevels(QUARTIER, QUARTIER, 16, cfg)).toEqual({ finest: 16, covering: 16 })
+    expect(lodLevels(QUARTIER, QUARTIER, 16, cfg)).toEqual({ finest: 16, covering: 16, cascade: false })
   })
 
   /**
@@ -47,7 +47,11 @@ describe('lodLevels — cascade de détail du fond raster', () => {
   })
 
   it('rend un plan vide quand la vue est déjà au niveau de base', () => {
-    expect(lodLevels(QUARTIER, QUARTIER, cfg.baseZoom, cfg)).toEqual({ finest: cfg.baseZoom, covering: cfg.baseZoom })
+    expect(lodLevels(QUARTIER, QUARTIER, cfg.baseZoom, cfg)).toEqual({
+      finest: cfg.baseZoom,
+      covering: cfg.baseZoom,
+      cascade: false,
+    })
   })
 
   it('resserre la cascade quand le budget grandit — un budget large couvre plus tôt', () => {
@@ -103,5 +107,36 @@ describe('lodLevels — finesse décidée sur le disque, budget borné par la vu
     expect(lodLevels(QUARTIER, HORIZON, 16, petitCache).covering).toBeLessThan(
       lodLevels(QUARTIER, HORIZON, 16, cfg).covering,
     )
+  })
+})
+
+/**
+ * Un niveau uniforme prend celui qu'impose le point le plus LOINTAIN, et le premier plan en
+ * hérite. À plat les deux sont du même ordre ; en vue rasante le rapport explose, et le sol
+ * sous les pieds se retrouve peint par des tuiles calibrées pour l'horizon.
+ */
+describe('lodLevels — bascule du niveau unique vers la cascade', () => {
+  it('reste en niveau unique quand la vue tient dans l’écart toléré', () => {
+    expect(lodLevels(QUARTIER, QUARTIER, 16, cfg).cascade).toBe(false)
+  })
+
+  /**
+   * Le cas mesuré : 73 m d'altitude, 73° d'inclinaison. L'emprise s'étale sur 6,3 × 12,5 km
+   * quand le sol regardé est à 73 m — le niveau tombait à des tuiles de 805 m, onze fois la
+   * hauteur de l'œil, d'où un sol flou et des étiquettes géantes.
+   */
+  it('bascule en cascade quand la vue est trop étalée pour un seul niveau', () => {
+    expect(lodLevels(QUARTIER, HORIZON, 18, cfg).cascade).toBe(true)
+  })
+
+  /** Le seuil est un réglage : très haut, il rend l'ancien comportement (uniforme quoi qu'il arrive). */
+  it('ne bascule jamais avec un écart toléré très large', () => {
+    expect(lodLevels(QUARTIER, HORIZON, 18, { ...cfg, uniformMaxSpread: 99 }).cascade).toBe(false)
+  })
+
+  /** À zéro, le moindre cran d'écart suffit — utile pour privilégier toujours le premier plan. */
+  it('bascule au moindre écart quand la tolérance est nulle', () => {
+    const auRas = lodLevels(QUARTIER, HORIZON, 18, { ...cfg, uniformMaxSpread: 0 })
+    expect(auRas.cascade).toBe(true)
   })
 })

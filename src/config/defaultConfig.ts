@@ -84,6 +84,12 @@ export const defaultConfig: MapConfig = {
       // Un seul niveau sur toute l'emprise (pas de boîte de détail au centre), à plat comme
       // incliné. Cascade gardée seulement en marche (piéton).
       uniformDetail: true,
+      // ⚠️ Nouveau. Le niveau uniforme est celui qu'impose le point le plus LOINTAIN de
+      // l'emprise, et le premier plan en hérite : sans cette bascule, une vue rasante près du
+      // sol (mesuré : 73 m d'altitude, 73° d'inclinaison) tombait sur des tuiles de 805 m,
+      // onze fois la hauteur de l'œil. `1` tolère un cran — invisible — et rend la main à la
+      // cascade au-delà, là où elle est de toute façon le comportement attendu.
+      uniformMaxSpread: 1,
     },
 
     routing: {

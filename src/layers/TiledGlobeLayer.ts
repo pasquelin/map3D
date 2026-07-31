@@ -261,7 +261,7 @@ export class TiledGlobeLayer {
    * ignore : `uniformDetail` est SA config, elle la lit elle-même — sinon la clé n'aurait
    * pas de propriétaire et un hôte la changerait sans passer par `setConfig`.
    */
-  update(bounds: Bounds, steady: Bounds, zoom: number, aim: LatLng, refine = true, walking = false): void {
+  update(bounds: Bounds, steady: Bounds, zoom: number, refine = true, walking = false): void {
     if (this.disposed) return
     // Sans source (fournisseur non configuré), ne RIEN mettre en file : les tuiles
     // s'empileraient en attente d'un chargement impossible, pour être rejouées telles
@@ -307,7 +307,7 @@ export class TiledGlobeLayer {
      * toute la session. Seul le niveau le plus fin se renouvelle en se déplaçant.
      */
     // Détail uniforme SAUF en marche, où le gradient près→loin à hauteur d'homme est voulu.
-    const uniform = this.cfg.uniformDetail && !walking
+    const wantUniform = this.cfg.uniformDetail && !walking
     // Calculé quand on raffine OU en uniforme (le rendu plafonne alors au niveau `covering`) ;
     // inutile sur le chemin `!refine && !uniform` — `undefined` rend cette absence visible
     // dans le type, là où un objet de zéros typecheckait comme un vrai LOD.
@@ -327,7 +327,14 @@ export class TiledGlobeLayer {
      * dépend ni du cap ni de l'inclinaison. Le niveau de détail devient donc stable, et c'est
      * la vue qui décide de ce qu'on affiche — pas de la finesse à laquelle on l'affiche.
      */
-    const lod = refine || uniform ? lodLevels(steady, bounds, zoom, this.cfg) : undefined
+    const lod = refine || wantUniform ? lodLevels(steady, bounds, zoom, this.cfg) : undefined
+    /**
+     * Le niveau unique cède à la cascade quand la vue est trop étalée pour lui (cf.
+     * `LodLevels.cascade`) : sinon le premier plan hérite du niveau imposé par l'horizon.
+     * C'est une bascule, pas un réglage — l'hôte demande `uniformDetail`, le calque constate
+     * que la vue ne s'y prête plus.
+     */
+    const uniform = wantUniform && !lod?.cascade
     if (refine && lod) {
       const { finest, covering } = lod
       if (uniform) {
@@ -365,7 +372,10 @@ export class TiledGlobeLayer {
          */
         for (let z = covering - 1; z > baseZ; z--) this.requestRing(z, under, this.cfg.lodRing)
       } else {
-        for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
+        // Anneaux centrés sous la CAMÉRA et non sur le point visé : c'est ce qui les rend
+        // indépendants du cap, au même titre que le disque qui décide de la finesse. En
+        // marche, `steady` est le disque piéton, donc `under` y vaut la position du piéton.
+        for (let z = finest; z > baseZ; z--) this.requestRing(z, under, this.cfg.lodRing)
         if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
       }
     }
@@ -379,6 +389,11 @@ export class TiledGlobeLayer {
     // réapparaissait au dézoom. Masquées, elles ne sont plus marquées vues → l'éviction les
     // libère (RAM rendue). C'est le « refresh » de tout le fond à un seul niveau cohérent.
     const maxRenderZ = uniform && lod ? lod.covering : Infinity
+    // Frontière du LOINTAIN : sous `covering`, les niveaux sont là pour peupler l'au-delà de
+    // `bounds` — les y filtrer les masquerait précisément où ils servent. À `covering` et
+    // au-dessus, la vue décide. Distinct de `maxRenderZ`, qui vaut `Infinity` en cascade et
+    // laisserait alors tout passer.
+    const farZ = lod ? lod.covering : baseZ
     for (const t of this.cache.values()) {
       /**
        * Les niveaux PLUS GROSSIERS que `covering` peuplent l'au-delà de `bounds`, jusqu'à
@@ -388,7 +403,7 @@ export class TiledGlobeLayer {
        * au-dessus — et three.js les écarte du rendu par frustum culling quand ils tombent hors
        * champ.
        */
-      const inView = t.z < maxRenderZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
+      const inView = t.z === baseZ || t.z < farZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
       if (t.state === 'ready' && inView) {
         if (!t.mesh) this.buildMesh(t)
         t.mesh!.visible = true
@@ -626,6 +641,19 @@ export type LodLevels = {
    * niveau de base, dont un texel étiré couvre des centaines de kilomètres.
    */
   covering: number
+  /**
+   * La vue est trop étalée pour tenir en UN niveau : le fond doit repasser en cascade
+   * (fin près, grossier loin), même si `uniformDetail` est demandé.
+   *
+   * ⚠️ Un niveau uniforme prend nécessairement celui qu'impose le point le plus LOINTAIN, et
+   * le premier plan en hérite. À plat les deux sont du même ordre, donc c'est sans effet —
+   * c'est le cas pour lequel `uniformDetail` a été écrit, et il y évite la boîte de détail au
+   * centre de l'écran. En vue rasante, le rapport explose : mesuré à 73 m d'altitude et 73°
+   * d'inclinaison, l'emprise s'étale sur 6,3 × 12,5 km quand le sol regardé est à 73 m, et le
+   * niveau tombait à des tuiles de 805 m — onze fois la hauteur de l'œil, soit un sol
+   * franchement flou et des étiquettes géantes.
+   */
+  cascade: boolean
 }
 
 /**
@@ -643,7 +671,7 @@ export function lodLevels(
   steady: Bounds,
   bounds: Bounds,
   zoom: number,
-  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest' | 'maxTiles'>,
+  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest' | 'maxTiles' | 'uniformMaxSpread'>,
 ): LodLevels {
   const finest = clamp(Math.round(zoom), cfg.baseZoom, cfg.maxZoom)
   let covering = finest
@@ -659,6 +687,9 @@ export function lodLevels(
    * niveau de base, dont un texel couvre un quart de continent.
    */
   while (covering > cfg.baseZoom && tileCount(steady, covering, cfg.margin) > cfg.maxRequest) covering--
+  // Niveau que réclame le PROCHE, avant que la vue lointaine n'ait son mot à dire : c'est
+  // l'écart entre les deux qui dit si un niveau unique peut encore servir tout le monde.
+  const near = covering
   /**
    * Second critère, sur la vue réelle : `covering` est demandé en PLEIN sur `bounds` (le
    * restreindre au disque ferait une frontière nette au milieu de l'écran), donc une finesse
@@ -671,7 +702,7 @@ export function lodLevels(
    * coûte quatre fois moins).
    */
   while (covering > cfg.baseZoom && tileCount(bounds, covering, cfg.margin) > cfg.maxTiles / 2) covering--
-  return { finest, covering }
+  return { finest, covering, cascade: near - covering > cfg.uniformMaxSpread }
 }
 
 /** Nombre de tuiles couvrant `bounds` au zoom `z` (marge incluse), borné au globe. */
