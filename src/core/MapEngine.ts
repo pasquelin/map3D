@@ -2681,12 +2681,16 @@ export class MapEngine {
   }
 
   /**
-   * Le disque des BÂTIMENTS : le même, plafonné par `maxViewDistance`. Ce plafond est ce qui
-   * borne leur budget de tuiles — une tuile de volume coûte vingt fois une texture, donc le
-   * fond peut suivre l'échelle de la vue là où le volume doit s'arrêter.
+   * Le disque des BÂTIMENTS : rayon `maxViewDistance`, CONSTANT.
+   *
+   * ⚠️ Il valait `min(2 × distance au point visé, maxViewDistance)`, et ce minimum était un
+   * contresens : plus on descend, plus la distance au point visé est courte, donc plus le
+   * volume s'arrêtait près — 1,9 km à 410 m d'altitude, là où l'ancien carré 7×7 portait à
+   * 5,6 km. Or c'est précisément à basse altitude qu'on veut voir les volumes loin devant, et
+   * le budget (32 tuiles) est dimensionné pour le rayon plein, pas pour un rayon rétréci.
    */
   private volumeBounds(state: CameraState): Bounds {
-    return this.steadyBounds(state, this.config.providers.buildings.maxViewDistance)
+    return boundsOfCircle({ lat: state.lat, lng: state.lng }, this.config.providers.buildings.maxViewDistance)
   }
 
   private computeBounds(center: CameraState): Bounds {

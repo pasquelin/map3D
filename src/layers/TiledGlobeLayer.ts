@@ -272,6 +272,9 @@ export class TiledGlobeLayer {
     const baseZ = this.cfg.baseZoom
     // Filet de sécurité : le globe entier au niveau de base, toujours chargé, jamais évincé.
     this.requestLevel(baseZ, WORLD_BOUNDS, 0)
+    // Centre du disque `steady`, c'est-à-dire le sol sous la caméra : c'est autour de LUI que
+    // s'ordonnent les anneaux du lointain, pour qu'ils ne dépendent pas du cap.
+    const under: LatLng = { lat: (steady.north + steady.south) / 2, lng: (steady.east + steady.west) / 2 }
 
     /**
      * CASCADE de niveaux, du plus fin au plus grossier.
@@ -343,6 +346,24 @@ export class TiledGlobeLayer {
         //
         // Le disque ne sert donc qu'à DÉCIDER de la finesse, jamais à borner son étendue.
         for (let z = covering; z > baseZ; z--) this.requestLevel(z, bounds, this.cfg.margin)
+        /**
+         * AU-DELÀ de `bounds`, jusqu'à l'horizon.
+         *
+         * ⚠️ `bounds` naît de rayons qui doivent TOUCHER l'ellipsoïde : ceux qui filent au
+         * ciel ne comptent pas, si bien que l'emprise s'arrête bien avant ce que l'œil voit.
+         * Mesuré à 410 m d'altitude et 64° d'inclinaison : `bounds` porte à ~2 km, l'horizon
+         * est à 72 km. Entre les deux, plus aucun niveau ne s'appliquait — seule restait la
+         * tuile de BASE, peinte sans condition d'emprise (cf. `inView` plus bas). Un texel z2
+         * couvre un quart de continent, ÉTIQUETTES COMPRISES : d'où les énormes taches de
+         * texte étiré au ras du ciel.
+         *
+         * Un anneau par cran, chacun portant deux fois plus loin que le précédent, atteint
+         * donc l'horizon par niveaux intermédiaires. Centré sous la caméra et non sur le point
+         * visé : c'est ce qui le rend indépendant du cap, comme le disque qui décide de la
+         * finesse. Coût borné et déjà dimensionné — `lodRing²` tuiles par cran, resservies
+         * toute la session puisqu'un niveau grossier couvre d'immenses surfaces.
+         */
+        for (let z = covering - 1; z > baseZ; z--) this.requestRing(z, under, this.cfg.lodRing)
       } else {
         for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
         if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
@@ -359,7 +380,15 @@ export class TiledGlobeLayer {
     // libère (RAM rendue). C'est le « refresh » de tout le fond à un seul niveau cohérent.
     const maxRenderZ = uniform && lod ? lod.covering : Infinity
     for (const t of this.cache.values()) {
-      const inView = t.z === baseZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
+      /**
+       * Les niveaux PLUS GROSSIERS que `covering` peuplent l'au-delà de `bounds`, jusqu'à
+       * l'horizon : les filtrer sur `bounds` les masquerait précisément là où ils servent, et
+       * ne laisserait de nouveau que la tuile de base et ses étiquettes géantes. Ils ne
+       * cachent pas le détail pour autant — `renderOrder` fait passer les niveaux fins
+       * au-dessus — et three.js les écarte du rendu par frustum culling quand ils tombent hors
+       * champ.
+       */
+      const inView = t.z < maxRenderZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
       if (t.state === 'ready' && inView) {
         if (!t.mesh) this.buildMesh(t)
         t.mesh!.visible = true
