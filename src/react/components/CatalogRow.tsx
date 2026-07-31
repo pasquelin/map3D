@@ -98,7 +98,11 @@ function CatalogRowInner({
   const failed = catalog.hasError(key)
   const off = item.disabled === true
   const actions = inlineActions(source, config.catalog.maxInlineActions)
-  const expandable = item.hasChildren === true && source.children !== undefined
+  // La COLONNE du chevron n'existe que si la source sait déplier : sur un référentiel
+  // plat (villes, zones), réserver sa gouttière décalait chaque ligne de 18 px pour un
+  // contrôle qui n'apparaîtra jamais.
+  const expandableSource = source.children !== undefined
+  const expandable = item.hasChildren === true && expandableSource
 
   return (
     <div className={`m3d-catrow${depth > 0 ? ' m3d-child' : ''}${off ? ' m3d-off' : ''}`}>
@@ -113,9 +117,11 @@ function CatalogRowInner({
         >
           <UiIcon path={mdiChevronRight} />
         </button>
-      ) : (
+      ) : expandableSource ? (
+        // Gouttière réservée : les lignes SANS enfants d'une source qui en a doivent
+        // aligner leur nom sur celles qui portent un chevron.
         <span className="m3d-catchevron-spacer" />
-      )}
+      ) : null}
 
       {/* Case à cocher et non bouton : « sur la carte » est un ÉTAT persistant, et c'est
           déjà ainsi que « Couches » l'exprime — jusqu'à sa PLACE, en tête de ligne, pour

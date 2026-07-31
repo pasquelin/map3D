@@ -36,6 +36,7 @@ export function CatalogList({ source, query, tipId }: CatalogListProps) {
   const [children, setChildren] = useState<ReadonlyMap<CatalogId, readonly CatalogItem[]>>(new Map())
 
   const viewportRef = useRef<HTMLDivElement | null>(null)
+  const roRef = useRef<ResizeObserver | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
@@ -49,16 +50,29 @@ export function CatalogList({ source, query, tipId }: CatalogListProps) {
     if (viewportRef.current) viewportRef.current.scrollTop = 0
   }, [source.id])
 
-  // Hauteur réelle du viewport : la fenêtre virtuelle en dépend, et elle change avec la
-  // taille de la carte comme avec le contenu au-dessus (bandeau d'erreur).
-  useEffect(() => {
-    const el = viewportRef.current
+  /**
+   * Hauteur réelle du viewport — la fenêtre virtuelle en dépend.
+   *
+   * Callback ref et NON un effet à dépendances vides : le viewport n'existe pas au
+   * premier rendu (la liste affiche « Chargement… »), si bien qu'un effet monté une
+   * seule fois mesurait un nœud nul et laissait la hauteur à 0. `visibleWindow` ne
+   * rendait alors que les lignes de sur-rendu, dans un conteneur dimensionné pour
+   * toutes — d'où un grand vide sous la dernière. Ici, on mesure au moment exact où le
+   * nœud apparaît, et on le suit ensuite (la carte se redimensionne, un bandeau
+   * d'erreur s'ajoute au-dessus).
+   */
+  const attachViewport = useCallback((el: HTMLDivElement | null) => {
+    viewportRef.current = el
+    roRef.current?.disconnect()
+    roRef.current = null
     if (!el) return
     setViewportHeight(el.clientHeight)
     const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight))
     ro.observe(el)
-    return () => ro.disconnect()
+    roRef.current = ro
   }, [])
+
+  useEffect(() => () => roRef.current?.disconnect(), [])
 
   const loadMoreRef = useRef(loadMore)
   loadMoreRef.current = loadMore
@@ -186,7 +200,7 @@ export function CatalogList({ source, query, tipId }: CatalogListProps) {
       )}
 
       {nodes.length > 0 && (
-        <div className="m3d-catviewport" ref={viewportRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+        <div className="m3d-catviewport" ref={attachViewport} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
           <div style={{ height: win.totalHeight, position: 'relative' }}>
             {/* `translateY` plutôt qu'un espaceur : pas de nœud supplémentaire à
                 recycler, et le décalage est composité par le navigateur. */}
