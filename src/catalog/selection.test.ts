@@ -108,21 +108,21 @@ describe('sérialisation', () => {
     expect(deserializeSelection(serializeSelection(sel))).toEqual(sel)
   })
 
-  it('rend une sélection vide sur une entrée illisible', () => {
-    expect(deserializeSelection('pas du json')).toEqual([])
+  it('rend une sélection vide sur une charge illisible', () => {
+    expect(deserializeSelection('pas un objet')).toEqual([])
     expect(deserializeSelection(null)).toEqual([])
+    expect(deserializeSelection(undefined)).toEqual([])
   })
 
   it('ignore une charge d’une autre version', () => {
-    expect(deserializeSelection(JSON.stringify({ v: 0, keys: ['a:1'] }))).toEqual([])
+    expect(deserializeSelection({ v: 0, keys: ['a:1'] })).toEqual([])
   })
 
   it('ignore les entrées non conformes dans une charge valide', () => {
-    const raw = JSON.stringify({ v: 1, keys: ['a:1', 42, null, 'sans-separateur'] })
-    expect(deserializeSelection(raw)).toEqual(['a:1'])
+    expect(deserializeSelection({ v: 1, keys: ['a:1', 42, null, 'sans-separateur'] })).toEqual(['a:1'])
   })
 
   it('ignore une charge dont `keys` n’est pas un tableau', () => {
-    expect(deserializeSelection(JSON.stringify({ v: 1, keys: 'a:1' }))).toEqual([])
+    expect(deserializeSelection({ v: 1, keys: 'a:1' })).toEqual([])
   })
 })

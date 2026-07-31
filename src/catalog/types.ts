@@ -91,9 +91,14 @@ export type CatalogPage = {
 
 export type CatalogItem = {
   id: CatalogId
-  /** Nom affiché. C'est aussi celui que reçoit la géométrie si elle n'en porte pas. */
+  /**
+   * Nom affiché — c'est aussi celui que reçoit la géométrie si elle n'en porte pas.
+   *
+   * Pas de sous-titre : la hauteur de ligne est CONSTANTE (la virtualisation en dépend),
+   * donc une seconde ligne de texte est structurellement impossible. Ce qui doit
+   * distinguer deux éléments homonymes appartient au titre.
+   */
   title: string
-  subtitle?: string
   /** Chemin @mdi/js, rendu dans la pastille de la ligne. */
   icon?: string
   /** Teinte de la pastille. */

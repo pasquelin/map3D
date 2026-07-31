@@ -17,6 +17,7 @@ import {
   mdiShapePolygonPlus,
   mdiViewGridOutline,
 } from '@mdi/js'
+import { normalizeSearch } from 'map3d'
 import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from 'map3d'
 
 /** Générateur congruentiel — semé, donc reproductible d'une exécution à l'autre. */
@@ -32,13 +33,6 @@ const rng = (seed: number) => {
 const delay = <T,>(value: T, ms = 120): Promise<T> =>
   new Promise((resolve) => setTimeout(() => resolve(value), ms))
 
-/** Recherche insensible à la casse et aux accents, comme celle de la lib. */
-const norm = (s: string): string =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-
 /**
  * Pagine un tableau déjà filtré. Le curseur est le DÉCALAGE : une vraie API rendrait
  * plutôt un jeton opaque, mais le contrat de la lib ne suppose rien de sa forme.
@@ -50,8 +44,19 @@ function page(items: readonly CatalogItem[], req: CatalogRequest): CatalogPage {
   return { items: slice, total: items.length, nextCursor: next < items.length ? String(next) : undefined }
 }
 
-const filtered = (items: readonly CatalogItem[], query: string): readonly CatalogItem[] =>
-  query ? items.filter((i) => norm(i.title).includes(norm(query))) : items
+/**
+ * `normalizeSearch` de la lib, et non une copie : c'est elle qui produit le `query`
+ * reçu ici (cf. `CatalogRequest.query`), donc comparer avec une autre normalisation
+ * ferait diverger l'exemple du contrat qu'il est censé démontrer.
+ *
+ * Le besoin est hissé HORS du prédicat : dans le filtre, il était recalculé pour
+ * chacun des 36 699 titres, à chaque page demandée.
+ */
+const filtered = (items: readonly CatalogItem[], query: string): readonly CatalogItem[] => {
+  if (!query) return items
+  const needle = normalizeSearch(query)
+  return items.filter((i) => normalizeSearch(i.title).includes(needle))
+}
 
 // ── Villes : le cas du VOLUME ─────────────────────────────────────────────────
 
@@ -71,7 +76,6 @@ const SUFFIXES = [
 const CITY_COUNT = 36_699
 
 const cities: readonly CatalogItem[] = (() => {
-  const r = rng(20260731)
   const out: CatalogItem[] = []
   for (let i = 0; i < CITY_COUNT; i++) {
     // Trois axes : 40 × 12 × 101 = 48 480 combinaisons, donc aucun doublon sur 36 699.
@@ -80,12 +84,12 @@ const cities: readonly CatalogItem[] = (() => {
     const dept = Math.floor(i / (RACINES.length * SUFFIXES.length)) % 101
     out.push({
       id: i + 1,
-      title: `${racine}${suffixe}`,
-      subtitle: String(dept + 1).padStart(2, '0'),
+      // Le département est DANS le titre : c'est lui qui rend les 36 699 noms uniques,
+      // et une ligne de catalogue n'a qu'une ligne de texte (hauteur constante).
+      title: `${racine}${suffixe} (${String(dept + 1).padStart(2, '0')})`,
       // France métropolitaine, grossièrement.
       // (position stockée dans l'id via le générateur : voir `cityCenter`)
     })
-    void r
   }
   return out
 })()
@@ -236,8 +240,8 @@ const groupsSource: CatalogSource = {
   geometry: (id) => {
     const members = GROUP_MEMBERS[String(id)]
     if (members) return delay(members.map((m) => zoneShape(m, zoneById(m)?.title ?? m)))
-    const zone = zoneById(String(id))
-    return delay(zone ? [zoneShape(String(id), zone.title)] : [])
+    const found = zoneById(String(id))
+    return delay(found ? [zoneShape(String(id), found.title)] : [])
   },
   children: (id, req) => {
     const members = GROUP_MEMBERS[String(id)] ?? []

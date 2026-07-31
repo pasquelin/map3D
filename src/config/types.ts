@@ -1250,6 +1250,16 @@ export type ZIndexConfig = {
   ui: number
   /** Plan RACINE. Menus contextuels et ghosts de glisser-déposer : au sommet. */
   menu: number
+  /**
+   * Plan RACINE. Infobulles des barres (`.m3d-tip`), portées à la racine par
+   * `<MapTooltip>` — donc SŒURS des panneaux, et non enfermées dans la barre.
+   *
+   * ⚠️ À ne pas confondre avec `tooltip`, qui est un plan LOCAL (l'infobulle d'un
+   * marker, enfermée dans son ancre). Celle-ci doit passer au-dessus des panneaux
+   * (`ui`) — c'est tout son intérêt — mais RESTER SOUS `menu` : un menu contextuel
+   * ouvert est une décision en cours, une infobulle n'est qu'une explication.
+   */
+  barTooltip: number
   /** Plan RACINE. Modales (dialogue de confirmation) : au-dessus de tout, menus compris. */
   modal: number
   /** Plan CARTE. Barre d'état d'une relation, posée sur la carte. */

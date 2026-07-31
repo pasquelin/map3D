@@ -487,6 +487,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'graticule.labels.idleOpacity': 'opacité au repos',
   'graticule.labels.hoverPaddingPx': 'marge de survol (px)',
   'style.zIndex.graticuleLabel': 'étiquettes du graticule',
+  'style.zIndex.barTooltip': 'infobulles de barre',
 
   // ── catalog ────────────────────────────────────────────────────────────────
   'catalog.pageSize': 'éléments par page',

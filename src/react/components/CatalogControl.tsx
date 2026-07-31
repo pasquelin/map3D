@@ -34,7 +34,7 @@ export type CatalogControlProps = {
 export function CatalogControl({ position = 'right', tipId, shortcut, grouped }: CatalogControlProps) {
   const labels = useLabels()
   const { theme } = useMapContext()
-  const catalog = useCatalog()
+  const catalog = useCatalog(position)
   const sources = useCatalogSources()
   const toggleRef = useRef<() => void>(() => {})
 
@@ -157,7 +157,7 @@ function CatalogPanel({
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <CatalogList source={opened} query={query} tipId={tipId} />
+          <CatalogList source={opened} query={query} tipId={tipId} side={position} />
         </DropdownSurface>
       )}
     </>

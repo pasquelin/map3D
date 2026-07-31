@@ -106,7 +106,6 @@ si vous ne le fournissez pas, il n'affiche pas de compte, il ne va pas le cherch
 type CatalogItem = {
   id: CatalogId
   title: string
-  subtitle?: string
   icon?: string
   color?: string
   badges?: readonly CatalogBadge[]

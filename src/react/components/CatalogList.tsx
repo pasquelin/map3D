@@ -16,6 +16,8 @@ export type CatalogListProps = {
   query: string
   /** id du `<Tooltip>` de la barre hôte, transmis à chaque ligne. */
   tipId: string
+  /** Côté de la barre — le cadrage réserve la largeur du panneau de CE côté. */
+  side: 'left' | 'right'
 }
 
 /**
@@ -25,11 +27,11 @@ export type CatalogListProps = {
  * flux à hauteur de ligne constante. C'est ce qui permet de virtualiser sans mesurer, et
  * ce qui évite un scroll imbriqué dans un scroll.
  */
-export function CatalogList({ source, query, tipId }: CatalogListProps) {
+export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
   const { theme } = useMapContext()
   const config = useConfig()
   const labels = useLabels()
-  const catalog = useCatalog()
+  const catalog = useCatalog(side)
   const { items, loading, loadingMore, error, hasMore, loadMore, retry } = useCatalogQuery(source, query)
 
   const [expanded, setExpanded] = useState<ReadonlySet<CatalogId>>(new Set())

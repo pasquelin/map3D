@@ -59,22 +59,21 @@ export const purgeSources = (sel: readonly CatalogKey[], known: ReadonlySet<stri
   return kept.length === sel.length ? sel : kept
 }
 
-export const serializeSelection = (sel: readonly CatalogKey[]): string =>
-  JSON.stringify({ v: SELECTION_STORAGE_VERSION, keys: sel })
+export const serializeSelection = (sel: readonly CatalogKey[]): unknown => ({
+  v: SELECTION_STORAGE_VERSION,
+  keys: sel,
+})
 
 /**
  * Tolérante par construction : une charge corrompue, écrite par une autre version, ou
  * contenant des entrées étrangères ne doit jamais empêcher la carte de démarrer.
+ *
+ * Reçoit la charge DÉJÀ parsée (`readStoredJSON`) : le `try`/`JSON.parse` appartient au
+ * module de stockage, unique propriétaire des accidents de persistance.
  */
-export const deserializeSelection = (raw: string | null): readonly CatalogKey[] => {
-  if (!raw) return []
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null) return []
-    const { v, keys } = parsed as { v?: unknown; keys?: unknown }
-    if (v !== SELECTION_STORAGE_VERSION || !Array.isArray(keys)) return []
-    return keys.filter((k): k is CatalogKey => typeof k === 'string' && parseCatalogKey(k) !== null)
-  } catch {
-    return []
-  }
+export const deserializeSelection = (raw: unknown): readonly CatalogKey[] => {
+  if (typeof raw !== 'object' || raw === null) return []
+  const { v, keys } = raw as { v?: unknown; keys?: unknown }
+  if (v !== SELECTION_STORAGE_VERSION || !Array.isArray(keys)) return []
+  return keys.filter((k): k is CatalogKey => typeof k === 'string' && parseCatalogKey(k) !== null)
 }

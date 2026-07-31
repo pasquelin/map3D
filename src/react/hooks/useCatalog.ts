@@ -58,19 +58,28 @@ function useCatalogStore() {
  * `useCatalogHost`, que seule `<CatalogSurface>` appelle. Les avoir laissés ici aurait
  * déclenché autant de restaurations concurrentes que de composants montés.
  */
-export function useCatalog(): CatalogApi {
+export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
   const { engine, theme } = useMapContext()
+  const config = useConfig()
   const { store, token } = useCatalogStore()
 
   const fit = useCallback(
     (bounds: Bounds) => {
-      // La barre de contrôles est à droite par défaut : on réserve la largeur du
-      // panneau de ce côté, sinon la zone cadrée atterrit sous la liste ouverte.
+      // On réserve la largeur du panneau DU CÔTÉ où il s'ouvre : codée à droite, la
+      // marge poussait l'élément SOUS le panneau quand la barre est à gauche — et
+      // `fitOnAdd` étant actif par défaut, c'était le chemin nominal.
+      const margin = config.data.search.fitPadding
+      const reserved = theme.sizing.catalogPanelW + margin
       engine.camera.fitBounds(bounds, {
-        padding: { left: 40, top: 40, bottom: 40, right: theme.sizing.catalogPanelW + 40 },
+        padding: {
+          top: margin,
+          bottom: margin,
+          left: side === 'left' ? reserved : margin,
+          right: side === 'right' ? reserved : margin,
+        },
       })
     },
-    [engine, theme.sizing.catalogPanelW],
+    [engine, theme.sizing.catalogPanelW, config.data.search.fitPadding, side],
   )
 
   /** Affiche un élément et rend ses formes — `null` si abandonné ou en échec. */

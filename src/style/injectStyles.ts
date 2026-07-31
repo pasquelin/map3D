@@ -406,11 +406,11 @@ const CSS = `
    __place-*), jamais les classes CSS-modules hashées
    (core-styles-module_tooltip__xxxxx), dont le hash change à chaque version. */
 /* ⚠️ PAS --m3d-z-tooltip : cette variable-là décrit le plan LOCAL d'une infobulle
-   enfermée dans l'ancre d'un marker (.m3d-markertip), et vaut 2. Celle-ci est portée à
-   la racine par <BarTooltip>, donc SŒUR des panneaux (.m3d-dropdown, à --m3d-z-ui) :
-   elle doit passer juste au-dessus d'eux. Le portail est indispensable — rendue dans sa
-   barre, qui est une racine d'empilement, aucune valeur ne l'en aurait sortie. */
-.m3d-tip{z-index:calc(var(--m3d-z-ui,999) + 10);width:max-content;max-width:260px;padding:6px 9px;
+   enfermée dans l'ancre d'un marker (.m3d-markertip). Celle-ci est portée à la racine
+   par <MapTooltip>, donc SŒUR des panneaux : elle a son propre plan racine, réglable
+   comme les six autres. Le portail est indispensable — rendue dans sa barre, qui est
+   une racine d'empilement, aucune valeur ne l'en aurait sortie. */
+.m3d-tip{z-index:var(--m3d-z-bar-tooltip,992);width:max-content;max-width:260px;padding:6px 9px;
   font-size:11.5px;font-weight:var(--m3d-weight-medium);line-height:1.35}
 /* Deux classes = spécificité supérieure au « show » du core (opacité .9) : opaque
    franc, comme les autres surfaces de la lib. */

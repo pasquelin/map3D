@@ -105,7 +105,6 @@ if you don't provide it, no count is shown; it will not go looking for one.
 type CatalogItem = {
   id: CatalogId
   title: string
-  subtitle?: string
   icon?: string
   color?: string
   badges?: readonly CatalogBadge[]

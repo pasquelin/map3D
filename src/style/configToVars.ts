@@ -27,6 +27,7 @@ export function configToVars(config: MapConfig): Record<string, string> {
     '--m3d-z-dock': String(z.dock),
     '--m3d-z-ui': String(z.ui),
     '--m3d-z-menu': String(z.menu),
+    '--m3d-z-bar-tooltip': String(z.barTooltip),
     '--m3d-z-modal': String(z.modal),
     // Cible cliquable du point au sol : une tolérance de pointeur, donc du même
     // ressort que les autres de `interaction` — elle vivait pourtant dans le CSS.

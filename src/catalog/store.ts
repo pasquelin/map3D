@@ -1,6 +1,6 @@
 import type { ShapeData } from '../layers/ShapeLayer'
 import { deserializeSelection, purgeSources, removeFromSelection, serializeSelection } from './selection'
-import { clearStorage, readStorage, writeStorage } from './storage'
+import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { CatalogKey } from './types'
 
 /** Réglages du catalogue, pilotés depuis le panneau engrenage. */
@@ -76,7 +76,7 @@ export class CatalogStore {
     this.settings = this.loadSettings(keys.settings)
     // Ne relire la sélection que si la persistance est active : sinon une charge
     // laissée par une session précédente ressusciterait un réglage qu'on a désactivé.
-    this.selectionKeys = this.settings.persist ? deserializeSelection(readStorage(keys.selection)) : []
+    this.selectionKeys = this.settings.persist ? deserializeSelection(readStoredJSON(keys.selection)) : []
     this.toRestore = new Set(this.selectionKeys)
     this.bump()
   }
@@ -203,10 +203,10 @@ export class CatalogStore {
 
   setSettings(patch: Partial<CatalogSettings>): void {
     this.settings = { ...this.settings, ...patch }
-    if (this.keys) writeStorage(this.keys.settings, JSON.stringify({ v: SETTINGS_VERSION, ...this.settings }))
+    if (this.keys) writeStoredJSON(this.keys.settings, { v: SETTINGS_VERSION, ...this.settings })
     // Désactiver la persistance EFFACE la charge : la garder reviendrait à promettre
     // l'oubli tout en conservant la trace, et elle reviendrait au prochain réglage.
-    if (!this.settings.persist && this.keys) clearStorage(this.keys.selection)
+    if (!this.settings.persist && this.keys) removeStoredKey(this.keys.selection)
     else this.persistSelection()
     this.bump()
   }
@@ -269,23 +269,17 @@ export class CatalogStore {
 
   private persistSelection(): void {
     if (!this.keys || !this.settings.persist) return
-    writeStorage(this.keys.selection, serializeSelection(this.selectionKeys))
+    writeStoredJSON(this.keys.selection, serializeSelection(this.selectionKeys))
   }
 
   private loadSettings(key: string): CatalogSettings {
-    try {
-      const raw = readStorage(key)
-      if (!raw) return DEFAULT_SETTINGS
-      const data: unknown = JSON.parse(raw)
-      if (typeof data !== 'object' || data === null) return DEFAULT_SETTINGS
-      const { v, persist, fitOnAdd } = data as { v?: unknown; persist?: unknown; fitOnAdd?: unknown }
-      if (v !== SETTINGS_VERSION) return DEFAULT_SETTINGS
-      return {
-        persist: typeof persist === 'boolean' ? persist : DEFAULT_SETTINGS.persist,
-        fitOnAdd: typeof fitOnAdd === 'boolean' ? fitOnAdd : DEFAULT_SETTINGS.fitOnAdd,
-      }
-    } catch {
-      return DEFAULT_SETTINGS
+    const data = readStoredJSON(key)
+    if (typeof data !== 'object' || data === null) return DEFAULT_SETTINGS
+    const { v, persist, fitOnAdd } = data as { v?: unknown; persist?: unknown; fitOnAdd?: unknown }
+    if (v !== SETTINGS_VERSION) return DEFAULT_SETTINGS
+    return {
+      persist: typeof persist === 'boolean' ? persist : DEFAULT_SETTINGS.persist,
+      fitOnAdd: typeof fitOnAdd === 'boolean' ? fitOnAdd : DEFAULT_SETTINGS.fitOnAdd,
     }
   }
 

@@ -434,7 +434,11 @@ export const defaultConfig: MapConfig = {
       floatingHud: 900,
       dock: 990,
       ui: 991,
-      menu: 992,
+      // Infobulles de barre : AU-DESSUS des panneaux (`ui`), SOUS les menus. Il n'y
+      // avait pas d'entier libre entre 991 et 992 — d'où `menu` remonté d'un cran
+      // plutôt qu'une égalité, que seul l'ordre du DOM aurait tranchée.
+      barTooltip: 992,
+      menu: 993,
       // Au-dessus des menus : une modale (confirmation) doit couvrir toute l'UI.
       modal: 1092,
       // ── Plan CARTE (à l'intérieur de `.m3d-overlay`) ───────────────────────
