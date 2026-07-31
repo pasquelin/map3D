@@ -249,6 +249,8 @@ export type MapEvents = {
   pedestrian: PedestrianState
   /** L'outil « sélectionner un bâtiment » vient d'être armé ou quitté. */
   buildingpickmode: boolean
+  /** La grille de coordonnées vient d'être allumée ou éteinte. */
+  graticule: boolean
   /**
    * Un bâtiment du volume interne a été cliqué, l'outil actif. La lib n'en fait rien
    * d'elle-même : c'est `<Map buildingMenu>` qui décide de ce qui s'ouvre.
@@ -379,6 +381,7 @@ export class MapEngine {
     basemap: new Set(),
     pedestrian: new Set(),
     buildingpickmode: new Set(),
+    graticule: new Set(),
     buildingclick: new Set(),
     templatesave: new Set(),
     templateremove: new Set(),
@@ -402,6 +405,9 @@ export class MapEngine {
   private pointerDrag: { x: number; y: number; moved: number } | null = null
 
   private buildingPickMode = false
+  private graticuleVisible = false
+  /** Quadrillage du globe de repli, retenu pour être masqué sous la vraie grille. */
+  private fallbackGraticule: THREE.LineSegments | null = null
   /** Scratch NDC du pick de bâtiment — un objet, jamais un par mouvement de pointeur. */
   private readonly pickNdc = new THREE.Vector2()
   /** Coins de l'emprise cliquée — quatre points réutilisés, alloués une seule fois. */
@@ -529,6 +535,9 @@ export class MapEngine {
   constructor(opts: MapEngineOptions) {
     this.canvas = opts.canvas
     this.config = opts.config ?? defaultConfig
+    // `graticule.enabled` est l'état de DÉPART, lu une seule fois : la suite vit ici, parce
+    // que trois commandes distinctes la pilotent (cf. `setGraticuleVisible`).
+    this.graticuleVisible = this.config.graticule.enabled
     this.projection.setConfig(this.config)
     this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
@@ -2714,7 +2723,11 @@ export class MapEngine {
       }
     }
     const lineGeo = new THREE.BufferGeometry().setFromPoints(pts)
-    group.add(new THREE.LineSegments(lineGeo, lineMat))
+    // Retenu pour être effacé quand la vraie grille est allumée — sans être supprimé : sans
+    // token Cesium et grille éteinte, le globe perdrait ses repères de rotation.
+    this.fallbackGraticule = new THREE.LineSegments(lineGeo, lineMat)
+    this.fallbackGraticule.visible = !this.graticuleVisible
+    group.add(this.fallbackGraticule)
     return group
   }
 
@@ -2780,6 +2793,30 @@ export class MapEngine {
 
   getBuildingPickMode(): boolean {
     return this.buildingPickMode
+  }
+
+  /**
+   * Allume ou éteint la grille de coordonnées.
+   *
+   * L'état vit ICI et non dans un composant : le sous-menu « Mesures », le bouton des
+   * contrôles de vue et le raccourci clavier le pilotent tous les trois, et deux copies
+   * d'état auraient divergé — le défaut même que `buildingpickmode` corrige juste au-dessus.
+   *
+   * ⚠️ Ne relâche RIEN au passage, contrairement aux outils : c'est un calque, pas un mode.
+   * L'allumer pendant qu'on trace une forme ne doit pas interrompre le tracé.
+   */
+  setGraticuleVisible(on: boolean): void {
+    if (on === this.graticuleVisible) return
+    this.graticuleVisible = on
+    // Le globe de repli porte son propre quadrillage (cf. `buildFallbackGlobe`) : les deux
+    // superposés donneraient deux mailles différentes au même endroit.
+    if (this.fallbackGraticule) this.fallbackGraticule.visible = !on
+    this.emit('graticule', on)
+    this.invalidate()
+  }
+
+  getGraticuleVisible(): boolean {
+    return this.graticuleVisible
   }
 
   /**
