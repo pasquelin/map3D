@@ -130,9 +130,10 @@ export type DropdownProps = {
   /** Notifié à chaque bascule — pour les surfaces qui doivent PUBLIER leur ouverture. */
   onOpenChange?: (open: boolean) => void
   /**
-   * État enfoncé du bouton. Défaut : l'ouverture. À surcharger quand le bouton dit
-   * autre chose que « mon panneau est ouvert » — le filtre de tags s'allume parce
-   * qu'un filtre est ACTIF, panneau fermé compris.
+   * Raison SUPPLÉMENTAIRE d'enfoncer le bouton, combinée à l'ouverture (`active || open`) :
+   * un panneau ouvert allume toujours son bouton, comme tous les menus. À fournir quand le
+   * bouton doit rester allumé panneau FERMÉ — le filtre de tags s'allume parce qu'un filtre
+   * est ACTIF, et reste cohérent avec les autres menus quand on l'ouvre sans filtre.
    */
   active?: boolean
   /**
@@ -214,7 +215,7 @@ export function Dropdown({
         label={label}
         tip={tip}
         shortcut={shortcut}
-        active={active ?? open}
+        active={active || open}
         className={buttonClassName}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
