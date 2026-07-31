@@ -170,6 +170,57 @@ deux coïncident : le point visé est sous la caméra. En vue rasante (mode pié
 est bornée par `pedestrian.tileDetailDistanceMeters` — sinon le regard porterait à l'horizon
 et l'échelle lue serait celle du point de fuite.
 
+### Afficher la vue (`readout`)
+
+Le bloc de lecture donne à l'écran ce que ces événements portent, **plus l'orientation** :
+altitude de l'œil, point au sol sous lui, cap, inclinaison, zoom — **sur une ligne**, dans
+le coin demandé. Il ne retombe sur deux lignes que si la carte est trop étroite pour la
+sienne.
+
+```tsx
+<Map readout />                                        {/* coin haut droit, les 6 grandeurs */}
+<Map readout={{ corner: 'bottom-left', fields: ['heading', 'tilt'] }} />
+```
+
+| Prop | Rôle | Défaut |
+|---|---|---|
+| `corner` | `'top-right'` · `'top-left'` · `'bottom-right'` · `'bottom-left'` | `'top-right'` |
+| `fields` | Grandeurs affichées, dans l'ordre : `altitude`, `latitude`, `longitude`, `heading`, `tilt`, `zoom` | les six |
+| `refreshMs` | Cadence maximale d'écriture | `config.performance.readoutRefreshMs` (120) |
+| `className` | Classe en plus de `m3d-readout` | — |
+
+Une grandeur retirée de `fields` n'est pas seulement masquée : elle n'est plus calculée.
+
+Les deux angles de l'orientation, en degrés :
+
+| Grandeur | Ce qu'elle dit | Plage |
+|---|---|---|
+| `heading` | La direction **regardée** — `0°` au nord, croissant vers l'est. Jamais `360°` : c'est le nord, et il s'écrit `0°`. | `[0, 360[` |
+| `tilt` | L'inclinaison — `0°` la caméra regarde **à la verticale** (vue du dessus), `90°` elle regarde **l'horizon**. | `[0, 90]` en pratique |
+
+**Il ne re-rend jamais.** La carte produit un état caméra à chaque frame ; en faire de
+l'état React ferait de ce petit bloc le composant le plus coûteux de l'arbre. Il pose donc
+son DOM une fois et confie l'écriture des valeurs à une couche du moteur, dans la passe
+`project()` — celle des overlays —, à la cadence ci-dessus.
+
+C'est aussi ce qui rend le cap juste. L'événement `camera` porte un seuil **métier** qui
+ignore délibérément l'orientation : tourner sur place ne change ni latitude, ni longitude,
+ni altitude, donc rien n'est émis. Un cap branché dessus resterait figé pendant toute une
+rotation — précisément le geste qu'on le regarde faire.
+
+Les textes, les décimales et la locale des nombres sont dans `labels.readout` (cf.
+[LABELS.md](LABELS.md)). L'altitude, elle, n'a pas de système d'unités à elle : elle suit
+`labels.measure`, comme toute distance de la lib — une carte en impérial la lit en pieds
+sans rien redire. Les coordonnées gardent le **point** décimal par défaut, même sous une
+interface française : une coordonnée se recopie ailleurs.
+
+Le bloc laisse passer les gestes de carte ; seules les valeurs restent sélectionnables,
+pour qu'une coordonnée puisse être copiée.
+
+Pour l'afficher **hors** de la carte (bandeau maison, panneau d'exploitation),
+`<CameraReadout>` est exporté — il n'a besoin que du contexte carte — et
+`makeReadoutFormatter(labels)` donne les mêmes formateurs sans aucun DOM.
+
 ---
 
 ## 6. Carte figée (`interactive`)

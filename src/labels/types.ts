@@ -434,6 +434,56 @@ export type MapLabels = {
     /** Heures et minutes — `{h}`, `{m}`. */
     hoursMinutes: string
   }
+  /**
+   * Bloc de lecture de la vue (`<CameraReadout>`) : altitude de l'œil, point au sol
+   * sous lui, zoom.
+   *
+   * L'altitude n'a PAS son propre système d'unités : elle passe par `measure`, comme
+   * toute distance de la lib — une carte en impérial doit lire son altitude en pieds
+   * sans avoir à le redire ici.
+   */
+  readout: {
+    /** Nom accessible de la région (lecteurs d'écran) — le bloc n'a pas de titre visible. */
+    title: string
+    /** Libellé de la ligne d'altitude. */
+    altitude: string
+    latitude: string
+    longitude: string
+    /** Libellé du cap — la direction que REGARDE la caméra. */
+    heading: string
+    /** Libellé de l'inclinaison — `0°` au nadir (à la verticale), `90°` à l'horizon. */
+    tilt: string
+    zoom: string
+    /**
+     * Gabarit des ANGLES (cap et inclinaison) — `{value}`. Les seuls champs à porter une
+     * unité : le degré s'écrit collé au nombre, ce qu'aucun `Intl.NumberFormat` ne produit.
+     */
+    degreeFormat: string
+    /**
+     * Décimales des angles. `0` suffit à la navigation ; le relever pour un relevé fin.
+     *
+     * Commun aux deux à dessein : ils s'affichent côte à côte, et deux précisions
+     * différentes suggéreraient que l'un est mieux connu que l'autre.
+     */
+    degreeDecimals: number
+    /**
+     * Décimales des coordonnées. **Fixes** (minimum = maximum) : une décimale qui
+     * apparaît et disparaît change la largeur du nombre, et le bloc tressaute à
+     * chaque frame de déplacement. 5 ≈ 1 m au sol.
+     */
+    coordDecimals: number
+    /** Décimales du zoom — mêmes règles de largeur fixe. */
+    zoomDecimals: number
+    /**
+     * Locale de formatage des coordonnées et du zoom (`'auto'` suit le navigateur).
+     *
+     * Distincte de `measure.numberLocale` À DESSEIN : une coordonnée WGS84 se lit et
+     * se recopie ailleurs (fiche, requête, autre carte), où le point décimal est la
+     * convention. Le défaut garde donc le point même sous une interface française,
+     * où l'altitude affiche bien « 1,2 km » juste au-dessus.
+     */
+    numberLocale: string
+  }
   /** Moteur de relations (`<RelationLayer>`) : liens vers les markers voisins. */
   relations: {
     /** Titre de la section ajoutée au menu contextuel d'un marker. */

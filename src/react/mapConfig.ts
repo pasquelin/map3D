@@ -21,6 +21,7 @@ import type { DrawingApi, LensApi, RelationApi } from './context'
 import type { MenuItem } from './components/ContextMenu'
 import type { DrawLayerProps } from './components/DrawLayer'
 import type { LensOptions } from './components/LensLayer'
+import type { CameraReadoutProps } from './components/CameraReadout'
 import type { MapControlsProps } from './components/MapControls'
 import type { ClusterSurfaceProps } from './components/ClusterSurface'
 import type { MarkerLayerProps } from './components/MarkerLayer'
@@ -49,6 +50,15 @@ export type ToolbarConfig<T = unknown> = DrawToolbarProps & {
 
 /** Contrôles de navigation (déplacement, boussole, zoom, fonds, couches, plein écran). */
 export type ControlsConfig = MapControlsProps
+
+/**
+ * Bloc de lecture de la vue : altitude de l'œil, point au sol sous lui, zoom.
+ *
+ * Opt-in comme la recherche, et non retirable comme les contrôles : une carte n'a pas
+ * de raison d'afficher ces chiffres par défaut — c'est un besoin d'exploitation
+ * (relever une position, viser une altitude), pas de navigation.
+ */
+export type ReadoutConfig = CameraReadoutProps
 
 /**
  * Recherche unifiée : éléments de la carte (markers, zones, dessins, symboles) et
@@ -209,6 +219,11 @@ export type MapSurfaces<T = unknown, TPin = unknown> = {
   controls?: false | ControlsConfig
   /** Recherche de lieu : `true` pour les défauts, un objet pour la régler. */
   search?: boolean | SearchConfig
+  /**
+   * Bloc de lecture de la vue (altitude, coordonnées, zoom) : `true` pour les défauts
+   * — coin haut droit —, un objet pour le régler. Absent, il n'existe pas.
+   */
+  readout?: boolean | ReadoutConfig
   /** Dock des favoris — sa présence l'active (et rend les markers saisissables). */
   dock?: DockConfig<TPin>
   /**

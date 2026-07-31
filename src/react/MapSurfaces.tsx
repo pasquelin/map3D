@@ -32,6 +32,7 @@ import {
 } from './context'
 import { DrawLayer } from './components/DrawLayer'
 import type { MenuItem } from './components/ContextMenu'
+import { CameraReadout } from './components/CameraReadout'
 import { LensLayer, type LensOptions } from './components/LensLayer'
 import { MapControls } from './components/MapControls'
 import { MarkerLayer } from './components/MarkerLayer'
@@ -236,6 +237,7 @@ export function MapSurfaces<T, TPin>({
   toolbar,
   controls,
   search,
+  readout,
   dock,
   templates,
   draw,
@@ -281,6 +283,10 @@ export function MapSurfaces<T, TPin>({
           rien — la lib n'a aucun contenu à mettre dans ce menu. */}
       {buildingMenu && <BuildingMenuHost menu={buildingMenu} />}
       {search ? <SearchBox {...(search === true ? {} : search)} /> : null}
+      {/* Après les barres : il se pose dans un coin, donc il ne dispute sa place à
+          aucune d'elles — l'ordre ne joue que si deux surfaces visent le même coin,
+          auquel cas la dernière montée passe devant (même plan d'empilement). */}
+      {readout ? <CameraReadout {...(readout === true ? {} : readout)} /> : null}
       {dock && <PinnedDock<TPin> {...dock} />}
     </>
   )

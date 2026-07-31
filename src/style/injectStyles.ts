@@ -504,18 +504,18 @@ const CSS = `
    doit pas peser ; une surface flottante vient de s'ouvrir PAR-DESSUS et doit se
    détacher. Le rayon suit la taille de la surface, pas son rôle. */
 .m3d-panel,.m3d-markertip,.m3d-tip,.m3d-menu-panel,.m3d-relbar,
-.m3d-controls-group,.m3d-drawbar,.m3d-search-box,.m3d-pindock,.m3d-pindock-toggle,.m3d-lenszone-x{
+.m3d-controls-group,.m3d-drawbar,.m3d-search-box,.m3d-pindock,.m3d-pindock-toggle,.m3d-lenszone-x,.m3d-readout{
   background:var(--m3d-panel);border:1px solid var(--m3d-border);
   backdrop-filter:blur(20px);color:var(--m3d-text)}
 /* Meubles : posés sur la carte, ombre discrète. */
-.m3d-controls-group,.m3d-drawbar,.m3d-search-box,.m3d-pindock,.m3d-pindock-toggle,.m3d-lenszone-x{
+.m3d-controls-group,.m3d-drawbar,.m3d-search-box,.m3d-pindock,.m3d-pindock-toggle,.m3d-lenszone-x,.m3d-readout{
   box-shadow:var(--m3d-shadow-sm)}
 /* Surfaces flottantes : ouvertes au-dessus, elles se détachent. */
 .m3d-panel,.m3d-markertip,.m3d-tip,.m3d-menu-panel,.m3d-relbar{box-shadow:var(--m3d-shadow-md)}
 /* Tout le mobilier — barres, champ de recherche, dock, panneaux — partage le même
    rayon. Les deux barres d'outils l'avaient différent (10 d'un côté, 14 de l'autre) :
    deux meubles jumeaux posés face à face, aux coins qui ne se répondaient pas. */
-.m3d-panel,.m3d-drawbar,.m3d-pindock,.m3d-controls-group,.m3d-search-box{
+.m3d-panel,.m3d-drawbar,.m3d-pindock,.m3d-controls-group,.m3d-search-box,.m3d-readout{
   border-radius:var(--m3d-radius-lg)}
 /* Seules les surfaces TRANSITOIRES et petites gardent le rayon moyen : 14px sur une
    infobulle de deux lignes mange le texte. */
@@ -843,6 +843,35 @@ const CSS = `
 .m3d-confirm-ok:hover{background:color-mix(in srgb,var(--m3d-accent) 85%,#000)}
 .m3d-confirm-danger{background:var(--m3d-error)}
 .m3d-confirm-danger:hover{background:color-mix(in srgb,var(--m3d-error) 85%,#000)}
+
+/* ══ LECTURE DE LA VUE ═════════════════════════════════════════════════════════
+   Bloc altitude / coordonnées / zoom, sur UNE ligne. Même retrait que les barres
+   (--m3d-bar-inset), pour que les meubles se répondent d'un coin à l'autre.
+
+   En ligne et non empilé : un bandeau d'une ligne se lit d'un balayage pendant qu'on
+   déplace la carte, et il mange moins de hauteur dans un coin — celui d'en face reste
+   disponible pour une autre surface. Le wrap est laissé libre pour que le bloc retombe
+   sur deux lignes dans une carte étroite plutôt que de déborder.
+
+   pointer-events:none sur le bloc, rétabli sur les valeurs : les gestes de carte
+   traversent le cadre, mais une coordonnée reste sélectionnable — c'est ce pour quoi
+   on l'affiche. */
+.m3d-readout{position:absolute;z-index:var(--m3d-z-ui,999);margin:0;
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 14px;padding:13px;
+  pointer-events:none;font-size:var(--m3d-size-xs);line-height:1.45;
+  /* Chiffres à chasse fixe : sans eux un « 1 » plus étroit qu'un « 8 » fait danser la
+     largeur du bloc à chaque rafraîchissement — et sur une ligne, chaque grandeur
+     pousserait toutes celles qui la suivent. */
+  font-variant-numeric:tabular-nums}
+.m3d-readout.m3d-corner-tr{top:var(--m3d-bar-inset, ${BAR_INSET}px);right:var(--m3d-bar-inset, ${BAR_INSET}px)}
+.m3d-readout.m3d-corner-tl{top:var(--m3d-bar-inset, ${BAR_INSET}px);left:var(--m3d-bar-inset, ${BAR_INSET}px)}
+.m3d-readout.m3d-corner-br{bottom:var(--m3d-bar-inset, ${BAR_INSET}px);right:var(--m3d-bar-inset, ${BAR_INSET}px)}
+.m3d-readout.m3d-corner-bl{bottom:var(--m3d-bar-inset, ${BAR_INSET}px);left:var(--m3d-bar-inset, ${BAR_INSET}px)}
+/* Une paire libellé + valeur, insécable : c'est le couple qui passe à la ligne quand
+   la carte est trop étroite, jamais un libellé séparé de son nombre. */
+.m3d-readout-row{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
+.m3d-readout-key{color:var(--m3d-muted)}
+.m3d-readout-val{margin:0;pointer-events:auto;font-weight:var(--m3d-weight-medium)}
 
 .m3d-search{position:absolute;left:16px;top:16px;z-index:var(--m3d-z-ui,999);width:320px}
 .m3d-search-box{display:flex;align-items:center;gap:9px;padding:11px 13px;

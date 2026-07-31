@@ -800,6 +800,16 @@ export type PerformanceConfig = {
   viewportSettleFrames: number
   /** Intervalle minimal entre deux recalculs de clusters pendant un pan. */
   markerRecomputeMs: number
+  /**
+   * Intervalle minimal entre deux écritures du bloc de lecture de la vue
+   * (`<CameraReadout>`), en ms.
+   *
+   * L'événement `camera` est émis à la frame : recopier ses valeurs telles quelles
+   * ferait quatre écritures DOM par frame pour un texte que l'œil ne peut pas suivre.
+   * La dernière valeur est TOUJOURS écrite, cadence ou pas — un bloc figé sur
+   * l'avant-dernière position serait pire que rafraîchi trop souvent.
+   */
+  readoutRefreshMs: number
   resettle: {
     /** Éléments re-échantillonnés par passe (budget de raycasts). */
     batch: number

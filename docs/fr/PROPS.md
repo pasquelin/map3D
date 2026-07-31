@@ -54,6 +54,7 @@ couches et regroupement **dans le bon ordre d'imbrication**.
 | `toolbar` | Barre d'outils de dessin, **loupe comprise** (`toolbar.lens`). `false` = pas de barre — et pas de loupe. | *(défauts)* |
 | `controls` | Contrôles de navigation. `false` = aucun contrôle. | *(défauts)* |
 | `search` | Recherche unifiée : `true` pour les défauts, un objet pour la régler. Absente = pas de boîte. | *(absent)* |
+| `readout` | Bloc de lecture de la vue (altitude, coordonnées, zoom), sur une ligne : `true` pour les défauts — coin haut droit —, un objet pour le régler (`corner`, `fields`, `refreshMs`). Absent, il n'existe pas. Cf. [CAMERA.md](CAMERA.md). | *(absent)* |
 | `dock` | Dock des favoris — sa présence l'active (et rend les markers saisissables). | *(absent)* |
 | `templates` | Gestionnaire de templates : sauvegardes nommées du dessin. Le bouton vit DANS la barre de contrôles, sous « Couches » — il faut donc `controls` actif. `false`/absent le retire ; un objet le règle (provider API, catégories…). Agit sur le dessin via `engine.templates.drawPort` (posé par `draw`). Cf. [TEMPLATES.md](TEMPLATES.md). | *(absent)* |
 | `draw` | Couche de dessin (+ `selectionBadges`). `false` retire le dessin ET la barre. | *(défauts)* |

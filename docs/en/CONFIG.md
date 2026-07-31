@@ -242,6 +242,7 @@ compile error.
 | `performance.boundsMargin` | Widening of the bbox emitted by `onViewportChange`. **Directly drives the volume of data the application loads.** | `0.15` |
 | `performance.viewportSettleFrames` | Frames of stillness before emitting the `viewport` event. | `4` |
 | `performance.markerRecomputeMs` | Minimum interval between two cluster recomputations during a pan. | `90` |
+| `performance.readoutRefreshMs` | Minimum interval between two writes of the view readout block (`<Map readout>`), in ms. Since the `camera` event fires every frame, copying it straight through would mean four DOM writes per frame for text the eye cannot follow. The latest value is always written. | `120` |
 | `performance.cameraMoveEpsilon.deg` | Latitude/longitude difference (degrees) beyond which the camera counts as moved. | `1e-06` |
 | `performance.cameraMoveEpsilon.altitudeRatio` | Altitude difference, as a fraction of the current altitude. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Absolute floor of the previous one (m) — near the ground, a ratio alone never triggers. | `1` |

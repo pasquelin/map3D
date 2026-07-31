@@ -263,6 +263,11 @@ export function App() {
     [ui.search],
   )
 
+  // Bloc de lecture de la vue. `fields` est laissé aux défauts (les quatre grandeurs) :
+  // le banc d'essai ne pilote que sa présence et son coin — le reste se lit dans le
+  // JSDoc de `CameraReadoutProps`, et la cadence est un réglage de `config.performance`.
+  const readoutProp = useMemo(() => ui.readout.enabled && { corner: ui.readout.corner }, [ui.readout])
+
   const clusterProp = useMemo(
     () => ui.cluster && { typeIcon: clusterTypeIcon, typeLabel: clusterTypeLabel, tooltip: clusterTip },
     [ui.cluster],
@@ -469,6 +474,11 @@ export function App() {
           // — le géocodeur (Google Places par défaut, via `googleMapsApiKey`) et
           // l'ordre des rubriques carte. « Lieux » ouvre toujours la liste.
           search={searchProp}
+          // Bloc de lecture de la vue (haut-droite par défaut) : altitude de l'œil,
+          // point au sol sous lui, zoom. Il n'entre PAS dans la boucle de rendu React —
+          // il s'abonne à `camera` et écrit dans son propre DOM, à la cadence de
+          // `config.performance.readoutRefreshMs`.
+          readout={readoutProp}
           // Favoris : long-press sur un marker → glisser dans la barre du bas. Clic sur
           // une pastille = vol caméra + sélection. × ou glisser-hors = retrait.
           // SANS cette prop, plus aucune zone n'accepte un marker : les markers cessent

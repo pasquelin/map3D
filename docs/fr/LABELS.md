@@ -333,6 +333,26 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `duration.hours` | Heures pleines (minutes nulles) — `{h}`. | `'{h} h'` |
 | `duration.hoursMinutes` | Heures et minutes — `{h}`, `{m}`. | `'{h} h {m}'` |
 
+## `readout` — 🌍 Bloc de lecture de la vue
+
+L'altitude n'a PAS son propre système d'unités : elle passe par `measure`, comme toute
+distance de la lib.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `readout.title` | Nom accessible de la région (lecteurs d'écran) — le bloc n'a pas de titre visible. | `'Position de la caméra'` |
+| `readout.altitude` | Libellé de la ligne d'altitude. | `'alt'` |
+| `readout.latitude` | Libellé de la latitude. | `'lat'` |
+| `readout.longitude` | Libellé de la longitude. | `'lng'` |
+| `readout.heading` | Libellé du cap — la direction que REGARDE la caméra. | `'cap'` |
+| `readout.tilt` | Libellé de l'inclinaison — `0°` au nadir (à la verticale), `90°` à l'horizon. | `'incl'` |
+| `readout.zoom` | Libellé du zoom. | `'zoom'` |
+| `readout.degreeFormat` | Gabarit des ANGLES (cap et inclinaison) — `{value}`. Les seuls champs à porter une unité : le degré s'écrit collé au nombre, ce qu'aucun `Intl.NumberFormat` ne produit. | `'{value}°'` |
+| `readout.degreeDecimals` | Décimales des angles. `0` suffit à la navigation ; le relever pour un relevé fin. Commun aux deux à dessein : ils s'affichent côte à côte, et deux précisions différentes suggéreraient que l'un est mieux connu que l'autre. | `0` |
+| `readout.coordDecimals` | Décimales des coordonnées. **Fixes** (minimum = maximum) : une décimale qui apparaît et disparaît change la largeur du nombre, et le bloc tressaute à chaque frame de déplacement. 5 ≈ 1 m au sol. | `5` |
+| `readout.zoomDecimals` | Décimales du zoom — mêmes règles de largeur fixe. | `1` |
+| `readout.numberLocale` | Locale de formatage des coordonnées et du zoom (`'auto'` suit le navigateur). Distincte de `measure.numberLocale` à dessein : une coordonnée WGS84 se recopie ailleurs, où le point décimal est la convention — d'où le point même sous une interface française, alors que l'altitude affiche bien « 1,2 km ». | `'en-US'` |
+
 ## `relations` — Moteur de relations
 
 | Clé | Description | Défaut |

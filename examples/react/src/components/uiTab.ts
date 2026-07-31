@@ -65,6 +65,20 @@ export function buildUiTab(page: TabPageApi, ctxRef: UiContextRef, refresh: () =
   surfaces.addBinding(draft.toolbar, 'enabled', { label: 'barre d’outils' }).on('change', emit)
   surfaces.addBinding(draft.controls, 'enabled', { label: 'contrôles de navigation' }).on('change', emit)
   surfaces.addBinding(draft, 'search', { label: 'recherche' }).on('change', emit)
+  surfaces.addBinding(draft.readout, 'enabled', { label: 'position de la caméra' }).on('change', emit)
+  // Les quatre coins sont essayables : c'est la seule façon de voir si le bloc gêne une
+  // autre surface (la recherche occupe déjà le haut-gauche).
+  surfaces
+    .addBinding(draft.readout, 'corner', {
+      label: '↳ coin',
+      options: {
+        'haut droite': 'top-right',
+        'haut gauche': 'top-left',
+        'bas droite': 'bottom-right',
+        'bas gauche': 'bottom-left',
+      },
+    })
+    .on('change', emit)
   surfaces.addBinding(draft, 'dock', { label: 'dock des favoris' }).on('change', emit)
   surfaces.addBinding(draft.templates, 'enabled', { label: 'gestionnaire de templates' }).on('change', emit)
   // Coché : provider in-memory de démo (sa liste prime sur le localStorage, 1 template

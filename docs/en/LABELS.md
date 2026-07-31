@@ -341,6 +341,26 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `duration.hours` | Whole hours (zero minutes) — `{h}`. | `'{h} h'` |
 | `duration.hoursMinutes` | Hours and minutes — `{h}`, `{m}`. | `'{h} h {m}'` |
 
+## `readout` — 🌍 View readout block
+
+Altitude has NO unit system of its own: it goes through `measure`, like every distance in
+the library.
+
+| Key | Description | Default |
+|---|---|---|
+| `readout.title` | Accessible name of the region (screen readers) — the block has no visible title. | `'Position de la caméra'` |
+| `readout.altitude` | Label of the altitude row. | `'alt'` |
+| `readout.latitude` | Label of the latitude row. | `'lat'` |
+| `readout.longitude` | Label of the longitude row. | `'lng'` |
+| `readout.heading` | Label of the heading — the direction the camera LOOKS at. | `'cap'` |
+| `readout.tilt` | Label of the tilt — `0°` at nadir (straight down), `90°` at the horizon. | `'incl'` |
+| `readout.zoom` | Label of the zoom row. | `'zoom'` |
+| `readout.degreeFormat` | Template for ANGLES (heading and tilt) — `{value}`. The only fields carrying a unit: the degree sign sits flush against the number, which no `Intl.NumberFormat` produces. | `'{value}°'` |
+| `readout.degreeDecimals` | Angle decimals. `0` is enough for navigation; raise it for a fine reading. Shared by both on purpose: they sit side by side, and two different precisions would suggest one is better known than the other. | `0` |
+| `readout.coordDecimals` | Coordinate decimals. **Fixed** (minimum = maximum): a decimal that appears and disappears changes the number's width, and the block jitters on every frame of a move. 5 ≈ 1 m on the ground. | `5` |
+| `readout.zoomDecimals` | Zoom decimals — same fixed-width rule. | `1` |
+| `readout.numberLocale` | Locale used to format coordinates and zoom (`'auto'` follows the browser). Deliberately distinct from `measure.numberLocale`: a WGS84 coordinate gets copied elsewhere, where the decimal point is the convention — hence the point even under a French interface, while altitude still reads “1,2 km”. | `'en-US'` |
+
 ## `relations` — Relation engine
 
 | Key | Description | Default |

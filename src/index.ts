@@ -206,6 +206,10 @@ export type { MapLabels, PartialLabels } from './labels/types'
 export { defaultLabels, imperialMeasure } from './labels/defaultLabels'
 export { symbolText, mergeLabels, formatLabel, formatCount } from './labels/mergeLabels'
 export { makeDistanceFormatter, makeDurationFormatter, makeLinkLabelFormatter } from './labels/measure'
+// Formatage du bloc de lecture de la vue — pur, donc utilisable pour afficher altitude,
+// coordonnées ou zoom AILLEURS que dans le bloc (bandeau de l'application, export).
+export { makeReadoutFormatter } from './labels/readout'
+export type { ReadoutFormatter } from './labels/readout'
 
 // ── React ──
 export { MapProvider } from './react/MapProvider'
@@ -224,6 +228,7 @@ export type {
   ToolbarConfig,
   ControlsConfig,
   SearchConfig,
+  ReadoutConfig,
   DockConfig,
   DrawConfig,
   RelationsConfig,
@@ -301,6 +306,11 @@ export type {
   MapControlTarget,
   ControlGroup,
 } from './react/components/MapControls'
+// Bloc de lecture de la vue. Monté par `<Map readout>` ; exporté pour un placement
+// manuel (bandeau maison hors carte, panneau d'exploitation) — il n'a besoin que du
+// contexte carte, donc il vit partout sous `<Map>`.
+export { CameraReadout } from './react/components/CameraReadout'
+export type { CameraReadoutProps, ReadoutField, ReadoutCorner } from './react/components/CameraReadout'
 export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar, useToolbar } from './react/components/Toolbar'
