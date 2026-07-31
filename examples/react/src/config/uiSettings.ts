@@ -1,4 +1,4 @@
-import type { ControlGroup, DrawTool, DrawToolbarSection, MapControlButton, SelectMode } from 'map3d'
+import type { ControlGroup, DrawTool, DrawToolbarSection, MapControlButton, ReadoutCorner, SelectMode } from 'map3d'
 
 /* ══════════════════ SURFACES D'INTERFACE, PILOTABLES ══════════════════
    `<Map>` monte son interface à partir de ses props : `toolbar`, `controls`, `search`,
@@ -105,6 +105,11 @@ export type UiSettings = {
     groups: Record<ControlGroup, boolean>
   }
   search: boolean
+  /** Bloc de lecture de la vue : altitude de l'œil, point au sol, zoom. */
+  readout: {
+    enabled: boolean
+    corner: ReadoutCorner
+  }
   dock: boolean
   /** Gestionnaire de templates (haut-droite) : sauvegardes de dessin. */
   templates: {
@@ -143,6 +148,7 @@ export const defaultUiSettings: UiSettings = {
     groups: allOn(CONTROL_GROUPS),
   },
   search: true,
+  readout: { enabled: true, corner: 'top-right' },
   dock: true,
   templates: { enabled: true, useApi: false },
   draw: true,

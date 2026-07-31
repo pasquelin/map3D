@@ -239,6 +239,7 @@ partiel est une erreur de compilation.
 | `performance.boundsMargin` | Élargissement de la bbox émise par `onViewportChange`. **Pilote directement le volume de données que l'application charge.** | `0.15` |
 | `performance.viewportSettleFrames` | Frames d'immobilité avant d'émettre l'événement `viewport`. | `4` |
 | `performance.markerRecomputeMs` | Intervalle minimal entre deux recalculs de clusters pendant un pan. | `90` |
+| `performance.readoutRefreshMs` | Intervalle minimal entre deux écritures du bloc de lecture de la vue (`<Map readout>`), en ms. L'événement `camera` étant émis à la frame, le recopier tel quel ferait quatre écritures DOM par frame pour un texte que l'œil ne peut pas suivre. La dernière valeur est toujours écrite. | `120` |
 | `performance.cameraMoveEpsilon.deg` | Écart de latitude/longitude (degrés) au-delà duquel la caméra a bougé. | `1e-06` |
 | `performance.cameraMoveEpsilon.altitudeRatio` | Écart d'altitude, en fraction de l'altitude courante. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Plancher absolu du précédent (m) — près du sol, un ratio seul ne déclenche jamais. | `1` |

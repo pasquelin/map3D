@@ -368,6 +368,9 @@ export const defaultConfig: MapConfig = {
     boundsMargin: 0.15,
     viewportSettleFrames: 4,
     markerRecomputeMs: 90,
+    // ~8 Hz : au-delà les chiffres deviennent illisibles à force de défiler, en deçà le
+    // bloc semble en retard sur la carte.
+    readoutRefreshMs: 120,
     // Unifié sur la valeur des COUCHES (1e-6 / 1e-3), pas sur celle du moteur
     // (1e-7 / 1e-4) : c'est elle qui décidait réellement des re-échantillonnages, et
     // la plus fine faisait rouvrir la fenêtre pour un mouvement de ~1 cm.

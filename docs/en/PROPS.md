@@ -56,6 +56,7 @@ grouping **in the right nesting order**.
 | `toolbar` | Drawing toolbar, **lens included** (`toolbar.lens`). `false` = no bar — and no lens. | *(defaults)* |
 | `controls` | Navigation controls. `false` = no controls. | *(defaults)* |
 | `search` | Unified search: `true` for the defaults, an object to configure it. Absent = no box. | *(absent)* |
+| `readout` | View readout block (altitude, coordinates, zoom), on a single line: `true` for the defaults — top-right corner —, an object to configure it (`corner`, `fields`, `refreshMs`). Absent, it does not exist. See [CAMERA.md](CAMERA.md). | *(absent)* |
 | `dock` | Favourites dock — its presence enables it (and makes markers grabbable). | *(absent)* |
 | `templates` | Templates manager: named saves of the drawing. The button lives IN the controls bar, below “Layers” — so `controls` must be active. `false`/absent removes it; an object configures it (API provider, categories…). Acts on the drawing through `engine.templates.drawPort` (set by `draw`). See [TEMPLATES.md](TEMPLATES.md). | *(absent)* |
 | `draw` | Drawing layer (+ `selectionBadges`). `false` removes drawing AND the bar. | *(defaults)* |

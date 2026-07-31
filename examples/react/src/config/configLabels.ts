@@ -303,6 +303,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'performance.boundsMargin': 'marge du cadre émis',
   'performance.viewportSettleFrames': 'immobilité avant émission (frames)',
   'performance.markerRecomputeMs': 'recalcul des clusters (ms)',
+  'performance.readoutRefreshMs': 'bloc de position (ms)',
   'performance.cameraMoveEpsilon.deg': 'écart lat/lng (°)',
   'performance.cameraMoveEpsilon.altitudeRatio': 'écart d’altitude (ratio)',
   'performance.cameraMoveEpsilon.altitudeMinMeters': 'plancher d’altitude (m)',

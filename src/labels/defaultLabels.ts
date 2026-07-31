@@ -260,6 +260,24 @@ export const defaultLabels: MapLabels = {
     hours: '{h} h',
     hoursMinutes: '{h} h {m}',
   },
+  readout: {
+    title: 'Position de la caméra',
+    // Abrégés : le bloc se lit d'un coup d'œil pendant qu'on navigue, il ne se lit pas
+    // comme une fiche. Un hôte qui veut « Altitude » n'a qu'à le dire.
+    altitude: 'alt',
+    latitude: 'lat',
+    longitude: 'lng',
+    heading: 'cap',
+    tilt: 'incl',
+    zoom: 'zoom',
+    // Degré collé au nombre : la notation des relevés, et le seul à porter une unité.
+    degreeFormat: '{value}°',
+    degreeDecimals: 0,
+    coordDecimals: 5,
+    zoomDecimals: 1,
+    // Point décimal même en français : cf. le JSDoc du champ — une coordonnée se recopie.
+    numberLocale: 'en-US',
+  },
   relations: {
     menuRoot: 'Distance autour',
     pending: '…',

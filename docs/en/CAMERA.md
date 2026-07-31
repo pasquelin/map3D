@@ -168,6 +168,56 @@ ground-level view (pedestrian mode) the distance is capped by
 `pedestrian.tileDetailDistanceMeters` — otherwise the gaze would reach the horizon and the
 scale read would be that of the vanishing point.
 
+### Showing the view (`readout`)
+
+The readout block puts on screen what those events carry, **plus orientation**: eye
+altitude, the ground point below it, heading, tilt, and zoom — **on a single line**, in the
+requested corner. It only wraps onto a second line when the map is too narrow for it.
+
+```tsx
+<Map readout />                                        {/* top-right corner, all 6 values */}
+<Map readout={{ corner: 'bottom-left', fields: ['heading', 'tilt'] }} />
+```
+
+| Prop | Role | Default |
+|---|---|---|
+| `corner` | `'top-right'` · `'top-left'` · `'bottom-right'` · `'bottom-left'` | `'top-right'` |
+| `fields` | Values shown, in order: `altitude`, `latitude`, `longitude`, `heading`, `tilt`, `zoom` | all six |
+| `refreshMs` | Maximum write rate | `config.performance.readoutRefreshMs` (120) |
+| `className` | Class on top of `m3d-readout` | — |
+
+A value removed from `fields` is not merely hidden: it is no longer computed.
+
+The two orientation angles, in degrees:
+
+| Value | What it says | Range |
+|---|---|---|
+| `heading` | The direction being **looked at** — `0°` at north, increasing eastwards. Never `360°`: that is north, and it reads `0°`. | `[0, 360[` |
+| `tilt` | The tilt — at `0°` the camera looks **straight down** (top-down view), at `90°` it looks at the **horizon**. | `[0, 90]` in practice |
+
+**It never re-renders.** The map produces a camera state every frame; turning that into
+React state would make this small block the most expensive component in the tree. So it
+lays out its DOM once and hands the value writing over to an engine layer, in the
+`project()` pass — the overlay one — at the rate above.
+
+That is also what makes the heading correct. The `camera` event carries a **domain**
+threshold that deliberately ignores orientation: turning in place changes neither
+latitude, longitude nor altitude, so nothing is emitted. A heading wired to it would stay
+frozen throughout a rotation — precisely the gesture you watch it perform.
+
+Texts, decimals and number locale live in `labels.readout` (see [LABELS.md](LABELS.md)).
+Altitude has no unit system of its own: it follows `labels.measure` like every distance in
+the library — an imperial map reads it in feet with nothing to restate. Coordinates keep
+the decimal **point** by default, even under a French interface: a coordinate gets copied
+elsewhere.
+
+The block lets map gestures through; only the values stay selectable, so a coordinate can
+be copied.
+
+To show it **outside** the map (your own status bar, an operations panel),
+`<CameraReadout>` is exported — it only needs the map context — and
+`makeReadoutFormatter(labels)` gives the same formatters with no DOM at all.
+
 ---
 
 ## 6. Frozen map (`interactive`)
