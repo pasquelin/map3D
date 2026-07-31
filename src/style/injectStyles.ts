@@ -821,6 +821,12 @@ const CSS = `
    sinon la marge qui l'aligne sur la colonne d'actions. */
 .m3d-catcheck{margin-left:2px}
 .m3d-catcheck:disabled{opacity:.35;cursor:default}
+/* Partiellement coché : une BARRE, pas une coche — un agrégat dont une partie des
+   enfants seulement est sur la carte. Le pseudo-élément est le même que la coche, on
+   n'en redresse que la forme (pas de rotation, pas de branche verticale). */
+.m3d-catcheck:indeterminate{background:var(--m3d-accent);border-color:var(--m3d-accent)}
+.m3d-catcheck:indeterminate::after{opacity:1;width:8px;height:0;margin-top:0;
+  border-left:none;border-bottom:2px solid #fff;transform:none}
 /* Ligne inerte : visible mais inconsommable. Grisée en entier — n'éteindre que le
    bouton laisserait croire que le nom, lui, mène quelque part. */
 .m3d-catrow.m3d-off{opacity:.45}

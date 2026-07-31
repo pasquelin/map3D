@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { flattenCatalog } from '../../catalog/flatten'
+import { flattenCatalog, type CatalogNode } from '../../catalog/flatten'
+import { catalogKey } from '../../catalog/selection'
 import type { CatalogId, CatalogItem, CatalogSource } from '../../catalog/types'
 import { visibleWindow } from '../../catalog/window'
 import { formatCount } from '../../labels/mergeLabels'
@@ -85,34 +86,85 @@ export function CatalogList({ source, query, onTotal, tipId }: CatalogListProps)
     return () => io.disconnect()
   }, [hasMore])
 
+  const childrenRef = useRef(children)
+  childrenRef.current = children
+
+  /**
+   * Enfants d'un agrégat, chargés une seule fois.
+   *
+   * Sert au dépliage COMME à la case à cocher : cocher un groupe replié doit pouvoir
+   * afficher ses zones sans qu'on ait eu à l'ouvrir d'abord.
+   */
+  const ensureChildren = useCallback(
+    async (id: CatalogId): Promise<readonly CatalogItem[]> => {
+      const known = childrenRef.current.get(id)
+      if (known) return known
+      if (!source.children) return []
+      const ctrl = new AbortController()
+      const page = await source.children(id, { query: '', limit: config.catalog.pageSize, signal: ctrl.signal })
+      setChildren((prev) => new Map(prev).set(id, page.items))
+      return page.items
+    },
+    [source, config.catalog.pageSize],
+  )
+
   const toggleExpand = useCallback(
     (id: CatalogId) => {
       setExpanded((prev) => {
         const next = new Set(prev)
-        if (next.has(id)) {
-          next.delete(id)
-          return next
-        }
-        next.add(id)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
         return next
       })
-      // Chargé une seule fois : replier puis redéplier ne redemande rien.
-      if (children.has(id) || !source.children) return
-      const ctrl = new AbortController()
-      void source
-        .children(id, { query: '', limit: config.catalog.pageSize, signal: ctrl.signal })
-        .then((page) => setChildren((prev) => new Map(prev).set(id, page.items)))
+      void ensureChildren(id).catch(() => {
+        // Enfants indisponibles : on replie plutôt que de laisser un chevron ouvert sur
+        // du vide, qui se lirait comme « ce groupe n'a rien ».
+        setExpanded((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      })
+    },
+    [ensureChildren],
+  )
+
+  /**
+   * État de la case d'une ligne.
+   *
+   * Un agrégat ne porte PAS d'état propre : il reflète ses enfants — tous affichés,
+   * aucun, ou une partie. Sans cela, cocher un groupe laissait ses enfants décochés à
+   * l'écran alors que leurs zones étaient bien sur la carte : deux vérités pour une.
+   * Enfants inconnus (jamais dépliés) : on retombe sur l'état de l'agrégat lui-même,
+   * qui est alors la seule information disponible.
+   */
+  const checkStateOf = useCallback(
+    (node: CatalogNode): 'on' | 'off' | 'mixed' => {
+      const kids = node.item.hasChildren ? children.get(node.item.id) : undefined
+      if (!kids || kids.length === 0) return catalog.isShown(node.key) ? 'on' : 'off'
+      const shown = kids.filter((k) => catalog.isShown(catalogKey(source.id, k.id))).length
+      if (shown === 0) return 'off'
+      return shown === kids.length ? 'on' : 'mixed'
+    },
+    [catalog, children, source.id],
+  )
+
+  const onCheck = useCallback(
+    (node: CatalogNode, next: boolean) => {
+      if (!node.item.hasChildren || !source.children) {
+        catalog.toggle(source, node.item)
+        return
+      }
+      // Cocher un agrégat porte sur ses ENFANTS, qu'il faut donc connaître — même
+      // replié. Ce sont eux qui entrent dans la sélection, jamais l'agrégat : sinon la
+      // même zone serait comptée deux fois et un décochage d'enfant ne dirait rien.
+      void ensureChildren(node.item.id)
+        .then((kids) => catalog.setMany(source, kids, next))
         .catch(() => {
-          // Enfants indisponibles : on replie plutôt que de laisser un chevron ouvert
-          // sur du vide, qui se lirait comme « ce groupe n'a rien ».
-          setExpanded((prev) => {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-          })
+          // Enfants indisponibles : rien à cocher, et la case reste où elle était.
         })
     },
-    [children, source, config.catalog.pageSize],
+    [catalog, ensureChildren, source],
   )
 
   const nodes = useMemo(
@@ -154,6 +206,8 @@ export function CatalogList({ source, query, onTotal, tipId }: CatalogListProps)
                   catalog={catalog}
                   expanded={expanded.has(node.item.id)}
                   onToggleExpand={toggleExpand}
+                  checkState={checkStateOf(node)}
+                  onCheck={(next) => onCheck(node, next)}
                   tipId={tipId}
                 />
               ))}

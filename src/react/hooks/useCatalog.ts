@@ -21,6 +21,14 @@ export type CatalogApi = {
    * seulement le réglage « cadrer à l'ajout ».
    */
   toggle: (source: CatalogSource, item: CatalogItem, opts?: { fit?: boolean }) => void
+  /**
+   * Affiche ou retire un LOT d'un coup — les enfants d'un agrégat qu'on coche.
+   *
+   * Le cadrage porte sur l'UNION de ce qui a été chargé, et n'a lieu qu'une fois tout
+   * arrivé : cadrer élément par élément ferait voler la caméra trois fois pour un seul
+   * geste, en s'arrêtant sur le dernier arrivé plutôt que sur l'ensemble.
+   */
+  setMany: (source: CatalogSource, items: readonly CatalogItem[], shown: boolean, opts?: { fit?: boolean }) => void
   /** Cadre la caméra sur l'élément, sans toucher à son affichage. */
   target: (source: CatalogSource, item: CatalogItem) => void
   clear: () => void
@@ -65,6 +73,47 @@ export function useCatalog(): CatalogApi {
     [engine, theme.sizing.catalogPanelW],
   )
 
+  /** Affiche un élément et rend ses formes — `null` si abandonné ou en échec. */
+  const show = useCallback(
+    (source: CatalogSource, item: CatalogItem): Promise<readonly ShapeData[] | null> => {
+      const key = catalogKey(source.id, item.id)
+      if (store.isShown(key)) return Promise.resolve(store.getGeometry(key) ?? null)
+      store.markSelected(key)
+      const ctrl = store.beginLoad(key)
+      return source
+        .geometry(item.id, ctrl.signal)
+        .then((shapes) => {
+          // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
+          if (ctrl.signal.aborted || !store.isShown(key)) return null
+          // Une forme sans nom est invisible pour la recherche (cf. ZONES.md § 5) : on
+          // lui prête celui de son élément, qui est précisément ce qu'on a cliqué.
+          const named = shapes.map((s) => (s.title ? s : { ...s, title: item.title }))
+          store.setGeometry(key, named)
+          engine.invalidate()
+          return named as readonly ShapeData[]
+        })
+        .catch(() => {
+          if (!ctrl.signal.aborted) {
+            store.remove(key, true)
+            engine.invalidate()
+          }
+          return null
+        })
+        .finally(() => store.endLoad(key, ctrl))
+    },
+    [engine, store],
+  )
+
+  const hide = useCallback(
+    (source: CatalogSource, item: CatalogItem) => {
+      const key = catalogKey(source.id, item.id)
+      store.abortLoad(key)
+      store.remove(key)
+      engine.invalidate()
+    },
+    [engine, store],
+  )
+
   const toggle = useCallback(
     (source: CatalogSource, item: CatalogItem, opts?: { fit?: boolean }) => {
       const key = catalogKey(source.id, item.id)
@@ -76,36 +125,33 @@ export function useCatalog(): CatalogApi {
           const b = item.bounds ?? boundsOfShapes(store.getGeometry(key) ?? [])
           if (b) fit(b)
         }
-        store.abortLoad(key)
-        store.remove(key)
-        engine.invalidate()
+        hide(source, item)
         return
       }
-      store.markSelected(key)
       const withFit = forceFit || store.getSettings().fitOnAdd
-      const ctrl = store.beginLoad(key)
-      void source
-        .geometry(item.id, ctrl.signal)
-        .then((shapes) => {
-          // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
-          if (ctrl.signal.aborted || !store.isShown(key)) return
-          // Une forme sans nom est invisible pour la recherche (cf. ZONES.md § 5) : on
-          // lui prête celui de son élément, qui est précisément ce qu'on a cliqué.
-          const named = shapes.map((s) => (s.title ? s : { ...s, title: item.title }))
-          store.setGeometry(key, named)
-          engine.invalidate()
-          if (!withFit) return
-          const b = boundsOfShapes(named)
-          if (b) fit(b)
-        })
-        .catch(() => {
-          if (ctrl.signal.aborted) return
-          store.remove(key, true)
-          engine.invalidate()
-        })
-        .finally(() => store.endLoad(key, ctrl))
+      void show(source, item).then((shapes) => {
+        if (!withFit || !shapes) return
+        const b = boundsOfShapes(shapes)
+        if (b) fit(b)
+      })
     },
-    [engine, fit, store],
+    [fit, hide, show, store],
+  )
+
+  const setMany = useCallback(
+    (source: CatalogSource, items: readonly CatalogItem[], shown: boolean, opts?: { fit?: boolean }) => {
+      if (!shown) {
+        for (const item of items) hide(source, item)
+        return
+      }
+      const withFit = opts?.fit === true || store.getSettings().fitOnAdd
+      void Promise.all(items.map((item) => show(source, item))).then((all) => {
+        if (!withFit) return
+        const b = boundsOfShapes(all.flatMap((s) => s ?? []))
+        if (b) fit(b)
+      })
+    },
+    [fit, hide, show, store],
   )
 
   const target = useCallback(
@@ -143,6 +189,7 @@ export function useCatalog(): CatalogApi {
       isPending: (k: CatalogKey) => store.isPending(k),
       hasError: (k: CatalogKey) => store.hasError(k),
       toggle,
+      setMany,
       target,
       clear,
       shapes: store.shapes(),
@@ -150,7 +197,7 @@ export function useCatalog(): CatalogApi {
     // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
     // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, token, toggle, target, clear],
+    [store, token, toggle, setMany, target, clear],
   )
 }
 

@@ -1,5 +1,5 @@
 import { mdiAlertCircleOutline, mdiChevronRight } from '@mdi/js'
-import { memo } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import type { CatalogNode } from '../../catalog/flatten'
 import type { CatalogAction, CatalogId, CatalogSource } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
@@ -40,6 +40,13 @@ export type CatalogRowProps = {
   catalog: CatalogApi
   expanded: boolean
   onToggleExpand: (id: CatalogId) => void
+  /**
+   * État de la case. `'mixed'` n'existe que pour un agrégat dont une PARTIE des enfants
+   * est affichée — c'est l'état natif `indeterminate`, pas une troisième valeur métier.
+   */
+  checkState: 'on' | 'off' | 'mixed'
+  /** Coche ou décoche : pour un agrégat, cela porte sur tous ses enfants. */
+  onCheck: (next: boolean) => void
   /** id du `<Tooltip>` de la barre hôte — les infobulles de la lib, pas des `title` natifs. */
   tipId: string
 }
@@ -59,15 +66,29 @@ export type CatalogRowProps = {
  * Hauteur CONSTANTE (`--m3d-catalog-row-h`) : la virtualisation en dépend. Rien ici ne
  * doit pouvoir la faire varier — pas de seconde ligne de texte, pas d'icône plus haute.
  */
-function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand, tipId }: CatalogRowProps) {
+function CatalogRowInner({
+  node,
+  source,
+  catalog,
+  expanded,
+  onToggleExpand,
+  checkState,
+  onCheck,
+  tipId,
+}: CatalogRowProps) {
   const { item, key, depth } = node
   const { theme } = useMapContext()
   const labels = useLabels()
   const config = useConfig()
   const tip = useTip(tipId)
 
-  const shown = catalog.isShown(key)
+  const shown = checkState === 'on'
   const pending = catalog.isPending(key)
+  // `indeterminate` n'est pas un attribut : il ne s'écrit que sur le nœud, d'où le ref.
+  const boxRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    if (boxRef.current) boxRef.current.indeterminate = checkState === 'mixed'
+  }, [checkState])
   const failed = catalog.hasError(key)
   const off = item.disabled === true
   const actions = inlineActions(source, config.catalog.maxInlineActions)
@@ -146,12 +167,15 @@ function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand, tipI
             c'est déjà ainsi que « Couches » exprime la même idée. Le dessin de la coche
             est celui du thème, partagé — rien de propre au catalogue. */}
         <input
+          ref={boxRef}
           type="checkbox"
           className="m3d-catcheck"
           {...tip(formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title }))}
           checked={shown}
           disabled={off || pending}
-          onChange={() => catalog.toggle(source, item)}
+          // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est
+          // la convention des arbres de cases, et `e.target.checked` la donne déjà.
+          onChange={(e) => onCheck(e.target.checked)}
         />
       </span>
     </div>
