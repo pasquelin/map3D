@@ -752,6 +752,65 @@ const CSS = `
 .m3d-tagclear:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-tagclear:disabled{opacity:.45;cursor:default}
 
+/* ── Catalogue ──
+   MÊME châssis que « Couches » : bouton dans le .m3d-controls-group partagé de la barre,
+   flyout ancré au bouton. Deux vues dans le même panneau — la liste des types, puis la
+   liste d'un type. */
+.m3d-catalog{position:relative}
+.m3d-catbtn{position:relative}
+.m3d-catpanel{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
+/* Sous-menu des types : familles séparées par un filet, pas par un titre — à cinq
+   entrées, un en-tête par famille prend plus de place que ce qu'il classe. */
+.m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
+.m3d-catfamily+.m3d-catfamily{margin-top:6px;padding-top:6px;border-top:1px solid var(--m3d-border)}
+.m3d-cattype{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;width:100%;
+  border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--m3d-size-sm);
+  color:var(--m3d-text);text-align:left}
+.m3d-cattype:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-cattype-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-cattype-total{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
+/* En-tête de la vue « un type » : retour + titre. */
+.m3d-cathead{display:flex;align-items:center;gap:6px;font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-bold)}
+.m3d-catback{display:grid;place-items:center;width:22px;height:22px;flex:none;border:none;border-radius:6px;
+  background:transparent;cursor:pointer;color:var(--m3d-text)}
+.m3d-catback:hover{background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
+.m3d-cathead-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-cathead-count{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-weight:400;
+  font-variant-numeric:tabular-nums}
+/* Le viewport scrolle, pas le panneau : la recherche reste visible en haut. */
+.m3d-catviewport{flex:1 1 auto;min-height:0;max-height:var(--m3d-catalog-panel-maxh);
+  overflow-y:auto;position:relative}
+.m3d-catrow{display:flex;align-items:center;gap:6px;padding:0 6px;border-radius:8px;
+  height:var(--m3d-catalog-row-h);font-size:var(--m3d-size-sm);box-sizing:border-box}
+.m3d-catrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-catrow.m3d-child{padding-left:calc(6px + var(--m3d-catalog-indent))}
+.m3d-catchevron{display:grid;place-items:center;width:18px;height:18px;flex:none;border:none;border-radius:5px;
+  background:transparent;cursor:pointer;color:var(--m3d-muted);transition:transform .14s}
+.m3d-catchevron.m3d-on{transform:rotate(90deg);color:var(--m3d-text)}
+.m3d-catchevron-spacer{width:18px;flex:none}
+/* Le NOM : c'est lui qui cède la place, et lui seul — d'où min-width:0. */
+.m3d-catmain{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:0;border:none;
+  background:transparent;cursor:pointer;font-family:inherit;font-size:inherit;color:var(--m3d-text);
+  text-align:left;overflow:hidden}
+.m3d-catmain:hover .m3d-cattitle{text-decoration:underline}
+.m3d-cattitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-catbadge{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
+  border-radius:8px;font-size:var(--m3d-size-xs);font-variant-numeric:tabular-nums;
+  background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
+.m3d-cataction,.m3d-cattoggle{display:grid;place-items:center;width:20px;height:20px;flex:none;
+  border:none;border-radius:6px;background:transparent;cursor:pointer;color:var(--m3d-muted)}
+.m3d-cataction:hover:not(:disabled),.m3d-cattoggle:hover:not(:disabled){
+  background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
+.m3d-cattoggle.m3d-on{background:var(--m3d-accent);color:#fff}
+.m3d-cataction:disabled,.m3d-cattoggle:disabled{opacity:.35;cursor:default}
+.m3d-caterrdot{color:var(--m3d-danger,#f87171)}
+.m3d-catempty,.m3d-catloading{padding:14px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
+.m3d-caterror{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;font-size:12px;
+  background:color-mix(in srgb,var(--m3d-danger,#f87171) 14%,transparent);color:var(--m3d-text)}
+.m3d-caterror button{margin-left:auto;border:1px solid var(--m3d-border);border-radius:7px;padding:3px 8px;
+  background:transparent;cursor:pointer;font-family:inherit;font-size:11px;color:var(--m3d-text)}
+.m3d-catmorespace{height:1px}
+
 /* ── Gestionnaire de templates ──
    MÊME structure que « Couches » : bouton dans un .m3d-controls-group de la barre,
    flyout latéral ancré au bouton (mêmes règles de côté/animation que .m3d-tagpanel).

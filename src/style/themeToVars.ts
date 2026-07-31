@@ -55,6 +55,12 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-selection-panel-w': `${theme.sizing.selectionPanelW}px`,
     '--m3d-templates-panel-w': `${theme.sizing.templatesPanelW}px`,
     '--m3d-templates-panel-maxh': `${theme.sizing.panelMaxHeight.templates}px`,
+    '--m3d-catalog-panel-w': `${theme.sizing.catalogPanelW}px`,
+    '--m3d-catalog-panel-maxh': `${theme.sizing.panelMaxHeight.catalog}px`,
+    // La virtualisation calcule sa fenêtre à partir de CETTE hauteur : le CSS et le
+    // calcul doivent lire la même valeur, sinon les lignes dérivent au défilement.
+    '--m3d-catalog-row-h': `${theme.sizing.catalogRowHeight}px`,
+    '--m3d-catalog-indent': `${theme.sizing.catalogIndent}px`,
     // Épaisseur d'anneau d'un marker. La feuille de styles écrivait `2.5px` pour
     // l'avatar quand le thème annonçait `3` : deux valeurs pour le même trait, dont
     // une seule surchargeable — et c'était la morte.
