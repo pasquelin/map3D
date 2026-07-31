@@ -132,6 +132,61 @@ export function formatFor(level: number, format: CoordFormat): 'deg' | 'dm' | 'd
   return level >= MIN ? 'dm' : 'dms'
 }
 
+/**
+ * Interpolation lissée de 0 à 1 entre `a` et `b` — la courbe en S d'un fondu propre.
+ *
+ * Distincte d'`easeInOutCubic` (`math.ts`), qui prend un `t` déjà ramené dans [0,1] : ici la
+ * remise à l'échelle et le bornage font partie du travail, et c'est justement ce qu'on ne
+ * veut pas réécrire sur chaque site d'appel.
+ */
+export function smoothstep(a: number, b: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - a) / Math.max(1e-6, b - a)))
+  return t * t * (3 - 2 * t)
+}
+
+/** Textes nécessaires au rendu d'une étiquette — le sous-arbre `labels.graticule`. */
+export type GraticuleTexts = {
+  remarkable: Record<string, string>
+  format: { deg: string; dm: string; dms: string }
+  hemisphere: { north: string; south: string; east: string; west: string }
+}
+
+/**
+ * Étiquette d'une ligne : nom de la remarquable si elle en a un, coordonnée formatée sinon.
+ *
+ * Le gabarit vient des `labels` (variables `{d}` `{m}` `{s}` `{hemi}`) : le format DMS est de
+ * l'i18n et non du code — « Équateur » devient « Equator », et un hôte francophone peut
+ * vouloir « O » plutôt que « W ».
+ */
+export function labelFor(
+  line: GraticuleLine,
+  level: number,
+  format: CoordFormat,
+  texts: GraticuleTexts,
+  showRemarkableNames: boolean,
+): string {
+  if (line.remarkable && showRemarkableNames) {
+    const nom = texts.remarkable[line.remarkable]
+    if (nom) return nom
+  }
+  const precision = formatFor(level, format)
+  const { deg, min, sec } = toDms(Math.abs(line.value), precision)
+  const hemi =
+    line.kind === 'parallel'
+      ? line.value < 0
+        ? texts.hemisphere.south
+        : texts.hemisphere.north
+      : line.value < 0
+        ? texts.hemisphere.west
+        : texts.hemisphere.east
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return texts.format[precision]
+    .replace('{d}', String(deg))
+    .replace('{m}', pad(min))
+    .replace('{s}', pad(sec))
+    .replace('{hemi}', hemi)
+}
+
 /** Emprise construite. `east` peut dépasser 180 : la bande est DÉROULÉE (cf. `linesFor`). */
 export type GraticuleBand = { south: number; north: number; west: number; east: number }
 

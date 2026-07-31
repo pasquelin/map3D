@@ -25,6 +25,11 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-pedestrian-valid': c.pedestrian?.placeValid ?? c.ui.accent,
     '--m3d-pedestrian-blocked': c.pedestrian?.placeBlocked ?? c.ui.error,
     '--m3d-pedestrian-reticle': c.pedestrian?.reticle ?? c.ui.text,
+    // Grille de coordonnées. Mêmes replis de principe : un thème écrit avant l'ajout du bloc
+    // reste valide, et sa grille reste lisible. (Les couleurs des LIGNES, elles, sont lues
+    // en JS par la couche — WebGL ne voit pas les variables CSS.)
+    '--m3d-graticule-label': c.graticule?.label ?? c.ui.text,
+    '--m3d-graticule-label-bg': c.graticule?.labelBackground ?? c.ui.panel,
     '--m3d-shadow-sm': theme.shadows.sm,
     '--m3d-shadow-md': theme.shadows.md,
     '--m3d-shadow-lg': theme.shadows.lg,

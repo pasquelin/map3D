@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   bandFor,
   formatFor,
+  labelFor,
   GRATICULE_LEVELS,
   linesFor,
   pickLevel,
+  smoothstep,
   type RemarkableSpec,
   toDms,
   visibleSpanDeg,
@@ -245,5 +247,65 @@ describe('linesFor', () => {
       remarkable: REMARQUABLES,
     })
     expect(lines.some((l) => l.remarkable === 'equator')).toBe(false)
+  })
+})
+
+describe('smoothstep', () => {
+  it('vaut 0 avant, 1 après', () => {
+    expect(smoothstep(0.75, 0.95, 0.5)).toBe(0)
+    expect(smoothstep(0.75, 0.95, 1)).toBe(1)
+  })
+
+  it('passe par 0,5 au milieu', () => {
+    expect(smoothstep(0.75, 0.95, 0.85)).toBeCloseTo(0.5, 6)
+  })
+
+  it('est monotone croissante', () => {
+    let prev = -1
+    for (let x = 0.7; x <= 1; x += 0.01) {
+      const v = smoothstep(0.75, 0.95, x)
+      expect(v).toBeGreaterThanOrEqual(prev)
+      prev = v
+    }
+  })
+})
+
+const TEXTS = {
+  remarkable: { equator: 'Équateur' },
+  format: { deg: '{d}°{hemi}', dm: "{d}°{m}'{hemi}", dms: '{d}°{m}\'{s}"{hemi}' },
+  hemisphere: { north: 'N', south: 'S', east: 'E', west: 'W' },
+}
+
+describe('labelFor', () => {
+  it('formate une latitude nord en DMS', () => {
+    const l = { kind: 'parallel' as const, value: 13.7069444444, remarkable: null }
+    expect(labelFor(l, 1 / 3600, 'auto', TEXTS, true)).toBe('13°42\'25"N')
+  })
+
+  it('formate une longitude ouest', () => {
+    const l = { kind: 'meridian' as const, value: -37.5, remarkable: null }
+    expect(labelFor(l, 1, 'auto', TEXTS, true)).toBe('38°W')
+  })
+
+  it('préfère le nom d’une remarquable', () => {
+    const l = { kind: 'parallel' as const, value: 0, remarkable: 'equator' }
+    expect(labelFor(l, 5, 'auto', TEXTS, true)).toBe('Équateur')
+  })
+
+  it('retombe sur la coordonnée si les noms sont coupés', () => {
+    const l = { kind: 'parallel' as const, value: 0, remarkable: 'equator' }
+    expect(labelFor(l, 5, 'auto', TEXTS, false)).toBe('0°N')
+  })
+
+  it('retombe sur la coordonnée si la clé n’est pas traduite', () => {
+    // Un hôte qui ajoute une ligne remarquable sans son libellé doit voir la coordonnée,
+    // pas une clé technique.
+    const l = { kind: 'parallel' as const, value: 45, remarkable: 'inconnue' }
+    expect(labelFor(l, 5, 'auto', TEXTS, true)).toBe('45°N')
+  })
+
+  it('complète minutes et secondes à deux chiffres', () => {
+    const l = { kind: 'parallel' as const, value: 13 + 2 / 60 + 5 / 3600, remarkable: null }
+    expect(labelFor(l, 1 / 3600, 'auto', TEXTS, true)).toBe('13°02\'05"N')
   })
 })

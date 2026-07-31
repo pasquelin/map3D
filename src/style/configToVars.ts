@@ -19,6 +19,7 @@ export function configToVars(config: MapConfig): Record<string, string> {
     '--m3d-z-map-overlay': String(z.mapOverlay),
     '--m3d-z-relation-bar': String(z.relationBar),
     '--m3d-z-edit-overlay': String(z.editOverlay),
+    '--m3d-z-graticule-label': String(z.graticuleLabel),
     '--m3d-z-floating-hud': String(z.floatingHud),
     '--m3d-z-marker-selected': String(z.markerSelected),
     '--m3d-z-tooltip': String(z.tooltip),

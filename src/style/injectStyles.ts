@@ -364,6 +364,16 @@ const CSS = `
   animation:m3d-tip-in .16s ease-out}
 .m3d-markertip-title{font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-semibold);color:var(--m3d-text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Étiquette du graticule : même châssis que l'infobulle de marker, mais POSÉE sur sa ligne
+   (pas d'ancre, pas de décalage vertical, pas d'animation d'entrée — elles sont permanentes
+   et il y en a jusqu'à quarante). La transformée est écrite par la couche à chaque frame :
+   la règle ne doit surtout pas en poser une, elle serait écrasée. */
+.m3d-graticule-label{z-index:var(--m3d-z-graticule-label,1);
+  padding:2px 6px;min-width:0;max-width:none;animation:none;
+  color:var(--m3d-graticule-label);background:var(--m3d-graticule-label-bg);
+  will-change:transform}
+.m3d-graticule-label .m3d-markertip-title{font-size:var(--m3d-size-xs,11px);
+  font-weight:var(--m3d-weight-medium);color:var(--m3d-graticule-label)}
 /* Le contenu est une LISTE : une information par ligne (m3d-markertip-row),
    jamais de concaténation wrappée sur une ligne. */
 .m3d-markertip-content{display:flex;flex-direction:column;gap:3px;
