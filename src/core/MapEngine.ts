@@ -90,6 +90,11 @@ export type MapEngineOptions = {
    */
   oceanColor: string
   /**
+   * Couleur du voile de distance en mode piéton (`theme.globe.hazeColor`). Lue au montage,
+   * comme `oceanColor` — voir `applyPedestrianView` pour ce qu'elle corrige.
+   */
+  hazeColor?: string
+  /**
    * Façades et toits des bâtiments extrudés du fournisseur interne
    * (`theme.globe.buildingColor` / `buildingRoofColor`). Comme `oceanColor`, lues au
    * montage : une charte qui change ne reconstruit pas la géométrie déjà extrudée.
@@ -544,6 +549,7 @@ export class MapEngine {
     this.projection.setConfig(this.config)
     this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
+    if (opts.hazeColor) this.hazeColor = opts.hazeColor
     this.tags = new TagFilter(opts.tagStorageKey)
     /**
      * Le filtre « Couches » bascule la visibilité de meshes WebGL (`DrawLayer`, formes,
@@ -1198,6 +1204,8 @@ export class MapEngine {
   private savedNearFar: { near: number; far: number } | null = null
   /** Scratch de lecture de la couleur de fond (source du brouillard) — jamais alloué à chaud. */
   private readonly fogColor = new THREE.Color()
+  /** Voile de distance du mode piéton (`theme.globe.hazeColor`), lu au montage. */
+  private readonly hazeColor: string = defaultTheme.globe.hazeColor
 
   /** Type de carte affiché — cf. `MapMode` : 'plan' = carte plate, '3d' = volume. */
   private mapMode: MapMode = '3d'
@@ -1588,9 +1596,21 @@ export class MapEngine {
     this.threeCamera.near = v.near
     this.threeCamera.far = v.far
     this.threeCamera.updateProjectionMatrix()
-    // Couleur lue du renderer plutôt que mémorisée : c'est la même source que le fond
-    // réellement peint, et elle ne peut donc pas en diverger.
-    this.renderer.getClearColor(this.fogColor)
+    /**
+     * Le décor doit se dissoudre dans ce qu'on voit DERRIÈRE lui.
+     *
+     * ⚠️ C'était le fond du canvas (`getClearColor`), au motif qu'il était « la même source
+     * que le fond réellement peint ». Ce n'est plus vrai : le ciel atmosphérique se peint au
+     * plan far (`Sky` force `gl_Position.z = gl_Position.w`), donc DEVANT ce fond. Les
+     * façades situées entre `fogStartMeters` et `viewDistanceMeters` s'estompaient vers un
+     * fond clair sur un ciel bleu, et comme elles sont toutes à la même hauteur apparente à
+     * cette distance, leur bande blanchie dessinait une BARRE HORIZONTALE nette à hauteur
+     * d'horizon.
+     *
+     * Ciel éteint, le fond redevient ce qu'on voit derrière : il reprend son rôle.
+     */
+    if (this.sky) this.fogColor.set(this.hazeColor)
+    else this.renderer.getClearColor(this.fogColor)
     const fog = this.scene.fog
     if (fog instanceof THREE.Fog) {
       fog.color.copy(this.fogColor)

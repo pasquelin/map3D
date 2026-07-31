@@ -178,6 +178,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `globe.atmosphere` | Halo atmosphérique autour du globe. | `true` |
 | `globe.background` | Fond derrière le globe (espace). | `'#070C16'` |
 | `globe.oceanColor` | Océan des globes de repli — celui de secours et celui sous les tuiles 2D. | `'#0F2942'` |
+| `globe.hazeColor` | Couleur dans laquelle le décor lointain se dissout en **mode piéton** (brouillard de `pedestrian.fogStartMeters` à `viewDistanceMeters`). ⚠️ C'était le fond du canvas, ce qui était juste tant que le fond était ce qu'on voyait derrière le décor ; le ciel atmosphérique se peignant au plan far, les façades lointaines s'estompaient vers un fond clair **sur un ciel bleu** et dessinaient une barre horizontale nette à hauteur d'horizon. Ciel éteint (`sky.enabled: false`), le fond du canvas reprend ce rôle. La teinte d'un ciel bas varie avec l'heure et la diffusion : ce défaut vise le ciel par défaut, en milieu de journée. | `'#C4D6E4'` |
 | `globe.landColor` | Terres émergées du globe de repli. | `'#4F7A45'` |
 | `globe.buildingColor` | Façades des bâtiments extrudés (volume du fournisseur interne). Une emprise qui porte sa propre couleur (attribut `colour`) garde la sienne. | `'#8A8E96'` |
 | `globe.buildingRoofColor` | Toits des bâtiments extrudés, plus clairs que les façades — la face haute se lit d'emblée. | `'#C2C6CE'` |
