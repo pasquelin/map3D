@@ -324,7 +324,7 @@ export class TiledGlobeLayer {
      * dépend ni du cap ni de l'inclinaison. Le niveau de détail devient donc stable, et c'est
      * la vue qui décide de ce qu'on affiche — pas de la finesse à laquelle on l'affiche.
      */
-    const lod = refine || uniform ? lodLevels(steady, zoom, this.cfg) : undefined
+    const lod = refine || uniform ? lodLevels(steady, bounds, zoom, this.cfg) : undefined
     if (refine && lod) {
       const { finest, covering } = lod
       if (uniform) {
@@ -335,13 +335,14 @@ export class TiledGlobeLayer {
         // charge → transition douce, sans le flash « base floue » d'un niveau unique. C'est le
         // PREFETCH qui rend le dézoom fluide. Bâtiments partout tant que `covering` atteint
         // leur niveau (relever `maxRequest` le repousse), sinon uniformément grossier.
-        // Le niveau le plus fin sur le DISQUE, les plus grossiers sur la vue entière : le
-        // détail est ainsi borné et invariant (c'est lui qu'on regarde de près), tandis que
-        // le lointain reste couvert par des niveaux dont une tuile porte assez loin pour que
-        // la dépendance au cap ne se voie pas. Demander `covering` sur `bounds` en vue très
-        // inclinée réclamerait des centaines de tuiles pour peupler l'horizon au niveau fin.
-        this.requestLevel(covering, steady, this.cfg.margin)
-        for (let z = covering - 1; z > baseZ; z--) this.requestLevel(z, bounds, this.cfg.margin)
+        // ⚠️ Tous les niveaux sur l'emprise ENTIÈRE, `covering` compris. Le restreindre au
+        // disque qui a servi à le CHOISIR paraît économique et ne l'est pas : le détail
+        // s'arrête alors net au bord du disque (~4,6 km à 1 km d'altitude et 64°), et cette
+        // frontière se voit en plein milieu de l'écran. C'est précisément la « boîte de
+        // détail » que le mode uniforme existe pour supprimer.
+        //
+        // Le disque ne sert donc qu'à DÉCIDER de la finesse, jamais à borner son étendue.
+        for (let z = covering; z > baseZ; z--) this.requestLevel(z, bounds, this.cfg.margin)
       } else {
         for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
         if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
@@ -610,13 +611,37 @@ export type LodLevels = {
  * rendre la liste allouerait un tableau et ses objets à chaque frame.
  */
 export function lodLevels(
+  steady: Bounds,
   bounds: Bounds,
   zoom: number,
-  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest'>,
+  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest' | 'maxTiles'>,
 ): LodLevels {
   const finest = clamp(Math.round(zoom), cfg.baseZoom, cfg.maxZoom)
   let covering = finest
-  while (covering > cfg.baseZoom && tileCount(bounds, covering, cfg.margin) > cfg.maxRequest) covering--
+  /**
+   * Premier critère, sur `steady` — un disque centré sous la caméra (cf.
+   * `MapEngine.steadyBounds`). C'est LUI qui fixe la finesse, et il ne dépend ni du cap ni de
+   * l'inclinaison.
+   *
+   * ⚠️ Le critère portait sur `bounds`, la bbox du trapèze de vue, avec deux effets visibles :
+   * son aire croît d'un facteur ~2 entre un cap nord et un cap à 45°, et un facteur 2 vaut UN
+   * CRAN — le fond changeait de netteté quand on tournait la caméra ; et à 78° d'inclinaison
+   * elle porte jusqu'à l'horizon, si bien que cette boucle rabaissait `covering` jusqu'au
+   * niveau de base, dont un texel couvre un quart de continent.
+   */
+  while (covering > cfg.baseZoom && tileCount(steady, covering, cfg.margin) > cfg.maxRequest) covering--
+  /**
+   * Second critère, sur la vue réelle : `covering` est demandé en PLEIN sur `bounds` (le
+   * restreindre au disque ferait une frontière nette au milieu de l'écran), donc une finesse
+   * décidée sur un petit disque peut réclamer beaucoup de tuiles sur une vue très étalée.
+   * Mesuré à 5 000 m et 70° : 800 tuiles au seul niveau `covering`, 1 218 pour la cascade —
+   * au-delà du cache, qui se serait mis à évincer ce qu'il vient de charger.
+   *
+   * Le plafond est `maxTiles`, le cache lui-même, et non `maxRequest` : la moitié pour ce
+   * niveau, l'autre pour le reste de la cascade (dont chaque cran, deux fois plus grossier,
+   * coûte quatre fois moins).
+   */
+  while (covering > cfg.baseZoom && tileCount(bounds, covering, cfg.margin) > cfg.maxTiles / 2) covering--
   return { finest, covering }
 }
 
