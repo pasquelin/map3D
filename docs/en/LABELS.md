@@ -471,7 +471,6 @@ Defaults below are the library's real French strings — they are data, not pros
 | Key | Description | Default |
 |---|---|---|
 | `catalog.button` | Bar button. | `'Catalogue'` |
-| `catalog.types` | Header of the type menu. | `'Types'` |
 | `catalog.searchPlaceholder` | Search field. | `'Taper votre recherche…'` |
 | `catalog.empty` | The source holds no item. | `'Aucun élément'` |
 | `catalog.noMatch` | The search returns nothing. | `'Aucun résultat'` |
@@ -481,7 +480,6 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.itemError` | Geometry loading failure, as a row tooltip. | `'Impossible d’afficher cet élément'` |
 | `catalog.add` | Checkbox, "not on the map yet" state — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
-| `catalog.back` | Back to the type menu. | `'Retour aux types'` |
 | `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
 | `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |

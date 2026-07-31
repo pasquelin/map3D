@@ -29,7 +29,6 @@ export const defaultLabels: MapLabels = {
   },
   catalog: {
     button: 'Catalogue',
-    types: 'Types',
     searchPlaceholder: 'Taper votre recherche…',
     empty: 'Aucun élément',
     noMatch: 'Aucun résultat',
@@ -39,7 +38,6 @@ export const defaultLabels: MapLabels = {
     itemError: 'Impossible d’afficher cet élément',
     add: 'Afficher {label} sur la carte',
     remove: 'Retirer {label} de la carte',
-    back: 'Retour aux types',
     expand: 'Déplier',
     collapse: 'Replier',
     settings: {

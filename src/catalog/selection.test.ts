@@ -7,7 +7,6 @@ import {
   removeFromSelection,
   restoreCatalogId,
   serializeSelection,
-  toggleSelection,
 } from './selection'
 
 describe('catalogKey', () => {
@@ -57,22 +56,6 @@ describe('restoreCatalogId', () => {
   it('fait un aller-retour fidèle avec catalogKey', () => {
     const parsed = parseCatalogKey(catalogKey('cities', 42))
     expect(restoreCatalogId(parsed?.itemId ?? '')).toBe(42)
-  })
-})
-
-describe('toggleSelection', () => {
-  it('ajoute en fin quand absent', () => {
-    expect(toggleSelection(['a:1'], 'b:2')).toEqual(['a:1', 'b:2'])
-  })
-
-  it('retire quand présent', () => {
-    expect(toggleSelection(['a:1', 'b:2'], 'a:1')).toEqual(['b:2'])
-  })
-
-  it('ne mute pas le tableau d’entrée', () => {
-    const sel = ['a:1']
-    toggleSelection(sel, 'b:2')
-    expect(sel).toEqual(['a:1'])
   })
 })
 

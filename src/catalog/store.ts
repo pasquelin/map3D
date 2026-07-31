@@ -37,6 +37,15 @@ export type CatalogStoreKeys = {
  */
 export class CatalogStore {
   private selectionKeys: readonly CatalogKey[] = []
+  /**
+   * Index d'appartenance doublant `selectionKeys`, qui garde l'ordre et la sérialisation.
+   *
+   * `isShown` est appelé par ligne visible à chaque rendu, et une fois par enfant pour
+   * l'état d'un agrégat : en `includes`, cocher k éléments coûtait O(k²) et un défilement
+   * avec une grosse sélection restaurée, des milliers de comparaisons de chaînes par
+   * événement.
+   */
+  private shown = new Set<CatalogKey>()
   private readonly geometries = new Map<CatalogKey, readonly ShapeData[]>()
   private readonly pending = new Set<CatalogKey>()
   private readonly errors = new Set<CatalogKey>()
@@ -77,6 +86,7 @@ export class CatalogStore {
     // Ne relire la sélection que si la persistance est active : sinon une charge
     // laissée par une session précédente ressusciterait un réglage qu'on a désactivé.
     this.selectionKeys = this.settings.persist ? deserializeSelection(readStoredJSON(keys.selection)) : []
+    this.shown = new Set(this.selectionKeys)
     this.toRestore = new Set(this.selectionKeys)
     this.bump()
   }
@@ -107,7 +117,7 @@ export class CatalogStore {
   }
 
   isShown(key: CatalogKey): boolean {
-    return this.selectionKeys.includes(key)
+    return this.shown.has(key)
   }
 
   /** Sa géométrie est-elle déjà en mémoire ? Faux pour une clé restaurée non rechargée. */
@@ -150,7 +160,8 @@ export class CatalogStore {
     // restauration lancerait un SECOND chargement pour la même clé et annulerait le
     // premier — celui qui portait le cadrage demandé par le clic.
     this.toRestore.delete(key)
-    if (this.selectionKeys.includes(key)) return
+    if (this.shown.has(key)) return
+    this.shown.add(key)
     this.selectionKeys = [...this.selectionKeys, key]
     this.pending.add(key)
     this.errors.delete(key)
@@ -168,6 +179,7 @@ export class CatalogStore {
 
   /** Sortie de la sélection, avec ou sans échec — le retrait est le même geste. */
   remove(key: CatalogKey, failed = false): void {
+    this.shown.delete(key)
     this.selectionKeys = removeFromSelection(this.selectionKeys, key)
     this.geometries.delete(key)
     this.pending.delete(key)
@@ -178,9 +190,34 @@ export class CatalogStore {
     this.bump()
   }
 
+  /**
+   * Retire un LOT — décocher un agrégat.
+   *
+   * En boucle sur `remove`, chaque enfant reconstruisait TOUTES les formes, réécrivait
+   * la sélection et notifiait : k × (formes totales) itérations, k écritures, k cascades
+   * de rendu pour un seul geste.
+   */
+  removeMany(keys: readonly CatalogKey[]): void {
+    let touched = false
+    for (const key of keys) {
+      if (!this.shown.has(key)) continue
+      this.shown.delete(key)
+      this.geometries.delete(key)
+      this.pending.delete(key)
+      this.errors.delete(key)
+      touched = true
+    }
+    if (!touched) return
+    this.selectionKeys = this.selectionKeys.filter((k) => this.shown.has(k))
+    this.rebuildShapes()
+    this.persistSelection()
+    this.bump()
+  }
+
   clear(): void {
     if (this.selectionKeys.length === 0 && this.geometries.size === 0) return
     this.selectionKeys = []
+    this.shown.clear()
     this.geometries.clear()
     this.pending.clear()
     this.errors.clear()
@@ -195,6 +232,7 @@ export class CatalogStore {
     if (kept === this.selectionKeys) return
     const keep = new Set(kept)
     for (const key of [...this.geometries.keys()]) if (!keep.has(key)) this.geometries.delete(key)
+    this.shown = keep
     this.selectionKeys = kept
     this.rebuildShapes()
     this.persistSelection()

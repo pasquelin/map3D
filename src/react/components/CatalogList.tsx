@@ -38,7 +38,6 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
   const [children, setChildren] = useState<ReadonlyMap<CatalogId, readonly CatalogItem[]>>(new Map())
 
   const viewportRef = useRef<HTMLDivElement | null>(null)
-  const roRef = useRef<ResizeObserver | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
@@ -63,18 +62,18 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    * nœud apparaît, et on le suit ensuite (la carte se redimensionne, un bandeau
    * d'erreur s'ajoute au-dessus).
    */
-  const attachViewport = useCallback((el: HTMLDivElement | null) => {
+  const attachViewport = useCallback((el: HTMLDivElement) => {
     viewportRef.current = el
-    roRef.current?.disconnect()
-    roRef.current = null
-    if (!el) return
     setViewportHeight(el.clientHeight)
     const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight))
     ro.observe(el)
-    roRef.current = ro
+    // React 19 exploite la fonction rendue par une callback ref : un `useEffect` de
+    // démontage en plus n'aurait fait que dupliquer ce nettoyage.
+    return () => {
+      ro.disconnect()
+      viewportRef.current = null
+    }
   }, [])
-
-  useEffect(() => () => roRef.current?.disconnect(), [])
 
   const loadMoreRef = useRef(loadMore)
   loadMoreRef.current = loadMore
@@ -151,7 +150,8 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
     (node: CatalogNode): 'on' | 'off' | 'mixed' => {
       const kids = node.item.hasChildren ? children.get(node.item.id) : undefined
       if (!kids || kids.length === 0) return catalog.isShown(node.key) ? 'on' : 'off'
-      const shown = kids.filter((k) => catalog.isShown(catalogKey(source.id, k.id))).length
+      let shown = 0
+      for (const k of kids) if (catalog.isShown(catalogKey(source.id, k.id))) shown++
       if (shown === 0) return 'off'
       return shown === kids.length ? 'on' : 'mixed'
     },

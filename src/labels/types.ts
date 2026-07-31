@@ -55,8 +55,6 @@ export type MapLabels = {
    */
   catalog: {
     button: string
-    /** En-tête du sous-menu listant les types. */
-    types: string
     searchPlaceholder: string
     /** La source ne contient aucun élément. */
     empty: string
@@ -72,7 +70,6 @@ export type MapLabels = {
     add: string
     /** Bouton bascule, état « affiché sur la carte » — `{label}`. */
     remove: string
-    back: string
     expand: string
     collapse: string
     settings: {

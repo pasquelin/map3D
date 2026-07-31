@@ -11,14 +11,13 @@ describe('flattenCatalog', () => {
   it('rend les racines à plat quand rien n’est déplié', () => {
     const nodes = flattenCatalog('zones', racines, new Set(), new Map())
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'z9'])
-    expect(nodes.every((n) => n.depth === 0 && n.parentId === null)).toBe(true)
+    expect(nodes.every((n) => n.depth === 0)).toBe(true)
   })
 
   it('insère les enfants JUSTE APRÈS leur parent, à depth 1', () => {
     const nodes = flattenCatalog('zones', racines, new Set(['g1']), enfants)
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'a', 'b', 'z9'])
     expect(nodes.map((n) => n.depth)).toEqual([0, 1, 1, 0])
-    expect(nodes[1]?.parentId).toBe('g1')
   })
 
   it('porte une clé unique par ligne, préfixée par la source', () => {
@@ -50,11 +49,6 @@ describe('flattenCatalog', () => {
     ])
     const nodes = flattenCatalog('zones', racines, new Set(['g1', 'a']), profond)
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'a', 'z9'])
-  })
-
-  it('porte le sourceId sur chaque ligne, enfants compris', () => {
-    const nodes = flattenCatalog('zones', racines, new Set(['g1']), enfants)
-    expect(nodes.every((n) => n.sourceId === 'zones')).toBe(true)
   })
 
   it('liste de racines vide : aucune ligne', () => {

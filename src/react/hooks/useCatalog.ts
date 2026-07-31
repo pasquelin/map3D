@@ -28,9 +28,7 @@ export type CatalogApi = {
    * arrivé : cadrer élément par élément ferait voler la caméra trois fois pour un seul
    * geste, en s'arrêtant sur le dernier arrivé plutôt que sur l'ensemble.
    */
-  setMany: (source: CatalogSource, items: readonly CatalogItem[], shown: boolean, opts?: { fit?: boolean }) => void
-  /** Cadre la caméra sur l'élément, sans toucher à son affichage. */
-  target: (source: CatalogSource, item: CatalogItem) => void
+  setMany: (source: CatalogSource, items: readonly CatalogItem[], shown: boolean) => void
   clear: () => void
   /** Formes à passer à `<ShapeLayer>`. */
   shapes: readonly ShapeData[]
@@ -40,9 +38,9 @@ export type CatalogApi = {
 function useCatalogStore() {
   const { engine } = useMapContext()
   const store = engine.catalogState
-  const subscribe = useCallback((cb: () => void) => store.onChanged(cb), [store])
+  // Champ fléché, comme les registres du socle : pas de wrapper.
   const token = useSyncExternalStore(
-    subscribe,
+    store.onChanged,
     () => store.snapshot(),
     () => store.snapshot(),
   )
@@ -148,41 +146,22 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
   )
 
   const setMany = useCallback(
-    (source: CatalogSource, items: readonly CatalogItem[], shown: boolean, opts?: { fit?: boolean }) => {
+    (source: CatalogSource, items: readonly CatalogItem[], shown: boolean) => {
       if (!shown) {
-        for (const item of items) hide(source, item)
+        // Un seul retrait pour tout le lot : en boucle, chaque `hide` reconstruisait
+        // toutes les formes, réécrivait le stockage et relançait un rendu.
+        store.removeMany(items.map((item) => catalogKey(source.id, item.id)))
+        engine.invalidate()
         return
       }
-      const withFit = opts?.fit === true || store.getSettings().fitOnAdd
+      const withFit = store.getSettings().fitOnAdd
       void Promise.all(items.map((item) => show(source, item))).then((all) => {
         if (!withFit) return
         const b = boundsOfShapes(all.flatMap((s) => s ?? []))
         if (b) fit(b)
       })
     },
-    [fit, hide, show, store],
-  )
-
-  const target = useCallback(
-    (source: CatalogSource, item: CatalogItem) => {
-      // Emprise connue : aucun aller-retour réseau pour un simple cadrage.
-      if (item.bounds) {
-        fit(item.bounds)
-        return
-      }
-      const ctrl = new AbortController()
-      void source
-        .geometry(item.id, ctrl.signal)
-        .then((shapes) => {
-          const b = boundsOfShapes(shapes)
-          if (b) fit(b)
-        })
-        .catch(() => {
-          // Cadrage impossible : la caméra reste où elle est. Rien à signaler — aucune
-          // promesse n'a été faite à l'écran, contrairement à un ajout.
-        })
-    },
-    [fit],
+    [engine, fit, show, store],
   )
 
   const clear = useCallback(() => {
@@ -199,14 +178,13 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
       hasError: (k: CatalogKey) => store.hasError(k),
       toggle,
       setMany,
-      target,
       clear,
       shapes: store.shapes(),
     }),
     // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
     // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, token, toggle, setMany, target, clear],
+    [store, token, toggle, setMany, clear],
   )
 }
 

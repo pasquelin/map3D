@@ -53,7 +53,7 @@ const EMPTY: InternalState = {
  */
 export function useCatalogQuery(source: CatalogSource | undefined, query: string): CatalogQueryState {
   const config = useConfig()
-  const needle = normalizeSearch(query)
+  const needle = useMemo(() => normalizeSearch(query), [query])
   const sourceId = source?.id ?? null
 
   const [state, setState] = useState<InternalState>(EMPTY)

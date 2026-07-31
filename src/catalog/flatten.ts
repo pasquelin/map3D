@@ -4,10 +4,8 @@ import type { CatalogId, CatalogItem, CatalogKey } from './types'
 /** Une LIGNE de la liste — pas un élément : un élément déplié en engendre plusieurs. */
 export type CatalogNode = {
   item: CatalogItem
-  sourceId: string
   /** 0 = racine, 1 = enfant. Sert à l'indentation, et à rien d'autre. */
   depth: number
-  parentId: CatalogId | null
   key: CatalogKey
 }
 
@@ -30,10 +28,10 @@ export function flattenCatalog(
 ): readonly CatalogNode[] {
   const out: CatalogNode[] = []
   for (const item of roots) {
-    out.push({ item, sourceId, depth: 0, parentId: null, key: catalogKey(sourceId, item.id) })
+    out.push({ item, depth: 0, key: catalogKey(sourceId, item.id) })
     if (!expanded.has(item.id)) continue
     for (const child of childrenByParent.get(item.id) ?? []) {
-      out.push({ item: child, sourceId, depth: 1, parentId: item.id, key: catalogKey(sourceId, child.id) })
+      out.push({ item: child, depth: 1, key: catalogKey(sourceId, child.id) })
     }
   }
   return out

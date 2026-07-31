@@ -35,9 +35,6 @@ export const restoreCatalogId = (itemId: string): CatalogId => {
   return Number.isFinite(n) && String(n) === itemId ? n : itemId
 }
 
-export const toggleSelection = (sel: readonly CatalogKey[], key: CatalogKey): readonly CatalogKey[] =>
-  sel.includes(key) ? sel.filter((k) => k !== key) : [...sel, key]
-
 /**
  * Rend la MÊME référence quand la clé est absente : passée à `setState`, une valeur
  * identique n'entraîne pas de re-render, là où un nouveau tableau en provoquerait un à

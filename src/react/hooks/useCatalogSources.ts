@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import type { CatalogSource } from '../../catalog/types'
 import { useMapContext } from '../context'
 
@@ -12,9 +12,10 @@ import { useMapContext } from '../context'
  */
 export function useCatalogSources(): readonly CatalogSource[] {
   const { engine } = useMapContext()
-  const subscribe = useCallback((cb: () => void) => engine.catalog.onItemsChanged(cb), [engine])
+  // `onItemsChanged` est un champ FLÉCHÉ, écrit ainsi pour être passé détaché (cf.
+  // `ProviderRegistry`) : l'envelopper dans un `useCallback` annulerait la décision.
   const token = useSyncExternalStore(
-    subscribe,
+    engine.catalog.onItemsChanged,
     () => engine.catalog.snapshot(),
     () => engine.catalog.snapshot(),
   )

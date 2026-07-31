@@ -409,7 +409,6 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | Clé | Description | Défaut |
 |---|---|---|
 | `catalog.button` | Bouton de barre. | `'Catalogue'` |
-| `catalog.types` | En-tête du menu listant les types. | `'Types'` |
 | `catalog.searchPlaceholder` | Champ de recherche. | `'Taper votre recherche…'` |
 | `catalog.empty` | La source ne contient aucun élément. | `'Aucun élément'` |
 | `catalog.noMatch` | La recherche ne ramène rien. | `'Aucun résultat'` |
@@ -419,7 +418,6 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.itemError` | Échec du chargement d'une géométrie, en infobulle sur la ligne. | `'Impossible d’afficher cet élément'` |
 | `catalog.add` | Case à cocher, état « pas encore sur la carte » — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Case à cocher, état « affiché » — `{label}`. | `'Retirer {label} de la carte'` |
-| `catalog.back` | Retour au menu des types. | `'Retour aux types'` |
 | `catalog.expand` / `catalog.collapse` | Chevron d'un agrégat. | `'Déplier'` / `'Replier'` |
 | `catalog.settings.title` | Entrée du panneau engrenage. | `'Catalogue'` |
 | `catalog.settings.persist` | Interrupteur de persistance. | `'Conserver les éléments affichés entre les sessions'` |

@@ -765,8 +765,7 @@ const CSS = `
 .m3d-catbtn{position:relative}
 /* Le panneau ancré à la barre ne contient QUE le menu des types : la liste vit dans
    .m3d-catsub, accolé du côté opposé (même châssis que .m3d-settings-sub). */
-.m3d-catpanel{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
-.m3d-catsub{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
+.m3d-catpanel,.m3d-catsub{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
 /* Menu des types : familles séparées par un filet, pas par un titre — à cinq entrées,
    un en-tête par famille prend plus de place que ce qu'il classe. */
 .m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
