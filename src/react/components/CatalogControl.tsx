@@ -1,4 +1,4 @@
-import { mdiMagnify, mdiShapeOutline } from '@mdi/js'
+import { mdiMagnify, mdiMapSearchOutline } from '@mdi/js'
 import { useMemo, useRef, useState } from 'react'
 import type { CatalogSource } from '../../catalog/types'
 import { useLabels, useMapContext } from '../context'
@@ -47,7 +47,10 @@ export function CatalogControl({ position = 'right', tipId, shortcut, grouped }:
 
   return (
     <Dropdown
-      icon={mdiShapeOutline}
+      // Une carte + une loupe : PARCOURIR un référentiel géographique. Ses deux voisins
+      // de groupe disent autre chose — les calques (mdiLayersOutline) et la sauvegarde
+      // (mdiContentSaveOutline) — donc les trois restent distinguables d'un coup d'œil.
+      icon={mdiMapSearchOutline}
       label={labels.catalog.button}
       tip={tipId ? tip : undefined}
       shortcut={shortcut}
