@@ -160,13 +160,14 @@ const zoneById = (id: string): CatalogItem | undefined => ZONES.find((z) => z.id
 const ZONE_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f472b6', '#facc15']
 
 /**
- * Cercle drapé déterministe, tiré de l'identifiant.
+ * Cercle drapé déterministe, entièrement dérivé de l'identifiant.
  *
- * Rayon et teinte varient d'une zone à l'autre : avec des cercles identiques et
- * concentriques, un groupe de trois zones se lisait comme un seul rond.
+ * Position, rayon ET teinte viennent du seul `id` : une même zone apportée par la
+ * source « Zones » et par le groupe qui la contient doit être la MÊME forme, sinon la
+ * déduplication du store garderait arbitrairement l'une des deux apparences.
  */
-const zoneShape = (id: string, title: string, index = 0): ShapeData => {
-  const seed = [...id].reduce((a, c) => a + c.charCodeAt(0), 0)
+const zoneShape = (id: string, title: string): ShapeData => {
+  const seed = [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0
   const r = rng(seed * 104729)
   return {
     kind: 'circle',
@@ -174,7 +175,7 @@ const zoneShape = (id: string, title: string, index = 0): ShapeData => {
     title,
     center: { lat: 48.82 + r() * 0.14, lng: 2.2 + r() * 0.22 },
     radiusMeters: 400 + Math.floor(r() * 1100),
-    color: ZONE_COLORS[index % ZONE_COLORS.length],
+    color: ZONE_COLORS[seed % ZONE_COLORS.length],
     fillOpacity: 0.22,
   }
 }
@@ -219,7 +220,7 @@ const groupsSource: CatalogSource = {
    */
   geometry: (id) => {
     const members = GROUP_MEMBERS[String(id)]
-    if (members) return delay(members.map((m, i) => zoneShape(m, zoneById(m)?.title ?? m, i)))
+    if (members) return delay(members.map((m) => zoneShape(m, zoneById(m)?.title ?? m)))
     const zone = zoneById(String(id))
     return delay(zone ? [zoneShape(String(id), zone.title)] : [])
   },

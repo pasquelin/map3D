@@ -238,9 +238,32 @@ export class CatalogStore {
 
   // ── Interne ──
 
+  /**
+   * Aplatit les géométries affichées, **dédoublonnées par `ShapeData.id`**.
+   *
+   * Deux entrées de catalogue peuvent légitimement porter la même zone : un groupe et
+   * cette zone prise isolément, ou deux référentiels qui se recouvrent. Peintes deux
+   * fois, elles se superposent — remplissages cumulés, contours plus épais, et une zone
+   * qui reste à l'écran quand on décoche celle qu'on croyait seule.
+   *
+   * La PREMIÈRE occurrence gagne, et le retrait d'une entrée reconstruit tout : une
+   * forme encore référencée ailleurs survit donc d'elle-même. Une forme sans `id` n'est
+   * pas identifiable — on la garde telle quelle plutôt que de deviner.
+   */
   private rebuildShapes(): void {
     const out: ShapeData[] = []
-    for (const shapes of this.geometries.values()) out.push(...shapes)
+    const seen = new Set<string | number>()
+    for (const shapes of this.geometries.values()) {
+      for (const shape of shapes) {
+        if (shape.id === undefined) {
+          out.push(shape)
+          continue
+        }
+        if (seen.has(shape.id)) continue
+        seen.add(shape.id)
+        out.push(shape)
+      }
+    }
     this.shapesCache = out
   }
 

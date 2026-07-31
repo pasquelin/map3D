@@ -99,6 +99,37 @@ describe('restauration vs geste explicite', () => {
   })
 })
 
+describe('géométries partagées entre deux entrées', () => {
+  it('ne peint qu’une fois une forme portée par deux entrées', () => {
+    const s = fresh()
+    // Le groupe apporte z1 ; la source « Zones » apporte la MÊME z1. Peintes deux fois,
+    // les deux se superposent : remplissage cumulé, contour plus épais.
+    s.markSelected('groups:g1')
+    s.setGeometry('groups:g1', [shape('z1'), shape('z3')])
+    s.markSelected('zones:z1')
+    s.setGeometry('zones:z1', [shape('z1')])
+    expect(s.shapes().map((x) => x.id)).toEqual(['z1', 'z3'])
+  })
+
+  it('la forme survit au retrait de l’une des deux entrées', () => {
+    const s = fresh()
+    s.markSelected('groups:g1')
+    s.setGeometry('groups:g1', [shape('z1')])
+    s.markSelected('zones:z1')
+    s.setGeometry('zones:z1', [shape('z1')])
+    s.remove('groups:g1')
+    expect(s.shapes().map((x) => x.id)).toEqual(['z1'])
+  })
+
+  it('garde toutes les formes ANONYMES — rien ne permet de les confondre', () => {
+    const s = fresh()
+    const anon = { kind: 'circle', center: { lat: 48, lng: 2 }, radiusMeters: 100 } as const
+    s.markSelected('a:1')
+    s.setGeometry('a:1', [anon, anon])
+    expect(s.shapes()).toHaveLength(2)
+  })
+})
+
 describe('notification', () => {
   it('prévient les abonnés et change de jeton à chaque mutation', () => {
     const s = fresh()
