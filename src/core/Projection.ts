@@ -3,7 +3,7 @@ import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import type { LatLng } from '../shared'
-import { CAMERA_FOV, clampRange, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
+import { CAMERA_FOV, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
 
 /**
  * Empaquetage des deux index de cellule du cache de niveau de rue en UN entier (cf.
@@ -634,49 +634,6 @@ export class Projection {
     this.raycaster.setFromCamera(this.ndc, camera)
     return this.ellipsoidFromRay()
   }
-
-  /**
-   * UNE intersection d'ellipsoïde, DEUX lectures : le point d'impact réel (`outFar`, valide
-   * seulement si `true` est rendu) et le même rayon tronqué à `maxRange` (`outNear`, toujours
-   * écrit dès que la projection est prête). C'est ce qui permet au moteur de tenir ses deux
-   * emprises — celle des overlays et celle, bornée, du volume — en un seul balayage de grille :
-   * un second appel doublerait le nombre d'intersections par frame.
-   *
-   * Écrit dans les sorties fournies plutôt que d'allouer : appelé N² fois par frame.
-   */
-  pickEllipsoidPair(
-    clientX: number,
-    clientY: number,
-    camera: THREE.Camera,
-    maxRange: number,
-    outFar: LatLng,
-    outNear: LatLng,
-  ): boolean {
-    if (!this.ellipsoid || !this.group) return false
-    this.ndc.set((clientX / this.width) * 2 - 1, -(clientY / this.height) * 2 + 1)
-    this.raycaster.setFromCamera(this.ndc, camera)
-    const ray = this.rayScratch.copy(this.raycaster.ray).applyMatrix4(this.groupInverse())
-    const hit = this.ellipsoid.intersectRay(ray, this.scratchLocal)
-    // `applyMatrix4` renormalise la direction : la distance locale reste en mètres.
-    const dist = hit ? this.scratchLocal.distanceTo(ray.origin) : null
-    if (hit) this.cartographicOf(this.scratchLocal, outFar)
-    // Point tronqué. `getPositionToCartographic` rend la lat/lng de la VERTICALE du point,
-    // quelle que soit son altitude : le rabattement au sol est donc gratuit et exact — y
-    // compris pour un point resté en l'air, cas d'un rayon parti au ciel.
-    this.scratchLocal.copy(ray.origin).addScaledVector(ray.direction, clampRange(dist, maxRange))
-    this.cartographicOf(this.scratchLocal, outNear)
-    return dist !== null
-  }
-
-  /** Position locale → lat/lng écrits dans `out` (aucune allocation). */
-  private cartographicOf(p: THREE.Vector3, out: LatLng): void {
-    if (!this.ellipsoid) return
-    const c = this.ellipsoid.getPositionToCartographic(p, this.carto) as { lat: number; lon: number }
-    out.lat = c.lat * RAD2DEG
-    out.lng = c.lon * RAD2DEG
-  }
-
-  private readonly carto = { lat: 0, lon: 0, height: 0 }
 
   /**
    * Intersection du rayon courant de `this.raycaster` avec la surface « ellipsoïde

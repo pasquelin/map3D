@@ -165,10 +165,15 @@ export const defaultConfig: MapConfig = {
       // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour tenir
       // le montage (~20 ms/tuile, `mountPerFrame: 1`) sans à-coup à l'arrivée.
       requestAltitudeFactor: 1.5,
-      // 6 km : iso-portée avec l'ancien carré 7×7 (rayon ~5,6 km), mais CONTINU. Pic mesuré
-      // à cette portée : 24 tuiles z14, très en dessous de `maxRequest` — qui n'est donc plus
-      // qu'un filet. Monter cette portée exige de monter `maxTiles`/`maxBytes` (n² en RAM).
-      maxViewDistance: 6000,
+      // RAYON du disque de couverture (cf. `MapEngine.volumeBounds`), et non plus portée d'un
+      // trapèze : le volume ne bouge donc plus du tout quand on tourne la caméra.
+      //
+      // 5 km tient dans les budgets existants — le disque couvre 360°, là où l'ancien carré
+      // 7×7 se concentrait devant. Mesuré (pire cas parisien) : 64 tuiles z14 pour le carré
+      // circonscrit, mais 32 une fois les coins écartés (cf. `BuildingsLayer.requestLevel`),
+      // soit ~157 Mo — sous `maxRequest: 49`, `maxTiles: 80` et `maxBytes`. Le coût est en
+      // n² : 6 km demanderait déjà 47 tuiles, ras le budget de requêtes.
+      maxViewDistance: 5000,
       margin: 0,
       // ⚠️ Étaient 64 / 4 / 24, calqués sur les budgets du raster — sans rapport avec ce
       // que pèse une tuile de VOLUME (~131 000 triangles pour une tuile z14 parisienne).

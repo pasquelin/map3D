@@ -104,21 +104,6 @@ export function approach(current: number, target: number, smoothingSeconds: numb
   return current + (target - current) * (1 - Math.exp(-dt / smoothingSeconds))
 }
 
-/**
- * Distance d'impact d'un rayon, bornée à `maxRange` — `null` (rayon parti au ciel) valant
- * la borne, pas l'abandon.
- *
- * ⚠️ C'est la correction d'un bug d'emprise. `computeBounds` échantillonne une grille de
- * pixels et IGNORAIT les rayons sans impact : dès qu'une ligne entière de la grille
- * franchissait l'horizon, l'emprise s'effondrait d'un coup, puis `tan(inclinaison)` la
- * refaisait exploser jusqu'à la ligne suivante. Mesuré à 1 000 m d'altitude : portée en
- * dents de scie entre 2,8 et 36,3 km, deux effondrements (59° et 74°), et de 8 à 1 058
- * tuiles demandées. Borner rend la portée monotone puis plate.
- */
-export function clampRange(hitDistance: number | null, maxRange: number): number {
-  return hitDistance === null ? maxRange : Math.min(hitDistance, maxRange)
-}
-
 /** Ce que le volume interne doit faire à une hauteur donnée (cf. `volumeVisibility`). */
 export type VolumeVisibility = {
   /** Volumes montrés à l'écran. */

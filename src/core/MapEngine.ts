@@ -401,8 +401,7 @@ export class MapEngine {
   private lastState: CameraState | null = null
   /** Vue mémoïsée : les bounds viewport ne changent qu'au mouvement caméra / resize. */
   private viewDirty = true
-  /** Vue publique ET emprise bornée du volume : un seul balayage de grille les produit. */
-  private cachedFrame: { view: MapView; nearBounds: Bounds } | null = null
+  private cachedView: MapView | null = null
 
   private pointerDrag: { x: number; y: number; moved: number } | null = null
 
@@ -2456,11 +2455,11 @@ export class MapEngine {
         // `hideVolumeWhenClamped` est relu par `updateBuildingsFade`, pas ici : une seule
         // formulation de la règle, sinon les deux ne restent équivalentes que par chance.
         this.updateBuildingsFade(dt, want.show)
-        // Gelé quand les bâtiments sont masqués (rien à streamer). Sur l'emprise BORNÉE, jamais
-        // celle des overlays (cf. `computeBounds`) — sauf en marche, où `view` est nul et où le
-        // disque piéton est à la fois juste et déjà calculé.
+        // Gelé quand les bâtiments sont masqués (rien à streamer). Sur le DISQUE du volume,
+        // jamais l'emprise des overlays (cf. `volumeBounds`) — sauf en marche, où le disque
+        // piéton joue déjà ce rôle et est calculé.
         if (!this.buildingsHidden && due) {
-          this.buildings.update(view ? this.computeFrame(state).nearBounds : bounds, want.request)
+          this.buildings.update(view ? this.volumeBounds(state) : bounds, want.request)
         }
       }
       // Fond 2D en UN niveau uniforme sur toute l'emprise (pas de boîte de détail au centre),
@@ -2615,28 +2614,15 @@ export class MapEngine {
    * pas à chaque frame carte immobile.
    */
   private computeView(state: CameraState): MapView {
-    return this.computeFrame(state).view
-  }
-
-  /**
-   * Vue publique et emprise BORNÉE du volume, mémoïsées ensemble : les deux sortent du même
-   * balayage de grille (cf. `computeBounds`), donc les séparer doublerait les intersections
-   * d'ellipsoïde par frame.
-   */
-  private computeFrame(state: CameraState): { view: MapView; nearBounds: Bounds } {
-    if (!this.viewDirty && this.cachedFrame) return this.cachedFrame
-    const { bounds, nearBounds } = this.computeBounds(state)
-    const frame = {
-      view: {
-        center: { lat: state.lat, lng: state.lng },
-        zoom: zoomForAltitude(this.scaleDistance(state)),
-        bounds,
-      },
-      nearBounds,
+    if (!this.viewDirty && this.cachedView) return this.cachedView
+    const view: MapView = {
+      center: { lat: state.lat, lng: state.lng },
+      zoom: zoomForAltitude(this.scaleDistance(state)),
+      bounds: this.computeBounds(state),
     }
-    this.cachedFrame = frame
+    this.cachedView = view
     this.viewDirty = false
-    return frame
+    return view
   }
 
   /**
@@ -2667,11 +2653,29 @@ export class MapEngine {
 
   private readonly scaleScratch = new THREE.Vector3()
 
-  /** Sorties de grille réutilisées : `computeBounds` les écrit N² fois par frame. */
-  private readonly pickFar: LatLng = { lat: 0, lng: 0 }
-  private readonly pickNear: LatLng = { lat: 0, lng: 0 }
+  /**
+   * Emprise du volume : un DISQUE centré sous la caméra, jamais la bbox du trapèze de vue.
+   *
+   * ⚠️ Deux défauts en un. (1) La bbox axis-aligned du trapèze dépend du CAP : elle croît d'un
+   * facteur ~2 en aire entre un cap nord et un cap à 45°, si bien que tourner la caméra
+   * changeait l'ensemble des tuiles — et, côté fond raster, le niveau de détail entier (cf.
+   * `lodLevels`). (2) Elle explosait à l'horizon en dents de scie (2,8 → 36,3 km, deux
+   * effondrements à 59° et 74°). Un disque centré sous l'œil ne dépend NI du cap NI de
+   * l'inclinaison : il est invariant par construction, et borné sans avoir à tronquer quoi que
+   * ce soit.
+   *
+   * Rayon = deux fois la distance au point visé (le champ vertical de 60° rend la vue ~1,15×
+   * plus large que cette distance ; 2× la couvre avec marge), plafonné par `maxViewDistance`
+   * — c'est ce plafond qui borne le budget de tuiles.
+   *
+   * Analytique : aucun rayon lancé, contrairement à `computeBounds`.
+   */
+  private volumeBounds(state: CameraState): Bounds {
+    const radius = Math.min(2 * this.scaleDistance(state), this.config.providers.buildings.maxViewDistance)
+    return boundsOfCircle({ lat: state.lat, lng: state.lng }, radius)
+  }
 
-  private computeBounds(center: CameraState): { bounds: Bounds; nearBounds: Bounds } {
+  private computeBounds(center: CameraState): Bounds {
     const { width, height } = this.size
     // Grille dense (pas seulement 4 coins) : en vue inclinée, les coins du haut
     // visent le ciel/horizon et ratent le sol → une bbox trop petite exclurait les
@@ -2681,64 +2685,45 @@ export class MapEngine {
     // Densité réglable (`performance.boundsPickGrid`) : le coût est en n².
     // Plancher à 2 — en dessous, `N - 1` diviserait par zéro.
     const N = Math.max(2, Math.round(this.config.performance.boundsPickGrid))
-    const range = this.config.providers.buildings.maxViewDistance
     let north = -90
     let south = 90
     let east = -180
     let west = 180
     let hits = 0
-    let nNorth = -90
-    let nSouth = 90
-    let nEast = -180
-    let nWest = 180
-    let nearHits = 0
     for (let iy = 0; iy < N; iy++) {
       for (let ix = 0; ix < N; ix++) {
         const cx = (ix / (N - 1)) * width
         const cy = (iy / (N - 1)) * height
-        const touched = this.projection.pickEllipsoidPair(cx, cy, this.threeCamera, range, this.pickFar, this.pickNear)
-        // L'emprise bornée n'a PAS de raté : un rayon parti au ciel rend le point situé à la
-        // portée. C'est exactement ce qui la rend continue au franchissement de l'horizon —
-        // là où l'emprise des overlays, elle, s'effondre d'un coup (cf. `core/math.clampRange`).
-        if (this.projection.isReady()) {
-          nNorth = Math.max(nNorth, this.pickNear.lat)
-          nSouth = Math.min(nSouth, this.pickNear.lat)
-          nEast = Math.max(nEast, this.pickNear.lng)
-          nWest = Math.min(nWest, this.pickNear.lng)
-          nearHits++
-        }
-        if (!touched) continue
-        north = Math.max(north, this.pickFar.lat)
-        south = Math.min(south, this.pickFar.lat)
-        east = Math.max(east, this.pickFar.lng)
-        west = Math.min(west, this.pickFar.lng)
+        const ll = this.projection.pickEllipsoidLatLng(cx, cy, this.threeCamera)
+        if (!ll) continue
+        north = Math.max(north, ll.lat)
+        south = Math.min(south, ll.lat)
+        east = Math.max(east, ll.lng)
+        west = Math.min(west, ll.lng)
         hits++
       }
     }
-    const span = Math.max(0.001, 180 / Math.pow(2, zoomForAltitude(center.altitude)))
-    const fallback: Bounds = {
-      north: center.lat + span,
-      south: center.lat - span,
-      east: center.lng + span,
-      west: center.lng - span,
+    if (hits < 2) {
+      const span = Math.max(0.001, 180 / Math.pow(2, zoomForAltitude(center.altitude)))
+      return {
+        north: center.lat + span,
+        south: center.lat - span,
+        east: center.lng + span,
+        west: center.lng - span,
+      }
     }
     // Marge de sécurité : la bbox axis-aligned n'épouse pas exactement le trapèze de
     // vue ; on l'élargit un peu pour ne jamais masquer un marker réellement visible.
     // Réglable (`performance.boundsMargin`) — c'est elle qui décide combien de données
     // l'application charge à chaque déplacement.
-    //
-    // ⚠️ Elle ne s'applique QU'À la bbox des overlays. Les bâtiments ont leur propre anneau
-    // (`providers.buildings.margin`) : empiler les deux ferait dépendre leur budget de tuiles
-    // d'un réglage prévu pour les markers (mesuré : pic de 24 → 48 tuiles, ras `maxRequest`).
     const pad = this.config.performance.boundsMargin
     const padLat = (north - south) * pad + 1e-4
     const padLng = (east - west) * pad + 1e-4
     return {
-      bounds:
-        hits < 2
-          ? fallback
-          : { north: north + padLat, south: south - padLat, east: east + padLng, west: west - padLng },
-      nearBounds: nearHits < 2 ? fallback : { north: nNorth, south: nSouth, east: nEast, west: nWest },
+      north: north + padLat,
+      south: south - padLat,
+      east: east + padLng,
+      west: west - padLng,
     }
   }
 

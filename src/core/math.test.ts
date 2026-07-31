@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { approach, clampRange, smoothstep, volumeVisibility } from './math'
+import { approach, smoothstep, volumeVisibility } from './math'
 
 describe('smoothstep', () => {
   it('vaut 0 avant, 1 après', () => {
@@ -37,36 +37,6 @@ describe('approach', () => {
     for (let i = 0; i < 500; i++) v = approach(v, 10, 0.25, 1 / 60)
     expect(v).toBeCloseTo(10, 6)
     expect(v).toBeLessThanOrEqual(10)
-  })
-})
-
-describe('clampRange — troncature de la portée d’un rayon', () => {
-  it('laisse intact un impact plus proche que la portée', () => {
-    expect(clampRange(1200, 6000)).toBe(1200)
-  })
-
-  it('ramène à la portée un impact plus lointain', () => {
-    expect(clampRange(33_000, 6000)).toBe(6000)
-  })
-
-  /**
-   * LE cas du bug : un rayon qui franchit l'horizon ne touche rien. Il valait « point
-   * ignoré », et l'emprise s'effondrait d'un coup (mesuré : 33 km → 3,8 km entre 58° et
-   * 59° d'inclinaison). Il vaut désormais la portée — c'est ce qui rend l'emprise continue.
-   */
-  it('rend la portée pour un rayon parti au ciel', () => {
-    expect(clampRange(null, 6000)).toBe(6000)
-  })
-
-  it('reste dans [0, portée] et croît avec la distance d’impact', () => {
-    let prev = -1
-    for (const d of [0, 100, 1000, 5999, 6000, 6001, 20_000, 1e9]) {
-      const r = clampRange(d, 6000)
-      expect(r).toBeGreaterThanOrEqual(0)
-      expect(r).toBeLessThanOrEqual(6000)
-      expect(r).toBeGreaterThanOrEqual(prev)
-      prev = r
-    }
   })
 })
 

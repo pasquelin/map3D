@@ -312,8 +312,22 @@ export class BuildingsLayer {
     const z = this.cfg.zoom
     const r = tileRange(bounds, z, this.cfg.margin, lngToTileX, latToTileY)
     if (r.x1 < r.x0 || r.y1 < r.y0) return
+    // L'emprise reçue est le CARRÉ circonscrit au disque de couverture (cf.
+    // `MapEngine.volumeBounds`) : en écarter les coins rend 21 % du budget — assez pour
+    // gagner ~1 km de portée à compte de tuiles constant. Le demi-côté vaut le rayon.
+    const cLat = (bounds.north + bounds.south) / 2
+    const cLng = (bounds.east + bounds.west) / 2
+    const radLat = (bounds.north - bounds.south) / 2
+    const radLng = (bounds.east - bounds.west) / 2
     for (let x = r.x0; x <= r.x1; x++) {
-      for (let y = r.y0; y <= r.y1; y++) this.ensureTile(z, x, y)
+      for (let y = r.y0; y <= r.y1; y++) {
+        // Centre de la tuile rapporté au rayon, en degrés normalisés : le disque redevient
+        // un cercle unité, sans conversion en mètres ni cosinus de latitude à refaire.
+        const dLat = (tileYToLat(y + 0.5, z) - cLat) / radLat
+        const dLng = (tileXToLng(x + 0.5, z) - cLng) / radLng
+        if (dLat * dLat + dLng * dLng > 1) continue
+        this.ensureTile(z, x, y)
+      }
     }
   }
 
