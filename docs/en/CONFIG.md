@@ -388,3 +388,39 @@ Computed sky (Preetham model + clouds), **faded in as you descend toward the gro
 | `sky.fade.start` | Camera altitude (m) above which the sky is invisible (globe view intact). | `500000` |
 | `sky.fade.end` | Camera altitude (m) below which the sky is full. `start` must be > `end`. | `90000` |
 | `sky.date` | Instant (ms epoch, like `Date.now()`) that fixes the sun's position. `0` = the map's mount time, frozen. A value > 0 freezes a precise instant (deterministic). | `0` |
+
+## `graticule` — Geographic coordinate grid
+
+Parallels and meridians draped over the globe, with an adaptive mesh — see the [GRATICULE.md](GRATICULE.md) guide. No colors here: they live in `theme.colors.graticule`. `enabled` is only the STARTING state; the current source of truth is the engine (`engine.setGraticuleVisible`), since three commands drive it.
+
+| Key | Description | Default |
+|---|---|---|
+| `graticule.enabled` | Starting state of the grid. | `false` |
+| `graticule.targetLines` | Lines targeted on screen — this number picks the mesh. | `8` |
+| `graticule.levelHysteresis` | Dead band of the mesh change, as a density fraction. ⚠️ Without it, a zoom stopping on a step boundary flips from one frame to the next, and every flip rebuilds the whole geometry. | `0.15` |
+| `graticule.levelRangeDeg` | Scale bounds (degrees) — `[x, x]` freezes the mesh. `null` = free scale. | `null` |
+| `graticule.segmentsPerLine` | Segments per line (CEILING): the densification that makes lines follow the globe's curvature. | `128` |
+| `graticule.maxLines` | Hard cap of lines per axis — memory guard rail. | `64` |
+| `graticule.bandScreens` | Width of the built band, in screens. Leaving it triggers a rebuild. | `2` |
+| `graticule.latLimitDeg` | Latitude where meridians stop: beyond it they converge and density explodes. | `85` |
+| `graticule.heightOffsetMeters` | Vertical drape offset (m) above the visible surface. | `0` |
+| `graticule.heightToleranceMeters` | Drape-height drift tolerated (m) before a rebuild. | `5` |
+| `graticule.opacity` | Opacity of ordinary lines. | `0.55` |
+| `graticule.remarkableOpacity` | Opacity of remarkable lines — deliberately stronger. | `0.85` |
+| `graticule.dash` | Dash pattern `{ dash, gap }` in WORLD units (metres). `null` = solid stroke. | `null` |
+| `graticule.remarkable.enabled` | Draw remarkable lines (Equator, tropics, polar circles, meridians). | `true` |
+| `graticule.remarkable.parallels` | Remarkable parallels `{ lat, labelKey }`. In config rather than constants: obliquity drifts, and a non-terrestrial tileset has neither tropics nor polar circles. | Equator, tropics, polar circles |
+| `graticule.remarkable.meridians` | Remarkable meridians `{ lng, labelKey }`. ⚠️ The antimeridian is written `-180`: `normalizeLng` maps into `[-180, 180)`. | Prime meridian, 180th |
+| `graticule.tiltFade.start` | Fade start, as a FRACTION of the mode's tilt ceiling (`camera.maxTilt3d`/`maxTilt2d`). ⚠️ Fractions and not degrees: the ceiling is 79.2° in 3D but 36° when flat. | `0.75` |
+| `graticule.tiltFade.end` | Full disappearance, same unit. | `0.95` |
+| `graticule.fadeMs` | Fade time constant (ms) — that is the softness. | `250` |
+| `graticule.levelFadeMs` | Cross-fade on mesh change (ms). `0` = hard cut. | `300` |
+| `graticule.labels.enabled` | Show coordinate labels. | `true` |
+| `graticule.labels.placement` | `'center-cross'`: latitudes along the meridian nearest the centre, longitudes along the nearest parallel — this is what naturally caps their number. `'edges'` pins them to the borders. | `'center-cross'` |
+| `graticule.labels.maxLabels` | Hard cap of displayed labels. | `40` |
+| `graticule.labels.spacingPx` | Minimum gap (px) between two labels of the same chain. | `90` |
+| `graticule.labels.rotate` | Orient the label along its line — past 45° it flips a quarter turn to stay readable. | `true` |
+| `graticule.labels.format` | `'auto'` follows the mesh: ≥ 1° → `45°N`, minutes → `45°11'N`, seconds → `45°11'25"N`. Or `'dms'`/`'dm'`/`'deg'` to force it. | `'auto'` |
+| `graticule.labels.remarkableNames` | Show remarkable lines' names rather than their coordinate. | `true` |
+| `graticule.labels.idleOpacity` | Opacity at rest — labels fade back and become full under the pointer. `1` removes the effect. | `0.65` |
+| `graticule.labels.hoverPaddingPx` | Margin (px) around a label to consider it hovered. ⚠️ Hover is GEOMETRIC: labels stay `pointer-events: none`, so none can swallow the start of a map drag. | `4` |

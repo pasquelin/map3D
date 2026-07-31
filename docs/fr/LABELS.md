@@ -134,6 +134,24 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `toolbar.navigate` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Naviguer'` |
 | `buildingPick.label` | Ligne « bâtiment » du sélecteur — hors de `selectModes`, qui est indexé par `SelectMode` : désigner un bâtiment n'est pas un mode de sélection de dessin. | `'Bâtiment'` |
 | `buildingPick.description` | Son infobulle. | `'Sélectionner un bâtiment (volume 3D interne)'` |
+| `measureTools.measure.label` | Rangées du sous-menu « Mesures » : `label` = rangée du flyout, `description` = infobulle (avec le raccourci) — même convention que `selectModes`. | `'Mesurer'` |
+| `measureTools.measure.description` | Son infobulle. | `'Mesurer une distance'` |
+| `measureTools.graticule.label` | Rangée « grille de coordonnées » du même sous-menu — un CALQUE, pas un outil de tracé. | `'Grille'` |
+| `measureTools.graticule.description` | Son infobulle. | `'Grille de coordonnées géographiques'` |
+| `graticule.remarkable.equator` | Noms des lignes remarquables, indexés par `config.graticule.remarkable[].labelKey`. Une clé absente fait afficher la coordonnée à la place du nom. | `'Équateur'` |
+| `graticule.remarkable.tropicCancer` | — | `'Tropique du Cancer'` |
+| `graticule.remarkable.tropicCapricorn` | — | `'Tropique du Capricorne'` |
+| `graticule.remarkable.arcticCircle` | — | `'Cercle arctique'` |
+| `graticule.remarkable.antarcticCircle` | — | `'Cercle antarctique'` |
+| `graticule.remarkable.primeMeridian` | — | `'Méridien d'origine'` |
+| `graticule.remarkable.antimeridian` | — | `'180ᵉ méridien'` |
+| `graticule.format.deg` | Gabarit d'étiquette au degré — variables `{d}`, `{hemi}`. | `'{d}°{hemi}'` |
+| `graticule.format.dm` | Gabarit à la minute — `{d}`, `{m}`, `{hemi}`. | `"{d}°{m}'{hemi}"` |
+| `graticule.format.dms` | Gabarit à la seconde — `{d}`, `{m}`, `{s}`, `{hemi}`. | `'{d}°{m}\'{s}"{hemi}'` |
+| `graticule.hemisphere.north` | Points cardinaux — traduisibles (`W` → `O` si l'hôte le souhaite). | `'N'` |
+| `graticule.hemisphere.south` | — | `'S'` |
+| `graticule.hemisphere.east` | — | `'E'` |
+| `graticule.hemisphere.west` | — | `'W'` |
 | `toolbar.undo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Annuler'` |
 | `toolbar.redo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Rétablir'` |
 | `toolbar.clearAll` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Tout effacer'` |

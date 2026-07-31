@@ -53,9 +53,18 @@ Montage manuel :
 | Cercle | `C` | centre + rayon |
 | Main levée | `D` | tracé continu |
 | Flèche | `A` | polyligne + tête |
-| Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance |
+| Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance — **parent d'un sous-menu** (cf. ci-dessous) |
 | Gomme | `E` | supprime au clic |
 | Symboles | `Y` | ouvre la palette (cf. [SYMBOLS.md](SYMBOLS.md)) |
+
+La **règle ouvre un sous-menu au survol**, comme le bouton Sélection : « Mesurer » et
+« Grille » (la grille de coordonnées, cf. [GRATICULE.md](GRATICULE.md)). Les deux rangées ne
+sont pas de même nature — la règle est un outil de tracé, la grille un calque, dont la touche
+vit donc dans `shortcuts.controls` et non ici.
+
+```tsx
+<Toolbar measureTools={['measure']} />   // une seule rangée = pas de sous-menu
+```
 
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // affichés, dans cet ordre

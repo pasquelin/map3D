@@ -142,6 +142,24 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `toolbar.navigate` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Naviguer'` |
 | `buildingPick.label` | “Building” row of the selector — outside `selectModes`, which is keyed by `SelectMode`: picking a building is not a drawing selection mode. | `'Bâtiment'` |
 | `buildingPick.description` | Its tooltip. | `'Sélectionner un bâtiment (volume 3D interne)'` |
+| `measureTools.measure.label` | Rows of the “Measure” submenu: `label` = flyout row, `description` = tooltip (with the shortcut) — same convention as `selectModes`. | `'Mesurer'` |
+| `measureTools.measure.description` | Its tooltip. | `'Mesurer une distance'` |
+| `measureTools.graticule.label` | The “coordinate grid” row of the same submenu — a LAYER, not a drawing tool. | `'Grille'` |
+| `measureTools.graticule.description` | Its tooltip. | `'Grille de coordonnées géographiques'` |
+| `graticule.remarkable.equator` | Names of remarkable lines, indexed by `config.graticule.remarkable[].labelKey`. A missing key shows the coordinate instead of the name. | `'Équateur'` |
+| `graticule.remarkable.tropicCancer` | — | `'Tropique du Cancer'` |
+| `graticule.remarkable.tropicCapricorn` | — | `'Tropique du Capricorne'` |
+| `graticule.remarkable.arcticCircle` | — | `'Cercle arctique'` |
+| `graticule.remarkable.antarcticCircle` | — | `'Cercle antarctique'` |
+| `graticule.remarkable.primeMeridian` | — | `'Méridien d'origine'` |
+| `graticule.remarkable.antimeridian` | — | `'180ᵉ méridien'` |
+| `graticule.format.deg` | Label template at degree precision — variables `{d}`, `{hemi}`. | `'{d}°{hemi}'` |
+| `graticule.format.dm` | Minute precision — `{d}`, `{m}`, `{hemi}`. | `"{d}°{m}'{hemi}"` |
+| `graticule.format.dms` | Second precision — `{d}`, `{m}`, `{s}`, `{hemi}`. | `'{d}°{m}\'{s}"{hemi}'` |
+| `graticule.hemisphere.north` | Cardinal points — translatable (`W` → `O` if the host wants). | `'N'` |
+| `graticule.hemisphere.south` | — | `'S'` |
+| `graticule.hemisphere.east` | — | `'E'` |
+| `graticule.hemisphere.west` | — | `'W'` |
 | `toolbar.undo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Annuler'` |
 | `toolbar.redo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Rétablir'` |
 | `toolbar.clearAll` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Tout effacer'` |

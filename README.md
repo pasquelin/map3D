@@ -32,6 +32,8 @@ markers/clusters DOM, tracés, formes, outils de dessin, données temps réel �
   shapes, GeoJSON in/out.
 - **Tag filtering** (“layers”), **unified search** (map elements + place geocoding),
   **lens tool**, **tag relations** with real routing distances and durations.
+- **Coordinate graticule**: sexagesimal mesh adapting to zoom (30° → 1″), named remarkable
+  lines, labels, and a smooth fade-out as the view tilts.
 - **Typed light/dark theme**, `prefers-reduced-motion` honoured.
 - **100 % translatable**: no hard-coded string anywhere — every label is overridable.
 

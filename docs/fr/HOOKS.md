@@ -102,6 +102,12 @@ Détail dans [DRAWING.md § 16](DRAWING.md#16-drawingapi--la-référence).
 Réglages **par outil** (persistés), en lecture réactive : `get(tool)`, `set(tool,
 patch)`, `reset(tool?)`, `isCustomized(tool)`.
 
+### `useGraticule(): GraticuleApi`
+
+Bascule de la grille de coordonnées — `{ visible, setVisible, toggle }`. Lit l'état **au
+moteur** : trois commandes la pilotent (sous-menu Mesures, bouton des contrôles, raccourci),
+un état React local aurait divergé. Cf. [GRATICULE.md](GRATICULE.md).
+
 ### `useLens(): LensApi` — *lève* hors `<LensLayer>`
 
 `{ active, activate, deactivate, toggle, shortcut }`.

@@ -48,6 +48,10 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.path.casing` | Contour du tracé (lisibilité sur imagerie satellite). | `'#ffffff'` |
 | `colors.zone.fill` | Remplissage d'une zone. | `'#079A7D'` |
 | `colors.zone.stroke` | Contour d'une zone. | `'#079A7D'` |
+| `colors.graticule.line` | Grille de coordonnées : parallèles et méridiens ordinaires. Optionnel — un thème antérieur reste valide (repli sur le thème par défaut). | `'#ffd54a'` |
+| `colors.graticule.remarkable` | Équateur, tropiques, cercles polaires, méridiens remarquables. | `'#ff8f00'` |
+| `colors.graticule.label` | Texte de l'étiquette de coordonnée. | `'#ffffff'` |
+| `colors.graticule.labelBackground` | Fond de la pastille d'étiquette. | `'rgba(0,0,0,0.55)'` |
 | `colors.marquee.fill` | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu… | `'rgba(255,255,255,0.12)'` |
 | `colors.marquee.stroke` | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu… | `'#000000'` |
 | `colors.marquee.under` | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu… | `'#ffffff'` |

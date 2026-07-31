@@ -387,3 +387,39 @@ Ciel calculé (modèle de Preetham + nuages), **révélé en fondu quand on desc
 | `sky.fade.start` | Altitude caméra (m) au-dessus de laquelle le ciel est invisible (vue globe intacte). | `500000` |
 | `sky.fade.end` | Altitude caméra (m) en dessous de laquelle le ciel est plein. `start` doit être > `end`. | `90000` |
 | `sky.date` | Instant (ms epoch, comme `Date.now()`) qui fixe la position du soleil. `0` = l'heure de montage de la carte, figée. Une valeur > 0 fige un instant précis (déterministe). | `0` |
+
+## `graticule` — Grille de coordonnées géographiques
+
+Parallèles et méridiens drapés sur le globe, à maille adaptative — cf. le guide [GRATICULE.md](GRATICULE.md). Aucune couleur ici : elles vivent dans `theme.colors.graticule`. `enabled` n'est que l'état de DÉPART ; la source de vérité courante est le moteur (`engine.setGraticuleVisible`), trois commandes la pilotant.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `graticule.enabled` | État de départ de la grille. | `false` |
+| `graticule.targetLines` | Lignes visées à l'écran — c'est ce nombre qui choisit la maille. | `8` |
+| `graticule.levelHysteresis` | Bande morte du changement de maille, en fraction de densité. ⚠️ Sans elle, un zoom arrêté sur une frontière de palier rebascule d'une frame à l'autre, et chaque bascule reconstruit toute la géométrie. | `0.15` |
+| `graticule.levelRangeDeg` | Bornes de l'échelle (degrés) — `[x, x]` fige la maille. `null` = échelle libre. | `null` |
+| `graticule.segmentsPerLine` | Segments par ligne (PLAFOND) : c'est la densification qui fait épouser la courbure du globe. | `128` |
+| `graticule.maxLines` | Plafond dur de lignes par axe — garde-fou mémoire. | `64` |
+| `graticule.bandScreens` | Largeur de l'emprise construite, en écrans. En sortir déclenche une reconstruction. | `2` |
+| `graticule.latLimitDeg` | Latitude d'arrêt des méridiens : au-delà ils se rejoignent et la densité explose. | `85` |
+| `graticule.heightOffsetMeters` | Décalage vertical du drapage (m) au-dessus de la surface visible. | `0` |
+| `graticule.heightToleranceMeters` | Dérive de hauteur de drapage tolérée (m) avant reconstruction. | `5` |
+| `graticule.opacity` | Opacité des lignes ordinaires. | `0.55` |
+| `graticule.remarkableOpacity` | Opacité des lignes remarquables — volontairement plus soutenue. | `0.85` |
+| `graticule.dash` | Pointillé `{ dash, gap }` en unités MONDE (mètres). `null` = trait plein. | `null` |
+| `graticule.remarkable.enabled` | Tracer les lignes remarquables (Équateur, tropiques, cercles polaires, méridiens). | `true` |
+| `graticule.remarkable.parallels` | Parallèles remarquables `{ lat, labelKey }`. En config et non en constantes : l'obliquité dérive, et un tileset non terrestre n'a ni tropiques ni cercles polaires. | Équateur, tropiques, cercles polaires |
+| `graticule.remarkable.meridians` | Méridiens remarquables `{ lng, labelKey }`. ⚠️ L'antiméridien s'écrit `-180` : `normalizeLng` ramène dans `[-180, 180)`. | Méridien d'origine, 180ᵉ |
+| `graticule.tiltFade.start` | Début du fondu, en FRACTION du plafond d'inclinaison du mode (`camera.maxTilt3d`/`maxTilt2d`). ⚠️ Des fractions et non des degrés : le plafond vaut 79,2° en volume mais 36° à plat. | `0.75` |
+| `graticule.tiltFade.end` | Disparition complète, même unité. | `0.95` |
+| `graticule.fadeMs` | Constante de temps du fondu (ms) — c'est elle, la douceur. | `250` |
+| `graticule.levelFadeMs` | Fondu croisé au changement de maille (ms). `0` = bascule sèche. | `300` |
+| `graticule.labels.enabled` | Afficher les étiquettes de coordonnées. | `true` |
+| `graticule.labels.placement` | `'center-cross'` : latitudes le long du méridien le plus proche du centre, longitudes le long du parallèle le plus proche — c'est ce qui plafonne naturellement leur nombre. `'edges'` les colle aux bords. | `'center-cross'` |
+| `graticule.labels.maxLabels` | Plafond dur d'étiquettes affichées. | `40` |
+| `graticule.labels.spacingPx` | Écart minimal (px) entre deux étiquettes d'une même chaîne. | `90` |
+| `graticule.labels.rotate` | Orienter l'étiquette dans le sens de sa ligne — au-delà de 45° elle bascule d'un quart de tour pour rester lisible. | `true` |
+| `graticule.labels.format` | `'auto'` suit la maille : ≥ 1° → `45°N`, minutes → `45°11'N`, secondes → `45°11'25"N`. Ou `'dms'`/`'dm'`/`'deg'` pour l'imposer. | `'auto'` |
+| `graticule.labels.remarkableNames` | Afficher le nom des lignes remarquables plutôt que leur coordonnée. | `true` |
+| `graticule.labels.idleOpacity` | Opacité au repos — les étiquettes se font oublier et redeviennent pleines sous le pointeur. `1` supprime l'effet. | `0.65` |
+| `graticule.labels.hoverPaddingPx` | Marge (px) autour d'une étiquette pour la juger survolée. ⚠️ Le survol est GÉOMÉTRIQUE : les étiquettes restent en `pointer-events: none`, donc aucune ne peut avaler un début de déplacement de carte. | `4` |

@@ -251,8 +251,13 @@ tile is available: the map stays a map even without network or token.
 ```
 
 Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`,
-`mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen`.
+`graticule`, `mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen`.
 Groups: `drag`, `compass`, `zoom`, `view`, `basemap`, `target`, `layers`, `fullscreen`.
+
+⚠️ `camera.maxTilt3d` (0.44π ≈ 79.2°) and `camera.maxTilt2d` (0.2π = 36°) do not only bound
+the camera: the **graticule fade** is expressed as a fraction of that ceiling. Tightening them
+therefore moves the angle at which the grid disappears — see
+[GRATICULE.md § 4](GRATICULE.md#4-how-the-fade-works).
 
 ```tsx
 // GROUP granularity: hide (false) or replace (ReactNode)

@@ -53,9 +53,18 @@ Manual mounting:
 | Circle | `C` | centre + radius |
 | Freehand | `D` | continuous stroke |
 | Arrow | `A` | polyline + head |
-| Measure | `M` | thin dashed dimension ⊢––⊣ with a distance label |
+| Measure | `M` | thin dashed dimension ⊢––⊣ with a distance label — **parent of a submenu** (see below) |
 | Eraser | `E` | deletes on click |
 | Symbols | `Y` | opens the palette (see [SYMBOLS.md](SYMBOLS.md)) |
+
+The **ruler opens a submenu on hover**, like the Select button: “Measure” and “Grid” (the
+coordinate grid, see [GRATICULE.md](GRATICULE.md)). The two rows are not of the same nature —
+the ruler is a drawing tool, the grid a layer, whose key therefore lives in
+`shortcuts.controls` and not here.
+
+```tsx
+<Toolbar measureTools={['measure']} />   // a single row = no submenu
+```
 
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // displayed, in this order

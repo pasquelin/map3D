@@ -6,6 +6,47 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Grille de coordonnées (graticule)
+
+Parallèles et méridiens drapés sur le globe, à **maille adaptative** sur l'échelle
+sexagésimale d'un atlas (30° en vue globe → 1″ en vue rue), avec les lignes remarquables
+nommées (Équateur, tropiques, cercles polaires, méridien d'origine, 180ᵉ) et leurs étiquettes
+de coordonnées. Elle **s'estompe en fondu** quand la vue s'incline au-delà de ce qu'une grille
+supporte — bande exprimée en fraction du plafond d'inclinaison du mode, parce qu'il vaut 79,2°
+en volume mais 36° en carte plate.
+
+Guide : [docs/fr/GRATICULE.md](docs/fr/GRATICULE.md) · [EN](docs/en/GRATICULE.md).
+
+**Ajouts**
+
+- `<GraticuleLayer />`, `useGraticule()`, `MeasureToolButton`, types `GraticuleConfig` /
+  `CoordFormat` / `MeasureTool`.
+- Moteur : `engine.setGraticuleVisible()` / `getGraticuleVisible()` / `setGraticuleMounted()`
+  et l'event `graticule`. L'état vit là parce que trois commandes le pilotent.
+- `config.graticule` (30 réglages), `theme.colors.graticule` (optionnel, repli sur le thème
+  par défaut), `labels.measureTools` et `labels.graticule`.
+- `config.style.zIndex.graticuleLabel` et `interaction.shortcuts.controls.graticule` (`K`).
+- `core/math` : `smoothstep` et `approach` (lissage exponentiel indépendant de la cadence),
+  extraits pour cesser d'être réécrits à chaque site de fondu.
+
+**Ruptures**
+
+- L'outil **Règle** de la barre de dessin devient le **parent d'un sous-menu** (« Mesurer » +
+  « Grille »). Nouvelle prop `<Toolbar measureTools>` ; `['measure']` restitue un bouton
+  simple. Nouvelle section `'measure'` dans `components`.
+- Nouveau bouton `graticule` dans le groupe `view` de `<MapControls>` — il existe parce que la
+  barre de dessin se replie sous le zoom 11, là où la grille sert le plus. `buttons={{
+  graticule: false }}` le retire.
+- Un thème ou un jeu de libellés **complet** écrit à la main doit fournir les nouvelles clés
+  (`labels.measureTools`, `labels.graticule`) ; `theme.colors.graticule` reste optionnel.
+
+**Correctifs au passage**
+
+- `Dropdown` : un panneau ouvert allume désormais toujours son bouton (`active || open`) — le
+  filtre de tags était le seul menu de la barre à ne pas le faire.
+- Templates : les tags des formes d'un template chargé sont **révélés** si un filtre
+  « Couches » actif les masquait (`TagFilter.add()`).
+
 ### Performance — ne peindre que ce qui change
 
 Chantier mesuré de bout en bout : le moteur ne consommait qu'~1 ms de JS par frame sur un

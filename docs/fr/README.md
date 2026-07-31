@@ -39,6 +39,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 | [CAMERA.md](CAMERA.md) | position initiale, `ready`, vols, cadrage, carte figée, fond de carte |
 | [TILES.md](TILES.md) | fournisseur de tuiles : Google ou serveur auto-hébergé, capacités et boutons |
 | [BUILDINGS.md](BUILDINGS.md) | sélection d'un bâtiment du volume interne : outil, `buildingMenu`, attributs remontés |
+| [GRATICULE.md](GRATICULE.md) | grille de coordonnées : maille adaptative, lignes remarquables, étiquettes, fondu à l'inclinaison |
 | [PLUGINS.md](PLUGINS.md) | guide auteur des plugins : contrat, config, source de données, enrichissement au pick, hub, registre des officiels |
 | [DATA.md](DATA.md) | viewport-driven, temps réel, tags, épinglage, persistance |
 | [HOOKS.md](HOOKS.md) | tous les hooks, et ce qui fait re-rendre quoi |
@@ -65,6 +66,7 @@ ne peut diverger de ce que la lib applique :
 | cadrer la carte sur du contenu | [CAMERA.md § 4](CAMERA.md#4-cadrer-fitbounds) |
 | traduire l'interface | [LABELS.md](LABELS.md) |
 | adapter la charte | [THEME.md](THEME.md) |
+| afficher une grille de coordonnées | [GRATICULE.md § 2](GRATICULE.md#2-lactiver) |
 | servir vos tuiles depuis votre serveur | [TILES.md § 2](TILES.md#2-régler-le-serveur-interne) |
 | ouvrir un menu sur un bâtiment 3D | [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--le-contrat) |
 | écrire votre propre couche | [ENGINE.md § 3](ENGINE.md#3-écrire-une-couche) |

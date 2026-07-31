@@ -231,6 +231,7 @@ Drawing toolbar.
 | `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.interaction.drawToolbarMinZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
+| `measureTools` | Rows offered by the “Measure” submenu (default: measure + grid); a single one = no submenu, the button becomes a plain tool again. `['measure']` therefore removes the grid from the bar — it stays reachable through `<MapControls>` and config. | — |
 | `components` | Hides (`false`) or replaces (ReactNode) each section — default: everything displayed. | `{}` |
 | `extraTools` | **Application** tools rendered as primary items of the bar, after the native tools (drawing, symbols, lens): they take on the bar's visual language instead of floating in a corner of the map. They drive their own state, the bar does not… | — |
 
@@ -246,6 +247,24 @@ Navigation bar.
 | `shortcuts` | Keyboard shortcuts per action — `false` to disable one, another key to remap it if it is already taken elsewhere in the app. BARE letters (no ⌘/Ctrl: browsers reserve ⌘T/⌘N/⌘W…), identical on Mac and PC, shown in the… | — |
 | `tagLabel` | Readable label of a tag in the “Layers” panel (default: the raw tag). | — |
 | `target` | The screen's point of reference (the alert being viewed, the ongoing event…): providing this prop adds a **“back to target”** button to the bar; omitting it removes the button. The map does not need to know what the target represents, only where it is. | — |
+
+## `<GraticuleLayer>`
+
+Geographic coordinate grid — see [GRATICULE.md](GRATICULE.md). **No props**: it is configured
+through `config.graticule`, themed through `theme.colors.graticule`, and toggled through
+`useGraticule()`, the “Measure” submenu or the `graticule` button of `<MapControls>`.
+
+It costs nothing while the grid is off: it can stay mounted permanently.
+
+## `<MeasureToolButton>`
+
+The bar's “Measure” button and its submenu. Mounted by `<Toolbar>` — these exports only serve a
+manual mount (custom bar).
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Anchor side, for opening the submenu. | — |
+| `tools` | Rows displayed; a single one = no submenu. | both |
 
 ## `<PinnedDock>`
 

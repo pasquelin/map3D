@@ -228,6 +228,7 @@ Barre d'outils de dessin.
 | `minZoom` | Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. | `config.interaction.drawToolbarMinZoom` |
 | `tools` | Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. | — |
+| `measureTools` | Rangées proposées par le sous-menu « Mesures » (défaut : mesurer + grille) ; une seule = pas de sous-menu, le bouton redevient un simple outil. `['measure']` retire donc la grille de la barre — elle reste atteignable par `<MapControls>` et par la config. | — |
 | `components` | Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. | `{}` |
 | `extraTools` | Outils **de l'application** rendus en items principaux de la barre, après les outils natifs (dessin, symboles, loupe) : ils prennent le langage visuel de la barre au lieu de flotter dans un coin de la carte. Ils pilotent leur propre état, la barre ne les… | — |
 
@@ -243,6 +244,24 @@ Barre de navigation.
 | `shortcuts` | Raccourcis clavier par action — `false` pour en désactiver un, une autre touche pour le remapper si elle est déjà prise ailleurs dans l'app. Lettres SEULES (pas de ⌘/Ctrl : les navigateurs réservent ⌘T/⌘N/⌘W…), identiques Mac/PC, affichées dans les… | — |
 | `tagLabel` | Libellé lisible d'un tag dans le panneau « Couches » (défaut : le tag brut). | — |
 | `target` | Point de référence de l'écran (l'alerte consultée, l'événement en cours…) : fournir cette prop ajoute un bouton **« revenir à la cible »** à la barre ; l'omettre le retire. La carte n'a pas à savoir ce que la cible représente, seulement où elle est. | — |
+
+## `<GraticuleLayer>`
+
+Grille de coordonnées géographiques — cf. [GRATICULE.md](GRATICULE.md). **Sans prop** : elle se
+règle par `config.graticule`, se thème par `theme.colors.graticule`, et se bascule par
+`useGraticule()`, le sous-menu « Mesures » ou le bouton `graticule` de `<MapControls>`.
+
+Elle ne coûte rien tant que la grille est éteinte : on peut la monter en permanence.
+
+## `<MeasureToolButton>`
+
+Bouton « Mesures » de la barre + son sous-menu. Monté par `<Toolbar>` — ces exports ne servent
+qu'à un montage manuel (barre maison).
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `position` | Côté d'ancrage, pour l'ouverture du sous-menu. | — |
+| `tools` | Rangées affichées ; une seule = pas de sous-menu. | les deux |
 
 ## `<PinnedDock>`
 

@@ -51,6 +51,10 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `colors.path.casing` | Path casing (legibility on satellite imagery). | `'#ffffff'` |
 | `colors.zone.fill` | Zone fill. | `'#079A7D'` |
 | `colors.zone.stroke` | Zone stroke. | `'#079A7D'` |
+| `colors.graticule.line` | Coordinate grid: ordinary parallels and meridians. Optional — an older theme stays valid (falls back to the default theme). | `'#ffd54a'` |
+| `colors.graticule.remarkable` | Equator, tropics, polar circles, remarkable meridians. | `'#ff8f00'` |
+| `colors.graticule.label` | Coordinate label text. | `'#ffffff'` |
+| `colors.graticule.labelBackground` | Label pill background. | `'rgba(0,0,0,0.55)'` |
 | `colors.marquee.fill` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'rgba(255,255,255,0.12)'` |
 | `colors.marquee.stroke` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#000000'` |
 | `colors.marquee.under` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#ffffff'` |

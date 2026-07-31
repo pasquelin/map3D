@@ -99,6 +99,7 @@ const off = engine.on('viewport', (view) => refetch(view.bounds))
 | `click` | `{ latLng, originalEvent }` | clic sur la carte |
 | `dragmode` | `'pan' \| 'rotate'` | changement de mode |
 | `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable }` | changement de fond **ou de capacités** |
+| `graticule` | `boolean` | la grille de coordonnées vient d'être allumée ou éteinte |
 | `ready` | `MapEngine` | **une seule fois**, rejoué pour qui s'abonne après coup |
 
 Version React : `useMapEvents({ onClick, onCameraChange, onViewportChange, onReady })`.

@@ -256,9 +256,14 @@ aucune tuile n'est disponible : la carte reste une carte même sans réseau ni t
 ```
 
 Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`,
-`mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen`.
+`graticule`, `mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen`.
 Groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `target`, `layers`,
 `fullscreen`.
+
+⚠️ `camera.maxTilt3d` (0,44π ≈ 79,2°) et `camera.maxTilt2d` (0,2π = 36°) ne bornent pas que
+la caméra : le **fondu du graticule** s'exprime en fraction de ce plafond. Les resserrer
+déplace donc l'angle auquel la grille disparaît — cf.
+[GRATICULE.md § 4](GRATICULE.md#4-comment-le-fondu-marche).
 
 ```tsx
 // Grain GROUPE : masquer (false) ou remplacer (ReactNode)

@@ -100,6 +100,12 @@ in [DRAWING.md § 16](DRAWING.md#16-drawingapi--the-reference).
 **Per-tool** settings (persisted), read reactively: `get(tool)`, `set(tool, patch)`,
 `reset(tool?)`, `isCustomized(tool)`.
 
+### `useGraticule(): GraticuleApi`
+
+Coordinate-grid toggle — `{ visible, setVisible, toggle }`. Reads state **from the engine**:
+three commands drive it (Measure submenu, controls button, shortcut), and a local React state
+would have diverged. See [GRATICULE.md](GRATICULE.md).
+
 ### `useLens(): LensApi` — *throws* outside `<LensLayer>`
 
 `{ active, activate, deactivate, toggle, shortcut }`.

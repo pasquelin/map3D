@@ -50,6 +50,7 @@ cover each one **in depth**.
 | [CAMERA.md](CAMERA.md) | initial position, `ready`, flights, framing, frozen map, basemap |
 | [TILES.md](TILES.md) | tile provider: Google or self-hosted server, capabilities and buttons |
 | [BUILDINGS.md](BUILDINGS.md) | picking a building of the internal volume: the tool, `buildingMenu`, surfaced attributes |
+| [GRATICULE.md](GRATICULE.md) | coordinate grid: adaptive mesh, remarkable lines, labels, tilt fade |
 | [PLUGINS.md](PLUGINS.md) | plugin author guide: contract, config, data source, enrichment at pick, hub, official registry |
 | [DATA.md](DATA.md) | viewport-driven, real time, tags, pinning, persistence |
 | [HOOKS.md](HOOKS.md) | every hook, and what makes what re-render |
@@ -76,6 +77,7 @@ diverge from what the library applies:
 | frame the map on some content | [CAMERA.md § 4](CAMERA.md#4-framing-fitbounds) |
 | translate the interface | [LABELS.md](LABELS.md) |
 | adapt the visual identity | [THEME.md](THEME.md) |
+| show a coordinate grid | [GRATICULE.md § 2](GRATICULE.md#2-turning-it-on) |
 | serve tiles from your own server | [TILES.md § 2](TILES.md#2-configuring-the-internal-server) |
 | open a menu on a 3D building | [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--the-contract) |
 | write your own layer | [ENGINE.md § 3](ENGINE.md#3-writing-a-layer) |
