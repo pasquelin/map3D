@@ -25,18 +25,19 @@ Guide : [docs/fr/GRATICULE.md](docs/fr/GRATICULE.md) · [EN](docs/en/GRATICULE.m
   et l'event `graticule`. L'état vit là parce que trois commandes le pilotent.
 - `config.graticule` (30 réglages), `theme.colors.graticule` (optionnel, repli sur le thème
   par défaut), `labels.measureTools` et `labels.graticule`.
-- `config.style.zIndex.graticuleLabel` et `interaction.shortcuts.controls.graticule` (`K`).
+- `config.style.zIndex.graticuleLabel`, `interaction.shortcuts.controls.graticule` (`K`) et
+  `labels.controls.graticule`.
 - `core/math` : `smoothstep` et `approach` (lissage exponentiel indépendant de la cadence),
   extraits pour cesser d'être réécrits à chaque site de fondu.
 
 **Ruptures**
 
-- L'outil **Règle** de la barre de dessin devient le **parent d'un sous-menu** (« Mesurer » +
-  « Grille »). Nouvelle prop `<Toolbar measureTools>` ; `['measure']` restitue un bouton
-  simple. Nouvelle section `'measure'` dans `components`.
-- Nouveau bouton `graticule` dans le groupe `view` de `<MapControls>` — il existe parce que la
-  barre de dessin se replie sous le zoom 11, là où la grille sert le plus. `buttons={{
-  graticule: false }}` le retire.
+- L'outil **Règle** de la barre de dessin gagne un **sous-menu** (`<Toolbar measureTools>`,
+  nouvelle section `'measure'` dans `components`). Il ne compte qu'une rangée aujourd'hui, donc
+  il ne s'ouvre pas et le bouton agit directement — le châssis est en place pour la suivante.
+- Nouveau bouton `graticule` dans le groupe `view` de `<MapControls>` : c'est de LÀ que la
+  grille se pilote, et non de la barre de dessin, qui se replie sous le zoom 11 — précisément
+  là où la grille sert le plus. `buttons={{ graticule: false }}` le retire.
 - Un thème ou un jeu de libellés **complet** écrit à la main doit fournir les nouvelles clés
   (`labels.measureTools`, `labels.graticule`) ; `theme.colors.graticule` reste optionnel.
 

@@ -21,6 +21,8 @@ export type MapLabels = {
     tilt: string
     topDown: string
     globe: string
+    /** Grille de coordonnées — cf. le guide GRATICULE.md. */
+    graticule: string
     fullscreen: string
     /** Bouton « revenir à la cible » — n'apparaît qu'avec `MapControls target`. */
     target: string
@@ -209,7 +211,7 @@ export type MapLabels = {
    */
   buildingPick: { label: string; description: string }
   /**
-   * Membres du sous-menu « Mesures » : `label` = rangée du flyout, `description` = tooltip
+   * Rangées du sous-menu « Mesures » : `label` = rangée du flyout, `description` = tooltip
    * (avec le raccourci) — même convention que `selectModes`.
    *
    * `measure` y figure en plus de `tools.measure` : le premier nomme la RANGÉE du menu, le

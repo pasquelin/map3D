@@ -487,7 +487,7 @@ export function MapControls({
             {btn('graticule') && (
               <ToolButton
                 icon={mdiGrid}
-                label={labels.measureTools.graticule.label}
+                label={labels.controls.graticule}
                 tip={tip}
                 shortcut={keys.graticule}
                 active={graticule.visible}

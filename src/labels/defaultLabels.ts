@@ -10,6 +10,7 @@ export const defaultLabels: MapLabels = {
     zoomOut: 'Zoom arrière',
     tilt: 'Incliner',
     topDown: 'Vue du dessus',
+    graticule: 'Grille de coordonnées',
     globe: 'Retour au globe',
     fullscreen: 'Plein écran',
     target: 'Revenir à la cible',
@@ -134,7 +135,6 @@ export const defaultLabels: MapLabels = {
   buildingPick: { label: 'Bâtiment', description: 'Sélectionner un bâtiment (volume 3D interne)' },
   measureTools: {
     measure: { label: 'Mesurer', description: 'Mesurer une distance' },
-    graticule: { label: 'Grille', description: 'Grille de coordonnées géographiques' },
   },
   graticule: {
     remarkable: {

@@ -1,9 +1,8 @@
-import { mdiCheck, mdiRuler } from '@mdi/js'
+import { mdiRuler } from '@mdi/js'
 import { useRef } from 'react'
 import type { MeasureTool } from '../../layers/DrawLayer'
-import { useConfig, useLabels } from '../context'
+import { useLabels } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
-import { useGraticule } from '../hooks/useGraticule'
 import { MEASURE_TOOL_META } from './drawControls'
 import { DropdownSurface } from './Dropdown'
 import { TIP_ID, useHoverFlyout, useToolbar } from './Toolbar'
@@ -12,21 +11,18 @@ import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
 
 /**
- * Bouton « Mesures » + sous-menu (mesurer, grille de coordonnées), ouvert au SURVOL du côté
- * opposé à la barre — même patron que `SelectToolButton`, dont il partage le châssis.
+ * Bouton « Mesures » et son sous-menu, ouvert au SURVOL du côté opposé à la barre — même
+ * châssis que `SelectToolButton` (`useHoverFlyout`).
  *
- * Les deux rangées ne sont pas de même nature, exactement comme la ligne « bâtiment » du
- * sélecteur : `measure` est un outil de tracé, `graticule` un CALQUE. D'où la différence de
- * comportement au clic — allumer la grille ne relâche rien, alors qu'activer la règle quitte
- * l'outil courant.
+ * ⚠️ Avec une seule rangée disponible, le sous-menu ne s'ouvre PAS : le bouton agit
+ * directement et retrouve son infobulle. C'est l'état courant — la grille de coordonnées y a
+ * vécu un temps avant de rejoindre les contrôles de vue, où elle survit au repli de la barre.
+ * Le châssis reste monté pour la rangée suivante, et parce qu'il publie déjà l'ancre de
+ * l'outil actif (cf. `publishActiveTool`).
  */
 export function MeasureToolButton({ position, tools }: { position: 'left' | 'right'; tools?: MeasureTool[] }) {
   const { tool, setTool, shortcuts } = useDrawing()
-  const graticule = useGraticule()
   const labels = useLabels()
-  // Même table que le bouton des contrôles de vue : les deux affichent LA MÊME touche, et
-  // c'est là que le dispatch clavier va la chercher.
-  const graticuleKey = useConfig().interaction.shortcuts.controls.graticule
   const tip = useTip(TIP_ID)
   const wrapRef = useRef<HTMLDivElement>(null)
   const bar = useToolbar()
@@ -36,16 +32,6 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
   // Châssis partagé avec le sélecteur : ouverture au survol, effacement devant un dropdown,
   // fermeture au repli de la barre.
   const flyout = useHoverFlyout(available.length)
-  const shortcutOf = (t: MeasureTool) => (t === 'measure' ? shortcuts.measure : graticuleKey)
-  const isOn = (t: MeasureTool) => (t === 'measure' ? active : graticule.visible)
-  /**
-   * La rangée est-elle un INTERRUPTEUR plutôt qu'un choix ?
-   *
-   * « Mesurer » désigne l'outil actif — un choix, exclusif des autres outils. « Grille »
-   * allume un calque, qui coexiste avec n'importe quel outil. Les deux peuvent donc être vrais
-   * en même temps, et les peindre pareil les faisait lire comme deux choix concurrents.
-   */
-  const isSwitch = (t: MeasureTool) => t === 'graticule'
 
   return (
     <div ref={wrapRef} {...flyout.wrapProps}>
@@ -56,14 +42,13 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
         ref={active ? bar.publishActiveTool : null}
         icon={mdiRuler}
         label={labels.tools.measure}
-        // PAS de `tip` : le survol de ce bouton ouvre déjà le sous-menu, et l'infobulle
-        // venait se poser par-dessus la surface qu'on est en train de lire. Les rangées du
-        // menu portent leur propre infobulle, avec leur raccourci — rien n'est perdu.
-        // (`ToolButton` garde son `aria-label`, raccourci compris, même sans tooltip.)
+        // Infobulle SEULEMENT sans sous-menu. Quand le survol ouvre une surface, l'infobulle
+        // venait se poser par-dessus celle qu'on est en train de lire ; les rangées portent
+        // alors la leur, avec leur raccourci. (`ToolButton` garde son `aria-label` dans les
+        // deux cas — un bouton sans infobulle n'est jamais un bouton sans nom accessible.)
+        tip={flyout.hasFlyout ? undefined : tip}
         shortcut={shortcuts.measure}
-        // Allumé si l'UN des deux l'est : la barre doit dire qu'il se passe quelque chose
-        // sous ce bouton, même quand c'est la grille et non la règle.
-        active={active || graticule.visible}
+        active={active}
         className={flyout.hasFlyout ? 'm3d-btn-flyout' : undefined}
         onClick={() => setTool(active ? null : 'measure')}
       />
@@ -72,23 +57,15 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
           {available.map((m) => (
             <button
               key={m.tool}
-              {...tip(labels.measureTools[m.tool].description, shortcutOf(m.tool))}
-              // Une rangée interrupteur porte son état : la coche le dit à l'œil, `aria-pressed`
-              // le dit au lecteur d'écran. Une rangée de CHOIX ne le porte pas — ce serait
-              // annoncer « enfoncé » là où le sens est « c'est l'outil courant ».
-              aria-pressed={isSwitch(m.tool) ? isOn(m.tool) : undefined}
-              className={`m3d-flyout-item${isSwitch(m.tool) ? ' m3d-switch' : ''}${isOn(m.tool) ? ' m3d-on' : ''}`}
+              {...tip(labels.measureTools[m.tool].description, shortcuts.measure)}
+              className={`m3d-flyout-item${active ? ' m3d-on' : ''}`}
               onClick={() => {
-                // La grille est un CALQUE : l'allumer ne doit ni quitter l'outil de tracé ni
-                // interrompre un tracé en cours. Seule la règle est un outil exclusif.
-                if (m.tool === 'graticule') graticule.toggle()
-                else setTool(active ? null : 'measure')
+                setTool(active ? null : 'measure')
                 flyout.close()
               }}
             >
               <UiIcon path={m.icon} />
               <span className="m3d-flyout-label">{labels.measureTools[m.tool].label}</span>
-              {isSwitch(m.tool) && <UiIcon path={mdiCheck} className="m3d-flyout-check" />}
             </button>
           ))}
         </DropdownSurface>

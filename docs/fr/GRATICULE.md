@@ -56,9 +56,9 @@ const { visible, setVisible, toggle } = useGraticule()
 ```
 
 ⚠️ `graticule.enabled` n'est que l'état de **départ**. La source de vérité courante vit
-dans le moteur (`engine.setGraticuleVisible`), parce que trois commandes la pilotent :
-la rangée « Grille » du sous-menu Mesures, le bouton des contrôles de vue, et le
-raccourci clavier. Deux copies d'état auraient divergé.
+dans le moteur (`engine.setGraticuleVisible`), parce que plusieurs commandes la pilotent —
+le bouton des contrôles de vue, le raccourci clavier, et l'API de l'hôte. Deux copies d'état
+auraient divergé.
 
 ## 3. Comment la maille s'adapte
 
@@ -231,32 +231,15 @@ resettle LOD — un coût sans rapport avec ce que la grille apporte.
 
 ## 8. Dans l'interface
 
-Deux points d'entrée, **un seul état**. Ils s'allument et s'éteignent ensemble.
+La grille se pilote depuis les **contrôles de vue**, et non depuis la barre d'outils : celle-ci
+**se replie sous le zoom 11** (`interaction.drawToolbarMinZoom`), or la grille sert justement en
+vue globe. Un bouton qui disparaît là où la fonction devient utile n'est pas un bouton.
 
-**Sous-menu « Mesures »** de la barre d'outils — survoler le bouton règle ouvre deux
-rangées, « Mesurer » et « Grille » :
-
-```tsx
-<Map draw={{}} toolbar={{}} />
-{/* retirer la grille de la barre, sans la retirer de la carte : */}
-<Map draw={{}} toolbar={{ measureTools: ['measure'] }} />
-```
-
-Les deux rangées du sous-menu **ne se peignent pas pareil, et c'est voulu** : « Mesurer »
-désigne l'outil actif — un *choix*, exclusif des autres outils — tandis que « Grille » est un
-*interrupteur*, qui coexiste avec n'importe quel outil. La première prend le fond plein
-d'accent (« c'est celui-ci »), la seconde un voile et une coche (« activé »). Les deux peuvent
-donc être vraies en même temps sans que le menu se lise comme deux choix concurrents.
-
-**Bouton des contrôles de vue**, à côté de « Globe » :
+**Le bouton**, dans le groupe `view`, à côté de « Globe » :
 
 ```tsx
 <Map controls={{ buttons: { graticule: false } }} />   // pour le retirer
 ```
-
-⚠️ Ce second bouton n'est pas un doublon. La barre d'outils **se replie sous le zoom 11**
-(`interaction.drawToolbarMinZoom`) : sans lui, la grille deviendrait impilotable en vue
-globe — exactement là où elle sert le plus.
 
 **Raccourci** — `K` par défaut, dans `interaction.shortcuts.controls` :
 
@@ -264,10 +247,9 @@ globe — exactement là où elle sert le plus.
 config={{ interaction: { shortcuts: { controls: { graticule: 'g', globe: 'k' } } } }}
 ```
 
-Il vit dans la table des **contrôles** et non du dessin, bien que la grille ait aussi une
-rangée dans le sous-menu Mesures : c'est une commande de vue, et son bouton fonctionne
-sans aucune couche de dessin montée. Rangé sous `draw`, le raccourci mourait avec
-`<DrawLayer>` pendant que l'infobulle continuait de l'annoncer.
+Il vit dans la table des **contrôles** et non du dessin : c'est une commande de vue, et son
+bouton fonctionne sans aucune couche de dessin montée. Rangé sous `draw`, le raccourci mourait
+avec `<DrawLayer>` pendant que l'infobulle continuait de l'annoncer.
 
 Comme partout dans la lib, **la touche n'est active que si son bouton est rendu**.
 

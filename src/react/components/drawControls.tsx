@@ -5,7 +5,6 @@ import {
   mdiCursorDefaultOutline,
   mdiEraser,
   mdiGesture,
-  mdiGrid,
   mdiLasso,
   mdiRuler,
   mdiSelect,
@@ -86,15 +85,11 @@ export const SELECT_MODE_META: Array<{
 /**
  * Membres du sous-menu « Mesures » : correspondance outil ↔ icône, et ORDRE des rangées.
  *
- * ⚠️ Contrairement à `SELECT_MODE_META`, elle n'est PAS lue par le dispatch clavier : les deux
- * rangées n'ont ni le même type (`measure` est un `DrawTool`, `graticule` une bascule du
- * moteur) ni la même table de raccourcis (`shortcuts.draw` contre `shortcuts.controls`).
- * Ajouter une rangée demande donc aussi son branchement au clavier — cette table ne le donne pas.
+ * ⚠️ Contrairement à `SELECT_MODE_META`, elle n'est PAS lue par le dispatch clavier — une
+ * rangée peut n'être ni un outil de dessin ni relever de `shortcuts.draw`. En ajouter une
+ * demande donc aussi son branchement clavier : cette table ne le donne pas.
  */
-export const MEASURE_TOOL_META: Array<{ tool: MeasureTool; icon: string }> = [
-  { tool: 'measure', icon: mdiRuler },
-  { tool: 'graticule', icon: mdiGrid },
-]
+export const MEASURE_TOOL_META: Array<{ tool: MeasureTool; icon: string }> = [{ tool: 'measure', icon: mdiRuler }]
 
 /** Les valeurs de `StrokeStyle` sont exactement les mots-clés CSS `border-style`
  *  correspondants : l'aperçu les utilise telles quelles, sans table de conversion. */

@@ -56,9 +56,9 @@ const { visible, setVisible, toggle } = useGraticule()
 ```
 
 ⚠️ `graticule.enabled` is only the **starting** state. The current source of truth lives
-in the engine (`engine.setGraticuleVisible`), because three commands drive it: the "Grid"
-row of the Measure submenu, the view-controls button, and the keyboard shortcut. Two
-copies of that state would have diverged.
+in the engine (`engine.setGraticuleVisible`), because several commands drive it — the
+view-controls button, the keyboard shortcut, and the host's own API. Two copies of that state
+would have diverged.
 
 ## 3. How the mesh adapts
 
@@ -224,32 +224,15 @@ resettle — a cost out of proportion with what the grid provides.
 
 ## 8. In the interface
 
-Two entry points, **one single state**. They light up and go out together.
+The grid is driven from the **view controls**, not from the toolbar: the latter **retracts below
+zoom 11** (`interaction.drawToolbarMinZoom`), whereas the grid is precisely what you want in globe
+view. A button that vanishes where the feature becomes useful is not a button.
 
-**"Measure" submenu** in the toolbar — hovering the ruler button opens two rows, "Measure"
-and "Grid":
-
-```tsx
-<Map draw={{}} toolbar={{}} />
-{/* remove the grid from the bar, without removing it from the map: */}
-<Map draw={{}} toolbar={{ measureTools: ['measure'] }} />
-```
-
-The submenu's two rows **are not painted the same way, deliberately**: "Measure" designates
-the active tool — a *choice*, exclusive of other tools — whereas "Grid" is a *switch*, which
-coexists with any tool. The first takes the solid accent fill ("this is the one"), the second a
-tint and a checkmark ("on"). Both can therefore be true at once without the menu reading as two
-competing choices.
-
-**View-controls button**, next to "Globe":
+**The button**, in the `view` group, next to "Globe":
 
 ```tsx
 <Map controls={{ buttons: { graticule: false } }} />   // to remove it
 ```
-
-⚠️ That second button is not a duplicate. The toolbar **retracts below zoom 11**
-(`interaction.drawToolbarMinZoom`): without it, the grid would become undrivable in globe
-view — exactly where it is most useful.
 
 **Shortcut** — `K` by default, in `interaction.shortcuts.controls`:
 
@@ -257,10 +240,9 @@ view — exactly where it is most useful.
 config={{ interaction: { shortcuts: { controls: { graticule: 'g', globe: 'k' } } } }}
 ```
 
-It lives in the **controls** table rather than the drawing one, even though the grid also
-has a row in the Measure submenu: it is a view command, and its button works with no
-drawing layer mounted. Filed under `draw`, the shortcut died with `<DrawLayer>` while the
-tooltip kept announcing it.
+It lives in the **controls** table rather than the drawing one: it is a view command, and its
+button works with no drawing layer mounted. Filed under `draw`, the shortcut died with
+`<DrawLayer>` while the tooltip kept announcing it.
 
 As everywhere in the library, **a key is only live if its button is rendered**.
 

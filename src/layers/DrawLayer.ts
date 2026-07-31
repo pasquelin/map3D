@@ -45,15 +45,15 @@ export type DrawTool =
 /**
  * Membres du sous-menu « Mesures » de la barre d'outils.
  *
- * ⚠️ Les deux ne sont pas de même nature : `measure` est un `DrawTool`, `graticule` une
- * bascule d'affichage du moteur. Ils partagent un sélecteur parce qu'ils répondent à la
- * même question (« où suis-je, et de combien ? »), pas parce qu'ils font la même chose —
- * exactement comme la ligne « bâtiment » partage le sélecteur des modes de sélection.
+ * Une seule rangée aujourd'hui — le sous-menu ne s'ouvre donc pas, et le bouton agit
+ * directement (cf. `useHoverFlyout`). Le châssis reste en place pour la rangée suivante : la
+ * grille de coordonnées y a vécu un temps, avant de rejoindre les contrôles de vue, où elle a
+ * sa place puisqu'elle survit au repli de la barre.
  *
  * Déclaré ICI et non côté React : `labels/types` en a besoin, et le faire descendre d'un
  * composant ferait dépendre les libellés de l'arbre React.
  */
-export type MeasureTool = 'measure' | 'graticule'
+export type MeasureTool = 'measure'
 export type { SelectMode } from './draw/SelectionManager'
 /** Style de trait d'une forme — absent = `'solid'`. */
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
