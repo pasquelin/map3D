@@ -10,7 +10,7 @@ import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from 'react-tooltip'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
-import type { DrawTool, SelectMode } from '../../layers/DrawLayer'
+import type { DrawTool, MeasureTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, useConfig, useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
@@ -18,6 +18,7 @@ import { DropdownSurface, useYieldsToDropdown } from './Dropdown'
 import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
+import { MeasureToolButton } from './MeasureToolButton'
 import { useFitColumns } from './panelFit'
 import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
@@ -28,7 +29,17 @@ import { useTip } from './tooltip'
 
 /** Sections optionnelles de la barre : `false` pour masquer, ReactNode pour remplacer. */
 export type DrawToolbarSection =
-  'navigate' | 'select' | 'symbol' | 'lens' | 'plugins' | 'stylePanel' | 'settings' | 'undo' | 'redo' | 'clear'
+  | 'navigate'
+  | 'select'
+  | 'symbol'
+  | 'measure'
+  | 'lens'
+  | 'plugins'
+  | 'stylePanel'
+  | 'settings'
+  | 'undo'
+  | 'redo'
+  | 'clear'
 
 export type DrawToolbarProps = {
   /** Côté d'ancrage de la barre. */
@@ -39,6 +50,12 @@ export type DrawToolbarProps = {
   tools?: DrawTool[]
   /** Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. */
   selectModes?: SelectMode[]
+  /**
+   * Rangées proposées par le sous-menu « Mesures » (défaut : mesurer + grille) ; une seule =
+   * pas de sous-menu, le bouton redevient un simple outil. `['measure']` retire donc la
+   * grille de la barre — elle reste atteignable par `<MapControls>` et par la config.
+   */
+  measureTools?: MeasureTool[]
   /** Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. */
   components?: SlotConfig<DrawToolbarSection>
   /**
@@ -122,6 +139,7 @@ export function Toolbar({
   minZoom: minZoomProp,
   tools = DEFAULT_DRAW_TOOLS,
   selectModes,
+  measureTools,
   components = {},
   extraTools,
 }: DrawToolbarProps) {
@@ -236,6 +254,10 @@ export function Toolbar({
         {tools.map((t) =>
           t === 'select' ? (
             slot('select', <SelectToolButton key={t} position={position} modes={selectModes} />)
+          ) : t === 'measure' ? (
+            // Sort de la boucle des outils simples : la règle est désormais le PARENT d'un
+            // sous-menu (mesurer + grille), au même titre que `select` et `symbol`.
+            slot('measure', <MeasureToolButton key={t} position={position} tools={measureTools} />)
           ) : t === 'symbol' ? (
             // Pas un outil de tracé : le bouton ouvre la palette, et le dépôt d'une
             // vignette crée la forme. Rendu ici pour qu'il prenne sa place dans

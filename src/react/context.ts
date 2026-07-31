@@ -213,8 +213,11 @@ export type DrawingApi = {
  * `selectBuilding` y figure parce qu'il partage le sélecteur et sa table de raccourcis —
  * mais il n'arme aucun outil de dessin : c'est le pick de bâtiment du moteur, et il quitte
  * le dessin au lieu de s'y ajouter.
+ *
+ * `graticule` y figure pour la même raison — il partage le sous-menu « Mesures » — mais il
+ * est encore plus éloigné du dessin : c'est un CALQUE, donc il ne quitte rien du tout.
  */
-export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso' | 'selectBuilding'
+export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso' | 'selectBuilding' | 'graticule'
 
 export const DrawingContext = createContext<DrawingApi | null>(null)
 

@@ -92,6 +92,7 @@ export type { PathData } from './layers/PathLayer'
 export type {
   DrawTool,
   GeoJSONFeatureCollection,
+  MeasureTool,
   SelectMode,
   DrawStyle,
   StrokeStyle,
@@ -169,6 +170,7 @@ export type {
   TileProvider,
   TilesConfig,
   BuildingsConfig,
+  GraticuleConfig,
   PedestrianConfig,
   PedestrianCollisionConfig,
   PedestrianPlacementConfig,
@@ -247,6 +249,13 @@ export type { ClusterContributor, ClusterPlacement, ClusterPoint } from './core/
 export { useLiveData } from './react/hooks/useLiveData'
 export { useDrawing } from './react/hooks/useDrawing'
 export { useLens } from './react/hooks/useLens'
+// Grille de coordonnées : la couche se monte comme les autres, sa BASCULE vit au moteur
+// (trois commandes la pilotent) — d'où un hook plutôt qu'une prop.
+export { GraticuleLayer } from './react/components/GraticuleLayer'
+export { MeasureToolButton } from './react/components/MeasureToolButton'
+export { useGraticule } from './react/hooks/useGraticule'
+export type { GraticuleApi } from './react/hooks/useGraticule'
+export type { CoordFormat } from './core/graticule'
 export { useDraggablePanel } from './react/hooks/useDraggablePanel'
 export type { DraggablePanel, GripProps } from './react/hooks/useDraggablePanel'
 export { useDrawSettings } from './react/hooks/useDrawSettings'

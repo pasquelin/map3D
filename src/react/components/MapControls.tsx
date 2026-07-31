@@ -6,6 +6,7 @@ import {
   mdiCrosshairsGps,
   mdiCursorMove,
   mdiEarth,
+  mdiGrid,
   mdiFullscreen,
   mdiMinus,
   mdiPerspectiveLess,
@@ -24,6 +25,7 @@ import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
 import { boundsContains } from '../../core/MarkerQuery'
 import type { LatLng } from '../../shared'
 import { useConfig, useLabels, useMapContext } from '../context'
+import { useGraticule } from '../hooks/useGraticule'
 import { usePedestrian } from '../hooks/usePedestrian'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
@@ -58,6 +60,9 @@ export type MapControlButton =
   | 'tilt'
   | 'topDown'
   | 'globe'
+  /** Grille de coordonnées. Sa TOUCHE vit dans `shortcuts.draw.graticule`, avec le
+   *  sous-menu « Mesures » qu'elle partage — pas dans `shortcuts.controls`. */
+  | 'graticule'
   | 'layers'
   | 'fullscreen'
   | 'mode3d'
@@ -141,6 +146,7 @@ export function MapControls({
 }: MapControlsProps) {
   const { engine, theme } = useMapContext()
   const config = useConfig()
+  const graticule = useGraticule()
   const labels = useLabels()
 
   // Cible hors de la vue ? Recalculé sur `viewport` (la vue stabilisée), pas sur
@@ -440,7 +446,7 @@ export function MapControls({
 
       {slot(
         'view',
-        (btn('tilt') || btn('topDown') || btn('globe')) && (
+        (btn('tilt') || btn('topDown') || btn('globe') || btn('graticule')) && (
           <div className="m3d-controls-group">
             {btn('tilt') && (
               <ToolButton
@@ -467,6 +473,22 @@ export function MapControls({
                 tip={tip}
                 shortcut={keys.globe}
                 onClick={globe}
+              />
+            )}
+            {/* Grille de coordonnées. Présente ICI en plus du sous-menu « Mesures » de la
+                barre d'outils parce que celle-ci se replie sous `drawToolbarMinZoom` (11) :
+                sans ce bouton, la grille deviendrait impilotable en vue globe — exactement
+                là où elle sert le plus. Les deux pilotent le même état moteur. */}
+            {btn('graticule') && (
+              <ToolButton
+                icon={mdiGrid}
+                label={labels.measureTools.graticule.label}
+                tip={tip}
+                // Touche lue dans `shortcuts.draw` et non `controls` : elle appartient au
+                // sous-menu « Mesures », et les deux boutons doivent afficher LA MÊME.
+                shortcut={config.interaction.shortcuts.draw.graticule}
+                active={graticule.visible}
+                onClick={graticule.toggle}
               />
             )}
           </div>

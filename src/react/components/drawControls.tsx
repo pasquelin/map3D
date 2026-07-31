@@ -5,6 +5,7 @@ import {
   mdiCursorDefaultOutline,
   mdiEraser,
   mdiGesture,
+  mdiGrid,
   mdiLasso,
   mdiRuler,
   mdiSelect,
@@ -17,7 +18,7 @@ import {
 import { UiIcon } from './UiIcon'
 import type { ReactNode } from 'react'
 import { formatLabel } from '../../labels/mergeLabels'
-import type { DrawStyle, DrawTool, SelectMode, StrokeStyle } from '../../layers/DrawLayer'
+import type { DrawStyle, DrawTool, MeasureTool, SelectMode, StrokeStyle } from '../../layers/DrawLayer'
 import { useDrawPresets, useLabels } from '../context'
 
 /** Icône de chaque outil (toolbar, panneau Réglages) — libellés dans `labels.tools`. */
@@ -80,6 +81,19 @@ export const SELECT_MODE_META: Array<{
   { mode: 'rect', action: 'selectRect', icon: mdiSelect },
   { mode: 'poly', action: 'selectPoly', icon: mdiVectorSquare },
   { mode: 'lasso', action: 'selectLasso', icon: mdiLasso },
+]
+
+/**
+ * Membres du sous-menu « Mesures » : correspondance outil ↔ icône — table unique consommée
+ * par le flyout ET le dispatch clavier, comme `SELECT_MODE_META` (ajouter une rangée = une
+ * seule ligne ici + son raccourci par défaut + son libellé `labels.measureTools`).
+ *
+ * Pas de champ `action` distinct ici, contrairement au sélecteur : là-bas le mode (`rect`) et
+ * l'action clavier (`selectRect`) portent des noms différents, ici `tool` sert des deux côtés.
+ */
+export const MEASURE_TOOL_META: Array<{ tool: MeasureTool; icon: string }> = [
+  { tool: 'measure', icon: mdiRuler },
+  { tool: 'graticule', icon: mdiGrid },
 ]
 
 /** Les valeurs de `StrokeStyle` sont exactement les mots-clés CSS `border-style`
