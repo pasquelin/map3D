@@ -444,6 +444,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'pedestrian.headBob.frequency': 'fréquence (Hz)',
   'pedestrian.transitions.enterMs': 'durée de plongée (ms)',
   'pedestrian.transitions.exitMs': 'durée de remontée (ms)',
+  'interaction.shortcuts.controls.graticule': 'grille de coordonnées',
   'interaction.shortcuts.controls.pedestrian': 'mode piéton',
   'interaction.shortcuts.pedestrian.immersion': 'basculer l’immersion',
 
@@ -477,6 +478,5 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'graticule.labels.remarkableNames': 'nommer les remarquables',
   'graticule.labels.idleOpacity': 'opacité au repos',
   'graticule.labels.hoverPaddingPx': 'marge de survol (px)',
-  'interaction.shortcuts.draw.graticule': 'grille de coordonnées',
   'style.zIndex.graticuleLabel': 'étiquettes du graticule',
 }

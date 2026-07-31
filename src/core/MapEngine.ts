@@ -406,6 +406,8 @@ export class MapEngine {
 
   private buildingPickMode = false
   private graticuleVisible = false
+  /** Une `GraticuleLayer` est-elle montée ? Cf. `setGraticuleMounted`. */
+  private graticuleMounted = false
   /** Quadrillage du globe de repli, retenu pour être masqué sous la vraie grille. */
   private fallbackGraticule: THREE.LineSegments | null = null
   /** Scratch NDC du pick de bâtiment — un objet, jamais un par mouvement de pointeur. */
@@ -2726,7 +2728,7 @@ export class MapEngine {
     // Retenu pour être effacé quand la vraie grille est allumée — sans être supprimé : sans
     // token Cesium et grille éteinte, le globe perdrait ses repères de rotation.
     this.fallbackGraticule = new THREE.LineSegments(lineGeo, lineMat)
-    this.fallbackGraticule.visible = !this.graticuleVisible
+    this.fallbackGraticule.visible = !(this.graticuleVisible && this.graticuleMounted)
     group.add(this.fallbackGraticule)
     return group
   }
@@ -2810,13 +2812,33 @@ export class MapEngine {
     this.graticuleVisible = on
     // Le globe de repli porte son propre quadrillage (cf. `buildFallbackGlobe`) : les deux
     // superposés donneraient deux mailles différentes au même endroit.
-    if (this.fallbackGraticule) this.fallbackGraticule.visible = !on
+    this.syncFallbackGraticule()
     this.emit('graticule', on)
     this.invalidate()
   }
 
   getGraticuleVisible(): boolean {
     return this.graticuleVisible
+  }
+
+  /**
+   * Déclare qu'une couche de graticule est montée — appelé par `<GraticuleLayer>`.
+   *
+   * ⚠️ Le quadrillage du globe de repli s'efface sur la présence d'une couche qui PEINT, pas
+   * sur le seul booléen d'affichage : `<MapControls graticule>` monté sans `<GraticuleLayer>`
+   * (l'exemple les monte séparément) effaçait sinon le repère du globe pour ne rien dessiner
+   * à la place.
+   */
+  setGraticuleMounted(mounted: boolean): void {
+    if (mounted === this.graticuleMounted) return
+    this.graticuleMounted = mounted
+    this.syncFallbackGraticule()
+    this.invalidate()
+  }
+
+  /** Deux quadrillages superposés donneraient deux mailles au même endroit. */
+  private syncFallbackGraticule(): void {
+    if (this.fallbackGraticule) this.fallbackGraticule.visible = !(this.graticuleVisible && this.graticuleMounted)
   }
 
   /**

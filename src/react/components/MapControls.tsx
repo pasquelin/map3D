@@ -42,6 +42,7 @@ export type MapControlAction =
   | 'tilt'
   | 'topDown'
   | 'globe'
+  | 'graticule'
   | 'layers'
   | 'fullscreen'
   /** Bascule 3D ↔ plan 2D. */
@@ -262,13 +263,15 @@ export function MapControls({
 
   // Raccourcis : listener monté UNE fois (les props sont lues via ref au moment de
   // la frappe — un littéral `shortcuts={{...}}` inline ne recrée pas le listener).
-  const stateRef = useRef({ keys, defaultShown, btn })
-  stateRef.current = { keys, defaultShown, btn }
+  // `graticule` entre dans le ref pour la même raison que le reste : le handler clavier est
+  // abonné une fois et survit à ses renders.
+  const stateRef = useRef({ keys, defaultShown, btn, graticule })
+  stateRef.current = { keys, defaultShown, btn, graticule }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = plainKey(e)
       if (!k) return
-      const { keys, defaultShown, btn } = stateRef.current
+      const { keys, defaultShown, btn, graticule } = stateRef.current
       // '=' accepté pour zoomIn '+' : même touche sans Maj sur la plupart des claviers.
       const is = (a: MapControlAction) => k === keys[a] || (keys[a] === '+' && k === '=')
       // Un raccourci n'est actif que si SON bouton est visible (groupe + grain fin).
@@ -282,6 +285,8 @@ export function MapControls({
       else if (hit('zoom', 'zoomOut', 'zoomOut')) zoomBy(config.camera.zoomFactor.out)
       else if (hit('view', 'tilt', 'tilt')) tiltUp()
       else if (hit('view', 'globe', 'globe')) globe()
+      // Un CALQUE, pas un mode : on ne relâche rien, et un tracé en cours n'est pas interrompu.
+      else if (hit('view', 'graticule', 'graticule')) graticule.toggle()
       else if (hit('fullscreen', 'fullscreen', 'fullscreen')) toggleFs()
       // La bascule s'applique au bouton de destination : masquer « Plan » désactive
       // aussi la touche qui y mènerait — et `canEnterMode` la désactive de même quand la
@@ -484,9 +489,7 @@ export function MapControls({
                 icon={mdiGrid}
                 label={labels.measureTools.graticule.label}
                 tip={tip}
-                // Touche lue dans `shortcuts.draw` et non `controls` : elle appartient au
-                // sous-menu « Mesures », et les deux boutons doivent afficher LA MÊME.
-                shortcut={config.interaction.shortcuts.draw.graticule}
+                shortcut={keys.graticule}
                 active={graticule.visible}
                 onClick={graticule.toggle}
               />

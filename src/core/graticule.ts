@@ -4,6 +4,7 @@
 // Module PUR — aucun import three, aucun DOM. C'est lui que les tests couvrent, et c'est ce
 // qui permet de vérifier l'anti-oscillation de palier sans monter une carte.
 
+import { formatLabel } from '../labels/mergeLabels'
 import { clamp, DEG2RAD, M_PER_DEG, metersPerPixelAtZoom, normalizeLng, zoomForAltitude } from './math'
 
 const MIN = 1 / 60
@@ -51,6 +52,12 @@ export const GRATICULE_LEVELS: readonly number[] = [
  * `viewportBounds()`, une grille de 25 raycasts d'ellipsoïde que le moteur réserve
  * explicitement aux consommateurs hors boucle de frame (cf. `MapEngine.tick`). Ici, deux
  * appels de fonctions pures suffisent.
+ *
+ * Échelle Web-Mercator (`metersPerPixelAtZoom`) et non résolution perspective
+ * (`Projection.metersPerPixel`) : la maille doit suivre le ZOOM PERÇU, celui qui nomme la
+ * coordonnée, et rester stable quand on incline la vue. La résolution perspective, elle, varie
+ * avec la distance au point visé — la maille changerait de palier sur un simple basculement de
+ * caméra, sans qu'aucune coordonnée ait bougé.
  */
 export function visibleSpanDeg(altitude: number, latDeg: number, viewportHeightPx: number): number {
   const mpp = metersPerPixelAtZoom(zoomForAltitude(altitude), latDeg)
@@ -74,12 +81,27 @@ export function pickLevel(
   hysteresis: number,
   range: readonly [number, number] | null,
 ): number {
-  const levels = range ? GRATICULE_LEVELS.filter((l) => l >= range[0] && l <= range[1]) : GRATICULE_LEVELS
+  // Bornes d'INDICE et non tableau filtré : l'échelle est triée décroissante, donc `range` y
+  // découpe une tranche contiguë. Filtrer allouait un tableau à chaque frame dès qu'un hôte
+  // figeait la maille — une allocation en boucle de frame sur un chemin public.
+  let lo = 0
+  let hi = GRATICULE_LEVELS.length - 1
+  if (range) {
+    while (lo <= hi && GRATICULE_LEVELS[lo]! > range[1]) lo++
+    while (hi >= lo && GRATICULE_LEVELS[hi]! < range[0]) hi--
+  }
   // `range` plus étroit que tout palier : on retombe sur sa borne basse plutôt que sur rien —
   // une grille figée hors échelle vaut mieux qu'une grille absente.
-  if (levels.length === 0) return range ? range[0] : GRATICULE_LEVELS[GRATICULE_LEVELS.length - 1]!
-  const best = levels.find((l) => spanDeg / l >= targetLines) ?? levels[levels.length - 1]!
-  if (previous === null || !levels.includes(previous) || previous === best) return best
+  if (lo > hi) return range ? range[0] : GRATICULE_LEVELS[GRATICULE_LEVELS.length - 1]!
+  let best = GRATICULE_LEVELS[hi]!
+  for (let i = lo; i <= hi; i++) {
+    if (spanDeg / GRATICULE_LEVELS[i]! >= targetLines) {
+      best = GRATICULE_LEVELS[i]!
+      break
+    }
+  }
+  const dansLaPlage = previous !== null && previous >= GRATICULE_LEVELS[hi]! && previous <= GRATICULE_LEVELS[lo]!
+  if (previous === null || !dansLaPlage || previous === best) return best
   // Bande morte : on ne quitte la maille courante que si l'écart de densité la dépasse.
   const ratio = spanDeg / previous / targetLines
   const dehors = ratio > 1 + hysteresis || ratio < 1 / (1 + hysteresis)
@@ -132,18 +154,6 @@ export function formatFor(level: number, format: CoordFormat): 'deg' | 'dm' | 'd
   return level >= MIN ? 'dm' : 'dms'
 }
 
-/**
- * Interpolation lissée de 0 à 1 entre `a` et `b` — la courbe en S d'un fondu propre.
- *
- * Distincte d'`easeInOutCubic` (`math.ts`), qui prend un `t` déjà ramené dans [0,1] : ici la
- * remise à l'échelle et le bornage font partie du travail, et c'est justement ce qu'on ne
- * veut pas réécrire sur chaque site d'appel.
- */
-export function smoothstep(a: number, b: number, x: number): number {
-  const t = Math.min(1, Math.max(0, (x - a) / Math.max(1e-6, b - a)))
-  return t * t * (3 - 2 * t)
-}
-
 /** Textes nécessaires au rendu d'une étiquette — le sous-arbre `labels.graticule`. */
 export type GraticuleTexts = {
   remarkable: Record<string, string>
@@ -179,13 +189,14 @@ export function labelFor(
       : line.value < 0
         ? texts.hemisphere.west
         : texts.hemisphere.east
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return texts.format[precision]
-    .replace('{d}', String(deg))
-    .replace('{m}', pad(min))
-    .replace('{s}', pad(sec))
-    .replace('{hemi}', hemi)
+  // `formatLabel` et non une chaîne de `.replace()` : celle-ci ne remplace que la PREMIÈRE
+  // occurrence (un gabarit traduit qui répète `{hemi}` sortait faux) et laisse une clé absente
+  // telle quelle sans le dire. C'est l'unique interpolateur `{nom}` du dépôt.
+  return formatLabel(texts.format[precision], { d: deg, m: pad2(min), s: pad2(sec), hemi })
 }
+
+/** Deux chiffres — les minutes et secondes d'une coordonnée s'écrivent toujours ainsi. */
+const pad2 = (n: number): string => String(n).padStart(2, '0')
 
 /** Emprise construite. `east` peut dépasser 180 : la bande est DÉROULÉE (cf. `linesFor`). */
 export type GraticuleBand = { south: number; north: number; west: number; east: number }
@@ -269,32 +280,36 @@ export function linesFor(band: GraticuleBand, level: number, opts: LinesOptions)
   // tombe DESSUS. Une tolérance proportionnelle à la maille (level/2) faisait passer le
   // parallèle 30° pour le tropique du Cancer dès la maille 15°.
   // L'écart se lit sur l'axe déroulé, pour que 180° et −180° soient le même méridien.
-  const marque = (values: readonly { value: number; labelKey: string }[], v: number): string | null =>
-    values.find((r) => Math.abs(normalizeLng(r.value - v)) < COINCIDENCE_EPS)?.labelKey ?? null
-
-  const parallels = remarkable?.parallels.map((r) => ({ value: r.lat, labelKey: r.labelKey })) ?? []
-  const meridians = remarkable?.meridians.map((r) => ({ value: r.lng, labelKey: r.labelKey })) ?? []
+  //
+  // `posees` retient ce que la première passe a marqué : c'est ce qui évite à la seconde de
+  // rebalayer `out` pour se demander si elle doublerait une ligne. Une seule mémoire de la
+  // question, au lieu d'une comparaison de valeurs PUIS d'une recherche de clé.
+  const posees = new Set<string>()
+  const marque = (values: readonly { lat?: number; lng?: number; labelKey: string }[], v: number): string | null => {
+    const hit = values.find((r) => Math.abs(normalizeLng((r.lat ?? r.lng!) - v)) < COINCIDENCE_EPS)
+    if (hit) posees.add(hit.labelKey)
+    return hit?.labelKey ?? null
+  }
 
   for (const lat of multiplesIn(south, north, level, maxLines)) {
-    out.push({ kind: 'parallel', value: lat, remarkable: marque(parallels, lat) })
+    out.push({ kind: 'parallel', value: lat, remarkable: marque(remarkable?.parallels ?? [], lat) })
   }
   // Longitudes engendrées sur l'axe DÉROULÉ puis ramenées dans [-180, 180] : une bande à
   // cheval sur l'antiméridien (170 → 190) doit produire 170, 175, 180, −175, −170 sans trou.
   for (const lng of multiplesIn(band.west, band.east, level, maxLines)) {
     const v = normalizeLng(lng)
-    out.push({ kind: 'meridian', value: v, remarkable: marque(meridians, v) })
+    out.push({ kind: 'meridian', value: v, remarkable: marque(remarkable?.meridians ?? [], v) })
   }
 
   if (!remarkable) return out
-  const aDeja = (kind: 'parallel' | 'meridian', key: string) => out.some((l) => l.kind === kind && l.remarkable === key)
   for (const r of remarkable.parallels) {
-    if (r.lat < south || r.lat > north || aDeja('parallel', r.labelKey)) continue
+    if (r.lat < south || r.lat > north || posees.has(r.labelKey)) continue
     out.push({ kind: 'parallel', value: r.lat, remarkable: r.labelKey })
   }
   for (const r of remarkable.meridians) {
     // Test sur l'axe déroulé : la bande peut couvrir 170→190 et contenir −175.
     const dedans = [r.lng, r.lng + 360, r.lng - 360].some((v) => v >= band.west && v <= band.east)
-    if (!dedans || aDeja('meridian', r.labelKey)) continue
+    if (!dedans || posees.has(r.labelKey)) continue
     out.push({ kind: 'meridian', value: r.lng, remarkable: r.labelKey })
   }
   return out

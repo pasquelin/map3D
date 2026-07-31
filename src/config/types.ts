@@ -910,6 +910,18 @@ export type ControlShortcuts = {
   topDown: string | false
   /** Recul en vue globe. */
   globe: string | false
+  /**
+   * Bascule de la grille de coordonnées.
+   *
+   * ⚠️ ICI et non dans `draw`, bien que la grille ait aussi une rangée dans le sous-menu
+   * « Mesures » : c'est une commande de VUE, et son bouton des contrôles fonctionne sans
+   * aucune couche de dessin montée. Rangée sous `draw`, la touche mourait avec `<DrawLayer>`
+   * pendant que l'infobulle du bouton continuait de l'annoncer.
+   *
+   * `'g'` — le choix évident pour « grille » — est déjà `globe`, d'où le défaut `'k'`.
+   * Les échanger tient en une ligne : `{ controls: { graticule: 'g', globe: 'k' } }`.
+   */
+  graticule: string | false
   /** Ouvre le panneau « Couches » (filtre par tag). */
   layers: string | false
   /** Plein écran. */
@@ -951,17 +963,6 @@ export type DrawToolShortcuts = {
   arrow: string | false
   /** Règle de mesure. */
   measure: string | false
-  /**
-   * Bascule de la grille de coordonnées — une ligne du sous-menu « Mesures », mais pas un
-   * outil de tracé : elle allume un CALQUE, sans rien relâcher de ce qui est actif.
-   *
-   * Elle vit dans cette table parce qu'elle partage ce sous-menu, pour la même raison que
-   * `selectBuilding` vit ici en partageant le sélecteur.
-   *
-   * ⚠️ `'g'` — le choix évident pour « grille » — est déjà `controls.globe`, d'où le défaut
-   * `'k'`. Les échanger tient en une ligne : `{ draw: { graticule: 'g' }, controls: { globe: 'k' } }`.
-   */
-  graticule: string | false
   /** Gomme. */
   erase: string | false
   /** Palette de symboles tactiques. */

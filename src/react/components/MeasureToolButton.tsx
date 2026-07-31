@@ -1,16 +1,15 @@
 import { mdiRuler } from '@mdi/js'
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import type { MeasureTool } from '../../layers/DrawLayer'
 import { useConfig, useLabels } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useGraticule } from '../hooks/useGraticule'
 import { MEASURE_TOOL_META } from './drawControls'
-import { DropdownSurface, useYieldsToDropdown } from './Dropdown'
-import { TIP_ID, useToolbar } from './Toolbar'
+import { DropdownSurface } from './Dropdown'
+import { TIP_ID, useHoverFlyout, useToolbar } from './Toolbar'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
-import { useCloseWhenHidden } from './useDismiss'
 
 /**
  * Bouton « Mesures » + sous-menu (mesurer, grille de coordonnées), ouvert au SURVOL du côté
@@ -25,29 +24,23 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
   const { tool, setTool, shortcuts } = useDrawing()
   const graticule = useGraticule()
   const labels = useLabels()
-  const graticuleKey = useConfig().interaction.shortcuts.draw.graticule
+  // Même table que le bouton des contrôles de vue : les deux affichent LA MÊME touche, et
+  // c'est là que le dispatch clavier va la chercher.
+  const graticuleKey = useConfig().interaction.shortcuts.controls.graticule
   const tip = useTip(TIP_ID)
-  const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const bar = useToolbar()
-  useCloseWhenHidden(bar.retracted, setOpen)
 
   const active = tool === 'measure'
   const available = tools ? MEASURE_TOOL_META.filter((m) => tools.includes(m.tool)) : MEASURE_TOOL_META
-  // Même règle que le sélecteur : une seule rangée disponible = pas de sous-menu, et le
-  // survol ne doit pas venir poser une surface par-dessus un dropdown déjà ouvert.
-  const dropdownOuvert = useYieldsToDropdown()
-  const hasFlyout = available.length > 1 && !dropdownOuvert
+  // Châssis partagé avec le sélecteur : ouverture au survol, effacement devant un dropdown,
+  // fermeture au repli de la barre.
+  const flyout = useHoverFlyout(available.length)
   const shortcutOf = (t: MeasureTool) => (t === 'measure' ? shortcuts.measure : graticuleKey)
   const isOn = (t: MeasureTool) => (t === 'measure' ? active : graticule.visible)
 
   return (
-    <div
-      ref={wrapRef}
-      className="m3d-selectwrap"
-      onPointerEnter={hasFlyout ? () => setOpen(true) : undefined}
-      onPointerLeave={hasFlyout ? () => setOpen(false) : undefined}
-    >
+    <div ref={wrapRef} {...flyout.wrapProps}>
       <ToolButton
         // Publie son bouton comme ancre de l'outil actif : c'est lui que le panneau de style
         // doit longer. Sans ça, `measure` ayant quitté la boucle `tools.map` qui s'en
@@ -63,10 +56,10 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
         // Allumé si l'UN des deux l'est : la barre doit dire qu'il se passe quelque chose
         // sous ce bouton, même quand c'est la grille et non la règle.
         active={active || graticule.visible}
-        className={hasFlyout ? 'm3d-btn-flyout' : undefined}
+        className={flyout.hasFlyout ? 'm3d-btn-flyout' : undefined}
         onClick={() => setTool(active ? null : 'measure')}
       />
-      {open && hasFlyout && (
+      {flyout.showing && (
         <DropdownSurface anchor={wrapRef.current} position={position} clampHeight={false} panelClassName="m3d-flyout">
           {available.map((m) => (
             <button
@@ -78,7 +71,7 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
                 // interrompre un tracé en cours. Seule la règle est un outil exclusif.
                 if (m.tool === 'graticule') graticule.toggle()
                 else setTool(active ? null : 'measure')
-                setOpen(false)
+                flyout.close()
               }}
             >
               <UiIcon path={m.icon} />

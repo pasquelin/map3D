@@ -290,6 +290,9 @@ export const defaultConfig: MapConfig = {
         layers: 't',
         fullscreen: 'f',
         basemap: 'b',
+        // 'k' faute de mieux : 'g' (grille) est pris par `globe`, et aucune autre lettre
+        // mnémonique n'était libre. À échanger en une ligne si l'hôte préfère 'g'.
+        graticule: 'k',
         // Le bouton n'existe qu'en mode plan : un raccourci global serait déroutant.
         traffic: false,
         // 'w' : les lettres voisines sont prises (ZQSD navigue, 'p' est le polygone), et
@@ -328,9 +331,6 @@ export const defaultConfig: MapConfig = {
         freehand: 'h',
         arrow: 'a',
         measure: 'm',
-        // 'k' faute de mieux : 'g' (grille) est pris par `controls.globe`, et aucune autre
-        // lettre mnémonique n'était libre. À échanger en une ligne si l'hôte préfère 'g'.
-        graticule: 'k',
         erase: 'e',
         symbol: 'y',
       },

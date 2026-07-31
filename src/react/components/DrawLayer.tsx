@@ -502,12 +502,7 @@ export function DrawLayer(props: DrawLayerProps) {
         )
         if (!found) return
         const modeMeta = SELECT_MODE_META.find((m) => m.action === found[0])
-        if (found[0] === 'graticule') {
-          // Un CALQUE, pas un outil : on ne relâche ni l'outil de tracé ni la loupe, et un
-          // tracé en cours n'est pas interrompu. L'état vit au moteur — seule source de
-          // vérité partagée avec les deux boutons qui le pilotent aussi.
-          engine.setGraticuleVisible(!engine.getGraticuleVisible())
-        } else if (found[0] === 'selectBuilding') {
+        if (found[0] === 'selectBuilding') {
           // Ligne « bâtiment » du sélecteur : un outil du MOTEUR, pas du dessin. Le moteur
           // refuse de lui-même hors volume interne, et `useYieldsTool` retire l'outil de
           // tracé — comme pour la loupe. Reste la loupe elle-même, qui ne se cède pas.

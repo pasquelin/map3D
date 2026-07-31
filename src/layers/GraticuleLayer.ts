@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
-import { clearGroup, disposeObject3D } from '../core/geometry'
+import { clearGroup, disposeObject3D, edgeMaterial } from '../core/geometry'
 import {
   bandFor,
   type GraticuleBand,
@@ -10,13 +10,14 @@ import {
   labelFor,
   linesFor,
   pickLevel,
-  smoothstep,
   visibleSpanDeg,
 } from '../core/graticule'
-import { EnuFrame, tiltFromNadir } from '../core/enu'
+import { tiltFromNadir } from '../core/enu'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { Projection, ScreenPoint } from '../core/Projection'
-import { RAD2DEG } from '../core/math'
+import { approach, RAD2DEG, smoothstep } from '../core/math'
+import { defaultTheme } from '../theme/defaultTheme'
+import { isInsideFrame } from './markerCull'
 import type { LatLng } from '../shared'
 
 /**
@@ -31,11 +32,11 @@ const LABEL_CLASS = 'm3d-markertip m3d-graticule-label'
 const LABEL_TITLE_CLASS = 'm3d-markertip-title'
 
 /**
- * Couleurs de repli quand le thème hôte est antérieur à `colors.graticule`. Doivent rester
- * ALIGNÉES sur `defaultTheme.colors.graticule` : deux jaunes différents selon l'ancienneté du
- * thème seraient un défaut invisible en développement et voyant en production.
+ * Couleurs de repli quand le thème hôte est antérieur à `colors.graticule` — LUES dans le
+ * thème par défaut, jamais recopiées : deux jaunes à tenir synchrones à la main seraient un
+ * défaut invisible en développement et voyant en production. Même patron que `BuildingsLayer`.
  */
-const FALLBACK_COLORS = { line: '#ffd54a', remarkable: '#ff8f00' } as const
+const FALLBACK_COLORS: GraticuleColors = defaultTheme.colors.graticule ?? { line: '#ffffff', remarkable: '#ffffff' }
 
 /**
  * Écart au centre du placement `'edges'`, en fraction de la hauteur visible. 0,45 et non 0,5 :
@@ -49,6 +50,12 @@ const EDGE_OFFSET = 0.45
  * plus lisible que « en travers ».
  */
 const LABEL_TILT_MAX = 45
+
+/**
+ * Étendue angulaire maximale d'un segment de ligne (degrés). La flèche d'un arc de 0,25° au sol
+ * vaut ~6 cm : très en deçà du pixel à toute altitude où la grille se lit.
+ */
+const MAX_SEG_DEG = 0.25
 
 export type GraticuleColors = { line: string; remarkable: string }
 
@@ -68,17 +75,31 @@ export class GraticuleLayer implements Layer {
   readonly group = new THREE.Group()
   private config: MapConfig = defaultConfig
   private visible = false
-  /** Plafond d'inclinaison du mode courant (rad) — poussé par le wrapper React. */
+  /**
+   * Plafond d'inclinaison du mode courant (rad), poussé par le moteur.
+   *
+   * ⚠️ Ne PAS le redériver de `config.camera.maxTilt2d/3d` : `MapEngine.applyCameraLimits` en
+   * est la source unique et le borne en plus par `controls.maxAltitude`. Une copie ignorait ce
+   * second plafond, donc la bande de fondu se décalait en vue inclinée.
+   */
   private maxTilt = defaultConfig.camera.maxTilt3d
   private colors: GraticuleColors = FALLBACK_COLORS
   private texts: GraticuleTexts
 
   private level: number | null = null
-  private band: GraticuleBand | null = null
   private builtHeight = 0
   private builtLat = 0
   private builtLng = 0
   private lines: GraticuleLine[] = []
+  /**
+   * Texte de chaque ligne, calculé au REBUILD. Il ne dépend que de la ligne, de la maille et
+   * des libellés — tous stables entre deux reconstructions. Le recalculer par frame allouait
+   * une dizaine d'objets et de chaînes PAR ÉTIQUETTE, pour réécrire la même valeur.
+   */
+  private lineTexts: string[] = []
+  /** Les deux jeux de segments, nommés : `setColors` et `applyOpacity` n'ont plus à fouiller. */
+  private ordinary: THREE.LineSegments | null = null
+  private remarkableSeg: THREE.LineSegments | null = null
 
   /** Opacité du fondu (0–1), multipliée par les opacités de config. */
   private fade = 1
@@ -99,19 +120,31 @@ export class GraticuleLayer implements Layer {
   private readonly labelHits: { x: number; y: number; hw: number; hh: number }[] = []
   /** Nombre d'étiquettes réellement affichées à la dernière passe. */
   private labelCount = 0
+  /** Borne haute des étiquettes VISIBLES — au-delà, `hideLabelsFrom` n'a rien à faire. */
+  private shownCount = 0
+  /** Dernière opacité écrite par slot : réécrire la même valeur est une écriture CSSOM pour rien. */
+  private readonly labelOpacity: number[] = []
+  /** Rect de l'overlay, mémoïsé par frame — `getBoundingClientRect` force une mise en page. */
+  private overlayRect: DOMRect | null = null
   /** Index de l'étiquette sous le pointeur, `-1` si aucune. */
   private hovered = -1
-  /** Position du pointeur dans le repère de l'overlay, `null` s'il est sorti. */
-  private pointer: { x: number; y: number } | null = null
+  /** Position du pointeur dans le repère de l'overlay — préallouée (un événement, zéro alloc). */
+  private readonly pointer = { x: 0, y: 0 }
+  private hasPointer = false
   /** `invalidate` de la dernière frame — le survol change hors boucle et doit la réveiller. */
   private invalidate: (() => void) | null = null
   private readonly onPointerMove = (e: PointerEvent): void => {
-    const r = this.overlay.getBoundingClientRect()
-    this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top }
+    // Rect mémoïsé par frame (patron de `DrawLayer`) : le lire à chaque événement forçait une
+    // mise en page jusqu'à 250 fois par seconde, et précisément pendant un glisser de carte —
+    // le moment où le budget est le plus tendu.
+    this.overlayRect ??= this.overlay.getBoundingClientRect()
+    this.pointer.x = e.clientX - this.overlayRect.left
+    this.pointer.y = e.clientY - this.overlayRect.top
+    this.hasPointer = true
     this.refreshHover()
   }
   private readonly onPointerLeave = (): void => {
-    this.pointer = null
+    this.hasPointer = false
     this.refreshHover()
   }
 
@@ -119,6 +152,10 @@ export class GraticuleLayer implements Layer {
   private readonly scratch = new THREE.Vector3()
   private readonly scratchB = new THREE.Vector3()
   private readonly tiltScratch = new THREE.Vector3()
+  private readonly enuOrigin = new THREE.Vector3()
+  private readonly enuEast = new THREE.Vector3()
+  private readonly enuNorth = new THREE.Vector3()
+  private readonly enuUp = new THREE.Vector3()
   // Deux ancres DISTINCTES : `screenAngle` a besoin du point d'ancrage ET d'un second point
   // le long de la ligne en même temps. Les partager ferait s'écraser le premier par le
   // second, et l'angle mesuré serait nul.
@@ -129,7 +166,6 @@ export class GraticuleLayer implements Layer {
   // `worldToScreen` ALLOUE son résultat quand on ne lui donne pas de cible : trois points
   // par étiquette et par frame, sinon.
   private readonly sp: ScreenPoint = { sx: 0, sy: 0, z: 0 }
-  private readonly spA: ScreenPoint = { sx: 0, sy: 0, z: 0 }
   private readonly spB: ScreenPoint = { sx: 0, sy: 0, z: 0 }
 
   constructor(
@@ -156,13 +192,12 @@ export class GraticuleLayer implements Layer {
    * ici, donc aucun reflux forcé sur un `pointermove` (qui peut arriver en plein glisser).
    */
   private refreshHover(): void {
-    const p = this.pointer
     let next = -1
-    if (p) {
+    if (this.hasPointer) {
       const pad = this.config.graticule.labels.hoverPaddingPx
       for (let i = 0; i < this.labelCount; i++) {
         const h = this.labelHits[i]!
-        if (Math.abs(p.x - h.x) <= h.hw + pad && Math.abs(p.y - h.y) <= h.hh + pad) {
+        if (Math.abs(this.pointer.x - h.x) <= h.hw + pad && Math.abs(this.pointer.y - h.y) <= h.hh + pad) {
           next = i
           break
         }
@@ -181,13 +216,26 @@ export class GraticuleLayer implements Layer {
     this.level = null
   }
 
+  /**
+   * Change les teintes SANS reconstruire.
+   *
+   * `this.level = null` (le sentinel « géométrie invalide ») serait faux ici : une couleur ne
+   * déplace aucun sommet, et le poser déclenchait en prime un fondu croisé complet — jusqu'à
+   * des dizaines de milliers de sommets recalculés parce qu'un hôte a changé de charte.
+   */
   setColors(colors: GraticuleColors | undefined): void {
     this.colors = colors ?? FALLBACK_COLORS
-    this.level = null
+    if (this.ordinary) (this.ordinary.material as THREE.LineBasicMaterial).color.set(this.colors.line)
+    if (this.remarkableSeg) {
+      ;(this.remarkableSeg.material as THREE.LineBasicMaterial).color.set(this.colors.remarkable)
+    }
   }
 
   setTexts(texts: GraticuleTexts): void {
     this.texts = texts
+    // Les textes sont calculés au rebuild : sans ce sentinel, changer de langue ne se verrait
+    // qu'au prochain changement de maille.
+    this.level = null
   }
 
   setVisible(on: boolean): void {
@@ -207,6 +255,8 @@ export class GraticuleLayer implements Layer {
       return
     }
     this.invalidate = ctx.invalidate
+    // Le layout a pu changer depuis la frame précédente : le rect se remesure au plus une fois.
+    this.overlayRect = null
     const g = this.config.graticule
     const { lat, lng, altitude } = ctx.cameraState
     const span = visibleSpanDeg(altitude, lat, ctx.size.height)
@@ -215,31 +265,36 @@ export class GraticuleLayer implements Layer {
     const height = this.projection.surfaceFallbackHeight + g.heightOffsetMeters
 
     if (this.needsRebuild(level, lat, lng, height, span)) {
-      this.band = bandFor(lat, lng, span, g.bandScreens, g.latLimitDeg)
-      this.lines = linesFor(this.band, level, {
+      const band = bandFor(lat, lng, span, g.bandScreens, g.latLimitDeg)
+      this.lines = linesFor(band, level, {
         maxLines: g.maxLines,
         latLimitDeg: g.latLimitDeg,
         remarkable: g.remarkable.enabled ? g.remarkable : null,
       })
+      // Textes calculés ICI, une fois par reconstruction : ils ne dépendent que de la ligne, de
+      // la maille et des libellés. Les refaire dans `project()` était la première source
+      // d'allocations de la couche — une dizaine par étiquette et par frame, aussitôt jetées.
+      this.lineTexts = this.lines.map((l) => labelFor(l, level, g.labels.format, this.texts, g.labels.remarkableNames))
       this.level = level
       this.builtHeight = height
       this.builtLat = lat
       this.builtLng = lng
-      this.rebuild(height)
+      this.rebuild(band, height)
     }
 
     // L'inclinaison n'est PAS dans `ctx.cameraState` : `getState()` la rend toujours nulle,
     // seul `getPose()` la calcule et il ne s'appelle pas dans la boucle. On la relit donc
     // sur la matrice — une lecture, sur des scratch réutilisés.
-    const frame = new EnuFrame(this.projection, ctx.cameraState)
-    const tilt = tiltFromNadir(ctx.camera.matrixWorld, frame.up, this.tiltScratch)
+    // `getENUAxes` écrit dans des scratch ; `new EnuFrame` allouait l'instance PLUS six
+    // `Vector3` par frame, pour n'en lire qu'un seul (`up`).
+    this.projection.getENUAxes(ctx.cameraState, this.enuOrigin, this.enuEast, this.enuNorth, this.enuUp)
+    const tilt = tiltFromNadir(ctx.camera.matrixWorld, this.enuUp, this.tiltScratch)
     // Bande en FRACTIONS du plafond du mode : 79,2° en 3D contre 36° à plat, donc une bande
     // en degrés absolus ne se déclencherait jamais en mode plan.
     const ratio = tilt / Math.max(1e-6, this.maxTilt)
     const target = 1 - smoothstep(g.tiltFade.start, g.tiltFade.end, ratio)
     // Lissage exponentiel indépendant de la cadence — c'est lui, « la douceur ».
-    const k = g.fadeMs > 0 ? 1 - Math.exp((-ctx.dt * 1000) / g.fadeMs) : 1
-    this.fade += (target - this.fade) * k
+    this.fade = approach(this.fade, target, g.fadeMs / 1000, ctx.dt)
     // ⚠️ `invalidate()` UNIQUEMENT tant que ça converge : sinon la grille tiendrait la boucle
     // de rendu à la demande éveillée en permanence, carte immobile.
     if (Math.abs(target - this.fade) < 1e-3) this.fade = target
@@ -258,7 +313,7 @@ export class GraticuleLayer implements Layer {
 
   /** Les trois — et seuls — déclencheurs de reconstruction. */
   private needsRebuild(level: number, lat: number, lng: number, height: number, span: number): boolean {
-    if (this.level !== level || !this.band) return true
+    if (this.level !== level) return true
     if (Math.abs(height - this.builtHeight) > this.config.graticule.heightToleranceMeters) return true
     // Sorti de la bande : elle déborde de `bandScreens - 1` écran de chaque côté, et c'est
     // cette marge — pas la bande entière — qu'un pan peut consommer avant reconstruction.
@@ -266,7 +321,7 @@ export class GraticuleLayer implements Layer {
     return Math.abs(lat - this.builtLat) > half || Math.abs(lng - this.builtLng) > half
   }
 
-  private rebuild(height: number): void {
+  private rebuild(band: GraticuleBand, height: number): void {
     const fadeMs = this.config.graticule.levelFadeMs
     if (fadeMs <= 0 || this.outgoing) {
       // Fondu coupé, ou un fondu déjà en cours : on jette, sinon les jeux s'empileraient.
@@ -280,21 +335,20 @@ export class GraticuleLayer implements Layer {
       this.scene.add(sortant)
       this.outgoing = { group: sortant, fade: 1 }
     }
-    const ordinary = this.buildSegments(false, height)
-    const remarkable = this.buildSegments(true, height)
-    if (ordinary) this.group.add(ordinary)
-    if (remarkable) this.group.add(remarkable)
+    // Les anciennes références sont cédées (jetées ou passées au sortant) : les oublier ici
+    // évite qu'un `setColors` reteinte une géométrie qui n'est plus à l'écran.
+    this.ordinary = this.buildSegments(band, false, height)
+    this.remarkableSeg = this.buildSegments(band, true, height)
+    if (this.ordinary) this.group.add(this.ordinary)
+    if (this.remarkableSeg) this.group.add(this.remarkableSeg)
   }
 
   /** Un `LineSegments` pour les lignes ordinaires, un pour les remarquables (deux couleurs). */
-  private buildSegments(remarkable: boolean, height: number): THREE.LineSegments | null {
+  private buildSegments(band: GraticuleBand, remarkable: boolean, height: number): THREE.LineSegments | null {
     const g = this.config.graticule
-    const band = this.band
-    if (!band) return null
     const wanted = this.lines.filter((l) => (l.remarkable !== null) === remarkable)
     if (wanted.length === 0) return null
-    const segs = Math.max(2, g.segmentsPerLine)
-    const positions = new Float32Array(wanted.length * (segs - 1) * 2 * 3)
+    const positions = new Float32Array(wanted.length * (Math.max(2, g.segmentsPerLine) - 1) * 2 * 3)
     let o = 0
     const push = (p: LatLng) => {
       this.projection.latLngToWorld(p, this.scratch, height)
@@ -303,8 +357,16 @@ export class GraticuleLayer implements Layer {
       positions[o++] = this.scratch.z
     }
     for (const line of wanted) {
-      const from = line.kind === 'parallel' ? band.west : Math.max(band.south, -g.latLimitDeg)
-      const to = line.kind === 'parallel' ? band.east : Math.min(band.north, g.latLimitDeg)
+      // La bande sort DÉJÀ bornée aux pôles de `bandFor` : re-borner ici ne pouvait jamais mordre.
+      const from = line.kind === 'parallel' ? band.west : band.south
+      const to = line.kind === 'parallel' ? band.east : band.north
+      // Densification proportionnée à l'ÉTENDUE, plafonnée par la config. À 128 segments fixes,
+      // un parallèle couvrant 0,002° en vue rue produisait 126 sommets colinéaires — transformés
+      // par le vertex shader à chaque frame peinte, pour une courbure nulle.
+      const segs = Math.max(
+        2,
+        Math.min(Math.max(2, g.segmentsPerLine), Math.ceil(Math.abs(to - from) / MAX_SEG_DEG) + 1),
+      )
       const step = (to - from) / (segs - 1)
       for (let i = 0; i < segs - 1; i++) {
         const a = from + i * step
@@ -333,13 +395,9 @@ export class GraticuleLayer implements Layer {
           dashSize: g.dash.dash,
           gapSize: g.dash.gap,
         })
-      : new THREE.LineBasicMaterial({
-          color,
-          transparent: true,
-          opacity,
-          // La grille est un repère : elle se lit par-dessus le relief, pas sous lui.
-          depthWrite: false,
-        })
+      : // `edgeMaterial` rend exactement ce matériau (1 px, `depthWrite: false`) et porte déjà
+        // la note sur `linewidth` que WebGL ignore — ici c'est l'effet recherché, pas une limite.
+        edgeMaterial(color, opacity)
     const seg = new THREE.LineSegments(geo, mat)
     // Sans abscisse curviligne, le shader n'a rien à découper et le pointillé sort plein.
     // Une passe sur les sommets, au rebuild seul.
@@ -368,10 +426,10 @@ export class GraticuleLayer implements Layer {
 
   /** Reporte le fondu sur les matériaux — deux écritures de scalaire par frame. */
   private applyOpacity(): void {
-    for (const child of this.group.children) {
-      const seg = child as THREE.LineSegments
-      const mat = seg.material as THREE.LineBasicMaterial
-      mat.opacity = (seg.userData.baseOpacity as number) * this.fade
+    const g = this.config.graticule
+    if (this.ordinary) (this.ordinary.material as THREE.LineBasicMaterial).opacity = g.opacity * this.fade
+    if (this.remarkableSeg) {
+      ;(this.remarkableSeg.material as THREE.LineBasicMaterial).opacity = g.remarkableOpacity * this.fade
     }
   }
 
@@ -379,8 +437,7 @@ export class GraticuleLayer implements Layer {
   private updateOutgoing(ctx: FrameContext): void {
     const out = this.outgoing
     if (!out) return
-    const k = 1 - Math.exp((-ctx.dt * 1000) / Math.max(1, this.config.graticule.levelFadeMs))
-    out.fade -= out.fade * k
+    out.fade = approach(out.fade, 0, this.config.graticule.levelFadeMs / 1000, ctx.dt)
     if (out.fade < 0.01) {
       this.dropOutgoing()
       return
@@ -408,6 +465,11 @@ export class GraticuleLayer implements Layer {
     const g = this.config.graticule
     if (!this.group.visible || !g.labels.enabled || this.level === null) {
       this.hideLabelsFrom(0)
+      // ⚠️ Sans ça, `labelHits` gardait des boîtes PÉRIMÉES : le pointeur entrant dans l'une
+      // d'elles faisait basculer `hovered`, donc réveillait la boucle pour trois frames
+      // (`renderOnDemand.idleFrames`) — sur une carte immobile, grille éteinte.
+      this.labelCount = 0
+      this.hovered = -1
       return
     }
     // Exigé par `isBehindCamera` : une inversion de matrice pour la passe entière au lieu
@@ -417,14 +479,16 @@ export class GraticuleLayer implements Layer {
     let used = 0
     let lastX = Number.NEGATIVE_INFINITY
     let lastY = Number.NEGATIVE_INFINITY
-    for (const line of this.lines) {
+    for (let li = 0; li < this.lines.length; li++) {
       if (used >= g.labels.maxLabels) break
+      const line = this.lines[li]!
       const anchor = this.labelAnchor(line, centerLat, centerLng)
       const world = this.projection.latLngToWorld(anchor, this.scratch, this.builtHeight)
       if (this.projection.isBehindCamera(world, ctx.camera.position)) continue
       if (!this.projection.isAboveHorizon(world, ctx.camera.position)) continue
       const s = this.projection.worldToScreen(world, ctx.camera, this.sp)
-      if (s.sx < 0 || s.sy < 0 || s.sx > ctx.size.width || s.sy > ctx.size.height) continue
+      // `isInsideFrame` : le cull d'écran partagé avec `MarkerLayer`, marge comprise.
+      if (!isInsideFrame(s.sx, s.sy, ctx.size.width, ctx.size.height, 0)) continue
       // Espacement minimal : deux étiquettes d'une même chaîne se chevauchent dès que la
       // maille se resserre à l'écran.
       if (Math.hypot(s.sx - lastX, s.sy - lastY) < g.labels.spacingPx) continue
@@ -432,27 +496,31 @@ export class GraticuleLayer implements Layer {
       lastY = s.sy
       const i = used++
       const el = this.labelAt(i)
-      const text = labelFor(line, this.level, g.labels.format, this.texts, g.labels.remarkableNames)
-      // Écriture CONDITIONNELLE : réécrire un `textContent` identique invalide la mise en
-      // page du nœud, quarante fois par frame.
-      const title = el.firstElementChild as HTMLElement
-      if (title.textContent !== text) title.textContent = text
-      const rot = g.labels.rotate ? this.screenAngle(line, anchor, ctx) : 0
-      el.style.display = 'block'
-      // Translucide au repos, pleine sous le pointeur : l'étiquette se fait oublier tant
-      // qu'on ne la cherche pas. Le survol vient de `refreshHover`, jamais du CSS.
-      el.style.opacity = String(this.fade * (i === this.hovered ? 1 : g.labels.idleOpacity))
-      el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
-      // Boîte de survol. `transform` et `opacity` ne salissent pas la mise en page (le
-      // compositeur seul les lit) : lire la taille juste après ne force donc rien. Seul un
-      // `textContent` réécrit la salit — d'où l'écriture conditionnelle plus haut, qui borne
-      // le reflux aux frames où une étiquette a réellement changé de texte.
-      const hit = this.labelHits[i] ?? { x: 0, y: 0, hw: 0, hh: 0 }
+      const text = this.lineTexts[li] ?? ''
+      const hit = (this.labelHits[i] ??= { x: 0, y: 0, hw: 0, hh: 0 })
       hit.x = s.sx
       hit.y = s.sy
-      hit.hw = el.offsetWidth / 2
-      hit.hh = el.offsetHeight / 2
-      this.labelHits[i] = hit
+      // Écriture CONDITIONNELLE, et la MESURE avec elle : la taille d'une pastille ne dépend
+      // que de son texte. Mesurer à chaque frame plaçait 80 lectures de layout dans une passe
+      // d'ÉCRITURE, entrelacées avec les écritures des autres couches — le cas d'école du
+      // layout thrashing. Le texte, lui, vient du cache de reconstruction.
+      const title = el.firstElementChild as HTMLElement
+      if (title.textContent !== text) {
+        title.textContent = text
+        hit.hw = el.offsetWidth / 2
+        hit.hh = el.offsetHeight / 2
+      }
+      // `display` n'est posé qu'à l'apparition : au-delà de `shownCount`, le slot était caché.
+      if (i >= this.shownCount) el.style.display = 'block'
+      const opacity = this.fade * (i === this.hovered ? 1 : g.labels.idleOpacity)
+      if (this.labelOpacity[i] !== opacity) {
+        el.style.opacity = String(opacity)
+        this.labelOpacity[i] = opacity
+      }
+      // `screenAngle` reçoit le point DÉJÀ projeté : le recalculer doublait le coût de la
+      // rotation pour un résultat bit-à-bit identique.
+      const rot = g.labels.rotate ? this.screenAngle(line, anchor, s, ctx) : 0
+      el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
     }
     this.labelCount = used
     this.hideLabelsFrom(used)
@@ -479,15 +547,13 @@ export class GraticuleLayer implements Layer {
   }
 
   /** Angle écran de la ligne au point d'ancrage (degrés), borné pour ne jamais écrire à l'envers. */
-  private screenAngle(line: GraticuleLine, anchor: LatLng, ctx: FrameContext): number {
+  private screenAngle(line: GraticuleLine, anchor: LatLng, s1: ScreenPoint, ctx: FrameContext): number {
     // Un second point légèrement plus loin le long de la même ligne : leur différence à
     // l'écran donne la direction, courbure comprise.
     const delta = Math.max(this.level ?? 0, 1e-4) * 0.25
     const v = (line.kind === 'parallel' ? anchor.lng : anchor.lat) + delta
     // `anchor` est `this.anchor` : le second point s'écrit donc dans `anchorB`, sinon il
-    // écraserait le premier avant qu'on l'ait projeté.
-    const w1 = this.projection.latLngToWorld(anchor, this.scratch, this.builtHeight)
-    const s1 = this.projection.worldToScreen(w1, ctx.camera, this.spA)
+    // écraserait le premier — que l'appelant a déjà projeté et nous passe en `s1`.
     const w2 = this.projection.latLngToWorld(this.at(line, v, this.anchorB), this.scratchB, this.builtHeight)
     const s2 = this.projection.worldToScreen(w2, ctx.camera, this.spB)
     let deg = Math.atan2(s2.sy - s1.sy, s2.sx - s1.sx) * RAD2DEG
@@ -517,8 +583,14 @@ export class GraticuleLayer implements Layer {
     return el
   }
 
+  /**
+   * Cache les slots au-delà de `i`. Borné par `shownCount` et non par la taille du pool :
+   * grille éteinte, réécrire `display: none` sur quarante éléments déjà cachés coûtait quarante
+   * écritures CSSOM par frame, indéfiniment — la couche restant montée en permanence.
+   */
   private hideLabelsFrom(i: number): void {
-    for (let k = i; k < this.labelPool.length; k++) this.labelPool[k]!.style.display = 'none'
+    for (let k = i; k < this.shownCount; k++) this.labelPool[k]!.style.display = 'none'
+    this.shownCount = i
   }
 
   dispose(): void {

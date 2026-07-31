@@ -7,6 +7,8 @@
  * bruitée et vit en espace objet — la transformer coûterait plus cher que le gain, pour un
  * résultat moins stable. Avec 6 à 8 palpeurs, l'approximation suffit à longer un mur.
  */
+import { approach } from './math'
+
 export type FeelerHit = {
   dirEast: number
   dirNorth: number
@@ -54,13 +56,9 @@ export function stepGround(currentGround: number, nextGround: number, maxStepHei
 }
 
 /**
- * Lissage vertical exponentiel, **indépendant de la cadence**.
- *
- * `smoothingSeconds` est une constante de temps, pas un facteur `0..1` : un facteur brut
- * ferait converger deux fois plus vite à 120 Hz qu'à 60 Hz. Sans ce lissage, le raffinement
+ * Lissage vertical de l'œil : `approach` sous son nom de domaine. Sans lui, le raffinement
  * des tuiles change la hauteur du sol sous les pieds et l'œil sautille.
  */
 export function smoothHeight(current: number, target: number, smoothingSeconds: number, dt: number): number {
-  if (smoothingSeconds <= 0) return target
-  return current + (target - current) * (1 - Math.exp(-dt / smoothingSeconds))
+  return approach(current, target, smoothingSeconds, dt)
 }

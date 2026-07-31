@@ -78,3 +78,28 @@ export function unwrapLng(lng: number, ref: number): number {
 export function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 }
+
+/**
+ * Courbe en S de 0 à 1 entre `a` et `b`, bornée aux extrémités.
+ *
+ * Se distingue d'`easeInOutCubic`, qui exige un `t` déjà ramené dans [0,1] : ici la remise à
+ * l'échelle ET le bornage font partie du travail. C'est précisément ce qu'un site d'appel
+ * réécrit de travers quand la primitive n'existe pas.
+ */
+export function smoothstep(a: number, b: number, x: number): number {
+  const t = clamp((x - a) / Math.max(1e-6, b - a), 0, 1)
+  return t * t * (3 - 2 * t)
+}
+
+/**
+ * Approche exponentielle de `target`, INDÉPENDANTE de la cadence : `smoothingSeconds` est une
+ * constante de temps, pas un facteur par frame — deux pas à 60 Hz donnent le même résultat
+ * qu'un pas à 30 Hz. `<= 0` colle immédiatement à la cible.
+ *
+ * Vivait dans `pedestrianCollision` (lissage vertical de l'œil), mais la formule n'a rien de
+ * piéton : tout fondu de la lib en a besoin, et chaque copie diverge sur sa garde.
+ */
+export function approach(current: number, target: number, smoothingSeconds: number, dt: number): number {
+  if (smoothingSeconds <= 0) return target
+  return current + (target - current) * (1 - Math.exp(-dt / smoothingSeconds))
+}

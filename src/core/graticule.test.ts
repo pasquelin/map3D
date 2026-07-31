@@ -6,7 +6,6 @@ import {
   GRATICULE_LEVELS,
   linesFor,
   pickLevel,
-  smoothstep,
   type RemarkableSpec,
   toDms,
   visibleSpanDeg,
@@ -247,26 +246,6 @@ describe('linesFor', () => {
       remarkable: REMARQUABLES,
     })
     expect(lines.some((l) => l.remarkable === 'equator')).toBe(false)
-  })
-})
-
-describe('smoothstep', () => {
-  it('vaut 0 avant, 1 après', () => {
-    expect(smoothstep(0.75, 0.95, 0.5)).toBe(0)
-    expect(smoothstep(0.75, 0.95, 1)).toBe(1)
-  })
-
-  it('passe par 0,5 au milieu', () => {
-    expect(smoothstep(0.75, 0.95, 0.85)).toBeCloseTo(0.5, 6)
-  })
-
-  it('est monotone croissante', () => {
-    let prev = -1
-    for (let x = 0.7; x <= 1; x += 0.01) {
-      const v = smoothstep(0.75, 0.95, x)
-      expect(v).toBeGreaterThanOrEqual(prev)
-      prev = v
-    }
   })
 })
 

@@ -141,6 +141,44 @@ const ToolbarContext = createContext<ToolbarApi>({
 export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
 
 /**
+ * Châssis d'un SOUS-MENU DE SURVOL de la barre (sélecteur, mesures).
+ *
+ * Réunit les trois règles non évidentes que chaque sous-menu doit tenir, et qui étaient
+ * réécrites à l'identique dans chacun :
+ * — il ne s'ouvre que s'il a plus d'une rangée (une seule = le bouton agit directement) ;
+ * — il s'efface devant une vraie surface déroulante, qu'il ne doit pas recouvrir au survol ;
+ * — il se referme quand la barre se replie, sinon il rouvrirait tel quel au retour.
+ *
+ * Ne rend rien et ne connaît AUCUNE sémantique de rangée : c'est délibéré. Les deux sous-menus
+ * mêlent des natures différentes (outil exclusif, mode du moteur, calque), et un composant
+ * générique aurait fini avec un `if (kind === …)` — le même cas particulier remonté d'un cran.
+ */
+export function useHoverFlyout(rowCount: number): {
+  wrapProps: { className: string; onPointerEnter?: () => void; onPointerLeave?: () => void }
+  hasFlyout: boolean
+  showing: boolean
+  close: () => void
+} {
+  const [open, setOpen] = useState(false)
+  useCloseWhenHidden(useToolbar().retracted, setOpen)
+  // Hook appelé INCONDITIONNELLEMENT : `rowCount > 1 && !useYieldsToDropdown()` le
+  // court-circuiterait dès qu'il n'y a qu'une rangée — même piège que `ToolButton` et
+  // `Toolbar` avec `useConfig`.
+  const dropdownOuvert = useYieldsToDropdown()
+  const hasFlyout = rowCount > 1 && !dropdownOuvert
+  return {
+    wrapProps: {
+      className: 'm3d-selectwrap',
+      onPointerEnter: hasFlyout ? () => setOpen(true) : undefined,
+      onPointerLeave: hasFlyout ? () => setOpen(false) : undefined,
+    },
+    hasFlyout,
+    showing: open && hasFlyout,
+    close: () => setOpen(false),
+  }
+}
+
+/**
  * Barre d'outils de dessin (navigation, formes, gomme, annuler, tout effacer).
  * Nécessite un `<DrawLayer>` monté (elle pilote `useDrawing()`). Masquée sous
  * `minZoom` (glisse hors écran) : dessiner n'a de sens qu'en vue rapprochée.
@@ -373,33 +411,23 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
   const lens = useContext(LensContext)
   const labels = useLabels()
   const tip = useTip(TIP_ID)
-  const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
-  useCloseWhenHidden(useToolbar().retracted, setOpen)
 
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
   // Sous-menu de SURVOL, pas une surface déroulante : son bouton active l'outil au lieu
   // de déplier, d'où l'absence assumée d'`aria-expanded` et de fermeture au clic
   // extérieur (le pointeur qui sort suffit). Il partage seulement le châssis du panneau.
-  // Mais il occupe la même bande que les vrais dropdowns : le survol ne doit pas venir
-  // poser une seconde surface par-dessus celle que l'utilisateur a ouverte.
-  const dropdownOuvert = useYieldsToDropdown()
-  const hasFlyout = available.length + (canPickBuildings ? 1 : 0) > 1 && !dropdownOuvert
+  const flyout = useHoverFlyout(available.length + (canPickBuildings ? 1 : 0))
 
   return (
-    <div
-      ref={wrapRef}
-      className="m3d-selectwrap"
-      onPointerEnter={hasFlyout ? () => setOpen(true) : undefined}
-      onPointerLeave={hasFlyout ? () => setOpen(false) : undefined}
-    >
+    <div ref={wrapRef} {...flyout.wrapProps}>
       <ToolButton
         icon={mdiCursorDefaultOutline}
         label={labels.tools.select}
         shortcut={shortcuts.select}
         active={active || pickingBuilding}
-        className={hasFlyout ? 'm3d-btn-flyout' : undefined}
+        className={flyout.hasFlyout ? 'm3d-btn-flyout' : undefined}
         onClick={() => {
           // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
           if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
@@ -413,7 +441,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
           backdrop-filter, donc son flou ne pouvait pas jouer comme ailleurs, et c'est
           ce qui la faisait paraître d'un autre composant. Seule la façon de l'OUVRIR
           reste propre à ce bouton (survol, pas clic). */}
-      {open && hasFlyout && (
+      {flyout.showing && (
         <DropdownSurface anchor={wrapRef.current} position={position} clampHeight={false} panelClassName="m3d-flyout">
           {available.map((m) => (
             <button
@@ -423,7 +451,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
               onClick={() => {
                 setSelectMode(m.mode)
                 setTool('select')
-                setOpen(false)
+                flyout.close()
               }}
             >
               <UiIcon path={m.icon} />
@@ -443,7 +471,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
                 // la loupe, elle, ne se cède pas — on la relâche, comme la main le fait.
                 if (next) lens?.deactivate()
                 engine.setBuildingPickMode(next)
-                setOpen(false)
+                flyout.close()
               }}
             >
               <UiIcon path={mdiOfficeBuildingOutline} />

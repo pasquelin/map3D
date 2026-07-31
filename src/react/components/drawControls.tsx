@@ -84,12 +84,12 @@ export const SELECT_MODE_META: Array<{
 ]
 
 /**
- * Membres du sous-menu « Mesures » : correspondance outil ↔ icône — table unique consommée
- * par le flyout ET le dispatch clavier, comme `SELECT_MODE_META` (ajouter une rangée = une
- * seule ligne ici + son raccourci par défaut + son libellé `labels.measureTools`).
+ * Membres du sous-menu « Mesures » : correspondance outil ↔ icône, et ORDRE des rangées.
  *
- * Pas de champ `action` distinct ici, contrairement au sélecteur : là-bas le mode (`rect`) et
- * l'action clavier (`selectRect`) portent des noms différents, ici `tool` sert des deux côtés.
+ * ⚠️ Contrairement à `SELECT_MODE_META`, elle n'est PAS lue par le dispatch clavier : les deux
+ * rangées n'ont ni le même type (`measure` est un `DrawTool`, `graticule` une bascule du
+ * moteur) ni la même table de raccourcis (`shortcuts.draw` contre `shortcuts.controls`).
+ * Ajouter une rangée demande donc aussi son branchement au clavier — cette table ne le donne pas.
  */
 export const MEASURE_TOOL_META: Array<{ tool: MeasureTool; icon: string }> = [
   { tool: 'measure', icon: mdiRuler },
