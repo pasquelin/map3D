@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
 import { catalogKey, parseCatalogKey, restoreCatalogId } from '../../catalog/selection'
 import type { CatalogSettings } from '../../catalog/store'
 import type { CatalogItem, CatalogKey, CatalogSource } from '../../catalog/types'
@@ -180,10 +180,6 @@ export function useCatalogHost(): readonly ShapeData[] {
     engine.invalidate()
   }, [engine, sources, store])
 
-  // Clés déjà traitées — une clé dont la source n'est pas encore inscrite n'y entre
-  // PAS, pour être retentée quand le plugin qui la porte arrivera.
-  const restoredRef = useRef(new Set<CatalogKey>())
-
   /**
    * Recharge ce que la session précédente affichait.
    *
@@ -194,13 +190,18 @@ export function useCatalogHost(): readonly ShapeData[] {
    * côté API n'a pas à ouvrir une erreur au démarrage.
    */
   useEffect(() => {
-    for (const key of store.selection()) {
-      if (restoredRef.current.has(key) || store.hasGeometry(key)) continue
+    // `pendingRestores()` et NON `selection()` : seules les clés venues du stockage sont
+    // à recharger ici. Une clé qu'on vient de cocher a le même profil (sélectionnée,
+    // sans géométrie) mais son chargement est déjà en vol, avec le cadrage qui va avec.
+    for (const key of store.pendingRestores()) {
+      if (store.hasGeometry(key)) continue
       const parsed = parseCatalogKey(key)
       if (!parsed) continue
+      // Source pas encore inscrite : on RESSORT sans réclamer la clé, pour retenter
+      // quand le plugin qui la porte arrivera.
       const source = sources.find((s) => s.id === parsed.sourceId)
       if (!source) continue
-      restoredRef.current.add(key)
+      store.claimRestore(key)
       const ctrl = store.beginLoad(key)
       void source
         .geometry(restoreCatalogId(parsed.itemId), ctrl.signal)

@@ -54,6 +54,15 @@ export class CatalogStore {
    * abandonné les chargements d'un autre.
    */
   private readonly loads = new Map<CatalogKey, AbortController>()
+  /**
+   * Clés venues du STOCKAGE et pas encore rechargées.
+   *
+   * Distinguer une clé restaurée d'une clé qu'on vient de cocher n'est pas un détail :
+   * les deux se ressemblent (sélectionnée, sans géométrie), et sans cette liste la
+   * restauration relançait un chargement pour l'élément qu'on venait de cocher —
+   * annulant celui du clic, donc son cadrage. La zone apparaissait, la caméra non.
+   */
+  private toRestore = new Set<CatalogKey>()
 
   /**
    * Branche les clés de stockage et relit ce qui avait été retenu.
@@ -68,6 +77,7 @@ export class CatalogStore {
     // Ne relire la sélection que si la persistance est active : sinon une charge
     // laissée par une session précédente ressusciterait un réglage qu'on a désactivé.
     this.selectionKeys = this.settings.persist ? deserializeSelection(readStorage(keys.selection)) : []
+    this.toRestore = new Set(this.selectionKeys)
     this.bump()
   }
 
@@ -124,8 +134,22 @@ export class CatalogStore {
 
   // ── Écriture ──
 
+  /** Clés du stockage restant à recharger — cf. `toRestore`. */
+  pendingRestores(): readonly CatalogKey[] {
+    return [...this.toRestore]
+  }
+
+  /** Cette clé est prise en charge : la restauration ne doit plus s'en occuper. */
+  claimRestore(key: CatalogKey): void {
+    this.toRestore.delete(key)
+  }
+
   /** Entre dans la sélection AVANT que la géométrie arrive : la ligne réagit au clic. */
   markSelected(key: CatalogKey): void {
+    // Un geste explicite l'emporte sur la restauration : sans cela, l'effet de
+    // restauration lancerait un SECOND chargement pour la même clé et annulerait le
+    // premier — celui qui portait le cadrage demandé par le clic.
+    this.toRestore.delete(key)
     if (this.selectionKeys.includes(key)) return
     this.selectionKeys = [...this.selectionKeys, key]
     this.pending.add(key)

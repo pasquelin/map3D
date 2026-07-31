@@ -69,6 +69,36 @@ describe('cycle d’un élément', () => {
   })
 })
 
+describe('restauration vs geste explicite', () => {
+  it('ne propose à la restauration QUE ce qui vient du stockage', () => {
+    const a = fresh()
+    a.markSelected('zones:1')
+
+    const b = fresh()
+    expect(b.pendingRestores()).toEqual(['zones:1'])
+    // Coché à la main dans CETTE session : son chargement est déjà en vol, avec le
+    // cadrage du clic. Le laisser à la restauration ferait lancer un second chargement,
+    // qui annulerait le premier — la zone apparaissait, la caméra ne bougeait pas.
+    b.markSelected('zones:2')
+    expect(b.pendingRestores()).toEqual(['zones:1'])
+  })
+
+  it('retire une clé prise en charge, et une seule fois', () => {
+    const a = fresh()
+    a.markSelected('zones:1')
+    const b = fresh()
+    b.claimRestore('zones:1')
+    expect(b.pendingRestores()).toEqual([])
+  })
+
+  it('ne propose rien quand la persistance est coupée', () => {
+    const a = fresh()
+    a.markSelected('zones:1')
+    a.setSettings({ persist: false })
+    expect(fresh().pendingRestores()).toEqual([])
+  })
+})
+
 describe('notification', () => {
   it('prévient les abonnés et change de jeton à chaque mutation', () => {
     const s = fresh()
