@@ -158,13 +158,17 @@ export const defaultConfig: MapConfig = {
       positionPrecision: 'int16',
       // 14 = maxzoom des données OpenMapTiles : au-delà, la tuile 14 est réutilisée.
       zoom: 14,
-      // 13 et non 14 : le zoom d'une vue INCLINÉE est plus bas que celui demandé à la
-      // caméra (l'emprise s'élargit), donc un seuil à 14 laissait une carte à `zoom={14}`
-      // sans le moindre bâtiment. Le budget `maxRequest` borne ce que ce niveau réclame.
-      minViewZoom: 13,
-      // 1 : la 3D reste affichée un cran de plus au dézoom (≥ zoom 12), pour démarrer/finir
-      // en même temps que les empreintes de bâtiments du fond 2D (dessinées ~1 zoom plus haut).
-      showZoomOffset: 1,
+      // Seuil d'affichage en MÈTRES au-dessus du sol, et non plus en zoom de vue : le zoom
+      // divisait par la hauteur du viewport, donc le même réglage laissait les bâtiments
+      // affichés jusqu'à 15 km sur une fenêtre de 700 px et 31 km sur 1 440 px.
+      maxViewAltitude: 1000,
+      // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour tenir
+      // le montage (~20 ms/tuile, `mountPerFrame: 1`) sans à-coup à l'arrivée.
+      requestAltitudeFactor: 1.5,
+      // 6 km : iso-portée avec l'ancien carré 7×7 (rayon ~5,6 km), mais CONTINU. Pic mesuré
+      // à cette portée : 24 tuiles z14, très en dessous de `maxRequest` — qui n'est donc plus
+      // qu'un filet. Monter cette portée exige de monter `maxTiles`/`maxBytes` (n² en RAM).
+      maxViewDistance: 6000,
       margin: 0,
       // ⚠️ Étaient 64 / 4 / 24, calqués sur les budgets du raster — sans rapport avec ce
       // que pèse une tuile de VOLUME (~131 000 triangles pour une tuile z14 parisienne).
