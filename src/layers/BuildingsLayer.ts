@@ -270,13 +270,14 @@ export class BuildingsLayer {
    * la vue au zoom des données, montre celles qui sont prêtes, fait tourner file et
    * éviction.
    *
-   * `request` vient du moteur (cf. `core/math.volumeVisibility`) : la couche ignore la
-   * caméra, donc elle ne peut pas décider elle-même d'une hauteur au-dessus du sol.
+   * Appelée dès que le moteur veut du volume EN CACHE — donc aussi quand il est encore
+   * masqué, pendant la bande de préchargement (cf. `MapEngine.updateBuildingsFade`). La
+   * couche ignore la caméra : c'est au moteur de décider quand cesser de l'appeler.
    */
-  update(bounds: Bounds, request: boolean): void {
+  update(bounds: Bounds): void {
     if (this.disposed || !this.hasSource) return
     const frame = this.cache.beginFrame()
-    if (request) this.requestLevel(bounds)
+    this.requestLevel(bounds)
 
     /**
      * ⚠️ Toute tuile prête était montrée ET marquée « vue cette frame », sans regarder

@@ -51,6 +51,7 @@ import {
   DEG2RAD,
   EARTH_CIRCUMFERENCE,
   easeInOutCubic,
+  type VolumeVisibility,
   volumeVisibility,
   zoomForAltitude,
 } from './math'
@@ -1780,22 +1781,38 @@ export class MapEngine {
     this.buildings.setVisible(this.internalVolume && !this.buildingsHidden)
   }
 
-  /** Bâtiments internes masqués car incapables de couvrir toute la vue (cf. `updateBuildingsFade`). */
+  /** Bâtiments internes masqués car trop haut pour être montrés (cf. `updateBuildingsFade`). */
   private buildingsHidden = false
   /** Opacité courante des bâtiments, animée dans le temps (0 = masqués, 1 = pleins). */
   private buildingsOpacity = 1
+  /** Le volume est-il alimenté ? Vrai dans la bande de préchargement, donc au-delà de `show`. */
+  private buildingsStreaming = true
 
   /**
-   * Affiche les bâtiments internes SEULEMENT s'ils couvrent toute la vue (`want`), sinon les
-   * fond puis les masque, gèle et **détruit** (RAM/VRAM rendues, rechargés au retour). Tout
-   * ou rien — jamais de carré partiel. Fondu piloté par le TEMPS (`volumeFadeMs`), pas par le
-   * zoom : disparition/apparition douce. Ne touche NI le mode NI le fond 2D. Interne seulement.
+   * Affiche les bâtiments internes SEULEMENT sous `maxViewAltitude` (`want.show`), sinon les
+   * fond puis les masque. La mémoire n'est rendue qu'en sortant AUSSI de la bande de
+   * préchargement (`want.request`). Fondu piloté par le TEMPS (`volumeFadeMs`), pas par le
+   * zoom : disparition ET apparition douces. Ne touche NI le mode NI le fond 2D.
    */
-  private updateBuildingsFade(dt: number, want: boolean): void {
+  private updateBuildingsFade(dt: number, want: VolumeVisibility): void {
     const cfg = this.config.providers.tiles3d
-    const target = !cfg.hideVolumeWhenClamped || want ? 1 : 0
+    const target = !cfg.hideVolumeWhenClamped || want.show ? 1 : 0
+    /**
+     * La mémoire ne se rend qu'une fois SORTI de la bande de préchargement.
+     *
+     * ⚠️ Elle était rendue dès la fin du fondu, c'est-à-dire au seuil d'AFFICHAGE : la bande
+     * téléchargeait alors des tuiles que le franchissement du seuil détruisait aussitôt, et
+     * l'apparition repartait d'un cache vide. L'opacité montait donc à 1 sur du vide en
+     * `volumeFadeMs`, pendant que les tuiles arrivaient bien plus tard, une par frame
+     * (`mountPerFrame`) et à pleine opacité — un surgissement, là où la disparition, elle,
+     * fondait une géométrie déjà complète.
+     */
+    if (want.request !== this.buildingsStreaming) {
+      this.buildingsStreaming = want.request
+      if (!want.request) this.buildings.releaseAll()
+    }
     // Sortie anticipée seulement si le fondu est arrivé ET que la visibilité correspond —
-    // sinon il reste le masquage (et la libération mémoire) à faire, plus bas.
+    // sinon il reste le masquage à faire, plus bas.
     const targetHidden = target <= 0
     if (this.buildingsOpacity === target && this.buildingsHidden === targetHidden) return
     // Apparition : montrer AVANT de faire monter l'opacité (sinon le fondu est invisible).
@@ -1810,11 +1827,11 @@ export class MapEngine {
         : Math.max(target, this.buildingsOpacity - step)
     this.buildings.setOpacity(this.buildingsOpacity)
     this.invalidate()
-    // Fondu terminé à 0 : masquer + LIBÉRER la mémoire (le feed recharge au retour).
+    // Fondu terminé à 0 : masquer. La mémoire, elle, reste tenue tant qu'on est dans la bande
+    // de préchargement — c'est elle qui rendra l'apparition douce (cf. plus haut).
     if (this.buildingsOpacity <= 0 && !this.buildingsHidden) {
       this.buildingsHidden = true
       this.buildings.setVisible(false)
-      this.buildings.releaseAll()
     }
   }
 
@@ -2455,13 +2472,19 @@ export class MapEngine {
         const want = volumeVisibility(agl, b.maxViewAltitude, b.requestAltitudeFactor)
         // `hideVolumeWhenClamped` est relu par `updateBuildingsFade`, pas ici : une seule
         // formulation de la règle, sinon les deux ne restent équivalentes que par chance.
-        this.updateBuildingsFade(dt, want.show)
-        // Gelé quand les bâtiments sont masqués (rien à streamer). Sur le DISQUE du volume,
-        // jamais l'emprise des overlays (cf. `volumeBounds`) — sauf en marche, où le disque
-        // piéton joue déjà ce rôle et est calculé.
-        if (!this.buildingsHidden && due) {
-          this.buildings.update(view ? this.volumeBounds(state) : bounds, want.request)
-        }
+        this.updateBuildingsFade(dt, want)
+        /**
+         * Alimenté dès la bande de préchargement, MASQUÉ OU NON.
+         *
+         * ⚠️ La condition était `!this.buildingsHidden` : masqués, les bâtiments ne recevaient
+         * aucun appel, donc `want.request` n'était jamais lu et la bande de préchargement ne
+         * servait à rien. Les tuiles n'étaient demandées qu'une fois le seuil d'affichage
+         * franchi — trop tard pour que le fondu ait quoi que ce soit à faire apparaître.
+         *
+         * Sur le DISQUE du volume, jamais l'emprise des overlays (cf. `volumeBounds`) — sauf
+         * en marche, où le disque piéton joue déjà ce rôle et est déjà calculé.
+         */
+        if (want.request && due) this.buildings.update(view ? this.volumeBounds(state) : bounds)
       }
       // Fond 2D en UN niveau uniforme sur toute l'emprise (pas de boîte de détail au centre),
       // à plat COMME en vue inclinée : le zoom au point visé décide déjà du niveau, l'inclinaison

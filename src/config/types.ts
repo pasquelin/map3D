@@ -387,9 +387,11 @@ export type Tiles3dConfig = {
   /**
    * Masque les bâtiments internes au-dessus de `providers.buildings.maxViewAltitude` : de
    * plus haut ils ne couvrent que quelques pixels et leur chargement borné laisse un
-   * « carré » dans le vide. Ils sont alors fondus, masqués, gelés ET **détruits** (RAM/VRAM
-   * rendues, rechargés au retour). Le critère est une hauteur au-dessus du sol, donc
-   * **valable à toute inclinaison**. **Le mode ne change pas** (on reste en `'3d'`).
+   * « carré » dans le vide. Ils sont alors fondus puis masqués — mais **gardés en mémoire**
+   * tant qu'on reste dans la bande de `requestAltitudeFactor`, sans quoi l'apparition
+   * repartirait d'un cache vide et surgirait au lieu de fondre. La RAM/VRAM n'est rendue
+   * qu'au-dessus de cette bande. Le critère est une hauteur au-dessus du sol, donc **valable
+   * à toute inclinaison**. **Le mode ne change pas** (on reste en `'3d'`).
    * `false` = bâtiments toujours affichés. Interne seulement.
    */
   hideVolumeWhenClamped: boolean
