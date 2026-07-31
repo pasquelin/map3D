@@ -2466,7 +2466,12 @@ export class MapEngine {
       // à plat COMME en vue inclinée : le zoom au point visé décide déjà du niveau, l'inclinaison
       // n'a pas à y changer quoi que ce soit. La couche lit `uniformDetail` elle-même ; seul
       // l'état de MARCHE lui vient d'ici, car lui seul est hors de sa config.
-      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling, walking)
+      // Seconde emprise du fond : c'est sur elle qu'il décide de sa FINESSE (cf. `lodLevels`),
+      // pour que celle-ci ne dépende ni du cap ni de l'inclinaison. Sans plafond, contrairement
+      // au volume : le fond suit l'échelle de la vue. En marche, le disque piéton joue ce rôle.
+      if (feedBasemap && due) {
+        this.basemap2d.update(bounds, view ? this.steadyBounds(state) : bounds, tileZoom, aim, !controlling, walking)
+      }
     }
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
@@ -2670,9 +2675,18 @@ export class MapEngine {
    *
    * Analytique : aucun rayon lancé, contrairement à `computeBounds`.
    */
-  private volumeBounds(state: CameraState): Bounds {
-    const radius = Math.min(2 * this.scaleDistance(state), this.config.providers.buildings.maxViewDistance)
+  private steadyBounds(state: CameraState, maxRadius = Infinity): Bounds {
+    const radius = Math.min(2 * this.scaleDistance(state), maxRadius)
     return boundsOfCircle({ lat: state.lat, lng: state.lng }, radius)
+  }
+
+  /**
+   * Le disque des BÂTIMENTS : le même, plafonné par `maxViewDistance`. Ce plafond est ce qui
+   * borne leur budget de tuiles — une tuile de volume coûte vingt fois une texture, donc le
+   * fond peut suivre l'échelle de la vue là où le volume doit s'arrêter.
+   */
+  private volumeBounds(state: CameraState): Bounds {
+    return this.steadyBounds(state, this.config.providers.buildings.maxViewDistance)
   }
 
   private computeBounds(center: CameraState): Bounds {
