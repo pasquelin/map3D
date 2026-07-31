@@ -92,9 +92,7 @@ describe('lodLevels — finesse décidée sur le disque, budget borné par la vu
     // différentes pour le même contenu à l'écran. Au zoom 14 les deux tiennent dans le cache.
     const capNord: Bounds = { west: 2.3, east: 2.36, south: 48.82, north: 48.9 }
     const capDiagonale: Bounds = { west: 2.28, east: 2.4, south: 48.8, north: 48.92 }
-    expect(lodLevels(QUARTIER, capNord, 14, cfg).covering).toBe(
-      lodLevels(QUARTIER, capDiagonale, 14, cfg).covering,
-    )
+    expect(lodLevels(QUARTIER, capNord, 14, cfg).covering).toBe(lodLevels(QUARTIER, capDiagonale, 14, cfg).covering)
   })
 
   /**
