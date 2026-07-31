@@ -357,6 +357,32 @@ export { SearchRegistry, markerGroupId, SHAPE_GROUP, DRAW_GROUP, PLACE_GROUP } f
 export type { SearchEntry, SearchGroup, SearchProvider, SearchQueryOptions, SearchQueryResult } from './search/types'
 export { normalizeSearch, scoreMatch, proximityRank, rankHits, NO_MATCH } from './search/match'
 export type { Hit } from './search/match'
+
+// ── Catalogue : référentiels distants parcourables ──
+//
+// La recherche (ci-dessus) et le catalogue ne se recouvrent pas : la première est
+// SYNCHRONE et ne voit que ce qui est déjà sur la carte, le second pagine à la demande
+// un référentiel qui n'y tiendrait pas. Une entrée de catalogue AFFICHÉE devient
+// cherchable d'elle-même, puisqu'elle devient une forme comme une autre.
+export type {
+  CatalogAction,
+  CatalogBadge,
+  CatalogId,
+  CatalogItem,
+  CatalogKey,
+  CatalogPage,
+  CatalogRequest,
+  CatalogSource,
+} from './catalog/types'
+export { CatalogRegistry } from './catalog/registry'
+export type { CatalogSettings } from './catalog/store'
+/** Composition/décomposition d'une clé — utile pour relier une sélection à vos données. */
+export { catalogKey, parseCatalogKey } from './catalog/selection'
+export { CatalogControl } from './react/components/CatalogControl'
+export type { CatalogControlProps } from './react/components/CatalogControl'
+export { useCatalog, useCatalogSettings } from './react/hooks/useCatalog'
+export type { CatalogApi, CatalogSettingsApi } from './react/hooks/useCatalog'
+export { useCatalogSources, useCatalogSource } from './react/hooks/useCatalogSources'
 /** SVG (markup) → data-URI, idempotent — utile dès qu'une icône sort de la carte. */
 export { svgToDataUri } from './react/components/MarkerLayer'
 /** Bouton « supprimer » partagé (socle de relation, dock, indice de drag). */
