@@ -41,6 +41,7 @@ cover each one **in depth**.
 |---|---|
 | [MARKERS.md](MARKERS.md) | points, `MarkerData`, clustering, selection, follow, zoom-gated scenery, repositioning, dock, performance |
 | [ZONES.md](ZONES.md) | zones and draped shapes, volumetric extrusion, geodesic predicates, framing, paths |
+| [CATALOG.md](CATALOG.md) | remote entity catalog: paginated sources, aggregates with children, tri-state checkboxes, persistence |
 | [DRAWING.md](DRAWING.md) | tools, selection, editing, style, history, GeoJSON, CRUD by identity, constraints |
 | [SYMBOLS.md](SYMBOLS.md) | drag-and-drop icon catalogue, MIL-STD-2525D symbology |
 | [TEMPLATES.md](TEMPLATES.md) | named drawing saves, local or API storage, sharing, `.m3dt` export |
@@ -72,6 +73,7 @@ diverge from what the library applies:
 |---|---|
 | put points on a map | [MARKERS.md § 1](MARKERS.md#1-in-two-minutes) |
 | display perimeters | [ZONES.md § 1](ZONES.md#1-in-two-minutes) |
+| browse a remote reference set (towns, zones) | [CATALOG.md § 1](CATALOG.md#1-in-two-minutes) |
 | let the user draw | [DRAWING.md § 1](DRAWING.md#1-in-two-minutes) |
 | refetch your data on move | [DATA.md § 2](DATA.md#2-viewport-driven) |
 | frame the map on some content | [CAMERA.md § 4](CAMERA.md#4-framing-fitbounds) |

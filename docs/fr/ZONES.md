@@ -293,6 +293,7 @@ contraints — `addShape`, `updateShape` et `fromGeoJSON` injectent sans contrô
 | Les rendre cliquables / sélectionnables | `<DrawLayer>` (via `addShape` / `value`) |
 | Les rendre intouchables mais dans la même collection | `<DrawLayer>` + `locked: true` |
 | Les rendre extrudées | `<ShapeLayer>` (`extrudeHeight` n'existe pas côté dessin) |
+| **Parcourir un référentiel distant** et en poser des éléments | le catalogue — cf. [CATALOG.md](CATALOG.md) |
 
 ---
 
@@ -386,5 +387,6 @@ const valide = ringInsideRing(ringOfShape(zoneSaisie), ring)
 - [DRAWING.md](DRAWING.md) — dessin utilisateur, édition, GeoJSON, contraintes
 - [MARKERS.md](MARKERS.md) — points et clusters
 - [CAMERA.md](CAMERA.md) — cadrage, vols, fond de carte
+- [CATALOG.md](CATALOG.md) — parcourir un référentiel distant et en poser des zones
 - [SEARCH.md](SEARCH.md) — recherche unifiée
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)

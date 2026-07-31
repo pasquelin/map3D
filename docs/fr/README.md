@@ -30,6 +30,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 |---|---|
 | [MARKERS.md](MARKERS.md) | points, `MarkerData`, clustering, sélection, suivi, décor à seuil, repositionnement, dock, performance |
 | [ZONES.md](ZONES.md) | zones et formes drapées, extrusion volumétrique, prédicats géodésiques, cadrage, tracés |
+| [CATALOG.md](CATALOG.md) | catalogue d'entités distantes : sources paginées, agrégats à enfants, cases à trois états, persistance |
 | [DRAWING.md](DRAWING.md) | outils, sélection, édition, style, historique, GeoJSON, CRUD par identité, contraintes |
 | [SYMBOLS.md](SYMBOLS.md) | catalogue d'icônes au glisser-déposer, symbologie MIL-STD-2525D |
 | [TEMPLATES.md](TEMPLATES.md) | sauvegardes nommées du dessin, stockage local ou API, partage, export `.m3dt` |
@@ -61,6 +62,7 @@ ne peut diverger de ce que la lib applique :
 |---|---|
 | poser des points sur une carte | [MARKERS.md § 1](MARKERS.md#1-en-deux-minutes) |
 | afficher des périmètres | [ZONES.md § 1](ZONES.md#1-en-deux-minutes) |
+| parcourir un référentiel distant (villes, zones) | [CATALOG.md § 1](CATALOG.md#1-en-deux-minutes) |
 | laisser l'utilisateur dessiner | [DRAWING.md § 1](DRAWING.md#1-en-deux-minutes) |
 | recharger vos données au déplacement | [DATA.md § 2](DATA.md#2-viewport-driven) |
 | cadrer la carte sur du contenu | [CAMERA.md § 4](CAMERA.md#4-cadrer-fitbounds) |

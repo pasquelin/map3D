@@ -164,6 +164,10 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `sizing.panelMaxHeight.settings` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `560` |
 | `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `520` |
 | `sizing.panelMaxHeight.templates` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `460` |
+| `sizing.panelMaxHeight.catalog` | Maximum height of the catalog panel (px). | `380` |
+| `sizing.catalogRowHeight` | Catalog row height (px). ⚠️ CONSTANT by contract: `visibleWindow` derives the window to render from it without measuring rows. A taller row would shift everything below it. | `34` |
+| `sizing.catalogIndent` | Horizontal offset of an expanded child row (px). | `18` |
+| `sizing.catalogPanelW` | Catalog panel width (px). Also used as a framing margin: a zone framed while the panel is open must not land underneath it. | `252` |
 | `sizing.iconSize` | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out. | `0.8` |
 
 ## `tiles` — Colour treatment of the basemap (dark mode)

@@ -426,3 +426,18 @@ Parallels and meridians draped over the globe, with an adaptive mesh — see the
 | `graticule.labels.remarkableNames` | Show remarkable lines' names rather than their coordinate. | `true` |
 | `graticule.labels.idleOpacity` | Opacity at rest — labels fade back and become full under the pointer. `1` removes the effect. | `0.65` |
 | `graticule.labels.hoverPaddingPx` | Margin (px) around a label to consider it hovered. ⚠️ Hover is GEOMETRIC: labels stay `pointer-events: none`, so none can swallow the start of a map drag. | `4` |
+
+---
+
+## `catalog` — Remote geographic entity catalog
+
+Browsable reference sets declared by the host and by plugins (`engine.catalog`) — see the [CATALOG.md](CATALOG.md) guide. Storage keys live in `data.storageKeys`.
+
+| Key | Description | Default |
+|---|---|---|
+| `catalog.pageSize` | Items requested per page from `CatalogSource.list`. One page covers more than a panel's height, so scrolling doesn't hit a sentinel on the very first row. | `50` |
+| `catalog.debounceMs` | Keystroke debounce before querying the source. 💰 The direct lever on the number of calls to the host's API — aligned with `data.search.debounceMs`. | `250` |
+| `catalog.maxInlineActions` | Source actions rendered inline on a list row. Beyond that, the NAME would be what disappears; extra ones are ignored, with a warning. | `2` |
+| `data.storageKeys.catalog` | Catalog items displayed on the map (array of `CatalogKey`). | `'m3d:catalog'` |
+| `data.storageKeys.catalogSettings` | Catalog settings. Distinct from the previous one: unticking "keep" clears the SELECTION, and a shared key would wipe the very setting just changed. | `'m3d:catalog-settings'` |
+| `interaction.shortcuts.controls.catalog` | Opens the "Catalog" panel. With no source declared, the key is inactive. | `'c'` |

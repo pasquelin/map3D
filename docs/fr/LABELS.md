@@ -399,3 +399,31 @@ distance de la lib.
 | `errors.outsideMap` | Hook de la lib appelé hors d'un `<Map>` — le contexte est alors absent. | `'Ce composant doit être utilisé à l’intérieur de <Map>'` |
 | `errors.drawingRequired` | `useDrawing()` appelé alors que la couche de dessin est retirée. | `'useDrawing nécessite le dessin : il est retiré par <Map draw={false}>'` |
 | `errors.lensRequired` | `useLens()` appelé alors que la loupe est retirée. | `'useLens nécessite la loupe : elle est retirée par <Map toolbar={{ lens: false }}>'` |
+
+---
+
+## `catalog` — Catalogue d'entités distantes
+
+Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md](CATALOG.md). Les **noms des types** ne sont pas ici : ils viennent de `CatalogSource.label`, fourni par l'hôte, qui seul sait comment il les appelle.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `catalog.button` | Bouton de barre. | `'Catalogue'` |
+| `catalog.types` | En-tête du menu listant les types. | `'Types'` |
+| `catalog.searchPlaceholder` | Champ de recherche. | `'Taper votre recherche…'` |
+| `catalog.countSingular` | Compteur au singulier — cf. `formatCount`. | `'1 élément'` |
+| `catalog.count` | Compteur au pluriel. | `'{count} éléments'` |
+| `catalog.empty` | La source ne contient aucun élément. | `'Aucun élément'` |
+| `catalog.noMatch` | La recherche ne ramène rien. | `'Aucun résultat'` |
+| `catalog.loading` | Chargement d'une page. | `'Chargement…'` |
+| `catalog.error` | Échec du listage. | `'Chargement impossible'` |
+| `catalog.retry` | Bouton du bandeau d'erreur. | `'Réessayer'` |
+| `catalog.itemError` | Échec du chargement d'une géométrie, en infobulle sur la ligne. | `'Impossible d’afficher cet élément'` |
+| `catalog.add` | Case à cocher, état « pas encore sur la carte » — `{label}`. | `'Afficher {label} sur la carte'` |
+| `catalog.remove` | Case à cocher, état « affiché » — `{label}`. | `'Retirer {label} de la carte'` |
+| `catalog.back` | Retour au menu des types. | `'Retour aux types'` |
+| `catalog.expand` / `catalog.collapse` | Chevron d'un agrégat. | `'Déplier'` / `'Replier'` |
+| `catalog.settings.title` | Entrée du panneau engrenage. | `'Catalogue'` |
+| `catalog.settings.persist` | Interrupteur de persistance. | `'Conserver les éléments affichés entre les sessions'` |
+| `catalog.settings.fitOnAdd` | Interrupteur de cadrage. | `'Cadrer à l’ajout'` |
+| `catalog.settings.clear` | Bouton de purge. | `'Tout retirer'` |

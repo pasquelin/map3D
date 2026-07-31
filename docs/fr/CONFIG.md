@@ -425,3 +425,18 @@ Parallèles et méridiens drapés sur le globe, à maille adaptative — cf. le 
 | `graticule.labels.remarkableNames` | Afficher le nom des lignes remarquables plutôt que leur coordonnée. | `true` |
 | `graticule.labels.idleOpacity` | Opacité au repos — les étiquettes se font oublier et redeviennent pleines sous le pointeur. `1` supprime l'effet. | `0.65` |
 | `graticule.labels.hoverPaddingPx` | Marge (px) autour d'une étiquette pour la juger survolée. ⚠️ Le survol est GÉOMÉTRIQUE : les étiquettes restent en `pointer-events: none`, donc aucune ne peut avaler un début de déplacement de carte. | `4` |
+
+---
+
+## `catalog` — Catalogue d'entités géographiques distantes
+
+Référentiels parcourables déclarés par l'hôte et par les plugins (`engine.catalog`) — cf. le guide [CATALOG.md](CATALOG.md). Les clés de stockage, elles, vivent dans `data.storageKeys`.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `catalog.pageSize` | Éléments demandés par page à `CatalogSource.list`. Une page couvre plus que la hauteur d'un panneau, donc le défilement ne bute pas sur une sentinelle dès la première ligne. | `50` |
+| `catalog.debounceMs` | Anti-rebond de la frappe avant d'interroger la source. 💰 Le levier direct sur le nombre d'appels à l'API de l'hôte — aligné sur `data.search.debounceMs`. | `250` |
+| `catalog.maxInlineActions` | Actions de source rendues en ligne sur une ligne de liste. Au-delà, c'est le NOM qui disparaîtrait ; les suivantes sont ignorées, avec un avertissement. | `2` |
+| `data.storageKeys.catalog` | Éléments de catalogue affichés sur la carte (tableau de `CatalogKey`). | `'m3d:catalog'` |
+| `data.storageKeys.catalogSettings` | Réglages du catalogue. Distincte de la précédente : décocher « conserver » efface la SÉLECTION, et une clé partagée effacerait du même geste le réglage qu'on vient de changer. | `'m3d:catalog-settings'` |
+| `interaction.shortcuts.controls.catalog` | Ouvre le panneau « Catalogue ». Sans source déclarée, la touche est inactive. | `'c'` |

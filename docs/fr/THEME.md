@@ -161,6 +161,10 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `sizing.panelMaxHeight.settings` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `560` |
 | `sizing.panelMaxHeight.settingsSub` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `520` |
 | `sizing.panelMaxHeight.templates` | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520). | `460` |
+| `sizing.panelMaxHeight.catalog` | Hauteur maximale du panneau de catalogue (px). | `380` |
+| `sizing.catalogRowHeight` | Hauteur d'une ligne de catalogue (px). ⚠️ CONSTANTE par contrat : `visibleWindow` en déduit la fenêtre à rendre sans mesurer les lignes. Une ligne qui dépasserait décalerait tout le contenu sous elle. | `34` |
+| `sizing.catalogIndent` | Décalage horizontal d'une ligne enfant dépliée (px). | `18` |
+| `sizing.catalogPanelW` | Largeur du panneau de catalogue (px). Sert aussi de marge de cadrage : une zone cadrée pendant que le panneau est ouvert ne doit pas atterrir dessous. | `252` |
 | `sizing.iconSize` | Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue. | `0.8` |
 
 ## `tiles` — Traitement colorimétrique du fond de carte (mode sombre)

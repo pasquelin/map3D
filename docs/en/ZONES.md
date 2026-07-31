@@ -287,6 +287,7 @@ them to live in the same collection). Only **user gestures** are constrained —
 | Make them clickable / selectable | `<DrawLayer>` (via `addShape` / `value`) |
 | Make them untouchable but in the same collection | `<DrawLayer>` + `locked: true` |
 | Make them extruded | `<ShapeLayer>` (`extrudeHeight` does not exist on the drawing side) |
+| **Browse a remote reference set** and place items from it | the catalog — see [CATALOG.md](CATALOG.md) |
 
 ---
 
@@ -380,5 +381,6 @@ const valid = ringInsideRing(ringOfShape(inputZone), ring)
 - [DRAWING.md](DRAWING.md) — user drawing, editing, GeoJSON, constraints
 - [MARKERS.md](MARKERS.md) — points and clusters
 - [CAMERA.md](CAMERA.md) — framing, flights, basemap
+- [CATALOG.md](CATALOG.md) — browsing a remote reference set and placing zones from it
 - [SEARCH.md](SEARCH.md) — unified search
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)

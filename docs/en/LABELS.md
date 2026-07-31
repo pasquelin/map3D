@@ -459,3 +459,33 @@ import { imperialMeasure } from 'map3d'
 ```
 
 The merge is deep: every key left out keeps its default.
+
+---
+
+## `catalog` — Remote entity catalog
+
+Bar button, type menu, list and settings — see the [CATALOG.md](CATALOG.md) guide. **Type names** are not here: they come from `CatalogSource.label`, provided by the host, which alone knows what it calls them.
+
+Defaults below are the library's real French strings — they are data, not prose to translate.
+
+| Key | Description | Default |
+|---|---|---|
+| `catalog.button` | Bar button. | `'Catalogue'` |
+| `catalog.types` | Header of the type menu. | `'Types'` |
+| `catalog.searchPlaceholder` | Search field. | `'Taper votre recherche…'` |
+| `catalog.countSingular` | Singular counter — see `formatCount`. | `'1 élément'` |
+| `catalog.count` | Plural counter. | `'{count} éléments'` |
+| `catalog.empty` | The source holds no item. | `'Aucun élément'` |
+| `catalog.noMatch` | The search returns nothing. | `'Aucun résultat'` |
+| `catalog.loading` | Page loading. | `'Chargement…'` |
+| `catalog.error` | Listing failure. | `'Chargement impossible'` |
+| `catalog.retry` | Error banner button. | `'Réessayer'` |
+| `catalog.itemError` | Geometry loading failure, as a row tooltip. | `'Impossible d’afficher cet élément'` |
+| `catalog.add` | Checkbox, "not on the map yet" state — `{label}`. | `'Afficher {label} sur la carte'` |
+| `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
+| `catalog.back` | Back to the type menu. | `'Retour aux types'` |
+| `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
+| `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
+| `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |
+| `catalog.settings.fitOnAdd` | Framing switch. | `'Cadrer à l’ajout'` |
+| `catalog.settings.clear` | Purge button. | `'Tout retirer'` |
