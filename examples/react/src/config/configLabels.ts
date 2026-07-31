@@ -475,6 +475,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'graticule.labels.rotate': 'suivre l’angle de la ligne',
   'graticule.labels.format': 'format des coordonnées',
   'graticule.labels.remarkableNames': 'nommer les remarquables',
+  'graticule.labels.idleOpacity': 'opacité au repos',
+  'graticule.labels.hoverPaddingPx': 'marge de survol (px)',
   'interaction.shortcuts.draw.graticule': 'grille de coordonnées',
   'style.zIndex.graticuleLabel': 'étiquettes du graticule',
 }

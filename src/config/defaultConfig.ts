@@ -617,6 +617,10 @@ export const defaultConfig: MapConfig = {
       rotate: true,
       format: 'auto',
       remarkableNames: true,
+      // 0,65 : assez présent pour se lire d'un coup d'œil, assez discret pour qu'on voie la
+      // carte au travers — c'est un repère, pas une annotation.
+      idleOpacity: 0.65,
+      hoverPaddingPx: 4,
     },
   },
 }

@@ -1579,6 +1579,20 @@ export type GraticuleConfig = {
     format: CoordFormat
     /** Afficher le nom des lignes remarquables (« Équateur », « Tropique du Cancer »…). */
     remarkableNames: boolean
+    /**
+     * Opacité au repos. Les étiquettes se font oublier tant qu'on ne les cherche pas, et
+     * redeviennent pleinement opaques sous le pointeur. `1` supprime l'effet.
+     */
+    idleOpacity: number
+    /**
+     * Marge (px) autour d'une étiquette pour la juger survolée.
+     *
+     * ⚠️ Le survol est calculé GÉOMÉTRIQUEMENT, sur la position écran que la couche connaît
+     * déjà — les étiquettes restent en `pointer-events: none`. Les rendre survolables en CSS
+     * leur ferait intercepter les gestes de la carte : commencer un déplacement sur une
+     * étiquette n'aurait plus déplacé la carte.
+     */
+    hoverPaddingPx: number
   }
 }
 

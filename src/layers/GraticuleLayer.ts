@@ -91,6 +91,29 @@ export class GraticuleLayer implements Layer {
 
   /** Pool d'étiquettes : créées UNE fois, recyclées — jamais recréées par frame. */
   private readonly labelPool: HTMLElement[] = []
+  /**
+   * Position écran de chaque étiquette affichée, et sa demi-taille mesurée. Le survol se
+   * décide là-dessus plutôt qu'en CSS : garder `pointer-events: none` est ce qui empêche une
+   * étiquette d'avaler un début de déplacement de carte.
+   */
+  private readonly labelHits: { x: number; y: number; hw: number; hh: number }[] = []
+  /** Nombre d'étiquettes réellement affichées à la dernière passe. */
+  private labelCount = 0
+  /** Index de l'étiquette sous le pointeur, `-1` si aucune. */
+  private hovered = -1
+  /** Position du pointeur dans le repère de l'overlay, `null` s'il est sorti. */
+  private pointer: { x: number; y: number } | null = null
+  /** `invalidate` de la dernière frame — le survol change hors boucle et doit la réveiller. */
+  private invalidate: (() => void) | null = null
+  private readonly onPointerMove = (e: PointerEvent): void => {
+    const r = this.overlay.getBoundingClientRect()
+    this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top }
+    this.refreshHover()
+  }
+  private readonly onPointerLeave = (): void => {
+    this.pointer = null
+    this.refreshHover()
+  }
 
   // Scratch de la boucle de frame — aucune allocation par frame.
   private readonly scratch = new THREE.Vector3()
@@ -119,6 +142,37 @@ export class GraticuleLayer implements Layer {
     this.group.name = 'graticule'
     this.group.visible = false
     this.scene.add(this.group)
+    // `passive` : on ne fait que LIRE la position, jamais annuler le geste — le déplacement
+    // de la carte n'en est pas affecté d'un pixel.
+    this.overlay.addEventListener('pointermove', this.onPointerMove, { passive: true })
+    this.overlay.addEventListener('pointerleave', this.onPointerLeave, { passive: true })
+  }
+
+  /**
+   * Re-décide quelle étiquette est sous le pointeur. Appelé sur `pointermove` — donc à la
+   * cadence de la souris, pas de la frame — et jamais depuis la boucle de rendu.
+   *
+   * Les demi-tailles sont celles MESURÉES à la passe précédente : aucune lecture de layout
+   * ici, donc aucun reflux forcé sur un `pointermove` (qui peut arriver en plein glisser).
+   */
+  private refreshHover(): void {
+    const p = this.pointer
+    let next = -1
+    if (p) {
+      const pad = this.config.graticule.labels.hoverPaddingPx
+      for (let i = 0; i < this.labelCount; i++) {
+        const h = this.labelHits[i]!
+        if (Math.abs(p.x - h.x) <= h.hw + pad && Math.abs(p.y - h.y) <= h.hh + pad) {
+          next = i
+          break
+        }
+      }
+    }
+    if (next === this.hovered) return
+    this.hovered = next
+    // Le survol change hors de la boucle : sans ce réveil, l'étiquette ne s'éclaircirait
+    // qu'au prochain mouvement de carte (`performance.renderOnDemand`).
+    this.invalidate?.()
   }
 
   setConfig(config: MapConfig): void {
@@ -152,6 +206,7 @@ export class GraticuleLayer implements Layer {
       this.group.visible = false
       return
     }
+    this.invalidate = ctx.invalidate
     const g = this.config.graticule
     const { lat, lng, altitude } = ctx.cameraState
     const span = visibleSpanDeg(altitude, lat, ctx.size.height)
@@ -375,7 +430,8 @@ export class GraticuleLayer implements Layer {
       if (Math.hypot(s.sx - lastX, s.sy - lastY) < g.labels.spacingPx) continue
       lastX = s.sx
       lastY = s.sy
-      const el = this.labelAt(used++)
+      const i = used++
+      const el = this.labelAt(i)
       const text = labelFor(line, this.level, g.labels.format, this.texts, g.labels.remarkableNames)
       // Écriture CONDITIONNELLE : réécrire un `textContent` identique invalide la mise en
       // page du nœud, quarante fois par frame.
@@ -383,10 +439,26 @@ export class GraticuleLayer implements Layer {
       if (title.textContent !== text) title.textContent = text
       const rot = g.labels.rotate ? this.screenAngle(line, anchor, ctx) : 0
       el.style.display = 'block'
-      el.style.opacity = String(this.fade)
+      // Translucide au repos, pleine sous le pointeur : l'étiquette se fait oublier tant
+      // qu'on ne la cherche pas. Le survol vient de `refreshHover`, jamais du CSS.
+      el.style.opacity = String(this.fade * (i === this.hovered ? 1 : g.labels.idleOpacity))
       el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
+      // Boîte de survol. `transform` et `opacity` ne salissent pas la mise en page (le
+      // compositeur seul les lit) : lire la taille juste après ne force donc rien. Seul un
+      // `textContent` réécrit la salit — d'où l'écriture conditionnelle plus haut, qui borne
+      // le reflux aux frames où une étiquette a réellement changé de texte.
+      const hit = this.labelHits[i] ?? { x: 0, y: 0, hw: 0, hh: 0 }
+      hit.x = s.sx
+      hit.y = s.sy
+      hit.hw = el.offsetWidth / 2
+      hit.hh = el.offsetHeight / 2
+      this.labelHits[i] = hit
     }
+    this.labelCount = used
     this.hideLabelsFrom(used)
+    // Le pointeur n'a pas bougé mais les étiquettes, si : ce qui est sous lui a changé.
+    if (this.hovered >= used) this.hovered = -1
+    this.refreshHover()
   }
 
   /**
@@ -450,6 +522,8 @@ export class GraticuleLayer implements Layer {
   }
 
   dispose(): void {
+    this.overlay.removeEventListener('pointermove', this.onPointerMove)
+    this.overlay.removeEventListener('pointerleave', this.onPointerLeave)
     this.dropOutgoing()
     disposeObject3D(this.group)
     this.scene.remove(this.group)
