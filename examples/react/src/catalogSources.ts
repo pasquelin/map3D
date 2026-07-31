@@ -98,27 +98,6 @@ const cityCenter = (id: number) => {
 
 // ── Zones et groupes : le cas MÉTIER ──────────────────────────────────────────
 
-// Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
-// `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
-// coches vertes qui ne dit rien de plus que « tout va bien ».
-const ZONES: readonly CatalogItem[] = [
-  { id: 'z1', title: 'Lycée La Martinière Monplaisir' },
-  { id: 'z2', title: 'Zone_Démo_Confluence', disabled: true },
-  { id: 'z3', title: 'Leroy Merlin Nanterre' },
-  {
-    id: 'z4',
-    title: 'SDF Ext SO',
-    // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
-    bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 },
-  },
-  { id: 'z5', title: 'SDF - Ext NE' },
-  { id: 'z6', title: 'SDF Approche Est' },
-  { id: 'z7', title: 'Centre Westfield' },
-  { id: 'z8', title: 'Périmètre Gare du Nord' },
-  { id: 'z9', title: 'Secteur La Villette' },
-  { id: 'z10', title: 'Parvis de la Défense' },
-]
-
 const GROUPS: readonly CatalogItem[] = [
   {
     id: 'g1',
@@ -159,6 +138,18 @@ const zoneById = (id: string): CatalogItem | undefined => ZONES.find((z) => z.id
 /** Teintes distinctes : trois zones d'un même groupe doivent se DISTINGUER à l'écran. */
 const ZONE_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f472b6', '#facc15']
 
+const seedOf = (id: string): number => [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0
+
+/**
+ * Teinte d'une zone, dérivée de son seul identifiant.
+ *
+ * Exposée pour que la LIGNE et la FORME la partagent : la pastille du catalogue doit
+ * porter la couleur qu'aura la zone sur la carte, sinon la liste ne dit pas laquelle on
+ * s'apprête à afficher. C'est à la source de le garantir — la lib se contente de rendre
+ * `CatalogItem.color`.
+ */
+const zoneColor = (id: string): string => ZONE_COLORS[seedOf(id) % ZONE_COLORS.length] ?? ZONE_COLORS[0]
+
 /**
  * Cercle drapé déterministe, entièrement dérivé de l'identifiant.
  *
@@ -167,18 +158,42 @@ const ZONE_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f472b6', '#fa
  * déduplication du store garderait arbitrairement l'une des deux apparences.
  */
 const zoneShape = (id: string, title: string): ShapeData => {
-  const seed = [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0
-  const r = rng(seed * 104729)
+  const r = rng(seedOf(id) * 104729)
   return {
     kind: 'circle',
     id,
     title,
     center: { lat: 48.82 + r() * 0.14, lng: 2.2 + r() * 0.22 },
     radiusMeters: 400 + Math.floor(r() * 1100),
-    color: ZONE_COLORS[seed % ZONE_COLORS.length],
+    color: zoneColor(id),
     fillOpacity: 0.22,
   }
 }
+
+/** Une zone du référentiel, teintée comme le sera sa forme. */
+const zone = (id: string, title: string, extra?: Partial<CatalogItem>): CatalogItem => ({
+  id,
+  title,
+  color: zoneColor(id),
+  ...extra,
+})
+
+// Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
+// `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
+// coches vertes qui ne dit rien de plus que « tout va bien ».
+const ZONES: readonly CatalogItem[] = [
+  zone('z1', 'Lycée La Martinière Monplaisir'),
+  zone('z2', 'Zone_Démo_Confluence', { disabled: true }),
+  zone('z3', 'Leroy Merlin Nanterre'),
+  // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
+  zone('z4', 'SDF Ext SO', { bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 } }),
+  zone('z5', 'SDF - Ext NE'),
+  zone('z6', 'SDF Approche Est'),
+  zone('z7', 'Centre Westfield'),
+  zone('z8', 'Périmètre Gare du Nord'),
+  zone('z9', 'Secteur La Villette'),
+  zone('z10', 'Parvis de la Défense'),
+]
 
 // ── Les quatre sources ────────────────────────────────────────────────────────
 
