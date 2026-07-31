@@ -42,17 +42,17 @@ Le fournisseur ne change **que le fond de carte**. Recherche de lieux, routage e
 > justifiait autrefois de traiter l'interne à part était son coût de lancer de rayon ; il
 > est réglé à la source (cf. § 5), pas contourné par un cas particulier.
 
-**Masquage automatique du volume au dézoom.** Vus de loin — ou avec un point visé lointain
-en vue inclinée — les bâtiments internes ne couvrent que quelques pixels, et leur chargement
-borné laisse un « carré » de détail dans le vide. Au-delà, ils sont masqués, **gelés et
-détruits** (RAM/VRAM rendues, rechargés au retour), laissant le seul fond 2D **sans quitter
-le mode `'3d'`** : rezoomer les fait revenir. Le critère est le zoom *perçu* au point visé
-(résolution × distance), donc **valable à toute inclinaison**. Seuls les bâtiments extrudés
+**Masquage automatique du volume en altitude.** Vus de haut, les bâtiments internes ne
+couvrent que quelques pixels, et leur chargement borné laisse un « carré » de détail dans le
+vide. Au-dessus de `providers.buildings.maxViewAltitude` (1 000 m **au-dessus du sol**), ils
+sont masqués, **gelés et détruits** (RAM/VRAM rendues, rechargés au retour), laissant le seul
+fond 2D **sans quitter le mode `'3d'`** : redescendre les fait revenir. Le critère est une
+hauteur au-dessus du sol, donc **valable à toute inclinaison**. Seuls les bâtiments extrudés
 internes sont concernés — pas les tuiles 3D photoréalistes. Réglé par
 `providers.tiles3d.hideVolumeWhenClamped` (`false` = bâtiments toujours affichés), le fondu
-par `providers.tiles3d.volumeFadeMs` (`0` = net) ; `providers.buildings.showZoomOffset`
-accorde quelques crans de sursis sous `providers.buildings.minViewZoom` pour que la 3D et
-les empreintes 2D se relaient proprement.
+par `providers.tiles3d.volumeFadeMs` (`0` = net) ; `providers.buildings.requestAltitudeFactor`
+ouvre au-dessus du seuil une bande où les tuiles sont téléchargées sans être montrées, pour
+que la descente les trouve prêtes.
 
 ## 2. Régler le serveur interne
 
@@ -201,8 +201,9 @@ Ce qu'il faut savoir pour le régler :
 - **Un seul niveau de zoom** (`providers.buildings.zoom`, 14) : c'est le `maxzoom` des
   données OpenMapTiles. Au-delà, la même tuile sert ; les bâtiments ne gagnent rien à être
   redemandés plus fins.
-- **`minViewZoom`** (13) borne le bas : de plus haut, les bâtiments ne couvriraient que
-  quelques pixels pour le prix du décodage d'une ville entière.
+- **`maxViewAltitude`** (1 000 m au-dessus du sol) borne le haut : de plus haut, les
+  bâtiments ne couvriraient que quelques pixels pour le prix du décodage d'une ville
+  entière. `requestAltitudeFactor` (1,5) précharge au-dessus sans montrer.
 - **Couleurs dans le thème** : `theme.globe.buildingColor` (façades) et
   `buildingRoofColor` (toits). Une emprise portant l'attribut `colour` garde la sienne —
   hexadécimal comme mot-clé CSS (`beige`, `silver`) — et son toit s'éclaircit de
@@ -217,13 +218,19 @@ Ce qu'il faut savoir pour le régler :
 
 ### Jusqu'où porte le bâti
 
-`maxRequest` (25) demande les **5×5 tuiles autour du point regardé** — le sol sous le
-centre de l'écran, pas sous la caméra : en vue inclinée les deux sont très éloignés, et
-centrer sur la caméra dépensait le budget derrière l'observateur.
+`maxViewDistance` (6 000 m) borne la portée de l'emprise servie aux bâtiments. **Au-delà,
+seul le fond raster subsiste** — une vue inclinée à 79° porte à des dizaines de kilomètres,
+et aucune couverture z14 ne l'atteindrait.
 
-À Paris, une tuile z14 fait ~1,6 km : la couronne porte donc à ~8 km. **Au-delà, seul le
-fond raster subsiste** — une vue inclinée à 79° porte à des dizaines de kilomètres, et
-aucune couronne z14 ne l'atteindrait.
+⚠️ Cette borne n'est pas qu'un budget : c'est elle qui rend la couverture **continue** quand
+la vue s'incline. L'emprise vient d'une grille de rayons lancés à travers l'écran ; ceux qui
+franchissent l'horizon ne touchaient rien et étaient ignorés. Chaque fois qu'une ligne
+entière de la grille passait au ciel, l'emprise s'effondrait d'un coup, puis `tan(inclinaison)`
+la refaisait exploser jusqu'à la ligne suivante — mesuré à 1 000 m d'altitude : portée en dents
+de scie entre 2,8 et 36,3 km, deux effondrements brutaux (59° et 74°), et de 8 à 1 058 tuiles
+demandées à altitude constante. À 55° et 70° la carte se ressemblait, à 60° elle n'avait rien
+à voir. Tronquer chaque rayon à `maxViewDistance` rend la portée monotone puis plate, et le
+budget stable (24 tuiles à 6 km). `maxRequest` n'est plus qu'un filet.
 
 Ce n'est pas un réglage trop prudent, c'est une limite de la donnée. Les attributs 3D
 n'existent qu'au `maxzoom` du schéma OpenMapTiles :
@@ -235,8 +242,9 @@ n'existent qu'au `maxzoom` du schéma OpenMapTiles :
 | z14    | présente          | `render_height`, `render_min_height`, `colour`, `hide_3d` |
 
 Un niveau de détail lointain bâti sur le z13 extruderait donc tout à `defaultHeight`, soit
-des hauteurs uniformes et fausses. Trois leviers si la frontière gêne : monter `maxRequest`
-(le coût est linéaire, ~131 000 triangles par tuile), baisser `camera.maxTilt3d` pour que
+des hauteurs uniformes et fausses. Trois leviers si la frontière gêne : monter
+`maxViewDistance` (le pic de tuiles croît en n², donc monter `maxTiles`/`maxBytes` avec),
+baisser `camera.maxTilt3d` pour que
 la vue ne porte plus jusqu'à l'horizon, ou servir un jeu de tuiles portant des hauteurs
 plus bas que 14.
 
