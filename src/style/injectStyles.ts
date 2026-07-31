@@ -602,6 +602,16 @@ const CSS = `
 .m3d-flyout-item:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-flyout-item.m3d-on{background:var(--m3d-accent);color:#fff}
 .m3d-flyout-label{flex:1;white-space:nowrap}
+/* Rangée INTERRUPTEUR (un calque qu'on allume) plutôt que rangée de CHOIX (quel outil est
+   actif). Les deux natures cohabitent dans le sous-menu « Mesures », et le fond plein d'accent
+   les rendait indiscernables : deux rangées pleines côte à côte se lisent comme deux choix
+   concurrents, alors qu'elles sont indépendantes et légitimement vraies en même temps.
+   Le fond plein dit « c'est celui-ci » ; le voile + la coche disent « activé ». */
+.m3d-flyout-item.m3d-switch.m3d-on{background:color-mix(in srgb,var(--m3d-accent) 20%,transparent);
+  color:inherit}
+/* Réservée en permanence : la faire apparaître décalerait le libellé à chaque bascule. */
+.m3d-flyout-check{flex:none;opacity:0;color:var(--m3d-accent)}
+.m3d-flyout-item.m3d-on .m3d-flyout-check{opacity:1}
 .m3d-kbd{font-family:inherit;font-size:10px;font-weight:var(--m3d-weight-bold);padding:1px 5px;border-radius:4px;
   border:1px solid color-mix(in srgb,currentColor 35%,transparent);opacity:.75;line-height:1.5}
 

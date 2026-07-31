@@ -242,6 +242,12 @@ rangées, « Mesurer » et « Grille » :
 <Map draw={{}} toolbar={{ measureTools: ['measure'] }} />
 ```
 
+Les deux rangées du sous-menu **ne se peignent pas pareil, et c'est voulu** : « Mesurer »
+désigne l'outil actif — un *choix*, exclusif des autres outils — tandis que « Grille » est un
+*interrupteur*, qui coexiste avec n'importe quel outil. La première prend le fond plein
+d'accent (« c'est celui-ci »), la seconde un voile et une coche (« activé »). Les deux peuvent
+donc être vraies en même temps sans que le menu se lise comme deux choix concurrents.
+
 **Bouton des contrôles de vue**, à côté de « Globe » :
 
 ```tsx

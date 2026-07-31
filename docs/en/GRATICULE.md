@@ -235,6 +235,12 @@ and "Grid":
 <Map draw={{}} toolbar={{ measureTools: ['measure'] }} />
 ```
 
+The submenu's two rows **are not painted the same way, deliberately**: "Measure" designates
+the active tool — a *choice*, exclusive of other tools — whereas "Grid" is a *switch*, which
+coexists with any tool. The first takes the solid accent fill ("this is the one"), the second a
+tint and a checkmark ("on"). Both can therefore be true at once without the menu reading as two
+competing choices.
+
 **View-controls button**, next to "Globe":
 
 ```tsx

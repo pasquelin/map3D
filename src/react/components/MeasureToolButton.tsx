@@ -1,4 +1,4 @@
-import { mdiRuler } from '@mdi/js'
+import { mdiCheck, mdiRuler } from '@mdi/js'
 import { useRef } from 'react'
 import type { MeasureTool } from '../../layers/DrawLayer'
 import { useConfig, useLabels } from '../context'
@@ -38,6 +38,14 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
   const flyout = useHoverFlyout(available.length)
   const shortcutOf = (t: MeasureTool) => (t === 'measure' ? shortcuts.measure : graticuleKey)
   const isOn = (t: MeasureTool) => (t === 'measure' ? active : graticule.visible)
+  /**
+   * La rangée est-elle un INTERRUPTEUR plutôt qu'un choix ?
+   *
+   * « Mesurer » désigne l'outil actif — un choix, exclusif des autres outils. « Grille »
+   * allume un calque, qui coexiste avec n'importe quel outil. Les deux peuvent donc être vrais
+   * en même temps, et les peindre pareil les faisait lire comme deux choix concurrents.
+   */
+  const isSwitch = (t: MeasureTool) => t === 'graticule'
 
   return (
     <div ref={wrapRef} {...flyout.wrapProps}>
@@ -65,7 +73,11 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
             <button
               key={m.tool}
               {...tip(labels.measureTools[m.tool].description, shortcutOf(m.tool))}
-              className={`m3d-flyout-item${isOn(m.tool) ? ' m3d-on' : ''}`}
+              // Une rangée interrupteur porte son état : la coche le dit à l'œil, `aria-pressed`
+              // le dit au lecteur d'écran. Une rangée de CHOIX ne le porte pas — ce serait
+              // annoncer « enfoncé » là où le sens est « c'est l'outil courant ».
+              aria-pressed={isSwitch(m.tool) ? isOn(m.tool) : undefined}
+              className={`m3d-flyout-item${isSwitch(m.tool) ? ' m3d-switch' : ''}${isOn(m.tool) ? ' m3d-on' : ''}`}
               onClick={() => {
                 // La grille est un CALQUE : l'allumer ne doit ni quitter l'outil de tracé ni
                 // interrompre un tracé en cours. Seule la règle est un outil exclusif.
@@ -76,6 +88,7 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
             >
               <UiIcon path={m.icon} />
               <span className="m3d-flyout-label">{labels.measureTools[m.tool].label}</span>
+              {isSwitch(m.tool) && <UiIcon path={mdiCheck} className="m3d-flyout-check" />}
             </button>
           ))}
         </DropdownSurface>
