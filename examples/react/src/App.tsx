@@ -55,6 +55,7 @@ import { useEditablePin } from './hooks/useEditablePin'
 import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
+import { EXAMPLE_CATALOG_SOURCES } from './catalogSources'
 import { geopfBatiments } from '@map3d/plugin-geopf'
 import { windyWebcams } from '@map3d/plugin-windy'
 import { plan3d } from '@map3d/plugin-plan-3d'
@@ -119,6 +120,14 @@ export function App() {
   const [mapProps, setMapProps] = useState<MapPropsSettings>(defaultMapProps)
   // Moteur, capté à `ready` : le panneau doit SUIVRE la carte, pas seulement la piloter.
   const [engine, setEngine] = useState<MapEngine | null>(null)
+  /* Sources de catalogue du banc d'essai. Inscrites sur le registre du moteur, exactement
+     comme le ferait un plugin — et retirées au démontage, ce qui purge du même coup ce
+     qu'elles avaient posé sur la carte. */
+  useEffect(() => {
+    if (!engine) return
+    const offs = EXAMPLE_CATALOG_SOURCES.map((s) => engine.catalog.register(s))
+    return () => offs.forEach((off) => off())
+  }, [engine])
   /* Le mode de carte a DEUX pilotes : le champ « fond » du panneau et les boutons 2D/3D
      de la barre. Sans cet abonnement, cliquer un bouton laissait le panneau afficher le
      mode précédent — et le réafficher au prochain rendu aurait ramené la carte en arrière.
