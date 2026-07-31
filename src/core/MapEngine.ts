@@ -63,6 +63,7 @@ import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
 import { CatalogRegistry } from '../catalog/registry'
+import { CatalogStore } from '../catalog/store'
 import { SearchRegistry } from '../search/registry'
 import { ClusterRegistry } from './ClusterRegistry'
 import { MarkerRegistry } from './MarkerQuery'
@@ -353,6 +354,15 @@ export class MapEngine {
    * même, puisqu'elle devient une forme comme une autre.
    */
   readonly catalog = new CatalogRegistry()
+  /**
+   * Ce qui est AFFICHÉ depuis le catalogue, et les réglages qui vont avec.
+   *
+   * Séparé du registre parce que ce sont deux durées de vie : les sources vont et
+   * viennent avec les plugins, la sélection survit au rechargement de la page. Ici et
+   * non dans un hook parce que le panneau du catalogue et le panneau de réglages en
+   * sont deux consommateurs distincts — même raison que `tags`.
+   */
+  readonly catalogState = new CatalogStore()
   /**
    * Registre du drag-and-drop générique (markers → dock favoris, et tout futur
    * usage) : source de vérité de l'état, zones de dépôt, diffusion. Piloté par la

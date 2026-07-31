@@ -122,6 +122,7 @@ export const defaultTheme: MapTheme = {
     // la densité — les deux panneaux s'ouvrent depuis la même barre.
     catalogRowHeight: 34,
     catalogIndent: 18,
+    catalogPanelW: 252,
     iconSize: 0.8,
   },
   // Fond de carte accordé au thème SOMBRE par défaut : les tuiles Google sont

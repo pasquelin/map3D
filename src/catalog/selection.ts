@@ -21,6 +21,20 @@ export const parseCatalogKey = (key: CatalogKey): { sourceId: string; itemId: st
   return { sourceId: key.slice(0, i), itemId: key.slice(i + 1) }
 }
 
+/**
+ * Restitue l'identifiant d'origine après un aller-retour par le stockage.
+ *
+ * Une clé est du texte : `42` en ressort en `'42'`, et une source qui compare ses ids
+ * avec `===` ne reconnaîtrait plus rien. On rend donc un NOMBRE quand la chaîne est sa
+ * propre représentation canonique — ce qui laisse intacts les identifiants textuels qui
+ * ressemblent à des nombres (`'007'`, `'1e3'`, `' 42'`), lesquels ne se re-sérialisent
+ * pas à l'identique.
+ */
+export const restoreCatalogId = (itemId: string): CatalogId => {
+  const n = Number(itemId)
+  return Number.isFinite(n) && String(n) === itemId ? n : itemId
+}
+
 export const toggleSelection = (sel: readonly CatalogKey[], key: CatalogKey): readonly CatalogKey[] =>
   sel.includes(key) ? sel.filter((k) => k !== key) : [...sel, key]
 

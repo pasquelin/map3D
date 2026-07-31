@@ -5,6 +5,7 @@ import {
   parseCatalogKey,
   purgeSources,
   removeFromSelection,
+  restoreCatalogId,
   serializeSelection,
   toggleSelection,
 } from './selection'
@@ -28,6 +29,34 @@ describe('catalogKey', () => {
   it('rejette une clé dont la source ou l’élément est vide', () => {
     expect(parseCatalogKey(':42')).toBeNull()
     expect(parseCatalogKey('zones:')).toBeNull()
+  })
+})
+
+describe('restoreCatalogId', () => {
+  it('rend un NOMBRE quand l’identifiant était numérique', () => {
+    expect(restoreCatalogId('42')).toBe(42)
+    expect(restoreCatalogId('0')).toBe(0)
+    expect(restoreCatalogId('-7')).toBe(-7)
+  })
+
+  it('laisse en texte ce qui ne se re-sérialise pas à l’identique', () => {
+    // Une source dont les ids sont des chaînes numériques à zéros significatifs serait
+    // cassée par une conversion aveugle : `'007'` n'est pas `7`.
+    expect(restoreCatalogId('007')).toBe('007')
+    expect(restoreCatalogId('1e3')).toBe('1e3')
+    expect(restoreCatalogId(' 42')).toBe(' 42')
+    expect(restoreCatalogId('')).toBe('')
+  })
+
+  it('laisse en texte un identifiant non numérique', () => {
+    expect(restoreCatalogId('geo:ref:7')).toBe('geo:ref:7')
+    expect(restoreCatalogId('NaN')).toBe('NaN')
+    expect(restoreCatalogId('Infinity')).toBe('Infinity')
+  })
+
+  it('fait un aller-retour fidèle avec catalogKey', () => {
+    const parsed = parseCatalogKey(catalogKey('cities', 42))
+    expect(restoreCatalogId(parsed?.itemId ?? '')).toBe(42)
   })
 })
 
