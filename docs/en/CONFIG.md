@@ -255,6 +255,7 @@ compile error.
 | `performance.groundSample.radiusMeters` | Radius of the “street level” sample ring (local minimum under the roof). | `18` |
 | `performance.groundSample.samples` | Number of shots on that ring. | `8` |
 | `performance.markerCullMarginPx` | Margin (screen px) beyond the frame past which a marker is hidden (`display:none`): the browser stops computing its style, layout and compositing. `0` disables culling. | `200` |
+| `performance.markerZoomBand` | Hysteresis around a `static` marker appearance threshold (`useZoomGate`). Without it, a wheel stopping exactly on the value makes the scenery flicker: zoom oscillates by a few thousandths as inertia settles, and every oscillation would cross the threshold. Same role as `relations.zoomBand`, applied here to whole markers appearing. | `0.15` |
 | `performance.resettle.batch` | Items re-sampled per pass (raycast budget). | `4` |
 | `performance.resettle.retryFrames` | Retry rate for unresolved anchors (unloaded area). | `30` |
 | `performance.resettle.mppBand` | Resolution hysteresis before rebuilding widths (1.25 = ±25 %). | `1.25` |

@@ -401,6 +401,10 @@ export const defaultConfig: MapConfig = {
       samples: 8,
     },
     markerCullMarginPx: 200,
+    // Plus étroite que celle des relations (0,3) : ici la bande retarde l'apparition
+    // d'un décor entier, pas un simple regroupement — trop large, le seuil réglé par
+    // l'hôte ne serait plus celui qu'il observe.
+    markerZoomBand: 0.15,
     // ⚠️ `windowFrames`/`spawnWindowFrames` : 90 et 150 coexistaient dans le même
     // fichier (`MarkerLayer.noteCamera` et la création d'un marker) sans qu'aucune
     // intention ne distingue les deux cas. Elles sont conservées telles quelles, mais

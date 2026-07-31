@@ -821,6 +821,14 @@ export type PerformanceConfig = {
    * composition. `0` désactive le cull.
    */
   markerCullMarginPx: number
+  /**
+   * Hystérésis autour d'un seuil d'apparition de markers `static` (`useZoomGate`).
+   * Sans elle, une molette arrêtée pile sur la valeur fait clignoter le décor : le zoom
+   * oscille de quelques millièmes au ralentissement de l'inertie, et chaque oscillation
+   * traverserait le seuil. Même rôle que `relations.zoomBand`, appliqué ici à
+   * l'apparition de markers entiers.
+   */
+  markerZoomBand: number
   /** Côté de la grille de raycasts qui déduit les bounds visibles (`n²` par frame). */
   boundsPickGrid: number
   /**

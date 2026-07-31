@@ -317,6 +317,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'performance.groundSample.radiusMeters': 'rayon de la couronne (m)',
   'performance.groundSample.samples': 'tirs par couronne',
   'performance.markerCullMarginPx': 'marge de masquage (px)',
+  'performance.markerZoomBand': 'hystérésis du seuil de zoom',
   'performance.resettle.batch': 'éléments par passe',
   'performance.resettle.retryFrames': 'retentative (frames)',
   'performance.resettle.mppBand': 'hystérésis de résolution',

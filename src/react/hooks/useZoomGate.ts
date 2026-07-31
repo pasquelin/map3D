@@ -1,24 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { zoomForAltitude } from '../../core/math'
-import { useMap } from '../context'
+import { useConfig, useMap } from '../context'
 
 /**
- * Hystérésis autour d'un seuil. Sans elle, une molette arrêtée pile sur la valeur
- * fait clignoter ce que le gate contrôle : le zoom oscille de quelques millièmes au
- * ralentissement de l'inertie, et chaque oscillation traverserait le seuil. Même
- * parade que la bande de `performance.relations.zoomBand`, appliquée ici à
- * l'apparition de markers entiers.
+ * Combien de seuils le zoom satisfait, hystérésis appliquée à celui qu'on quitte.
+ * `band` vient de `performance.markerZoomBand` — voir ce champ pour le pourquoi.
  */
-const BAND = 0.15
-
-/** Combien de seuils le zoom satisfait, hystérésis appliquée à celui qu'on quitte. */
-const crossedCount = (zoom: number, sorted: readonly number[], previous: number): number => {
+export const crossedCount = (zoom: number, sorted: readonly number[], previous: number, band: number): number => {
   let n = 0
   for (const t of sorted) {
-    // Ouvrir demande de dépasser `t + BAND`, refermer de redescendre sous `t - BAND` :
+    // Ouvrir demande de dépasser `t + band`, refermer de redescendre sous `t - band` :
     // entre les deux, le seuil garde l'état qu'il avait.
     const wasOpen = n < previous
-    if (zoom >= (wasOpen ? t - BAND : t + BAND)) n++
+    if (zoom >= (wasOpen ? t - band : t + band)) n++
     else break
   }
   return n
@@ -48,6 +42,9 @@ const crossedCount = (zoom: number, sorted: readonly number[], previous: number)
  */
 export function useZoomGate(thresholds: readonly number[]): (minZoom: number) => boolean {
   const engine = useMap()
+  // Contexte et non `engine.config` : une charte remplacée à chaud doit rétrécir la
+  // bande sans remonter la carte.
+  const band = useConfig().performance.markerZoomBand
   // Clé de CONTENU : `thresholds` est reconstruit à chaque rendu de l'appelant alors
   // que sa valeur ne bouge presque jamais. Sans elle, l'effet se réabonnerait sans fin.
   const key = thresholds.join(',')
@@ -65,14 +62,14 @@ export function useZoomGate(thresholds: readonly number[]): (minZoom: number) =>
     setZoom(z0)
     return engine.on('camera', (state) => {
       const z = zoomForAltitude(state.altitude)
-      const next = crossedCount(z, sorted, crossed)
+      const next = crossedCount(z, sorted, crossed, band)
       if (next === crossed) return
       crossed = next
       // Le zoom N'EST publié qu'au franchissement : entre deux, le prédicat rendrait
       // la même réponse, et le re-render serait pur gaspillage.
       setZoom(z)
     })
-  }, [engine, sorted])
+  }, [engine, sorted, band])
 
   return useCallback((minZoom: number) => minZoom <= 0 || zoom >= minZoom, [zoom])
 }

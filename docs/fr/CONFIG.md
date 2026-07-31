@@ -252,6 +252,7 @@ partiel est une erreur de compilation.
 | `performance.groundSample.radiusMeters` | Rayon de la couronne d'échantillons « niveau de la rue » (min local sous le toit). | `18` |
 | `performance.groundSample.samples` | Nombre de tirs sur cette couronne. | `8` |
 | `performance.markerCullMarginPx` | Marge (px écran) au-delà du cadre au-delà de laquelle un marker est masqué (`display:none`) : le navigateur cesse d'en calculer style, layout et composition. `0` désactive le cull. | `200` |
+| `performance.markerZoomBand` | Hystérésis autour d'un seuil d'apparition de markers `static` (`useZoomGate`). Sans elle, une molette arrêtée pile sur la valeur fait clignoter le décor : le zoom oscille de quelques millièmes au ralentissement de l'inertie, et chaque oscillation traverserait le seuil. Même rôle que `relations.zoomBand`, appliqué ici à l'apparition de markers entiers. | `0.15` |
 | `performance.resettle.batch` | Éléments re-échantillonnés par passe (budget de raycasts). | `4` |
 | `performance.resettle.retryFrames` | Cadence de retentative des ancres non résolues (zone non chargée). | `30` |
 | `performance.resettle.mppBand` | Hystérésis de résolution avant reconstruction d'épaisseur (1.25 = ±25 %). | `1.25` |
