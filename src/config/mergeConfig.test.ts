@@ -105,3 +105,26 @@ describe('config.graticule', () => {
     expect(anti?.lng).toBe(-180)
   })
 })
+
+describe('catalogue', () => {
+  it('conserve les défauts quand un seul champ est surchargé', () => {
+    const merged = mergeConfig(defaultConfig, { catalog: { pageSize: 100 } })
+    expect(merged.catalog.pageSize).toBe(100)
+    expect(merged.catalog.debounceMs).toBe(defaultConfig.catalog.debounceMs)
+    expect(merged.catalog.maxInlineActions).toBe(defaultConfig.catalog.maxInlineActions)
+  })
+
+  it('expose deux clés de stockage distinctes — la sélection et les réglages', () => {
+    // Décocher « conserver » efface la SÉLECTION, pas les réglages : deux cycles de vie,
+    // donc deux clés. Les confondre viderait le réglage qui vient d'être changé.
+    expect(defaultConfig.data.storageKeys.catalog).toBe('m3d:catalog')
+    expect(defaultConfig.data.storageKeys.catalogSettings).toBe('m3d:catalog-settings')
+    expect(defaultConfig.data.storageKeys.catalog).not.toBe(defaultConfig.data.storageKeys.catalogSettings)
+  })
+
+  it('amortit la frappe au moins autant que la boîte de recherche', () => {
+    // 💰 Une source de catalogue est un appel API par frappe non amortie, exactement
+    // comme Places. Descendre sous ce seuil coûterait sans rien améliorer.
+    expect(defaultConfig.catalog.debounceMs).toBeGreaterThanOrEqual(defaultConfig.data.search.debounceMs)
+  })
+})

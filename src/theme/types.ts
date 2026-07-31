@@ -248,7 +248,18 @@ export type MapTheme = {
       settings: number
       settingsSub: number
       templates: number
+      catalog: number
     }
+    /**
+     * Hauteur d'une ligne de catalogue (px).
+     *
+     * ⚠️ CONSTANTE par contrat : `visibleWindow` en déduit la fenêtre à rendre sans
+     * mesurer les lignes. Une ligne qui dépasserait cette hauteur (deux lignes de texte,
+     * une icône plus grande) décalerait tout le contenu sous elle.
+     */
+    catalogRowHeight: number
+    /** Décalage horizontal d'une ligne enfant dépliée (px). */
+    catalogIndent: number
     /**
      * Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là
      * où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue.

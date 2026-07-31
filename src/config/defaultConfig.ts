@@ -499,6 +499,8 @@ export const defaultConfig: MapConfig = {
       searchHistory: 'm3d:search-history',
       plugins: 'm3d:plugins',
       templates: 'm3d:templates',
+      catalog: 'm3d:catalog',
+      catalogSettings: 'm3d:catalog-settings',
     },
     search: {
       minQuery: 2,
@@ -643,5 +645,15 @@ export const defaultConfig: MapConfig = {
       idleOpacity: 0.65,
       hoverPaddingPx: 4,
     },
+  },
+  catalog: {
+    // 50 : une page couvre plus que la hauteur d'un panneau, donc le scroll ne bute pas
+    // sur une sentinelle dès la première ligne, sans pour autant charger un référentiel
+    // entier à l'ouverture.
+    pageSize: 50,
+    // Aligné sur `data.search.debounceMs` : c'est le même geste, il n'y a pas de raison
+    // que deux champs de recherche de la même carte réagissent différemment.
+    debounceMs: 250,
+    maxInlineActions: 2,
   },
 }

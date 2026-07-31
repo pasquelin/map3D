@@ -60,3 +60,18 @@ describe('teintes de sélection des bâtiments', () => {
     expect(defaultTheme.globe.buildingHoverColor).not.toBe(defaultTheme.globe.buildingSelectColor)
   })
 })
+
+describe('tailles du catalogue', () => {
+  it('garde les tailles voisines à la surcharge partielle', () => {
+    const merged = mergeTheme(defaultTheme, { sizing: { catalogRowHeight: 44 } })
+    expect(merged.sizing.catalogRowHeight).toBe(44)
+    expect(merged.sizing.catalogIndent).toBe(defaultTheme.sizing.catalogIndent)
+    expect(merged.sizing.panelMaxHeight.catalog).toBe(defaultTheme.sizing.panelMaxHeight.catalog)
+  })
+
+  it('donne une hauteur de ligne strictement positive', () => {
+    // `visibleWindow` retombe sur une fenêtre VIDE si elle ne l'est pas : un défaut à 0
+    // rendrait la liste blanche sans la moindre erreur.
+    expect(defaultTheme.sizing.catalogRowHeight).toBeGreaterThan(0)
+  })
+})

@@ -109,7 +109,19 @@ export const defaultTheme: MapTheme = {
     lensPanelW: LENS_PANEL_W,
     selectionPanelW: SELECTION_PANEL_W,
     templatesPanelW: TEMPLATES_PANEL_W,
-    panelMaxHeight: { tags: 380, symbols: 420, search: 340, settings: 560, settingsSub: 520, templates: 460 },
+    panelMaxHeight: {
+      tags: 380,
+      symbols: 420,
+      search: 340,
+      settings: 560,
+      settingsSub: 520,
+      templates: 460,
+      catalog: 380,
+    },
+    // 34 px : la hauteur d'une ligne du panneau « Couches », dont le catalogue reprend
+    // la densité — les deux panneaux s'ouvrent depuis la même barre.
+    catalogRowHeight: 34,
+    catalogIndent: 18,
     iconSize: 0.8,
   },
   // Fond de carte accordé au thème SOMBRE par défaut : les tuiles Google sont

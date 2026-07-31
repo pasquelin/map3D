@@ -49,6 +49,46 @@ export type MapLabels = {
     showAll: string
   }
   /**
+   * Catalogue d'entités géographiques distantes — bouton de barre, sous-menu des types,
+   * liste et réglages. Les NOMS des types ne sont pas ici : ils viennent de
+   * `CatalogSource.label`, fourni par l'hôte, qui seul sait comment il les appelle.
+   */
+  catalog: {
+    button: string
+    /** En-tête du sous-menu listant les types. */
+    types: string
+    searchPlaceholder: string
+    /** « 1 élément » — cf. `formatCount`. */
+    countSingular: string
+    /** « {count} éléments ». */
+    count: string
+    /** La source ne contient aucun élément. */
+    empty: string
+    /** La recherche ne ramène rien. */
+    noMatch: string
+    loading: string
+    /** Échec du listage : bandeau au-dessus de la liste déjà chargée. */
+    error: string
+    retry: string
+    /** Échec du chargement d'une géométrie, en infobulle sur la ligne concernée. */
+    itemError: string
+    /** Bouton bascule, état « pas encore sur la carte ». */
+    add: string
+    /** Bouton bascule, état « affiché sur la carte ». */
+    remove: string
+    /** Nom accessible du bouton portant le titre — `{label}`. */
+    target: string
+    back: string
+    expand: string
+    collapse: string
+    settings: {
+      title: string
+      persist: string
+      fitOnAdd: string
+      clear: string
+    }
+  }
+  /**
    * Outil **Symboles** de la barre de dessin : palette d'icônes posables au
    * glisser-déposer. Tout est traduisible ici — y compris les catégories du
    * catalogue et les affiliations — pour qu'aucun texte n'ait à passer en prop.

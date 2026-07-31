@@ -912,6 +912,15 @@ export type StorageKeysConfig = {
   plugins: string
   /** Templates de dessin locaux (tableau `Template[]`). */
   templates: string
+  /** Éléments de catalogue affichés sur la carte (tableau de `CatalogKey`). */
+  catalog: string
+  /**
+   * Réglages du catalogue (persistance, cadrage à l'ajout).
+   *
+   * Distincte de `catalog` : décocher « conserver » efface la SÉLECTION, et une clé
+   * partagée effacerait du même geste le réglage qu'on vient de changer.
+   */
+  catalogSettings: string
 }
 
 /** Boîte de recherche — 💰 chaque frappe non amortie est un appel Places facturé. */
@@ -1648,6 +1657,26 @@ export type GraticuleConfig = {
 }
 
 /** Arbre de réglages complet — chaque feuille a une valeur (cf. `defaultConfig`). */
+/**
+ * Catalogue d'entités géographiques distantes — cf. `CatalogSource`.
+ *
+ * 💰 Chaque frappe non amortie est une requête vers l'API de l'hôte, exactement comme
+ * pour la boîte de recherche : `debounceMs` est le levier direct sur ce volume.
+ */
+export type CatalogConfig = {
+  /** Éléments demandés par page à `CatalogSource.list`. */
+  pageSize: number
+  /** Anti-rebond de la frappe avant d'interroger la source. */
+  debounceMs: number
+  /**
+   * Actions de source rendues en ligne sur une ligne de liste.
+   *
+   * Au-delà, c'est le NOM qui disparaît — déjà tronqué par construction. Les actions
+   * excédentaires sont ignorées, avec un avertissement en développement.
+   */
+  maxInlineActions: number
+}
+
 export type MapConfig = {
   providers: ProvidersConfig
   interaction: InteractionConfig
@@ -1665,6 +1694,8 @@ export type MapConfig = {
   pedestrian: PedestrianConfig
   /** Grille de coordonnées géographiques — cf. `GraticuleConfig`. */
   graticule: GraticuleConfig
+  /** Catalogue d'entités géographiques distantes — cf. `CatalogConfig`. */
+  catalog: CatalogConfig
 }
 
 /** Ce que fournit l'application : n'importe quel sous-arbre de `MapConfig`. */

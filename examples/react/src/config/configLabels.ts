@@ -89,6 +89,8 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'graticule.remarkable': 'Lignes remarquables',
   'graticule.tiltFade': 'Fondu à l’inclinaison',
   'graticule.labels': 'Étiquettes',
+
+  catalog: 'Catalogue',
 }
 
 /** Feuilles — les 196 de `defaultConfig`, plus les 3 clés optionnelles du type. */
@@ -389,6 +391,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'data.storageKeys.searchHistory': 'historique de recherche',
   'data.storageKeys.plugins': 'état des plugins',
   'data.storageKeys.templates': 'templates de dessin',
+  'data.storageKeys.catalog': 'éléments de catalogue affichés',
+  'data.storageKeys.catalogSettings': 'réglages du catalogue',
   'data.search.minQuery': 'saisie minimale',
   'data.search.debounceMs': 'anti-rebond de frappe (ms)',
   'data.search.limitPerGroup': 'résultats par rubrique',
@@ -482,4 +486,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'graticule.labels.idleOpacity': 'opacité au repos',
   'graticule.labels.hoverPaddingPx': 'marge de survol (px)',
   'style.zIndex.graticuleLabel': 'étiquettes du graticule',
+
+  // ── catalog ────────────────────────────────────────────────────────────────
+  'catalog.pageSize': 'éléments par page',
+  'catalog.debounceMs': 'anti-rebond de frappe (ms)',
+  'catalog.maxInlineActions': 'actions en ligne par élément',
 }
