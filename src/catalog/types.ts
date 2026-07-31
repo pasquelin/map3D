@@ -45,6 +45,12 @@ export type CatalogSource = {
    *
    * Le tableau est ce qui fait qu'un agrégat est un élément ordinaire : la lib n'a
    * aucune notion de « groupe », elle affiche et retire ce qu'on lui rend, en bloc.
+   *
+   * ⚠️ Doit répondre pour les éléments rendus par `list` **ET** pour ceux rendus par
+   * `children` : un enfant déplié appartient à la même source que son parent, et c'est
+   * cette méthode-là qu'on appellera pour lui. Une source qui n'indexerait que ses
+   * racines rendrait un tableau vide sur chaque enfant — donc un bouton qui n'affiche
+   * rien, sans la moindre erreur.
    */
   geometry(id: CatalogId, signal: AbortSignal): Promise<ShapeData[]>
 
@@ -99,8 +105,14 @@ export type CatalogItem = {
    * différence entre un cadrage immédiat et un aller-retour réseau par clic.
    */
   bounds?: Bounds
-  /** `false` ⇒ bouton bascule grisé (un groupe vide n'a rien à afficher). */
-  addable?: boolean
+  /**
+   * Ligne INERTE : ni cadrage, ni affichage, ni action. Pour ce qu'on montre sans
+   * pouvoir le consommer — un agrégat vide, une zone désactivée côté métier.
+   *
+   * La ligne reste VISIBLE et grisée plutôt que masquée : sa disparition ferait croire
+   * que l'élément n'existe pas, alors qu'il est seulement indisponible.
+   */
+  disabled?: boolean
   /** Déclare qu'il y a des enfants à aller chercher via `CatalogSource.children`. */
   hasChildren?: boolean
 }

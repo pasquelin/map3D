@@ -13,9 +13,15 @@ export type CatalogApi = {
   isShown: (key: CatalogKey) => boolean
   isPending: (key: CatalogKey) => boolean
   hasError: (key: CatalogKey) => boolean
-  /** Affiche l'élément s'il ne l'est pas, le retire sinon. */
-  toggle: (source: CatalogSource, item: CatalogItem) => void
-  /** Cadre la caméra sur l'élément, sans l'afficher. */
+  /**
+   * Affiche l'élément s'il ne l'est pas, le retire sinon.
+   *
+   * `fit: true` force le cadrage dans les DEUX sens — c'est le geste du clic sur le
+   * nom, qui bascule et emmène la caméra du même mouvement. Sans lui, le cadrage suit
+   * seulement le réglage « cadrer à l'ajout ».
+   */
+  toggle: (source: CatalogSource, item: CatalogItem, opts?: { fit?: boolean }) => void
+  /** Cadre la caméra sur l'élément, sans toucher à son affichage. */
   target: (source: CatalogSource, item: CatalogItem) => void
   clear: () => void
   /** Formes à passer à `<ShapeLayer>`. */
@@ -60,16 +66,23 @@ export function useCatalog(): CatalogApi {
   )
 
   const toggle = useCallback(
-    (source: CatalogSource, item: CatalogItem) => {
+    (source: CatalogSource, item: CatalogItem, opts?: { fit?: boolean }) => {
       const key = catalogKey(source.id, item.id)
+      const forceFit = opts?.fit === true
       if (store.isShown(key)) {
+        // Cadrer AVANT de retirer : après, la géométrie a quitté la mémoire et il ne
+        // resterait plus rien à viser.
+        if (forceFit) {
+          const b = item.bounds ?? boundsOfShapes(store.getGeometry(key) ?? [])
+          if (b) fit(b)
+        }
         store.abortLoad(key)
         store.remove(key)
         engine.invalidate()
         return
       }
       store.markSelected(key)
-      const withFit = store.getSettings().fitOnAdd
+      const withFit = forceFit || store.getSettings().fitOnAdd
       const ctrl = store.beginLoad(key)
       void source
         .geometry(item.id, ctrl.signal)
@@ -134,8 +147,9 @@ export function useCatalog(): CatalogApi {
       clear,
       shapes: store.shapes(),
     }),
-    // `token` est la dépendance réelle : le store mute en place, et `useCatalogStore`
-    // a déjà provoqué le re-render au bon moment.
+    // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
+    // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [store, token, toggle, target, clear],
   )
 }
@@ -224,5 +238,6 @@ export function useCatalogSettings(): CatalogSettingsApi {
   const setPersist = useCallback((v: boolean) => store.setSettings({ persist: v }), [store])
   const setFitOnAdd = useCallback((v: boolean) => store.setSettings({ fitOnAdd: v }), [store])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `token` : cf. `useCatalog`
   return useMemo(() => ({ ...store.getSettings(), setPersist, setFitOnAdd }), [store, token, setPersist, setFitOnAdd])
 }

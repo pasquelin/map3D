@@ -5,6 +5,7 @@ import type { CatalogAction, CatalogId, CatalogSource } from '../../catalog/type
 import { formatLabel } from '../../labels/mergeLabels'
 import { useConfig, useLabels, useMapContext } from '../context'
 import type { CatalogApi } from '../hooks/useCatalog'
+import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
 
 /** Sources déjà averties d'un débordement d'actions — un avertissement par source, pas par render. */
@@ -39,10 +40,17 @@ export type CatalogRowProps = {
   catalog: CatalogApi
   expanded: boolean
   onToggleExpand: (id: CatalogId) => void
+  /** id du `<Tooltip>` de la barre hôte — les infobulles de la lib, pas des `title` natifs. */
+  tipId: string
 }
 
 /**
- * Une ligne : chevron, pastille, nom cliquable, badges, actions, bascule d'affichage.
+ * Une ligne : chevron, pastille, nom, badges, actions, bascule d'affichage.
+ *
+ * **Le nom bascule ET cadre** : c'est le geste principal, celui qu'on fait en
+ * parcourant une liste — on veut voir l'élément sur la carte, et l'y laisser. Le bouton
+ * de droite, lui, bascule sans forcer le déplacement de caméra (il suit le réglage
+ * « cadrer à l'ajout »), pour ajouter plusieurs éléments sans que la vue saute.
  *
  * La ligne n'est PAS un bouton — elle en contient plusieurs, chacun focusable
  * séparément. Un contrôle focusable dans un contrôle focusable est une imbrication
@@ -51,26 +59,29 @@ export type CatalogRowProps = {
  * Hauteur CONSTANTE (`--m3d-catalog-row-h`) : la virtualisation en dépend. Rien ici ne
  * doit pouvoir la faire varier — pas de seconde ligne de texte, pas d'icône plus haute.
  */
-function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand }: CatalogRowProps) {
+function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand, tipId }: CatalogRowProps) {
   const { item, key, depth } = node
   const { theme } = useMapContext()
   const labels = useLabels()
   const config = useConfig()
+  const tip = useTip(tipId)
 
   const shown = catalog.isShown(key)
   const pending = catalog.isPending(key)
   const failed = catalog.hasError(key)
-  const addable = item.addable !== false
+  const off = item.disabled === true
   const actions = inlineActions(source, config.catalog.maxInlineActions)
+  const expandable = item.hasChildren === true && source.children !== undefined
 
   return (
-    <div className={`m3d-catrow${depth > 0 ? ' m3d-child' : ''}`}>
-      {item.hasChildren && source.children ? (
+    <div className={`m3d-catrow${depth > 0 ? ' m3d-child' : ''}${off ? ' m3d-off' : ''}`}>
+      {expandable ? (
         <button
           type="button"
           className={`m3d-catchevron${expanded ? ' m3d-on' : ''}`}
-          aria-label={expanded ? labels.catalog.collapse : labels.catalog.expand}
+          {...tip(expanded ? labels.catalog.collapse : labels.catalog.expand)}
           aria-expanded={expanded}
+          disabled={off}
           onClick={() => onToggleExpand(item.id)}
         >
           <UiIcon path={mdiChevronRight} />
@@ -82,11 +93,12 @@ function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand }: Ca
       <button
         type="button"
         className="m3d-catmain"
-        // Le nom est tronqué par construction : l'infobulle est le seul endroit où il
-        // se lit en entier.
-        title={item.subtitle ? `${item.title} — ${item.subtitle}` : item.title}
-        aria-label={formatLabel(labels.catalog.target, { label: item.title })}
-        onClick={() => catalog.target(source, item)}
+        // Le nom est tronqué par construction : l'infobulle est le seul endroit où il se
+        // lit en entier — d'où le libellé COMPLET plutôt qu'un intitulé d'action.
+        {...tip(item.subtitle ? `${item.title} — ${item.subtitle}` : item.title)}
+        aria-pressed={shown}
+        disabled={off || pending}
+        onClick={() => catalog.toggle(source, item, { fit: true })}
       >
         {item.icon ? (
           <UiIcon path={item.icon} color={item.color} />
@@ -97,7 +109,7 @@ function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand }: Ca
       </button>
 
       {failed && (
-        <span className="m3d-caterrdot" title={labels.catalog.itemError} aria-label={labels.catalog.itemError}>
+        <span className="m3d-caterrdot" {...tip(labels.catalog.itemError)}>
           <UiIcon path={mdiAlertCircleOutline} />
         </span>
       )}
@@ -106,8 +118,7 @@ function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand }: Ca
         <span
           key={`${b.label}-${i}`}
           className="m3d-catbadge"
-          title={b.label}
-          aria-label={b.label}
+          {...tip(b.label)}
           style={b.color ? { color: b.color } : undefined}
         >
           {b.icon && <UiIcon path={b.icon} />}
@@ -115,35 +126,33 @@ function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand }: Ca
         </span>
       ))}
 
-      {actions.map((a) =>
-        a.hidden?.(item) ? null : (
-          <button
-            key={a.id}
-            type="button"
-            className="m3d-cataction"
-            title={a.label}
-            aria-label={a.label}
-            disabled={a.disabled?.(item) ?? false}
-            onClick={() => a.run(item, source)}
-          >
-            <UiIcon path={a.icon} />
-          </button>
-        ),
-      )}
+      <span className="m3d-catactions">
+        {actions.map((a) =>
+          a.hidden?.(item) ? null : (
+            <button
+              key={a.id}
+              type="button"
+              className="m3d-cataction"
+              {...tip(a.label)}
+              disabled={off || (a.disabled?.(item) ?? false)}
+              onClick={() => a.run(item, source)}
+            >
+              <UiIcon path={a.icon} />
+            </button>
+          ),
+        )}
 
-      <button
-        type="button"
-        className={`m3d-cattoggle${shown ? ' m3d-on' : ''}`}
-        title={shown ? labels.catalog.remove : labels.catalog.add}
-        aria-label={shown ? labels.catalog.remove : labels.catalog.add}
-        aria-pressed={shown}
-        // Un élément non ajoutable (agrégat vide) garde son bouton, grisé : le faire
-        // disparaître décalerait la colonne d'une ligne à l'autre.
-        disabled={pending || (!shown && !addable)}
-        onClick={() => catalog.toggle(source, item)}
-      >
-        <UiIcon path={shown ? mdiMinus : mdiPlus} />
-      </button>
+        <button
+          type="button"
+          className={`m3d-cattoggle${shown ? ' m3d-on' : ''}`}
+          {...tip(formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title }))}
+          aria-pressed={shown}
+          disabled={off || pending}
+          onClick={() => catalog.toggle(source, item)}
+        >
+          <UiIcon path={shown ? mdiMinus : mdiPlus} />
+        </button>
+      </span>
     </div>
   )
 }

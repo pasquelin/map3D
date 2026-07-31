@@ -1,11 +1,11 @@
-import { mdiArrowLeft, mdiMagnify, mdiShapeOutline } from '@mdi/js'
+import { mdiChevronRight, mdiMagnify, mdiShapeOutline } from '@mdi/js'
 import { useMemo, useRef, useState } from 'react'
 import type { CatalogSource } from '../../catalog/types'
 import { useLabels, useMapContext } from '../context'
 import { useCatalog } from '../hooks/useCatalog'
 import { useCatalogSources } from '../hooks/useCatalogSources'
 import { CatalogList } from './CatalogList'
-import { Dropdown, useToggleShortcut } from './Dropdown'
+import { Dropdown, DropdownSurface, useToggleShortcut } from './Dropdown'
 import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
 
@@ -61,25 +61,41 @@ export function CatalogControl({ position = 'right', tipId, shortcut, grouped }:
       badge={shown > 0 ? <span className="m3d-tag-badge">{shown}</span> : undefined}
       toggleRef={toggleRef}
     >
-      {() => <CatalogPanel sources={sources} />}
+      {() => <CatalogPanel sources={sources} position={position} tipId={tipId ?? ''} />}
     </Dropdown>
   )
 }
 
 /**
- * Contenu du panneau — deux vues successives : le choix du type, puis sa liste.
+ * Le panneau ne contient QUE le menu des types. La liste du type ouvert s'affiche dans
+ * un **second panneau accolé**, du côté opposé à la barre et aligné sur la ligne du
+ * type — exactement le sous-panneau latéral des réglages d'outils
+ * (`DrawSettingsPanel`), dont c'est le châssis (`DropdownSurface` + ancre sur la ligne).
  *
- * Une seule source déclarée ⇒ on ouvre DIRECTEMENT sa liste et le retour disparaît :
- * un sous-menu à une entrée est un clic qui n'apprend rien (même règle que le bouton
- * « Mesures », qui n'ouvre son flyout qu'à partir de deux outils).
+ * Deux surfaces plutôt qu'une pile : la liste peut occuper toute la hauteur disponible
+ * sans que le menu la lui dispute, et le menu reste lisible en entier — empilés, chacun
+ * rognait l'autre.
  */
-function CatalogPanel({ sources }: { sources: readonly CatalogSource[] }) {
+function CatalogPanel({
+  sources,
+  position,
+  tipId,
+}: {
+  sources: readonly CatalogSource[]
+  position: 'left' | 'right'
+  tipId: string
+}) {
   const labels = useLabels()
-  const only = sources.length === 1 ? (sources[0] ?? null) : null
-  const [typeId, setTypeId] = useState<string | null>(only?.id ?? null)
+  const { theme } = useMapContext()
+  const tip = useTip(tipId)
+  const [openId, setOpenId] = useState<string | null>(null)
+  /** Ligne ouverte : c'est elle qui ANCRE le second panneau, comme un bouton ancre le sien. */
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const [query, setQuery] = useState('')
 
-  const selected = typeId === null ? null : (sources.find((s) => s.id === typeId) ?? null)
+  // La source ouverte a pu être retirée (plugin démonté) : le panneau se referme plutôt
+  // que d'afficher une liste orpheline.
+  const opened = openId === null ? null : (sources.find((s) => s.id === openId) ?? null)
 
   // Familles dans l'ordre de PREMIÈRE apparition : l'hôte décide de l'ordre en
   // inscrivant ses sources, un tri alphabétique le lui reprendrait.
@@ -94,60 +110,61 @@ function CatalogPanel({ sources }: { sources: readonly CatalogSource[] }) {
     return [...out.entries()]
   }, [sources])
 
-  if (!selected) {
-    return (
-      <div className="m3d-cattypes">
-        {families.map(([family, list]) => (
-          <div key={family} className="m3d-catfamily">
-            {list.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className="m3d-cattype"
-                onClick={() => {
-                  setTypeId(s.id)
-                  setQuery('')
-                }}
-              >
-                <UiIcon path={s.icon} />
-                <span className="m3d-cattype-label">{s.label}</span>
-                {s.total !== undefined && <span className="m3d-cattype-total">{s.total.toLocaleString()}</span>}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-    )
+  const open = (s: CatalogSource, el: HTMLElement | null) => {
+    setAnchor(el)
+    setQuery('')
+    setOpenId(s.id)
   }
 
   return (
     <>
-      <div className="m3d-cathead">
-        {!only && (
-          <button
-            type="button"
-            className="m3d-catback"
-            aria-label={labels.catalog.back}
-            onClick={() => setTypeId(null)}
-          >
-            <UiIcon path={mdiArrowLeft} />
-          </button>
-        )}
-        <UiIcon path={selected.icon} />
-        <span className="m3d-cathead-title">{selected.label}</span>
+      <div className="m3d-cattypes">
+        {families.map(([family, list]) => (
+          <div key={family} className="m3d-catfamily">
+            {list.map((s) => (
+              <div key={s.id} className="m3d-cattype-row">
+                <button
+                  type="button"
+                  className={`m3d-cattype${s.id === openId ? ' m3d-on' : ''}`}
+                  {...tip(s.label)}
+                  aria-expanded={s.id === openId}
+                  onClick={(e) => open(s, e.currentTarget.parentElement)}
+                >
+                  <UiIcon path={s.icon} />
+                  <span className="m3d-cattype-label">{s.label}</span>
+                  {s.total !== undefined && <span className="m3d-cattype-total">{s.total.toLocaleString()}</span>}
+                  {/* Le chevron pointe VERS le panneau qui s'ouvrira, donc à l'opposé de la barre. */}
+                  <UiIcon path={mdiChevronRight} rotate={position === 'right' ? 180 : 0} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
 
-      <div className="m3d-tagsearch">
-        <UiIcon path={mdiMagnify} />
-        <input
-          autoFocus
-          value={query}
-          placeholder={labels.catalog.searchPlaceholder}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
-      <CatalogList source={selected} query={query} />
+      {opened && (
+        <DropdownSurface
+          anchor={anchor}
+          position={position}
+          maxHeight={theme.sizing.panelMaxHeight.catalog}
+          panelClassName="m3d-catsub"
+        >
+          <div className="m3d-cathead">
+            <UiIcon path={opened.icon} />
+            <span className="m3d-cathead-title">{opened.label}</span>
+          </div>
+          <div className="m3d-tagsearch">
+            <UiIcon path={mdiMagnify} />
+            <input
+              autoFocus
+              value={query}
+              placeholder={labels.catalog.searchPlaceholder}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <CatalogList source={opened} query={query} tipId={tipId} />
+        </DropdownSurface>
+      )}
     </>
   )
 }

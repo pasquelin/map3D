@@ -72,12 +72,10 @@ export type MapLabels = {
     retry: string
     /** Échec du chargement d'une géométrie, en infobulle sur la ligne concernée. */
     itemError: string
-    /** Bouton bascule, état « pas encore sur la carte ». */
+    /** Bouton bascule, état « pas encore sur la carte » — `{label}`. */
     add: string
-    /** Bouton bascule, état « affiché sur la carte ». */
+    /** Bouton bascule, état « affiché sur la carte » — `{label}`. */
     remove: string
-    /** Nom accessible du bouton portant le titre — `{label}`. */
-    target: string
     back: string
     expand: string
     collapse: string

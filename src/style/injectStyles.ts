@@ -758,22 +758,24 @@ const CSS = `
    liste d'un type. */
 .m3d-catalog{position:relative}
 .m3d-catbtn{position:relative}
+/* Le panneau ancré à la barre ne contient QUE le menu des types : la liste vit dans
+   .m3d-catsub, accolé du côté opposé (même châssis que .m3d-settings-sub). */
 .m3d-catpanel{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
-/* Sous-menu des types : familles séparées par un filet, pas par un titre — à cinq
-   entrées, un en-tête par famille prend plus de place que ce qu'il classe. */
+.m3d-catsub{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
+/* Menu des types : familles séparées par un filet, pas par un titre — à cinq entrées,
+   un en-tête par famille prend plus de place que ce qu'il classe. */
 .m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
 .m3d-catfamily+.m3d-catfamily{margin-top:6px;padding-top:6px;border-top:1px solid var(--m3d-border)}
+.m3d-cattype-row{position:relative}
 .m3d-cattype{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;width:100%;
   border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--m3d-size-sm);
   color:var(--m3d-text);text-align:left}
 .m3d-cattype:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-cattype.m3d-on{background:color-mix(in srgb,var(--m3d-accent) 22%,transparent)}
 .m3d-cattype-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-cattype-total{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
-/* En-tête de la vue « un type » : retour + titre. */
+/* En-tête du second panneau : icône + nom du type. */
 .m3d-cathead{display:flex;align-items:center;gap:6px;font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-bold)}
-.m3d-catback{display:grid;place-items:center;width:22px;height:22px;flex:none;border:none;border-radius:6px;
-  background:transparent;cursor:pointer;color:var(--m3d-text)}
-.m3d-catback:hover{background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
 .m3d-cathead-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-cathead-count{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-weight:400;
   font-variant-numeric:tabular-nums}
@@ -797,12 +799,25 @@ const CSS = `
 .m3d-catbadge{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
   border-radius:8px;font-size:var(--m3d-size-xs);font-variant-numeric:tabular-nums;
   background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
-.m3d-cataction,.m3d-cattoggle{display:grid;place-items:center;width:20px;height:20px;flex:none;
-  border:none;border-radius:6px;background:transparent;cursor:pointer;color:var(--m3d-muted)}
+/* Colonne d'actions à gabarit FIXE : sans elle, un bouton à fond peint (la bascule
+   active) paraissait plus large que ses voisins transparents et la colonne semblait
+   décalée d'une ligne à l'autre. Tous les boutons ont désormais la même boîte, et
+   l'icône y est normalisée quelle que soit la marge interne du glyphe @mdi. */
+.m3d-catactions{display:flex;align-items:center;gap:2px;flex:none;margin-left:2px}
+.m3d-cataction,.m3d-cattoggle{display:grid;place-items:center;width:22px;height:22px;flex:none;
+  padding:0;border:none;border-radius:6px;background:transparent;cursor:pointer;color:var(--m3d-muted);
+  box-sizing:border-box}
+.m3d-cataction svg,.m3d-cattoggle svg,.m3d-catchevron svg{width:15px;height:15px}
 .m3d-cataction:hover:not(:disabled),.m3d-cattoggle:hover:not(:disabled){
   background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
 .m3d-cattoggle.m3d-on{background:var(--m3d-accent);color:#fff}
 .m3d-cataction:disabled,.m3d-cattoggle:disabled{opacity:.35;cursor:default}
+/* Ligne inerte : visible mais inconsommable. Grisée en entier — n'éteindre que le
+   bouton laisserait croire que le nom, lui, mène quelque part. */
+.m3d-catrow.m3d-off{opacity:.45}
+.m3d-catrow.m3d-off:hover{background:transparent}
+.m3d-catrow.m3d-off .m3d-catmain{cursor:default}
+.m3d-catrow.m3d-off .m3d-catmain:hover .m3d-cattitle{text-decoration:none}
 .m3d-caterrdot{color:var(--m3d-danger,#f87171)}
 .m3d-catempty,.m3d-catloading{padding:14px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
 .m3d-caterror{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;font-size:12px;

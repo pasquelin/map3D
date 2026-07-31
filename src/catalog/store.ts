@@ -105,6 +105,11 @@ export class CatalogStore {
     return this.geometries.has(key)
   }
 
+  /** Ses formes, pour cadrer dessus avant de le retirer. */
+  getGeometry(key: CatalogKey): readonly ShapeData[] | undefined {
+    return this.geometries.get(key)
+  }
+
   isPending(key: CatalogKey): boolean {
     return this.pending.has(key)
   }

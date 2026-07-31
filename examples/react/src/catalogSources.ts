@@ -3,13 +3,20 @@
 // Elles ne parlent à aucune API : tout est engendré localement, avec une latence
 // simulée. L'objectif n'est pas de faire joli mais d'exercer RÉELLEMENT chaque chemin
 // de la feature — 36 699 entrées pour la virtualisation et le scroll infini, des
-// agrégats à enfants, un élément non ajoutable, un autre à emprise connue, et une
+// agrégats à enfants, une ligne inerte, une autre à emprise connue, et une
 // source qui échoue pour voir le bandeau d'erreur et le retour en arrière du bouton.
 //
 // Tout est DÉTERMINISTE (générateur congruentiel semé, jamais `Math.random()`) : deux
 // exécutions doivent montrer la même liste, sinon un écart devient indébogable.
 
-import { mdiAlertOctagonOutline, mdiCheckCircle, mdiCityVariantOutline, mdiCloseCircle, mdiContentCopy, mdiMapMarkerRadiusOutline, mdiShapePolygonPlus, mdiViewGridOutline } from '@mdi/js'
+import {
+  mdiAlertOctagonOutline,
+  mdiCityVariantOutline,
+  mdiContentCopy,
+  mdiMapMarkerRadiusOutline,
+  mdiShapePolygonPlus,
+  mdiViewGridOutline,
+} from '@mdi/js'
 import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from 'map3d'
 
 /** Générateur congruentiel — semé, donc reproductible d'une exécution à l'autre. */
@@ -91,25 +98,20 @@ const cityCenter = (id: number) => {
 
 // ── Zones et groupes : le cas MÉTIER ──────────────────────────────────────────
 
+// Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
+// `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
+// coches vertes qui ne dit rien de plus que « tout va bien ».
 const ZONES: readonly CatalogItem[] = [
-  { id: 'z1', title: 'Lycée La Martinière Monplaisir', badges: [{ icon: mdiCheckCircle, color: '#4ade80', label: 'Active' }] },
-  {
-    id: 'z2',
-    title: 'Zone_Démo_Confluence',
-    // Non ajoutable : c'est l'équivalent du « Vide » de la maquette. Le bouton reste
-    // là, grisé — le faire disparaître décalerait la colonne d'une ligne à l'autre.
-    addable: false,
-    badges: [{ icon: mdiCloseCircle, color: '#f87171', label: 'Inactive' }],
-  },
-  { id: 'z3', title: 'Leroy Merlin Nanterre', badges: [{ icon: mdiCheckCircle, color: '#4ade80', label: 'Active' }] },
+  { id: 'z1', title: 'Lycée La Martinière Monplaisir' },
+  { id: 'z2', title: 'Zone_Démo_Confluence', disabled: true },
+  { id: 'z3', title: 'Leroy Merlin Nanterre' },
   {
     id: 'z4',
     title: 'SDF Ext SO',
-    // Emprise connue : le clic sur le nom cadre SANS aucune requête.
+    // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
     bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 },
-    badges: [{ icon: mdiCheckCircle, color: '#4ade80', label: 'Active' }],
   },
-  { id: 'z5', title: 'SDF - Ext NE', badges: [{ icon: mdiCheckCircle, color: '#4ade80', label: 'Active' }] },
+  { id: 'z5', title: 'SDF - Ext NE' },
   { id: 'z6', title: 'SDF Approche Est' },
   { id: 'z7', title: 'Centre Westfield' },
   { id: 'z8', title: 'Périmètre Gare du Nord' },
@@ -123,39 +125,26 @@ const GROUPS: readonly CatalogItem[] = [
     title: 'Paris La Défense',
     icon: mdiViewGridOutline,
     hasChildren: true,
-    badges: [
-      { icon: mdiCheckCircle, color: '#4ade80', label: 'Actif' },
-      { text: '3', label: '3 zones' },
-    ],
+    badges: [{ text: '3', label: '3 zones' }],
   },
   {
     id: 'g2',
     title: 'Groupe de Zones Nord',
     icon: mdiViewGridOutline,
     hasChildren: true,
-    badges: [
-      { icon: mdiCheckCircle, color: '#4ade80', label: 'Actif' },
-      { text: '1', label: '1 zone' },
-    ],
+    badges: [{ text: '1', label: '1 zone' }],
   },
   {
     id: 'g3',
     title: 'Confluence',
     icon: mdiViewGridOutline,
     hasChildren: true,
-    badges: [
-      { icon: mdiCheckCircle, color: '#4ade80', label: 'Actif' },
-      { text: '2', label: '2 zones' },
-    ],
+    badges: [{ text: '2', label: '2 zones' }],
   },
-  {
-    id: 'g4',
-    title: 'Groupe de Zones Sud',
-    icon: mdiViewGridOutline,
-    addable: false,
-    badges: [{ icon: mdiCloseCircle, color: '#f87171', label: 'Inactif' }],
-  },
-  { id: 'g5', title: 'Gpe Colombes', icon: mdiViewGridOutline, addable: false },
+  // Groupes vides : inactifs côté métier, donc lignes inertes — rien à cadrer, rien à
+  // afficher. Le badge de compte disparaît avec eux : « 0 » n'apprend rien de plus.
+  { id: 'g4', title: 'Groupe de Zones Sud', icon: mdiViewGridOutline, disabled: true },
+  { id: 'g5', title: 'Gpe Colombes', icon: mdiViewGridOutline, disabled: true },
 ]
 
 /** Quelles zones composent quel groupe — c'est ce qui rend `geometry` multiple. */
@@ -167,8 +156,16 @@ const GROUP_MEMBERS: Readonly<Record<string, readonly string[]>> = {
 
 const zoneById = (id: string): CatalogItem | undefined => ZONES.find((z) => z.id === id)
 
-/** Cercle drapé déterministe autour d'un point tiré de l'identifiant. */
-const zoneShape = (id: string, title: string): ShapeData => {
+/** Teintes distinctes : trois zones d'un même groupe doivent se DISTINGUER à l'écran. */
+const ZONE_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f472b6', '#facc15']
+
+/**
+ * Cercle drapé déterministe, tiré de l'identifiant.
+ *
+ * Rayon et teinte varient d'une zone à l'autre : avec des cercles identiques et
+ * concentriques, un groupe de trois zones se lisait comme un seul rond.
+ */
+const zoneShape = (id: string, title: string, index = 0): ShapeData => {
   const seed = [...id].reduce((a, c) => a + c.charCodeAt(0), 0)
   const r = rng(seed * 104729)
   return {
@@ -176,8 +173,9 @@ const zoneShape = (id: string, title: string): ShapeData => {
     id,
     title,
     center: { lat: 48.82 + r() * 0.14, lng: 2.2 + r() * 0.22 },
-    radiusMeters: 260 + Math.floor(r() * 900),
-    fillOpacity: 0.2,
+    radiusMeters: 400 + Math.floor(r() * 1100),
+    color: ZONE_COLORS[index % ZONE_COLORS.length],
+    fillOpacity: 0.22,
   }
 }
 
@@ -211,10 +209,19 @@ const groupsSource: CatalogSource = {
   family: 'Mes zones',
   total: GROUPS.length,
   list: (req) => delay(page(filtered(GROUPS, req.query), req)),
-  // UN élément, PLUSIEURS formes : c'est tout ce qui distingue un agrégat, côté lib.
+  /**
+   * UN élément, PLUSIEURS formes : c'est tout ce qui distingue un agrégat, côté lib.
+   *
+   * ⚠️ Répond AUSSI pour les enfants (`z…`), et pas seulement pour les groupes (`g…`) :
+   * un enfant déplié appartient à la même source que son parent, c'est donc cette
+   * méthode qu'on appellera pour lui. N'indexer que les groupes rendait un tableau vide
+   * sur chaque enfant — un bouton `+` qui n'affichait rien, sans la moindre erreur.
+   */
   geometry: (id) => {
-    const members = GROUP_MEMBERS[String(id)] ?? []
-    return delay(members.map((m) => zoneShape(m, zoneById(m)?.title ?? m)))
+    const members = GROUP_MEMBERS[String(id)]
+    if (members) return delay(members.map((m, i) => zoneShape(m, zoneById(m)?.title ?? m, i)))
+    const zone = zoneById(String(id))
+    return delay(zone ? [zoneShape(String(id), zone.title)] : [])
   },
   children: (id, req) => {
     const members = GROUP_MEMBERS[String(id)] ?? []

@@ -16,6 +16,8 @@ export type CatalogListProps = {
   query: string
   /** Remonte le total au panneau, qui l'affiche à côté du titre. */
   onTotal?: (total: number) => void
+  /** id du `<Tooltip>` de la barre hôte, transmis à chaque ligne. */
+  tipId: string
 }
 
 /**
@@ -25,7 +27,7 @@ export type CatalogListProps = {
  * flux à hauteur de ligne constante. C'est ce qui permet de virtualiser sans mesurer, et
  * ce qui évite un scroll imbriqué dans un scroll.
  */
-export function CatalogList({ source, query, onTotal }: CatalogListProps) {
+export function CatalogList({ source, query, onTotal, tipId }: CatalogListProps) {
   const { theme } = useMapContext()
   const config = useConfig()
   const labels = useLabels()
@@ -152,6 +154,7 @@ export function CatalogList({ source, query, onTotal }: CatalogListProps) {
                   catalog={catalog}
                   expanded={expanded.has(node.item.id)}
                   onToggleExpand={toggleExpand}
+                  tipId={tipId}
                 />
               ))}
             </div>
