@@ -1,4 +1,4 @@
-import { mdiAlertCircleOutline, mdiChevronRight, mdiMinus, mdiPlus } from '@mdi/js'
+import { mdiAlertCircleOutline, mdiChevronRight } from '@mdi/js'
 import { memo } from 'react'
 import type { CatalogNode } from '../../catalog/flatten'
 import type { CatalogAction, CatalogId, CatalogSource } from '../../catalog/types'
@@ -45,11 +45,11 @@ export type CatalogRowProps = {
 }
 
 /**
- * Une ligne : chevron, pastille, nom, badges, actions, bascule d'affichage.
+ * Une ligne : chevron, pastille, nom, badges, actions, case « sur la carte ».
  *
  * **Le nom bascule ET cadre** : c'est le geste principal, celui qu'on fait en
- * parcourant une liste — on veut voir l'élément sur la carte, et l'y laisser. Le bouton
- * de droite, lui, bascule sans forcer le déplacement de caméra (il suit le réglage
+ * parcourant une liste — on veut voir l'élément sur la carte, et l'y laisser. La case à
+ * cocher, elle, bascule sans forcer le déplacement de caméra (elle suit le réglage
  * « cadrer à l'ajout »), pour ajouter plusieurs éléments sans que la vue saute.
  *
  * La ligne n'est PAS un bouton — elle en contient plusieurs, chacun focusable
@@ -142,16 +142,17 @@ function CatalogRowInner({ node, source, catalog, expanded, onToggleExpand, tipI
           ),
         )}
 
-        <button
-          type="button"
-          className={`m3d-cattoggle${shown ? ' m3d-on' : ''}`}
+        {/* Case à cocher et non bouton : « sur la carte » est un ÉTAT persistant, et
+            c'est déjà ainsi que « Couches » exprime la même idée. Le dessin de la coche
+            est celui du thème, partagé — rien de propre au catalogue. */}
+        <input
+          type="checkbox"
+          className="m3d-catcheck"
           {...tip(formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title }))}
-          aria-pressed={shown}
+          checked={shown}
           disabled={off || pending}
-          onClick={() => catalog.toggle(source, item)}
-        >
-          <UiIcon path={shown ? mdiMinus : mdiPlus} />
-        </button>
+          onChange={() => catalog.toggle(source, item)}
+        />
       </span>
     </div>
   )

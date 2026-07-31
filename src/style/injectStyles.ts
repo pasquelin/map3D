@@ -405,7 +405,12 @@ const CSS = `
    On ne cible QUE les classes d'état STABLES (react-tooltip__show, __closing,
    __place-*), jamais les classes CSS-modules hashées
    (core-styles-module_tooltip__xxxxx), dont le hash change à chaque version. */
-.m3d-tip{z-index:var(--m3d-z-tooltip,90);width:max-content;max-width:260px;padding:6px 9px;
+/* ⚠️ PAS --m3d-z-tooltip : cette variable-là décrit le plan LOCAL d'une infobulle
+   enfermée dans l'ancre d'un marker (.m3d-markertip), et vaut 2. Celle-ci est portée à
+   la racine de la carte, donc SŒUR des panneaux (.m3d-dropdown, z-index 999) : lue à 2,
+   elle passait dessous dès qu'un panneau était ouvert — précisément là où on survole
+   des contrôles qui ont besoin d'être expliqués. Même plafond que les menus. */
+.m3d-tip{z-index:var(--m3d-z-menu,9999);width:max-content;max-width:260px;padding:6px 9px;
   font-size:11.5px;font-weight:var(--m3d-weight-medium);line-height:1.35}
 /* Deux classes = spécificité supérieure au « show » du core (opacité .9) : opaque
    franc, comme les autres surfaces de la lib. */
@@ -724,23 +729,23 @@ const CSS = `
 /* Checkbox custom au style du thème (case arrondie + coche dessinée en CSS). Réutilisée
    telle quelle par le hub de plugins (toggle + champs booléens de la config) — même
    apparence, pas de coche dupliquée. */
-.m3d-tagrow input,.m3d-plugin-row-head input[type='checkbox'],.m3d-plugin-checkbox{
+.m3d-tagrow input,.m3d-plugin-row-head input[type='checkbox'],.m3d-plugin-checkbox,.m3d-catcheck{
   appearance:none;-webkit-appearance:none;margin:0;flex:none;cursor:pointer;
   width:15px;height:15px;border:1.5px solid color-mix(in srgb,var(--m3d-text) 35%,transparent);
   border-radius:5px;background:transparent;display:grid;place-items:center;
   transition:background .14s,border-color .14s}
-.m3d-tagrow:hover input,.m3d-plugin-checkbox:hover,.m3d-plugin-row-head input[type='checkbox']:hover{
+.m3d-tagrow:hover input,.m3d-plugin-checkbox:hover,.m3d-plugin-row-head input[type='checkbox']:hover,.m3d-catrow:hover .m3d-catcheck{
   border-color:color-mix(in srgb,var(--m3d-text) 55%,transparent)}
-.m3d-tagrow input:checked,.m3d-plugin-row-head input[type='checkbox']:checked,.m3d-plugin-checkbox:checked{
+.m3d-tagrow input:checked,.m3d-plugin-row-head input[type='checkbox']:checked,.m3d-plugin-checkbox:checked,.m3d-catcheck:checked{
   background:var(--m3d-accent);border-color:var(--m3d-accent)}
-.m3d-tagrow input::after,.m3d-plugin-row-head input[type='checkbox']::after,.m3d-plugin-checkbox::after{
+.m3d-tagrow input::after,.m3d-plugin-row-head input[type='checkbox']::after,.m3d-plugin-checkbox::after,.m3d-catcheck::after{
   content:'';width:8px;height:4.5px;margin-top:-1.5px;opacity:0;
   border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(.5);
   transition:opacity .12s,transform .12s}
 .m3d-tagrow input:checked::after,.m3d-plugin-row-head input[type='checkbox']:checked::after,
-.m3d-plugin-checkbox:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
+.m3d-plugin-checkbox:checked::after,.m3d-catcheck:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
 .m3d-tagrow input:focus-visible,.m3d-plugin-row-head input[type='checkbox']:focus-visible,
-.m3d-plugin-checkbox:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
+.m3d-plugin-checkbox:focus-visible,.m3d-catcheck:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
 .m3d-tagdot{width:9px;height:9px;border-radius:50%;flex:none}
 .m3d-taglabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-tagcount{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
@@ -804,14 +809,18 @@ const CSS = `
    décalée d'une ligne à l'autre. Tous les boutons ont désormais la même boîte, et
    l'icône y est normalisée quelle que soit la marge interne du glyphe @mdi. */
 .m3d-catactions{display:flex;align-items:center;gap:2px;flex:none;margin-left:2px}
-.m3d-cataction,.m3d-cattoggle{display:grid;place-items:center;width:22px;height:22px;flex:none;
+.m3d-cataction{display:grid;place-items:center;width:22px;height:22px;flex:none;
   padding:0;border:none;border-radius:6px;background:transparent;cursor:pointer;color:var(--m3d-muted);
   box-sizing:border-box}
-.m3d-cataction svg,.m3d-cattoggle svg,.m3d-catchevron svg{width:15px;height:15px}
-.m3d-cataction:hover:not(:disabled),.m3d-cattoggle:hover:not(:disabled){
-  background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
-.m3d-cattoggle.m3d-on{background:var(--m3d-accent);color:#fff}
-.m3d-cataction:disabled,.m3d-cattoggle:disabled{opacity:.35;cursor:default}
+.m3d-cataction svg,.m3d-catchevron svg{width:15px;height:15px}
+.m3d-cataction:hover:not(:disabled){background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
+.m3d-cataction:disabled{opacity:.35;cursor:default}
+/* Afficher/retirer est une case à cocher, pas un bouton : c'est un ÉTAT persistant, et
+   c'est déjà comme cela que « Couches » exprime « ce calque est affiché ». Le dessin de
+   la coche vient du groupe de sélecteurs partagé plus haut — rien n'est redéfini ici,
+   sinon la marge qui l'aligne sur la colonne d'actions. */
+.m3d-catcheck{margin-left:2px}
+.m3d-catcheck:disabled{opacity:.35;cursor:default}
 /* Ligne inerte : visible mais inconsommable. Grisée en entier — n'éteindre que le
    bouton laisserait croire que le nom, lui, mène quelque part. */
 .m3d-catrow.m3d-off{opacity:.45}

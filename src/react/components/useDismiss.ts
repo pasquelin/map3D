@@ -12,6 +12,14 @@ export type DismissOptions = {
    * de la loupe) alors que l'utilisateur ne visait qu'à refermer cette surface.
    */
   captureEscape?: boolean
+  /**
+   * Zones supplémentaires, résolues AU MOMENT du clic.
+   *
+   * Indispensable pour une surface FILLE montée après coup — le sous-panneau qu'ouvre
+   * une ligne du panneau : elle n'existe pas à l'abonnement, donc aucun tableau figé ne
+   * peut la contenir, et le premier clic dedans refermait tout.
+   */
+  also?: () => ReadonlyArray<HTMLElement | null | undefined>
 }
 
 /**
@@ -33,7 +41,7 @@ export function useDismiss(
   ref: RefObject<HTMLElement | null> | ReadonlyArray<RefObject<HTMLElement | null>>,
   open: boolean,
   onClose: () => void,
-  { wheel = false, captureEscape = false }: DismissOptions = {},
+  { wheel = false, captureEscape = false, also }: DismissOptions = {},
 ): void {
   // `onClose` par ref, pas capturé : les écouteurs vivent tant que la surface est
   // ouverte, donc un `onClose` capturé serait celui du render d'OUVERTURE. Les
@@ -43,12 +51,20 @@ export function useDismiss(
   // le signaler. Le ref rend le piège impossible plutôt que de compter dessus.
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  // Même raison que `onClose` : les zones supplémentaires sont résolues à l'événement,
+  // pas à l'abonnement — sinon un réabonnement serait nécessaire à chaque montage de
+  // surface fille, et les listeners globaux se recréeraient sans cesse.
+  const alsoRef = useRef(also)
+  alsoRef.current = also
   useEffect(() => {
     if (!open) return
     const close = () => onCloseRef.current()
     const zones = Array.isArray(ref) ? ref : [ref as RefObject<HTMLElement | null>]
     const onDown = (e: PointerEvent) => {
-      if (!zones.some((z) => z.current?.contains(e.target as Node))) close()
+      const target = e.target as Node
+      if (zones.some((z) => z.current?.contains(target))) return
+      if (alsoRef.current?.().some((el) => el?.contains(target))) return
+      close()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return

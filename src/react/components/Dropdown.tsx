@@ -69,6 +69,18 @@ export function useCloseAnyDropdown(): () => void {
 
 const DropdownContext = createContext<DropdownRegistry | null>(null)
 
+/**
+ * Point d'inscription des surfaces FILLES d'un panneau (le sous-panneau qu'ouvre une de
+ * ses lignes).
+ *
+ * Sans lui, `useDismiss` ne connaît que le déclencheur et le panneau : une surface
+ * portée ailleurs dans le DOM passait pour « dehors », et le premier clic dedans
+ * refermait tout — on pouvait la voir, jamais s'en servir. Chaque `DropdownSurface`
+ * montée sous un `Dropdown` s'y inscrit d'elle-même ; l'appelant n'a rien à câbler.
+ */
+type SubSurfaceRegistry = { add: (ref: RefObject<HTMLElement | null>) => () => void }
+const SubSurfaceContext = createContext<SubSurfaceRegistry | null>(null)
+
 /** Monté par `<Map>` : le registre couvre TOUTES les barres, pas une seule. */
 export function DropdownProvider({ children }: { children: ReactNode }) {
   const [openId, setOpenId] = useState<string | null>(null)
@@ -195,7 +207,21 @@ export function Dropdown({
   // clic dedans. Tableau stable (refs constantes) : `useDismiss` liste `zones` dans ses
   // deps, un littéral neuf par render réabonnerait ses listeners globaux à chaque render.
   const zones = useMemo(() => [rootRef, panelRef], [])
-  useDismiss(zones, open, close)
+  // Surfaces filles montées à l'exécution : un `Set` de refs, résolu au moment du clic.
+  const subs = useRef(new Set<RefObject<HTMLElement | null>>())
+  const subRegistry = useMemo<SubSurfaceRegistry>(
+    () => ({
+      add: (ref) => {
+        subs.current.add(ref)
+        return () => {
+          subs.current.delete(ref)
+        }
+      },
+    }),
+    [],
+  )
+  const also = useCallback(() => [...subs.current].map((r) => r.current), [])
+  useDismiss(zones, open, close, { also })
   if (toggleRef) toggleRef.current = () => setOpen(!open)
 
   // Publié depuis un EFFET, pas pendant le clic : l'hôte (palette de symboles) réagit à
@@ -231,7 +257,7 @@ export function Dropdown({
           panelClassName={panelClassName}
           panelRef={panelRef}
         >
-          {children(close)}
+          <SubSurfaceContext.Provider value={subRegistry}>{children(close)}</SubSurfaceContext.Provider>
         </DropdownSurface>
       )}
     </div>
@@ -286,12 +312,19 @@ export function DropdownSurface({
 }) {
   const { overlay } = useMapContext()
   const [side, setPanel] = useAnchoredPortal(anchor, position, { maxHeight, edge, clampHeight, observeAnchor })
+  // Inscription auprès du panneau PARENT, s'il existe : c'est ce qui fait qu'un clic
+  // ici ne compte pas comme un clic « dehors ». Sans registre au-dessus (surface montée
+  // seule), l'effet ne fait rien.
+  const parent = useContext(SubSurfaceContext)
+  const selfRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => parent?.add(selfRef), [parent])
   const host = overlay.parentElement
   if (!host) return null
   return createPortal(
     <div
       ref={(el) => {
         if (panelRef) panelRef.current = el
+        selfRef.current = el
         setPanel(el)
       }}
       className={`m3d-panel m3d-dropdown${panelClassName ? ` ${panelClassName}` : ''} m3d-${side}`}
