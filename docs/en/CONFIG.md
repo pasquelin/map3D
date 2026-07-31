@@ -180,7 +180,6 @@ compile error.
 | `interaction.shortcuts.controls.zoomIn` | Zoom in one step. | `'+'` |
 | `interaction.shortcuts.controls.zoomOut` | Zoom out one step. | `'-'` |
 | `interaction.shortcuts.controls.tilt` | Toggles the camera tilt. | `'i'` |
-| `interaction.shortcuts.controls.topDown` | Top-down view (the `north` shortcut already does it). | `false` |
 | `interaction.shortcuts.controls.globe` | Pull back to globe view. | `'g'` |
 | `interaction.shortcuts.controls.layers` | Opens the “Layers” panel (tag filter). | `'t'` |
 | `interaction.shortcuts.controls.fullscreen` | Fullscreen. | `'f'` |
@@ -312,7 +311,7 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `camera.dragSpeed.max` | Movement speed in globe view. | `0.35` |
 | `camera.fov` | Vertical field of view (degrees). Read at engine construction only. | `60` |
 | `camera.maxTilt3d` | Maximum tilt in 3D (rad from nadir) — beyond it, the view flips. | `1.382300767579509` |
-| `camera.maxTilt2d` | Maximum tilt in 2D: lower, to bound tile coverage. | `0.6283185307179586` |
+| `camera.maxTilt2d` | Maximum tilt in 2D (rad from nadir). Defaults to `maxTilt3d` (~79°); tightening it bounds tile coverage (a flat map tilted toward the horizon requests them ever farther) and raises the angle at which the graticule fades out. | `1.382300767579509` |
 | `camera.tiltStep` | Tilt step per click of the dedicated button (rad). | `0.34557519189487723` |
 | `camera.zoomFactor.in` | Altitude factors per zoom notch (+/− button). | `0.5` |
 | `camera.zoomFactor.out` | Altitude factors per zoom notch (+/− button). | `2` |
@@ -414,7 +413,7 @@ Parallels and meridians draped over the globe, with an adaptive mesh — see the
 | `graticule.remarkable.enabled` | Draw remarkable lines (Equator, tropics, polar circles, meridians). | `true` |
 | `graticule.remarkable.parallels` | Remarkable parallels `{ lat, labelKey }`. In config rather than constants: obliquity drifts, and a non-terrestrial tileset has neither tropics nor polar circles. | Equator, tropics, polar circles |
 | `graticule.remarkable.meridians` | Remarkable meridians `{ lng, labelKey }`. ⚠️ The antimeridian is written `-180`: `normalizeLng` maps into `[-180, 180)`. | Prime meridian, 180th |
-| `graticule.tiltFade.start` | Fade start, as a FRACTION of the mode's tilt ceiling (`camera.maxTilt3d`/`maxTilt2d`). ⚠️ Fractions and not degrees: the ceiling is 79.2° in 3D but 36° when flat. | `0.75` |
+| `graticule.tiltFade.start` | Fade start, as a FRACTION of the mode's tilt ceiling (`camera.maxTilt3d`/`maxTilt2d`). ⚠️ Fractions and not degrees: the ceiling (79.2° by default in both modes) stays configurable per mode. | `0.75` |
 | `graticule.tiltFade.end` | Full disappearance, same unit. | `0.95` |
 | `graticule.fadeMs` | Fade time constant (ms) — that is the softness. | `250` |
 | `graticule.levelFadeMs` | Cross-fade on mesh change (ms). `0` = hard cut. | `300` |

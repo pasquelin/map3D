@@ -19,17 +19,14 @@ export type MapLabels = {
     zoomIn: string
     zoomOut: string
     tilt: string
-    topDown: string
     globe: string
     /** Grille de coordonnées — cf. le guide GRATICULE.md. */
     graticule: string
     fullscreen: string
     /** Bouton « revenir à la cible » — n'apparaît qu'avec `MapControls target`. */
     target: string
-    /** Fond de carte : tuiles 3D photoréalistes. */
+    /** Fond de carte : bascule 3D ↔ plan (bouton unique, toujours ce libellé). */
     mode3d: string
-    /** Fond de carte : plan 2D Google. */
-    plan: string
     /** Calque trafic Google (mode plan uniquement). */
     traffic: string
     /** Bouton d'entrée en mode piéton — n'apparaît qu'en 3D photoréaliste externe. */

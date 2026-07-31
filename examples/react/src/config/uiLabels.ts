@@ -17,14 +17,16 @@ import { defaultLabels } from 'map3d'
    anglais. */
 
 /**
- * Les deux exceptions viennent d'un décalage DANS LA LIB : `MapControlButton` nomme
- * `compass` et `layers` ce que `labels.controls` appelle `north` et ne porte pas du
- * tout (le libellé du filtre par tag vit sous `labels.tags`).
+ * Trois exceptions viennent d'un décalage DANS LA LIB : `MapControlButton` nomme `compass`
+ * et `layers` ce que `labels.controls` appelle `north` et ne porte pas du tout (le libellé du
+ * filtre par tag vit sous `labels.tags`) ; et `plan` est un bouton-clé virtuel (il autorise la
+ * bascule à revenir au plan) que la lib ne rend jamais, donc sans libellé côté `labels`.
  */
 export const BUTTON_LABELS: Record<MapControlButton, string> = {
   ...defaultLabels.controls,
   compass: defaultLabels.controls.north,
   layers: 'Couches',
+  plan: 'Plan',
 }
 
 /** `selectModes` porte un objet `{ label, description }` : seul le libellé nous sert. */
@@ -52,10 +54,8 @@ export const SECTION_LABELS: Record<DrawToolbarSection, string> = {
 /** `ControlGroup` est le seul de ces cinq vocabulaires que la lib n'étiquette pas. */
 export const GROUP_LABELS: Record<ControlGroup, string> = {
   drag: 'Déplacement / rotation',
-  compass: 'Boussole',
+  compass: 'Point de vue',
   zoom: 'Zoom',
-  view: 'Vues',
-  basemap: 'Fonds',
   pedestrian: 'Mode piéton',
   target: 'Cible',
   layers: 'Couches',

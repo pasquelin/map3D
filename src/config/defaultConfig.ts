@@ -299,8 +299,6 @@ export const defaultConfig: MapConfig = {
         zoomIn: '+',
         zoomOut: '-',
         tilt: 'i',
-        // N (nord) fait déjà la vue du dessus — pas de 2e touche par défaut.
-        topDown: false,
         globe: 'g',
         layers: 't',
         fullscreen: 'f',
@@ -470,9 +468,10 @@ export const defaultConfig: MapConfig = {
     dragSpeed: { min: 0.002, max: 0.35 },
     fov: CAMERA_FOV,
     maxTilt3d: Math.PI * 0.44,
-    // ~36° : la vue ne plonge pas vers l'horizon, donc la couverture de tuiles 2D
-    // reste bornée (le défaut de GlobeControls est 0.45π).
-    maxTilt2d: Math.PI * 0.2,
+    // Aligné sur la 3D (~79°) : on incline le plan autant qu'un volume. On reste borné AVANT
+    // l'horizon (0.44π < 0.5π), donc la couverture de tuiles 2D grossit mais reste finie —
+    // le resserrer rebornerait cette couverture (et remonterait l'angle de fondu du graticule).
+    maxTilt2d: Math.PI * 0.44,
     tiltStep: Math.PI * 0.11,
     zoomFactor: { in: 0.5, out: 2 },
     maxDistanceFactor: 2.5,

@@ -273,11 +273,13 @@ readable for reading positions, and the 3D tileset is not even requested until y
 switch. `mapMode="3d"` starts on the photorealistic tiles; without a Google key, `'3d'`
 is the only possible mode and stays the default.
 
-**Without `googleMapsApiKey`, the “basemap” group is not rendered at all** — rather than
-offering inert buttons. The traffic button only appears in plan mode (the only mode
-where the overlay exists), and switching back to 3D turns it off: the engine handles
-that, and `engine.getBasemap()` plus the `basemap` event are the source of truth
-(`{ mode, traffic, trafficAvailable }`).
+**Without `googleMapsApiKey`, there is no 2D ↔ 3D toggle** — the “3D” button only shows
+when its destination mode is servable, never inert. That **single button** (with traffic)
+lives in the **compass group**: lit while in 3D, clicking it turns 3D off and returns to
+the plan, exactly like the former “2D” button. The traffic button only appears in plan
+mode (the only mode where the overlay exists), and switching back to 3D turns it off: the
+engine handles that, and `engine.getBasemap()` plus the `basemap` event are the source of
+truth (`{ mode, traffic, trafficAvailable }`).
 
 **Fallback globe.** `fallbackGlobe` (default `true`) displays a plain ellipsoid when no
 tile is available: the map stays a map even without network or token.
@@ -305,18 +307,24 @@ tile is available: the map stays a map even without network or token.
 <Map controls={false} />
 ```
 
-Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`,
-`graticule`, `mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen`.
-Groups: `drag`, `compass`, `zoom`, `view`, `basemap`, `target`, `layers`, `fullscreen`.
+Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
+`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen`.
+Groups: `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
 
-⚠️ `camera.maxTilt3d` (0.44π ≈ 79.2°) and `camera.maxTilt2d` (0.2π = 36°) do not only bound
+The `compass` group gathers the whole **point of view**: compass (north / top-down), tilt,
+the `mode3d` toggle, traffic, back-to-globe and the grid — there is no separate `view` or
+`basemap` group anymore. `mode3d` is a **toggle**: lit while in 3D, turning it off returns to
+the 2D plan (no separate “Plan” button). Fine grain: hiding `mode3d` disables returning to 3D,
+hiding `plan` disables switching to the plan (useful with an external basemap to lock 3D on).
+
+⚠️ `camera.maxTilt3d` and `camera.maxTilt2d` (both 0.44π ≈ 79.2° by default) do not only bound
 the camera: the **graticule fade** is expressed as a fraction of that ceiling. Tightening them
 therefore moves the angle at which the grid disappears — see
 [GRATICULE.md § 4](GRATICULE.md#4-how-the-fade-works).
 
 ```tsx
 // GROUP granularity: hide (false) or replace (ReactNode)
-<MapControls components={{ view: false, zoom: <MyZoom /> }} />
+<MapControls components={{ compass: false, zoom: <MyZoom /> }} />
 
 // BUTTON granularity: its shortcut is disabled with it; an emptied group disappears
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />

@@ -89,8 +89,9 @@ describe('config.graticule', () => {
   })
 
   it('exprime la bande de fondu en fractions du plafond d’inclinaison', () => {
-    // Des fractions et non des degrés : `maxTilt2d` (36°) est bien plus bas que `maxTilt3d`
-    // (79,2°), donc une bande absolue ne se déclencherait jamais en mode plan.
+    // Des fractions et non des degrés : le plafond est réglable par mode (`maxTilt2d` /
+    // `maxTilt3d`) ; resserrer `maxTilt2d` (p. ex. à 36°) ferait qu'une bande absolue ne se
+    // déclencherait jamais en mode plan, là où une fraction s'adapte.
     const { start, end } = defaultConfig.graticule.tiltFade
     expect(start).toBeGreaterThan(0)
     expect(start).toBeLessThan(end)

@@ -1084,10 +1084,7 @@ const CSS = `
    + margin opposés = le grossissement au survol (-3px) n'est pas rogné par le clip. */
 .m3d-pindock-items{display:flex;align-items:center;gap:10px;min-width:0;
   overflow-x:auto;overflow-y:hidden;padding:8px;margin:-8px;
-  scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent;
-  /* Fondu doux aux deux bords : les pastilles qui débordent s'estompent. */
-  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
-  mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+  scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
 
 /* Carré épinglé : vignette arrondie (avatar/icône), croix de retrait dedans en
    haut-droite ; saisissable (glisser-hors = retrait). */
@@ -1113,9 +1110,8 @@ img.m3d-pin-media{object-fit:cover}
    long défile au survol (marquee CSS, sans <marquee> déprécié). container-type +
    cqw = mesure la largeur visible ; min(0px, cqw - largeurTexte) ne défile QUE
    si le texte déborde réellement (sinon 0 → immobile). */
-/* Voile sombre : couvre TOUTE la largeur (jamais masqué) → jusqu'au bord droit. */
+/* Conteneur du titre, sans fond : la lisibilité vient de l'ombre portée du texte. */
 .m3d-pin-caption{position:absolute;left:0;right:0;bottom:0;padding:34px 10px 6px;
-  background:linear-gradient(to top,rgba(0,0,0,.88),rgba(0,0,0,.5) 42%,rgba(0,0,0,.16) 72%,transparent);
   pointer-events:none;overflow:hidden}
 /* Couche du TEXTE : c'est ELLE (pas le voile) qui porte le fondu à droite + le
    clip du défilement. container-type ici → 100cqw = largeur de texte visible. */
@@ -1123,7 +1119,8 @@ img.m3d-pin-media{object-fit:cover}
   -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent);
   mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent)}
 .m3d-pin-caption-text{display:inline-block;white-space:nowrap;
-  font-size:10px;font-weight:var(--m3d-weight-semibold);line-height:1.2;color:#fff}
+  font-size:10px;font-weight:var(--m3d-weight-semibold);line-height:1.2;color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.7)}
 /* Défile au survol seulement si ça déborde ; s'arrête en laissant ~22px de marge
    à droite → la fin du titre reste NETTE (hors de la zone de fondu). */
 .m3d-pin:hover .m3d-pin-caption-text,

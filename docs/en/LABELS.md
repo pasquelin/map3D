@@ -39,12 +39,10 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `controls.zoomIn` | Tooltips/aria of the `<MapControls>` buttons. | `'Zoom avant'` |
 | `controls.zoomOut` | Tooltips/aria of the `<MapControls>` buttons. | `'Zoom arrière'` |
 | `controls.tilt` | Tooltips/aria of the `<MapControls>` buttons. | `'Incliner'` |
-| `controls.topDown` | Tooltips/aria of the `<MapControls>` buttons. | `'Vue du dessus'` |
 | `controls.globe` | Tooltips/aria of the `<MapControls>` buttons. | `'Retour au globe'` |
 | `controls.fullscreen` | Tooltips/aria of the `<MapControls>` buttons. | `'Plein écran'` |
 | `controls.target` | “Back to target” button — only appears with `MapControls target`. | `'Revenir à la cible'` |
-| `controls.mode3d` | Basemap: photorealistic 3D tiles. | `'Vue 3D'` |
-| `controls.plan` | Basemap: Google 2D plan. | `'Plan'` |
+| `controls.mode3d` | Basemap: 3D ↔ plan toggle (single button, always this label). | `'Vue 3D'` |
 | `controls.traffic` | Google traffic overlay (plan mode only). | `'Trafic'` |
 
 ## `tags` — “Layers” panel
@@ -424,9 +422,9 @@ import { imperialMeasure } from 'map3d'
   labels={{
     controls: {
       pan: 'Pan the map', rotate: 'Rotate the view (SHIFT)', north: 'North / top-down',
-      zoomIn: 'Zoom in', zoomOut: 'Zoom out', tilt: 'Tilt', topDown: 'Top-down view',
+      zoomIn: 'Zoom in', zoomOut: 'Zoom out', tilt: 'Tilt',
       globe: 'Back to globe', fullscreen: 'Fullscreen', target: 'Back to target',
-      mode3d: '3D view', plan: 'Plan', traffic: 'Traffic',
+      mode3d: '3D view', traffic: 'Traffic',
     },
     tags: {
       button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',

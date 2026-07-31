@@ -1,6 +1,7 @@
-// Iconographie : les glyphes « 3D » et « 2D » vont à la BASCULE DE FOND — les seuls
-// boutons de la barre à porter un état actif, donc les seuls que ces libellés doivent
-// désigner. Les actions caméra (incliner / remettre à plat) prennent la perspective.
+// Iconographie : le glyphe « 3D » va à la BASCULE DE FOND (3D ↔ plan) — désormais UN seul
+// bouton à état actif, logé dans le groupe boussole (l'ancien bouton « 2D » a disparu :
+// éteindre la 3D revient au plan). Les actions caméra (incliner / remettre à plat) prennent
+// la perspective et, elles, ne portent pas d'état.
 import {
   mdiCompassOutline,
   mdiCrosshairsGps,
@@ -9,13 +10,11 @@ import {
   mdiGrid,
   mdiFullscreen,
   mdiMinus,
-  mdiPerspectiveLess,
   mdiPerspectiveMore,
   mdiPlus,
   mdiRotateOrbit,
   mdiTrafficLight,
   mdiWalk,
-  mdiVideo2d,
   mdiVideo3d,
 } from '@mdi/js'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -40,7 +39,6 @@ export type MapControlAction =
   | 'zoomIn'
   | 'zoomOut'
   | 'tilt'
-  | 'topDown'
   | 'globe'
   | 'graticule'
   | 'layers'
@@ -59,7 +57,6 @@ export type MapControlButton =
   | 'zoomIn'
   | 'zoomOut'
   | 'tilt'
-  | 'topDown'
   | 'globe'
   /** Grille de coordonnées. Sa TOUCHE vit dans `shortcuts.draw.graticule`, avec le
    *  sous-menu « Mesures » qu'elle partage — pas dans `shortcuts.controls`. */
@@ -74,9 +71,15 @@ export type MapControlButton =
   /** Mode piéton — n'apparaît qu'en 3D photoréaliste externe. */
   | 'pedestrian'
 
-/** Groupes de la barre — l'unité du grain GROUPE (masquage, remplacement, ordre). */
+/**
+ * Groupes de la barre — l'unité du grain GROUPE (masquage, remplacement, ordre).
+ *
+ * `compass` réunit tout le « point de vue » : boussole, inclinaison, bascule 3D ↔ plan, trafic,
+ * retour au globe et grille. Il n'y a donc plus de groupe `basemap` ni `view` dédié ; masquer /
+ * remplacer passe par `compass` (grain groupe) ou par les boutons (grain fin).
+ */
 export type ControlGroup =
-  'drag' | 'compass' | 'zoom' | 'view' | 'basemap' | 'pedestrian' | 'target' | 'layers' | 'fullscreen'
+  'drag' | 'compass' | 'zoom' | 'pedestrian' | 'target' | 'layers' | 'fullscreen'
 
 export type MapControlsProps = {
   /** Côté d'ancrage de la barre. */
@@ -131,6 +134,10 @@ export type MapControlTarget = {
 }
 
 const TIP_ID = 'm3d-tooltip'
+
+/** Clé de bouton qui gouverne l'accès à un mode de fond : `plan` mène au plan, le reste à la
+ *  3D. Une seule règle, lue au render (visibilité de la bascule) comme au clavier. */
+const modeButtonKey = (m: MapMode): MapControlButton => (m === 'plan' ? 'plan' : 'mode3d')
 
 /** Sections de la barre (grain GROUPE) — clés de `MapControlsProps.components`. */
 type Slot = keyof NonNullable<MapControlsProps['components']>
@@ -220,23 +227,17 @@ export function MapControls({
   /** Ce bouton précis est-il visible ? (grain fin `buttons`, dans un groupe rendu) */
   const btn = (b: MapControlButton) => buttons[b] !== false
   /**
-   * Chaque bouton de bascule est proposé si SA destination a de quoi s'afficher —
-   * `canEnterMode`, la même table de vérité que celle qui autorise `engine.setMapMode`
-   * et le raccourci plus bas.
-   *
-   * ⚠️ Les deux étaient conditionnés au seul `canPlan` : `can3d` était publié, documenté
-   * et testé, mais lu nulle part. Un hôte en fond interne sans tileset photoréaliste ni
-   * volume interne se voyait donc offrir un bouton « 3D » qui, une fois cliqué, masquait
-   * le fond pour ne rien mettre à la place.
+   * Bascule 3D ↔ plan réduite à UN bouton (« 3D »), logé dans le groupe boussole : sa
+   * destination est le mode OPPOSÉ à l'actuel. Il n'est proposé que si cette destination a de
+   * quoi s'afficher (`canEnterMode`, la même table de vérité que `engine.setMapMode` et le
+   * raccourci `b` plus bas), et la clé de bouton lue suit la destination : `plan` quand on
+   * éteint la 3D (utile en fond externe, où l'hôte peut vouloir interdire le retour au plan),
+   * `mode3d` quand on la rallume.
    */
-  const showMode3d = btn('mode3d') && canEnterMode(basemap, '3d')
-  const showPlan = btn('plan') && canEnterMode(basemap, 'plan')
-  /**
-   * Le groupe « fond de carte » a-t-il quelque chose à montrer ? Le bouton trafic dépend
-   * de l'état ET du fournisseur : sa visibilité entre aussi dans le test de non-vacuité,
-   * sinon le groupe se rendrait vide.
-   */
-  const basemapGroupShown = showMode3d || showPlan || (btn('traffic') && basemap.trafficAvailable)
+  const toMode: MapMode = basemap.mode === '3d' ? 'plan' : '3d'
+  const showModeToggle = btn(modeButtonKey(toMode)) && canEnterMode(basemap, toMode)
+  /** Trafic : dépend de l'état ET du fournisseur, inchangé — il rejoint juste le groupe boussole. */
+  const showTraffic = btn('traffic') && basemap.trafficAvailable
   /**
    * Le bouton piéton n'existe que si le mode est SERVABLE (3D photoréaliste externe) — même
    * règle que la paire 2D/3D : un bouton qui ne mène nulle part n'est pas proposé. Masqué et
@@ -244,11 +245,9 @@ export function MapControls({
    */
   const showPedestrian = btn('pedestrian') && pedestrian.state.available
   /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
-   *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier
-   *  fantôme. S'ajoute au prédicat partagé : ce que le fond de carte permet dépend du
-   *  fournisseur (une seule vérité, pas trois tests séparés). */
+   *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier fantôme. */
   const defaultShown = (key: Slot) =>
-    isDefault(key) && (key !== 'basemap' || basemapGroupShown) && (key !== 'pedestrian' || pedestrian.state.available)
+    isDefault(key) && (key !== 'pedestrian' || pedestrian.state.available)
   // Défauts pris dans la config : les dix touches vivaient dans une table de module,
   // donc remappables par prop mais invisibles depuis `<Map config>`. L'assertion
   // `satisfies` garde les deux ensembles de clés alignés.
@@ -280,20 +279,20 @@ export function MapControls({
       // Lu au moment de la frappe, pas capturé : une seule source de vérité.
       const bm = engine.getBasemap()
       const to: MapMode = bm.mode === '3d' ? 'plan' : '3d'
-      if (hit('compass', 'compass', 'north') || hit('view', 'topDown', 'topDown')) topDown()
+      if (hit('compass', 'compass', 'north')) topDown()
       else if (hit('zoom', 'zoomIn', 'zoomIn')) zoomBy(config.camera.zoomFactor.in)
       else if (hit('zoom', 'zoomOut', 'zoomOut')) zoomBy(config.camera.zoomFactor.out)
-      else if (hit('view', 'tilt', 'tilt')) tiltUp()
-      else if (hit('view', 'globe', 'globe')) globe()
+      else if (hit('compass', 'tilt', 'tilt')) tiltUp()
+      else if (hit('compass', 'globe', 'globe')) globe()
       // Un CALQUE, pas un mode : on ne relâche rien, et un tracé en cours n'est pas interrompu.
-      else if (hit('view', 'graticule', 'graticule')) graticule.toggle()
+      else if (hit('compass', 'graticule', 'graticule')) graticule.toggle()
       else if (hit('fullscreen', 'fullscreen', 'fullscreen')) toggleFs()
       // La bascule s'applique au bouton de destination : masquer « Plan » désactive
       // aussi la touche qui y mènerait — et `canEnterMode` la désactive de même quand la
-      // destination n'a rien à afficher, exactement comme elle en masque le bouton.
-      else if (canEnterMode(bm, to) && hit('basemap', to === 'plan' ? 'plan' : 'mode3d', 'basemap'))
-        engine.setMapMode(to)
-      else if (bm.trafficAvailable && hit('basemap', 'traffic', 'traffic')) engine.setTrafficVisible(!bm.traffic)
+      // destination n'a rien à afficher, exactement comme elle en masque le bouton. Le
+      // bouton unique vit désormais dans le groupe boussole (`compass`).
+      else if (canEnterMode(bm, to) && hit('compass', modeButtonKey(to), 'basemap')) engine.setMapMode(to)
+      else if (bm.trafficAvailable && hit('compass', 'traffic', 'traffic')) engine.setTrafficVisible(!bm.traffic)
       else if (hit('pedestrian', 'pedestrian', 'pedestrian')) {
         // Lu au moment de la frappe (comme le fond de carte) : une seule source de vérité,
         // et la touche reste juste même si la carte a changé de mode entre-temps.
@@ -339,17 +338,79 @@ export function MapControls({
         ),
       )}
 
+      {/* Groupe « point de vue », tout réuni : boussole (nord / vue du dessus), inclinaison,
+          bascule 3D ↔ plan, trafic, retour au globe et grille. Le « d'où on regarde » et le
+          « quoi qu'on regarde » (carte plate ou volume) tiennent dans une seule pilule ; la
+          bascule 3D et le trafic en sont les seuls boutons à état actif. Inclinaison, globe et
+          grille venaient du groupe « Vues », la bascule d'un groupe `basemap` dédié — tous ont
+          migré ici. */}
       {slot(
         'compass',
-        btn('compass') && (
+        (btn('compass') || btn('tilt') || showModeToggle || showTraffic || btn('globe') || btn('graticule')) && (
           <div className="m3d-controls-group">
-            <ToolButton
-              icon={mdiCompassOutline}
-              label={labels.controls.north}
-              tip={tip}
-              shortcut={keys.north}
-              onClick={topDown}
-            />
+            {btn('compass') && (
+              <ToolButton
+                icon={mdiCompassOutline}
+                label={labels.controls.north}
+                tip={tip}
+                shortcut={keys.north}
+                onClick={topDown}
+              />
+            )}
+            {btn('tilt') && (
+              <ToolButton
+                icon={mdiPerspectiveMore}
+                label={labels.controls.tilt}
+                tip={tip}
+                shortcut={keys.tilt}
+                onClick={tiltUp}
+              />
+            )}
+            {/* Bascule 3D ↔ plan : UN seul bouton (l'ancien « 2D » a disparu). Actif = on est
+                en 3D ; l'éteindre revient à l'ancien clic « Plan » — `setMapMode('plan')`. */}
+            {showModeToggle && (
+              <ToolButton
+                icon={mdiVideo3d}
+                label={labels.controls.mode3d}
+                tip={tip}
+                shortcut={keys.basemap}
+                active={basemap.mode === '3d'}
+                onClick={() => engine.setMapMode(toMode)}
+              />
+            )}
+            {showTraffic && (
+              <ToolButton
+                icon={mdiTrafficLight}
+                label={labels.controls.traffic}
+                tip={tip}
+                shortcut={keys.traffic}
+                active={basemap.traffic}
+                onClick={() => engine.setTrafficVisible(!basemap.traffic)}
+              />
+            )}
+            {btn('globe') && (
+              <ToolButton
+                icon={mdiEarth}
+                label={labels.controls.globe}
+                tip={tip}
+                shortcut={keys.globe}
+                onClick={globe}
+              />
+            )}
+            {/* Grille de coordonnées. Présente ICI en plus du sous-menu « Mesures » de la
+                barre d'outils parce que celle-ci se replie sous `drawToolbarMinZoom` (11) :
+                sans ce bouton, la grille deviendrait impilotable en vue globe — exactement
+                là où elle sert le plus. Les deux pilotent le même état moteur. */}
+            {btn('graticule') && (
+              <ToolButton
+                icon={mdiGrid}
+                label={labels.controls.graticule}
+                tip={tip}
+                shortcut={keys.graticule}
+                active={graticule.visible}
+                onClick={graticule.toggle}
+              />
+            )}
           </div>
         ),
       )}
@@ -380,59 +441,9 @@ export function MapControls({
         ),
       )}
 
-      {/* Fond de carte, AVANT les commandes de caméra : c'est le choix de ce qu'on
-          regarde (carte ou volume), pas une manière de le regarder — et il porte le seul
-          état actif de la barre.
-
-          Chaque bouton de la paire 2D/3D est là si SA destination est servable (cf.
-          `canEnterMode` plus haut) : « Plan » demande un fond plat — clé Google ou origine
-          interne — et « 3D » du volume — tileset photoréaliste, ou relief/bâtiments
-          internes. Le trafic dépend en plus de l'ÉTAT, pas seulement de la config : sa
-          visibilité entre donc dans le test de non-vacuité du groupe. */}
-      {slot(
-        'basemap',
-        basemapGroupShown && (
-          <div className="m3d-controls-group">
-            {showMode3d && (
-              <ToolButton
-                icon={mdiVideo3d}
-                label={labels.controls.mode3d}
-                tip={tip}
-                // Le raccourci bascule : ne l'annoncer que sur le bouton vers
-                // lequel il mène, sinon « Vue 3D (B) » s'affiche en étant déjà en 3D.
-                shortcut={basemap.mode === '3d' ? undefined : keys.basemap}
-                active={basemap.mode === '3d'}
-                onClick={() => engine.setMapMode('3d')}
-              />
-            )}
-            {showPlan && (
-              <ToolButton
-                icon={mdiVideo2d}
-                label={labels.controls.plan}
-                tip={tip}
-                shortcut={basemap.mode === '3d' ? keys.basemap : undefined}
-                active={basemap.mode === 'plan'}
-                onClick={() => engine.setMapMode('plan')}
-              />
-            )}
-            {btn('traffic') && basemap.trafficAvailable && (
-              <ToolButton
-                icon={mdiTrafficLight}
-                label={labels.controls.traffic}
-                tip={tip}
-                shortcut={keys.traffic}
-                active={basemap.traffic}
-                onClick={() => engine.setTrafficVisible(!basemap.traffic)}
-              />
-            )}
-          </div>
-        ),
-      )}
-
-      {/* Mode piéton, après le fond de carte : comme lui, c'est le choix de CE QU'ON REGARDE
-          (du ciel ou de la rue), pas une manière de le regarder — et il porte un état actif.
-          Le groupe n'existe pas hors 3D photoréaliste externe : le mode n'y a rien à
-          parcourir. */}
+      {/* Mode piéton : comme la bascule 3D ↔ plan, c'est le choix de CE QU'ON REGARDE (du ciel
+          ou de la rue), pas une manière de le regarder — et il porte un état actif. Le groupe
+          n'existe pas hors 3D photoréaliste externe : le mode n'y a rien à parcourir. */}
       {slot(
         'pedestrian',
         showPedestrian && (
@@ -445,55 +456,6 @@ export function MapControls({
               active={inPedestrian}
               onClick={() => (inPedestrian ? pedestrian.exit() : pedestrian.enterPlacement())}
             />
-          </div>
-        ),
-      )}
-
-      {slot(
-        'view',
-        (btn('tilt') || btn('topDown') || btn('globe') || btn('graticule')) && (
-          <div className="m3d-controls-group">
-            {btn('tilt') && (
-              <ToolButton
-                icon={mdiPerspectiveMore}
-                label={labels.controls.tilt}
-                tip={tip}
-                shortcut={keys.tilt}
-                onClick={tiltUp}
-              />
-            )}
-            {btn('topDown') && (
-              <ToolButton
-                icon={mdiPerspectiveLess}
-                label={labels.controls.topDown}
-                tip={tip}
-                shortcut={keys.topDown}
-                onClick={topDown}
-              />
-            )}
-            {btn('globe') && (
-              <ToolButton
-                icon={mdiEarth}
-                label={labels.controls.globe}
-                tip={tip}
-                shortcut={keys.globe}
-                onClick={globe}
-              />
-            )}
-            {/* Grille de coordonnées. Présente ICI en plus du sous-menu « Mesures » de la
-                barre d'outils parce que celle-ci se replie sous `drawToolbarMinZoom` (11) :
-                sans ce bouton, la grille deviendrait impilotable en vue globe — exactement
-                là où elle sert le plus. Les deux pilotent le même état moteur. */}
-            {btn('graticule') && (
-              <ToolButton
-                icon={mdiGrid}
-                label={labels.controls.graticule}
-                tip={tip}
-                shortcut={keys.graticule}
-                active={graticule.visible}
-                onClick={graticule.toggle}
-              />
-            )}
           </div>
         ),
       )}

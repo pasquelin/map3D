@@ -93,9 +93,11 @@ Past a certain tilt, a grid stops being readable: cells crush towards the horizo
 mesh turns into moiré. So it fades away.
 
 The band is expressed in **fractions of the current mode's tilt ceiling**, not in absolute
-degrees. The reason is concrete: that ceiling is **79.2° in 3D** but **36° in flat map
-mode** (`camera.maxTilt3d` / `maxTilt2d`) — a band written "60° → 75°" would *never*
-trigger when flat.
+degrees. The reason is concrete: that ceiling is **configurable per mode**
+(`camera.maxTilt3d` / `maxTilt2d`), both 79.2° by default — but nothing forces them equal:
+tightening `maxTilt2d` (e.g. to 36°) bounds tile coverage on the flat map. A band written
+"60° → 75°" would then *never* trigger in the mode with the lower ceiling; as fractions it
+adapts.
 
 ```tsx
 config={{ graticule: { tiltFade: { start: 0.75, end: 0.95 }, fadeMs: 250 } }}
@@ -105,8 +107,9 @@ What that gives at the defaults:
 
 | Mode | Ceiling | Fade starts (0.75) | Gone (0.95) |
 |---|---|---|---|
-| **3D** | 79.2° | 59.4° | 75.2° |
-| **plan** | 36.0° | 27.0° | 34.2° |
+| **3D and plan** | 79.2° | 59.4° | 75.2° |
+
+(Both modes share the same ceiling by default; tightening `maxTilt2d` moves the "plan" row closer — e.g. a 36° ceiling → fade 27.0° / gone 34.2°.)
 
 `fadeMs` is the smoothing time constant — that is the softness. At `0`, the grid appears
 and disappears instantly.
@@ -228,7 +231,7 @@ The grid is driven from the **view controls**, not from the toolbar: the latter 
 zoom 11** (`interaction.drawToolbarMinZoom`), whereas the grid is precisely what you want in globe
 view. A button that vanishes where the feature becomes useful is not a button.
 
-**The button**, in the `view` group, next to "Globe":
+**The button**, in the `compass` group, next to "Globe":
 
 ```tsx
 <Map controls={{ buttons: { graticule: false } }} />   // to remove it

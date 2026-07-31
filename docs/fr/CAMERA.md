@@ -279,10 +279,12 @@ lisible pour lire des positions, et le tileset 3D n'est même pas requêté tant
 bascule pas. `mapMode="3d"` démarre sur les tuiles photoréalistes ; sans clé Google,
 `'3d'` est le seul mode possible et reste le défaut.
 
-**Sans `googleMapsApiKey`, le groupe « fond de carte » n'est pas rendu du tout** —
-plutôt que d'offrir des boutons inertes. Le bouton trafic n'apparaît qu'en mode plan
-(seul mode où le calque existe), et repasser en 3D l'éteint : le moteur s'en charge,
-`engine.getBasemap()` et l'event `basemap` en sont la source de vérité
+**Sans `googleMapsApiKey`, il n'y a pas de bascule 2D ↔ 3D** — le bouton « 3D » ne paraît
+que si son mode de destination est servable, jamais inerte. Ce **bouton unique** (avec le
+trafic) vit dans le **groupe boussole** : allumé en 3D, cliquer dessus éteint la 3D et
+revient au plan, exactement comme l'ancien bouton « 2D ». Le bouton trafic n'apparaît qu'en
+mode plan (seul mode où le calque existe), et repasser en 3D l'éteint : le moteur s'en
+charge, `engine.getBasemap()` et l'event `basemap` en sont la source de vérité
 (`{ mode, traffic, trafficAvailable }`).
 
 **Globe de repli.** `fallbackGlobe` (défaut `true`) affiche un ellipsoïde uni quand
@@ -311,19 +313,24 @@ aucune tuile n'est disponible : la carte reste une carte même sans réseau ni t
 <Map controls={false} />
 ```
 
-Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`,
-`graticule`, `mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen`.
-Groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `target`, `layers`,
-`fullscreen`.
+Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
+`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen`.
+Groupes : `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
 
-⚠️ `camera.maxTilt3d` (0,44π ≈ 79,2°) et `camera.maxTilt2d` (0,2π = 36°) ne bornent pas que
-la caméra : le **fondu du graticule** s'exprime en fraction de ce plafond. Les resserrer
-déplace donc l'angle auquel la grille disparaît — cf.
+Le groupe `compass` réunit tout le **point de vue** : boussole (nord / vue du dessus),
+inclinaison, bascule `mode3d`, trafic, retour au globe et grille — il n'y a plus de groupe
+`view` ni `basemap` séparé. `mode3d` est une **bascule** : allumé en 3D, l'éteindre repasse au
+plan 2D (plus de bouton « Plan » distinct). Grain fin : masquer `mode3d` coupe le retour à la
+3D, masquer `plan` coupe le passage au plan (utile en fond externe pour verrouiller la 3D).
+
+⚠️ `camera.maxTilt3d` et `camera.maxTilt2d` (tous deux 0,44π ≈ 79,2° par défaut) ne bornent
+pas que la caméra : le **fondu du graticule** s'exprime en fraction de ce plafond. Les
+resserrer déplace donc l'angle auquel la grille disparaît — cf.
 [GRATICULE.md § 4](GRATICULE.md#4-comment-le-fondu-marche).
 
 ```tsx
 // Grain GROUPE : masquer (false) ou remplacer (ReactNode)
-<MapControls components={{ view: false, zoom: <MonZoom /> }} />
+<MapControls components={{ compass: false, zoom: <MonZoom /> }} />
 
 // Grain BOUTON : son raccourci est désactivé avec lui ; un groupe vidé disparaît
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />

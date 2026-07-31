@@ -177,7 +177,6 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.controls.zoomIn` | Zoom avant d'un cran. | `'+'` |
 | `interaction.shortcuts.controls.zoomOut` | Zoom arrière d'un cran. | `'-'` |
 | `interaction.shortcuts.controls.tilt` | Bascule l'inclinaison de la caméra. | `'i'` |
-| `interaction.shortcuts.controls.topDown` | Vue du dessus (le raccourci `north` la fait déjà). | `false` |
 | `interaction.shortcuts.controls.globe` | Recul en vue globe. | `'g'` |
 | `interaction.shortcuts.controls.layers` | Ouvre le panneau « Couches » (filtre par tag). | `'t'` |
 | `interaction.shortcuts.controls.fullscreen` | Plein écran. | `'f'` |
@@ -311,7 +310,7 @@ doit les revoir.
 | `camera.dragSpeed.max` | Vitesse de déplacement en vue globe. | `0.35` |
 | `camera.fov` | Champ de vision vertical (degrés). Lu à la construction du moteur seulement. | `60` |
 | `camera.maxTilt3d` | Inclinaison max en 3D (rad depuis le nadir) — au-delà, la vue bascule. | `1.382300767579509` |
-| `camera.maxTilt2d` | Inclinaison max en 2D : plus basse, pour borner la couverture de tuiles. | `0.6283185307179586` |
+| `camera.maxTilt2d` | Inclinaison max en 2D (rad depuis le nadir). Par défaut alignée sur `maxTilt3d` (~79°) ; la resserrer borne la couverture de tuiles (une carte plate inclinée vers l'horizon en demande de plus en plus loin) et remonte l'angle où le graticule s'efface. | `1.382300767579509` |
 | `camera.tiltStep` | Pas d'inclinaison par clic du bouton dédié (rad). | `0.34557519189487723` |
 | `camera.zoomFactor.in` | Facteurs d'altitude par cran de zoom (bouton +/−). | `0.5` |
 | `camera.zoomFactor.out` | Facteurs d'altitude par cran de zoom (bouton +/−). | `2` |
@@ -413,7 +412,7 @@ Parallèles et méridiens drapés sur le globe, à maille adaptative — cf. le 
 | `graticule.remarkable.enabled` | Tracer les lignes remarquables (Équateur, tropiques, cercles polaires, méridiens). | `true` |
 | `graticule.remarkable.parallels` | Parallèles remarquables `{ lat, labelKey }`. En config et non en constantes : l'obliquité dérive, et un tileset non terrestre n'a ni tropiques ni cercles polaires. | Équateur, tropiques, cercles polaires |
 | `graticule.remarkable.meridians` | Méridiens remarquables `{ lng, labelKey }`. ⚠️ L'antiméridien s'écrit `-180` : `normalizeLng` ramène dans `[-180, 180)`. | Méridien d'origine, 180ᵉ |
-| `graticule.tiltFade.start` | Début du fondu, en FRACTION du plafond d'inclinaison du mode (`camera.maxTilt3d`/`maxTilt2d`). ⚠️ Des fractions et non des degrés : le plafond vaut 79,2° en volume mais 36° à plat. | `0.75` |
+| `graticule.tiltFade.start` | Début du fondu, en FRACTION du plafond d'inclinaison du mode (`camera.maxTilt3d`/`maxTilt2d`). ⚠️ Des fractions et non des degrés : le plafond (79,2° par défaut dans les deux modes) reste réglable par mode. | `0.75` |
 | `graticule.tiltFade.end` | Disparition complète, même unité. | `0.95` |
 | `graticule.fadeMs` | Constante de temps du fondu (ms) — c'est elle, la douceur. | `250` |
 | `graticule.levelFadeMs` | Fondu croisé au changement de maille (ms). `0` = bascule sèche. | `300` |

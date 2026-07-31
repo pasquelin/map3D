@@ -95,9 +95,11 @@ s'écrasent vers l'horizon et le quadrillage devient un moiré. Elle s'efface do
 fondu.
 
 La bande s'exprime en **fractions du plafond d'inclinaison du mode courant**, et non en
-degrés absolus. La raison est concrète : ce plafond vaut **79,2° en volume** mais
-**36° en carte plate** (`camera.maxTilt3d` / `maxTilt2d`) — une bande écrite « 60° → 75° »
-ne se déclencherait *jamais* à plat.
+degrés absolus. La raison est concrète : ce plafond est **réglable par mode**
+(`camera.maxTilt3d` / `maxTilt2d`), tous deux 79,2° par défaut — mais rien n'oblige à les
+garder égaux : resserrer `maxTilt2d` (p. ex. à 36°) borne la couverture de tuiles en carte
+plate. Une bande écrite « 60° → 75° » ne se déclencherait alors *jamais* dans le mode au
+plafond le plus bas ; en fractions, elle s'adapte.
 
 ```tsx
 config={{ graticule: { tiltFade: { start: 0.75, end: 0.95 }, fadeMs: 250 } }}
@@ -107,8 +109,9 @@ Ce que ça donne aux défauts :
 
 | Mode | Plafond | Début du fondu (0,75) | Disparition (0,95) |
 |---|---|---|---|
-| **3D** | 79,2° | 59,4° | 75,2° |
-| **plan** | 36,0° | 27,0° | 34,2° |
+| **3D et plan** | 79,2° | 59,4° | 75,2° |
+
+(Les deux modes partagent le même plafond par défaut ; resserrer `maxTilt2d` rapprocherait la ligne « plan » — p. ex. plafond 36° → fondu 27,0° / disparition 34,2°.)
 
 `fadeMs` est la constante de temps du lissage — c'est elle, la douceur. À `0`, la grille
 apparaît et disparaît d'un coup.
@@ -235,7 +238,7 @@ La grille se pilote depuis les **contrôles de vue**, et non depuis la barre d'o
 **se replie sous le zoom 11** (`interaction.drawToolbarMinZoom`), or la grille sert justement en
 vue globe. Un bouton qui disparaît là où la fonction devient utile n'est pas un bouton.
 
-**Le bouton**, dans le groupe `view`, à côté de « Globe » :
+**Le bouton**, dans le groupe `compass`, à côté de « Globe » :
 
 ```tsx
 <Map controls={{ buttons: { graticule: false } }} />   // pour le retirer

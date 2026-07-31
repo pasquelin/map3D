@@ -809,16 +809,19 @@ useMapDropZone<Icon>({
 
 ```tsx
 // GROUP granularity: hide (false) or replace (ReactNode) a whole group.
-<MapControls components={{ view: false, zoom: <MyZoom /> }} />
+<MapControls components={{ compass: false, zoom: <MyZoom /> }} />
 
 // BUTTON granularity: hide a specific button — its keyboard shortcut is
 // disabled with it, and an emptied group disappears.
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />
 ```
 
-Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`,
-`mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen` — groups: `drag`,
-`compass`, `zoom`, `view`, `basemap`, `target`, `layers`, `fullscreen`.
+Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
+`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen` — groups: `drag`,
+`compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`. The `compass` group gathers the whole point of view
+(compass, tilt, the `mode3d` toggle, traffic, globe, grid): no separate `view` or `basemap`
+group. `mode3d` is a toggle — lit while in 3D, turning it off returns to the 2D plan, there is
+no separate “Plan” button.
 
 #### The “back to target” button
 
@@ -1057,12 +1060,14 @@ By default `altitudeForBounds` clamps to `[350 m, 6000 km]` with a 1.35× margin
 designed for place search. `minAltitude`, `maxAltitude` and `margin` adjust them when the
 content is smaller (a 200 m GPS trace).
 
-**Basemap** — switches between the photorealistic 3D tiles and the Google 2D plan, plus
-the traffic overlay. These basemaps are Google services: **without `googleMapsApiKey`,
-the whole group is not rendered** rather than offering inert buttons. The traffic button
-only appears in plan mode (the only mode where the overlay exists), and switching back
-to 3D turns it off — the engine handles that, and `engine.getBasemap()` plus the
-`basemap` event are the source of truth.
+**Basemap** — the `mode3d` button switches between the photorealistic 3D tiles and the
+Google 2D plan; it is a **single toggle** housed in the compass group (`compass`), with the
+traffic overlay. Lit while in 3D, turning it off returns to the plan (there is no separate
+“Plan” button). These basemaps are Google services: **without `googleMapsApiKey`, the toggle
+does not appear** rather than offering an inert button. The traffic button only appears in
+plan mode (the only mode where the overlay exists), and switching back to 3D turns it off —
+the engine handles that, and `engine.getBasemap()` plus the `basemap` event are the source
+of truth.
 
 **Startup mode (`<Map mapMode>`)** — with `googleMapsApiKey`, the map **starts on the 2D
 plan**: more readable for reading positions, and the 3D tileset is not even requested

@@ -956,8 +956,6 @@ export type ControlShortcuts = {
   zoomOut: string | false
   /** Bascule l'inclinaison de la caméra. */
   tilt: string | false
-  /** Vue du dessus (le raccourci `north` la fait déjà). */
-  topDown: string | false
   /** Recul en vue globe. */
   globe: string | false
   /**
@@ -1075,7 +1073,7 @@ export type NavigateShortcuts = {
  * vit donc dans `controls.pedestrian`, avec les neuf autres. Ne reste ici que ce qui n'a
  * pas de bouton de barre.
  *
- * `immersion` est à `false` par défaut, comme `controls.topDown` et `controls.traffic` : la
+ * `immersion` est à `false` par défaut, comme `controls.traffic` : la
  * bascule ne vaut QUE mode piéton actif, et Échap en sort déjà (relâchement natif du
  * Pointer Lock). Brûler une lettre globale pour ça serait déroutant.
  */
@@ -1151,7 +1149,9 @@ export type CameraConfig = {
   fov: number
   /** Inclinaison max en 3D (rad depuis le nadir) — au-delà, la vue bascule. */
   maxTilt3d: number
-  /** Inclinaison max en 2D : plus basse, pour borner la couverture de tuiles. */
+  /** Inclinaison max en 2D (rad depuis le nadir). Par défaut alignée sur `maxTilt3d` (~79°) ;
+   *  la resserrer borne la couverture de tuiles (une carte plate inclinée vers l'horizon en
+   *  demande de plus en plus loin) et remonte l'angle où le graticule s'efface. */
   maxTilt2d: number
   /** Pas d'inclinaison par clic du bouton dédié (rad). */
   tiltStep: number

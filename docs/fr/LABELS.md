@@ -31,12 +31,10 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `controls.zoomIn` | Tooltips/aria des boutons de `<MapControls>`. | `'Zoom avant'` |
 | `controls.zoomOut` | Tooltips/aria des boutons de `<MapControls>`. | `'Zoom arrière'` |
 | `controls.tilt` | Tooltips/aria des boutons de `<MapControls>`. | `'Incliner'` |
-| `controls.topDown` | Tooltips/aria des boutons de `<MapControls>`. | `'Vue du dessus'` |
 | `controls.globe` | Tooltips/aria des boutons de `<MapControls>`. | `'Retour au globe'` |
 | `controls.fullscreen` | Tooltips/aria des boutons de `<MapControls>`. | `'Plein écran'` |
 | `controls.target` | Bouton « revenir à la cible » — n'apparaît qu'avec `MapControls target`. | `'Revenir à la cible'` |
-| `controls.mode3d` | Fond de carte : tuiles 3D photoréalistes. | `'Vue 3D'` |
-| `controls.plan` | Fond de carte : plan 2D Google. | `'Plan'` |
+| `controls.mode3d` | Fond de carte : bascule 3D ↔ plan (bouton unique, toujours ce libellé). | `'Vue 3D'` |
 | `controls.traffic` | Calque trafic Google (mode plan uniquement). | `'Trafic'` |
 
 ## `tags` — Panneau « Couches »

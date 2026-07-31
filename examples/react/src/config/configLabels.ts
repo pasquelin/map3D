@@ -253,7 +253,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.controls.zoomIn': 'zoom avant',
   'interaction.shortcuts.controls.zoomOut': 'zoom arrière',
   'interaction.shortcuts.controls.tilt': 'inclinaison',
-  'interaction.shortcuts.controls.topDown': 'vue du dessus',
   'interaction.shortcuts.controls.globe': 'vue globe',
   'interaction.shortcuts.controls.layers': 'panneau Couches',
   'interaction.shortcuts.controls.fullscreen': 'plein écran',

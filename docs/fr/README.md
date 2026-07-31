@@ -581,14 +581,14 @@ useMapDropZone<Icone>({
 
 ```tsx
 // Grain GROUPE : masquer (false) ou remplacer (ReactNode) un groupe entier.
-<MapControls components={{ view: false, zoom: <MonZoom /> }} />
+<MapControls components={{ compass: false, zoom: <MonZoom /> }} />
 
 // Grain BOUTON : masquer un bouton précis — son raccourci clavier est
 // désactivé avec lui, un groupe vidé disparaît.
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />
 ```
 
-Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `topDown`, `globe`, `mode3d`, `plan`, `traffic`, `target`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `view`, `basemap`, `target`, `layers`, `fullscreen`.
+Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`, `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`. Le groupe `compass` réunit tout le point de vue (boussole, inclinaison, bascule `mode3d`, trafic, globe, grille) : plus de groupe `view` ni `basemap` séparé. `mode3d` est une bascule — allumé en 3D, l'éteindre repasse au plan 2D, il n'y a plus de bouton « Plan » distinct.
 
 #### Bouton « revenir à la cible »
 
@@ -768,7 +768,7 @@ altitudeForBounds(b, opts?)      // altitude cadrante (utilisée par SearchBox e
 
 Par défaut `altitudeForBounds` borne à `[350 m, 6000 km]` avec une marge de 1.35× — des valeurs pensées pour la recherche de lieu. `minAltitude`, `maxAltitude` et `margin` les ajustent quand le contenu est plus petit (une trace GPS de 200 m).
 
-**Fond de carte (`basemap`)** — bascule entre les tuiles 3D photoréalistes et le plan 2D Google, plus le calque trafic. Ces fonds sont des services Google : **sans `googleMapsApiKey`, le groupe entier n'est pas rendu** plutôt que d'offrir des boutons inertes. Le bouton trafic n'apparaît qu'en mode plan (seul mode où le calque existe), et repasser en 3D l'éteint — le moteur s'en charge, `engine.getBasemap()` et l'événement `basemap` en sont la source de vérité.
+**Fond de carte** — le bouton `mode3d` bascule entre les tuiles 3D photoréalistes et le plan 2D Google ; c'est une **bascule unique** logée dans le groupe boussole (`compass`), avec le calque trafic. Allumé en 3D, l'éteindre revient au plan (il n'y a plus de bouton « Plan » distinct). Ces fonds sont des services Google : **sans `googleMapsApiKey`, la bascule n'apparaît pas** plutôt que d'offrir un bouton inerte. Le bouton trafic n'apparaît qu'en mode plan (seul mode où le calque existe), et repasser en 3D l'éteint — le moteur s'en charge, `engine.getBasemap()` et l'événement `basemap` en sont la source de vérité.
 
 **Mode au démarrage (`<Map mapMode>`)** — avec `googleMapsApiKey`, la carte **démarre en plan 2D** : plus lisible pour lire des positions, et le tileset 3D n'est même pas requêté tant qu'on ne bascule pas (aucune tuile photoréaliste téléchargée au chargement). `mapMode="3d"` démarre sur les tuiles photoréalistes ; sans clé Google, `'3d'` est le seul mode possible et reste le défaut.
 
