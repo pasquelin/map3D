@@ -100,9 +100,10 @@ map hole-free while finer levels arrive. `maxZoom` (default 22) bounds the fines
 requested — **lower it** if your style stops earlier, otherwise the map asks for tiles that
 do not exist.
 
-Between the two, the basemap steps down through a **cascade**: the finest level around the
-looked-at point, then a ring of `lodRing` tiles per side at each coarser step, each reaching
-twice as far, until the first level that covers the whole view. That is what makes the
+Between the two, the basemap steps down through a **cascade**: the finest level on a disc
+centred under the camera — a disc, so that sharpness depends on neither heading nor tilt —
+then the coarser levels over the whole view, each reaching twice as far, until the first one
+that covers it. That is what makes the
 distance degrade gradually instead of dropping straight to the base level — a tile the size
 of a quarter of a continent, a flat wash of colour that reads as a rendering bug.
 
@@ -217,19 +218,34 @@ What to know when tuning it:
 
 ### How far volume reaches
 
-`maxViewDistance` (6000 m) bounds the reach of the extent served to buildings. **Beyond it
-only the raster basemap remains** — a view tilted to 79° reaches tens of kilometres, and no
-z14 coverage would ever match that.
+The volume is served by a **disc centred under the camera**, its radius capped by
+`maxViewDistance` (5000 m). **Beyond it only the raster basemap remains** — a view tilted to
+79° reaches tens of kilometres, and no z14 coverage would ever match that.
 
-⚠️ This bound is not just a budget: it is what makes coverage **continuous** as the view
-tilts. The extent comes from a grid of rays cast through the screen; those crossing the
-horizon hit nothing and were discarded. Every time a whole grid row went to the sky, the
-extent collapsed at once, then `tan(tilt)` blew it back up until the next row — measured at
-1000 m altitude: sawtooth reach between 2.8 and 36.3 km, two abrupt collapses (59° and 74°),
-and 8 to 1058 tiles requested at constant altitude. At 55° and 70° the map looked alike, at
-60° it looked nothing like either. Clamping each ray to `maxViewDistance` makes the reach
-monotonic then flat, and the budget stable (24 tiles at 6 km). `maxRequest` is now only a
-safety net.
+⚠️ A disc, not the view frustum's bbox: that is what makes coverage both **invariant** and
+**continuous**. The bbox had two flaws.
+
+It depended on **heading**: its area grows by ~2× between a north heading and a 45° one, so
+the set of tiles changed as you turned the camera, without the view changing.
+
+It blew up at the **horizon**: the extent came from a grid of rays cast through the screen,
+and those crossing the horizon hit nothing — they were discarded. Every time a whole grid row
+went to the sky, the extent collapsed at once, then `tan(tilt)` blew it back up until the next
+row. Measured at 1000 m altitude: sawtooth reach between 2.8 and 36.3 km, two abrupt collapses
+(59° and 74°), and 8 to 1058 tiles requested at constant altitude. At 55° and 70° the map
+looked alike, at 60° it looked nothing like either.
+
+A disc has neither flaw: it depends on no angle, and it is bounded without clamping anything.
+Tiles whose centre falls outside the disc are dropped from the circumscribed square, which
+returns half the budget — measured in Paris: 32 z14 tiles instead of 64. `maxRequest` is now
+only a safety net.
+
+**The raster basemap follows the same rule**, but for its DETAIL LEVEL: `lodLevels` picked the
+level for the whole basemap from that same bbox. A 2× area factor being a whole level, the
+basemap changed sharpness as you turned; and at 78° tilt the level collapsed down to
+`baseZoom`, one texel of which covers a quarter of a continent — hence the blurry streaks at
+the skyline. It is now decided on a disc of the same kind, whose radius follows the scale of
+the view rather than the heading.
 
 This is not an over-cautious setting, it is a limit of the data. 3D attributes exist only
 at the OpenMapTiles schema's `maxzoom`:
