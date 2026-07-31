@@ -79,3 +79,49 @@ export function pickLevel(
   const dehors = ratio > 1 + hysteresis || ratio < 1 / (1 + hysteresis)
   return dehors ? best : previous
 }
+
+/** Coordonnée découpée. `min`/`sec` valent 0 aux précisions plus grossières. */
+export type DmsParts = { deg: number; min: number; sec: number }
+
+/** Format d'étiquette. `'auto'` suit la maille courante (cf. `formatFor`). */
+export type CoordFormat = 'auto' | 'dms' | 'dm' | 'deg'
+
+/**
+ * Découpe une coordonnée ABSOLUE (le signe est porté par l'hémisphère) en degrés, minutes,
+ * secondes, arrondie à la précision demandée.
+ *
+ * ⚠️ Le report d'arrondi remonte de proche en proche : 13°42′59,7″ vaut 13°43′00″ et non
+ * « 13°42′60″ », qui ne se lit sur aucune carte. Le cas se produit sur presque toutes les
+ * étiquettes d'une grille fine, où l'on affiche une valeur théorique déjà bruitée par le
+ * flottant.
+ */
+export function toDms(absDeg: number, precision: 'deg' | 'dm' | 'dms'): DmsParts {
+  if (precision === 'deg') return { deg: Math.round(absDeg), min: 0, sec: 0 }
+  let deg = Math.floor(absDeg)
+  if (precision === 'dm') {
+    let min = Math.round((absDeg - deg) * 60)
+    if (min >= 60) {
+      min = 0
+      deg++
+    }
+    return { deg, min, sec: 0 }
+  }
+  let min = Math.floor((absDeg - deg) * 60)
+  let sec = Math.round((absDeg - deg - min / 60) * 3600)
+  if (sec >= 60) {
+    sec = 0
+    min++
+  }
+  if (min >= 60) {
+    min = 0
+    deg++
+  }
+  return { deg, min, sec }
+}
+
+/** Précision réelle d'une étiquette : `'auto'` la déduit de la maille. */
+export function formatFor(level: number, format: CoordFormat): 'deg' | 'dm' | 'dms' {
+  if (format !== 'auto') return format
+  if (level >= 1) return 'deg'
+  return level >= MIN ? 'dm' : 'dms'
+}

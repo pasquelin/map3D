@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GRATICULE_LEVELS, pickLevel, visibleSpanDeg } from './graticule'
+import { formatFor, GRATICULE_LEVELS, pickLevel, toDms, visibleSpanDeg } from './graticule'
 
 const MIN = 1 / 60
 const SEC = 1 / 3600
@@ -91,5 +91,45 @@ describe('pickLevel', () => {
   it('`range` fige effectivement la maille', () => {
     expect(pickLevel(0.001, 8, null, 0.15, [1, 1])).toBe(1)
     expect(pickLevel(100_000, 8, null, 0.15, [1, 1])).toBe(1)
+  })
+})
+
+describe('toDms', () => {
+  it('découpe une coordonnée simple', () => {
+    expect(toDms(13.7069444444, 'dms')).toEqual({ deg: 13, min: 42, sec: 25 })
+  })
+
+  it('reporte 60″ sur la minute — jamais 13°42′60″', () => {
+    // 13°42′59,7″ : l'arrondi de la seconde franchit 60 et doit remonter d'un cran.
+    expect(toDms(13 + 42 / 60 + 59.7 / 3600, 'dms')).toEqual({ deg: 13, min: 43, sec: 0 })
+  })
+
+  it('propage le report jusqu’au degré', () => {
+    expect(toDms(13 + 59 / 60 + 59.7 / 3600, 'dms')).toEqual({ deg: 14, min: 0, sec: 0 })
+  })
+
+  it('reporte aussi en précision minute', () => {
+    expect(toDms(13 + 59.7 / 60, 'dm')).toEqual({ deg: 14, min: 0, sec: 0 })
+  })
+
+  it('arrondit au degré en précision degré', () => {
+    expect(toDms(13.7, 'deg')).toEqual({ deg: 14, min: 0, sec: 0 })
+  })
+
+  it('rend zéro pour zéro', () => {
+    expect(toDms(0, 'dms')).toEqual({ deg: 0, min: 0, sec: 0 })
+  })
+})
+
+describe('formatFor', () => {
+  it('suit le palier en mode auto', () => {
+    expect(formatFor(5, 'auto')).toBe('deg')
+    expect(formatFor(5 / 60, 'auto')).toBe('dm')
+    expect(formatFor(5 / 3600, 'auto')).toBe('dms')
+  })
+
+  it('respecte un format imposé', () => {
+    expect(formatFor(5, 'dms')).toBe('dms')
+    expect(formatFor(5 / 3600, 'deg')).toBe('deg')
   })
 })
