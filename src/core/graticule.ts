@@ -4,10 +4,16 @@
 // Module PUR — aucun import three, aucun DOM. C'est lui que les tests couvrent, et c'est ce
 // qui permet de vérifier l'anti-oscillation de palier sans monter une carte.
 
-import { M_PER_DEG, metersPerPixelAtZoom, zoomForAltitude } from './math'
+import { clamp, DEG2RAD, M_PER_DEG, metersPerPixelAtZoom, normalizeLng, zoomForAltitude } from './math'
 
 const MIN = 1 / 60
 const SEC = 1 / 3600
+
+/**
+ * Écart (degrés) sous lequel une ligne remarquable est réputée tomber SUR une ligne de
+ * maille — ~0,4 mm au sol. Elle la marque alors au lieu de s'y superposer.
+ */
+const COINCIDENCE_EPS = 1e-9
 
 /**
  * Échelle des mailles, en degrés décimaux mais **toutes sexagésimales** : 30° 15° 10° 5° 2°
@@ -124,4 +130,117 @@ export function formatFor(level: number, format: CoordFormat): 'deg' | 'dm' | 'd
   if (format !== 'auto') return format
   if (level >= 1) return 'deg'
   return level >= MIN ? 'dm' : 'dms'
+}
+
+/** Emprise construite. `east` peut dépasser 180 : la bande est DÉROULÉE (cf. `linesFor`). */
+export type GraticuleBand = { south: number; north: number; west: number; east: number }
+
+/** Une ligne à tracer. `remarkable` porte la clé de libellé, `null` pour une ligne ordinaire. */
+export type GraticuleLine = { kind: 'parallel' | 'meridian'; value: number; remarkable: string | null }
+
+/** Lignes toujours tracées quelle que soit la maille, avec leur clé de libellé. */
+export type RemarkableSpec = {
+  parallels: readonly { lat: number; labelKey: string }[]
+  meridians: readonly { lng: number; labelKey: string }[]
+}
+
+export type LinesOptions = {
+  maxLines: number
+  latLimitDeg: number
+  remarkable: RemarkableSpec | null
+}
+
+/**
+ * Emprise à construire autour du centre de vue, large de `screens` écrans.
+ *
+ * On ne construit JAMAIS le globe entier : au pas de 1″, il faudrait des millions de
+ * sommets. La bande déborde de l'écran pour qu'un pan ordinaire ne déclenche pas de
+ * reconstruction — c'est elle qui transforme « rebuild par frame » en « rebuild par écran
+ * parcouru ».
+ *
+ * La demi-largeur en longitude est divisée par le cosinus de la latitude : un degré de
+ * longitude rétrécit vers les pôles, donc l'écran en couvre d'autant plus.
+ */
+export function bandFor(
+  centerLat: number,
+  centerLng: number,
+  spanDeg: number,
+  screens: number,
+  latLimit: number,
+): GraticuleBand {
+  const halfLat = (spanDeg * screens) / 2
+  // Cosinus planchéré : au pôle il s'effondre et la bande ferait plusieurs tours.
+  const cos = Math.max(Math.cos(centerLat * DEG2RAD), 1e-3)
+  const halfLng = Math.min(halfLat / cos, 180)
+  return {
+    south: clamp(centerLat - halfLat, -latLimit, latLimit),
+    north: clamp(centerLat + halfLat, -latLimit, latLimit),
+    west: centerLng - halfLng,
+    east: centerLng + halfLng,
+  }
+}
+
+/** Multiples de `level` dans `[from, to]`, plafonnés à `maxLines`. */
+function multiplesIn(from: number, to: number, level: number, maxLines: number): number[] {
+  const out: number[] = []
+  const first = Math.ceil(from / level)
+  const last = Math.floor(to / level)
+  const count = last - first + 1
+  if (count <= 0) return out
+  // Plafond dur : garde-fou mémoire indépendant du calcul de maille. Une maille figée par
+  // `levelRangeDeg` sur une emprise large demanderait sinon des millions de lignes.
+  const step = count > maxLines ? Math.ceil(count / maxLines) : 1
+  // Reconstruit depuis l'indice ENTIER : `from + k*level` accumulerait l'erreur flottante et
+  // les étiquettes afficheraient 4°59′60″ au lieu de 5°.
+  for (let i = first; i <= last; i += step) out.push(i * level)
+  return out
+}
+
+/**
+ * Lignes à tracer dans la bande, à la maille `level`, plus les remarquables.
+ *
+ * Les remarquables sont ajoutées **quelle que soit la maille** : sans ça, l'Équateur
+ * disparaîtrait dès la maille 15°, alors que c'est justement la ligne qu'on cherche du
+ * regard. Quand une remarquable tombe sur un multiple de la maille, elle ne double pas la
+ * ligne ordinaire — elle la MARQUE.
+ */
+export function linesFor(band: GraticuleBand, level: number, opts: LinesOptions): GraticuleLine[] {
+  const { maxLines, latLimitDeg, remarkable } = opts
+  const south = Math.max(band.south, -latLimitDeg)
+  const north = Math.min(band.north, latLimitDeg)
+  const out: GraticuleLine[] = []
+
+  // Tolérance ABSOLUE et serrée : une remarquable ne marque une ligne de maille que si elle
+  // tombe DESSUS. Une tolérance proportionnelle à la maille (level/2) faisait passer le
+  // parallèle 30° pour le tropique du Cancer dès la maille 15°.
+  // L'écart se lit sur l'axe déroulé, pour que 180° et −180° soient le même méridien.
+  const marque = (values: readonly { value: number; labelKey: string }[], v: number): string | null =>
+    values.find((r) => Math.abs(normalizeLng(r.value - v)) < COINCIDENCE_EPS)?.labelKey ?? null
+
+  const parallels = remarkable?.parallels.map((r) => ({ value: r.lat, labelKey: r.labelKey })) ?? []
+  const meridians = remarkable?.meridians.map((r) => ({ value: r.lng, labelKey: r.labelKey })) ?? []
+
+  for (const lat of multiplesIn(south, north, level, maxLines)) {
+    out.push({ kind: 'parallel', value: lat, remarkable: marque(parallels, lat) })
+  }
+  // Longitudes engendrées sur l'axe DÉROULÉ puis ramenées dans [-180, 180] : une bande à
+  // cheval sur l'antiméridien (170 → 190) doit produire 170, 175, 180, −175, −170 sans trou.
+  for (const lng of multiplesIn(band.west, band.east, level, maxLines)) {
+    const v = normalizeLng(lng)
+    out.push({ kind: 'meridian', value: v, remarkable: marque(meridians, v) })
+  }
+
+  if (!remarkable) return out
+  const aDeja = (kind: 'parallel' | 'meridian', key: string) => out.some((l) => l.kind === kind && l.remarkable === key)
+  for (const r of remarkable.parallels) {
+    if (r.lat < south || r.lat > north || aDeja('parallel', r.labelKey)) continue
+    out.push({ kind: 'parallel', value: r.lat, remarkable: r.labelKey })
+  }
+  for (const r of remarkable.meridians) {
+    // Test sur l'axe déroulé : la bande peut couvrir 170→190 et contenir −175.
+    const dedans = [r.lng, r.lng + 360, r.lng - 360].some((v) => v >= band.west && v <= band.east)
+    if (!dedans || aDeja('meridian', r.labelKey)) continue
+    out.push({ kind: 'meridian', value: r.lng, remarkable: r.labelKey })
+  }
+  return out
 }

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { formatFor, GRATICULE_LEVELS, pickLevel, toDms, visibleSpanDeg } from './graticule'
+import {
+  bandFor,
+  formatFor,
+  GRATICULE_LEVELS,
+  linesFor,
+  pickLevel,
+  type RemarkableSpec,
+  toDms,
+  visibleSpanDeg,
+} from './graticule'
 
 const MIN = 1 / 60
 const SEC = 1 / 3600
@@ -131,5 +140,110 @@ describe('formatFor', () => {
   it('respecte un format imposé', () => {
     expect(formatFor(5, 'dms')).toBe('dms')
     expect(formatFor(5 / 3600, 'deg')).toBe('deg')
+  })
+})
+
+const REMARQUABLES: RemarkableSpec = {
+  parallels: [
+    { lat: 0, labelKey: 'equator' },
+    { lat: 23.4363, labelKey: 'tropicCancer' },
+  ],
+  meridians: [{ lng: 0, labelKey: 'primeMeridian' }],
+}
+
+const OPTS = { maxLines: 64, latLimitDeg: 85, remarkable: null }
+
+describe('bandFor', () => {
+  it('encadre le centre', () => {
+    const b = bandFor(45, 5, 10, 2, 85)
+    expect(b.south).toBeLessThan(45)
+    expect(b.north).toBeGreaterThan(45)
+    expect(b.west).toBeLessThan(5)
+    expect(b.east).toBeGreaterThan(5)
+  })
+
+  it('borne la latitude au pôle', () => {
+    const b = bandFor(84, 0, 40, 2, 85)
+    expect(b.north).toBeLessThanOrEqual(85)
+    expect(b.south).toBeGreaterThanOrEqual(-85)
+  })
+
+  it('élargit la bande de longitude vers les pôles (convergence)', () => {
+    const equateur = bandFor(0, 0, 10, 2, 85)
+    const nord = bandFor(60, 0, 10, 2, 85)
+    expect(nord.east - nord.west).toBeGreaterThan(equateur.east - equateur.west)
+  })
+})
+
+describe('linesFor', () => {
+  it('engendre des multiples exacts de la maille', () => {
+    const lines = linesFor({ south: -10, north: 10, west: -10, east: 10 }, 5, OPTS)
+    for (const l of lines) expect(Math.abs(l.value % 5)).toBeLessThan(1e-6)
+  })
+
+  it('engendre parallèles ET méridiens', () => {
+    const lines = linesFor({ south: -10, north: 10, west: -10, east: 10 }, 5, OPTS)
+    expect(lines.some((l) => l.kind === 'parallel')).toBe(true)
+    expect(lines.some((l) => l.kind === 'meridian')).toBe(true)
+  })
+
+  it('ne dépasse jamais `maxLines` par axe', () => {
+    const lines = linesFor({ south: -85, north: 85, west: -180, east: 180 }, 1 / 3600, {
+      ...OPTS,
+      maxLines: 10,
+    })
+    expect(lines.filter((l) => l.kind === 'parallel').length).toBeLessThanOrEqual(10)
+    expect(lines.filter((l) => l.kind === 'meridian').length).toBeLessThanOrEqual(10)
+  })
+
+  it('n’engendre aucun parallèle au-delà de `latLimitDeg`', () => {
+    const lines = linesFor({ south: -89, north: 89, west: -10, east: 10 }, 5, OPTS)
+    for (const l of lines) {
+      if (l.kind === 'parallel') expect(Math.abs(l.value)).toBeLessThanOrEqual(85)
+    }
+  })
+
+  it('traverse l’antiméridien sans trou', () => {
+    // Bande à cheval sur ±180°, exprimée sur l'axe DÉROULÉ (170 → 190).
+    const lines = linesFor({ south: -5, north: 5, west: 170, east: 190 }, 5, OPTS)
+    const meridiens = lines.filter((l) => l.kind === 'meridian').map((l) => l.value)
+    expect(meridiens.length).toBeGreaterThan(0)
+    for (const v of meridiens) {
+      expect(v).toBeGreaterThanOrEqual(-180)
+      expect(v).toBeLessThanOrEqual(180)
+    }
+    // `normalizeLng` ramène dans [-180, 180) — c'est la convention unique du dépôt, donc
+    // l'antiméridien s'écrit −180 et jamais 180.
+    expect(meridiens).toContain(-180)
+    expect(meridiens).toContain(-175)
+  })
+
+  it('ajoute les lignes remarquables même hors maille', () => {
+    // Maille 15° : 23,4363° n'en est pas un multiple, le tropique doit sortir quand même.
+    const lines = linesFor({ south: 0, north: 40, west: -10, east: 10 }, 15, {
+      ...OPTS,
+      remarkable: REMARQUABLES,
+    })
+    const tropique = lines.find((l) => l.remarkable === 'tropicCancer')
+    expect(tropique).toBeDefined()
+    expect(tropique!.value).toBeCloseTo(23.4363, 4)
+  })
+
+  it('marque l’équateur comme remarquable au lieu de le doubler', () => {
+    const lines = linesFor({ south: -20, north: 20, west: -10, east: 10 }, 5, {
+      ...OPTS,
+      remarkable: REMARQUABLES,
+    })
+    const zero = lines.filter((l) => l.kind === 'parallel' && Math.abs(l.value) < 1e-9)
+    expect(zero).toHaveLength(1)
+    expect(zero[0]!.remarkable).toBe('equator')
+  })
+
+  it('n’ajoute pas une remarquable hors bande', () => {
+    const lines = linesFor({ south: 40, north: 50, west: -10, east: 10 }, 5, {
+      ...OPTS,
+      remarkable: REMARQUABLES,
+    })
+    expect(lines.some((l) => l.remarkable === 'equator')).toBe(false)
   })
 })
