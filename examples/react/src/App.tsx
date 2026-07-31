@@ -1,6 +1,7 @@
 import {
   type DockConfig,
   type DrawConfig,
+  GraticuleLayer,
   type LatLng,
   Map,
   type MapEngine,
@@ -549,6 +550,11 @@ export function App() {
           {/* Preuve vivante de l'enrichissement au pick : lit `useBuildingEnrichment()`,
               qui EXIGE le contexte carte — doit rester enfant de `<Map>`. */}
           <BuildingEnrichmentInfo />
+          {/* Grille de coordonnées. Montée en permanence : elle ne coûte rien tant qu'elle
+              n'est pas allumée, et c'est le sous-menu « Mesures » ou le bouton des contrôles
+              de vue qui décide. Tous ses réglages sont dans l'onglet `graticule` du banc
+              d'essai — c'est là qu'on l'allume au démarrage (`graticule.enabled`). */}
+          <GraticuleLayer />
         </Map>
       </MapErrorBoundary>
       {/* Banc d'essai : `MapConfig` en entier, les props hors config, et la scène.

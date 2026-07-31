@@ -30,14 +30,25 @@ import type { LatLng } from '../shared'
 const LABEL_CLASS = 'm3d-markertip m3d-graticule-label'
 const LABEL_TITLE_CLASS = 'm3d-markertip-title'
 
-/** Couleurs de repli quand le thème hôte est antérieur à `colors.graticule`. */
-const FALLBACK_COLORS = { line: '#ffffff', remarkable: '#ffd54a' } as const
+/**
+ * Couleurs de repli quand le thème hôte est antérieur à `colors.graticule`. Doivent rester
+ * ALIGNÉES sur `defaultTheme.colors.graticule` : deux jaunes différents selon l'ancienneté du
+ * thème seraient un défaut invisible en développement et voyant en production.
+ */
+const FALLBACK_COLORS = { line: '#ffd54a', remarkable: '#ff8f00' } as const
 
 /**
  * Écart au centre du placement `'edges'`, en fraction de la hauteur visible. 0,45 et non 0,5 :
  * une étiquette pile sur le bord serait à demi coupée par le cull de viewport.
  */
 const EDGE_OFFSET = 0.45
+
+/**
+ * Inclinaison maximale d'une étiquette (degrés) avant qu'elle ne bascule d'un quart de tour.
+ * 45° : la moitié de l'angle droit, donc le point où « le long de la ligne » cesse d'être
+ * plus lisible que « en travers ».
+ */
+const LABEL_TILT_MAX = 45
 
 export type GraticuleColors = { line: string; remarkable: string }
 
@@ -411,6 +422,12 @@ export class GraticuleLayer implements Layer {
     // Texte à l'endroit : au-delà du quart de tour, on lit la direction opposée.
     if (deg > 90) deg -= 180
     if (deg < -90) deg += 180
+    // ⚠️ Le texte ne suit la ligne que tant qu'il reste LISIBLE. Un méridien en vue
+    // nord-en-haut est vertical : suivi à la lettre, l'étiquette s'écrivait de bas en haut,
+    // illisible sans pencher la tête. Au-delà de 45°, on bascule d'un quart de tour — le
+    // texte se pose alors EN TRAVERS de la ligne plutôt que le long, et redevient horizontal.
+    if (deg > LABEL_TILT_MAX) deg -= 90
+    else if (deg < -LABEL_TILT_MAX) deg += 90
     return deg
   }
 

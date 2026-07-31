@@ -25,6 +25,9 @@ export const BUTTON_LABELS: Record<MapControlButton, string> = {
   ...defaultLabels.controls,
   compass: defaultLabels.controls.north,
   layers: 'Couches',
+  // Troisième exception, de même nature : le bouton s'appelle `graticule` côté contrôles,
+  // mais son libellé vit sous `measureTools` — le sous-menu « Mesures » qu'il partage.
+  graticule: defaultLabels.measureTools.graticule.label,
 }
 
 /** `selectModes` porte un objet `{ label, description }` : seul le libellé nous sert. */
@@ -39,6 +42,7 @@ export const SECTION_LABELS: Record<DrawToolbarSection, string> = {
   navigate: defaultLabels.toolbar.navigate,
   select: defaultLabels.tools.select,
   symbol: defaultLabels.symbols.button,
+  measure: defaultLabels.tools.measure,
   lens: defaultLabels.lens.tool,
   plugins: defaultLabels.plugins.title,
   stylePanel: 'Style de tracé',

@@ -35,12 +35,15 @@ export const defaultTheme: MapTheme = {
     // Mode piéton : reprend les couleurs d'état de l'interface plutôt que d'en inventer.
     // Un curseur avec sa propre palette jurerait avec le reste de la carte.
     pedestrian: { placeValid: '#2E7CF6', placeBlocked: '#d11a01', reticle: '#f8fafc' },
-    // Grille : blanc pour les lignes ordinaires, jaune franc pour les remarquables — la
-    // seule teinte qui reste lisible sur satellite comme sur océan, et qui ne se confond
-    // avec aucune couleur de la palette de dessin.
+    // Grille en JAUNE, et non en blanc comme un atlas : le blanc disparaît sur un fond plan
+    // clair (mesuré sur la carte routière de l'exemple, où les lignes ne se voyaient plus),
+    // alors que l'ambre tient sur les deux fonds — satellite sombre comme plan clair — sans
+    // se confondre avec aucune couleur de la palette de dessin.
+    // Les remarquables passent donc à l'ambre FONCÉ : elles doivent rester distinguables des
+    // lignes ordinaires, or les deux ne peuvent plus se départager par « blanc vs jaune ».
     graticule: {
-      line: '#ffffff',
-      remarkable: '#ffd54a',
+      line: '#ffd54a',
+      remarkable: '#ff8f00',
       label: '#ffffff',
       labelBackground: 'rgba(0,0,0,0.55)',
     },

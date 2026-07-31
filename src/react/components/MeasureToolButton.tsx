@@ -29,7 +29,8 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
   const tip = useTip(TIP_ID)
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
-  useCloseWhenHidden(useToolbar().retracted, setOpen)
+  const bar = useToolbar()
+  useCloseWhenHidden(bar.retracted, setOpen)
 
   const active = tool === 'measure'
   const available = tools ? MEASURE_TOOL_META.filter((m) => tools.includes(m.tool)) : MEASURE_TOOL_META
@@ -48,9 +49,16 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
       onPointerLeave={hasFlyout ? () => setOpen(false) : undefined}
     >
       <ToolButton
+        // Publie son bouton comme ancre de l'outil actif : c'est lui que le panneau de style
+        // doit longer. Sans ça, `measure` ayant quitté la boucle `tools.map` qui s'en
+        // chargeait, le panneau se recollait en haut de la barre.
+        ref={active ? bar.publishActiveTool : null}
         icon={mdiRuler}
         label={labels.tools.measure}
-        tip={tip}
+        // PAS de `tip` : le survol de ce bouton ouvre déjà le sous-menu, et l'infobulle
+        // venait se poser par-dessus la surface qu'on est en train de lire. Les rangées du
+        // menu portent leur propre infobulle, avec leur raccourci — rien n'est perdu.
+        // (`ToolButton` garde son `aria-label`, raccourci compris, même sans tooltip.)
         shortcut={shortcuts.measure}
         // Allumé si l'UN des deux l'est : la barre doit dire qu'il se passe quelque chose
         // sous ce bouton, même quand c'est la grille et non la règle.

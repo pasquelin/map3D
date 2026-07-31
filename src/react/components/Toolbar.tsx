@@ -100,6 +100,16 @@ export type ToolbarApi = {
    * alors sur la barre).
    */
   activeToolEl: HTMLElement | null
+  /**
+   * Publier son bouton comme ancre de l'outil actif — à passer en `ref` d'un `ToolButton`
+   * quand il porte l'outil courant, `null` sinon.
+   *
+   * Indispensable aux items qui vivent HORS de la boucle `tools.map` (les sous-menus) :
+   * celle-ci publie l'ancre pour ses boutons simples, mais un outil déplacé dans un flyout
+   * en sortait, et son panneau de style se recollait en haut de la barre au lieu de longer
+   * l'item qu'il règle.
+   */
+  publishActiveTool: (el: HTMLElement | null) => void
 }
 
 const ToolbarContext = createContext<ToolbarApi>({
@@ -108,6 +118,7 @@ const ToolbarContext = createContext<ToolbarApi>({
   claim: () => {},
   el: null,
   activeToolEl: null,
+  publishActiveTool: () => {},
 })
 
 /**
@@ -201,6 +212,7 @@ export function Toolbar({
       },
       el: barEl,
       activeToolEl,
+      publishActiveTool: setActiveToolEl,
     }),
     [hidden, nativeActive, setTool, lens, barEl, activeToolEl],
   )
