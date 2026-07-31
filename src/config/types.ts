@@ -220,6 +220,21 @@ export type TilesConfig = {
    * hauteur d'homme est voulu. `false` = cascade partout (comportement d'origine).
    */
   uniformDetail: boolean
+  /**
+   * Écart de zoom toléré, en crans, entre ce que réclame le sol REGARDÉ et ce que la vue
+   * entière permet, avant que `uniformDetail` ne cède la place à la cascade.
+   *
+   * ⚠️ Un niveau uniforme prend nécessairement celui qu'impose le point le plus LOINTAIN, et
+   * le premier plan en hérite. À plat les deux sont du même ordre : l'écart est nul et
+   * `uniformDetail` joue son rôle, qui est d'éviter une boîte de détail au centre de l'écran.
+   * En vue rasante le rapport explose — mesuré à 73 m d'altitude et 73° d'inclinaison,
+   * l'emprise s'étale sur 6,3 × 12,5 km quand le sol regardé est à 73 m, et le niveau tombait
+   * à des tuiles de 805 m, onze fois la hauteur de l'œil : sol flou et étiquettes géantes.
+   *
+   * `1` tolère un cran (invisible) et bascule au-delà. `0` = cascade dès le moindre écart ;
+   * une valeur très haute revient à l'ancien comportement, uniforme quoi qu'il arrive.
+   */
+  uniformMaxSpread: number
 } & TileCacheBudget
 
 /** Réglages communs à un appel réseau sortant. */
@@ -370,14 +385,14 @@ export type Tiles3dConfig = {
    */
   cesiumIonAssetId: string
   /**
-   * Masque les bâtiments internes quand le zoom AU POINT VISÉ passe sous
-   * `providers.buildings.minViewZoom` (dézoom, ou point visé lointain en vue inclinée) : de
-   * loin ils ne couvrent que quelques pixels et leur chargement borné laisse un « carré »
-   * dans le vide. Ils sont alors masqués, gelés ET **détruits** (RAM/VRAM rendues, rechargés
-   * au retour). Le critère est le zoom perçu (résolution × distance), donc **valable à toute
-   * inclinaison** — contrairement à l'emprise, qui explose à l'horizon dès qu'on incline.
-   * **Le mode ne change pas** (on reste en `'3d'`). `false` = bâtiments toujours affichés.
-   * Interne seulement.
+   * Masque les bâtiments internes au-dessus de `providers.buildings.maxViewAltitude` : de
+   * plus haut ils ne couvrent que quelques pixels et leur chargement borné laisse un
+   * « carré » dans le vide. Ils sont alors fondus puis masqués — mais **gardés en mémoire**
+   * tant qu'on reste dans la bande de `requestAltitudeFactor`, sans quoi l'apparition
+   * repartirait d'un cache vide et surgirait au lieu de fondre. La RAM/VRAM n'est rendue
+   * qu'au-dessus de cette bande. Le critère est une hauteur au-dessus du sol, donc **valable
+   * à toute inclinaison**. **Le mode ne change pas** (on reste en `'3d'`).
+   * `false` = bâtiments toujours affichés. Interne seulement.
    */
   hideVolumeWhenClamped: boolean
   /** Durée du fondu d'opacité des bâtiments à l'apparition/disparition (ms). `0` = net. */
@@ -430,19 +445,36 @@ export type BuildingsConfig = {
   /** Zoom des tuiles demandées : le `maxzoom` des données (14 en OpenMapTiles). */
   zoom: number
   /**
-   * Zoom de vue en dessous duquel aucune tuile n'est demandée. Vus de haut, les bâtiments
-   * ne couvrent que quelques pixels : les charger reviendrait à décoder la moitié d'une
-   * ville pour rien.
+   * Hauteur maximale AU-DESSUS DU SOL (m) à laquelle les bâtiments restent affichés.
+   * Au-delà, ils sont fondus, masqués et détruits (cf. `tiles3d.hideVolumeWhenClamped`).
+   *
+   * ⚠️ Remplace `minViewZoom`/`showZoomOffset`, exprimés en zoom de vue. Le zoom se déduit
+   * d'une résolution m/px, donc d'une division par la hauteur du viewport : le seuil glissait
+   * d'un facteur 2 entre une fenêtre de 700 px et une de 1 440 px (bâtiments encore affichés
+   * à 15 km sur l'une, 31 km sur l'autre). Une altitude ne dépend ni de la fenêtre ni de la
+   * latitude.
    */
-  minViewZoom: number
+  maxViewAltitude: number
   /**
-   * Nombre de crans de zoom pendant lesquels les bâtiments 3D restent AFFICHÉS au dézoom
-   * sous `minViewZoom`, avant d'être masqués (cf. `tiles3d.hideVolumeWhenClamped`). Le fond
-   * 2D dessine ses empreintes de bâtiments ~1 zoom au-dessus du zoom utile de la 3D : sans
-   * ce décalage, la 3D disparaît un cran avant les empreintes 2D, laissant un moment où l'on
-   * voit les empreintes sans volume. `1` aligne les deux. `0` = masquage pile à `minViewZoom`.
+   * Bande de préchargement au-dessus de `maxViewAltitude`, en multiple de celle-ci : les
+   * tuiles y sont téléchargées et montées sans être montrées, pour que la descente ne les
+   * découvre pas à faire (une tuile dense coûte ~20 ms de montage, `mountPerFrame: 1`).
+   * `1` supprime la bande — l'affichage arrive alors par à-coups.
    */
-  showZoomOffset: number
+  requestAltitudeFactor: number
+  /**
+   * Portée maximale (m) de l'emprise servie aux bâtiments : au-delà, rien n'est demandé ni
+   * montré, le fond raster reste seul.
+   *
+   * ⚠️ C'est la borne qui rend la couverture CONTINUE en vue inclinée. Sans elle, l'emprise
+   * venait d'une grille de rayons dont ceux qui franchissent l'horizon étaient ignorés :
+   * portée en dents de scie entre 2,8 et 36,3 km, deux effondrements brutaux (59°, 74°), et
+   * de 8 à 1 058 tuiles demandées pour la même altitude. Cf. `core/math.clampRange`.
+   *
+   * Monter la portée se paie en RAM : le pic de tuiles croît en n² (24 tuiles à 6 km, 40 à
+   * 8 km), donc `maxTiles`/`maxBytes` doivent suivre.
+   */
+  maxViewDistance: number
   /** Anneau de tuiles préchargées autour du viewport. */
   margin: number
   /** Téléchargements simultanés. */
@@ -789,6 +821,14 @@ export type PerformanceConfig = {
    * composition. `0` désactive le cull.
    */
   markerCullMarginPx: number
+  /**
+   * Hystérésis autour d'un seuil d'apparition de markers `static` (`useZoomGate`).
+   * Sans elle, une molette arrêtée pile sur la valeur fait clignoter le décor : le zoom
+   * oscille de quelques millièmes au ralentissement de l'inertie, et chaque oscillation
+   * traverserait le seuil. Même rôle que `relations.zoomBand`, appliqué ici à
+   * l'apparition de markers entiers.
+   */
+  markerZoomBand: number
   /** Côté de la grille de raycasts qui déduit les bounds visibles (`n²` par frame). */
   boundsPickGrid: number
   /**

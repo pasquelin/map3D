@@ -42,17 +42,17 @@ Le fournisseur ne change **que le fond de carte**. Recherche de lieux, routage e
 > justifiait autrefois de traiter l'interne à part était son coût de lancer de rayon ; il
 > est réglé à la source (cf. § 5), pas contourné par un cas particulier.
 
-**Masquage automatique du volume au dézoom.** Vus de loin — ou avec un point visé lointain
-en vue inclinée — les bâtiments internes ne couvrent que quelques pixels, et leur chargement
-borné laisse un « carré » de détail dans le vide. Au-delà, ils sont masqués, **gelés et
-détruits** (RAM/VRAM rendues, rechargés au retour), laissant le seul fond 2D **sans quitter
-le mode `'3d'`** : rezoomer les fait revenir. Le critère est le zoom *perçu* au point visé
-(résolution × distance), donc **valable à toute inclinaison**. Seuls les bâtiments extrudés
+**Masquage automatique du volume en altitude.** Vus de haut, les bâtiments internes ne
+couvrent que quelques pixels, et leur chargement borné laisse un « carré » de détail dans le
+vide. Au-dessus de `providers.buildings.maxViewAltitude` (1 000 m **au-dessus du sol**), ils
+sont masqués, **gelés et détruits** (RAM/VRAM rendues, rechargés au retour), laissant le seul
+fond 2D **sans quitter le mode `'3d'`** : redescendre les fait revenir. Le critère est une
+hauteur au-dessus du sol, donc **valable à toute inclinaison**. Seuls les bâtiments extrudés
 internes sont concernés — pas les tuiles 3D photoréalistes. Réglé par
 `providers.tiles3d.hideVolumeWhenClamped` (`false` = bâtiments toujours affichés), le fondu
-par `providers.tiles3d.volumeFadeMs` (`0` = net) ; `providers.buildings.showZoomOffset`
-accorde quelques crans de sursis sous `providers.buildings.minViewZoom` pour que la 3D et
-les empreintes 2D se relaient proprement.
+par `providers.tiles3d.volumeFadeMs` (`0` = net) ; `providers.buildings.requestAltitudeFactor`
+ouvre au-dessus du seuil une bande où les tuiles sont téléchargées sans être montrées, pour
+que la descente les trouve prêtes.
 
 ## 2. Régler le serveur interne
 
@@ -100,9 +100,10 @@ garantit l'absence de trou pendant que les niveaux fins arrivent. `maxZoom` (dé
 borne le niveau le plus fin demandé — **à abaisser** si votre style s'arrête plus tôt,
 sinon la carte réclame des tuiles qui n'existent pas.
 
-Entre les deux, le fond descend par une **cascade** : le niveau le plus fin autour du point
-visé, puis un anneau de `lodRing` tuiles de côté à chaque cran plus grossier, chacun portant
-deux fois plus loin, jusqu'au premier niveau qui couvre toute la vue. C'est ce qui fait que
+Entre les deux, le fond descend par une **cascade** : le niveau le plus fin sur un disque
+centré sous la caméra — un disque, pour que la netteté ne dépende ni du cap ni de
+l'inclinaison — puis les niveaux plus grossiers sur la vue entière, chacun portant deux fois
+plus loin, jusqu'au premier qui la couvre. C'est ce qui fait que
 le lointain se dégrade progressivement au lieu de tomber d'un coup sur le niveau de base —
 une tuile grande comme un quart de continent, soit un aplat uniforme qui se lit comme un
 bug d'affichage.
@@ -201,8 +202,9 @@ Ce qu'il faut savoir pour le régler :
 - **Un seul niveau de zoom** (`providers.buildings.zoom`, 14) : c'est le `maxzoom` des
   données OpenMapTiles. Au-delà, la même tuile sert ; les bâtiments ne gagnent rien à être
   redemandés plus fins.
-- **`minViewZoom`** (13) borne le bas : de plus haut, les bâtiments ne couvriraient que
-  quelques pixels pour le prix du décodage d'une ville entière.
+- **`maxViewAltitude`** (1 000 m au-dessus du sol) borne le haut : de plus haut, les
+  bâtiments ne couvriraient que quelques pixels pour le prix du décodage d'une ville
+  entière. `requestAltitudeFactor` (1,5) précharge au-dessus sans montrer.
 - **Couleurs dans le thème** : `theme.globe.buildingColor` (façades) et
   `buildingRoofColor` (toits). Une emprise portant l'attribut `colour` garde la sienne —
   hexadécimal comme mot-clé CSS (`beige`, `silver`) — et son toit s'éclaircit de
@@ -217,13 +219,35 @@ Ce qu'il faut savoir pour le régler :
 
 ### Jusqu'où porte le bâti
 
-`maxRequest` (25) demande les **5×5 tuiles autour du point regardé** — le sol sous le
-centre de l'écran, pas sous la caméra : en vue inclinée les deux sont très éloignés, et
-centrer sur la caméra dépensait le budget derrière l'observateur.
+Le volume est servi par un **disque centré sous la caméra**, de rayon plafonné par
+`maxViewDistance` (5 000 m). **Au-delà, seul le fond raster subsiste** — une vue inclinée à
+79° porte à des dizaines de kilomètres, et aucune couverture z14 ne l'atteindrait.
 
-À Paris, une tuile z14 fait ~1,6 km : la couronne porte donc à ~8 km. **Au-delà, seul le
-fond raster subsiste** — une vue inclinée à 79° porte à des dizaines de kilomètres, et
-aucune couronne z14 ne l'atteindrait.
+⚠️ Un disque, et non la bbox du trapèze de vue : c'est ce qui rend la couverture à la fois
+**invariante** et **continue**. La bbox avait deux défauts.
+
+Elle dépendait du **cap** : son aire croît d'un facteur ~2 entre un cap nord et un cap à 45°,
+donc l'ensemble des tuiles changeait quand on tournait la caméra, sans que la vue change.
+
+Elle explosait à l'**horizon** : l'emprise venait d'une grille de rayons lancés à travers
+l'écran, et ceux qui franchissent l'horizon ne touchaient rien — ils étaient ignorés. Chaque
+fois qu'une ligne entière de la grille passait au ciel, l'emprise s'effondrait d'un coup, puis
+`tan(inclinaison)` la refaisait exploser jusqu'à la ligne suivante. Mesuré à 1 000 m
+d'altitude : portée en dents de scie entre 2,8 et 36,3 km, deux effondrements brutaux (59° et
+74°), et de 8 à 1 058 tuiles demandées à altitude constante. À 55° et 70° la carte se
+ressemblait, à 60° elle n'avait rien à voir.
+
+Un disque n'a ni l'un ni l'autre : il ne dépend d'aucun angle, et il est borné sans qu'on ait
+rien à tronquer. Les tuiles dont le centre tombe hors du disque sont écartées du carré
+circonscrit, ce qui rend la moitié du budget — mesuré à Paris : 32 tuiles z14 au lieu de 64.
+`maxRequest` n'est plus qu'un filet.
+
+**Le fond raster suit la même règle**, mais pour sa FINESSE : `lodLevels` choisissait le
+niveau de détail de tout le fond sur cette même bbox. Un facteur 2 d'aire valant un cran
+entier, le fond changeait de netteté quand on tournait ; et à 78° d'inclinaison le niveau
+s'effondrait jusqu'à `baseZoom`, dont un texel couvre un quart de continent — les traînées
+floues au ras du ciel venaient de là. Il se décide désormais sur un disque de même nature,
+dont le rayon suit l'échelle de la vue et non le cap.
 
 Ce n'est pas un réglage trop prudent, c'est une limite de la donnée. Les attributs 3D
 n'existent qu'au `maxzoom` du schéma OpenMapTiles :
@@ -235,8 +259,9 @@ n'existent qu'au `maxzoom` du schéma OpenMapTiles :
 | z14    | présente          | `render_height`, `render_min_height`, `colour`, `hide_3d` |
 
 Un niveau de détail lointain bâti sur le z13 extruderait donc tout à `defaultHeight`, soit
-des hauteurs uniformes et fausses. Trois leviers si la frontière gêne : monter `maxRequest`
-(le coût est linéaire, ~131 000 triangles par tuile), baisser `camera.maxTilt3d` pour que
+des hauteurs uniformes et fausses. Trois leviers si la frontière gêne : monter
+`maxViewDistance` (le pic de tuiles croît en n², donc monter `maxRequest`/`maxTiles`/`maxBytes` avec),
+baisser `camera.maxTilt3d` pour que
 la vue ne porte plus jusqu'à l'horizon, ou servir un jeu de tuiles portant des hauteurs
 plus bas que 14.
 

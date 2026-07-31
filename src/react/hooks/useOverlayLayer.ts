@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useReducer, useRef } from 'react'
 import { MarkerLayer as CoreMarkerLayer } from '../../layers/MarkerLayer'
 import { useMap } from '../context'
 
@@ -24,7 +24,9 @@ export function useOverlayLayer(setup?: (core: CoreMarkerLayer) => void): {
 } {
   const engine = useMap()
   const layerRef = useRef<CoreMarkerLayer | null>(null)
-  const [nodes, setNodes] = useState<Map<string | number, HTMLDivElement>>(new Map())
+  /** Table de vérité, mutée par la couche ; ce que React expose n'en est qu'un instantané. */
+  const nodesRef = useRef(new Map<string | number, HTMLDivElement>())
+  const [rev, bump] = useReducer((x: number) => x + 1, 0)
 
   const setupRef = useRef(setup)
   setupRef.current = setup
@@ -34,13 +36,14 @@ export function useOverlayLayer(setup?: (core: CoreMarkerLayer) => void): {
       engine.overlayAnchor,
       engine.tiles.ellipsoid,
       engine.projection,
-      (id, el) => setNodes((prev) => new Map(prev).set(id, el)),
-      (id) =>
-        setNodes((prev) => {
-          const next = new Map(prev)
-          next.delete(id)
-          return next
-        }),
+      (id, el) => {
+        nodesRef.current.set(id, el)
+        bump()
+      },
+      (id) => {
+        nodesRef.current.delete(id)
+        bump()
+      },
     )
     setupRef.current?.(core)
     engine.addLayer(core)
@@ -50,6 +53,15 @@ export function useOverlayLayer(setup?: (core: CoreMarkerLayer) => void): {
       layerRef.current = null
     }
   }, [engine])
+
+  // Un instantané par LOT, pas par marker. `onMount`/`onUnmount` sont appelés depuis la
+  // boucle de `setItems` : recopier la table à chaque appel coûtait O(n²) — 500 markers
+  // éclatant d'un cluster allouaient 500 tables et ~125 000 réinsertions dans la même
+  // passe, pendant un mouvement de caméra. Les N `bump` d'un lot ne produisent qu'un
+  // rendu, donc qu'une copie. La copie reste nécessaire : `nodes` sert de dépendance aux
+  // mémos des surfaces, une table mutée en place ne les réveillerait pas.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const nodes = useMemo(() => new Map(nodesRef.current), [rev])
 
   return { layerRef, nodes }
 }

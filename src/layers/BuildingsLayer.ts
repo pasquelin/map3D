@@ -6,10 +6,10 @@ import { attachBVH, bvhBytes, detachBVH } from '../core/bvh'
 import { latToTileY, lngToTileX, tileXToLng, tileYToLat } from '../core/googleTiles'
 import { trimSlash } from '../core/internalTiles'
 import { DEG2RAD } from '../core/math'
-import { intersectsView, type Tile, TileQueue, tileRange, tileRing } from '../core/TileQueue'
+import { intersectsView, type Tile, TileQueue, tileRange } from '../core/TileQueue'
 import { BuildingsSource, type BuiltTile } from '../data/buildingsSource'
 import type { Shading, TileBuildings, TileFrame } from '../data/mvt'
-import type { Bounds, LatLng } from '../shared'
+import type { Bounds } from '../shared'
 import { defaultTheme } from '../theme/defaultTheme'
 import {
   type BuildingAttrs,
@@ -270,13 +270,14 @@ export class BuildingsLayer {
    * la vue au zoom des données, montre celles qui sont prêtes, fait tourner file et
    * éviction.
    *
-   * Sous `minViewZoom`, rien n'est demandé : de haut, les bâtiments ne couvriraient que
-   * quelques pixels pour le prix du décodage d'une ville entière.
+   * Appelée dès que le moteur veut du volume EN CACHE — donc aussi quand il est encore
+   * masqué, pendant la bande de préchargement (cf. `MapEngine.updateBuildingsFade`). La
+   * couche ignore la caméra : c'est au moteur de décider quand cesser de l'appeler.
    */
-  update(bounds: Bounds, zoom: number, aim: LatLng): void {
+  update(bounds: Bounds): void {
     if (this.disposed || !this.hasSource) return
     const frame = this.cache.beginFrame()
-    if (zoom >= this.cfg.minViewZoom) this.requestLevel(bounds, aim)
+    this.requestLevel(bounds)
 
     /**
      * ⚠️ Toute tuile prête était montrée ET marquée « vue cette frame », sans regarder
@@ -301,20 +302,33 @@ export class BuildingsLayer {
   /**
    * Emprise demandée au zoom des données.
    *
-   * Une vue inclinée peut couvrir un département : au-delà du budget, on RESSERRE
-   * l'emprise autour du point regardé, au lieu de tout abandonner — un abandon en bloc
-   * faisait disparaître les bâtiments dès qu'on inclinait, en laissant le fond défiler
-   * seul.
+   * ⚠️ Il y avait ici un repli : au-delà du budget, l'emprise était RESSERRÉE sur un carré
+   * de côté fixe centré sur le point regardé. Il compensait une emprise qui explosait à
+   * l'horizon — mais en basculant d'un régime à l'autre sans transition, et en laissant un
+   * trou entre l'observateur et le carré dès que la vue s'inclinait. L'emprise reçue est
+   * désormais bornée en amont (`providers.buildings.maxViewDistance`), donc continue :
+   * `maxRequest` n'est plus qu'un filet, et le pic mesuré (24 tuiles) reste loin dessous.
    */
-  private requestLevel(bounds: Bounds, aim: LatLng): void {
+  private requestLevel(bounds: Bounds): void {
     const z = this.cfg.zoom
-    const full = tileRange(bounds, z, this.cfg.margin, lngToTileX, latToTileY)
-    if (full.x1 < full.x0 || full.y1 < full.y0) return
-    const count = (full.x1 - full.x0 + 1) * (full.y1 - full.y0 + 1)
-    const side = Math.floor(Math.sqrt(this.cfg.maxRequest))
-    const r = count > this.cfg.maxRequest ? tileRing(aim, z, side, lngToTileX, latToTileY) : full
+    const r = tileRange(bounds, z, this.cfg.margin, lngToTileX, latToTileY)
+    if (r.x1 < r.x0 || r.y1 < r.y0) return
+    // L'emprise reçue est le CARRÉ circonscrit au disque de couverture (cf.
+    // `MapEngine.volumeBounds`) : en écarter les coins rend 21 % du budget — assez pour
+    // gagner ~1 km de portée à compte de tuiles constant. Le demi-côté vaut le rayon.
+    const cLat = (bounds.north + bounds.south) / 2
+    const cLng = (bounds.east + bounds.west) / 2
+    const radLat = (bounds.north - bounds.south) / 2
+    const radLng = (bounds.east - bounds.west) / 2
     for (let x = r.x0; x <= r.x1; x++) {
-      for (let y = r.y0; y <= r.y1; y++) this.ensureTile(z, x, y)
+      for (let y = r.y0; y <= r.y1; y++) {
+        // Centre de la tuile rapporté au rayon, en degrés normalisés : le disque redevient
+        // un cercle unité, sans conversion en mètres ni cosinus de latitude à refaire.
+        const dLat = (tileYToLat(y + 0.5, z) - cLat) / radLat
+        const dLng = (tileXToLng(x + 0.5, z) - cLng) / radLng
+        if (dLat * dLat + dLng * dLng > 1) continue
+        this.ensureTile(z, x, y)
+      }
     }
   }
 

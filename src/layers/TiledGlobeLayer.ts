@@ -261,7 +261,7 @@ export class TiledGlobeLayer {
    * ignore : `uniformDetail` est SA config, elle la lit elle-même — sinon la clé n'aurait
    * pas de propriétaire et un hôte la changerait sans passer par `setConfig`.
    */
-  update(bounds: Bounds, zoom: number, aim: LatLng, refine = true, walking = false): void {
+  update(bounds: Bounds, steady: Bounds, zoom: number, refine = true, walking = false): void {
     if (this.disposed) return
     // Sans source (fournisseur non configuré), ne RIEN mettre en file : les tuiles
     // s'empileraient en attente d'un chargement impossible, pour être rejouées telles
@@ -272,6 +272,9 @@ export class TiledGlobeLayer {
     const baseZ = this.cfg.baseZoom
     // Filet de sécurité : le globe entier au niveau de base, toujours chargé, jamais évincé.
     this.requestLevel(baseZ, WORLD_BOUNDS, 0)
+    // Centre du disque `steady`, c'est-à-dire le sol sous la caméra : c'est autour de LUI que
+    // s'ordonnent les anneaux du lointain, pour qu'ils ne dépendent pas du cap.
+    const under: LatLng = { lat: (steady.north + steady.south) / 2, lng: (steady.east + steady.west) / 2 }
 
     /**
      * CASCADE de niveaux, du plus fin au plus grossier.
@@ -304,11 +307,34 @@ export class TiledGlobeLayer {
      * toute la session. Seul le niveau le plus fin se renouvelle en se déplaçant.
      */
     // Détail uniforme SAUF en marche, où le gradient près→loin à hauteur d'homme est voulu.
-    const uniform = this.cfg.uniformDetail && !walking
+    const wantUniform = this.cfg.uniformDetail && !walking
     // Calculé quand on raffine OU en uniforme (le rendu plafonne alors au niveau `covering`) ;
     // inutile sur le chemin `!refine && !uniform` — `undefined` rend cette absence visible
     // dans le type, là où un objet de zéros typecheckait comme un vrai LOD.
-    const lod = refine || uniform ? lodLevels(bounds, zoom, this.cfg) : undefined
+    /**
+     * ⚠️ `covering` se décidait sur `bounds`, la bbox du trapèze de vue. Deux défauts, tous
+     * deux visibles à l'écran :
+     *
+     * — elle dépend du CAP. Son aire croît d'un facteur ~2 entre un cap nord et un cap à 45°,
+     *   et un facteur 2 vaut UN CRAN entier de `covering` : tout le fond changeait de finesse
+     *   quand on tournait la caméra, sans que la vue change ;
+     * — elle explose à l'horizon. À 78° d'inclinaison, `tileCount` part si haut que la boucle
+     *   de `lodLevels` rabaissait `covering` jusqu'au niveau de BASE — un texel z2 couvre un
+     *   quart de continent, d'où les traînées floues au ras du ciel, y compris tout près de
+     *   l'observateur où la donnée fine était pourtant disponible.
+     *
+     * `steady` est un disque centré sous la caméra (cf. `MapEngine.volumeBounds`) : il ne
+     * dépend ni du cap ni de l'inclinaison. Le niveau de détail devient donc stable, et c'est
+     * la vue qui décide de ce qu'on affiche — pas de la finesse à laquelle on l'affiche.
+     */
+    const lod = refine || wantUniform ? lodLevels(steady, bounds, zoom, this.cfg) : undefined
+    /**
+     * Le niveau unique cède à la cascade quand la vue est trop étalée pour lui (cf.
+     * `LodLevels.cascade`) : sinon le premier plan hérite du niveau imposé par l'horizon.
+     * C'est une bascule, pas un réglage — l'hôte demande `uniformDetail`, le calque constate
+     * que la vue ne s'y prête plus.
+     */
+    const uniform = wantUniform && !lod?.cascade
     if (refine && lod) {
       const { finest, covering } = lod
       if (uniform) {
@@ -319,9 +345,37 @@ export class TiledGlobeLayer {
         // charge → transition douce, sans le flash « base floue » d'un niveau unique. C'est le
         // PREFETCH qui rend le dézoom fluide. Bâtiments partout tant que `covering` atteint
         // leur niveau (relever `maxRequest` le repousse), sinon uniformément grossier.
+        // ⚠️ Tous les niveaux sur l'emprise ENTIÈRE, `covering` compris. Le restreindre au
+        // disque qui a servi à le CHOISIR paraît économique et ne l'est pas : le détail
+        // s'arrête alors net au bord du disque (~4,6 km à 1 km d'altitude et 64°), et cette
+        // frontière se voit en plein milieu de l'écran. C'est précisément la « boîte de
+        // détail » que le mode uniforme existe pour supprimer.
+        //
+        // Le disque ne sert donc qu'à DÉCIDER de la finesse, jamais à borner son étendue.
         for (let z = covering; z > baseZ; z--) this.requestLevel(z, bounds, this.cfg.margin)
+        /**
+         * AU-DELÀ de `bounds`, jusqu'à l'horizon.
+         *
+         * ⚠️ `bounds` naît de rayons qui doivent TOUCHER l'ellipsoïde : ceux qui filent au
+         * ciel ne comptent pas, si bien que l'emprise s'arrête bien avant ce que l'œil voit.
+         * Mesuré à 410 m d'altitude et 64° d'inclinaison : `bounds` porte à ~2 km, l'horizon
+         * est à 72 km. Entre les deux, plus aucun niveau ne s'appliquait — seule restait la
+         * tuile de BASE, peinte sans condition d'emprise (cf. `inView` plus bas). Un texel z2
+         * couvre un quart de continent, ÉTIQUETTES COMPRISES : d'où les énormes taches de
+         * texte étiré au ras du ciel.
+         *
+         * Un anneau par cran, chacun portant deux fois plus loin que le précédent, atteint
+         * donc l'horizon par niveaux intermédiaires. Centré sous la caméra et non sur le point
+         * visé : c'est ce qui le rend indépendant du cap, comme le disque qui décide de la
+         * finesse. Coût borné et déjà dimensionné — `lodRing²` tuiles par cran, resservies
+         * toute la session puisqu'un niveau grossier couvre d'immenses surfaces.
+         */
+        for (let z = covering - 1; z > baseZ; z--) this.requestRing(z, under, this.cfg.lodRing)
       } else {
-        for (let z = finest; z > baseZ; z--) this.requestRing(z, aim, this.cfg.lodRing)
+        // Anneaux centrés sous la CAMÉRA et non sur le point visé : c'est ce qui les rend
+        // indépendants du cap, au même titre que le disque qui décide de la finesse. En
+        // marche, `steady` est le disque piéton, donc `under` y vaut la position du piéton.
+        for (let z = finest; z > baseZ; z--) this.requestRing(z, under, this.cfg.lodRing)
         if (covering > baseZ) this.requestLevel(covering, bounds, this.cfg.margin)
       }
     }
@@ -335,8 +389,21 @@ export class TiledGlobeLayer {
     // réapparaissait au dézoom. Masquées, elles ne sont plus marquées vues → l'éviction les
     // libère (RAM rendue). C'est le « refresh » de tout le fond à un seul niveau cohérent.
     const maxRenderZ = uniform && lod ? lod.covering : Infinity
+    // Frontière du LOINTAIN : sous `covering`, les niveaux sont là pour peupler l'au-delà de
+    // `bounds` — les y filtrer les masquerait précisément où ils servent. À `covering` et
+    // au-dessus, la vue décide. Distinct de `maxRenderZ`, qui vaut `Infinity` en cascade et
+    // laisserait alors tout passer.
+    const farZ = lod ? lod.covering : baseZ
     for (const t of this.cache.values()) {
-      const inView = t.z === baseZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
+      /**
+       * Les niveaux PLUS GROSSIERS que `covering` peuplent l'au-delà de `bounds`, jusqu'à
+       * l'horizon : les filtrer sur `bounds` les masquerait précisément là où ils servent, et
+       * ne laisserait de nouveau que la tuile de base et ses étiquettes géantes. Ils ne
+       * cachent pas le détail pour autant — `renderOrder` fait passer les niveaux fins
+       * au-dessus — et three.js les écarte du rendu par frustum culling quand ils tombent hors
+       * champ.
+       */
+      const inView = t.z === baseZ || t.z < farZ || (t.z <= maxRenderZ && intersectsView(t, bounds))
       if (t.state === 'ready' && inView) {
         if (!t.mesh) this.buildMesh(t)
         t.mesh!.visible = true
@@ -574,6 +641,19 @@ export type LodLevels = {
    * niveau de base, dont un texel étiré couvre des centaines de kilomètres.
    */
   covering: number
+  /**
+   * La vue est trop étalée pour tenir en UN niveau : le fond doit repasser en cascade
+   * (fin près, grossier loin), même si `uniformDetail` est demandé.
+   *
+   * ⚠️ Un niveau uniforme prend nécessairement celui qu'impose le point le plus LOINTAIN, et
+   * le premier plan en hérite. À plat les deux sont du même ordre, donc c'est sans effet —
+   * c'est le cas pour lequel `uniformDetail` a été écrit, et il y évite la boîte de détail au
+   * centre de l'écran. En vue rasante, le rapport explose : mesuré à 73 m d'altitude et 73°
+   * d'inclinaison, l'emprise s'étale sur 6,3 × 12,5 km quand le sol regardé est à 73 m, et le
+   * niveau tombait à des tuiles de 805 m — onze fois la hauteur de l'œil, soit un sol
+   * franchement flou et des étiquettes géantes.
+   */
+  cascade: boolean
 }
 
 /**
@@ -588,14 +668,41 @@ export type LodLevels = {
  * rendre la liste allouerait un tableau et ses objets à chaque frame.
  */
 export function lodLevels(
+  steady: Bounds,
   bounds: Bounds,
   zoom: number,
-  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest'>,
+  cfg: Pick<TilesConfig, 'baseZoom' | 'maxZoom' | 'margin' | 'maxRequest' | 'maxTiles' | 'uniformMaxSpread'>,
 ): LodLevels {
   const finest = clamp(Math.round(zoom), cfg.baseZoom, cfg.maxZoom)
   let covering = finest
-  while (covering > cfg.baseZoom && tileCount(bounds, covering, cfg.margin) > cfg.maxRequest) covering--
-  return { finest, covering }
+  /**
+   * Premier critère, sur `steady` — un disque centré sous la caméra (cf.
+   * `MapEngine.steadyBounds`). C'est LUI qui fixe la finesse, et il ne dépend ni du cap ni de
+   * l'inclinaison.
+   *
+   * ⚠️ Le critère portait sur `bounds`, la bbox du trapèze de vue, avec deux effets visibles :
+   * son aire croît d'un facteur ~2 entre un cap nord et un cap à 45°, et un facteur 2 vaut UN
+   * CRAN — le fond changeait de netteté quand on tournait la caméra ; et à 78° d'inclinaison
+   * elle porte jusqu'à l'horizon, si bien que cette boucle rabaissait `covering` jusqu'au
+   * niveau de base, dont un texel couvre un quart de continent.
+   */
+  while (covering > cfg.baseZoom && tileCount(steady, covering, cfg.margin) > cfg.maxRequest) covering--
+  // Niveau que réclame le PROCHE, avant que la vue lointaine n'ait son mot à dire : c'est
+  // l'écart entre les deux qui dit si un niveau unique peut encore servir tout le monde.
+  const near = covering
+  /**
+   * Second critère, sur la vue réelle : `covering` est demandé en PLEIN sur `bounds` (le
+   * restreindre au disque ferait une frontière nette au milieu de l'écran), donc une finesse
+   * décidée sur un petit disque peut réclamer beaucoup de tuiles sur une vue très étalée.
+   * Mesuré à 5 000 m et 70° : 800 tuiles au seul niveau `covering`, 1 218 pour la cascade —
+   * au-delà du cache, qui se serait mis à évincer ce qu'il vient de charger.
+   *
+   * Le plafond est `maxTiles`, le cache lui-même, et non `maxRequest` : la moitié pour ce
+   * niveau, l'autre pour le reste de la cascade (dont chaque cran, deux fois plus grossier,
+   * coûte quatre fois moins).
+   */
+  while (covering > cfg.baseZoom && tileCount(bounds, covering, cfg.margin) > cfg.maxTiles / 2) covering--
+  return { finest, covering, cascade: near - covering > cfg.uniformMaxSpread }
 }
 
 /** Nombre de tuiles couvrant `bounds` au zoom `z` (marge incluse), borné au globe. */

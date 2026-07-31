@@ -84,6 +84,12 @@ export const defaultConfig: MapConfig = {
       // Un seul niveau sur toute l'emprise (pas de boîte de détail au centre), à plat comme
       // incliné. Cascade gardée seulement en marche (piéton).
       uniformDetail: true,
+      // ⚠️ Nouveau. Le niveau uniforme est celui qu'impose le point le plus LOINTAIN de
+      // l'emprise, et le premier plan en hérite : sans cette bascule, une vue rasante près du
+      // sol (mesuré : 73 m d'altitude, 73° d'inclinaison) tombait sur des tuiles de 805 m,
+      // onze fois la hauteur de l'œil. `1` tolère un cran — invisible — et rend la main à la
+      // cascade au-delà, là où elle est de toute façon le comportement attendu.
+      uniformMaxSpread: 1,
     },
 
     routing: {
@@ -158,13 +164,22 @@ export const defaultConfig: MapConfig = {
       positionPrecision: 'int16',
       // 14 = maxzoom des données OpenMapTiles : au-delà, la tuile 14 est réutilisée.
       zoom: 14,
-      // 13 et non 14 : le zoom d'une vue INCLINÉE est plus bas que celui demandé à la
-      // caméra (l'emprise s'élargit), donc un seuil à 14 laissait une carte à `zoom={14}`
-      // sans le moindre bâtiment. Le budget `maxRequest` borne ce que ce niveau réclame.
-      minViewZoom: 13,
-      // 1 : la 3D reste affichée un cran de plus au dézoom (≥ zoom 12), pour démarrer/finir
-      // en même temps que les empreintes de bâtiments du fond 2D (dessinées ~1 zoom plus haut).
-      showZoomOffset: 1,
+      // Seuil d'affichage en MÈTRES au-dessus du sol, et non plus en zoom de vue : le zoom
+      // divisait par la hauteur du viewport, donc le même réglage laissait les bâtiments
+      // affichés jusqu'à 15 km sur une fenêtre de 700 px et 31 km sur 1 440 px.
+      maxViewAltitude: 1000,
+      // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour tenir
+      // le montage (~20 ms/tuile, `mountPerFrame: 1`) sans à-coup à l'arrivée.
+      requestAltitudeFactor: 1.5,
+      // RAYON du disque de couverture (cf. `MapEngine.volumeBounds`), et non plus portée d'un
+      // trapèze : le volume ne bouge donc plus du tout quand on tourne la caméra.
+      //
+      // 5 km tient dans les budgets existants — le disque couvre 360°, là où l'ancien carré
+      // 7×7 se concentrait devant. Mesuré (pire cas parisien) : 64 tuiles z14 pour le carré
+      // circonscrit, mais 32 une fois les coins écartés (cf. `BuildingsLayer.requestLevel`),
+      // soit ~157 Mo — sous `maxRequest: 49`, `maxTiles: 80` et `maxBytes`. Le coût est en
+      // n² : 6 km demanderait déjà 47 tuiles, ras le budget de requêtes.
+      maxViewDistance: 5000,
       margin: 0,
       // ⚠️ Étaient 64 / 4 / 24, calqués sur les budgets du raster — sans rapport avec ce
       // que pèse une tuile de VOLUME (~131 000 triangles pour une tuile z14 parisienne).
@@ -386,6 +401,10 @@ export const defaultConfig: MapConfig = {
       samples: 8,
     },
     markerCullMarginPx: 200,
+    // Plus étroite que celle des relations (0,3) : ici la bande retarde l'apparition
+    // d'un décor entier, pas un simple regroupement — trop large, le seuil réglé par
+    // l'hôte ne serait plus celui qu'il observe.
+    markerZoomBand: 0.15,
     // ⚠️ `windowFrames`/`spawnWindowFrames` : 90 et 150 coexistaient dans le même
     // fichier (`MarkerLayer.noteCamera` et la création d'un marker) sans qu'aucune
     // intention ne distingue les deux cas. Elles sont conservées telles quelles, mais

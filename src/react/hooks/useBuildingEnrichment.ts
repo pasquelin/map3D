@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { useMapContext } from '../context'
 import type { EnrichmentState } from '../../core/PluginEnrichment'
 
@@ -21,7 +21,14 @@ export type BuildingEnrichment = {
 export function useBuildingEnrichment(): BuildingEnrichment {
   const { engine } = useMapContext()
   const enr = engine.enrichment
-  useSyncExternalStore(enr.on, () => enr.version)
-  const m = enr.merged()
-  return { loading: m.loading, data: m.data, tags: m.tags, error: m.error, byPlugin: (id) => enr.get(id) }
+  const version = useSyncExternalStore(enr.on, () => enr.version)
+  // `merged()` refusionne les attrs de tous les enrichisseurs actifs : le refaire à
+  // chaque render du consommateur, alors que le store ne bouge qu'aux transitions
+  // loading→data→error, était du travail pur perte — et l'objet neuf invalidait au
+  // passage tout `memo` en aval. `version` est la clé d'invalidation, d'où le disable.
+  return useMemo(() => {
+    const m = enr.merged()
+    return { loading: m.loading, data: m.data, tags: m.tags, error: m.error, byPlugin: (id: string) => enr.get(id) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enr, version])
 }

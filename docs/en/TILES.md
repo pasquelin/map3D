@@ -42,17 +42,17 @@ tiles remain external services, configured separately (`providers.places`,
 > as a special case was its ray-casting cost; that is fixed at the source (see § 5), not
 > worked around with a special case.
 
-**Volume auto-hide on zoom-out.** Zoomed out — or with a distant aim point in a tilted
-view — the internal buildings cover only a few pixels, and their budget-bounded loading
-leaves a "square" of detail in the void. Past that point they are hidden, **frozen and
+**Volume auto-hide by altitude.** Seen from above, the internal buildings cover only a few
+pixels, and their budget-bounded loading leaves a "square" of detail in the void. Above
+`providers.buildings.maxViewAltitude` (1000 m **above ground**) they are hidden, **frozen and
 destroyed** (RAM/VRAM freed, reloaded on the way back), leaving the 2D basemap alone
-**without leaving `'3d'` mode**: zooming back in brings them back. The criterion is the
-*perceived* zoom at the aim point (resolution × distance), so it holds **at any tilt**.
+**without leaving `'3d'` mode**: descending brings them back. The criterion is a height above
+ground, so it holds **at any tilt**.
 Only the internal extruded buildings are affected — photorealistic 3D tiles are not.
 Toggled by `providers.tiles3d.hideVolumeWhenClamped` (`false` keeps buildings always on),
-the fade by `providers.tiles3d.volumeFadeMs` (`0` = instant); `providers.buildings.showZoomOffset`
-grants a few zoom levels of reprieve below `providers.buildings.minViewZoom` so the 3D and
-the 2D footprints hand off cleanly.
+the fade by `providers.tiles3d.volumeFadeMs` (`0` = instant); `providers.buildings.requestAltitudeFactor`
+opens a band above the threshold where tiles are downloaded without being shown, so the
+descent finds them ready.
 
 ## 2. Configuring the internal server
 
@@ -100,9 +100,10 @@ map hole-free while finer levels arrive. `maxZoom` (default 22) bounds the fines
 requested — **lower it** if your style stops earlier, otherwise the map asks for tiles that
 do not exist.
 
-Between the two, the basemap steps down through a **cascade**: the finest level around the
-looked-at point, then a ring of `lodRing` tiles per side at each coarser step, each reaching
-twice as far, until the first level that covers the whole view. That is what makes the
+Between the two, the basemap steps down through a **cascade**: the finest level on a disc
+centred under the camera — a disc, so that sharpness depends on neither heading nor tilt —
+then the coarser levels over the whole view, each reaching twice as far, until the first one
+that covers it. That is what makes the
 distance degrade gradually instead of dropping straight to the base level — a tile the size
 of a quarter of a continent, a flat wash of colour that reads as a rendering bug.
 
@@ -200,8 +201,9 @@ What to know when tuning it:
 - **A single zoom level** (`providers.buildings.zoom`, 14): the `maxzoom` of the
   OpenMapTiles data. Beyond it the same tile serves; buildings gain nothing from being
   re-requested finer.
-- **`minViewZoom`** (13) bounds the bottom: from higher up, buildings would cover a few
-  pixels for the price of decoding a whole city.
+- **`maxViewAltitude`** (1000 m above ground) bounds the top: from higher up, buildings
+  would cover a few pixels for the price of decoding a whole city.
+  `requestAltitudeFactor` (1.5) preloads above it without showing.
 - **Colours from the theme**: `theme.globe.buildingColor` (façades) and
   `buildingRoofColor` (roofs). A footprint carrying the `colour` attribute keeps its own —
   hex as well as CSS keyword (`beige`, `silver`) — and its roof is lightened by
@@ -216,13 +218,34 @@ What to know when tuning it:
 
 ### How far volume reaches
 
-`maxRequest` (25) asks for the **5×5 tiles around the looked-at point** — the ground under
-screen centre, not under the camera: in a tilted view the two are far apart, and centring
-on the camera spent the budget behind the observer.
+The volume is served by a **disc centred under the camera**, its radius capped by
+`maxViewDistance` (5000 m). **Beyond it only the raster basemap remains** — a view tilted to
+79° reaches tens of kilometres, and no z14 coverage would ever match that.
 
-In Paris a z14 tile is ~1.6 km, so the ring reaches ~8 km. **Beyond it only the raster
-basemap remains** — a view tilted to 79° reaches tens of kilometres, and no z14 ring would
-ever cover that.
+⚠️ A disc, not the view frustum's bbox: that is what makes coverage both **invariant** and
+**continuous**. The bbox had two flaws.
+
+It depended on **heading**: its area grows by ~2× between a north heading and a 45° one, so
+the set of tiles changed as you turned the camera, without the view changing.
+
+It blew up at the **horizon**: the extent came from a grid of rays cast through the screen,
+and those crossing the horizon hit nothing — they were discarded. Every time a whole grid row
+went to the sky, the extent collapsed at once, then `tan(tilt)` blew it back up until the next
+row. Measured at 1000 m altitude: sawtooth reach between 2.8 and 36.3 km, two abrupt collapses
+(59° and 74°), and 8 to 1058 tiles requested at constant altitude. At 55° and 70° the map
+looked alike, at 60° it looked nothing like either.
+
+A disc has neither flaw: it depends on no angle, and it is bounded without clamping anything.
+Tiles whose centre falls outside the disc are dropped from the circumscribed square, which
+returns half the budget — measured in Paris: 32 z14 tiles instead of 64. `maxRequest` is now
+only a safety net.
+
+**The raster basemap follows the same rule**, but for its DETAIL LEVEL: `lodLevels` picked the
+level for the whole basemap from that same bbox. A 2× area factor being a whole level, the
+basemap changed sharpness as you turned; and at 78° tilt the level collapsed down to
+`baseZoom`, one texel of which covers a quarter of a continent — hence the blurry streaks at
+the skyline. It is now decided on a disc of the same kind, whose radius follows the scale of
+the view rather than the heading.
 
 This is not an over-cautious setting, it is a limit of the data. 3D attributes exist only
 at the OpenMapTiles schema's `maxzoom`:
@@ -235,7 +258,8 @@ at the OpenMapTiles schema's `maxzoom`:
 
 A distant level of detail built on z13 would therefore extrude everything at
 `defaultHeight` — uniform, wrong heights. Three levers if the boundary bothers you: raise
-`maxRequest` (cost is linear, ~131,000 triangles per tile), lower `camera.maxTilt3d` so the
+`maxViewDistance` (the tile peak grows as n², so raise `maxTiles`/`maxBytes` with it),
+lower `camera.maxTilt3d` so the
 view no longer reaches the horizon, or serve a tileset carrying heights below level 14.
 - **Colours live in the theme**: `theme.globe.buildingColor` (walls) and
   `buildingRoofColor` (roofs). A footprint carrying the `colour` attribute keeps its own —

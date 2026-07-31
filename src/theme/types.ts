@@ -300,6 +300,22 @@ export type MapTheme = {
     background: string
     /** Océan des globes de repli — celui de secours et celui sous les tuiles 2D. */
     oceanColor: string
+    /**
+     * Couleur dans laquelle le décor lointain se dissout en mode piéton (brouillard de
+     * `pedestrian.fogStartMeters` à `viewDistanceMeters`).
+     *
+     * ⚠️ Elle valait le FOND du canvas, ce qui était juste tant que le fond était ce qu'on
+     * voyait derrière le décor. Le ciel atmosphérique (`sky.enabled`) se peint désormais au
+     * plan far, donc devant ce fond : les façades lointaines s'estompaient vers le fond clair
+     * sur un ciel bleu, et leur bande blanchie dessinait une **barre horizontale nette** à
+     * hauteur d'horizon. Accordée au ciel, elle les y dissout au lieu de les découper.
+     *
+     * Ciel éteint, c'est le fond du canvas qui reprend ce rôle — il redevient alors ce qu'on
+     * voit derrière. Une teinte de ciel bas ne dépend pas que d'elle-même : l'heure et les
+     * réglages de diffusion la font varier, donc ce défaut vise le ciel par défaut, en
+     * milieu de journée.
+     */
+    hazeColor: string
     /** Terres émergées du globe de repli. */
     landColor: string
     /**

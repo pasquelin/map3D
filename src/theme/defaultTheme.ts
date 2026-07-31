@@ -126,6 +126,11 @@ export const defaultTheme: MapTheme = {
     background: '#070C16',
     oceanColor: '#0F2942',
     landColor: '#4F7A45',
+    // ⚠️ Nouvelle. Le voile de distance du mode piéton prenait le fond du canvas ; depuis que
+    // le ciel se peint au plan far, ce n'est plus lui qu'on voit derrière le décor, et les
+    // façades lointaines se découpaient en barre claire sur le bleu. Teinte relevée du ciel
+    // par défaut (turbidité 2, rayleigh 1,2) au ras de l'horizon, en milieu de journée.
+    hazeColor: '#C4D6E4',
     // Façade plus sombre que le toit : la scène n'a AUCUNE lumière (tout est en
     // MeshBasicMaterial), donc ce contraste porte la face haute.
     buildingColor: '#8A8E96',

@@ -349,22 +349,45 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const templates = useMemo(() => reg.list(), [reg, version])
 
-  return {
-    templates,
-    categories,
-    defaultCategories,
-    defaultApply,
-    allowExport,
-    saveView,
-    defaultSaveView,
-    busy,
-    saveCurrent,
-    updateFromDrawing,
-    apply,
-    rename,
-    remove,
-    refresh,
-    exportFile,
-    importFile,
-  }
+  // Mémoïsé, sinon les huit `useCallback` ci-dessus ne servent à rien : l'enveloppe
+  // serait neuve à chaque render et `TemplatesPanel` re-rendrait toutes ses lignes —
+  // exactement ce que les refs de `apply`/`updateFromDrawing` cherchent à éviter.
+  return useMemo(
+    () => ({
+      templates,
+      categories,
+      defaultCategories,
+      defaultApply,
+      allowExport,
+      saveView,
+      defaultSaveView,
+      busy,
+      saveCurrent,
+      updateFromDrawing,
+      apply,
+      rename,
+      remove,
+      refresh,
+      exportFile,
+      importFile,
+    }),
+    [
+      templates,
+      categories,
+      defaultCategories,
+      defaultApply,
+      allowExport,
+      saveView,
+      defaultSaveView,
+      busy,
+      saveCurrent,
+      updateFromDrawing,
+      apply,
+      rename,
+      remove,
+      refresh,
+      exportFile,
+      importFile,
+    ],
+  )
 }

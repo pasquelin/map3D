@@ -23,10 +23,17 @@ export function useLiveData<T>(
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(false)
   const controllerRef = useRef<ViewportController<T> | null>(null)
+  // La source courante, lue à la (re)construction du contrôleur : celui-ci naît sans
+  // source, et l'effet qui la pose ne dépend que de `source`. Sans cette reprise, un
+  // contrôleur reconstruit — changement de cadence, `opts.debounce` recalculé — restait
+  // muet à jamais (`push` sort tant que `source` est nulle), sans la moindre erreur.
+  const sourceRef = useRef(source)
+  sourceRef.current = source
 
   useEffect(() => {
     const controller = new ViewportController<T>({ debounce: opts.debounce ?? viewportDebounceMs }, setData, setLoading)
     controllerRef.current = controller
+    controller.setSource(sourceRef.current ?? null)
     // Amorce avec la vue courante.
     const v = engine.getView()
     controller.push({ bounds: v.bounds, center: v.center, zoom: v.zoom })

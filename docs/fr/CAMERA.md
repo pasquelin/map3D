@@ -84,8 +84,13 @@ const camera = useCamera()   // ou engine.camera, ou map.current?.camera
 | `getState()` | `{ lat, lng, altitude, heading, tilt }` |
 
 `useCamera().state` est l'état **réactif** (re-rend son consommateur à chaque
-mouvement) ; la poignée `map.current?.camera`, elle, ne re-rend rien — c'est la
-différence entre les deux chemins.
+mouvement — l'événement `camera` est émis par frame tant que la caméra bouge) ; la
+poignée `map.current?.camera`, elle, ne re-rend rien — c'est la différence entre les
+deux chemins.
+
+Un troisième chemin pour le cas courant : `useCameraCommands()` rend les **commandes
+seules**, d'identité stable et sans abonnement. Un bouton qui ne fait que `flyTo` n'a
+aucune raison de se re-rendre soixante fois par seconde pendant un pan.
 
 **Garde-fous appliqués à toute destination** : jamais au-dessus de `maxAltitude`,
 jamais sous `sol réel + config.camera.minGroundClearance` (le sol est échantillonné

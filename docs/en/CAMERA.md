@@ -82,9 +82,14 @@ const camera = useCamera()   // or engine.camera, or map.current?.camera
 | `follow(getPos)` | follows a target; returns the stop function |
 | `getState()` | `{ lat, lng, altitude, heading, tilt }` |
 
-`useCamera().state` is the **reactive** state (re-renders its consumer on every move);
-the `map.current?.camera` handle re-renders nothing — that is the difference between
-the two paths.
+`useCamera().state` is the **reactive** state (re-renders its consumer on every move —
+the `camera` event is emitted every frame while the camera moves); the
+`map.current?.camera` handle re-renders nothing — that is the difference between the
+two paths.
+
+A third path for the common case: `useCameraCommands()` returns the **commands alone**,
+with a stable identity and no subscription. A button that only calls `flyTo` has no
+reason to re-render sixty times per second during a pan.
 
 **Guardrails applied to every destination**: never above `maxAltitude`, never below
 `real ground + config.camera.minGroundClearance` (the ground is sampled from the tiles,

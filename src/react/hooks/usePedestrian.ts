@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { isGroundedView, type ImmersionLevel, type PedestrianState } from '../../core/pedestrianState'
 import type { LatLng } from '../../shared'
 import { useMap } from '../context'
@@ -27,13 +27,18 @@ export function usePedestrian(): PedestrianApi {
 
   useEffect(() => engine.on('pedestrian', setState), [engine])
 
-  return {
-    state,
-    enterPlacement: () => engine.enterPedestrianPlacement(),
-    enter: (p) => engine.enterPedestrian(p),
-    exit: () => engine.exitPedestrian(),
-    setImmersion: (level) => engine.setPedestrianImmersion(level),
-  }
+  // Les quatre commandes ne dépendent que du moteur : les recréer à chaque render
+  // invaliderait tout `memo` en aval pour un simple changement de cap.
+  return useMemo(
+    () => ({
+      state,
+      enterPlacement: () => engine.enterPedestrianPlacement(),
+      enter: (p: LatLng) => engine.enterPedestrian(p),
+      exit: () => engine.exitPedestrian(),
+      setImmersion: (level: ImmersionLevel) => engine.setPedestrianImmersion(level),
+    }),
+    [engine, state],
+  )
 }
 
 /**

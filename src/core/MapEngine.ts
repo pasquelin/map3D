@@ -51,6 +51,8 @@ import {
   DEG2RAD,
   EARTH_CIRCUMFERENCE,
   easeInOutCubic,
+  type VolumeVisibility,
+  volumeVisibility,
   zoomForAltitude,
 } from './math'
 import { viewScaleDistance } from './viewScale'
@@ -88,6 +90,11 @@ export type MapEngineOptions = {
    * `TiledGlobeLayer` — deux océans de teintes opposées selon le globe affiché.
    */
   oceanColor: string
+  /**
+   * Couleur du voile de distance en mode piéton (`theme.globe.hazeColor`). Lue au montage,
+   * comme `oceanColor` — voir `applyPedestrianView` pour ce qu'elle corrige.
+   */
+  hazeColor?: string
   /**
    * Façades et toits des bâtiments extrudés du fournisseur interne
    * (`theme.globe.buildingColor` / `buildingRoofColor`). Comme `oceanColor`, lues au
@@ -543,6 +550,7 @@ export class MapEngine {
     this.projection.setConfig(this.config)
     this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
+    if (opts.hazeColor) this.hazeColor = opts.hazeColor
     this.tags = new TagFilter(opts.tagStorageKey)
     /**
      * Le filtre « Couches » bascule la visibilité de meshes WebGL (`DrawLayer`, formes,
@@ -1197,6 +1205,8 @@ export class MapEngine {
   private savedNearFar: { near: number; far: number } | null = null
   /** Scratch de lecture de la couleur de fond (source du brouillard) — jamais alloué à chaud. */
   private readonly fogColor = new THREE.Color()
+  /** Voile de distance du mode piéton (`theme.globe.hazeColor`), lu au montage. */
+  private readonly hazeColor: string = defaultTheme.globe.hazeColor
 
   /** Type de carte affiché — cf. `MapMode` : 'plan' = carte plate, '3d' = volume. */
   private mapMode: MapMode = '3d'
@@ -1587,9 +1597,21 @@ export class MapEngine {
     this.threeCamera.near = v.near
     this.threeCamera.far = v.far
     this.threeCamera.updateProjectionMatrix()
-    // Couleur lue du renderer plutôt que mémorisée : c'est la même source que le fond
-    // réellement peint, et elle ne peut donc pas en diverger.
-    this.renderer.getClearColor(this.fogColor)
+    /**
+     * Le décor doit se dissoudre dans ce qu'on voit DERRIÈRE lui.
+     *
+     * ⚠️ C'était le fond du canvas (`getClearColor`), au motif qu'il était « la même source
+     * que le fond réellement peint ». Ce n'est plus vrai : le ciel atmosphérique se peint au
+     * plan far (`Sky` force `gl_Position.z = gl_Position.w`), donc DEVANT ce fond. Les
+     * façades situées entre `fogStartMeters` et `viewDistanceMeters` s'estompaient vers un
+     * fond clair sur un ciel bleu, et comme elles sont toutes à la même hauteur apparente à
+     * cette distance, leur bande blanchie dessinait une BARRE HORIZONTALE nette à hauteur
+     * d'horizon.
+     *
+     * Ciel éteint, le fond redevient ce qu'on voit derrière : il reprend son rôle.
+     */
+    if (this.sky) this.fogColor.set(this.hazeColor)
+    else this.renderer.getClearColor(this.fogColor)
     const fog = this.scene.fog
     if (fog instanceof THREE.Fog) {
       fog.color.copy(this.fogColor)
@@ -1759,22 +1781,38 @@ export class MapEngine {
     this.buildings.setVisible(this.internalVolume && !this.buildingsHidden)
   }
 
-  /** Bâtiments internes masqués car incapables de couvrir toute la vue (cf. `updateBuildingsFade`). */
+  /** Bâtiments internes masqués car trop haut pour être montrés (cf. `updateBuildingsFade`). */
   private buildingsHidden = false
   /** Opacité courante des bâtiments, animée dans le temps (0 = masqués, 1 = pleins). */
   private buildingsOpacity = 1
+  /** Le volume est-il alimenté ? Vrai dans la bande de préchargement, donc au-delà de `show`. */
+  private buildingsStreaming = true
 
   /**
-   * Affiche les bâtiments internes SEULEMENT s'ils couvrent toute la vue (`want`), sinon les
-   * fond puis les masque, gèle et **détruit** (RAM/VRAM rendues, rechargés au retour). Tout
-   * ou rien — jamais de carré partiel. Fondu piloté par le TEMPS (`volumeFadeMs`), pas par le
-   * zoom : disparition/apparition douce. Ne touche NI le mode NI le fond 2D. Interne seulement.
+   * Affiche les bâtiments internes SEULEMENT sous `maxViewAltitude` (`want.show`), sinon les
+   * fond puis les masque. La mémoire n'est rendue qu'en sortant AUSSI de la bande de
+   * préchargement (`want.request`). Fondu piloté par le TEMPS (`volumeFadeMs`), pas par le
+   * zoom : disparition ET apparition douces. Ne touche NI le mode NI le fond 2D.
    */
-  private updateBuildingsFade(dt: number, want: boolean): void {
+  private updateBuildingsFade(dt: number, want: VolumeVisibility): void {
     const cfg = this.config.providers.tiles3d
-    const target = !cfg.hideVolumeWhenClamped || want ? 1 : 0
+    const target = !cfg.hideVolumeWhenClamped || want.show ? 1 : 0
+    /**
+     * La mémoire ne se rend qu'une fois SORTI de la bande de préchargement.
+     *
+     * ⚠️ Elle était rendue dès la fin du fondu, c'est-à-dire au seuil d'AFFICHAGE : la bande
+     * téléchargeait alors des tuiles que le franchissement du seuil détruisait aussitôt, et
+     * l'apparition repartait d'un cache vide. L'opacité montait donc à 1 sur du vide en
+     * `volumeFadeMs`, pendant que les tuiles arrivaient bien plus tard, une par frame
+     * (`mountPerFrame`) et à pleine opacité — un surgissement, là où la disparition, elle,
+     * fondait une géométrie déjà complète.
+     */
+    if (want.request !== this.buildingsStreaming) {
+      this.buildingsStreaming = want.request
+      if (!want.request) this.buildings.releaseAll()
+    }
     // Sortie anticipée seulement si le fondu est arrivé ET que la visibilité correspond —
-    // sinon il reste le masquage (et la libération mémoire) à faire, plus bas.
+    // sinon il reste le masquage à faire, plus bas.
     const targetHidden = target <= 0
     if (this.buildingsOpacity === target && this.buildingsHidden === targetHidden) return
     // Apparition : montrer AVANT de faire monter l'opacité (sinon le fondu est invisible).
@@ -1789,11 +1827,11 @@ export class MapEngine {
         : Math.max(target, this.buildingsOpacity - step)
     this.buildings.setOpacity(this.buildingsOpacity)
     this.invalidate()
-    // Fondu terminé à 0 : masquer + LIBÉRER la mémoire (le feed recharge au retour).
+    // Fondu terminé à 0 : masquer. La mémoire, elle, reste tenue tant qu'on est dans la bande
+    // de préchargement — c'est elle qui rendra l'apparition douce (cf. plus haut).
     if (this.buildingsOpacity <= 0 && !this.buildingsHidden) {
       this.buildingsHidden = true
       this.buildings.setVisible(false)
-      this.buildings.releaseAll()
     }
   }
 
@@ -2044,21 +2082,6 @@ export class MapEngine {
     // Résolution Web Mercator au zoom 0 (m/px à l'équateur) = circonférence / taille tuile.
     const equatorMetersPerPixel = EARTH_CIRCUMFERENCE / TILE_SIZE
     return Math.log2((equatorMetersPerPixel * Math.cos(lat * DEG2RAD)) / metersPerPixel)
-  }
-
-  /**
-   * Sol sous le CENTRE DE L'ÉCRAN — le point réellement regardé, autour duquel se
-   * centrent les couronnes de tuiles (cascade du fond, volume des bâtiments).
-   *
-   * À distinguer de `view.center`, qui est le point sous la CAMÉRA : en vue inclinée les
-   * deux sont très éloignés, et centrer sur la caméra dépense le budget derrière
-   * l'observateur. Intersection analytique de l'ellipsoïde — aucun rayon lancé dans la
-   * scène, donc gratuit par frame ; repli sur le point caméra si la vue porte sur le vide.
-   */
-  private aimPoint(view: MapView): LatLng {
-    return (
-      this.projection.pickEllipsoidLatLng(this.size.width / 2, this.size.height / 2, this.threeCamera) ?? view.center
-    )
   }
 
   /**
@@ -2427,36 +2450,52 @@ export class MapEngine {
         ? view.bounds
         : boundsOfCircle(this.pedestrianCtl.position, this.config.pedestrian.viewDistanceMeters)
       const tileZoom = walking ? this.tileZoomWalking(state) : this.tileZoomAtCenter(state)
-      // Le point visé ne sert qu'aux anneaux de détail (couche 2D hors uniforme) et aux
-      // bâtiments : ailleurs, son raycast d'ellipsoïde par frame serait pour rien.
-      const uniform = this.config.providers.tiles.uniformDetail && !walking
-      const aim = !view ? this.pedestrianCtl.position : internal3d || !uniform ? this.aimPoint(view) : view.center
-      // Bâtiments internes : affichés seulement quand le zoom AU POINT VISÉ est suffisant.
-      // `tileZoom` tient compte de la DISTANCE (résolution mètres/pixel au centre) : haut/loin
-      // ou dézoomé → zoom bas → masqués ; proche → zoom haut → affichés. Critère indépendant
-      // de l'inclinaison (contrairement à l'emprise, qui explose à l'horizon dès qu'on incline).
-      // Sous `minViewZoom`, les bâtiments « ne couvrent que quelques pixels » (cf. son JSDoc) :
-      // même seuil pour les masquer ET arrêter de les demander.
-      //
-      // Fondu réservé au volume RÉELLEMENT à l'écran : hors mode 3D interne, il n'y a rien à
-      // faire fondre (`applyModeVisibility` a déjà sorti le groupe du graphe), et le faire
-      // quand même réveillait la boucle ~15 frames par bascule 2D pour finir par DÉTRUIRE un
-      // cache de volumes que le retour en 3D doit re-télécharger.
+      /**
+       * ⚠️ Le point VISÉ (`aimPoint`) était calculé ici à chaque frame — un raycast
+       * d'ellipsoïde — pour centrer les anneaux de détail du fond et la couverture des
+       * bâtiments. Les deux se centrent désormais sous la CAMÉRA, pour ne dépendre ni du cap
+       * ni de l'inclinaison : plus personne ne le consomme, et le raycast disparaît avec lui.
+       *
+       * Fondu réservé au volume RÉELLEMENT à l'écran : hors mode 3D interne, il n'y a rien à
+       * faire fondre (`applyModeVisibility` a déjà sorti le groupe du graphe), et le faire
+       * quand même réveillait la boucle ~15 frames par bascule 2D pour finir par DÉTRUIRE un
+       * cache de volumes que le retour en 3D doit re-télécharger.
+       */
       if (internal3d) {
         const b = this.config.providers.buildings
-        // Seuil décalé de `showZoomOffset` : la 3D reste affichée un cran de plus au dézoom,
-        // pour s'aligner sur les empreintes du fond 2D (dessinées ~1 zoom au-dessus).
+        // Hauteur au-dessus du SOL, jamais du toit : `terrainElevation` vient d'un raycast au
+        // centre de l'écran qui, en fournisseur interne, touche le bâti extrudé (cf. le bloc
+        // `in2d` d'`applyModeVisibility`) — le seuil sauterait d'un étage en survolant une tour.
+        // `flatGroundElevation` est le sol analytique du raster, non-null exactement quand le
+        // volume interne existe ; le repli ne sert donc jamais en pratique.
+        const agl = state.altitude - (this.flatGroundElevation ?? this.terrainElevation)
+        const want = volumeVisibility(agl, b.maxViewAltitude, b.requestAltitudeFactor)
         // `hideVolumeWhenClamped` est relu par `updateBuildingsFade`, pas ici : une seule
         // formulation de la règle, sinon les deux ne restent équivalentes que par chance.
-        this.updateBuildingsFade(dt, tileZoom >= b.minViewZoom - b.showZoomOffset)
+        this.updateBuildingsFade(dt, want)
+        /**
+         * Alimenté dès la bande de préchargement, MASQUÉ OU NON.
+         *
+         * ⚠️ La condition était `!this.buildingsHidden` : masqués, les bâtiments ne recevaient
+         * aucun appel, donc `want.request` n'était jamais lu et la bande de préchargement ne
+         * servait à rien. Les tuiles n'étaient demandées qu'une fois le seuil d'affichage
+         * franchi — trop tard pour que le fondu ait quoi que ce soit à faire apparaître.
+         *
+         * Sur le DISQUE du volume, jamais l'emprise des overlays (cf. `volumeBounds`) — sauf
+         * en marche, où le disque piéton joue déjà ce rôle et est déjà calculé.
+         */
+        if (want.request && due) this.buildings.update(view ? this.volumeBounds(state) : bounds)
       }
       // Fond 2D en UN niveau uniforme sur toute l'emprise (pas de boîte de détail au centre),
       // à plat COMME en vue inclinée : le zoom au point visé décide déjà du niveau, l'inclinaison
       // n'a pas à y changer quoi que ce soit. La couche lit `uniformDetail` elle-même ; seul
       // l'état de MARCHE lui vient d'ici, car lui seul est hors de sa config.
-      if (feedBasemap && due) this.basemap2d.update(bounds, tileZoom, aim, !controlling, walking)
-      // Gelé quand les bâtiments sont masqués (rien à streamer).
-      if (internal3d && !this.buildingsHidden && due) this.buildings.update(bounds, tileZoom, aim)
+      // Seconde emprise du fond : c'est sur elle qu'il décide de sa FINESSE (cf. `lodLevels`),
+      // pour que celle-ci ne dépende ni du cap ni de l'inclinaison. Sans plafond, contrairement
+      // au volume : le fond suit l'échelle de la vue. En marche, le disque piéton joue ce rôle.
+      if (feedBasemap && due) {
+        this.basemap2d.update(bounds, view ? this.steadyBounds(state) : bounds, tileZoom, !controlling, walking)
+      }
     }
 
     // `view` (viewportBounds = raycasts ellipsoïde) est calculé à la demande :
@@ -2599,7 +2638,7 @@ export class MapEngine {
   }
 
   /**
-   * Vue courante (centre/zoom/bounds). Mémoïsée : `viewportBounds` (25 raycasts
+   * Vue courante (centre/zoom/bounds). Mémoïsée : `computeBounds` (25 raycasts
    * ellipsoïde) n'est recalculé qu'au mouvement caméra ou au resize (`viewDirty`),
    * pas à chaque frame carte immobile.
    */
@@ -2608,7 +2647,7 @@ export class MapEngine {
     const view: MapView = {
       center: { lat: state.lat, lng: state.lng },
       zoom: zoomForAltitude(this.scaleDistance(state)),
-      bounds: this.viewportBounds(state),
+      bounds: this.computeBounds(state),
     }
     this.cachedView = view
     this.viewDirty = false
@@ -2643,7 +2682,42 @@ export class MapEngine {
 
   private readonly scaleScratch = new THREE.Vector3()
 
-  private viewportBounds(center: CameraState): Bounds {
+  /**
+   * Emprise du volume : un DISQUE centré sous la caméra, jamais la bbox du trapèze de vue.
+   *
+   * ⚠️ Deux défauts en un. (1) La bbox axis-aligned du trapèze dépend du CAP : elle croît d'un
+   * facteur ~2 en aire entre un cap nord et un cap à 45°, si bien que tourner la caméra
+   * changeait l'ensemble des tuiles — et, côté fond raster, le niveau de détail entier (cf.
+   * `lodLevels`). (2) Elle explosait à l'horizon en dents de scie (2,8 → 36,3 km, deux
+   * effondrements à 59° et 74°). Un disque centré sous l'œil ne dépend NI du cap NI de
+   * l'inclinaison : il est invariant par construction, et borné sans avoir à tronquer quoi que
+   * ce soit.
+   *
+   * Rayon = deux fois la distance au point visé (le champ vertical de 60° rend la vue ~1,15×
+   * plus large que cette distance ; 2× la couvre avec marge), plafonné par `maxViewDistance`
+   * — c'est ce plafond qui borne le budget de tuiles.
+   *
+   * Analytique : aucun rayon lancé, contrairement à `computeBounds`.
+   */
+  private steadyBounds(state: CameraState, maxRadius = Infinity): Bounds {
+    const radius = Math.min(2 * this.scaleDistance(state), maxRadius)
+    return boundsOfCircle({ lat: state.lat, lng: state.lng }, radius)
+  }
+
+  /**
+   * Le disque des BÂTIMENTS : rayon `maxViewDistance`, CONSTANT.
+   *
+   * ⚠️ Il valait `min(2 × distance au point visé, maxViewDistance)`, et ce minimum était un
+   * contresens : plus on descend, plus la distance au point visé est courte, donc plus le
+   * volume s'arrêtait près — 1,9 km à 410 m d'altitude, là où l'ancien carré 7×7 portait à
+   * 5,6 km. Or c'est précisément à basse altitude qu'on veut voir les volumes loin devant, et
+   * le budget (32 tuiles) est dimensionné pour le rayon plein, pas pour un rayon rétréci.
+   */
+  private volumeBounds(state: CameraState): Bounds {
+    return boundsOfCircle({ lat: state.lat, lng: state.lng }, this.config.providers.buildings.maxViewDistance)
+  }
+
+  private computeBounds(center: CameraState): Bounds {
     const { width, height } = this.size
     // Grille dense (pas seulement 4 coins) : en vue inclinée, les coins du haut
     // visent le ciel/horizon et ratent le sol → une bbox trop petite exclurait les

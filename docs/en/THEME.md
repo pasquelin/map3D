@@ -181,6 +181,7 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `globe.atmosphere` | Atmospheric halo around the globe. | `true` |
 | `globe.background` | Background behind the globe (space). | `'#070C16'` |
 | `globe.oceanColor` | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles. | `'#0F2942'` |
+| `globe.hazeColor` | Colour the distant scene dissolves into in **pedestrian mode** (fog from `pedestrian.fogStartMeters` to `viewDistanceMeters`). ⚠️ This used to be the canvas background, which was right as long as the background was what you saw behind the scene; since the atmospheric sky paints at the far plane, distant façades faded towards a light background **against a blue sky**, drawing a sharp horizontal bar at eye level. With the sky off (`sky.enabled: false`), the canvas background takes the role back. A low sky's tint varies with time of day and scattering: this default targets the default sky, at midday. | `'#C4D6E4'` |
 | `globe.landColor` | Landmasses of the fallback globe. | `'#4F7A45'` |
 | `globe.buildingColor` | Walls of the extruded buildings (internal provider's volume). A footprint carrying its own colour (`colour` attribute) keeps it. | `'#8A8E96'` |
 | `globe.buildingRoofColor` | Roofs of the extruded buildings, lighter than the walls — the top face reads at once. | `'#C2C6CE'` |
