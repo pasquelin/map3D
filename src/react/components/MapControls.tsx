@@ -78,8 +78,7 @@ export type MapControlButton =
  * retour au globe et grille. Il n'y a donc plus de groupe `basemap` ni `view` dédié ; masquer /
  * remplacer passe par `compass` (grain groupe) ou par les boutons (grain fin).
  */
-export type ControlGroup =
-  'drag' | 'compass' | 'zoom' | 'pedestrian' | 'target' | 'layers' | 'fullscreen'
+export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'pedestrian' | 'target' | 'layers' | 'fullscreen'
 
 export type MapControlsProps = {
   /** Côté d'ancrage de la barre. */
@@ -246,8 +245,7 @@ export function MapControls({
   const showPedestrian = btn('pedestrian') && pedestrian.state.available
   /** Le groupe PAR DÉFAUT est-il rendu ? — même vérité pour le rendu ET pour
    *  l'activation des raccourcis : un slot customisé ne garde pas d'action clavier fantôme. */
-  const defaultShown = (key: Slot) =>
-    isDefault(key) && (key !== 'pedestrian' || pedestrian.state.available)
+  const defaultShown = (key: Slot) => isDefault(key) && (key !== 'pedestrian' || pedestrian.state.available)
   // Défauts pris dans la config : les dix touches vivaient dans une table de module,
   // donc remappables par prop mais invisibles depuis `<Map config>`. L'assertion
   // `satisfies` garde les deux ensembles de clés alignés.

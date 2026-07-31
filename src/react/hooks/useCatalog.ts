@@ -236,8 +236,5 @@ export function useCatalogSettings(): CatalogSettingsApi {
   const setFitOnAdd = useCallback((v: boolean) => store.setSettings({ fitOnAdd: v }), [store])
 
   const settings = store.getSettings()
-  return useMemo(
-    () => ({ ...settings, setPersist, setFitOnAdd }),
-    [settings, setPersist, setFitOnAdd],
-  )
+  return useMemo(() => ({ ...settings, setPersist, setFitOnAdd }), [settings, setPersist, setFitOnAdd])
 }
