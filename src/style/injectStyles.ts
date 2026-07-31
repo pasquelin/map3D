@@ -796,10 +796,11 @@ const CSS = `
 .m3d-catchevron.m3d-on{transform:rotate(90deg);color:var(--m3d-text)}
 .m3d-catchevron-spacer{width:18px;flex:none}
 /* Le NOM : c'est lui qui cède la place, et lui seul — d'où min-width:0. */
+/* Pas de soulignement au survol : la ligne s'éclaire déjà (.m3d-catrow:hover), et
+   souligner un nom sur deux au passage de la souris fait clignoter la liste. */
 .m3d-catmain{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:0;border:none;
   background:transparent;cursor:pointer;font-family:inherit;font-size:inherit;color:var(--m3d-text);
   text-align:left;overflow:hidden}
-.m3d-catmain:hover .m3d-cattitle{text-decoration:underline}
 .m3d-cattitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-catbadge{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
   border-radius:8px;font-size:var(--m3d-size-xs);font-variant-numeric:tabular-nums;
@@ -832,7 +833,6 @@ const CSS = `
 .m3d-catrow.m3d-off{opacity:.45}
 .m3d-catrow.m3d-off:hover{background:transparent}
 .m3d-catrow.m3d-off .m3d-catmain{cursor:default}
-.m3d-catrow.m3d-off .m3d-catmain:hover .m3d-cattitle{text-decoration:none}
 .m3d-caterrdot{color:var(--m3d-danger,#f87171)}
 .m3d-catempty,.m3d-catloading{padding:14px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
 .m3d-caterror{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;font-size:12px;
