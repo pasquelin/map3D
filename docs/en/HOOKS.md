@@ -35,8 +35,32 @@ Every hook must be called **under `<Map>`** (they consume the map context). Thos
 const { state, flyTo, follow, moveTo, fitBounds, setCenter, panTo, setZoom, getZoom } = useCamera()
 ```
 
-`state` is **reactive**: the consumer re-renders on every camera move. To drive without
-re-rendering, use the `map.current?.camera` handle.
+`state` is **reactive**: the consumer re-renders on every camera move — the `camera`
+event is emitted **every frame** while it moves.
+
+### `useCameraCommands(): CameraCommands`
+
+```ts
+const { flyTo, fitBounds, setZoom } = useCameraCommands()
+```
+
+The **commands alone**, with a stable identity: this hook subscribes to nothing and
+never re-renders. It is the path for a "recenter" button or a menu that drives the view
+without displaying it — going through `useCamera` for a single `flyTo` would re-render
+the whole subtree sixty times per second during a pan. To drive from outside React, the
+`map.current?.camera` handle is still available.
+
+### `usePedestrian(): PedestrianApi`
+
+```ts
+const { state, enterPlacement, enter, exit, setImmersion } = usePedestrian()
+```
+
+Pedestrian / first-person mode: reactive `state` plus the commands. State comes from the
+**event**, not from a read at render time: the map can leave the mode on its own (Escape
+in the canvas, a 2D toggle), and a consumer tracking only its own calls would show an
+active button for a mode already exited. `enter(p)` returns `false` if the point cannot
+be placed.
 
 ### `useViewport(cb, opts?)`
 
@@ -85,6 +109,20 @@ Two hooks, two reasons to re-render:
 Both return the same `TagFilter` (`isVisible`, `toggle`, `clear`, `all`, `selected`,
 `isActive`, `report`, `unreport`). A panel listing tags wants the first; a layer doing
 the filtering wants the second.
+
+### `usePlugins(): { plugins, byId }`
+
+Reactive view of registered plugins (`meta`, `enabled`, `config`, `schema`, plus
+`setEnabled` / `setConfig` / `resetConfig` / `refresh`). Recomposed only when the
+registry changes. Details in [PLUGINS.md](PLUGINS.md).
+
+### `useBuildingEnrichment(): BuildingEnrichment`
+
+Enrichment state of the last picked building: `loading`, `data` (attrs merged from the
+active enrichers), `tags` (union of provenances), `error`, and `byPlugin(id)` for the
+breakdown. Re-renders on `loading→data→error` transitions and when the "Layers" filter
+changes. Read it in the component opened by `<Map buildingMenu>` — see
+[BUILDINGS.md](BUILDINGS.md) and [PLUGINS.md](PLUGINS.md).
 
 ---
 

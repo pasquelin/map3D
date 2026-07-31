@@ -37,8 +37,32 @@ d'exécution lointain.
 const { state, flyTo, follow, moveTo, fitBounds, setCenter, panTo, setZoom, getZoom } = useCamera()
 ```
 
-`state` est **réactif** : le consommateur se re-rend à chaque mouvement de caméra. Pour
-piloter sans re-rendre, utilisez la poignée `map.current?.camera`.
+`state` est **réactif** : le consommateur se re-rend à chaque mouvement de caméra —
+l'événement `camera` est émis **par frame** tant qu'elle bouge.
+
+### `useCameraCommands(): CameraCommands`
+
+```ts
+const { flyTo, fitBounds, setZoom } = useCameraCommands()
+```
+
+Les **commandes seules**, d'identité stable : ce hook ne s'abonne à rien et ne re-rend
+jamais. C'est le chemin d'un bouton « recentrer » ou d'un menu qui pilote la vue sans
+l'afficher — passer par `useCamera` pour un seul `flyTo` ferait re-rendre tout le
+sous-arbre soixante fois par seconde pendant un pan. Pour piloter hors React, la
+poignée `map.current?.camera` reste disponible.
+
+### `usePedestrian(): PedestrianApi`
+
+```ts
+const { state, enterPlacement, enter, exit, setImmersion } = usePedestrian()
+```
+
+Mode piéton / première personne : `state` (réactif) plus les commandes. L'état vient de
+l'**événement**, pas d'une lecture au rendu : la carte peut quitter le mode d'elle-même
+(Échap dans le canvas, bascule 2D), et un consommateur qui ne suivrait que ses propres
+appels afficherait un bouton actif sur un mode déjà quitté. `enter(p)` rend `false` si
+le point n'est pas posable.
 
 ### `useViewport(cb, opts?)`
 
@@ -87,6 +111,20 @@ Deux hooks, deux raisons de se re-rendre :
 Les deux renvoient le même `TagFilter` (`isVisible`, `toggle`, `clear`, `all`,
 `selected`, `isActive`, `report`, `unreport`). Un panneau qui liste les tags veut le
 premier ; une couche qui filtre veut le second.
+
+### `usePlugins(): { plugins, byId }`
+
+Vue réactive des plugins enregistrés (`meta`, `enabled`, `config`, `schema`, plus
+`setEnabled` / `setConfig` / `resetConfig` / `refresh`). Ne se recompose qu'au
+changement du registre. Détail dans [PLUGINS.md](PLUGINS.md).
+
+### `useBuildingEnrichment(): BuildingEnrichment`
+
+État d'enrichissement du dernier bâtiment piqué : `loading`, `data` (attrs fusionnés des
+enrichisseurs actifs), `tags` (union des provenances), `error`, et `byPlugin(id)` pour le
+détail. Se re-rend aux transitions `loading→data→error` et au changement du filtre
+« Couches ». À lire dans le composant qu'ouvre `<Map buildingMenu>` — voir
+[BUILDINGS.md](BUILDINGS.md) et [PLUGINS.md](PLUGINS.md).
 
 ---
 

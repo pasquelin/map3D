@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMapContext } from '../context'
 
 export type GraticuleApi = {
@@ -23,5 +23,7 @@ export function useGraticule(): GraticuleApi {
   // Lit l'état AU MOTEUR et non la valeur capturée : deux bascules dans la même frame
   // (raccourci + clic) partiraient sinon du même `visible` et s'annuleraient.
   const toggle = useCallback(() => engine.setGraticuleVisible(!engine.getGraticuleVisible()), [engine])
-  return { visible, setVisible, toggle }
+  // Enveloppe mémoïsée : sans elle, les deux `useCallback` ci-dessus sont sans effet
+  // pour un consommateur qui reçoit l'API en prop — l'objet serait neuf à chaque render.
+  return useMemo(() => ({ visible, setVisible, toggle }), [visible, setVisible, toggle])
 }

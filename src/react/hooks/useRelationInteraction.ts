@@ -35,7 +35,11 @@ export function useRelationInteraction(
   useEffect(() => {
     const el = engine.renderer.domElement
     let frame = 0
-    let pending: { x: number; y: number } | null = null
+    // Dernier point brut (px client) en attente. Deux scalaires plutôt qu'un objet :
+    // `pointermove` arrive en continu, et rien ne justifie d'y allouer.
+    let pendingX = 0
+    let pendingY = 0
+    let hasPending = false
 
     /**
      * Le hit-test est COALESCÉ sur la frame. Il projette chaque sommet de chaque lien
@@ -47,15 +51,21 @@ export function useRelationInteraction(
     const test = () => {
       frame = 0
       const layer = layerRef.current
-      const point = pending
-      pending = null
-      if (!layer || !point) return
-      const hub = layer.hitTestHub(point.x, point.y)
+      if (!layer || !hasPending) return
+      hasPending = false
+      // Le rect se lit ICI, une seule fois par frame. Dans `onMove` il forçait une mise
+      // en page à chaque événement de pointeur — le calcul de layout le plus cher du
+      // hook, payé plusieurs fois pour une image. Même parade que `GraticuleLayer` et
+      // `DrawLayer`, qui mémoïsent leur rect par frame.
+      const rect = el.getBoundingClientRect()
+      const x = pendingX - rect.left
+      const y = pendingY - rect.top
+      const hub = layer.hitTestHub(x, y)
       // Le socle d'abord : tous les traits rayonnent DEPUIS lui, donc à l'intérieur
       // du disque il s'en trouve toujours un à portée de tolérance. Les tester en
       // premier rendrait le socle définitivement inatteignable. Ailleurs — soit
       // partout au-delà de son rayon — les traits reprennent la main.
-      const hit = hub ?? layer.hitTest(point.x, point.y, linkHitTolerancePx)
+      const hit = hub ?? layer.hitTest(x, y, linkHitTolerancePx)
       setHoveredId(hit)
       // Le curseur ne change que sur un trait : sur le socle, seule la croix est
       // cliquable — annoncer tout le disque comme actionnable serait un mensonge.
@@ -66,8 +76,9 @@ export function useRelationInteraction(
       // Aucune relation ouverte : rien à survoler, et le cas est le plus fréquent de
       // tous — la carte reçoit des `pointermove` en permanence.
       if (relations.snapshots.length === 0) return
-      const rect = el.getBoundingClientRect()
-      pending = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+      pendingX = e.clientX
+      pendingY = e.clientY
+      hasPending = true
       if (frame === 0) frame = requestAnimationFrame(test)
     }
     const onLeave = () => {
