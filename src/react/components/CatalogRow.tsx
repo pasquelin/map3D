@@ -52,7 +52,7 @@ export type CatalogRowProps = {
 }
 
 /**
- * Une ligne : chevron, pastille, nom, badges, actions, case « sur la carte ».
+ * Une ligne : chevron, case « sur la carte », pastille, nom, badges, actions.
  *
  * **Le nom bascule ET cadre** : c'est le geste principal, celui qu'on fait en
  * parcourant une liste — on veut voir l'élément sur la carte, et l'y laisser. La case à
@@ -111,6 +111,21 @@ function CatalogRowInner({
         <span className="m3d-catchevron-spacer" />
       )}
 
+      {/* Case à cocher et non bouton : « sur la carte » est un ÉTAT persistant, et c'est
+          déjà ainsi que « Couches » l'exprime — jusqu'à sa PLACE, en tête de ligne, pour
+          que les deux panneaux de la même barre se lisent pareil. */}
+      <input
+        ref={boxRef}
+        type="checkbox"
+        className="m3d-catcheck"
+        {...tip(formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title }))}
+        checked={shown}
+        disabled={off || pending}
+        // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
+        // convention des arbres de cases, et `e.target.checked` la donne déjà.
+        onChange={(e) => onCheck(e.target.checked)}
+      />
+
       <button
         type="button"
         className="m3d-catmain"
@@ -162,21 +177,6 @@ function CatalogRowInner({
             </button>
           ),
         )}
-
-        {/* Case à cocher et non bouton : « sur la carte » est un ÉTAT persistant, et
-            c'est déjà ainsi que « Couches » exprime la même idée. Le dessin de la coche
-            est celui du thème, partagé — rien de propre au catalogue. */}
-        <input
-          ref={boxRef}
-          type="checkbox"
-          className="m3d-catcheck"
-          {...tip(formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title }))}
-          checked={shown}
-          disabled={off || pending}
-          // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est
-          // la convention des arbres de cases, et `e.target.checked` la donne déjà.
-          onChange={(e) => onCheck(e.target.checked)}
-        />
       </span>
     </div>
   )

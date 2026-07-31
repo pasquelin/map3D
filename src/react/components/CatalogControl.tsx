@@ -1,4 +1,4 @@
-import { mdiChevronRight, mdiMagnify, mdiShapeOutline } from '@mdi/js'
+import { mdiMagnify, mdiShapeOutline } from '@mdi/js'
 import { useMemo, useRef, useState } from 'react'
 import type { CatalogSource } from '../../catalog/types'
 import { useLabels, useMapContext } from '../context'
@@ -133,8 +133,6 @@ function CatalogPanel({
                   <UiIcon path={s.icon} />
                   <span className="m3d-cattype-label">{s.label}</span>
                   {s.total !== undefined && <span className="m3d-cattype-total">{s.total.toLocaleString()}</span>}
-                  {/* Le chevron pointe VERS le panneau qui s'ouvrira, donc à l'opposé de la barre. */}
-                  <UiIcon path={mdiChevronRight} rotate={position === 'right' ? 180 : 0} />
                 </button>
               </div>
             ))}

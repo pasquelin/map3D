@@ -819,7 +819,7 @@ const CSS = `
    c'est déjà comme cela que « Couches » exprime « ce calque est affiché ». Le dessin de
    la coche vient du groupe de sélecteurs partagé plus haut — rien n'est redéfini ici,
    sinon la marge qui l'aligne sur la colonne d'actions. */
-.m3d-catcheck{margin-left:2px}
+.m3d-catcheck{margin:0 1px 0 2px}
 .m3d-catcheck:disabled{opacity:.35;cursor:default}
 /* Partiellement coché : une BARRE, pas une coche — un agrégat dont une partie des
    enfants seulement est sur la carte. Le pseudo-élément est le même que la coche, on
