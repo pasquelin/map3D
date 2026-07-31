@@ -1,5 +1,5 @@
 import type { DeepPartial } from '../theme/types'
-import type { DrawTool, SelectMode } from '../layers/DrawLayer'
+import type { DrawTool, MeasureTool, SelectMode } from '../layers/DrawLayer'
 
 /**
  * Tous les textes affichés par la lib, **entièrement traduisibles** : aucun
@@ -208,6 +208,29 @@ export type MapLabels = {
    * outil du moteur qui partage seulement ce menu.
    */
   buildingPick: { label: string; description: string }
+  /**
+   * Membres du sous-menu « Mesures » : `label` = rangée du flyout, `description` = tooltip
+   * (avec le raccourci) — même convention que `selectModes`.
+   *
+   * `measure` y figure en plus de `tools.measure` : le premier nomme la RANGÉE du menu, le
+   * second le bouton de barre. Les deux peuvent légitimement différer d'une traduction.
+   */
+  measureTools: Record<MeasureTool, { label: string; description: string }>
+  /** Grille de coordonnées : noms des lignes remarquables et formatage des étiquettes. */
+  graticule: {
+    /**
+     * Noms des lignes remarquables, indexés par les clés de
+     * `config.graticule.remarkable[].labelKey`. Un hôte qui ajoute une ligne y ajoute sa clé.
+     */
+    remarkable: Record<string, string>
+    /**
+     * Gabarits d'étiquette — variables `{d}` (degrés), `{m}` (minutes), `{s}` (secondes),
+     * `{hemi}` (point cardinal). Le format DMS est de l'i18n, pas du code.
+     */
+    format: { deg: string; dm: string; dms: string }
+    /** Points cardinaux — traduisibles (`W` → `O` si l'hôte le souhaite). */
+    hemisphere: { north: string; south: string; east: string; west: string }
+  }
   /** Panneau de style (swatches, palette, presets) — libellés et aria. */
   style: {
     fill: string

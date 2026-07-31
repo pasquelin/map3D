@@ -66,6 +66,21 @@ export type MapTheme = {
       /** Réticule central de l'immersion totale. */
       reticle?: string
     }
+    /**
+     * Grille de coordonnées (parallèles, méridiens, étiquettes). Optionnel : un thème
+     * complet écrit avant cet ajout reste valide et ne casse pas au montage — même règle
+     * que `attention` et `pedestrian`, la couche retombant sur ses propres replis.
+     */
+    graticule?: {
+      /** Parallèles et méridiens ordinaires. */
+      line: string
+      /** Équateur, tropiques, cercles polaires, méridiens remarquables. */
+      remarkable: string
+      /** Texte de l'étiquette. */
+      label: string
+      /** Fond de la pastille d'étiquette. */
+      labelBackground: string
+    }
     path: {
       /** Couleur d'un tracé. */
       base: string

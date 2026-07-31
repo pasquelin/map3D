@@ -132,6 +132,25 @@ export const defaultLabels: MapLabels = {
     lasso: { label: 'Lasso', description: 'Sélection au lasso' },
   },
   buildingPick: { label: 'Bâtiment', description: 'Sélectionner un bâtiment (volume 3D interne)' },
+  measureTools: {
+    measure: { label: 'Mesurer', description: 'Mesurer une distance' },
+    graticule: { label: 'Grille', description: 'Grille de coordonnées géographiques' },
+  },
+  graticule: {
+    remarkable: {
+      equator: 'Équateur',
+      tropicCancer: 'Tropique du Cancer',
+      tropicCapricorn: 'Tropique du Capricorne',
+      arcticCircle: 'Cercle arctique',
+      antarcticCircle: 'Cercle antarctique',
+      primeMeridian: "Méridien d'origine",
+      antimeridian: '180ᵉ méridien',
+    },
+    // Guillemets simples pour la minute et doubles pour la seconde : c'est la notation des
+    // cartes, et elle ne se traduit pas — seuls les points cardinaux le font.
+    format: { deg: '{d}°{hemi}', dm: "{d}°{m}'{hemi}", dms: '{d}°{m}\'{s}"{hemi}' },
+    hemisphere: { north: 'N', south: 'S', east: 'E', west: 'W' },
+  },
   style: {
     fill: 'Couleur de fond',
     stroke: 'Couleur de bordure',

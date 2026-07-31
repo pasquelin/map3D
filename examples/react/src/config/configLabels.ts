@@ -84,6 +84,11 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'pedestrian.headBob': 'Balancement',
   'pedestrian.transitions': 'Transitions',
   'interaction.shortcuts.pedestrian': 'Mode piéton',
+
+  graticule: 'Grille de coordonnées',
+  'graticule.remarkable': 'Lignes remarquables',
+  'graticule.tiltFade': 'Fondu à l’inclinaison',
+  'graticule.labels': 'Étiquettes',
 }
 
 /** Feuilles — les 196 de `defaultConfig`, plus les 3 clés optionnelles du type. */
@@ -441,4 +446,35 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'pedestrian.transitions.exitMs': 'durée de remontée (ms)',
   'interaction.shortcuts.controls.pedestrian': 'mode piéton',
   'interaction.shortcuts.pedestrian.immersion': 'basculer l’immersion',
+
+  // ── grille de coordonnées ──────────────────────────────────────────────────
+  'graticule.enabled': 'afficher au démarrage',
+  'graticule.targetLines': 'lignes visées à l’écran',
+  'graticule.levelHysteresis': 'bande morte de la maille',
+  'graticule.levelRangeDeg': 'bornes de maille (°)',
+  'graticule.segmentsPerLine': 'segments par ligne',
+  'graticule.maxLines': 'lignes max par axe',
+  'graticule.bandScreens': 'emprise construite (écrans)',
+  'graticule.latLimitDeg': 'arrêt aux pôles (°)',
+  'graticule.heightOffsetMeters': 'décalage vertical (m)',
+  'graticule.heightToleranceMeters': 'dérive tolérée (m)',
+  'graticule.opacity': 'opacité des lignes',
+  'graticule.remarkableOpacity': 'opacité des remarquables',
+  'graticule.dash': 'pointillé (m)',
+  'graticule.remarkable.enabled': 'afficher les remarquables',
+  'graticule.remarkable.parallels': 'parallèles remarquables',
+  'graticule.remarkable.meridians': 'méridiens remarquables',
+  'graticule.tiltFade.start': 'début du fondu (fraction)',
+  'graticule.tiltFade.end': 'disparition (fraction)',
+  'graticule.fadeMs': 'durée du fondu (ms)',
+  'graticule.levelFadeMs': 'fondu de maille (ms)',
+  'graticule.labels.enabled': 'afficher les étiquettes',
+  'graticule.labels.placement': 'placement',
+  'graticule.labels.maxLabels': 'étiquettes max',
+  'graticule.labels.spacingPx': 'écart minimal (px)',
+  'graticule.labels.rotate': 'suivre l’angle de la ligne',
+  'graticule.labels.format': 'format des coordonnées',
+  'graticule.labels.remarkableNames': 'nommer les remarquables',
+  'interaction.shortcuts.draw.graticule': 'grille de coordonnées',
+  'style.zIndex.graticuleLabel': 'étiquettes du graticule',
 }

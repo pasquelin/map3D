@@ -35,6 +35,15 @@ export const defaultTheme: MapTheme = {
     // Mode piéton : reprend les couleurs d'état de l'interface plutôt que d'en inventer.
     // Un curseur avec sa propre palette jurerait avec le reste de la carte.
     pedestrian: { placeValid: '#2E7CF6', placeBlocked: '#d11a01', reticle: '#f8fafc' },
+    // Grille : blanc pour les lignes ordinaires, jaune franc pour les remarquables — la
+    // seule teinte qui reste lisible sur satellite comme sur océan, et qui ne se confond
+    // avec aucune couleur de la palette de dessin.
+    graticule: {
+      line: '#ffffff',
+      remarkable: '#ffd54a',
+      label: '#ffffff',
+      labelBackground: 'rgba(0,0,0,0.55)',
+    },
     path: { base: '#2E7CF6', casing: '#ffffff' },
     zone: { fill: '#079A7D', stroke: '#079A7D' },
     // Reprend à l'identique les replis qui vivaient dans la feuille de styles

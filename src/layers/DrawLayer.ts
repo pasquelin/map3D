@@ -42,6 +42,18 @@ import { makeDistanceFormatter } from '../labels/measure'
 
 export type DrawTool =
   'select' | 'line' | 'polygon' | 'rect' | 'circle' | 'freehand' | 'arrow' | 'measure' | 'erase' | 'symbol'
+/**
+ * Membres du sous-menu « Mesures » de la barre d'outils.
+ *
+ * ⚠️ Les deux ne sont pas de même nature : `measure` est un `DrawTool`, `graticule` une
+ * bascule d'affichage du moteur. Ils partagent un sélecteur parce qu'ils répondent à la
+ * même question (« où suis-je, et de combien ? »), pas parce qu'ils font la même chose —
+ * exactement comme la ligne « bâtiment » partage le sélecteur des modes de sélection.
+ *
+ * Déclaré ICI et non côté React : `labels/types` en a besoin, et le faire descendre d'un
+ * composant ferait dépendre les libellés de l'arbre React.
+ */
+export type MeasureTool = 'measure' | 'graticule'
 export type { SelectMode } from './draw/SelectionManager'
 /** Style de trait d'une forme — absent = `'solid'`. */
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'

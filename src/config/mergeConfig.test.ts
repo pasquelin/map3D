@@ -78,3 +78,29 @@ describe('maxRadiusOf', () => {
     expect(maxRadiusOf({ ...DEFAULT_DRAW_PRESETS, radii: [] })).toBe(50)
   })
 })
+
+describe('config.graticule', () => {
+  it('merge un sous-arbre partiel sans perdre les autres réglages', () => {
+    const merged = mergeConfig(defaultConfig, { graticule: { labels: { maxLabels: 12 } } })
+    expect(merged.graticule.labels.maxLabels).toBe(12)
+    expect(merged.graticule.labels.placement).toBe('center-cross')
+    expect(merged.graticule.targetLines).toBe(8)
+    expect(merged.graticule.enabled).toBe(false)
+  })
+
+  it('exprime la bande de fondu en fractions du plafond d’inclinaison', () => {
+    // Des fractions et non des degrés : `maxTilt2d` (36°) est bien plus bas que `maxTilt3d`
+    // (79,2°), donc une bande absolue ne se déclencherait jamais en mode plan.
+    const { start, end } = defaultConfig.graticule.tiltFade
+    expect(start).toBeGreaterThan(0)
+    expect(start).toBeLessThan(end)
+    expect(end).toBeLessThanOrEqual(1)
+  })
+
+  it('écrit l’antiméridien en −180, la convention de `normalizeLng`', () => {
+    // À 180, la ligne engendrée (normalisée en −180) ne se reconnaîtrait jamais elle-même
+    // et l'antiméridien resterait sans nom.
+    const anti = defaultConfig.graticule.remarkable.meridians.find((m) => m.labelKey === 'antimeridian')
+    expect(anti?.lng).toBe(-180)
+  })
+})
