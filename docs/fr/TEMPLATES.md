@@ -85,6 +85,13 @@ Si le template porte une **vue**, elle est rejouée en `merge` et `replace` — 
 `remove` : retirer des formes n'est pas une raison de déplacer la carte. Un template
 sans aucune forme s'applique quand même : seule sa vue est alors rejouée.
 
+**Filtre « Couches » actif** — poser un template alors qu'un filtre de tags masque une
+partie de la carte ajouterait des formes invisibles (leurs tags ne sont pas cochés). En
+`merge`/`replace`, l'application **révèle** donc les tags des formes posées : ils sont
+ajoutés à la sélection du filtre pour que le template chargé se voie. Le filtre n'est pas
+créé s'il était inactif (rien n'est alors masqué), et `remove` ne révèle rien (il ne pose
+aucune forme).
+
 ## 4. Stockage local vs API (le provider)
 
 Sans provider, tout est **local** et persisté en localStorage

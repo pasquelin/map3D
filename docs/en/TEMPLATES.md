@@ -83,6 +83,12 @@ If the template holds a **view**, it is replayed on `merge` and `replace` — ne
 `remove`: taking shapes away is no reason to move the map. A template with no shapes at
 all still applies: only its view is replayed.
 
+**Active “Layers” filter** — dropping a template while a tag filter hides part of the map
+would add invisible shapes (their tags aren't checked). On `merge`/`replace`, applying
+therefore **reveals** the placed shapes' tags: they are added to the filter selection so
+the loaded template shows. The filter isn't created if it was inactive (nothing is hidden
+then), and `remove` reveals nothing (it places no shapes).
+
 ## 4. Local storage vs API (the provider)
 
 Without a provider everything is **local** and persisted to localStorage
