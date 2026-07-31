@@ -126,6 +126,24 @@ export class TagFilter {
     this.emitSelection()
   }
 
+  /**
+   * Ajoute des tags à la sélection courante (union), sans en retirer. Pour RÉVÉLER des
+   * éléments qu'un filtre actif masquerait — les formes d'un template qu'on vient de poser.
+   * N'émet qu'en cas de changement réel ; ré-ajouter des tags déjà cochés est un no-op.
+   *
+   * Ne crée pas de filtre : l'appelant garde la main pour ne le faire que filtre déjà actif
+   * (`isActive`) — ajouter des tags à une sélection vide masquerait au contraire tout le reste.
+   */
+  add(tags: Iterable<string>): void {
+    let changed = false
+    for (const t of tags)
+      if (!this.selection.has(t)) {
+        this.selection.add(t)
+        changed = true
+      }
+    if (changed) this.emitSelection()
+  }
+
   /** Tout décocher — cas particulier de `setSelection`, pour que les deux ne divergent pas. */
   clear(): void {
     this.setSelection([])

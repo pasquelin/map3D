@@ -61,3 +61,24 @@ describe('TagFilter.setSelection', () => {
     ])
   })
 })
+
+describe('TagFilter.add', () => {
+  it('ajoute des tags à la sélection sans en retirer (union), en une émission', () => {
+    const f = filter()
+    f.setSelection(['agent'])
+    let emits = 0
+    f.onSelection(() => emits++)
+    f.add(['shapes', 'symbols'])
+    expect([...f.selected].sort()).toEqual(['agent', 'shapes', 'symbols'])
+    expect(emits).toBe(1)
+  })
+
+  it('n’émet pas quand tous les tags sont déjà sélectionnés', () => {
+    const f = filter()
+    f.setSelection(['agent', 'shapes'])
+    let emits = 0
+    f.onSelection(() => emits++)
+    f.add(['shapes'])
+    expect(emits).toBe(0)
+  })
+})

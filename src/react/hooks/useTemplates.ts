@@ -246,6 +246,15 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
           // recliquer un template déjà chargé doit au moins y ramener la caméra.
           if (next.features.length !== current.features.length) port.fromGeoJSON(next)
         }
+        // Un filtre de tags actif masquerait les formes qu'on vient de poser si leurs tags
+        // n'y figurent pas : on ajoute ces tags à la sélection pour que le template chargé
+        // reste visible. « Retirer » ne pose rien — rien à révéler. Filtre inactif = tout
+        // déjà visible, on n'en crée pas un.
+        if (mode !== 'remove' && engine.tags.isActive) {
+          const reveal = new Set<string>()
+          for (const f of fc.features) for (const tag of f.properties.tags ?? []) reveal.add(tag)
+          engine.tags.add(reveal)
+        }
       }
       // « Retirer » ne déplace JAMAIS la carte : on enlève des formes, on ne visite pas.
       if (t.content.view && mode !== 'remove' && viewRef.current.apply) {
