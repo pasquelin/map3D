@@ -54,6 +54,12 @@ export type CatalogRowProps = {
 /**
  * Une ligne : chevron, case « sur la carte », pastille, nom, badges, actions.
  *
+ * **Infobulle sur les seules actions de source.** Partout ailleurs le sens est déjà à
+ * l'écran — un nom, un compteur, une case dont l'état se voit — et une bulle par survol
+ * transformait le parcours d'une liste en clignotement. Les contrôles muets gardent en
+ * revanche un `aria-label` : c'est un nom accessible, pas une infobulle. Une icône
+ * d'action, elle, ne dit rien d'elle-même : c'est le seul endroit qui doit s'expliquer.
+ *
  * **Le nom bascule ET cadre** : c'est le geste principal, celui qu'on fait en
  * parcourant une liste — on veut voir l'élément sur la carte, et l'y laisser. La case à
  * cocher, elle, bascule sans forcer le déplacement de caméra (elle suit le réglage
@@ -100,7 +106,7 @@ function CatalogRowInner({
         <button
           type="button"
           className={`m3d-catchevron${expanded ? ' m3d-on' : ''}`}
-          {...tip(expanded ? labels.catalog.collapse : labels.catalog.expand)}
+          aria-label={expanded ? labels.catalog.collapse : labels.catalog.expand}
           aria-expanded={expanded}
           disabled={off}
           onClick={() => onToggleExpand(item.id)}
@@ -118,7 +124,7 @@ function CatalogRowInner({
         ref={boxRef}
         type="checkbox"
         className="m3d-catcheck"
-        {...tip(formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title }))}
+        aria-label={formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title })}
         checked={shown}
         disabled={off || pending}
         // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
@@ -129,9 +135,6 @@ function CatalogRowInner({
       <button
         type="button"
         className="m3d-catmain"
-        // Le nom est tronqué par construction : l'infobulle est le seul endroit où il se
-        // lit en entier — d'où le libellé COMPLET plutôt qu'un intitulé d'action.
-        {...tip(item.subtitle ? `${item.title} — ${item.subtitle}` : item.title)}
         aria-pressed={shown}
         disabled={off || pending}
         onClick={() => catalog.toggle(source, item, { fit: true })}
@@ -145,7 +148,7 @@ function CatalogRowInner({
       </button>
 
       {failed && (
-        <span className="m3d-caterrdot" {...tip(labels.catalog.itemError)}>
+        <span className="m3d-caterrdot" aria-label={labels.catalog.itemError}>
           <UiIcon path={mdiAlertCircleOutline} />
         </span>
       )}
@@ -154,7 +157,7 @@ function CatalogRowInner({
         <span
           key={`${b.label}-${i}`}
           className="m3d-catbadge"
-          {...tip(b.label)}
+          aria-label={b.label}
           style={b.color ? { color: b.color } : undefined}
         >
           {b.icon && <UiIcon path={b.icon} />}

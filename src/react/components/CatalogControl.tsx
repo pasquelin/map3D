@@ -90,7 +90,6 @@ function CatalogPanel({
 }) {
   const labels = useLabels()
   const { theme } = useMapContext()
-  const tip = useTip(tipId)
   const [openId, setOpenId] = useState<string | null>(null)
   /** Ligne ouverte : c'est elle qui ANCRE le second panneau, comme un bouton ancre le sien. */
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
@@ -129,7 +128,6 @@ function CatalogPanel({
                 <button
                   type="button"
                   className={`m3d-cattype${s.id === openId ? ' m3d-on' : ''}`}
-                  {...tip(s.label)}
                   aria-expanded={s.id === openId}
                   onClick={(e) => open(s, e.currentTarget.parentElement)}
                 >
