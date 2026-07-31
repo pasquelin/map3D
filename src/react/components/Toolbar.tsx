@@ -8,7 +8,6 @@ import {
 } from '@mdi/js'
 import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Tooltip } from 'react-tooltip'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, MeasureTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, useConfig, useLabels, useMapContext } from '../context'
@@ -24,6 +23,7 @@ import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
 import { SymbolPaletteButton } from './SymbolPaletteButton'
+import { BarTooltip } from './BarTooltip'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 
@@ -372,14 +372,7 @@ export function Toolbar({
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
       {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé
           venait se poser SUR le panneau qu'on est en train de lire. */}
-      <Tooltip
-        id={TIP_ID}
-        place={position === 'left' ? 'right' : 'left'}
-        className="m3d-tip"
-        classNameArrow="m3d-tip-arrow"
-        hidden={dropdownOuvert}
-        disableStyleInjection
-      />
+      <BarTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
     </ToolbarContext.Provider>
   )
 }

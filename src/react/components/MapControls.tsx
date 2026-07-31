@@ -18,7 +18,6 @@ import {
   mdiVideo3d,
 } from '@mdi/js'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Tooltip } from 'react-tooltip'
 import { canEnterMode } from '../../core/basemap'
 import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
 import { boundsContains } from '../../core/MarkerQuery'
@@ -29,6 +28,7 @@ import { usePedestrian } from '../hooks/usePedestrian'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
+import { BarTooltip } from './BarTooltip'
 import { CatalogControl } from './CatalogControl'
 import { TagFilterControl } from './TagFilterControl'
 import { TemplatesPanel, type TemplatesPanelProps } from './TemplatesPanel'
@@ -513,13 +513,7 @@ export function MapControls({
 
       {/* Apparence pilotée par `.m3d-tip` (thème) : le style « base » du paquet est
           coupé, son « core » (position/opacité/transitions) reste injecté. */}
-      <Tooltip
-        id={TIP_ID}
-        place={position === 'right' ? 'left' : 'right'}
-        className="m3d-tip"
-        classNameArrow="m3d-tip-arrow"
-        disableStyleInjection
-      />
+      <BarTooltip id={TIP_ID} place={position === 'right' ? 'left' : 'right'} />
     </div>
   )
 }
