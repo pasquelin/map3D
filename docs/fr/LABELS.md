@@ -411,8 +411,6 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.button` | Bouton de barre. | `'Catalogue'` |
 | `catalog.types` | En-tête du menu listant les types. | `'Types'` |
 | `catalog.searchPlaceholder` | Champ de recherche. | `'Taper votre recherche…'` |
-| `catalog.countSingular` | Compteur au singulier — cf. `formatCount`. | `'1 élément'` |
-| `catalog.count` | Compteur au pluriel. | `'{count} éléments'` |
 | `catalog.empty` | La source ne contient aucun élément. | `'Aucun élément'` |
 | `catalog.noMatch` | La recherche ne ramène rien. | `'Aucun résultat'` |
 | `catalog.loading` | Chargement d'une page. | `'Chargement…'` |

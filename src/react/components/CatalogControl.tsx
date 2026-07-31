@@ -148,10 +148,6 @@ function CatalogPanel({
           maxHeight={theme.sizing.panelMaxHeight.catalog}
           panelClassName="m3d-catsub"
         >
-          <div className="m3d-cathead">
-            <UiIcon path={opened.icon} />
-            <span className="m3d-cathead-title">{opened.label}</span>
-          </div>
           <div className="m3d-tagsearch">
             <UiIcon path={mdiMagnify} />
             <input

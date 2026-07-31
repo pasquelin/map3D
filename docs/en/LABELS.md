@@ -473,8 +473,6 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.button` | Bar button. | `'Catalogue'` |
 | `catalog.types` | Header of the type menu. | `'Types'` |
 | `catalog.searchPlaceholder` | Search field. | `'Taper votre recherche…'` |
-| `catalog.countSingular` | Singular counter — see `formatCount`. | `'1 élément'` |
-| `catalog.count` | Plural counter. | `'{count} éléments'` |
 | `catalog.empty` | The source holds no item. | `'Aucun élément'` |
 | `catalog.noMatch` | The search returns nothing. | `'Aucun résultat'` |
 | `catalog.loading` | Page loading. | `'Chargement…'` |

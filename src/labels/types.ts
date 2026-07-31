@@ -58,10 +58,6 @@ export type MapLabels = {
     /** En-tête du sous-menu listant les types. */
     types: string
     searchPlaceholder: string
-    /** « 1 élément » — cf. `formatCount`. */
-    countSingular: string
-    /** « {count} éléments ». */
-    count: string
     /** La source ne contient aucun élément. */
     empty: string
     /** La recherche ne ramène rien. */

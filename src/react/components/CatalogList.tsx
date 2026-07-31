@@ -3,7 +3,6 @@ import { flattenCatalog, type CatalogNode } from '../../catalog/flatten'
 import { catalogKey } from '../../catalog/selection'
 import type { CatalogId, CatalogItem, CatalogSource } from '../../catalog/types'
 import { visibleWindow } from '../../catalog/window'
-import { formatCount } from '../../labels/mergeLabels'
 import { useConfig, useLabels, useMapContext } from '../context'
 import { useCatalog } from '../hooks/useCatalog'
 import { useCatalogQuery } from '../hooks/useCatalogQuery'
@@ -15,8 +14,6 @@ const OVERSCAN = 4
 export type CatalogListProps = {
   source: CatalogSource
   query: string
-  /** Remonte le total au panneau, qui l'affiche à côté du titre. */
-  onTotal?: (total: number) => void
   /** id du `<Tooltip>` de la barre hôte, transmis à chaque ligne. */
   tipId: string
 }
@@ -28,12 +25,12 @@ export type CatalogListProps = {
  * flux à hauteur de ligne constante. C'est ce qui permet de virtualiser sans mesurer, et
  * ce qui évite un scroll imbriqué dans un scroll.
  */
-export function CatalogList({ source, query, onTotal, tipId }: CatalogListProps) {
+export function CatalogList({ source, query, tipId }: CatalogListProps) {
   const { theme } = useMapContext()
   const config = useConfig()
   const labels = useLabels()
   const catalog = useCatalog()
-  const { items, total, loading, loadingMore, error, hasMore, loadMore, retry } = useCatalogQuery(source, query)
+  const { items, loading, loadingMore, error, hasMore, loadMore, retry } = useCatalogQuery(source, query)
 
   const [expanded, setExpanded] = useState<ReadonlySet<CatalogId>>(new Set())
   const [children, setChildren] = useState<ReadonlyMap<CatalogId, readonly CatalogItem[]>>(new Map())
@@ -51,10 +48,6 @@ export function CatalogList({ source, query, onTotal, tipId }: CatalogListProps)
     setScrollTop(0)
     if (viewportRef.current) viewportRef.current.scrollTop = 0
   }, [source.id])
-
-  useEffect(() => {
-    if (total !== null) onTotal?.(total)
-  }, [total, onTotal])
 
   // Hauteur réelle du viewport : la fenêtre virtuelle en dépend, et elle change avec la
   // taille de la carte comme avec le contenu au-dessus (bandeau d'erreur).
@@ -218,11 +211,6 @@ export function CatalogList({ source, query, onTotal, tipId }: CatalogListProps)
       )}
 
       {loadingMore && <div className="m3d-catloading">{labels.catalog.loading}</div>}
-      {total !== null && nodes.length > 0 && (
-        <div className="m3d-cathead-count">
-          {formatCount(labels.catalog.countSingular, labels.catalog.count, total, labels.plural)}
-        </div>
-      )}
     </>
   )
 }

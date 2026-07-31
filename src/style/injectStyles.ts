@@ -779,11 +779,6 @@ const CSS = `
 .m3d-cattype.m3d-on{background:color-mix(in srgb,var(--m3d-accent) 22%,transparent)}
 .m3d-cattype-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-cattype-total{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
-/* En-tête du second panneau : icône + nom du type. */
-.m3d-cathead{display:flex;align-items:center;gap:6px;font-size:var(--m3d-size-sm);font-weight:var(--m3d-weight-bold)}
-.m3d-cathead-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m3d-cathead-count{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-weight:400;
-  font-variant-numeric:tabular-nums}
 /* Le viewport scrolle, pas le panneau : la recherche reste visible en haut. */
 .m3d-catviewport{flex:1 1 auto;min-height:0;max-height:var(--m3d-catalog-panel-maxh);
   overflow-y:auto;position:relative}

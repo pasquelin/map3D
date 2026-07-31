@@ -31,8 +31,6 @@ export const defaultLabels: MapLabels = {
     button: 'Catalogue',
     types: 'Types',
     searchPlaceholder: 'Taper votre recherche…',
-    countSingular: '1 élément',
-    count: '{count} éléments',
     empty: 'Aucun élément',
     noMatch: 'Aucun résultat',
     loading: 'Chargement…',
