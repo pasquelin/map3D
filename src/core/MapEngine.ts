@@ -62,6 +62,7 @@ import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
+import { CatalogRegistry } from '../catalog/registry'
 import { SearchRegistry } from '../search/registry'
 import { ClusterRegistry } from './ClusterRegistry'
 import { MarkerRegistry } from './MarkerQuery'
@@ -342,6 +343,16 @@ export class MapEngine {
   readonly clusters = new ClusterRegistry()
   /** Registre des sources cherchables (markers, formes, dessins) consommé par la boîte de recherche. */
   readonly search = new SearchRegistry()
+  /**
+   * Registre des sources de CATALOGUE — référentiels distants parcourables (zones,
+   * villes, départements…), déclarés par l'hôte et par les plugins.
+   *
+   * Distinct de `search` par nécessité et non par goût : `SearchProvider` est synchrone
+   * et suppose que tout est déjà en mémoire, ce qu'un référentiel de 36 000 entrées ne
+   * sera jamais. Une entrée de catalogue AFFICHÉE rejoint en revanche `search` d'elle-
+   * même, puisqu'elle devient une forme comme une autre.
+   */
+  readonly catalog = new CatalogRegistry()
   /**
    * Registre du drag-and-drop générique (markers → dock favoris, et tout futur
    * usage) : source de vérité de l'état, zones de dépôt, diffusion. Piloté par la
