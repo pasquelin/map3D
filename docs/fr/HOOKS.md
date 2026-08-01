@@ -141,10 +141,16 @@ Sélection et gestes du catalogue : `selection`, `isShown`, `isPending`, `hasErr
 marge de cadrage du côté où s'ouvre le panneau. Détail dans
 [CATALOG.md § 9](CATALOG.md#9-recettes).
 
-### `useCatalogSources()` / `useCatalogSource(id)`
+### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 
 Sources de catalogue déclarées (`engine.catalog`), réactif à l'inscription ou au retrait
-d'une source. Le second isole une source par id (`undefined` si absente).
+d'une source (`useSyncExternalStore` sur le jeton du registre : aucun recalcul au
+re-rendu de l'hôte, seulement à une mutation réelle). `useCatalogSource(id)` isole une
+source de cette même liste par son id — `undefined` si `id` vaut `null` ou si la source
+est absente (retirée entre-temps). Utile pour lire les métadonnées (`label`, `icon`,
+`total`…) d'**une** source connue sans s'abonner à la liste entière ni la filtrer à la
+main — voir `StatsOverlay` dans `examples/react/` (encart de diagnostic affichant le
+total de la source « villes »).
 
 ### `useCatalogSettings(): CatalogSettingsApi`
 

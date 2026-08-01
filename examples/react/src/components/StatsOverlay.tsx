@@ -1,4 +1,4 @@
-import type { MapEngine } from 'map3d'
+import { type MapEngine, useCatalogSource } from 'map3d'
 import { useEffect, useRef } from 'react'
 import Stats from 'stats.js'
 
@@ -29,6 +29,13 @@ export function StatsOverlay({ engine }: { engine: MapEngine | null }) {
   // relancer — le motif assumé de la lib, plutôt qu'une dépendance qui recréerait la boucle.
   const engineRef = useRef(engine)
   engineRef.current = engine
+
+  // `useCatalogSource` (singulier) : une ligne de HUD veut le libellé et le total
+  // d'UNE source connue par son id (« Villes », le cas du volume), pas la liste
+  // entière filtrée à la main — c'est la différence avec `useCatalogSources` que
+  // `<CatalogControl>` consomme, elle. `undefined` tant que `EXAMPLE_CATALOG_SOURCES`
+  // n'est pas encore inscrite sur `engine.catalog` (cf. l'effet de `App`).
+  const citiesSource = useCatalogSource('cities')
 
   const hostRef = useRef<HTMLDivElement>(null)
   const infoRef = useRef<HTMLPreElement>(null)
@@ -117,6 +124,19 @@ export function StatsOverlay({ engine }: { engine: MapEngine | null }) {
       >
         — en attente —
       </pre>
+      {citiesSource && (
+        <div
+          style={{
+            marginTop: 4,
+            padding: '4px 8px',
+            font: '11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace',
+            color: '#0ff',
+            background: 'rgba(0,0,0,.8)',
+          }}
+        >
+          catalogue « {citiesSource.label} » : {citiesSource.total ?? '?'} entrées
+        </div>
+      )}
     </div>
   )
 }

@@ -139,10 +139,16 @@ Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`,
 margin on the side where the panel opens. Details in
 [CATALOG.md § 9](CATALOG.md#9-recipes).
 
-### `useCatalogSources()` / `useCatalogSource(id)`
+### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 
 Declared catalog sources (`engine.catalog`), reactive to a source registering or
-unregistering. The second isolates one source by id (`undefined` if absent).
+unregistering (`useSyncExternalStore` on the registry's token: no recompute on the
+host's re-render, only on an actual mutation). `useCatalogSource(id)` isolates one
+source from that same list by its id — `undefined` if `id` is `null` or the source is
+absent (unregistered in the meantime). Useful for reading the metadata (`label`,
+`icon`, `total`…) of **one** known source without subscribing to the whole list or
+filtering it by hand — see `StatsOverlay` in `examples/react/` (diagnostic overlay
+showing the "cities" source's total).
 
 ### `useCatalogSettings(): CatalogSettingsApi`
 

@@ -312,6 +312,15 @@ catalog.setMany(source, items, true)
 catalog.clear()
 ```
 
+**Afficher les métadonnées d'UNE source connue** (icône, libellé, `total`) sans
+s'abonner à la liste entière — un encart de diagnostic, une légende :
+
+```tsx
+const source = useCatalogSource('cities')
+// undefined tant que la source n'est pas (encore) inscrite sur `engine.catalog`
+if (source) console.log(source.label, source.total)
+```
+
 ---
 
 ## Voir aussi

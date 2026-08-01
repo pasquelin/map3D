@@ -310,6 +310,15 @@ catalog.setMany(source, items, true)
 catalog.clear()
 ```
 
+**Showing the metadata of ONE known source** (icon, label, `total`) without
+subscribing to the whole list — a diagnostic overlay, a legend:
+
+```tsx
+const source = useCatalogSource('cities')
+// undefined until the source is registered on `engine.catalog`
+if (source) console.log(source.label, source.total)
+```
+
 ---
 
 ## See also
