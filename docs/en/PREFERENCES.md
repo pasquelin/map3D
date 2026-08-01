@@ -48,8 +48,9 @@ force the level. Each level applies this bundle of **hot** levers:
 | `providers.tiles.retina` | on if dpr > 1 | off | off |
 
 "High" broadly mirrors the library defaults — except for `adaptiveResolution.minRatio`,
-where the preset (0.75) is more permissive than `defaultConfig`'s default (0.5, set as an
-anti-blur floor for the photogrammetric ground). **Deliberately excluded**:
+where the preset **raises** the floor (0.75 vs 0.5 in `defaultConfig`): adaptive resolution
+drops less, so the photogrammetric ground stays sharper, at a little GPU cost — a deliberate
+notch for a capable machine. **Deliberately excluded**:
 `performance.antialias` and `performance.powerPreference` (read at WebGL context creation —
 changing them would require a remount), and the **raster** budget `tiles.maxTiles`
 (lowering it reopens the flat far-field).
@@ -77,8 +78,11 @@ not in a separate block: a single key list, no duplicate). Each rebindable key s
 - **Conflict detection** — a key is **rejected** (red kbd) if it is already taken by **any
   command**: not just movement/view, but also drawing tools, the basemap toggle, the lens,
   `Space` (pan)… Reassigning "North" to `b` (which toggles the basemap) is blocked.
+- **Reset keys only** — below the recap, the "Reset keys" button returns ALL reassigned
+  shortcuts to their original layout, without touching quality, speed or damping. Inert until
+  a key has actually been rebound.
 - **Reset all** — the "Reset preferences" button (Preferences panel) also clears reassigned
-  keys.
+  keys, on top of everything else.
 
 ## 5. For the application
 

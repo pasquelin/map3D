@@ -35,6 +35,7 @@ import type { MenuItem } from './components/ContextMenu'
 import { CameraReadout } from './components/CameraReadout'
 import { LensLayer, type LensOptions } from './components/LensLayer'
 import { MapControls } from './components/MapControls'
+import { PedestrianHud } from './components/PedestrianHud'
 import { MarkerLayer } from './components/MarkerLayer'
 import { PathLayer } from './components/PathLayer'
 import { PinnedDock } from './components/PinnedDock'
@@ -291,6 +292,10 @@ export function MapSurfaces<T, TPin>({
           rien — la lib n'a aucun contenu à mettre dans ce menu. */}
       {buildingMenu && <BuildingMenuHost menu={buildingMenu} />}
       {search ? <SearchBox {...(search === true ? {} : search)} /> : null}
+      {/* HUD piéton (réticule, invite, bouton d'immersion) : monté SANS condition — le mode
+          piéton est proposable dès la 3D externe, indépendamment de `draw`/`controls`, et
+          l'immersion doit pouvoir se déclencher et s'annoncer même sans aucune barre. */}
+      <PedestrianHud />
       {/* Après les barres : il se pose dans un coin, donc il ne dispute sa place à
           aucune d'elles — l'ordre ne joue que si deux surfaces visent le même coin,
           auquel cas la dernière montée passe devant (même plan d'empilement). */}

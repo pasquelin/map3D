@@ -48,8 +48,10 @@ forcent le niveau. Chaque niveau applique ce bundle de leviers **à chaud** :
 | `providers.tiles.retina` | on si dpr > 1 | off | off |
 
 « Élevé » reprend globalement les défauts de la lib — à l'exception
-d'`adaptiveResolution.minRatio`, où le preset (0.75) est plus permissif que le défaut de
-`defaultConfig` (0.5, posé comme plancher anti-flou du sol photogrammétrique). Sont **volontairement exclus** :
+d'`adaptiveResolution.minRatio`, où le preset **relève** le plancher (0.75 contre 0.5 en
+`defaultConfig`) : la résolution adaptative descend moins, donc le sol photogrammétrique
+reste plus net, au prix d'un peu de charge GPU — un cran assumé pour une machine capable.
+Sont **volontairement exclus** :
 `performance.antialias` et `performance.powerPreference` (lus à la création du contexte
 WebGL — les changer exigerait un remontage), et le budget **raster** `tiles.maxTiles` (le
 baisser rouvre l'aplat uniforme au loin).
@@ -78,8 +80,11 @@ récap est par ailleurs inchangée (déplacement et vue sont juste listés touch
   par **n'importe quelle commande** : pas seulement le déplacement/la vue, mais aussi les
   outils de dessin, le fond de carte, la loupe, `Espace` (pan)… Réassigner « Nord » sur `b`
   (qui bascule le fond) est bloqué.
+- **Réinitialiser les touches seules** — sous le récap, le bouton « Réinitialiser les
+  touches » rend TOUS les raccourcis réassignés à leur disposition d'origine, sans toucher à
+  la qualité, la vitesse ni l'inertie. Inerte tant qu'aucune touche n'a été rebindée.
 - **Tout réinitialiser** — le bouton « Réinitialiser les préférences » (panneau Préférences)
-  efface aussi les touches réassignées.
+  efface aussi les touches réassignées, en plus du reste.
 
 ## 5. Pour l'application
 

@@ -217,11 +217,13 @@ one from its catalog item.
 That is what lets you add five items in a row without the view jumping, while keeping a
 direct gesture for "show me that one".
 
-**Persistence.** What is displayed survives a reload: only the **keys** are kept
+**Persistence.** What is displayed survives a reload: the **keys** are kept
 (`config.data.storageKeys.catalog`), and geometries are re-requested from the source. A
 geometry is an API's answer at a point in time — serving it back from local storage would
 display a perimeter the backend may have moved since. An entry that has become unknown is
-dropped silently.
+dropped silently. The **title** lent to an anonymous shape is persisted alongside its key:
+a zone placed from the catalog therefore stays findable by name **even after a reload**,
+not only in the session where it was placed.
 
 Users control all of this from the toolbar's gear panel: *keep between sessions*, *frame
 on add*, *remove all*.

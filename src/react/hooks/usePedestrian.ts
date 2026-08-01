@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { isGroundedView, type ImmersionLevel, type PedestrianState } from '../../core/pedestrianState'
+import {
+  type CameraMode,
+  isGroundedView,
+  type ImmersionLevel,
+  type PedestrianPhase,
+  type PedestrianState,
+} from '../../core/pedestrianState'
 import type { LatLng } from '../../shared'
 import { useMap } from '../context'
 
@@ -54,4 +60,49 @@ export function useGroundedView(): boolean {
   const [grounded, setGrounded] = useState(() => isGroundedView(engine.getPedestrian()))
   useEffect(() => engine.on('pedestrian', (s) => setGrounded(isGroundedView(s))), [engine])
   return grounded
+}
+
+/** Sous-état « chrome » du mode piéton — cf. `usePedestrianChrome`. */
+export type PedestrianChrome = {
+  mode: CameraMode
+  phase: PedestrianPhase
+  immersion: ImmersionLevel
+  exit: () => void
+  setImmersion: (level: ImmersionLevel) => void
+}
+
+/**
+ * Ce dont le HUD piéton (et son clavier) a besoin : `mode`/`phase`/`immersion` + les deux
+ * commandes utiles. Ne RE-REND que si l'un des trois change.
+ *
+ * `usePedestrian` réémet à CHAQUE rotation (cap/tangage, cf. `ANGLE_EPSILON`) : un HUD qui
+ * ne dépend pas du regard s'y re-rendrait à chaque `pointermove` en immersion. Même garde
+ * d'égalité que `useGroundedView`, sur trois champs — l'objet d'état ne change d'identité
+ * que sur un vrai changement de chrome, donc React court-circuite le rendu sinon.
+ */
+export function usePedestrianChrome(): PedestrianChrome {
+  const engine = useMap()
+  const [ui, setUi] = useState(() => {
+    const s = engine.getPedestrian()
+    return { mode: s.mode, phase: s.phase, immersion: s.immersion }
+  })
+  useEffect(
+    () =>
+      engine.on('pedestrian', (s) =>
+        setUi((prev) =>
+          prev.mode === s.mode && prev.phase === s.phase && prev.immersion === s.immersion
+            ? prev
+            : { mode: s.mode, phase: s.phase, immersion: s.immersion },
+        ),
+      ),
+    [engine],
+  )
+  return useMemo(
+    () => ({
+      ...ui,
+      exit: () => engine.exitPedestrian(),
+      setImmersion: (level: ImmersionLevel) => engine.setPedestrianImmersion(level),
+    }),
+    [engine, ui],
+  )
 }

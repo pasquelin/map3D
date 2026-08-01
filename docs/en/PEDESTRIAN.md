@@ -142,15 +142,16 @@ building sits underfoot. Completely undetermined ground (no fallback available)
 
 ## 5. Looking
 
-At `'explore'` immersion (the only one that actually drives the look today), the look
-follows a **left-button drag** on the map — requiring the button held is what keeps
-markers and symbols clickable, a "clean" click still counting as a map click.
+At `'explore'` immersion, the look follows a **left-button drag** on the map — requiring
+the button held is what keeps markers and symbols clickable, a "clean" click still counting
+as a map click. At `'full'` immersion the mouse is **captured** (Pointer Lock), so the look
+follows every movement **without a button** — the classic FPS view.
 
 - `lookSpeed` (0.15°/px by default) sets the sensitivity.
-- `invertY` (`true` by default) and `invertX` (`false`) invert each axis separately.
-  The vertical default follows the **map-drag** convention ("grab the scene": dragging
-  down raises the view, like the orbit's pan) rather than an FPS one — two opposite
-  conventions in the same view would be disorienting.
+- `invertY` (`true` by default) and `invertX` (`false`) invert each axis separately, in
+  BOTH immersions. The vertical default follows the **map-drag** convention ("grab the
+  scene": dragging down raises the view, like the orbit's pan) rather than an FPS one — an
+  FPS-convention user passes `invertY: false`.
 - `pitchMaxDeg` (89° by default) bounds the vertical look: at exactly 90°, the
   camera's frame degenerates.
 
@@ -159,13 +160,18 @@ markers and symbols clickable, a "clean" click still counting as a map click.
 | Level | Meaning |
 |---|---|
 | `explore` (default) | mouse visible, menus active — the look follows the drag described above |
-| `full` | total immersion, designed for **Pointer Lock** (mouse captured, interface hidden); `Escape` exits it natively, through Pointer Lock's own release |
+| `full` | total immersion: **Pointer Lock** (mouse captured, free look without a button), control interface **hidden**, central aiming **reticle** and an "Escape to exit" hint |
 
-> ⚠️ `full` changes `state.immersion` (and republishes the `pedestrian` event), but
-> actually capturing Pointer Lock (`requestPointerLock`) remains **up to the host**: no
-> call is made for you as of today. A shortcut exists to arm the toggle
-> (`interaction.shortcuts.pedestrian.immersion`), disabled by default (`false`) —
-> burning it for a single map would be confusing.
+**Entering and leaving immersion.** In pedestrian mode a **"Total immersion"** button appears
+(its click being the user gesture `requestPointerLock` demands): the library then engages
+Pointer Lock itself. `Escape` **releases the lock** and returns to `'explore'` (the interface
+reappears) **without leaving the walk**; a second `Escape`, from `'explore'`, exits pedestrian
+mode. A keyboard shortcut can also arm the toggle
+(`interaction.shortcuts.pedestrian.immersion`, disabled by default — see § 8).
+
+> The reticle takes the `theme.colors.pedestrian.reticle` colour; masking hides only the
+> **control bars**, never the scene or markers. `setImmersion` remains callable by the host
+> (custom button, shortcut) — the built-in HUD is just a default path.
 
 ---
 
@@ -242,9 +248,10 @@ controls (`interaction.shortcuts.controls.pedestrian`, `W` by default):
 <MapControls shortcuts={{ pedestrian: 'e' }} />
 ```
 
-The immersion toggle (`interaction.shortcuts.pedestrian.immersion`) has **no** default
-key (`false`) — it only makes sense while actively walking, and burning a global
-letter for it would be confusing:
+The immersion toggle (`interaction.shortcuts.pedestrian.immersion`) switches `explore` ↔
+`full` while actively walking. It has **no** default key (`false`) — the HUD's "Total
+immersion" button is enough, and burning a global letter would be confusing — but assigning
+one makes it functional (the `keydown` being a user gesture, it can engage Pointer Lock):
 
 ```tsx
 <Map config={{ interaction: { shortcuts: { pedestrian: { immersion: 'v' } } } }} />
@@ -303,12 +310,13 @@ Camera sway effect at the pace of the step, **disabled by default**.
 
 ### Transitions (`transitions`)
 
-Durations (ms) associated with entering and leaving the mode.
+The camera **glides** from the sky down to the street on entry, and climbs back to its
+starting orbital pose on exit. Setting a duration to `0` restores the instant jump.
 
 | Key | Default | Role |
 |---|---|---|
-| `enterMs` | `800` | duration of the dive on entry |
-| `exitMs` | `600` | duration of the climb-out on exit |
+| `enterMs` | `800` | duration of the dive on entry (`0` = instant) |
+| `exitMs` | `600` | duration of the climb-out on exit (`0` = instant) |
 
 ---
 

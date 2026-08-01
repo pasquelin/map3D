@@ -64,6 +64,9 @@ export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' |
       panelClassName="m3d-sympanel"
       className="m3d-sympalette"
       grouped
+      // Compte des symboles posés, comme les boutons Couches/Catalogue/Templates — absent à
+      // zéro (rien à annoncer).
+      badge={symbols.count > 0 ? <span className="m3d-tag-badge">{symbols.count}</span> : undefined}
       onOpenChange={onOpenChange}
     >
       {() => <SymbolPanel />}

@@ -103,15 +103,13 @@ export function useDrawKeyboard({
       if (editKeys.closePolygon !== false && e.key === editKeys.closePolygon) coreRef.current?.closeCurrent()
       else if (e.key === 'Escape') {
         /**
-         * Le mode piéton capte Échap EN PRIORITÉ sur la cascade de dessin (spec §5) : sans
-         * cette garde, `coreRef.escape()` consommerait la touche et l'utilisateur resterait
-         * enfermé au sol. En immersion totale le Pointer Lock aura déjà relâché avant nous —
-         * cf. la phase 2, où la sortie ne vaut que depuis `explore`.
+         * Le mode piéton POSSÈDE Échap (`usePedestrianKeys`, toujours monté, indépendant de
+         * `draw`) : ici on se contente de NE PAS lancer la cascade de dessin par-dessus (spec
+         * §5) — sans cette garde, `coreRef.escape()` consommerait la touche et l'utilisateur
+         * resterait enfermé au sol. La sortie elle-même (et le relâchement du Pointer Lock en
+         * immersion totale) ne se décide plus ici.
          */
-        if (pedestrianRef.current.state.mode === 'pedestrian') {
-          pedestrianRef.current.exit()
-          return
-        }
+        if (pedestrianRef.current.state.mode === 'pedestrian') return
         // Cascade : marquee en cours → sélection → sortie de l'outil. La garde
         // `toolRef.current !== null` est CAPITALE : sans outil de dessin actif,
         // `setTool(null)` reprendrait quand même le slot partagé

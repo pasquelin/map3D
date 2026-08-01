@@ -65,8 +65,9 @@ export type PedestrianConfig = {
    *
    * ⚠️ Le défaut suit la convention du CLIQUER-GLISSER de la carte (« attraper la scène » :
    * tirer vers le bas relève la vue), et non celle d'un FPS — c'est le même geste que le
-   * pan de `GlobeControls`, et deux conventions opposées dans la même vue désorientent.
-   * Sous Pointer Lock (immersion totale), la convention FPS s'applique d'elle-même.
+   * pan de `GlobeControls`, et deux conventions opposées dans la même vue désorientent. Le
+   * MÊME réglage vaut en immersion totale (Pointer Lock) : le regard s'y compose à
+   * l'identique, sans bouton — un adepte de la convention FPS passe `invertY: false`.
    */
   invertY: boolean
   /** Inverse l'axe horizontal du regard. */

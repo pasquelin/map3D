@@ -58,6 +58,29 @@ export const CSS_BASE = `
   box-shadow:inset 0 0 0 2px var(--m3d-pedestrian-valid,transparent)}
 .m3d-root.m3d-pedestrian-place.m3d-pedestrian-blocked::after{
   box-shadow:inset 0 0 0 2px var(--m3d-pedestrian-blocked,transparent)}
+/* Immersion totale (Pointer Lock) : l'interface de CONTRÔLE s'efface pour laisser la rue
+   plein cadre. On masque les barres, jamais la scène (canvas, markers .m3d-css2d) ni le
+   HUD piéton — c'est « interface masquée », pas « écran vidé ». */
+.m3d-root.m3d-immersive .m3d-drawbar,
+.m3d-root.m3d-immersive .m3d-controls,
+.m3d-root.m3d-immersive .m3d-search,
+.m3d-root.m3d-immersive .m3d-readout,
+.m3d-root.m3d-immersive .m3d-pindock{display:none}
+/* Réticule : point de visée central, montré par le HUD seulement en immersion totale. Sa
+   couleur vient du thème (--m3d-pedestrian-reticle) ; le halo sombre le garde lisible sur
+   un décor clair comme sur un décor sombre. */
+.m3d-reticle{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;
+  border-radius:50%;background:var(--m3d-pedestrian-reticle,#f8fafc);pointer-events:none;
+  z-index:var(--m3d-z-ui,999);box-shadow:0 0 0 1.5px rgba(0,0,0,.45)}
+/* Invite « Échap pour quitter » et bouton d'entrée en immersion : centrés en bas, hors de
+   la ligne de visée. Le bouton n'existe qu'en exploration ; l'invite qu'en immersion. */
+.m3d-pedestrian-hint,.m3d-pedestrian-immerse{position:absolute;left:50%;bottom:24px;
+  transform:translateX(-50%);z-index:var(--m3d-z-ui,999);font:inherit;font-size:13px;
+  padding:6px 12px;border-radius:999px;background:var(--m3d-panel,#0b1220);
+  color:var(--m3d-text,#f8fafc);border:1px solid var(--m3d-border,transparent);
+  box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none;white-space:nowrap}
+.m3d-pedestrian-immerse{pointer-events:auto;cursor:pointer;border-color:var(--m3d-accent,#2563eb)}
+.m3d-pedestrian-immerse:hover{background:var(--m3d-accent,#2563eb);color:#fff}
 /* Enveloppe ancrée : positionnée (transform) par le CSS2DRenderer chaque frame.
    PAS de will-change : la promotion en couche GPU désynchronise le marker du
    canvas WebGL pendant le déplacement (les 2 couches sont présentées à ~1 frame

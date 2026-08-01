@@ -48,6 +48,16 @@ type LoadOutcome = {
   failed: boolean
 }
 
+/**
+ * Prête un titre de repli aux formes ANONYMES : une forme sans nom est invisible pour la
+ * recherche (cf. ZONES.md § 5), on lui donne celui de son élément de catalogue. `undefined`
+ * (aucun titre connu) rend les formes inchangées. Partagé par la pose et la restauration.
+ */
+function withFallbackTitle(shapes: readonly ShapeData[], title: string | undefined): readonly ShapeData[] {
+  if (title === undefined) return shapes
+  return shapes.map((s) => (s.title ? s : { ...s, title }))
+}
+
 /** S'abonne à l'état partagé du catalogue (`engine.catalogState`). */
 function useCatalogStore() {
   const { engine } = useMapContext()
@@ -113,10 +123,8 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
         .then((shapes) => {
           // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
           if (ctrl.signal.aborted || !store.isShown(key)) return { key, shapes: null, failed: false }
-          // Une forme sans nom est invisible pour la recherche (cf. ZONES.md § 5) : on
-          // lui prête celui de son élément, qui est précisément ce qu'on a cliqué.
-          const named = shapes.map((s) => (s.title ? s : { ...s, title: item.title }))
-          return { key, shapes: named as readonly ShapeData[], failed: false }
+          // Le titre de repli est celui de l'élément cliqué, toujours défini ici.
+          return { key, shapes: withFallbackTitle(shapes, item.title), failed: false }
         })
         .catch(() => ({ key, shapes: null, failed: !ctrl.signal.aborted }))
         .finally(() => store.endLoad(key, ctrl))
@@ -149,7 +157,9 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     (source: CatalogSource, item: CatalogItem): Promise<readonly ShapeData[] | null> => {
       const key = catalogKey(source.id, item.id)
       if (store.isShown(key)) return Promise.resolve(store.getGeometry(key) ?? null)
-      store.markSelected(key)
+      // Le titre est retenu dès la sélection : c'est lui qui rendra la forme anonyme
+      // cherchable après une restauration, où l'élément cliqué n'est plus en portée.
+      store.markSelected(key, item.title)
       return fetchGeometry(source, item, key).then((o) => {
         applyOutcomes([o])
         return o.shapes
@@ -207,7 +217,14 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
       // `localStorage.setItem` étant synchrone, cocher un agrégat gelait le thread
       // principal autant de fois qu'il comptait d'enfants.
       const pairs = items.map((item) => ({ item, key: catalogKey(source.id, item.id) }))
-      const added = new Set(store.markSelectedMany(pairs.map((p) => p.key)))
+      // Titres du lot, pour que chaque forme anonyme reste cherchable après restauration.
+      const titles = new Map(pairs.map((p) => [p.key, p.item.title] as const))
+      const added = new Set(
+        store.markSelectedMany(
+          pairs.map((p) => p.key),
+          titles,
+        ),
+      )
       engine.invalidate()
       void Promise.all(
         pairs.map((p) =>
@@ -302,11 +319,12 @@ export function useCatalogHost(): readonly ShapeData[] {
   /**
    * Recharge ce que la session précédente affichait.
    *
-   * Seules les CLÉS ont été persistées : une géométrie est la réponse d'une API à un
-   * instant donné, et la resservir depuis un stockage local ferait afficher un périmètre
-   * que le backend a peut-être déplacé depuis. On la redemande donc, sans cadrer (on
-   * restaure une vue, on ne la vole pas) et sans signaler d'échec — une zone supprimée
-   * côté API n'a pas à ouvrir une erreur au démarrage.
+   * Clés ET titres ont été persistés, jamais les géométries : une géométrie est la réponse
+   * d'une API à un instant donné, et la resservir depuis un stockage local ferait afficher
+   * un périmètre que le backend a peut-être déplacé depuis. On la redemande donc, sans
+   * cadrer (on restaure une vue, on ne la vole pas) et sans signaler d'échec — une zone
+   * supprimée côté API n'a pas à ouvrir une erreur au démarrage. Le titre persisté, lui, est
+   * reprêté aux formes anonymes pour qu'elles restent cherchables.
    */
   useEffect(() => {
     // Sortie avant toute allocation : cet effet est rejoué à CHAQUE mutation du store
@@ -330,10 +348,12 @@ export function useCatalogHost(): readonly ShapeData[] {
       jobs.push(
         source
           .geometry(restoreCatalogId(parsed.itemId), ctrl.signal)
-          .then((shapes) => ({
-            key,
-            shapes: ctrl.signal.aborted || !store.isShown(key) ? null : (shapes as readonly ShapeData[]),
-          }))
+          .then((shapes) => {
+            if (ctrl.signal.aborted || !store.isShown(key)) return { key, shapes: null }
+            // Repli avec le titre PERSISTÉ (l'élément n'est plus en portée), sinon une zone
+            // restaurée sortait introuvable de la recherche.
+            return { key, shapes: withFallbackTitle(shapes, store.titleOf(key)) }
+          })
           // Échec silencieux, volontairement : une zone supprimée côté API n'a pas à
           // ouvrir une erreur au démarrage. On la retire, sans pastille.
           .catch(() => ({ key, shapes: null }))

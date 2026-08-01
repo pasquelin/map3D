@@ -117,4 +117,30 @@ describe('Camera — pose mémorisable', () => {
     expect(read.heading).toBeCloseTo(target.heading, 5)
     expect(read.tilt).toBeCloseTo(target.tilt, 5)
   })
+
+  /**
+   * Transition BRUTE (pose→pose) du mode piéton : elle vise deux poses quelconques (ici une
+   * vue haute et une vue rasante) et doit arriver EXACTEMENT sur la cible, position et
+   * orientation. Le tag l'isole des autres vols.
+   */
+  it('`transitionBetween` glisse d’une pose brute à l’autre et finit sur la cible', () => {
+    const { camera, three } = setup()
+    camera.jumpToPose(pose(48.86, 2.34, 5000, 0, 0))
+    const fromPos = three.position.clone()
+    const fromQuat = three.quaternion.clone()
+    camera.jumpToPose(pose(49.09, 1.48, 200, 90, 80))
+    const toPos = three.position.clone()
+    const toQuat = three.quaternion.clone()
+    // On repart de la pose haute et on glisse vers la pose rasante.
+    three.position.copy(fromPos)
+    three.quaternion.copy(fromQuat)
+    camera.transitionBetween(fromPos, fromQuat, toPos, toQuat, 0.05, 'pedestrian')
+    expect(camera.isFlying('pedestrian')).toBe(true)
+    // Un autre tag ne reconnaît pas ce vol comme le sien (isolation du gating du tick).
+    expect(camera.isFlying('intro')).toBe(false)
+    for (let i = 0; i < 10 && camera.isFlying(); i++) camera.update()
+    expect(camera.isFlying()).toBe(false)
+    expect(three.position.distanceTo(toPos)).toBeLessThan(1e-3)
+    expect(three.quaternion.angleTo(toQuat)).toBeLessThan(1e-4)
+  })
 })

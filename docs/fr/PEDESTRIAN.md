@@ -144,15 +144,16 @@ tomber la caméra.
 
 ## 5. Regarder
 
-En immersion `'explore'` (la seule qui pilote effectivement le regard aujourd'hui), le
-regard suit un **glisser bouton gauche enfoncé** sur la carte — exiger le bouton est ce
-qui garde markers et symboles cliquables, un clic « propre » restant un clic carte.
+En immersion `'explore'`, le regard suit un **glisser bouton gauche enfoncé** sur la carte
+— exiger le bouton est ce qui garde markers et symboles cliquables, un clic « propre »
+restant un clic carte. En immersion `'full'`, la souris étant **capturée** (Pointer Lock),
+le regard suit chaque mouvement **sans bouton** — la vue FPS classique.
 
 - `lookSpeed` (0,15°/px par défaut) règle la sensibilité.
 - `invertY` (`true` par défaut) et `invertX` (`false`) inversent chaque axe
-  séparément. Le défaut vertical suit la convention du **glisser de carte** (« attraper
-  la scène » : tirer vers le bas relève la vue, comme le pan de l'orbite) et non celle
-  d'un FPS — deux conventions opposées dans la même vue désorienteraient.
+  séparément, dans les DEUX immersions. Le défaut vertical suit la convention du **glisser
+  de carte** (« attraper la scène » : tirer vers le bas relève la vue, comme le pan de
+  l'orbite) et non celle d'un FPS — un adepte de la convention FPS passe `invertY: false`.
 - `pitchMaxDeg` (89° par défaut) borne le regard vertical : à 90° pile, le repère de la
   caméra dégénère.
 
@@ -161,13 +162,18 @@ qui garde markers et symboles cliquables, un clic « propre » restant un clic c
 | Niveau | Sens |
 |---|---|
 | `explore` (défaut) | souris visible, menus actifs — le regard suit le glisser décrit ci-dessus |
-| `full` | immersion totale, pensée pour le **Pointer Lock** (souris capturée, interface masquée) ; `Échap` en sort nativement, par le relâchement du Pointer Lock lui-même |
+| `full` | immersion totale : **Pointer Lock** (souris capturée, regard libre sans bouton), interface de contrôle **masquée**, **réticule** central de visée et rappel « Échap pour quitter » |
 
-> ⚠️ `full` change `state.immersion` (et republie l'événement `pedestrian`), mais la
-> capture Pointer Lock elle-même (`requestPointerLock`) reste **à la charge de l'hôte** :
-> aucun appel n'est fait pour vous à ce jour. Un raccourci existe pour armer la bascule
-> (`interaction.shortcuts.pedestrian.immersion`), désactivé par défaut (`false`) — le
-> brûler pour une seule carte serait déroutant.
+**Entrer et sortir de l'immersion.** En mode piéton, un bouton **« Immersion totale »**
+s'affiche (son clic est le geste utilisateur qu'exige `requestPointerLock`) : la lib engage
+alors le Pointer Lock elle-même. `Échap` **relâche le verrou** et revient à `'explore'`
+(l'interface réapparaît) **sans quitter la marche** ; un second `Échap`, depuis `'explore'`,
+quitte le mode piéton. Un raccourci clavier peut aussi armer la bascule
+(`interaction.shortcuts.pedestrian.immersion`, désactivé par défaut — cf. § 8).
+
+> Le réticule prend la couleur `theme.colors.pedestrian.reticle` ; le masquage ne cache que
+> les **barres de contrôle**, jamais la scène ni les markers. `setImmersion` reste appelable
+> par l'hôte (bouton custom, raccourci) — le HUD intégré n'est qu'un chemin par défaut.
 
 ---
 
@@ -245,9 +251,11 @@ les autres contrôles (`interaction.shortcuts.controls.pedestrian`, `W` par déf
 <MapControls shortcuts={{ pedestrian: 'e' }} />
 ```
 
-La bascule d'immersion (`interaction.shortcuts.pedestrian.immersion`) n'a **aucune**
-touche par défaut (`false`) — elle n'a de sens qu'en marche active, brûler une lettre
-globale pour elle serait déroutant :
+La bascule d'immersion (`interaction.shortcuts.pedestrian.immersion`) alterne `explore` ↔
+`full` en marche active. Elle n'a **aucune** touche par défaut (`false`) — le bouton
+« Immersion totale » du HUD suffit, et brûler une lettre globale serait déroutant — mais
+lui en attribuer une la rend fonctionnelle (le `keydown` étant un geste utilisateur, il peut
+engager le Pointer Lock) :
 
 ```tsx
 <Map config={{ interaction: { shortcuts: { pedestrian: { immersion: 'v' } } } }} />
@@ -306,12 +314,13 @@ Effet de balancement de la caméra au rythme du pas, **désactivé par défaut**
 
 ### Transitions (`transitions`)
 
-Durées (ms) associées à l'entrée et à la sortie du mode.
+La caméra **glisse** du ciel à la rue à l'entrée, et remonte à sa pose orbitale de départ à
+la sortie. Mettre une durée à `0` rétablit le saut instantané.
 
 | Clé | Défaut | Rôle |
 |---|---|---|
-| `enterMs` | `800` | durée de la plongée à l'entrée |
-| `exitMs` | `600` | durée de la remontée à la sortie |
+| `enterMs` | `800` | durée de la plongée à l'entrée (`0` = instantané) |
+| `exitMs` | `600` | durée de la remontée à la sortie (`0` = instantané) |
 
 ---
 

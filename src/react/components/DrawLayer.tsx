@@ -575,6 +575,9 @@ export function DrawLayer(props: DrawLayerProps) {
         setPaletteOpen,
         place: (key, at, variant) =>
           symbolsEnabled ? (coreRef.current?.placeSymbol(key, at, variant ?? affiliation) ?? null) : null,
+        // Compte des symboles posés → badge du bouton de barre. `symbolShapes` suit la
+        // signature des symboles (pas `rev`), donc ne bouge qu'à une vraie pose/retrait.
+        count: symbolShapes.length,
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -594,6 +597,7 @@ export function DrawLayer(props: DrawLayerProps) {
       symbolCatalog,
       renderer,
       paletteOpen,
+      symbolShapes,
     ],
   )
 

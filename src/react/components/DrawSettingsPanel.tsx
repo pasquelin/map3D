@@ -27,7 +27,7 @@ import { CatalogSettingsPanel } from './CatalogSettings'
 import { PluginHubPanel } from './PluginHubPanel'
 import { PreferencesPanel } from './PreferencesPanel'
 import { EditableKbd } from './preferenceControls'
-import { PreferencesContext } from '../preferences/context'
+import { PreferencesContext, usePreferences } from '../preferences/context'
 import type { BindableAction, MoveDirection } from '../../config/preferences'
 import { formatEdit } from './shortcuts'
 import { formatKey } from './tooltip'
@@ -296,6 +296,7 @@ function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
 function ShortcutsList() {
   const { shortcuts } = useDrawing()
   const labels = useLabels()
+  const { prefs, store } = usePreferences()
   const sc = useConfig().interaction.shortcuts
   const edit = sc.edit
   // La touche « Catalogue » est morte sans source déclarée (cf. `useToggleShortcut` de
@@ -369,12 +370,25 @@ function ShortcutsList() {
       {action ? <EditableKbd action={action} display={key} /> : <kbd className="m3d-kbd">{key}</kbd>}
     </div>
   )
+  // Ne remet à zéro QUE les touches réassignées (`keys: {}` remplace la table, cf.
+  // `PreferencesStore.set`), sans toucher qualité/vitesse/inertie — c'est le pendant, pour
+  // les seuls raccourcis, du « Tout réinitialiser » global des préférences. Inerte tant
+  // qu'aucune touche n'a été rebindée (rien à défaire) ou hors `<MapProvider>`.
+  const hasReboundKeys = Object.keys(prefs.keys).length > 0
   return (
     <div className="m3d-shortcuts">
       <div className="m3d-settings-subtitle">{labels.settings.shortcutsTitle}</div>
       <div className="m3d-shortcut-cols">
         {rows.filter((r): r is [string, string, BindableAction?] => !!r[1]).map(shortcutRow)}
       </div>
+      <button
+        type="button"
+        className="m3d-tagclear"
+        disabled={!store || !hasReboundKeys}
+        onClick={() => store?.set({ keys: {} })}
+      >
+        {labels.settings.preferences.controls.resetKeys}
+      </button>
     </div>
   )
 }

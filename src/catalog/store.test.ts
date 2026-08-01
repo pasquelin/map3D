@@ -328,3 +328,36 @@ describe('persistance amortie', () => {
     vi.useRealTimers()
   })
 })
+
+describe('titres restitués à la restauration', () => {
+  it('persiste le titre d’une clé et le rend à un nouveau store restauré', () => {
+    const a = fresh()
+    a.markSelected('zones:1', 'Ma zone')
+    // Nouveau store, même clé de stockage : la restauration relit clés ET titres.
+    const b = fresh()
+    expect(b.isShown('zones:1')).toBe(true)
+    expect(b.titleOf('zones:1')).toBe('Ma zone')
+  })
+
+  it('un lot persiste le titre de chacun de ses éléments', () => {
+    const a = fresh()
+    a.markSelectedMany(
+      ['g:1', 'g:2'],
+      new Map([
+        ['g:1', 'Un'],
+        ['g:2', 'Deux'],
+      ]),
+    )
+    const b = fresh()
+    expect(b.titleOf('g:1')).toBe('Un')
+    expect(b.titleOf('g:2')).toBe('Deux')
+  })
+
+  it('un titre retiré ne survit pas à la restauration', () => {
+    const a = fresh()
+    a.markSelected('zones:1', 'Éphémère')
+    a.remove('zones:1')
+    const b = fresh()
+    expect(b.titleOf('zones:1')).toBeUndefined()
+  })
+})

@@ -204,6 +204,12 @@ export type DrawingApi = {
     setPaletteOpen: (open: boolean) => void
     /** Pose un symbole du catalogue (utilisé par le dépôt de la palette). */
     place: (key: string, at: LatLng, variant?: string) => string | null
+    /**
+     * Nombre de symboles POSÉS sur la carte — le badge du bouton de barre, et rien d'autre
+     * (même rôle que `useCatalogSelectionCount`). Suit la signature des symboles, pas le
+     * `rev` du tracé : il ne rebondit donc pas à chaque frame d'un dessin en cours.
+     */
+    count: number
   }
 }
 
