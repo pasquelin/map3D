@@ -602,11 +602,19 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
             >
               {isSelected && (
                 // Même anneau marching-ants N/B que les markers (`.m3d-ants-ring`) — langage
-                // visuel de sélection UNIQUE. Diamètre = celui de la pastille (donut ou custom).
+                // visuel de sélection UNIQUE. Diamètre = pastille + `selectedGapPx` de chaque côté,
+                // pour que l'anneau tombe EN DEHORS du donut (sinon il se confond avec son contour).
                 <span
                   aria-hidden
                   className="m3d-ants-ring"
-                  style={{ position: 'absolute', left: 0, top: 0, '--ring-d': `${ringSize}px` } as CSSProperties}
+                  style={
+                    {
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      '--ring-d': `${ringSize + 2 * theme.clusters.selectedGapPx}px`,
+                    } as CSSProperties
+                  }
                 />
               )}
               {content}

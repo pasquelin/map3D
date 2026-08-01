@@ -184,6 +184,9 @@ export type MapTheme = {
     segmentGap: number
     /** Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas. */
     startAngle: number
+    /** Écart (px) entre le bord de la pastille et son anneau de sélection marching-ants —
+     *  sans lui, l'anneau tomberait pile sur le contour du donut et serait invisible. */
+    selectedGapPx: number
   }
   animations: {
     /** Coupe TOUTES les animations JS (le CSS a sa propre règle `prefers-reduced-motion`). */

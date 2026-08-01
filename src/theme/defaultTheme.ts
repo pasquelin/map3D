@@ -87,6 +87,7 @@ export const defaultTheme: MapTheme = {
     strokeWidth: 2.5,
     segmentGap: 0.045,
     startAngle: Math.PI,
+    selectedGapPx: 2,
   },
   animations: {
     enabled: true,
