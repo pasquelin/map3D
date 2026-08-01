@@ -12,5 +12,5 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'examples/**/*.test.ts'],
   },
   // L'exemple importe la lib par son nom public, comme le ferait une application.
-  resolve: { alias: { map3d: resolve(__dirname, 'src/index.ts') } },
+  resolve: { alias: { '@pasquelin/map3d': resolve(__dirname, 'src/index.ts') } },
 })
