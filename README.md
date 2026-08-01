@@ -131,4 +131,6 @@ pnpm test
 
 ## License
 
-MIT
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for any **noncommercial** use (personal,
+research, nonprofit, education, government). **Commercial use requires a separate license from
+Alban Pasquelin**, the copyright holder. Contact: alban.pasquelin@gmail.com

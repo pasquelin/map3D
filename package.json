@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "description": "Bibliothèque React de cartographie 3D (Three.js + Google Photorealistic 3D Tiles) : globe, markers, clusters, tracés, dessin, entièrement thémable.",
   "type": "module",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Alban Pasquelin <alban.pasquelin@gmail.com>",
   "engines": {
     "node": ">=18"
   },
   "sideEffects": false,
   "files": [
     "dist",
+    "LICENSE",
     "llms.txt",
     "llms-full.txt"
   ],
