@@ -1234,6 +1234,18 @@ export class MapEngine {
   }
   /** Near/far orbitaux sauvegardés à l'entrée en piéton, rendus à la sortie. */
   private savedNearFar: { near: number; far: number } | null = null
+  /**
+   * Transition caméra en cours entre l'orbite et la rue (`transitions.enterMs`/`exitMs`).
+   * Tant qu'elle dure, ni le contrôleur piéton (à l'entrée) ni `GlobeControls`/`clampZoom`
+   * (à la sortie) ne touchent la caméra : le tween de `Camera` la pilote seul.
+   */
+  private pedestrianFly: 'enter' | 'exit' | null = null
+  /**
+   * Pose orbitale figée à l'entrée en piéton — la cible EXACTE de la transition de sortie.
+   * Les contrôles ayant gardé leur état interne (gelés, pas détachés), y revenir aligne la
+   * caméra sur ce qu'ils attendent, d'où une reprise sans à-coup.
+   */
+  private savedOrbitPose: { pos: THREE.Vector3; quat: THREE.Quaternion } | null = null
   /** Scratch de lecture de la couleur de fond (source du brouillard) — jamais alloué à chaud. */
   private readonly fogColor = new THREE.Color()
   /** Voile de distance du mode piéton (`theme.globe.hazeColor`), lu au montage. */
@@ -1534,6 +1546,11 @@ export class MapEngine {
     // L'utilisateur prend la main : ni intro ni vol programmé ne doivent lui résister.
     this.cancelIntro()
     this.camera.cancelFly()
+    // Pose orbitale de départ : figée pour la transition d'entrée ET pour le retour exact à
+    // la sortie (les contrôles gelés l'attendent — cf. `savedOrbitPose`).
+    const startPos = this.threeCamera.position.clone()
+    const startQuat = this.threeCamera.quaternion.clone()
+    this.savedOrbitPose = { pos: startPos, quat: startQuat }
     this.cameraMode = 'pedestrian'
     this.pedestrianPhase = 'active'
     this.immersion = 'explore'
@@ -1545,7 +1562,20 @@ export class MapEngine {
     // Les formes drapées cessent de se dessiner par-dessus le décor : à hauteur d'homme
     // elles recouvriraient tout l'écran (cf. `setGroundedView`).
     this.setGroundedView(true)
-    this.applyPedestrianView()
+    const enterMs = this.config.pedestrian.transitions.enterMs
+    if (enterMs > 0) {
+      // Le contrôleur vient de poser la caméra à l'ŒIL : c'est la cible. On la ramène à
+      // l'orbite et on l'y fait glisser. La vue piéton (near/far court, brouillard) n'est
+      // posée qu'à l'arrivée (cf. le tick) — appliquée de haut, son `far` écrêterait le sol.
+      const endPos = this.threeCamera.position.clone()
+      const endQuat = this.threeCamera.quaternion.clone()
+      this.threeCamera.position.copy(startPos)
+      this.threeCamera.quaternion.copy(startQuat)
+      this.camera.transitionBetween(startPos, startQuat, endPos, endQuat, enterMs / 1000, 'pedestrian')
+      this.pedestrianFly = 'enter'
+    } else {
+      this.applyPedestrianView()
+    }
     this.syncPedestrian()
     return true
   }
@@ -1553,6 +1583,11 @@ export class MapEngine {
   /** Quitte le mode piéton et rend la caméra à `GlobeControls`. */
   exitPedestrian(): void {
     if (this.cameraMode === 'orbit') return
+    // Pose œil de départ pour la transition de retour, et cible orbitale figée à l'entrée.
+    const startPos = this.threeCamera.position.clone()
+    const startQuat = this.threeCamera.quaternion.clone()
+    const orbit = this.savedOrbitPose
+    this.savedOrbitPose = null
     this.cameraMode = 'orbit'
     this.pedestrianPhase = 'placing'
     this.immersion = 'explore'
@@ -1564,7 +1599,18 @@ export class MapEngine {
     this.releasePlacement()
     this.setGroundedView(false)
     this.restoreOrbitView()
-    this.controls.enabled = this.interactiveMode === true
+    // Une transition d'entrée encore en cours est abandonnée : on repart d'où l'on est.
+    this.pedestrianFly = null
+    const exitMs = this.config.pedestrian.transitions.exitMs
+    if (exitMs > 0 && orbit) {
+      // Remonte vers la pose orbitale figée à l'entrée — celle que `GlobeControls` a gardée,
+      // d'où une reprise sans à-coup. Contrôles éteints le temps du tween (cf. le tick).
+      this.controls.enabled = false
+      this.camera.transitionBetween(startPos, startQuat, orbit.pos, orbit.quat, exitMs / 1000, 'pedestrian')
+      this.pedestrianFly = 'exit'
+    } else {
+      this.controls.enabled = this.interactiveMode === true
+    }
     this.syncPedestrian()
   }
 
@@ -2465,8 +2511,26 @@ export class MapEngine {
      * ce qui expulserait le piéton du sol à chaque frame.
      */
     if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
-      this.pedestrianCtl.update(dt)
+      if (this.pedestrianFly === 'enter') {
+        // La transition d'entrée pilote la caméra (avancée par `camera.update()` en tête de
+        // tick) : le contrôleur ne prend la main — et la vue piéton n'est posée — qu'à la fin,
+        // pour que le `far` court n'écrête pas le sol vu de haut pendant la descente.
+        if (!this.camera.isFlying('pedestrian')) {
+          this.pedestrianFly = null
+          this.applyPedestrianView()
+        }
+      } else {
+        this.pedestrianCtl.update(dt)
+      }
       this.syncPedestrian()
+    } else if (this.pedestrianFly === 'exit') {
+      // Transition de sortie : la caméra remonte vers l'orbite, pilotée par le tween. On
+      // laisse `camera.update()` (déjà appelé) faire, et on n'ouvre les contrôles qu'à la
+      // fin — `clampZoom` ou `GlobeControls` combattraient sinon la remontée.
+      if (!this.camera.isFlying('pedestrian')) {
+        this.pedestrianFly = null
+        this.controls.enabled = this.interactiveMode === true
+      }
     } else {
       // Avant `controls.update()`, dont la garde au sol rattrape le mouvement dans la frame.
       if (this.controls.enabled) this.applyKeyNav(dt)

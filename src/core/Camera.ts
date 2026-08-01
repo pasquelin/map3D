@@ -305,6 +305,38 @@ export class Camera {
     this.startFly(pos, quat, target, altitude, opts.duration, opts.tag)
   }
 
+  /**
+   * Transition BRUTE entre deux poses (position + orientation), hors du modèle orbital : le
+   * mode piéton s'en sert pour glisser du ciel à la rue et retour. Un regard horizontal au
+   * ras du sol ne s'exprime pas en pose orbitale (`flyToPose`), d'où le passage direct par
+   * position + quaternion. Même tween que les vols (lerp position, slerp quaternion), donc
+   * avancé par `update()` et gelant les contrôles tant qu'il dure.
+   */
+  transitionBetween(
+    fromPos: THREE.Vector3,
+    fromQuat: THREE.Quaternion,
+    toPos: THREE.Vector3,
+    toQuat: THREE.Quaternion,
+    durationSecs: number,
+    tag?: string,
+  ): void {
+    this.followFn = null
+    const secs = Math.max(0.05, durationSecs)
+    this.fly = {
+      fromPos: fromPos.clone(),
+      fromQuat: fromQuat.clone(),
+      toPos: toPos.clone(),
+      toQuat: toQuat.clone(),
+      t: 0,
+      speed: 1 / (secs * 60),
+      // `target`/`altitude` ne servent qu'au ré-ancrage d'altitude (vol d'intro) : sans objet
+      // ici, on les renseigne par cohérence sans jamais les relire pendant le tween.
+      target: this.projection.worldToLatLng(toPos),
+      altitude: 0,
+      tag,
+    }
+  }
+
   /** Inclinaison bornée au mode courant, jamais négative (pas de bascule tête en bas). */
   private clampTilt(tilt: number): number {
     return clamp(tilt, 0, this.maxTilt)
