@@ -50,14 +50,12 @@ import {
   clamp,
   DEG2RAD,
   EARTH_CIRCUMFERENCE,
-  easeInOutCubic,
   type VolumeVisibility,
   volumeVisibility,
   zoomForAltitude,
 } from './math'
 import { viewScaleDistance } from './viewScale'
-import { Sky } from './Sky'
-import { subsolarPoint } from './sun'
+import { SkyController } from './SkyController'
 import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
@@ -301,10 +299,6 @@ export { altitudeForZoom, zoomForAltitude }
  */
 export const WHEEL_SURFACE_ATTR = 'data-m3d-wheel-surface'
 
-// Rayon de la sphère d'étoiles (repère local, avant mise à l'échelle par frame). La valeur
-// exacte importe peu : le rayon monde est recalé chaque frame sous le far courant.
-const STAR_RADIUS = 1e7
-
 /** Garde-fou sous `adaptiveResolution.minRatio` : à zéro, le tampon de rendu n'existe plus. */
 const MIN_RESOLUTION_SCALE = 0.05
 
@@ -453,13 +447,8 @@ export class MapEngine {
   /** Coins de l'emprise cliquée — quatre points réutilisés, alloués une seule fois. */
   private readonly pickCorners = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]
 
-  private stars: THREE.Points | null = null
-  /** Ciel atmosphérique procédural (null quand `config.sky.enabled` est faux). */
-  private sky: Sky | null = null
-  /** Point subsolaire figé (dépend de la seule date) — recalculé à `applySky`, pas par frame. */
-  private subsolar: LatLng = { lat: 0, lng: 0 }
-  /** Instant du soleil résolu (ms epoch) ; capturé une fois quand `config.sky.date` vaut 0. */
-  private skyEpoch = 0
+  /** Sous-système ciel (fond étoilé + dome atmosphérique) — détient son propre état. */
+  private readonly sky: SkyController
   private drawingMode = false
   /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
   private drawingSuspended = false
@@ -615,6 +604,8 @@ export class MapEngine {
     // résolutions périmées un peu partout — d'où l'absence de setter.
     this.threeCamera = new THREE.PerspectiveCamera(opts.fov ?? CAMERA_FOV, 1, 1, 1e8)
     this.threeCamera.position.set(0, 0, 2e7)
+    // Sous-système ciel : reçoit scène, caméra et projection ; monté plus bas (étoiles + dome).
+    this.sky = new SkyController(this.scene, this.threeCamera, this.projection)
     const overlayDepth = this.config.performance.overlayDepth
     this.labelCamera = new THREE.PerspectiveCamera(
       this.threeCamera.fov,
@@ -804,12 +795,11 @@ export class MapEngine {
 
     // Fond étoilé : ajouté à la scène, rendu en premier (renderOrder -1, sans
     // écrire le depth) → toujours derrière la carte, sans altérer le pipeline.
-    this.stars = this.buildStars()
-    this.scene.add(this.stars)
+    this.sky.mountStars()
 
     // Ciel atmosphérique : monté par-dessus les étoiles, mais invisible tant que l'altitude
     // reste haute (opacité pilotée par frame). La vue globe part donc identique à avant.
-    this.applySky()
+    this.sky.applySky(this.config.sky)
 
     // Zoom molette actif au-dessus des SURFACES CARTE (markers, formes/marquee,
     // zone loupe) : on relaie l'événement `wheel` qu'elles reçoivent vers le canvas
@@ -870,113 +860,6 @@ export class MapEngine {
         cancelable: true,
       }),
     )
-  }
-
-  /** Nuage de points aléatoires sur une sphère → étoiles constantes à l'écran. */
-  private buildStars(): THREE.Points {
-    const count = 2600
-    const pos = new Float32Array(count * 3)
-    const col = new Float32Array(count * 3)
-    const R = STAR_RADIUS
-    for (let i = 0; i < count; i++) {
-      const u = Math.random() * 2 - 1
-      const theta = Math.random() * Math.PI * 2
-      const s = Math.sqrt(1 - u * u)
-      pos[i * 3] = R * s * Math.cos(theta)
-      pos[i * 3 + 1] = R * s * Math.sin(theta)
-      pos[i * 3 + 2] = R * u
-      const b = 0.55 + Math.random() * 0.45
-      col[i * 3] = b
-      col[i * 3 + 1] = b
-      col[i * 3 + 2] = Math.min(1, b + 0.06) // léger bleuté
-    }
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    const mat = new THREE.PointsMaterial({
-      size: 2,
-      sizeAttenuation: false,
-      vertexColors: true,
-      depthTest: false,
-      depthWrite: false,
-    })
-    const stars = new THREE.Points(geo, mat)
-    stars.renderOrder = -1
-    stars.frustumCulled = false
-    return stars
-  }
-
-  /**
-   * (Re)configure le ciel depuis `config.sky` : le crée/le détruit selon `enabled`, pousse
-   * les uniforms statiques (atmosphère + nuages) et fige le point subsolaire depuis la date.
-   * Appelée au montage et à chaque `setConfig` — jamais par frame.
-   */
-  private applySky(): void {
-    const cfg = this.config.sky
-    if (!cfg.enabled) {
-      if (this.sky) {
-        this.scene.remove(this.sky)
-        this.sky.dispose()
-        this.sky = null
-      }
-      return
-    }
-    if (!this.sky) {
-      this.sky = new Sky()
-      this.scene.add(this.sky)
-    }
-    const u = this.sky.uniforms
-    u.turbidity.value = cfg.turbidity
-    u.rayleigh.value = cfg.rayleigh
-    u.mieCoefficient.value = cfg.mieCoefficient
-    u.mieDirectionalG.value = cfg.mieDirectionalG
-    u.cloudCoverage.value = cfg.clouds.coverage
-    u.cloudDensity.value = cfg.clouds.density
-    u.cloudScale.value = cfg.clouds.scale
-    u.cloudElevation.value = cfg.clouds.elevation
-    // `date` explicite (> 0) : instant fixe. Sinon on fige l'heure de montage, capturée
-    // une seule fois puis conservée (jour/nuit stable au fil des `setConfig`).
-    if (cfg.date > 0) {
-      this.subsolar = subsolarPoint(new Date(cfg.date))
-    } else {
-      if (this.skyEpoch === 0) this.skyEpoch = Date.now()
-      this.subsolar = subsolarPoint(new Date(this.skyEpoch))
-    }
-  }
-
-  /**
-   * Fondu et orientation du ciel, par frame. Opacité déduite de l'altitude (invisible au-
-   * dessus de `fade.start` → plein sous `fade.end`) : au-delà, on sort tôt et le ciel ne
-   * coûte rien en vue globe. Sinon on oriente `up` (verticale locale) et `sunPosition`
-   * (normale au point subsolaire) en repère monde, et on colle le dome à la caméra.
-   */
-  private updateSky(state: CameraState): void {
-    const sky = this.sky
-    if (!sky) return
-    const { start, end } = this.config.sky.fade
-    const opacity = easeInOutCubic(clamp((start - state.altitude) / Math.max(1, start - end), 0, 1))
-    if (opacity <= 0) {
-      sky.visible = false
-      return
-    }
-    sky.visible = true
-    const u = sky.uniforms
-    u.opacity.value = opacity
-    // Écrit droit dans les Vector3 des uniforms (déjà alloués) — pas de scratch ni de
-    // copie, et `state` sert de `LatLng` sans littéral intermédiaire. Zéro-alloc par frame.
-    this.projection.worldNormal(state, u.up.value)
-    this.projection.worldNormal(this.subsolar, u.sunPosition.value)
-    sky.position.copy(this.threeCamera.position)
-    /**
-     * Grand devant la caméra pour remplir l'écran sans être rogné par le near ; la
-     * profondeur est de toute façon forcée au far par le shader.
-     *
-     * ⚠️ Le plancher était ABSOLU (100 km). En mode piéton le far tombe à la distance de
-     * vue (~1 km) : le dôme se retrouvait entièrement au-delà du plan lointain, donc éliminé
-     * par le frustum culling — ciel noir. Le plancher est désormais relatif au near, ce qui
-     * garde le dôme DANS le frustum quelle que soit la profondeur de vue.
-     */
-    sky.scale.setScalar(Math.max(this.threeCamera.far * 0.5, this.threeCamera.near * 100))
   }
 
   // ── Cycle de vie ──
@@ -1118,7 +1001,7 @@ export class MapEngine {
     this.projection.setConfig(config)
     for (const layer of this.layers) layer.setConfig?.(config)
     // Ciel : recrée/détruit selon `enabled` et repousse atmosphère + nuages + date.
-    this.applySky()
+    this.sky.applySky(this.config.sky)
     // Bornes de navigation : recopiées dans `GlobeControls`, qui ne les relit pas.
     if (prev.camera !== config.camera) this.applyCameraLimits()
     /**
@@ -1641,7 +1524,7 @@ export class MapEngine {
      *
      * Ciel éteint, le fond redevient ce qu'on voit derrière : il reprend son rôle.
      */
-    if (this.sky) this.fogColor.set(this.hazeColor)
+    if (this.sky.active) this.fogColor.set(this.hazeColor)
     else this.renderer.getClearColor(this.fogColor)
     const fog = this.scene.fog
     if (fog instanceof THREE.Fog) {
@@ -2652,18 +2535,9 @@ export class MapEngine {
      */
     this.adaptResolution(dt * 1000)
 
-    // Étoiles en skybox : collées à la caméra, et surtout RECALÉES sous le far courant.
-    // GlobeControls resserre le far à ~distance-horizon (bien < STAR_RADIUS) en vue posée :
-    // à rayon fixe, les étoiles étaient clippées, d'où la grande bande noire entre l'espace
-    // (haut) et le ciel (bas). On garde donc leur rayon monde à 0.9·far — toujours dans le
-    // frustum. `sizeAttenuation:false` fige la taille écran et `depthTest:false` les tient
-    // derrière la carte : ni la distance ni l'échelle ne se voient, seule la visibilité change.
-    if (this.stars) {
-      this.stars.position.copy(this.threeCamera.position)
-      this.stars.scale.setScalar((this.threeCamera.far * 0.9) / STAR_RADIUS)
-    }
-    // Ciel atmosphérique : fondu + orientation (sort tôt et gratuit en vue globe).
-    this.updateSky(state)
+    // Ciel : étoiles recalées sous le far courant, puis fondu + orientation du dome
+    // (même séquence qu'avant, sortie tôt et gratuite en vue globe).
+    this.sky.update(this.config.sky, state)
     this.renderer.render(this.scene, this.threeCamera)
     /**
      * Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls garde
@@ -3212,11 +3086,7 @@ export class MapEngine {
     this.controls.dispose()
     this.tiles.dispose()
     this.renderer.dispose()
-    if (this.stars) {
-      this.stars.geometry.dispose()
-      ;(this.stars.material as THREE.Material).dispose()
-    }
-    if (this.sky) this.sky.dispose()
+    this.sky.dispose()
     this.enrichment.dispose()
     this.plugins.dispose()
     this.templates.dispose()
