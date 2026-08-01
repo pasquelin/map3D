@@ -46,6 +46,26 @@ type BuildingTile = Tile & {
  */
 export type BuildingPickResult = { ref: BuildingRef; point: THREE.Vector3 }
 
+/** Formes syntaxiques que `Color.setStyle` sait lire, hors noms CSS. */
+const COLOR_SYNTAX = /^(?:#[0-9a-f]{3,8}|(?:rgb|hsl)a?\()/i
+
+/**
+ * `entry.color` vient d'OpenStreetMap : `building:colour` est un champ LIBRE, où l'on
+ * trouve « lightorange », « beige (stones) » ou une phrase entière. `Color.set` laisse
+ * bien la couleur du thème en place face à ce qu'il ne comprend pas — le rendu était
+ * donc juste — mais il émet un `console.warn` par occurrence, à chaque tuile chargée :
+ * la console devenait illisible à la navigation, et un vrai avertissement s'y noyait.
+ *
+ * On teste donc AVANT d'appeler, avec les mêmes critères que `setStyle` : formes
+ * syntaxiques ci-dessus, ou nom présent dans la table de three (source unique — la
+ * recopier ici la ferait diverger à la première version).
+ */
+function isParsableColor(value: string): boolean {
+  const v = value.trim()
+  if (COLOR_SYNTAX.test(v)) return true
+  return THREE.Color.NAMES[v.toLowerCase() as keyof typeof THREE.Color.NAMES] !== undefined
+}
+
 /** Apparence des volumes — vient du thème, jamais du code. */
 export type BuildingColors = {
   wall: string
@@ -445,7 +465,7 @@ export class BuildingsLayer {
       // la couleur inchangée face à une chaîne qu'il ne comprend pas, et `c` étant réutilisé
       // d'un tour à l'autre, l'emprise hériterait sinon de la couleur de la précédente.
       c.set(entry.roof ? this.colors.roof : this.colors.wall)
-      if (entry.color) {
+      if (entry.color && isParsableColor(entry.color)) {
         c.set(entry.color)
         if (entry.roof) c.lerp(white, this.colors.roofLighten)
       }
