@@ -153,6 +153,10 @@ export const defaultLabels: MapLabels = {
     poly: { label: 'Polygone', description: 'Sélection par polygone' },
     lasso: { label: 'Lasso', description: 'Sélection au lasso' },
   },
+  eraseModes: {
+    point: { label: 'Gomme', description: 'Effacer un élément au clic' },
+    select: { label: 'Gomme sélection', description: 'Effacer tout ce que la sélection touche' },
+  },
   buildingPick: { label: 'Bâtiment', description: 'Sélectionner un bâtiment (volume 3D interne)' },
   measureTools: {
     measure: { label: 'Mesurer', description: 'Mesurer une distance' },

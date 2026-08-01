@@ -2771,7 +2771,7 @@ Manual mounting:
 | Freehand | `H` | continuous stroke |
 | Arrow | `A` | polyline + head |
 | Measure | `M` | thin dashed dimension ⊢––⊣ with a distance label — **parent of a submenu** (see below) |
-| Eraser | `E` | deletes on click — shapes **and** symbols (click on the icon or the ground point) |
+| Eraser | `E` | deletes on click or by marquee — **parent of a submenu** (see below) |
 | Symbols | `Y` | opens the palette (see [SYMBOLS.md](SYMBOLS.md)) |
 
 The **ruler opens a submenu on hover**, like the Select button — but with only a single
@@ -2783,6 +2783,43 @@ directly. The coordinate grid has left this submenu for the view controls
 ```tsx
 <Toolbar measureTools={['measure']} />   // a single row = no submenu
 ```
+
+### Eraser (point / marquee)
+
+The **eraser opens a submenu on hover** (like Select), with two modes:
+
+- **Eraser** (point): a click deletes the element under the cursor.
+- **Marquee eraser**: a marquee (rectangle / polygon / lasso, like the selector) deletes **everything it touches**.
+
+Both modes delete **exactly the same set**: drawings, measures and symbols. **Markers are never erased**; neither are **locked** shapes. The marquee sub-mode (rect/poly/lasso) is the selector's (`selectMode`).
+
+**Host layers (paths / zones).** A path (`<PathLayer>`) or a zone (`<ShapeLayer>`) is erasable only if its data carries `erasable: true` (opt-in, protected by default). The library never mutates your props: it reports the erased host `id`s through `onErase`, and you remove them from your state.
+
+```tsx
+<Map
+  layers={[shapesLayer({ shapes }), pathsLayer({ paths })]} // shapes/paths with `erasable: true`
+  draw={{
+    onErase: (r) => {
+      // r.shapes      : library objects ALREADY removed (drawings/measures/symbols)
+      // r.paths       : ids of host paths to remove from YOUR state
+      // r.hostShapes  : ids of host zones to remove from YOUR state
+      const goneShapes = new Set(r.hostShapes)
+      const gonePaths = new Set(r.paths)
+      setShapes((prev) => prev.filter((s) => !goneShapes.has(s.id)))
+      setPaths((prev) => prev.filter((p) => !gonePaths.has(p.id)))
+    },
+  }}
+/>
+```
+
+**Limiting the eraser.** `config.erase.targets` (one boolean per category, all `true` by default) restricts what it can erase, in **both** modes:
+
+```tsx
+<Map config={{ erase: { targets: { measure: false, path: false } } }} />
+// the eraser no longer erases measures or paths; markers are never affected
+```
+
+Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // displayed, in this order

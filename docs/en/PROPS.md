@@ -148,6 +148,7 @@ Drawing tools and symbols.
 | `onShapeAdd` | **Per-shape** events — for an app doing CRUD by identity (one mutation per zone). Emitted at the moment of the change, without the coalescing of `onChange` which serialises the whole collection 1×/frame. Both can coexist. | — |
 | `onShapeUpdate` | Shape modified (move, resize, style). | — |
 | `onShapeDelete` | Shape deleted. | — |
+| `onErase` | The eraser removed objects (`EraseResult`: removed lib `shapes` + host `paths`/`hostShapes` ids to remove from your state). | — |
 | `onShapeEdit` | Double-click on a shape: intent to open a sheet — nothing has changed. | — |
 | `constraints` | Business rules for **user** drawing: allowed perimeters, maximum area. Programmatic mutations are not subject to them. | — |
 | `onReject` | Shape refused — wire it to your toast (the library displays nothing itself). | — |
@@ -237,6 +238,7 @@ Drawing toolbar.
 | `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.interaction.drawToolbarMinZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
+| `eraseModes` | Modes offered by the eraser flyout (default: point + marquee); a single one = no flyout. | — |
 | `measureTools` | Rows offered by the “Measure” button — only one (`measure`) exists today, so the submenu never opens: the button acts directly. The coordinate grid has moved to the view controls (`<MapControls>`, `config.graticule`); the submenu's chassis stays in place for a future row. | — |
 | `components` | Hides (`false`) or replaces (ReactNode) each section — default: everything displayed. | `{}` |
 | `extraTools` | **Application** tools rendered as primary items of the bar, after the native tools (drawing, symbols, lens): they take on the bar's visual language instead of floating in a corner of the map. They drive their own state, the bar does not… | — |

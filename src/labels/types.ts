@@ -1,5 +1,5 @@
 import type { DeepPartial } from '../theme/types'
-import type { DrawTool, MeasureTool, SelectMode } from '../layers/DrawLayer'
+import type { DrawTool, EraseMode, MeasureTool, SelectMode } from '../layers/DrawLayer'
 
 /**
  * Tous les textes affichés par la lib, **entièrement traduisibles** : aucun
@@ -245,6 +245,11 @@ export type MapLabels = {
    * distincte du label pour ne pas répéter le texte déjà visible.
    */
   selectModes: Record<SelectMode, { label: string; description: string }>
+  /**
+   * Modes du flyout de la gomme (ponctuelle / sélection) — même convention que
+   * `selectModes` : `label` = rangée du flyout, `description` = tooltip (avec le raccourci).
+   */
+  eraseModes: Record<EraseMode, { label: string; description: string }>
   /**
    * Ligne « bâtiment » du même sélecteur. Hors de `selectModes`, qui est indexé par
    * `SelectMode` : désigner un bâtiment n'est pas un mode de sélection de dessin, c'est un

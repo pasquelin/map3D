@@ -38,12 +38,15 @@ export function demoPaths(city: CityId): PathData[] {
   const { center, radiusMeters } = CITIES[city]
   const r = radiusMeters * 0.35
   return [
-    { id: `${city}-boucle`, points: arc(center, r, -30, 210), width: 8 },
+    // `erasable: true` : la gomme (mode sélection ou ponctuel) peut les effacer — la lib
+    // remonte leur id via `onErase`, à l'app de les retirer (cf. `App.tsx`).
+    { id: `${city}-boucle`, points: arc(center, r, -30, 210), width: 8, erasable: true },
     {
       id: `${city}-diagonale`,
       points: arc(center, r * 0.55, 200, 340, 16),
       color: '#f2b441',
       width: 6,
+      erasable: true,
     },
   ]
 }

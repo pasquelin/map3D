@@ -36,6 +36,14 @@ export type SelectHost = {
   /** Politique de sélectionnabilité courante (relue à chaud). */
   selectionPolicy?(): SelectablePolicy
   /**
+   * Outil gomme en mode marquee actif ? Tiré à la demande (comme `interaction()`), jamais
+   * recopié ici : un marquee finalisé EFFACE alors au lieu d'établir une sélection. La
+   * machine à états (rect/poly/lasso) est réutilisée telle quelle ; seule la finalisation
+   * diverge, vers `eraseMarquee` (le host gère collecte/suppression/`onErase`).
+   */
+  eraseActive?(): boolean
+  eraseMarquee?(selector: ScreenPt[]): void
+  /**
    * Seuils de geste courants. Lu à CHAQUE usage plutôt que capturé au montage : la
    * config change à chaud (bascule souris ↔ tactile), et une valeur figée à la
    * construction survivrait au changement.
@@ -305,14 +313,19 @@ export class SelectionManager {
       }
       return true
     }
-    const hit = latLng ? this.host.hitTest(latLng) : null
-    if (hit?.locked) {
-      this.host.onLockedHit(hit)
-      return true
-    }
-    if (hit && this.host.isSelectable(hit)) {
-      this.pressed = { id: hit.id, additive: e.shiftKey, start: s, dragging: false }
-      return true
+    // Mode gomme : jamais de sélection/édition au clic sur une forme — chaque geste
+    // démarre un marquee (le point sous le curseur est effacé via le marquee dégénéré,
+    // ou par la gomme ponctuelle, l'autre mode). On tombe donc directement au marquee.
+    if (!this.host.eraseActive?.()) {
+      const hit = latLng ? this.host.hitTest(latLng) : null
+      if (hit?.locked) {
+        this.host.onLockedHit(hit)
+        return true
+      }
+      if (hit && this.host.isSelectable(hit)) {
+        this.pressed = { id: hit.id, additive: e.shiftKey, start: s, dragging: false }
+        return true
+      }
     }
     // Aucune forme touchée : essayer un objet drapé externe (tracé) sous le curseur.
     const extId = this.host.externalHitTest?.(s.x, s.y, this.host.interaction().shapeHitTolerancePx)
@@ -411,6 +424,13 @@ export class SelectionManager {
     const markersOnly = this.marqueeMarkersOnly
     this.marqueeMarkersOnly = false
     if (!selector || selector.length < 3) {
+      this.host.selectionChanged()
+      return
+    }
+    // Gomme : le sélecteur n'établit rien, il efface. Le host collecte/supprime/émet
+    // `onErase` ; la sélection reste vide (pas de contour ni de poignées résiduels).
+    if (this.host.eraseActive?.()) {
+      this.host.eraseMarquee?.(selector)
       this.host.selectionChanged()
       return
     }

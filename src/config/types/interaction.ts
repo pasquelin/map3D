@@ -207,6 +207,10 @@ export type DrawToolShortcuts = {
   measure: string | false
   /** Gomme. */
   erase: string | false
+  /** Gomme ponctuelle (sous-mode) — défaut désactivé, la gomme s'active par `erase`. */
+  erasePoint: string | false
+  /** Gomme sélection / marquee (sous-mode) — défaut désactivé. */
+  eraseSelect: string | false
   /** Palette de symboles tactiques. */
   symbol: string | false
 }

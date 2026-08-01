@@ -186,6 +186,15 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `selectModes.lasso.label` | Modes du flyout de sélection (marquee rectangle / polygone / lasso) : `label` = rangée du flyout, `description` = tooltip (avec le raccourci) — distincte du label pour ne pas répéter le texte déjà visible. | `'Lasso'` |
 | `selectModes.lasso.description` | Modes du flyout de sélection (marquee rectangle / polygone / lasso) : `label` = rangée du flyout, `description` = tooltip (avec le raccourci) — distincte du label pour ne pas répéter le texte déjà visible. | `'Sélection au lasso'` |
 
+## `eraseModes` — Modes de la gomme
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `eraseModes.point.label` | Modes du flyout de la gomme (ponctuelle / sélection) : `label` = rangée du flyout, `description` = tooltip (avec le raccourci). | `'Gomme'` |
+| `eraseModes.point.description` | Idem — infobulle du mode ponctuel. | `'Effacer un élément au clic'` |
+| `eraseModes.select.label` | Idem — rangée du mode sélection. | `'Gomme sélection'` |
+| `eraseModes.select.description` | Idem — infobulle du mode sélection. | `'Effacer tout ce que la sélection touche'` |
+
 ## `style` — Panneau de style
 
 | Clé | Description | Défaut |

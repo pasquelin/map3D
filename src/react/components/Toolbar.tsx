@@ -9,7 +9,7 @@ import {
 import { UiIcon } from './UiIcon'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
-import type { DrawTool, MeasureTool, SelectMode } from '../../layers/DrawLayer'
+import type { DrawTool, EraseMode, MeasureTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, useConfig, useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
@@ -18,6 +18,7 @@ import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
 import { MeasureToolButton } from './MeasureToolButton'
+import { EraseToolButton } from './EraseToolButton'
 import { useFitColumns } from './panelFit'
 import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
@@ -33,6 +34,7 @@ export type DrawToolbarSection =
   | 'select'
   | 'symbol'
   | 'measure'
+  | 'erase'
   | 'lens'
   | 'plugins'
   | 'stylePanel'
@@ -50,6 +52,8 @@ export type DrawToolbarProps = {
   tools?: DrawTool[]
   /** Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. */
   selectModes?: SelectMode[]
+  /** Modes proposés par le flyout de la gomme (défaut : ponctuelle + sélection) ; un seul = pas de flyout. */
+  eraseModes?: EraseMode[]
   /**
    * Rangées proposées par le sous-menu « Mesures » (défaut : mesurer + grille) ; une seule =
    * pas de sous-menu, le bouton redevient un simple outil. `['measure']` retire donc la
@@ -188,6 +192,7 @@ export function Toolbar({
   minZoom: minZoomProp,
   tools = DEFAULT_DRAW_TOOLS,
   selectModes,
+  eraseModes,
   measureTools,
   components = {},
   extraTools,
@@ -313,6 +318,9 @@ export function Toolbar({
             // vignette crée la forme. Rendu ici pour qu'il prenne sa place dans
             // l'ordre de `tools`, comme n'importe quel autre outil.
             slot('symbol', <SymbolPaletteButton key={t} position={position} />)
+          ) : t === 'erase' ? (
+            // Parent d'un sous-menu (gomme ponctuelle / sélection), comme `select`.
+            slot('erase', <EraseToolButton key={t} position={position} modes={eraseModes} />)
           ) : (
             <ToolButton
               key={t}

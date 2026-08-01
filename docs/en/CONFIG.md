@@ -209,6 +209,8 @@ compile error.
 | `interaction.shortcuts.draw.arrow` | Arrow. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Measuring tool. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Eraser. | `'e'` |
+| `interaction.shortcuts.draw.erasePoint` | Point eraser (sub-mode). No default key. | `false` |
+| `interaction.shortcuts.draw.eraseSelect` | Marquee eraser (sub-mode). No default key. | `false` |
 | `interaction.shortcuts.draw.symbol` | Tactical symbols palette. | `'y'` |
 | `interaction.shortcuts.edit.undo.key` | Undo. | `'z'` |
 | `interaction.shortcuts.edit.undo.mod` | Undo. | `'mod'` |
@@ -533,3 +535,8 @@ Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **seria
 | `selection.selectable.marker` | Whether markers are selectable by the selection tool. | `true` |
 | `selection.selectable.path` | Whether paths are selectable by the selection tool. | `true` |
 | `selection.selectable.cluster` | Whether clusters are selectable (→ selects their child markers). | `true` |
+| `erase.targets.drawing` | Whether the eraser can delete drawings (line/polygon/rect/circle/freehand/arrow). | `true` |
+| `erase.targets.measure` | Whether the eraser can delete measurements. | `true` |
+| `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
+| `erase.targets.path` | Whether the eraser can delete host paths marked `erasable` (`PathLayer`). | `true` |
+| `erase.targets.shape` | Whether the eraser can delete host shapes marked `erasable` (`ShapeLayer`). | `true` |

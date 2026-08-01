@@ -63,6 +63,7 @@ import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
 import { SelectableRegistry } from './Selectables'
+import { ErasableRegistry } from './Erasables'
 import { CatalogRegistry } from '../catalog/registry'
 import { CatalogStore } from '../catalog/store'
 import { SearchRegistry } from '../search/registry'
@@ -384,6 +385,8 @@ export class MapEngine {
   readonly enrichment: PluginEnrichment
   /** Registre des sélectionnables externes (markers) consommé par l'outil sélection. */
   readonly selectables = new SelectableRegistry()
+  /** Registre des objets hôte (routes/formes `erasable`) que la gomme peut effacer — SÉPARÉ de `selectables`. */
+  readonly erasables = new ErasableRegistry()
   /** Registre d'inventaire des markers (données sources, clusters inclus) consommé par l'outil loupe. */
   readonly markers = new MarkerRegistry()
   /**

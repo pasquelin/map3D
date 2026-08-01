@@ -33,6 +33,7 @@ import type { CatalogConfig } from './catalog'
 import type { WatermarkConfig } from './watermark'
 import type { CaptureConfig } from './capture'
 import type { SelectionConfig } from './selection'
+import type { EraseConfig } from './erase'
 
 export * from './common'
 export * from './providers'
@@ -51,6 +52,7 @@ export * from './catalog'
 export * from './watermark'
 export * from './capture'
 export * from './selection'
+export * from './erase'
 
 export type MapConfig = {
   providers: ProvidersConfig
@@ -77,6 +79,8 @@ export type MapConfig = {
   capture: CaptureConfig
   /** Politique de sélectionnabilité (quels types l'outil sélection peut atteindre) — cf. `SelectionConfig`. */
   selection: SelectionConfig
+  /** Politique de la gomme : ce qu'elle est autorisée à effacer — cf. `EraseConfig`. */
+  erase: EraseConfig
 }
 
 /** Ce que fournit l'application : n'importe quel sous-arbre de `MapConfig`. */

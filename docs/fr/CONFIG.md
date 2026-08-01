@@ -206,6 +206,8 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.draw.arrow` | Flèche. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Règle de mesure. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Gomme. | `'e'` |
+| `interaction.shortcuts.draw.erasePoint` | Gomme ponctuelle (sous-mode). Pas de touche par défaut. | `false` |
+| `interaction.shortcuts.draw.eraseSelect` | Gomme sélection / marquee (sous-mode). Pas de touche par défaut. | `false` |
 | `interaction.shortcuts.draw.symbol` | Palette de symboles tactiques. | `'y'` |
 | `interaction.shortcuts.edit.undo.key` | Annuler. | `'z'` |
 | `interaction.shortcuts.edit.undo.mod` | Annuler. | `'mod'` |
@@ -532,3 +534,8 @@ Défauts de la capture (« Prendre une photo » et `engine.capture()`). Ne conti
 | `selection.selectable.marker` | Les markers sont-ils sélectionnables par l'outil sélection. | `true` |
 | `selection.selectable.path` | Les tracés sont-ils sélectionnables par l'outil sélection. | `true` |
 | `selection.selectable.cluster` | Les clusters sont-ils sélectionnables (→ sélectionne leurs markers enfants). | `true` |
+| `erase.targets.drawing` | La gomme peut-elle effacer les dessins (line/polygon/rect/circle/freehand/arrow). | `true` |
+| `erase.targets.measure` | La gomme peut-elle effacer les mesures. | `true` |
+| `erase.targets.symbol` | La gomme peut-elle effacer les symboles. | `true` |
+| `erase.targets.path` | La gomme peut-elle effacer les tracés hôte marqués `erasable` (`PathLayer`). | `true` |
+| `erase.targets.shape` | La gomme peut-elle effacer les formes hôte marquées `erasable` (`ShapeLayer`). | `true` |

@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef } from 'react'
 import { centerOfBounds } from '../../core/bounds'
-import { boundsOfShape, ShapeLayer as CoreShapeLayer, type ShapeData } from '../../layers/ShapeLayer'
+import { boundsOfShape, ringOfShape, ShapeLayer as CoreShapeLayer, type ShapeData } from '../../layers/ShapeLayer'
 import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMatch } from '../../search/match'
 import { emptyResult, SHAPE_GROUP } from '../../search/registry'
 import type { Bounds } from '../../shared'
@@ -82,6 +82,24 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
     )
   }, [engine, shapes, groupLabel, theme, searchSource])
   useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
+
+  // Expose les formes hôte `erasable` à la gomme (via `engine.erasables`). `items()` lit la
+  // liste courante par ref (`latest`) — provider monté une fois, la gomme interroge au besoin.
+  useEffect(
+    () =>
+      engine.erasables.register({
+        items: () =>
+          latest.current
+            .filter((s) => s.erasable && s.id != null)
+            .map((s) => ({
+              id: s.id!,
+              ring: ringOfShape(s),
+              closed: s.kind !== 'line' && s.kind !== 'arrow',
+              kind: 'shape' as const,
+            })),
+      }),
+    [engine],
+  )
 
   return null
 }

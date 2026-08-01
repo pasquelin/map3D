@@ -158,12 +158,22 @@ export function App() {
   // Surfaces d'interface montées par `<Map>` : présence, position, et le découpage au
   // bouton près (cf. `uiSettings`). Piloté par l'onglet « Interface ».
   const [ui, setUi] = useState<UiSettings>(defaultUiSettings)
+  // Ids des couches HÔTE (routes/zones `erasable`) que la gomme a effacées : la lib ne mute
+  // pas les props, l'app retire donc elle-même ces objets de son state (cf. `onErase`).
+  const [erasedHostIds, setErasedHostIds] = useState<ReadonlySet<string | number>>(() => new Set())
 
   // Alertes + agents + point éditable dans un SEUL layer → clusterisés ensemble
   // (comme la référence). Les défibrillateurs y entrent aussi : ils sont `static`,
   // donc la lib les masque sous `markers.staticMinZoom` — au-dessus, ils clusterisent
   // et prennent leur part de camembert comme n'importe quel type.
   const allMarkers: MarkerData<AnyData>[] = scene.markers
+  // Couches hôte visibles = tout sauf ce que la gomme a effacé. Mémoïsé : un nouveau tableau
+  // à chaque rendu ferait reconstruire toutes les géométries drapées (cf. `useDemoScene`).
+  const visibleShapes = useMemo(
+    () => scene.shapes.filter((s) => s.id == null || !erasedHostIds.has(s.id)),
+    [scene.shapes, erasedHostIds],
+  )
+  const visiblePaths = useMemo(() => DEMO_PATHS.filter((p) => p.id == null || !erasedHostIds.has(p.id)), [erasedHostIds])
   const selectedMarker = useMemo(
     () => (selected === undefined ? undefined : allMarkers.find((m) => String(m.id) === selected)),
     [allMarkers, selected],
@@ -414,6 +424,15 @@ export function App() {
         },
         onShapeUpdate: (s) => console.log('[draw] ~ forme', s.id, s.meta),
         onShapeDelete: (s) => console.log('[draw] − forme', s.id, s.meta),
+        // Gomme : la lib efface elle-même ses propres objets (dessins/symboles/mesures) et
+        // remonte ici les ids des couches HÔTE `erasable` (routes/zones) — c'est à l'app de
+        // les retirer de son state, la lib ne mute pas les props. On collecte ces ids et on
+        // filtre les couches ci-dessous.
+        onErase: (r) => {
+          console.log('[draw] gomme →', r.shapes.length, 'objets lib,', r.paths.length, 'routes,', r.hostShapes.length, 'zones hôte')
+          if (r.paths.length || r.hostShapes.length)
+            setErasedHostIds((prev) => new Set([...prev, ...r.paths, ...r.hostShapes]))
+        },
         onShapeEdit: (s) => console.log('[draw] ✎ double-clic → ouvrir la fiche de', s.meta ?? s.id),
         // Contraintes métier : toute forme doit tenir dans la zone d'une ville et ne
         // pas dépasser le plafond d'aire. Le périmètre lui-même est affiché par la
@@ -546,12 +565,14 @@ export function App() {
           layers={[
             // `limits` (contraintes du dessin) ne prend que DEMO_SHAPES : les bâtiments
             // et les volumes sont là pour l'œil, ils n'autorisent aucune zone.
-            shapesLayer({ shapes: scene.shapes }),
+            // `visibleShapes` = zones moins celles effacées à la gomme (elles portent
+            // `erasable: true`, cf. `data/shapes`) — la lib les remonte via `onErase`.
+            shapesLayer({ shapes: visibleShapes }),
             // Tracés drapés : rubans à épaisseur en MÈTRES (ils grossissent au zoom,
             // contrairement aux traits de dessin qui restent en pixels écran), avec une
             // tête animée en bout de parcours. C'est aussi ce qui rend la ligne « tracés »
-            // du panneau de diagnostic démontrable.
-            pathsLayer({ paths: DEMO_PATHS }),
+            // du panneau de diagnostic démontrable. `erasable: true` → effaçables à la gomme.
+            pathsLayer({ paths: visiblePaths }),
             markersLayer<AnyData>({
               points: allMarkers,
               getId: (m) => m.id,

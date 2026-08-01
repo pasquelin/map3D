@@ -25,6 +25,9 @@ export const DEMO_SHAPES: ShapeData[] = CITY_LIST.map((c) => ({
   radiusMeters: c.radiusMeters,
   color: ZONE_STROKE,
   fillOpacity: 0.1,
+  // Effaçable à la gomme : la lib remonte l'id via `onErase`, l'app la retire (cf. `App.tsx`).
+  // Les bâtiments/volumes ci-dessous restent NON effaçables (pas d'`erasable`) : structurels.
+  erasable: true,
 }))
 
 /* ── Emprises de bâtiments ─────────────────────────────────────────────────────

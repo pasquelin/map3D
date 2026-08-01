@@ -89,6 +89,10 @@ export const interactionDefaults: InteractionConfig = {
       arrow: 'a',
       measure: 'm',
       erase: 'e',
+      // Sous-modes de la gomme : pas de touche dédiée (la gomme s'active par `erase`, le
+      // sous-mode se choisit dans le flyout). Remappables par l'hôte si besoin.
+      erasePoint: false,
+      eraseSelect: false,
       symbol: 'y',
     },
     edit: {

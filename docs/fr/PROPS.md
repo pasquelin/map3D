@@ -145,6 +145,7 @@ Outils de dessin et symboles.
 | `onShapeAdd` | Events **par forme** — pour une app qui fait du CRUD par identité (une mutation par zone). Émis au moment du changement, sans la coalescence de `onChange` qui sérialise toute la collection 1×/frame. Les deux peuvent cohabiter. | — |
 | `onShapeUpdate` | Forme modifiée (déplacement, redimensionnement, style). | — |
 | `onShapeDelete` | Forme supprimée. | — |
+| `onErase` | La gomme a effacé des objets (`EraseResult` : `shapes` lib retirés + ids `paths`/`hostShapes` hôte à retirer de votre state). | — |
 | `onShapeEdit` | Double-clic sur une forme : intention d'ouvrir une fiche — rien n'a changé. | — |
 | `constraints` | Règles métier du dessin **utilisateur** : périmètres autorisés, aire maximale. Les mutations programmatiques n'y sont pas soumises. | — |
 | `onReject` | Forme refusée — à brancher sur votre toast (la lib n'affiche rien d'elle-même). | — |
@@ -234,6 +235,7 @@ Barre d'outils de dessin.
 | `minZoom` | Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. | `config.interaction.drawToolbarMinZoom` |
 | `tools` | Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. | — |
+| `eraseModes` | Modes proposés par le flyout de la gomme (défaut : ponctuelle + sélection) ; un seul = pas de flyout. | — |
 | `measureTools` | Rangées proposées par le bouton « Mesures » — une seule (`measure`) existe aujourd'hui, donc le sous-menu ne s'ouvre pas : le bouton agit directement. La grille de coordonnées a rejoint les contrôles de vue (`<MapControls>`, `config.graticule`) ; le châssis du sous-menu reste en place pour une rangée future. | — |
 | `components` | Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. | `{}` |
 | `extraTools` | Outils **de l'application** rendus en items principaux de la barre, après les outils natifs (dessin, symboles, loupe) : ils prennent le langage visuel de la barre au lieu de flotter dans un coin de la carte. Ils pilotent leur propre état, la barre ne les… | — |

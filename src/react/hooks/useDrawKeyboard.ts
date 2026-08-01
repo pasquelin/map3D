@@ -1,10 +1,10 @@
 import { type RefObject, useEffect, useRef } from 'react'
 import type { MapEngine } from '../../core/MapEngine'
 import type { DrawAction, LensApi } from '../context'
-import { type DrawLayer as CoreDrawLayer, type DrawTool, type SelectMode } from '../../layers/DrawLayer'
+import { type DrawLayer as CoreDrawLayer, type DrawTool, type EraseMode, type SelectMode } from '../../layers/DrawLayer'
 import type { DrawToolShortcuts, EditShortcuts } from '../../config/types'
 import { inTextInput, matchesEdit, plainKey } from '../components/shortcuts'
-import { SELECT_MODE_META } from '../components/drawControls'
+import { ERASE_MODE_META, SELECT_MODE_META } from '../components/drawControls'
 import type { PedestrianApi } from './usePedestrian'
 
 /** Table de raccourcis effective, telle que consommée par le dispatch clavier. */
@@ -26,6 +26,7 @@ export function useDrawKeyboard({
   releaseSpaceRef,
   setTool,
   setSelectMode,
+  setEraseMode,
   shortcuts,
   drawKeys,
   editKeys,
@@ -40,6 +41,7 @@ export function useDrawKeyboard({
   releaseSpaceRef: RefObject<() => void>
   setTool: (t: DrawTool | null) => void
   setSelectMode: (m: SelectMode) => void
+  setEraseMode: (m: EraseMode) => void
   shortcuts: ShortcutTable | undefined
   drawKeys: DrawToolShortcuts
   editKeys: EditShortcuts
@@ -156,6 +158,7 @@ export function useDrawKeyboard({
         )
         if (!found) return
         const modeMeta = SELECT_MODE_META.find((m) => m.action === found[0])
+        const eraseMeta = ERASE_MODE_META.find((m) => m.action === found[0])
         if (found[0] === 'selectBuilding') {
           // Ligne « bâtiment » du sélecteur : un outil du MOTEUR, pas du dessin. Le moteur
           // refuse de lui-même hors volume interne, et `useYieldsTool` retire l'outil de
@@ -167,6 +170,10 @@ export function useDrawKeyboard({
           // Raccourci d'un mode de sélection : choisit le mode ET active l'outil.
           setSelectMode(modeMeta.mode)
           if (toolRef.current !== 'select') setTool('select')
+        } else if (eraseMeta) {
+          // Raccourci d'un sous-mode de gomme : choisit le mode ET active l'outil.
+          setEraseMode(eraseMeta.mode)
+          if (toolRef.current !== 'erase') setTool('erase')
         } else {
           setTool(found[0] as DrawTool)
         }

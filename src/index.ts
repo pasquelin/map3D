@@ -64,6 +64,10 @@ export type {
   SelectablePolicy,
   PickModifiers,
 } from './core/Selectables'
+// Registre des objets hôte effaçables par la gomme (`engine.erasables`) — miroir de
+// `selectables` : une couche custom y branche son provider pour être effaçable au marquee.
+export { ErasableRegistry } from './core/Erasables'
+export type { ErasableProvider, ErasableItem } from './core/Erasables'
 // Registre du drag-and-drop générique (`engine.drag`) : source de vérité de
 // l'état, zones de dépôt, payload typé. Piloté par la couche React.
 export { DragRegistry } from './core/DragRegistry'
@@ -102,6 +106,9 @@ export type {
   GeoJSONFeatureCollection,
   MeasureTool,
   SelectMode,
+  EraseMode,
+  EraseResult,
+  EraseTarget,
   DrawStyle,
   StrokeStyle,
   Drawing,
@@ -187,6 +194,8 @@ export type {
   PedestrianTransitionsConfig,
   PedestrianShortcuts,
   WatermarkConfig,
+  EraseConfig,
+  HostLayerKind,
 } from './config/types'
 /**
  * Sources de tuiles 2D. Exposées pour qu'un hôte puisse brancher son propre

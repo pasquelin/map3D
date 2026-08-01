@@ -13,6 +13,7 @@ import type {
   DrawStyle,
   DrawTool,
   DrawnShape,
+  EraseMode,
   GeoJSONFeatureCollection,
   MutateOptions,
   NewShape,
@@ -108,6 +109,9 @@ export type DrawingApi = {
   /** Mode de l'outil sélection : marquee rectangle, polygone ou lasso libre. */
   selectMode: SelectMode
   setSelectMode: (mode: SelectMode) => void
+  /** Sous-mode de la gomme : effacer au clic (`point`) ou par marquee (`select`). */
+  eraseMode: EraseMode
+  setEraseMode: (mode: EraseMode) => void
   /** Ids des formes sélectionnées (ordre de la collection). */
   selection: readonly string[]
   /** Ids des markers sélectionnés (multi-sélection de l'outil sélection). */
@@ -228,7 +232,7 @@ export type DrawingApi = {
  * mais il n'arme aucun outil de dessin : c'est le pick de bâtiment du moteur, et il quitte
  * le dessin au lieu de s'y ajouter.
  */
-export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso' | 'selectBuilding'
+export type DrawAction = 'selectRect' | 'selectPoly' | 'selectLasso' | 'selectBuilding' | 'erasePoint' | 'eraseSelect'
 
 export const DrawingContext = createContext<DrawingApi | null>(null)
 

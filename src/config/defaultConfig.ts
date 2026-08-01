@@ -25,6 +25,7 @@ import { catalogDefaults } from './defaults/catalog'
 import { watermarkDefaults } from './defaults/watermark'
 import { captureDefaults } from './defaults/capture'
 import { selectionDefaults } from './defaults/selection'
+import { eraseDefaults } from './defaults/erase'
 
 export const defaultConfig: MapConfig = {
   providers: providersDefaults,
@@ -43,4 +44,5 @@ export const defaultConfig: MapConfig = {
   watermark: watermarkDefaults,
   capture: captureDefaults,
   selection: selectionDefaults,
+  erase: eraseDefaults,
 }

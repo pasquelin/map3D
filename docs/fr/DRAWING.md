@@ -54,7 +54,7 @@ Montage manuel :
 | Main levée | `H` | tracé continu |
 | Flèche | `A` | polyligne + tête |
 | Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance — **parent d'un sous-menu** (cf. ci-dessous) |
-| Gomme | `E` | supprime au clic — formes **et** symboles (clic sur l'icône ou le point au sol) |
+| Gomme | `E` | supprime au clic ou par marquee — **parent d'un sous-menu** (cf. ci-dessous) |
 | Symboles | `Y` | ouvre la palette (cf. [SYMBOLS.md](SYMBOLS.md)) |
 
 La **règle ouvre un sous-menu au survol**, comme le bouton Sélection — mais avec une
@@ -66,6 +66,43 @@ de la barre — cf. [GRATICULE.md](GRATICULE.md).
 ```tsx
 <Toolbar measureTools={['measure']} />   // une seule rangée = pas de sous-menu
 ```
+
+### Gomme (ponctuelle / sélection)
+
+La **gomme ouvre un sous-menu au survol** (comme la sélection), avec deux modes :
+
+- **Gomme** (ponctuelle) : un clic efface l'élément sous le curseur.
+- **Gomme sélection** : un marquee (rectangle / polygone / lasso, comme le sélecteur) efface **tout ce qu'il touche**.
+
+Les deux modes suppriment **exactement le même ensemble** : dessins, mesures et symboles. Les **markers ne sont jamais effacés** ; les **formes verrouillées** non plus. Le sous-mode du marquee (rect/poly/lasso) est celui du sélecteur (`selectMode`).
+
+**Couches hôte (routes / zones).** Une route (`<PathLayer>`) ou une zone (`<ShapeLayer>`) n'est effaçable que si sa donnée porte `erasable: true` (opt-in, protégé par défaut). La lib ne mute pas vos props : elle remonte l'`id` des objets hôte effacés via `onErase`, à vous de les retirer de votre state.
+
+```tsx
+<Map
+  layers={[shapesLayer({ shapes }), pathsLayer({ paths })]} // shapes/paths avec `erasable: true`
+  draw={{
+    onErase: (r) => {
+      // r.shapes      : objets de la lib DÉJÀ retirés (dessins/mesures/symboles)
+      // r.paths       : ids des routes hôte à retirer de VOTRE state
+      // r.hostShapes  : ids des zones hôte à retirer de VOTRE state
+      const goneShapes = new Set(r.hostShapes)
+      const gonePaths = new Set(r.paths)
+      setShapes((prev) => prev.filter((s) => !goneShapes.has(s.id)))
+      setPaths((prev) => prev.filter((p) => !gonePaths.has(p.id)))
+    },
+  }}
+/>
+```
+
+**Limiter la gomme.** `config.erase.targets` (un booléen par catégorie, tout `true` par défaut) restreint ce qu'elle peut effacer, dans les **deux** modes :
+
+```tsx
+<Map config={{ erase: { targets: { measure: false, path: false } } }} />
+// la gomme n'efface plus les mesures ni les routes ; les markers ne sont jamais concernés
+```
+
+Catégories : `drawing`, `measure`, `symbol` (objets de la lib), `path`, `shape` (couches hôte — `path`/`shape` partagent le vocabulaire de `config.selection.selectable`).
 
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // affichés, dans cet ordre

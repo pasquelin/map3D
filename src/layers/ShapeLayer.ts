@@ -32,7 +32,16 @@ export type ShapeStyle = {
  * même rôle que `MarkerData.title` : ce que la recherche indexe et ce que les
  * listes affichent. Sans lui, une zone n'est trouvable par personne.
  */
-type ShapeIdentity = { id?: string | number; title?: string }
+type ShapeIdentity = {
+  id?: string | number
+  title?: string
+  /**
+   * Opt-in : autorise la **gomme** à effacer cette forme hôte (défaut protégé). La
+   * lib ne mute pas les props — elle remonte l'`id` via `onErase` pour que l'app le
+   * retire de son state. Un `id` est requis pour être ciblable.
+   */
+  erasable?: boolean
+}
 
 export type ShapeData = ShapeStyle &
   ShapeIdentity &

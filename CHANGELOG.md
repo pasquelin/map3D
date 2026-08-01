@@ -36,6 +36,30 @@ ses **markers enfants** (réutilise le pattern catalogue).
   **population distincte** (jamais mêlée aux markers). Rétrocompatible (arg optionnel).
 - Nouveau `theme.colors.path.selected`. Nouveaux `labels.selection.pathsGroup` / `pathItem`.
 
+### Gomme (ponctuelle + sélection)
+
+L'outil **gomme** de la barre de dessin ouvre désormais un **sous-menu au survol** (comme la
+sélection) avec deux modes qui suppriment **exactement le même ensemble** (iso) :
+
+- **Gomme** ponctuelle : un clic efface l'élément sous le curseur (comportement existant, unifié).
+- **Gomme sélection** : un marquee (rectangle / polygone / lasso, comme le sélecteur) efface
+  **tout ce qu'il touche** — dessins, mesures et symboles. Les **markers** ne sont **jamais**
+  effacés ; les formes **verrouillées** non plus.
+
+- **Couches hôte effaçables** : une route (`PathData`) ou une forme hôte (`ShapeData`) porte un
+  opt-in **`erasable: true`** (protégé par défaut). La lib ne mute pas les props : elle remonte
+  les ids effacés via le nouveau callback **`onErase`** (`EraseResult` : `shapes` + `paths` +
+  `hostShapes`), à l'app de les retirer de son state. `onErase` remonte **tout** ce qui a disparu.
+- **Politique configurable** **`config.erase.targets`** (`EraseConfig`, un booléen par catégorie,
+  tout `true` par défaut) restreint la gomme dans les deux modes. Clés : `drawing`, `measure`,
+  `symbol` (objets lib), `path`, `shape` (couches hôte — `path`/`shape` partagent le vocabulaire
+  de `config.selection.selectable`).
+- Nouveaux types publics : `EraseMode`, `EraseResult`, `EraseTarget`, `EraseConfig`. Registre
+  moteur `engine.erasables` (séparé de `engine.selectables`). API `useDrawing()` :
+  `eraseMode`/`setEraseMode` ; `<Toolbar eraseModes>`.
+- Perf : hit-test des objets hôte uniquement au finalize du marquee / au clic (jamais par frame),
+  buffer scratch réutilisé, une seule entrée d'historique par passe.
+
 ### Signature « map3D » (attribution)
 
 Une signature **« map3D »** est désormais apposée en **bas à droite** de la carte, liée au

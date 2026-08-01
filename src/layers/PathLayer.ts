@@ -21,6 +21,12 @@ export type PathData = {
   width?: number
   casing?: boolean
   casingColor?: string
+  /**
+   * Opt-in : autorise la **gomme** à effacer ce tracé (défaut protégé). La lib ne
+   * mute pas les props — elle remonte l'`id` via `onErase` pour que l'app le retire
+   * de son state. Un `id` est requis pour être ciblable.
+   */
+  erasable?: boolean
 }
 
 export type PathLayerDefaults = {

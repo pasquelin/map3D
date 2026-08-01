@@ -63,6 +63,23 @@ export function shapeTouchesSelector(
   return false
 }
 
+/**
+ * Un point écran touche-t-il un contour projeté ? Trait à `tolPx` près (point unique,
+ * ou distance point→segment sur chaque arête), plus l'intérieur si le contour est fermé.
+ * Primitif partagé par le hit-test des dessins et celui des objets hôte effaçables.
+ */
+export function contourHitsPoint(sp: ScreenPt, pts: readonly ScreenPt[], closed: boolean, tolPx: number): boolean {
+  if (pts.length === 0) return false
+  if (pts.length === 1) return Math.hypot(sp.x - pts[0]!.x, sp.y - pts[0]!.y) < tolPx
+  const segs = closed ? pts.length : pts.length - 1
+  for (let k = 0; k < segs; k++) {
+    const a = pts[k]!
+    const b = pts[(k + 1) % pts.length]!
+    if (segDistPx(sp.x, sp.y, a.x, a.y, b.x, b.y) < tolPx) return true
+  }
+  return closed && pts.length >= 3 && pointInPolygon(sp, pts)
+}
+
 /** Bbox écran d'un ensemble de points (null si vide). */
 export function screenBBox(points: readonly ScreenPt[]): ScreenBBox | null {
   if (points.length === 0) return null

@@ -8,6 +8,7 @@ import {
   mdiLasso,
   mdiRuler,
   mdiSelect,
+  mdiSelectionRemove,
   mdiSwapHorizontal,
   mdiVectorLine,
   mdiVectorPolygon,
@@ -17,7 +18,7 @@ import {
 import { UiIcon } from './UiIcon'
 import type { ReactNode } from 'react'
 import { formatLabel } from '../../labels/mergeLabels'
-import type { DrawStyle, DrawTool, MeasureTool, SelectMode, StrokeStyle } from '../../layers/DrawLayer'
+import type { DrawStyle, DrawTool, EraseMode, MeasureTool, SelectMode, StrokeStyle } from '../../layers/DrawLayer'
 import { useDrawPresets, useLabels } from '../context'
 
 /** Icône de chaque outil (toolbar, panneau Réglages) — libellés dans `labels.tools`. */
@@ -90,6 +91,22 @@ export const SELECT_MODE_META: Array<{
  * demande donc aussi son branchement clavier : cette table ne le donne pas.
  */
 export const MEASURE_TOOL_META: Array<{ tool: MeasureTool; icon: string }> = [{ tool: 'measure', icon: mdiRuler }]
+
+/**
+ * Modes de la gomme : correspondance mode ↔ action clavier ↔ icône — table unique
+ * consommée par le flyout du bouton gomme ET le dispatch clavier (ajouter un mode =
+ * une ligne ici + son raccourci par défaut + son libellé `labels.eraseModes`). Même
+ * châssis que `SELECT_MODE_META`. Le mode `select` réutilise le sous-mode rect/poly/lasso
+ * de l'outil sélection (pas de 2ᵉ enum).
+ */
+export const ERASE_MODE_META: Array<{
+  mode: EraseMode
+  action: 'erasePoint' | 'eraseSelect'
+  icon: string
+}> = [
+  { mode: 'point', action: 'erasePoint', icon: mdiEraser },
+  { mode: 'select', action: 'eraseSelect', icon: mdiSelectionRemove },
+]
 
 /** Les valeurs de `StrokeStyle` sont exactement les mots-clés CSS `border-style`
  *  correspondants : l'aperçu les utilise telles quelles, sans table de conversion. */

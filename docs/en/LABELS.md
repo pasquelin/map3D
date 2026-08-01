@@ -194,6 +194,15 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selectModes.lasso.label` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Lasso'` |
 | `selectModes.lasso.description` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Sélection au lasso'` |
 
+## `eraseModes` — Eraser modes
+
+| Key | Description | Default |
+|---|---|---|
+| `eraseModes.point.label` | Modes of the eraser flyout (point / marquee): `label` = flyout row, `description` = tooltip (with the shortcut). | `'Gomme'` |
+| `eraseModes.point.description` | Same — point-mode tooltip. | `'Effacer un élément au clic'` |
+| `eraseModes.select.label` | Same — marquee-mode row. | `'Gomme sélection'` |
+| `eraseModes.select.description` | Same — marquee-mode tooltip. | `'Effacer tout ce que la sélection touche'` |
+
 ## `style` — Style panel
 
 | Key | Description | Default |

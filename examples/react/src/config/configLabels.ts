@@ -104,9 +104,12 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   capture: 'Capture d’image',
   selection: 'Sélection',
   'selection.selectable': 'Types sélectionnables',
+  erase: 'Gomme',
+  'erase.targets': 'Ce que la gomme efface',
 }
 
-/** Feuilles — les 197 de `defaultConfig`, plus les 3 clés optionnelles du type. */
+/** Feuilles — toutes celles de `defaultConfig`, plus les clés optionnelles du type
+ *  (couverture vérifiée par `configLabels.test.ts`, pas un compte figé). */
 export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   // ── providers.tiles ────────────────────────────────────────────────────────
   'providers.internal.origin': 'origine du serveur',
@@ -289,6 +292,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.draw.arrow': 'flèche',
   'interaction.shortcuts.draw.measure': 'règle de mesure',
   'interaction.shortcuts.draw.erase': 'gomme',
+  'interaction.shortcuts.draw.erasePoint': 'gomme ponctuelle',
+  'interaction.shortcuts.draw.eraseSelect': 'gomme sélection',
   'interaction.shortcuts.draw.symbol': 'palette de symboles',
 
   'interaction.shortcuts.edit.undo': 'annuler',
@@ -543,4 +548,11 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'selection.selectable.marker': 'markers sélectionnables',
   'selection.selectable.path': 'tracés sélectionnables',
   'selection.selectable.cluster': 'clusters sélectionnables',
+
+  // ── erase ────────────────────────────────────────────────────────────────
+  'erase.targets.drawing': 'dessins (formes tracées)',
+  'erase.targets.measure': 'mesures',
+  'erase.targets.symbol': 'symboles',
+  'erase.targets.path': 'tracés hôte (routes)',
+  'erase.targets.shape': 'formes hôte',
 }

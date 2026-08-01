@@ -11,6 +11,7 @@ import { boundsContains } from '../core/MarkerQuery'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
 import type { SelectableRegistry } from '../core/Selectables'
+import type { ErasableItem, ErasableRegistry } from '../core/Erasables'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
 import { sameShape } from './draw/shapeEquality'
@@ -18,7 +19,14 @@ import { polygonAreaM2, predicateSegments, ringInsideRing } from '../core/geodes
 import { ringOfShape, type ShapeData } from './ShapeLayer'
 import { EditController, type HandleId } from './draw/EditController'
 import { History } from './draw/History'
-import { type ScreenPt, pointInPolygon, screenBBox, segDistPx } from './draw/hitTest'
+import {
+  type ScreenPt,
+  contourHitsPoint,
+  pointInPolygon,
+  screenBBox,
+  segDistPx,
+  shapeTouchesSelector,
+} from './draw/hitTest'
 import { type SelectMode, SelectionManager } from './draw/SelectionManager'
 import { type OverlayShape, SelectionOverlay } from './draw/SelectionOverlay'
 import {
@@ -54,6 +62,21 @@ export type DrawTool =
  */
 export type MeasureTool = 'measure'
 export type { SelectMode } from './draw/SelectionManager'
+/** Sous-mode de la gomme : effacer un élément au clic (`point`), ou tout ce qu'un marquee touche (`select`). */
+export type EraseMode = 'point' | 'select'
+/** Clés effaçables (`config.erase.targets`) — `path` commune à `SelectableKind`. */
+export type { EraseTarget } from '../config/types'
+/**
+ * Bilan d'une passe de gomme — remonté par `onErase`, quel que soit le mode.
+ * `shapes` : objets POSSÉDÉS par la lib et déjà retirés (dessins, mesures, symboles).
+ * `paths`/`hostShapes` : ids des routes/formes hôte `erasable` sous la gomme — la lib
+ * ne mute pas ces props, l'app doit les retirer de son state.
+ */
+export type EraseResult = {
+  shapes: DrawnShape[]
+  paths: Array<string | number>
+  hostShapes: Array<string | number>
+}
 /** Style de trait d'une forme — absent = `'solid'`. */
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
 /** `width` : épaisseur de trait en **pixels écran** (constante au zoom, comme toute carte). */
@@ -280,6 +303,12 @@ export class DrawLayer implements Layer {
   onShapeUpdate?: (s: DrawnShape) => void
   onShapeDelete?: (s: DrawnShape) => void
   /**
+   * Une passe de gomme (ponctuelle OU sélection) a retiré des objets — bilan complet
+   * (cf. `EraseResult`). Émis EN PLUS de `onShapeDelete` pour les objets possédés ;
+   * c'est le SEUL signal pour les routes/formes hôte, que la lib ne peut pas muter.
+   */
+  onErase?: (result: EraseResult) => void
+  /**
    * L'utilisateur demande à ÉDITER une forme (double-clic). Intention d'ouvrir une
    * fiche côté hôte — pas une mutation : rien n'a changé sur la carte.
    */
@@ -348,11 +377,19 @@ export class DrawLayer implements Layer {
       this.externalSelectables?.hitTest(x, y, tol, this.config.selection.selectable) ?? null,
     externalInfo: (id) => this.externalSelectables?.info(id) ?? null,
     selectionPolicy: () => this.config.selection.selectable,
+    eraseActive: () => this.isEraseSelect(),
+    eraseMarquee: (selector) => this.eraseMarquee(selector),
     interaction: () => this.config.interaction,
   })
   private externalSelectables: SelectableRegistry | null = null
   /** Désabonnement du `onItemsChanged` du registre courant. */
   private offSelectables: (() => void) | null = null
+  /** Sous-mode de la gomme (outil `erase`) : ponctuel par défaut. */
+  private eraseMode: EraseMode = 'point'
+  /** Registre des objets hôte effaçables (routes/formes `erasable`), branché par React. */
+  private erasables: ErasableRegistry | null = null
+  /** Scratch de projection d'un anneau hôte (gomme) : réutilisé, jamais réalloué par item. */
+  private readonly eraseRingBuf: ScreenPt[] = []
   private editCtl!: EditController
   /** Formes mutées pendant un geste — reconstruites au prochain `update()`. */
   private readonly pendingEdit = new Set<string>()
@@ -646,13 +683,15 @@ export class DrawLayer implements Layer {
     // d'être jeté — sinon cliquer sur « main » fait disparaître le tracé.
     if (this.live && this.mode === 'click' && this.live.kind === 'polygon') this.closeCurrent()
     else this.cancelLive()
-    // Quitter l'outil sélection abandonne sélection et marquee en cours.
-    if (this.tool === 'select' && tool !== 'select') {
+    // Quitter l'outil sélection OU la gomme (tout mode) abandonne sélection et marquee en
+    // cours — volontairement plus large que `isEraseSelect()` : on nettoie en sortant d'`erase`.
+    if ((this.tool === 'select' || this.tool === 'erase') && tool !== this.tool) {
       this.selection.escape()
       this.selection.clear()
     }
     this.tool = tool
     // Routage des clics markers : actif seulement pendant l'outil sélection.
+    // (Le mode gomme du marquee est tiré à la demande via `SelectHost.eraseActive`.)
     this.syncSelectableConsumer()
     // État de survol remis à zéro : pas de curseur rotation fantôme à la reprise.
     this.hoverShape = false
@@ -859,9 +898,33 @@ export class DrawLayer implements Layer {
 
   // ── Sélection ──
 
-  /** Mode du sélecteur (marquee rectangle, polygone, lasso). */
+  /** Mode du sélecteur (marquee rectangle, polygone, lasso) — partagé avec la gomme-sélection. */
   setSelectMode(mode: SelectMode): void {
     this.selection.mode = mode
+  }
+
+  /** Outil gomme en mode marquee : source de vérité unique du prédicat, tirée à la demande
+   *  (jamais recopiée dans `SelectionManager`, comme `interaction()`/`externalItems()`). */
+  private isEraseSelect(): boolean {
+    return this.tool === 'erase' && this.eraseMode === 'select'
+  }
+
+  /** Sous-mode de la gomme (ponctuelle ou marquee). Le marquee réutilise `selectMode`. */
+  setEraseMode(mode: EraseMode): void {
+    this.eraseMode = mode
+    // Quitter le mode marquee abandonne un tracé de gomme en cours.
+    if (mode !== 'select') this.selection.escape()
+    this.overlayDirty = true
+  }
+
+  /**
+   * Branche (ou débranche avec `null`) le registre des objets hôte effaçables
+   * (`engine.erasables`). Séparé de `setExternalSelectables` : un objet effaçable par
+   * la gomme n'est pas sélectionnable par l'outil sélection. La lib ne les supprime
+   * jamais — elle les remonte via `onErase`.
+   */
+  setErasables(registry: ErasableRegistry | null): void {
+    this.erasables = registry
   }
 
   /** Sélectionne par ids (les formes verrouillées/masquées sont filtrées). */
@@ -966,17 +1029,10 @@ export class DrawLayer implements Layer {
   deleteSelected(): void {
     const ids = new Set(this.selectedEditable().map((d) => d.id))
     if (ids.size === 0) return
-    // Un geste en cours sur ces formes est abandonné — sans quoi son commit au
-    // pointer-up reconstruirait un mesh fantôme pour une forme supprimée.
-    this.editCtl.abort()
+    // Même cœur que la gomme (`removeOwned`) : abandon d'un geste en cours, drop des
+    // meshes/caches, prune de la sélection — une seule copie de cette logique.
     this.history.push(this.drawings)
-    const removed = this.drawings.filter((d) => ids.has(d.id)).map((d) => this.toShape(d))
-    for (const id of ids) {
-      this.dropDrawing(id)
-      this.byId.delete(id)
-    }
-    this.drawings = this.drawings.filter((d) => !ids.has(d.id))
-    this.selection.prune()
+    const removed = this.removeOwned(ids)
     for (const s of removed) this.onShapeDelete?.(s)
     this.emitChange()
   }
@@ -1102,7 +1158,7 @@ export class DrawLayer implements Layer {
       this.editCtl.cancel()
       return true
     }
-    if (this.tool === 'select') return this.selection.escape()
+    if (this.tool === 'select' || this.isEraseSelect()) return this.selection.escape()
     if (this.live) {
       this.cancelLive()
       return true
@@ -1280,6 +1336,13 @@ export class DrawLayer implements Layer {
       if (phase !== 'move' || this.selection.marquee()) this.overlayDirty = true
       return consumed
     }
+    // Gomme sélection : réutilise la machine de marquee (rect/poly/lasso), AVANT la
+    // garde `!latLng` (le marquee tolère un point hors-globe, comme l'outil select).
+    if (this.isEraseSelect()) {
+      const consumed = this.selection.handle(phase, latLng, e)
+      if (phase !== 'move' || this.selection.marquee()) this.overlayDirty = true
+      return consumed
+    }
     if (!latLng) return true
     if (this.tool === 'erase') {
       if (phase === 'down') this.eraseAt(latLng)
@@ -1338,7 +1401,7 @@ export class DrawLayer implements Layer {
   }
 
   closeCurrent(): void {
-    if (this.tool === 'select') {
+    if (this.tool === 'select' || this.isEraseSelect()) {
       this.selection.closeMarquee()
       return
     }
@@ -1577,20 +1640,155 @@ export class DrawLayer implements Layer {
     return null
   }
 
-  private eraseAt(p: LatLng): void {
-    const d = this.hitTest(p)
-    if (!d) return
+  // ── Gomme (outil `erase`) : ponctuelle et sélection convergent ici ──
+
+  /** Clé de config d'un dessin possédé (`symbol` traité à part par l'appelant). */
+  private ownedTarget(d: Drawing): 'measure' | 'drawing' {
+    return d.kind === 'measure' ? 'measure' : 'drawing'
+  }
+
+  /**
+   * Retire des formes POSSÉDÉES (dessins, mesures, symboles) par ids et renvoie leurs
+   * `DrawnShape`. Ne pousse PAS l'historique ni n'émet — l'appelant orchestre (UNE
+   * entrée d'historique par passe, émission groupée). Motif de `deleteSelected`.
+   */
+  private removeOwned(ids: Set<string>): DrawnShape[] {
+    if (ids.size === 0) return []
+    if (this.editCtl.active) this.editCtl.abort()
+    const removed = this.drawings.filter((d) => ids.has(d.id)).map((d) => this.toShape(d))
+    for (const id of ids) {
+      this.dropDrawing(id)
+      this.byId.delete(id)
+    }
+    this.drawings = this.drawings.filter((d) => !ids.has(d.id))
+    this.selection.prune()
+    return removed
+  }
+
+  /**
+   * Point de convergence des DEUX modes de gomme (ponctuelle et sélection) : garantit
+   * l'ISO. Pousse UNE entrée d'historique si des objets possédés changent, les retire,
+   * coalesce `onChange`, émet `onShapeDelete` par forme (iso CRUD) puis le bilan groupé
+   * `onErase` (objets lib retirés + ids hôte à retirer par l'app).
+   */
+  private commitErase(ownedIds: Set<string>, host: readonly ErasableItem[]): void {
+    if (ownedIds.size === 0 && host.length === 0) return
+    if (ownedIds.size > 0) this.history.push(this.drawings)
+    const removed = this.removeOwned(ownedIds)
+    for (const s of removed) this.onShapeDelete?.(s)
+    if (removed.length > 0) this.emitChange()
+    const { paths, hostShapes } = this.splitHostIds(host)
+    this.onErase?.({ shapes: removed, paths, hostShapes })
+  }
+
+  /** Projette un anneau hôte à sa hauteur d'ancre (scratch réutilisé — zéro alloc de tableau).
+   *  `height` évite un 2ᵉ raycast d'ancre quand l'appelant l'a déjà résolue (gomme ponctuelle). */
+  private projectRing(ring: readonly LatLng[], height?: number): ScreenPt[] {
+    const buf = this.eraseRingBuf
+    buf.length = 0
+    if (ring.length === 0 || !this.lastCamera) return buf
+    const h = height ?? this.projection.resolveAnchorHeight(ring[0]!) ?? this.projection.surfaceFallbackHeight
+    for (const p of ring) {
+      const s = this.toScreen(p, h)
+      if (s) buf.push(s)
+    }
+    return buf
+  }
+
+  /** Objets hôte effaçables (filtrés par `config.erase.targets`) touchés par le sélecteur. */
+  private hostErasablesUnder(selector: ScreenPt[]): ErasableItem[] {
+    const reg = this.erasables
+    if (!reg || !this.projection.isReady()) return []
+    const targets = this.config.erase.targets
+    const out: ErasableItem[] = []
+    for (const it of reg.all()) {
+      if (!targets[it.kind]) continue
+      const pts = this.projectRing(it.ring)
+      if (pts.length > 0 && shapeTouchesSelector(pts, it.closed, selector)) out.push(it)
+    }
+    return out
+  }
+
+  /** Objet hôte effaçable sous le curseur (gomme ponctuelle), ou null. */
+  private hostErasableAt(p: LatLng): ErasableItem | null {
+    const reg = this.erasables
+    if (!reg || !this.projection.isReady() || !this.lastCamera) return null
+    const targets = this.config.erase.targets
+    const tolPx = this.config.interaction.shapeHitTolerancePx
+    for (const it of reg.all()) {
+      if (!targets[it.kind] || it.ring.length === 0) continue
+      const h = this.projection.resolveAnchorHeight(it.ring[0]!) ?? this.projection.surfaceFallbackHeight
+      const sp = this.toScreen(p, h)
+      if (!sp) continue
+      const pts = this.projectRing(it.ring, h) // `h` réutilisée : pas de 2ᵉ raycast d'ancre
+      if (contourHitsPoint(sp, pts, it.closed, tolPx)) return it
+    }
+    return null
+  }
+
+  /** Sépare les ids hôte par catégorie pour le payload `onErase`. */
+  private splitHostIds(items: readonly ErasableItem[]): {
+    paths: Array<string | number>
+    hostShapes: Array<string | number>
+  } {
+    const paths: Array<string | number> = []
+    const hostShapes: Array<string | number> = []
+    for (const it of items) (it.kind === 'path' ? paths : hostShapes).push(it.id)
+    return { paths, hostShapes }
+  }
+
+  /**
+   * Gomme sélection : efface tout ce que le marquee touche SAUF les markers (jamais
+   * consultés). Collecte (lecture pure) → 1 entrée d'historique → suppression → émission.
+   */
+  private eraseMarquee(selector: ScreenPt[]): void {
+    const targets = this.config.erase.targets
+    const ownedIds = new Set<string>()
+    for (const d of this.drawings) {
+      if (d.locked || !this.isShown(d)) continue
+      if (d.kind === 'symbol') {
+        // Symbole = marker DOM (contour null) : testé sur son point projeté.
+        if (!targets.symbol || !d.points[0]) continue
+        const sp = this.toScreen(d.points[0], this.heightFor(d))
+        if (sp && pointInPolygon(sp, selector)) ownedIds.add(d.id)
+        continue
+      }
+      if (!targets[this.ownedTarget(d)]) continue
+      const c = this.screenContour(d)
+      if (c && shapeTouchesSelector(c.pts, c.closed, selector)) ownedIds.add(d.id)
+    }
+    this.commitErase(ownedIds, this.hostErasablesUnder(selector))
+  }
+
+  /**
+   * Efface un symbole par id (clic DOM sur son marker, gomme ponctuelle). Passe par le
+   * même collecteur que le marquee → `onErase` est émis dans les DEUX chemins (ISO).
+   */
+  eraseSymbol(id: string): void {
+    const d = this.byId.get(id)
+    if (!d || d.kind !== 'symbol') return
+    if (!this.config.erase.targets.symbol) return
     if (d.locked) {
       this.lockedFeedback(d)
       return
     }
-    this.history.push(this.drawings)
-    this.dropDrawing(d.id)
-    const i = this.drawings.indexOf(d)
-    if (i >= 0) this.drawings.splice(i, 1)
-    this.byId.delete(d.id)
-    this.onShapeDelete?.(this.toShape(d))
-    this.emitChange()
+    this.commitErase(new Set([id]), [])
+  }
+
+  /** Gomme ponctuelle : le dessin sous le clic, sinon un objet hôte effaçable (ISO du marquee). */
+  private eraseAt(p: LatLng): void {
+    const d = this.hitTest(p) // exclut déjà les symboles (marker DOM, chemin `eraseSymbol`)
+    if (d) {
+      if (!this.config.erase.targets[this.ownedTarget(d)]) return
+      if (d.locked) {
+        this.lockedFeedback(d)
+        return
+      }
+      this.commitErase(new Set([d.id]), [])
+      return
+    }
+    const host = this.hostErasableAt(p)
+    if (host) this.commitErase(new Set(), [host])
   }
 
   // ── Rendu (drapé ENU) ──

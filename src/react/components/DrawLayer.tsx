@@ -8,6 +8,8 @@ import {
   type DrawnShape,
   type DrawRejectReason,
   type DrawTool,
+  type EraseMode,
+  type EraseResult,
   type GeoJSONFeatureCollection,
   type SelectMode,
 } from '../../layers/DrawLayer'
@@ -80,6 +82,13 @@ export type DrawLayerProps = {
   onShapeUpdate?: (shape: DrawnShape) => void
   /** Forme supprimée. */
   onShapeDelete?: (shape: DrawnShape) => void
+  /**
+   * La **gomme** a effacé des objets (bilan complet, cf. `EraseResult`). C'est le SEUL
+   * signal pour les routes/formes hôte `erasable` : la lib ne mute pas vos props, à vous
+   * de retirer `result.paths` / `result.hostShapes` de votre state. Les objets possédés
+   * (`result.shapes`) passent aussi par `onShapeDelete`.
+   */
+  onErase?: (result: EraseResult) => void
   /** Double-clic sur une forme : intention d'ouvrir une fiche — rien n'a changé. */
   onShapeEdit?: (shape: DrawnShape) => void
   /**
@@ -163,6 +172,8 @@ export function DrawLayer(props: DrawLayerProps) {
   onChangeRef.current = props.onChange
   const onSelectionChangeRef = useRef(props.onSelectionChange)
   onSelectionChangeRef.current = props.onSelectionChange
+  const onEraseRef = useRef(props.onErase)
+  onEraseRef.current = props.onErase
   // Via ref comme les autres callbacks : le core n'est créé qu'une fois, un handler
   // redéfini à chaque rendu ne doit pas le recréer. Écrit UNE fois (cf. `MarkerLayer`) :
   // deux littéraux jumeaux se désynchronisent en silence dès qu'on ajoute un callback
@@ -185,6 +196,7 @@ export function DrawLayer(props: DrawLayerProps) {
     ReadonlyArray<{ id: string; label: string; memberIds: (string | number)[] }>
   >([])
   const [selectMode, setSelectModeState] = useState<SelectMode>('rect')
+  const [eraseMode, setEraseModeState] = useState<EraseMode>('point')
   const toolRef = useRef(tool)
   toolRef.current = tool
   const selectionRef = useRef(selection)
@@ -226,6 +238,11 @@ export function DrawLayer(props: DrawLayerProps) {
   const setSelectMode = (m: SelectMode) => {
     coreRef.current?.setSelectMode(m)
     setSelectModeState(m)
+  }
+
+  const setEraseMode = (m: EraseMode) => {
+    coreRef.current?.setEraseMode(m)
+    setEraseModeState(m)
   }
 
   // Défauts de base (thème/props) — construit UNE fois par rendu, consommé par le
@@ -294,10 +311,13 @@ export function DrawLayer(props: DrawLayerProps) {
     core.onShapeDelete = (s) => shapeCbRef.current.remove?.(s)
     core.onShapeEdit = (s) => shapeCbRef.current.edit?.(s)
     core.onReject = (reason, s) => shapeCbRef.current.reject?.(reason, s)
+    core.onErase = (result) => onEraseRef.current?.(result)
     core.constraints = constraintsRef.current ?? null
     // Registre des sélectionnables externes (markers) : le core gère tout le
     // cycle de vie (prune, routage des clics) — débranché par son dispose().
     core.setExternalSelectables(engine.selectables)
+    // Registre des objets hôte effaçables (routes/formes `erasable`) consommé par la gomme.
+    core.setErasables(engine.erasables)
     // Via ref : si `settings` est recréé (changement de settingsStorage), le core
     // lit toujours l'instance courante — pas une closure périmée.
     core.defaultsFor = (t) => settingsRef.current.get(t)
@@ -404,6 +424,7 @@ export function DrawLayer(props: DrawLayerProps) {
     releaseSpaceRef,
     setTool,
     setSelectMode,
+    setEraseMode,
     shortcuts: props.shortcuts,
     drawKeys,
     editKeys,
@@ -513,7 +534,8 @@ export function DrawLayer(props: DrawLayerProps) {
     [hostMenu, deleteLabel],
   )
   // Suppression à la gomme : un clic sur le symbole l'efface (cf. `SymbolMarkers.onErase`).
-  const eraseSymbol = useCallback((id: string) => void coreRef.current?.removeShape(id), [])
+  // Passe par `eraseSymbol` (et non `removeShape`) pour émettre `onErase` — ISO avec le marquee.
+  const eraseSymbol = useCallback((id: string) => void coreRef.current?.eraseSymbol(id), [])
 
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
   // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
@@ -523,6 +545,8 @@ export function DrawLayer(props: DrawLayerProps) {
       setTool,
       selectMode,
       setSelectMode,
+      eraseMode,
+      setEraseMode,
       selection,
       markerSelection,
       pathSelection,
@@ -610,6 +634,7 @@ export function DrawLayer(props: DrawLayerProps) {
     [
       tool,
       selectMode,
+      eraseMode,
       selection,
       selectionDetails,
       markerSelection,
