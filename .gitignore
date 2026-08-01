@@ -15,6 +15,8 @@ examples/react/.env
 # décrivent ce qui n'existe PAS dans `src/`, et le repo n'a pas à publier une spec que le
 # code contredit.
 docs/superpowers/
+# Maquettes du compagnon visuel de brainstorming (HTML jetable, même raison)
+.superpowers/
 
 # Artefacts de debug (captures Playwright, screenshots de validation)
 .playwright-mcp/
