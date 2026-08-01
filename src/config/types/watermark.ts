@@ -1,4 +1,4 @@
-// ⑭ watermark — signature « map3D » (attribution PolyForm-Noncommercial).
+// watermark — signature « map3D » (attribution PolyForm-Noncommercial).
 
 export type WatermarkConfig = {
   /**

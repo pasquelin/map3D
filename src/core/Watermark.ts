@@ -27,15 +27,24 @@ import {
   SRGBColorSpace,
   type WebGLRenderer,
 } from 'three'
+import { detectDeviceCaps } from '../config/qualityPresets'
 import { BAR_INSET } from '../style/panelGeometry'
-import { WATERMARK_TEXT } from './watermark/constants'
+import {
+  WATERMARK_FONT_PX,
+  WATERMARK_FONT_STACK,
+  WATERMARK_FONT_WEIGHT,
+  WATERMARK_LINE_HEIGHT,
+  WATERMARK_TEXT,
+} from './watermark/constants'
 
 /** Retrait par rapport aux bords (px) — aligné sur les barres/lecture de la vue. */
 const MARGIN = BAR_INSET
-/** Corps du texte (px logiques) — même petite taille que le bloc de lecture de la vue. */
-const FONT_PX = 13
 /** Marge interne autour du texte, pour ne pas rogner le halo (px logiques). */
 const PAD = 3
+/** Police du canvas — mêmes métriques que le CSS de la zone de clic (cf. constants). */
+const FONT = `${WATERMARK_FONT_WEIGHT} ${WATERMARK_FONT_PX}px ${WATERMARK_FONT_STACK}`
+/** Hauteur de la marque (px) : fixe (ne dépend ni du texte ni du runtime). */
+const MARK_H = Math.ceil(WATERMARK_FONT_PX * WATERMARK_LINE_HEIGHT + PAD * 2)
 
 export class Watermark {
   private readonly scene = new Scene()
@@ -46,9 +55,9 @@ export class Watermark {
   private readonly texture: CanvasTexture
   private readonly material: MeshBasicMaterial
   private readonly mesh: Mesh
-  // Taille logique de la marque (px), figée à la peinture de la texture.
+  // Largeur logique de la marque (px), figée à la peinture de la texture (dépend de
+  // `measureText`). La hauteur, elle, est fixe (`MARK_H`).
   private markW = 0
-  private markH = 0
 
   constructor(text: string = WATERMARK_TEXT) {
     this.texture = this.paint(text)
@@ -72,30 +81,27 @@ export class Watermark {
    */
   private paint(text: string): CanvasTexture {
     const canvas = document.createElement('canvas')
-    const dpr = Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1, 2)
     const ctx = canvas.getContext('2d')
-    const font = `600 ${FONT_PX}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`
     if (ctx) {
-      ctx.font = font
-      const textW = ctx.measureText(text).width
-      this.markW = Math.ceil(textW + PAD * 2)
-      this.markH = Math.ceil(FONT_PX * 1.4 + PAD * 2)
+      ctx.font = FONT
+      this.markW = Math.ceil(ctx.measureText(text).width + PAD * 2)
+      const dpr = Math.min(detectDeviceCaps().dpr, 2)
       canvas.width = Math.max(1, Math.round(this.markW * dpr))
-      canvas.height = Math.max(1, Math.round(this.markH * dpr))
+      canvas.height = Math.max(1, Math.round(MARK_H * dpr))
       // Le redimensionnement du canvas remet le contexte à zéro : re-régler après.
       ctx.scale(dpr, dpr)
-      ctx.font = font
+      ctx.font = FONT
       ctx.textBaseline = 'middle'
       ctx.textAlign = 'left'
       // Halo sombre : garde le texte lisible sur un décor clair comme sombre.
       ctx.shadowColor = 'rgba(0,0,0,0.55)'
       ctx.shadowBlur = 2
       ctx.fillStyle = 'rgba(255,255,255,0.85)'
-      ctx.fillText(text, PAD, this.markH / 2)
+      ctx.fillText(text, PAD, MARK_H / 2)
     } else {
-      // Pas de contexte 2D (environnement de test) : dimensions de repli, canvas 1×1.
-      this.markW = Math.ceil(text.length * FONT_PX * 0.6 + PAD * 2)
-      this.markH = Math.ceil(FONT_PX * 1.4 + PAD * 2)
+      // Pas de contexte 2D (environnement de test) : quad non nul, texture vide — la
+      // marque peinte n'est jamais observée dans ce cas.
+      this.markW = MARK_H
       canvas.width = 1
       canvas.height = 1
     }
@@ -112,9 +118,9 @@ export class Watermark {
     this.camera.right = width
     this.camera.top = height
     this.camera.updateProjectionMatrix()
-    this.mesh.scale.set(this.markW, this.markH, 1)
+    this.mesh.scale.set(this.markW, MARK_H, 1)
     // Centre du quad : collé au coin bas-droit, à MARGIN des deux bords.
-    this.mesh.position.set(width - MARGIN - this.markW / 2, MARGIN + this.markH / 2, 0)
+    this.mesh.position.set(width - MARGIN - this.markW / 2, MARGIN + MARK_H / 2, 0)
   }
 
   /**
