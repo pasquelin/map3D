@@ -423,8 +423,8 @@ export class BuildingsLayer {
      *
      * ⚠️ L'arbre arrive CONSTRUIT, depuis le worker. Il l'était auparavant ici même, au
      * motif que `MeshBVH` importe three et qu'un worker en blob autonome y aurait embarqué
-     * le moteur entier — mesuré depuis : ~48 Ko gzip, contre ~41 ms de gel par tuile, soit
-     * 97 % du coût de ce montage. Le poser ne coûte plus que ~0,05 ms.
+     * le moteur entier — mesuré depuis : +58 Ko gzip sur le blob, une fois, contre ~41 ms
+     * de gel PAR TUILE, soit 97 % du coût de ce montage. Le poser coûte ~0,05 ms.
      */
     attachPackedBVH(mesh, built.bvh)
     t.mesh = mesh

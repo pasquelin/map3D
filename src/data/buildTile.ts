@@ -4,8 +4,9 @@
 // obtient exactement la même tuile, et non une variante qui pourrait diverger.
 //
 // ⚠️ Contrairement à `./mvt`, ce module CONNAÎT three : il construit l'arbre de collision.
-// C'est délibéré et c'est ce qui a changé — cf. `packTileBVH`. Mesuré : le blob du worker
-// passe à ~48 Ko gzip, contre ~41 ms de gel du thread principal par tuile qu'il supprime.
+// C'est délibéré et c'est ce qui a changé — cf. `packTileBVH`. Le prix est mesuré : le blob
+// du worker passe de 13 à 71 Ko gzip (+58 Ko, chargés une fois, et seulement par un hôte
+// qui utilise le volume interne). Il achète ~41 ms de gel du thread principal PAR TUILE.
 
 import { packedBVHTransferables, packTileBVH, type PackedBVH } from '../core/bvh'
 import type { BuildingsConfig } from '../config/types'

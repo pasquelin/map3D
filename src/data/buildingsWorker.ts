@@ -8,10 +8,11 @@
 //
 // ⚠️ Il construit AUSSI l'arbre de collision (cf. `buildTile`), et connaît donc three —
 // ce qui n'était pas le cas. La crainte d'y « embarquer le moteur entier » a été mesurée
-// plutôt que supposée : le blob pèse ~48 Ko gzip, three-mesh-bvh compris, parce que le
-// tree-shaking ne retient que `BufferGeometry`, `BufferAttribute` et leurs dépendances.
-// En regard, l'arbre coûtait ~41 ms de gel par tuile sur le thread principal — 97 % du
-// coût de montage, que `mountPerFrame` ne pouvait qu'étaler.
+// plutôt que supposée : le tree-shaking ne retient que `BufferGeometry`, `BufferAttribute`
+// et `MeshBVH`, et le blob passe de 13 à 71 Ko gzip. Ces +58 Ko sont un coût RÉEL, payé
+// une fois — et seulement par un hôte qui utilise le volume interne, puisque ce module
+// n'est atteint que par import dynamique. En regard, l'arbre coûtait ~41 ms de gel par
+// tuile ET PAR TUILE, soit 97 % du montage, que `mountPerFrame` ne pouvait qu'étaler.
 //
 // Plusieurs instances de ce worker tournent en parallèle derrière `WorkerPool` : le
 // pipeline complet pèse ~60 ms par tuile dense, et un seul fil les sérialiserait.

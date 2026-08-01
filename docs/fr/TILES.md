@@ -271,19 +271,27 @@ Une tuile z14 dense (Paris) porte 52 000 sommets d'emprises, soit ~131 000 trian
 ~231 000 sommets à produire. Cinq mécanismes font que cette charge ne touche pas la boucle
 de frame :
 
-- **Extrusion dans un Web Worker.** Téléchargement, décodage MVT et construction des
-  tampons se font hors du thread principal, et les tampons reviennent par transfert (pas
-  de copie). Le worker est empaqueté en blob autonome au build de la lib : rien à
-  configurer côté bundler de l'hôte, aucun asset à servir. Là où `Worker` n'existe pas
-  (rendu serveur, tests), le même code tourne en repli sur le thread principal.
-- **Un BVH par tuile.** La carte lance trois rayons par frame sur la surface affichée
-  (garde caméra, suivi d'altitude, drapage des formes). En force brute, une seule tuile
-  coûtait 5,7 ms par rayon ; avec l'arbre, ~0,015 ms. C'est ce qui met le volume interne au
-  niveau du `TilesRenderer` externe, dont les tuiles ont déjà leur propre hiérarchie.
-- **Montage étalé.** Développer les couleurs et construire l'arbre restent sur le thread
-  principal — `MeshBVH` dépend de three, l'embarquer dans le worker y tirerait le moteur
-  entier. `providers.buildings.mountPerFrame` (1) n'en monte donc qu'une par frame : deux
-  tuiles qui arrivaient ensemble additionnaient sinon leurs ~20 ms en un gel franc.
+- **Tout le pipeline dans un pool de Web Workers.** Téléchargement, décodage MVT,
+  construction des tampons **et arbre de collision** se font hors du thread principal, et
+  les tampons reviennent par transfert (pas de copie). Les workers sont empaquetés en blob
+  autonome au build de la lib : rien à configurer côté bundler de l'hôte, aucun asset à
+  servir. Là où `Worker` n'existe pas (rendu serveur, tests), le même code tourne en repli
+  sur le thread principal.
+- **Un BVH par tuile, construit côté worker.** La carte lance trois rayons par frame sur la
+  surface affichée (garde caméra, suivi d'altitude, drapage des formes). En force brute,
+  une seule tuile coûtait 5,7 ms par rayon ; avec l'arbre, ~0,004 ms. C'est ce qui met le
+  volume interne au niveau du `TilesRenderer` externe, dont les tuiles ont déjà leur propre
+  hiérarchie. **Le construire coûte ~41 ms par tuile dense** : tant que c'était fait au
+  montage, cela valait 97 % du coût d'une tuile et faisait sauter des frames. Il arrive
+  désormais tout construit, et le poser coûte ~0,05 ms — un facteur ~800.
+- **Plusieurs workers.** Le pipeline complet pèse ~60 ms par tuile dense : un fil unique
+  les sérialiserait, et les bâtiments apparaîtraient plus lentement qu'avant. Mesuré sur
+  24 tuiles z14 parisiennes — 1430 ms à un worker, 587 ms à trois, 559 ms à quatre, puis
+  plus rien, et une **régression** à huit. `providers.buildings.workerPoolSize` (4) règle
+  le nombre ; le pool se borne de lui-même au nombre de cœurs moins un.
+- **Montage étalé.** Ce qui reste sur le thread principal — développer les couleurs (~1 ms),
+  poser l'arbre (~0,05 ms), pousser les tampons au GPU — est étalé par
+  `providers.buildings.mountPerFrame` (2).
 - **Géométrie en repère local, quantifiée.** Les sommets sont exprimés en mètres autour du
   centre de la tuile, et c'est la matrice du mesh qui les pose sur le globe. Une position
   ECEF vaut ~6,4 × 10⁶ m : en `Float32` sa résolution tombe à ~0,4 m, soit l'épaisseur
@@ -293,14 +301,21 @@ de frame :
   côté réseau comme côté worker : une navigation rapide laissait sinon la file entièrement
   occupée à extruder des tuiles déjà sorties de la vue.
 
-Le décodeur MVT et le worker sont chargés en **import dynamique** — un hôte qui garde le
-volume photoréaliste ne les télécharge jamais.
+Le décodeur MVT et les workers sont chargés en **import dynamique** — un hôte qui garde le
+volume photoréaliste ne les télécharge jamais. C'est ce qui rend soutenable le poids de
+three-mesh-bvh dans le blob : il fait passer celui-ci de 13 à 71 Ko gzip, mais **seul un
+hôte qui affiche le volume interne le paie**, une fois.
 
-> **CSP.** Le worker est monté depuis un `Blob` : une politique de sécurité doit autoriser
-> `worker-src blob:` (ou `child-src blob:`). Sans cela, la création échoue et tout bascule
-> sur le thread principal — quelques centaines de millisecondes de gel par tuile. La lib
-> l'écrit alors une fois dans la console, pour que ce ne soit pas confondu avec une machine
-> lente.
+> **Nombre de workers.** `workerPoolSize` ne sert à rien au-delà de
+> `providers.buildings.maxInflight` (4 par défaut) : la file ne lance pas plus de
+> téléchargements que ça, et les workers en trop resteraient oisifs. Les deux réglages se
+> montent ensemble.
+
+> **CSP.** Les workers sont montés depuis un `Blob` : une politique de sécurité doit
+> autoriser `worker-src blob:` (ou `child-src blob:`). Sans cela, la création échoue et tout
+> bascule sur le thread principal — quelques centaines de millisecondes de gel par tuile. La
+> lib l'écrit alors une fois dans la console, pour que ce ne soit pas confondu avec une
+> machine lente.
 
 ## 6. Brancher un autre fournisseur
 
