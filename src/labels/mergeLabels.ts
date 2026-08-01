@@ -1,4 +1,4 @@
-import { deepMerge } from '../theme/mergeTheme'
+import { deepMerge } from '../core/deepMerge'
 import type { MapLabels, PartialLabels } from './types'
 
 /** Merge profond de libellés partiels sur une base (mêmes règles que `mergeTheme`). */

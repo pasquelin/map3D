@@ -1,4 +1,4 @@
-import { deepMerge } from '../theme/mergeTheme'
+import { deepMerge } from '../core/deepMerge'
 import type { AutoLocale, MapConfig, PartialConfig } from './types'
 
 /**
