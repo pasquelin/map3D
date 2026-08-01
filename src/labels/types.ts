@@ -429,6 +429,25 @@ export type MapLabels = {
         fullscreen: string
       }
     }
+    /** Sous-panneau « Prendre une photo » : capture d'image de la carte (menu ⚙). */
+    capture: {
+      /** Titre de la ligne et du sous-panneau. */
+      title: string
+      /** Intitulé du choix de format d'image. */
+      format: string
+      /** Intitulé du réglage de qualité (jpeg/webp). */
+      quality: string
+      /** Intitulé du réglage d'échelle (netteté). */
+      scale: string
+      /** Libellé de l'interrupteur « fond transparent » (retombe sur opaque aujourd'hui). */
+      transparent: string
+      /** Bouton : télécharger l'image. */
+      download: string
+      /** Bouton : envoyer l'image par mail (via le callback hôte). */
+      mail: string
+      /** Bouton : partager l'image (API Web Share). */
+      share: string
+    }
   }
   /** Actions du récapitulatif des raccourcis (navigation, vue, dessin, édition). */
   actions: {

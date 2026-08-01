@@ -295,6 +295,14 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `settings.preferences.actions.zoomIn` | Nom de chaque action réassignable (déplacement + vue). | `'Zoom avant'` |
 | `settings.preferences.actions.zoomOut` | Nom de chaque action réassignable (déplacement + vue). | `'Zoom arrière'` |
 | `settings.preferences.actions.fullscreen` | Nom de chaque action réassignable (déplacement + vue). | `'Plein écran'` |
+| `settings.capture.title` | Sous-panneau « Prendre une photo » : capture d'image de la carte (menu ⚙). | `'Prendre une photo'` |
+| `settings.capture.format` | Intitulé du choix de format d'image. | `'Format'` |
+| `settings.capture.quality` | Intitulé du réglage de qualité (jpeg/webp). | `'Qualité'` |
+| `settings.capture.scale` | Intitulé du réglage d'échelle (netteté). | `'Netteté'` |
+| `settings.capture.transparent` | Libellé de l'interrupteur « fond transparent » (retombe sur opaque aujourd'hui). | `'Fond transparent'` |
+| `settings.capture.download` | Bouton : télécharger l'image. | `'Télécharger'` |
+| `settings.capture.mail` | Bouton : envoyer l'image par mail (via le callback hôte). | `'Envoyer par mail'` |
+| `settings.capture.share` | Bouton : partager l'image (API Web Share). | `'Partager'` |
 
 ## `actions` — Aide-mémoire des gestes
 

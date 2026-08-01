@@ -42,6 +42,11 @@ Racine — monte le moteur et toutes les surfaces.
 | `colorScheme` | `'auto'` (défaut) suit `prefers-color-scheme` et se met à jour en direct. | — |
 | `labels` | Traductions (merge profond sur `defaultLabels`) — cf. LABELS.md. | — |
 | `config` | Réglages : fournisseurs tiers (endpoints, langue, quotas), seuils de geste, budgets de calcul, cadence de chargement. Merge profond sur `defaultConfig` — ne fournir que ce qui change. Cf. `MapConfig`. ```tsx <Map config={{ providers: { tiles: { language:… | — |
+| `capture` | Injection hôte de la capture d'image (`CaptureProps`) : `rasterizeOverlay` (rasteriseur des overlays DOM markers/labels — ex. `html-to-image`, sinon capture 3D seule), `onCapture` (trace à chaque capture, pour un log / envoi API) et `onMail` (livraison de l'action « mail »). Sa présence **active** la ligne « Prendre une photo » du menu ⚙. Les défauts (format, qualité, échelle, fond) se règlent dans `config.capture`. | — |
+
+### Poignée impérative — `MapHandle` (`ref`) et `useCapture()`
+
+`ref` expose `MapHandle`. Au-delà de `camera` / `drawing` / `lens` / `relations` / `pedestrian`, la poignée porte **`capture(opts?): Promise<Blob>`** : rendu synchrone de la carte en image, overlays DOM composés si un `rasterizeOverlay` est fourni via `capture`, sinon 3D seule. `opts` (`CaptureOptions`) surcharge par appel les défauts de `config.capture` (`format`, `quality`, `scale`, `background`, plus `overlay` et `rasterizeOverlay`). Le cœur `engine.capture()` fait de même sans injection ; le hook **`useCapture()`** est le pendant pour un composant sous `<Map>`. À utiliser pour tracer une image en cas d'action (log, envoi vers une API).
 
 ### Surfaces de `<Map>`
 

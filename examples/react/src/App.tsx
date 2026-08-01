@@ -1,4 +1,5 @@
 import {
+  type CaptureProps,
   type DockConfig,
   type DrawConfig,
   type LatLng,
@@ -20,6 +21,7 @@ import {
   shapesLayer,
   useBuildingEnrichment,
 } from '@pasquelin/map3d'
+import { toCanvas } from 'html-to-image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ConfigPane } from './components/ConfigPane'
@@ -283,6 +285,20 @@ export function App() {
     [ui.cluster],
   )
 
+  // Capture d'image : la lib compose la 3D + les overlays DOM (markers/labels) via un
+  // rasteriseur INJECTÉ — ici `html-to-image`. Les callbacks illustrent le cas « trace » :
+  // `onCapture` part à chaque capture (log, envoi API), `onMail` sert l'action « mail ».
+  // Sa présence ACTIVE la ligne « Prendre une photo » du menu ⚙. Les défauts (format,
+  // qualité, échelle, fond) se règlent dans l'onglet « Réglages » (`config.capture`).
+  const captureProps = useMemo<CaptureProps>(
+    () => ({
+      rasterizeOverlay: (el, o) => toCanvas(el, o),
+      onCapture: (blob, meta) => console.log('[capture] trace', meta.format, `${Math.round(blob.size / 1024)} Ko`),
+      onMail: (blob, meta) => console.log('[capture] à envoyer par mail', meta.format, `${Math.round(blob.size / 1024)} Ko`),
+    }),
+    [],
+  )
+
   // Provider de templates de démo (in-memory), stable pour la vie du composant : sa
   // liste prime sur le localStorage quand « API démo » est coché dans l'onglet Interface.
   const demoTemplateProvider = useMemo(() => createDemoTemplateProvider(), [])
@@ -464,6 +480,9 @@ export function App() {
           // (`markers.staticMinZoom`) et le plafond de regroupement
           // (`clustering.maxZoom`) qui figuraient en dur à cette place.
           config={config}
+          // ── Capture d'image : injection hôte (rasteriseur d'overlay + callbacks). Active
+          // la ligne « Prendre une photo » du ⚙ ; règle ses défauts via `config.capture`.
+          capture={captureProps}
           // ── Regroupement COMMUN : une seule pastille pour ce qui se superpose à
           // l'écran, markers de l'app ET symboles posés confondus. Son apparence se
           // déclare donc ici, une fois, et non dans une couche qui n'en commande qu'une

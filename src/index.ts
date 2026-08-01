@@ -77,6 +77,10 @@ export * as MapMath from './core/math'
 // une fois par origine. À rediriger vers le journal de l'hôte, ou à couper (`null`) :
 // une lib n'a pas à écrire d'autorité dans la console de l'application.
 export { setGeometryWarner } from './core/geometry'
+// Capture d'image de la carte (`engine.capture()` / `MapHandle.capture()` / `useCapture()`).
+// Le rasteriseur d'overlay (markers/labels) est INJECTÉ par l'hôte — la lib n'embarque
+// aucune dépendance de rasterisation (cf. `OverlayRasterizer`).
+export type { CaptureOptions, CaptureFormat, CaptureBackground, OverlayRasterizer } from './core/capture'
 
 // ── Data (viewport-driven / temps réel) ──
 export type { Viewport, DataSource, MarkerData, StaticMarker } from './data/types'
@@ -170,6 +174,7 @@ export type {
   TileProvider,
   TilesConfig,
   BuildingsConfig,
+  CaptureConfig,
   GraticuleConfig,
   PedestrianConfig,
   PedestrianCollisionConfig,
@@ -253,6 +258,10 @@ export { useMap, useTheme, useLabels, useConfig } from './react/context'
 export type { DrawingApi, DrawAction, LensApi } from './react/context'
 export { useCamera, useCameraCommands } from './react/hooks/useCamera'
 export type { CameraCommands, UseCameraResult } from './react/hooks/useCamera'
+// Capture d'image côté React : le hook `useCapture()` (rasteriseur + trace injectés par
+// `<Map capture>`) et le type de cette injection. Cf. `engine.capture` / `MapHandle.capture`.
+export { useCapture } from './react/hooks/useCapture'
+export type { CaptureProps } from './react/capture'
 export { usePedestrian } from './react/hooks/usePedestrian'
 export type { PedestrianApi } from './react/hooks/usePedestrian'
 export { useViewport } from './react/hooks/useViewport'

@@ -23,6 +23,7 @@ import { pedestrianDefaults } from './defaults/pedestrian'
 import { graticuleDefaults } from './defaults/graticule'
 import { catalogDefaults } from './defaults/catalog'
 import { watermarkDefaults } from './defaults/watermark'
+import { captureDefaults } from './defaults/capture'
 
 export const defaultConfig: MapConfig = {
   providers: providersDefaults,
@@ -39,4 +40,5 @@ export const defaultConfig: MapConfig = {
   graticule: graticuleDefaults,
   catalog: catalogDefaults,
   watermark: watermarkDefaults,
+  capture: captureDefaults,
 }

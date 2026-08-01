@@ -358,6 +358,14 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'pedestrian.headBob.frequency': { min: 0.5, max: 5, step: 0.1 },
   'pedestrian.transitions.enterMs': { min: 0, max: 3000, step: 50 },
   'pedestrian.transitions.exitMs': { min: 0, max: 3000, step: 50 },
+
+  // ⑪ capture ───────────────────────────────────────────────────────────────
+  // Format et fond sont des unions fermées → select ; les acronymes ne se traduisent pas.
+  'capture.format': { kind: 'list', options: { PNG: 'png', JPEG: 'jpeg', WebP: 'webp' } },
+  'capture.background': { kind: 'list', options: { opaque: 'opaque', transparent: 'transparent' } },
+  'capture.quality': { min: 0.1, max: 1, step: 0.01 },
+  // `scale` est l'union 1|2 : un slider à pas 1 la couvre sans risquer d'écrire une chaîne.
+  'capture.scale': { min: 1, max: 2, step: 1 },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

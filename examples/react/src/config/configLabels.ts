@@ -101,6 +101,7 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'performance.statThresholds.tileBytes': 'Mémoire des tuiles',
   catalog: 'Catalogue',
   watermark: 'Signature',
+  capture: 'Capture d’image',
 }
 
 /** Feuilles — les 197 de `defaultConfig`, plus les 3 clés optionnelles du type. */
@@ -529,4 +530,10 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'performance.statThresholds.resolutionScale.warn': 'borne jaune',
   'performance.statThresholds.tileBytes.ok': 'borne verte',
   'performance.statThresholds.tileBytes.warn': 'borne jaune',
+
+  // ── capture ──────────────────────────────────────────────────────────────
+  'capture.format': 'format d’image',
+  'capture.quality': 'qualité (jpeg/webp)',
+  'capture.scale': 'échelle (netteté)',
+  'capture.background': 'fond',
 }

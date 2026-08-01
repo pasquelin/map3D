@@ -102,7 +102,7 @@ Engine · Plugins · Preferences.
 
 - **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer`, `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
 - **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
-- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog`, `usePreferences`, `useDraggable` / `useDropZone` / `useMapDropZone`.
+- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
@@ -112,6 +112,7 @@ Engine · Plugins · Preferences.
 - **Relations / routing**: `RelationEngine`, `selectTargets`, `createGoogleRoutesProvider`, `haversineMeters`, `decodePolyline`, `RouteCache`.
 - **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
 - **Tiles**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities`, `canEnterMode`.
+- **Capture**: `engine.capture(opts)` / `MapHandle.capture` / `useCapture()` → `Promise<Blob>` (synchronous WebGL render + optional DOM-overlay compositing via an injected `rasterizeOverlay`); `<Map capture>` (`CaptureProps`), `config.capture` (`CaptureConfig`), types `CaptureOptions` / `CaptureFormat` / `CaptureBackground` / `OverlayRasterizer`. UI: "Take a photo" row in the ⚙ menu (download / mail / Web Share).
 
 ## Codebase conventions (when contributing)
 
@@ -8350,6 +8351,17 @@ Signature shown at the bottom right: a mark **painted into the WebGL canvas** (i
 |---|---|---|
 | `watermark.enabled` | Show the signature. Setting it to `false` is **reserved for holders of a commercial license** of map3D: under the default PolyForm-Noncommercial license, removing the attribution violates the license. | `true` |
 
+## `capture` — Map image capture
+
+Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **serialisable** values: the overlay rasteriser and the mail/trace callbacks are functions, passed via the `<Map capture>` prop.
+
+| Key | Description | Default |
+|---|---|---|
+| `capture.format` | Default format of the produced image (`'png' | 'jpeg' | 'webp'`). | `'png'` |
+| `capture.quality` | Quality 0..1 for compressed formats (jpeg/webp); ignored for png. | `0.92` |
+| `capture.scale` | Default supersampling (`1 | 2`): ×2 is sharper than the display, at the cost of one heavy frame. | `1` |
+| `capture.background` | Default background (`'opaque' | 'transparent'`). `'transparent'` falls back to opaque today: the renderer is created without an alpha channel. | `'opaque'` |
+
 
 
 <!-- ============================================================ -->
@@ -8868,6 +8880,14 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `settings.preferences.actions.zoomIn` | Name of each reassignable action (movement + view). | `'Zoom avant'` |
 | `settings.preferences.actions.zoomOut` | Name of each reassignable action (movement + view). | `'Zoom arrière'` |
 | `settings.preferences.actions.fullscreen` | Name of each reassignable action (movement + view). | `'Plein écran'` |
+| `settings.capture.title` | "Take a photo" sub-panel: map image capture (⚙ menu). | `'Prendre une photo'` |
+| `settings.capture.format` | Label of the image format choice. | `'Format'` |
+| `settings.capture.quality` | Label of the quality setting (jpeg/webp). | `'Qualité'` |
+| `settings.capture.scale` | Label of the scale setting (sharpness). | `'Netteté'` |
+| `settings.capture.transparent` | Label of the "transparent background" switch (falls back to opaque today). | `'Fond transparent'` |
+| `settings.capture.download` | Button: download the image. | `'Télécharger'` |
+| `settings.capture.mail` | Button: send the image by email (via the host callback). | `'Envoyer par mail'` |
+| `settings.capture.share` | Button: share the image (Web Share API). | `'Partager'` |
 
 ## `actions` — Gesture cheat sheet
 
@@ -9203,6 +9223,11 @@ Root — mounts the engine and every surface.
 | `colorScheme` | `'auto'` (default) follows `prefers-color-scheme` and updates live. | — |
 | `labels` | Translations (deep merge onto `defaultLabels`) — see LABELS.md. | — |
 | `config` | Settings: third-party providers (endpoints, language, quotas), gesture thresholds, computation budgets, loading rate. Deep merge onto `defaultConfig` — provide only what changes. See `MapConfig`. ```tsx <Map config={{ providers: { tiles: { language:… | — |
+| `capture` | Host injection for image capture (`CaptureProps`): `rasterizeOverlay` (rasteriser for the DOM overlays — markers/labels — e.g. `html-to-image`, otherwise 3D-only capture), `onCapture` (trace on every capture, for a log / API upload) and `onMail` (delivery of the "mail" action). Its presence **enables** the "Take a photo" row of the ⚙ menu. Defaults (format, quality, scale, background) live in `config.capture`. | — |
+
+### Imperative handle — `MapHandle` (`ref`) and `useCapture()`
+
+`ref` exposes `MapHandle`. Beyond `camera` / `drawing` / `lens` / `relations` / `pedestrian`, the handle carries **`capture(opts?): Promise<Blob>`**: synchronous render of the map to an image, DOM overlays composited when a `rasterizeOverlay` is provided via `capture`, otherwise 3D-only. `opts` (`CaptureOptions`) overrides the `config.capture` defaults per call (`format`, `quality`, `scale`, `background`, plus `overlay` and `rasterizeOverlay`). The core `engine.capture()` does the same without injection; the **`useCapture()`** hook is the counterpart for a component under `<Map>`. Use it to trace an image on an action (log, upload to an API).
 
 ### `<Map>` surfaces
 

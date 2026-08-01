@@ -518,3 +518,14 @@ Signature apposée en bas à droite : marque **peinte dans le canvas WebGL** (in
 | Clé | Description | Défaut |
 |---|---|---|
 | `watermark.enabled` | Affiche la signature. La passer à `false` est **réservé aux clients disposant d'une licence commerciale** de map3D : sous la licence PolyForm-Noncommercial par défaut, retirer l'attribution viole la licence. | `true` |
+
+## `capture` — Capture d'image de la carte
+
+Défauts de la capture (« Prendre une photo » et `engine.capture()`). Ne contient que des valeurs **sérialisables** : le rasteriseur d'overlay et les callbacks (mail/trace) sont des fonctions, passées en prop `<Map capture>` — cf. [PROPS.md](PROPS.md).
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `capture.format` | Format par défaut de l'image produite (`'png' | 'jpeg' | 'webp'`). | `'png'` |
+| `capture.quality` | Qualité 0..1 pour les formats compressés (jpeg/webp) ; ignorée en png. | `0.92` |
+| `capture.scale` | Suréchantillonnage par défaut (`1 | 2`) : ×2 rend plus net que l'affichage, au prix d'une frame lourde. | `1` |
+| `capture.background` | Fond par défaut (`'opaque' | 'transparent'`). `'transparent'` retombe sur opaque aujourd'hui : le renderer est créé sans canal alpha. | `'opaque'` |

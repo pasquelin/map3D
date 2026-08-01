@@ -271,6 +271,16 @@ export const defaultLabels: MapLabels = {
         fullscreen: 'Plein écran',
       },
     },
+    capture: {
+      title: 'Prendre une photo',
+      format: 'Format',
+      quality: 'Qualité',
+      scale: 'Netteté',
+      transparent: 'Fond transparent',
+      download: 'Télécharger',
+      mail: 'Envoyer par mail',
+      share: 'Partager',
+    },
   },
   actions: {
     panMap: 'Déplacer la carte',

@@ -1,4 +1,5 @@
 import {
+  mdiCameraOutline,
   mdiChartBoxOutline,
   mdiChevronRight,
   mdiCog,
@@ -8,6 +9,8 @@ import {
   mdiRestore,
   mdiTune,
 } from '@mdi/js'
+import { CapturePanel } from './CapturePanel'
+import { CaptureContext } from '../capture'
 import { StatsPanel } from './StatsPanel'
 import { UiIcon } from './UiIcon'
 import { useContext, useMemo, useRef, useState } from 'react'
@@ -41,10 +44,17 @@ import { formatKey } from './tooltip'
 const UNSTYLED_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['select', 'erase', 'symbol'])
 
 /** Entrées du panneau ouvrant un sous-panneau latéral : un outil, les raccourcis, le hub plugins, le catalogue, les préférences. */
-type SubKey = DrawTool | 'shortcuts' | 'plugins' | 'catalog' | 'stats' | 'preferences'
+type SubKey = DrawTool | 'shortcuts' | 'plugins' | 'catalog' | 'stats' | 'preferences' | 'capture'
 
 /** Sous-panneaux qui ne sont pas un outil de dessin (le reste ouvre un `StyleEditor`). */
-const NON_TOOL_SUBS: ReadonlySet<SubKey> = new Set<SubKey>(['shortcuts', 'plugins', 'catalog', 'stats', 'preferences'])
+const NON_TOOL_SUBS: ReadonlySet<SubKey> = new Set<SubKey>([
+  'shortcuts',
+  'plugins',
+  'catalog',
+  'stats',
+  'preferences',
+  'capture',
+])
 
 /** Un sous-panneau d'outil ouvre un `StyleEditor` : garde de type qui resserre vers `DrawTool`. */
 const isToolSub = (k: SubKey): k is DrawTool => !NON_TOOL_SUBS.has(k)
@@ -86,6 +96,9 @@ export function DrawSettingsButton({
   // ou celui de l'hôte). Sans lui, l'entrée ouvrirait un panneau vide. `useContext` plutôt
   // que `usePreferences` — on ne veut PAS re-rendre la barre à chaque changement de réglage.
   const hasPreferences = useContext(PreferencesContext) !== null
+  // Capture : seulement si l'hôte a fourni la prop `<Map capture>` (rasteriseur/callbacks).
+  // Sans elle, la ligne n'apparaît pas — la capture par code reste possible via le handle.
+  const hasCapture = useContext(CaptureContext) !== null
   const [openSub, setOpenSub] = useState<SubKey | null>(null)
   /** Ligne survolée : c'est elle qui ANCRE le sous-menu, comme un bouton ancre le sien. */
   const [subRow, setSubRow] = useState<HTMLElement | null>(null)
@@ -188,6 +201,7 @@ export function DrawSettingsButton({
                 `<MapProvider>` fournit le store (le nôtre ou celui de l'hôte). */}
             {hasPreferences && row('preferences', mdiTune, labels.settings.preferences.title)}
             {hasCatalog && row('catalog', mdiMapSearchOutline, labels.catalog.settings.title)}
+            {hasCapture && row('capture', mdiCameraOutline, labels.settings.capture.title)}
             {row('stats', mdiChartBoxOutline, labels.stats.title)}
           </div>
           {openSub && (
@@ -229,6 +243,8 @@ export function DrawSettingsButton({
                 <PreferencesPanel />
               ) : openSub === 'catalog' ? (
                 <CatalogSettingsPanel />
+              ) : openSub === 'capture' ? (
+                <CapturePanel />
               ) : openSub === 'stats' ? (
                 <StatsPanel />
               ) : (

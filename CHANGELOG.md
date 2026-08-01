@@ -23,6 +23,32 @@ pixels. Conforme à la mention requise par la licence **PolyForm-Noncommercial**
   la retirer viole la licence. Type public `WatermarkConfig`.
 - Coût par frame : un seul quad texturé (`depthTest:false`), zéro allocation.
 
+### Capture d'image de la carte
+
+Génération d'une image de la carte **avec ses éléments visibles** — la 3D (canvas WebGL) et,
+si un rasteriseur DOM est injecté, les overlays markers/labels par-dessus. Accessible **par
+code** (`engine.capture()` / `MapHandle.capture()` / `useCapture()`, pour tracer une image
+en cas d'action, ex. envoi vers une API) et **par l'UI** : une ligne « Prendre une photo »
+dans le menu ⚙ de la barre, avec choix du format (PNG/JPEG/WebP), de la qualité, de l'échelle,
+et trois actions **Télécharger / Envoyer par mail / Partager** (Web Share). Le rendu est
+synchrone (pas de `preserveDrawingBuffer`, aucun coût par frame) et suréchantillonnable.
+
+Le rasteriseur d'overlay et les callbacks mail/trace sont **injectés** par l'hôte
+(`<Map capture>`) — la lib n'embarque aucune dépendance de rasterisation ; sans injection, la
+capture retombe sur la 3D seule. Le fond « transparent » est accepté mais retombe aujourd'hui
+sur opaque (le renderer est créé sans canal alpha).
+
+**Ajouts**
+
+- `MapEngine.capture(opts?): Promise<Blob>` — rendu synchrone + compositing.
+- `MapHandle.capture(opts?)` (poignée de `<Map>`) et hook `useCapture()`.
+- Prop `<Map capture>` (`CaptureProps` : `rasterizeOverlay`, `onCapture`, `onMail`).
+- Bloc `config.capture` (`CaptureConfig` : `format`, `quality`, `scale`, `background`).
+- Types publics `CaptureOptions`, `CaptureFormat`, `CaptureBackground`, `OverlayRasterizer`.
+- Libellés `settings.capture.*` (titre, format, qualité, échelle, fond, télécharger, mail, partager).
+- Ligne « Prendre une photo » dans le menu ⚙ (`DrawSettingsButton`), présente dès que la prop
+  `capture` est fournie.
+
 ### Publication npm
 
 - Le paquet est renommé **`@pasquelin/map3d`** (l'unscoped `map3d` est déjà pris sur npm).

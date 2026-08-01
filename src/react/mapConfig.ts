@@ -14,6 +14,7 @@
 
 import type { ReactNode } from 'react'
 import type { Camera } from '../core/Camera'
+import type { CaptureOptions } from '../core/capture'
 import type { BuildingInfo, MapEngine } from '../core/MapEngine'
 import type { MarkerData } from '../data/types'
 import type { PedestrianApi } from './hooks/usePedestrian'
@@ -146,6 +147,12 @@ export type MapHandle = {
   readonly lens: LensApi | null
   /** Moteur de relations. `null` si aucune prop `relations`. */
   readonly relations: RelationApi | null
+  /**
+   * Capture l'image de la carte (`Blob`) : rendu synchrone, overlays DOM (markers/labels)
+   * composés si un rasteriseur est fourni via `<Map capture>`, sinon 3D seule. Défauts en
+   * `config.capture`, surchargeables par appel. À utiliser pour tracer une image (log, API).
+   */
+  capture: (opts?: CaptureOptions) => Promise<Blob>
 }
 
 /** Identité de couche, stable d'un rendu à l'autre (clé React). */

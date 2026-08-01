@@ -15,6 +15,8 @@ import { MapProvider } from './MapProvider'
 import { DragOverlay } from './components/DragOverlay'
 import { DropdownProvider } from './components/Dropdown'
 import { MapContext, useConfig, useTheme } from './context'
+import { type CaptureProps, CaptureContext, runCapture } from './capture'
+import type { CaptureOptions } from '../core/capture'
 import type { MapHandle, MapSurfaces } from './mapConfig'
 import {
   type BridgedApis,
@@ -111,6 +113,13 @@ export type MapProps<T = unknown, TPin = unknown> = {
    * ```
    */
   config?: PartialConfig
+  /**
+   * Capture d'image (« Prendre une photo » et `handle.capture()`) : injection hôte des
+   * FONCTIONS — rasteriseur d'overlay (markers/labels) et callbacks mail/trace. Sa présence
+   * active la ligne du menu ⚙. Les défauts (format, qualité, échelle, fond) se règlent en
+   * `config.capture`. Cf. `CaptureProps`.
+   */
+  capture?: CaptureProps
 } & MapSurfaces<T, TPin>
 
 type StoredPosition = { lat: number; lng: number; altitude: number }
@@ -177,6 +186,11 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   }
   const cbRef = useRef(cbs)
   cbRef.current = cbs
+  // Injection capture (rasteriseur + callbacks) lue à l'APPEL de `handle.capture` : la
+  // poignée ne se recrée qu'au changement de moteur (deps `[engine]`), un accès direct la
+  // figerait à la valeur du montage — même raison d'être que `cbRef`.
+  const captureRef = useRef(props.capture)
+  captureRef.current = props.capture
   const interactive = props.interactive ?? true
   const interactiveRef = useRef(interactive)
   interactiveRef.current = interactive
@@ -334,6 +348,16 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
   const overlay = overlayRef.current
   const mapCtx = useMemo(() => (engine && overlay ? { engine, overlay, theme } : null), [engine, overlay, theme])
 
+  // Injection capture stabilisée sur ses trois fonctions : un littéral inline côté hôte en
+  // recréerait l'identité à chaque render, re-rendant le panneau qui la consomme pour rien.
+  // Déstructuré pour dépendre des fonctions elles-mêmes, pas de l'objet qui les porte.
+  const { rasterizeOverlay, onCapture, onMail } = props.capture ?? {}
+  const hasCapture = props.capture != null
+  const captureCtx = useMemo<CaptureProps | null>(
+    () => (hasCapture ? { rasterizeOverlay, onCapture, onMail } : null),
+    [hasCapture, rasterizeOverlay, onCapture, onMail],
+  )
+
   // APIs qui vivent dans les contextes internes, recopiées par `ApiBridge`.
   const apis = useRef<BridgedApis>({
     drawing: null,
@@ -372,6 +396,7 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
             get relations() {
               return apis.current.relations
             },
+            capture: (opts?: CaptureOptions) => runCapture(engine, captureRef.current ?? null, opts ?? {}),
           }
         : null) as MapHandle,
     [engine],
@@ -403,13 +428,15 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
               elles sont réparties entre `<Toolbar>` (style, réglages, symboles) et
               `<MapControls>` (couches, templates), et deux barres ne peuvent pas
               s'accorder sans un registre qui les enveloppe toutes les deux. */}
-          <DropdownProvider>
-            <RelationsHost relations={props.relations}>
-              <LensHost<T> lens={lens} markerMenu={props.markerMenu as MarkerMenuOf}>
-                <MapSurfacesHost {...props} apis={apis} />
-              </LensHost>
-            </RelationsHost>
-          </DropdownProvider>
+          <CaptureContext.Provider value={captureCtx}>
+            <DropdownProvider>
+              <RelationsHost relations={props.relations}>
+                <LensHost<T> lens={lens} markerMenu={props.markerMenu as MarkerMenuOf}>
+                  <MapSurfacesHost {...props} apis={apis} />
+                </LensHost>
+              </RelationsHost>
+            </DropdownProvider>
+          </CaptureContext.Provider>
           <DragOverlay />
         </MapContext.Provider>
       )}

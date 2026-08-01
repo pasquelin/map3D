@@ -21,6 +21,7 @@ import {
   type MapMode,
 } from './basemap'
 import { boundsOfCircle, boundsOfLatLngs } from './bounds'
+import type { CaptureOptions } from './capture'
 import { Camera, type CameraState } from './Camera'
 import { HEADING_EPSILON, projectViewForward, tiltFromNadir } from './enu'
 import { GroundedState } from './GroundedState'
@@ -481,6 +482,8 @@ export class MapEngine {
   private running = false
   private lastTime = 0
   private disposed = false
+  /** Verrou de réentrance de `capture()` : un `pixelRatio` surélevé fausserait deux captures concurrentes. */
+  private capturing = false
   private settleFrames = 0
   private lastState: CameraState | null = null
   /** Vue mémoïsée : les bounds viewport ne changent qu'au mouvement caméra / resize. */
@@ -2711,8 +2714,21 @@ export class MapEngine {
      */
     this.adaptResolution(dt * 1000)
 
+    this.renderFrame(state)
+  }
+
+  /**
+   * Passe de PEINTURE pure (WebGL + overlays DOM), sans cadence ni résolution : partagée
+   * par `tick` (frame normale) et `capture` (rendu synchrone hors boucle), pour qu'une
+   * capture peigne EXACTEMENT comme la boucle. Suppose les matrices monde à jour (le `tick`
+   * le garantit ; `capture` les force avant d'appeler).
+   *
+   * Aucun paramètre : un défaut objet (`opts = {}`) allouerait un littéral par frame peinte,
+   * dans le hot path. La passe est identique pour les deux appelants.
+   */
+  private renderFrame(state: CameraState): void {
     // Ciel : étoiles recalées sous le far courant, puis fondu + orientation du dome
-    // (même séquence qu'avant, sortie tôt et gratuite en vue globe).
+    // (sortie tôt et gratuite en vue globe).
     this.sky.update(this.config.sky, state)
     this.renderer.render(this.scene, this.threeCamera)
     // Signature « map3D » : peinte APRÈS la carte, dans les mêmes pixels (insensible au
@@ -2735,6 +2751,86 @@ export class MapEngine {
     this.labelCamera.matrixWorld.copy(this.threeCamera.matrixWorld)
     this.labelCamera.matrixWorldInverse.copy(this.threeCamera.matrixWorldInverse)
     this.labelRenderer.render(this.labelScene, this.labelCamera)
+  }
+
+  /**
+   * Capture l'état visible de la carte en une image (`Blob`) : rendu SYNCHRONE puis lecture
+   * immédiate du tampon (le renderer est créé sans `preserveDrawingBuffer`), suréchantillonné
+   * selon `scale`, avec compositing optionnel des overlays DOM (markers/labels) via un
+   * rasteriseur INJECTÉ. Sans rasteriseur → 3D seule.
+   *
+   * ⚠️ Photographie l'état COURANT : des tuiles encore en vol sortiront en basse définition.
+   * L'hôte qui veut le plein détail attend un ralenti (`stats().painted`) avant d'appeler.
+   *
+   * Réentrance interdite (un `pixelRatio` surélevé fausserait une capture concurrente).
+   */
+  async capture(opts: CaptureOptions = {}): Promise<Blob> {
+    if (this.capturing) throw new Error('map3d: une capture est déjà en cours')
+    const cfg = this.config.capture
+    const format = opts.format ?? cfg.format
+    const quality = opts.quality ?? cfg.quality
+    const scale = opts.scale ?? cfg.scale
+    const background = opts.background ?? cfg.background
+    const rasterize = opts.rasterizeOverlay
+    const wantOverlay = opts.overlay !== false && !!rasterize
+    // ⚠️ Le ratio de la LIB (`pixelRatio`), pas `window.devicePixelRatio` : le tampon suit
+    // le réglage de la lib, et l'overlay doit s'y aligner pour se superposer pixel-perfect.
+    const captureRatio = this.config.performance.pixelRatio * scale
+    const prevRatio = this.renderer.getPixelRatio()
+
+    // Canvas 2D hors-écran : la copie synchrone du tampon WebGL y vit, à l'abri du vidage du
+    // drawing buffer. AUCUN `await` entre le `render` et le `drawImage` ci-dessous.
+    const out = document.createElement('canvas')
+    const ctx = out.getContext('2d')
+    if (!ctx) throw new Error('map3d: contexte 2D indisponible pour la capture')
+
+    const state = this.camera.getState()
+    try {
+      this.capturing = true
+      this.renderer.setPixelRatio(captureRatio)
+      // Moteur possiblement au repos : garantir les matrices monde avant de peindre.
+      this.threeCamera.updateMatrixWorld()
+      this.labelScene.updateMatrixWorld()
+      this.renderFrame(state)
+      out.width = this.canvas.width
+      out.height = this.canvas.height
+      // Fond opaque : `fillRect` avec la couleur d'effacement du thème (le WebGL opaque
+      // couvre déjà tout, mais ça garantit l'absence de trou). `'transparent'` saute ce
+      // remplissage — sans effet visible tant que le renderer n'a pas de canal alpha
+      // (repli opaque assumé), mais le jour où il l'aura, le fond sera réellement percé.
+      if (background !== 'transparent') {
+        ctx.fillStyle = `#${this.renderer.getClearColor(new THREE.Color()).getHexString()}`
+        ctx.fillRect(0, 0, out.width, out.height)
+      }
+      ctx.drawImage(this.canvas, 0, 0) // copie SYNCHRONE du tampon WebGL
+    } finally {
+      this.renderer.setPixelRatio(prevRatio)
+      // `setPixelRatio` a vidé le tampon : repeindre tout de suite à la résolution d'écran,
+      // sinon la prochaine composition du navigateur montre une frame noire. Inconditionnel :
+      // moteur arrêté (`running===false`), aucune boucle ne consommerait un `invalidate()`, et
+      // le canvas resterait noir jusqu'au prochain `start()` — d'où un repaint synchrone ici.
+      this.renderFrame(state)
+      this.capturing = false
+    }
+
+    // À partir d'ici le tampon WebGL peut être vidé : la capture vit dans `out`.
+    if (wantOverlay && rasterize) {
+      const overlay = await rasterize(this.labelRenderer.domElement, {
+        width: this.size.width,
+        height: this.size.height,
+        pixelRatio: captureRatio,
+        backgroundColor: 'transparent',
+      })
+      ctx.drawImage(overlay, 0, 0, out.width, out.height)
+    }
+
+    return await new Promise<Blob>((resolve, reject) => {
+      out.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('map3d: encodage de la capture échoué'))),
+        `image/${format}`,
+        quality,
+      )
+    })
   }
 
   /**

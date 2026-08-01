@@ -303,6 +303,14 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `settings.preferences.actions.zoomIn` | Name of each reassignable action (movement + view). | `'Zoom avant'` |
 | `settings.preferences.actions.zoomOut` | Name of each reassignable action (movement + view). | `'Zoom arrière'` |
 | `settings.preferences.actions.fullscreen` | Name of each reassignable action (movement + view). | `'Plein écran'` |
+| `settings.capture.title` | "Take a photo" sub-panel: map image capture (⚙ menu). | `'Prendre une photo'` |
+| `settings.capture.format` | Label of the image format choice. | `'Format'` |
+| `settings.capture.quality` | Label of the quality setting (jpeg/webp). | `'Qualité'` |
+| `settings.capture.scale` | Label of the scale setting (sharpness). | `'Netteté'` |
+| `settings.capture.transparent` | Label of the "transparent background" switch (falls back to opaque today). | `'Fond transparent'` |
+| `settings.capture.download` | Button: download the image. | `'Télécharger'` |
+| `settings.capture.mail` | Button: send the image by email (via the host callback). | `'Envoyer par mail'` |
+| `settings.capture.share` | Button: share the image (Web Share API). | `'Partager'` |
 
 ## `actions` — Gesture cheat sheet
 

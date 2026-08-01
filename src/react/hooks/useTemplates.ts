@@ -18,6 +18,7 @@ import type {
 } from '../../core/templates/types'
 import type { GeoJSONFeatureCollection } from '../../layers/DrawLayer'
 import { applyView, captureView } from '../../core/templates/view'
+import { downloadBlob } from '../downloadBlob'
 import { useConfig, useLabels, useMapContext } from '../context'
 
 /** Réglages du gestionnaire, tous optionnels (retombent sur `config.providers.templates`). */
@@ -308,12 +309,7 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
       const blob = new Blob([JSON.stringify({ format: M3DT_FORMAT, version: 1, template: t }, null, 2)], {
         type: 'application/json',
       })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${t.name || labels.defaultName}.m3dt`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `${t.name || labels.defaultName}.m3dt`)
     },
     [reg, labels.defaultName],
   )
