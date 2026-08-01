@@ -85,6 +85,38 @@ export class HeightResettle {
 }
 
 /**
+ * Clés d'un `Map`, aux positions `ids` (indices d'ITÉRATION, cf. `HeightResettle.batch`),
+ * dans L'ORDRE de `ids` — sans matérialiser tout son trousseau (`[...map.keys()]`), qui
+ * allouait un tableau de la taille du `Map` entier pour n'en indexer que `batch` (4 par
+ * défaut). Un seul passage sur le `Map` ; coût O(taille), alloc bornée par `ids.length`.
+ *
+ * L'ORDRE de sortie doit rester celui de `ids`, pas celui d'itération du `Map` : un
+ * appelant qui, comme `DrawLayer`, accumule un état (`stableRuns`) d'un id à l'autre au
+ * sein d'un même lot y est sensible — d'où le report par POSITION plutôt qu'un simple
+ * test d'appartenance.
+ *
+ * `out`/`posScratch` réutilisables par l'appelant pour rester à zéro-alloc en régime
+ * établi (sinon alloués ici, à chaque appel, mais toujours bornés par `ids.length`).
+ */
+export function mapKeysAt<K>(
+  map: ReadonlyMap<K, unknown>,
+  ids: readonly number[],
+  out: K[] = [],
+  posScratch = new Map<number, number>(),
+): K[] {
+  posScratch.clear()
+  for (let p = 0; p < ids.length; p++) posScratch.set(ids[p]!, p)
+  out.length = ids.length
+  let i = 0
+  for (const key of map.keys()) {
+    const p = posScratch.get(i)
+    if (p !== undefined) out[p] = key
+    i++
+  }
+  return out
+}
+
+/**
  * Accès d'un layer à ses éléments drapés, par index. `rebuild` renvoie false quand
  * l'élément est devenu invalide — `remove` est alors appelé et l'index re-visité.
  */

@@ -4,7 +4,7 @@ import type { MapConfig } from '../config/types'
 import { EnuFrame } from '../core/enu'
 import { GroundedState } from '../core/GroundedState'
 import type { SymbolRenderer } from '../symbols/types'
-import { HEIGHT_EPSILON, HeightResettle } from '../core/resettle'
+import { HEIGHT_EPSILON, HeightResettle, mapKeysAt } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { StatContribution } from '../core/viewStats'
 import { boundsContains } from '../core/MarkerQuery'
@@ -376,6 +376,10 @@ export class DrawLayer implements Layer {
   private readonly heights = new Map<string, number | null>()
   private heightEpoch = -1
   private readonly resettle = new HeightResettle(() => this.config)
+  /** Scratch de `mapKeysAt` (boucle de lots du resettle, cf. plus bas) : bornés par
+   *  `batch` (défaut 4), jamais par `this.meshes.size`. */
+  private readonly resettleIndexPos = new Map<number, number>()
+  private resettleKeysBuf: string[] = []
   private groupEpochSeen = -1
   private stableRuns = 0
   private retryTick = 0
@@ -1771,9 +1775,12 @@ export class DrawLayer implements Layer {
     // Suit le raffinement des tuiles (LOD) par petits lots amortis.
     const ids = this.resettle.batch(this.meshes.size)
     if (ids.length > 0) {
-      const keys = [...this.meshes.keys()]
-      for (const i of ids) {
-        const id = keys[i]!
+      // `mapKeysAt` : un seul passage sur le `Map`, sans matérialiser tout son trousseau
+      // (`[...this.meshes.keys()]` allouait un tableau de la taille de TOUTES les formes
+      // chaque frame de la fenêtre, pour n'en indexer que `batch`, 4 par défaut).
+      const keys = mapKeysAt(this.meshes, ids, this.resettleKeysBuf, this.resettleIndexPos)
+      for (let pos = 0; pos < ids.length; pos++) {
+        const id = keys[pos]!
         const d = this.drawingFor(id)
         if (!d || d.points.length < 1) continue
         const h = this.projection.resolveAnchorHeight(d.points[0]!)
