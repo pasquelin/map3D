@@ -147,7 +147,9 @@ export const defaultUiSettings: UiSettings = {
     groups: allOn(CONTROL_GROUPS),
   },
   search: true,
-  readout: { enabled: true, corner: 'top-right' },
+  // Éteint : le panneau de diagnostic (bouton « Infos ») porte désormais ces grandeurs.
+  // L'interrupteur reste là pour comparer les deux surfaces.
+  readout: { enabled: false, corner: 'top-right' },
   dock: true,
   templates: { enabled: true, useApi: false },
   draw: true,

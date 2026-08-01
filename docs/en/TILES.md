@@ -271,19 +271,27 @@ view no longer reaches the horizon, or serve a tileset carrying heights below le
 A dense z14 tile (Paris) carries 52,000 footprint vertices — about 131,000 triangles and
 231,000 vertices to produce. Five mechanisms keep that load off the frame loop:
 
-- **Extrusion in a Web Worker.** Download, MVT decoding and buffer construction happen off
-  the main thread, and the buffers come back by transfer (no copy). The worker is bundled
-  as a self-contained blob when the library is built: nothing to configure in the host's
-  bundler, no asset to serve. Where `Worker` does not exist (server rendering, tests), the
-  very same code runs as a main-thread fallback.
-- **One BVH per tile.** The map casts three rays per frame against the displayed surface
-  (camera guard, elevation tracking, shape draping). Brute force, a single tile cost
-  5.7 ms per ray; with the tree, ~0.015 ms. That is what puts internal volume on par with
-  the external `TilesRenderer`, whose tiles already have a hierarchy of their own.
-- **Spread-out mounting.** Expanding colours and building the tree stay on the main thread
-  — `MeshBVH` depends on three, and pulling it into the worker would drag the whole engine
-  into that blob. `providers.buildings.mountPerFrame` (1) therefore mounts only one tile
-  per frame: two tiles landing together used to add up their ~20 ms into a visible freeze.
+- **The whole pipeline in a pool of Web Workers.** Download, MVT decoding, buffer
+  construction **and the bounding-volume tree** happen off the main thread, and the buffers
+  come back by transfer (no copy). The workers are bundled as a self-contained blob when
+  the library is built: nothing to configure in the host's bundler, no asset to serve.
+  Where `Worker` does not exist (server rendering, tests), the very same code runs as a
+  main-thread fallback.
+- **One BVH per tile, built in the worker.** The map casts three rays per frame against the
+  displayed surface (camera guard, elevation tracking, shape draping). Brute force, a
+  single tile cost 5.7 ms per ray; with the tree, ~0.004 ms. That is what puts internal
+  volume on par with the external `TilesRenderer`, whose tiles already have a hierarchy of
+  their own. **Building it costs ~41 ms per dense tile**: as long as that happened at mount
+  time it accounted for 97% of a tile's cost and dropped frames. It now arrives fully
+  built, and attaching it costs ~0.05 ms — a factor of ~800.
+- **Several workers.** The full pipeline weighs ~60 ms per dense tile: a single thread
+  would serialise them, and buildings would appear more slowly than before. Measured over
+  24 Paris z14 tiles — 1430 ms with one worker, 587 ms with three, 559 ms with four, then
+  nothing more, and a **regression** at eight. `providers.buildings.workerPoolSize` (4)
+  sets the count; the pool caps itself at the core count minus one.
+- **Spread-out mounting.** What is left on the main thread — expanding colours (~1 ms),
+  attaching the tree (~0.05 ms), pushing the buffers to the GPU — is spread out by
+  `providers.buildings.mountPerFrame` (2).
 - **Local, quantised geometry.** Vertices are expressed in metres around the tile centre,
   and the mesh matrix places them on the globe. An ECEF position is ~6.4 × 10⁶ m: in
   `Float32` its resolution drops to ~0.4 m — the thickness of a façade. Those local metres
@@ -293,10 +301,16 @@ A dense z14 tile (Paris) carries 52,000 footprint vertices — about 131,000 tri
   in the worker: fast navigation otherwise left the queue entirely busy extruding tiles
   that had already left the view.
 
-The MVT decoder and the worker are loaded via **dynamic import** — a host staying on
-photorealistic volume never downloads them.
+The MVT decoder and the workers are loaded via **dynamic import** — a host staying on
+photorealistic volume never downloads them. That is what makes the weight of
+three-mesh-bvh in the blob acceptable: it takes it from 13 to 71 kB gzipped, but **only a
+host that displays internal volume pays it**, once.
 
-> **CSP.** The worker is created from a `Blob`: a security policy must allow
+> **Worker count.** `workerPoolSize` is pointless beyond
+> `providers.buildings.maxInflight` (4 by default): the queue never starts more downloads
+> than that, so the extra workers would sit idle. Raise the two together.
+
+> **CSP.** The workers are created from a `Blob`: a security policy must allow
 > `worker-src blob:` (or `child-src blob:`). Without it, creation fails and everything
 > falls back to the main thread — a few hundred milliseconds of freeze per tile. The
 > library then says so once in the console, so it is not mistaken for a slow machine.

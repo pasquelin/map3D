@@ -35,6 +35,8 @@ type PathDrape = Drape<PathData> & { head: Head | null }
  * du ruban et l'animation de la tête.
  */
 export class PathLayer extends DrapedLayer<PathData, PathDrape> {
+  protected readonly statKind = 'paths' as const
+
   private paths: PathData[] = []
   private time = 0
 

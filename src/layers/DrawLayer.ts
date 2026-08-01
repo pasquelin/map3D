@@ -6,6 +6,8 @@ import { GroundedState } from '../core/GroundedState'
 import type { SymbolRenderer } from '../symbols/types'
 import { HEIGHT_EPSILON, HeightResettle } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
+import type { StatContribution } from '../core/viewStats'
+import { boundsContains } from '../core/MarkerQuery'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
 import type { SelectableRegistry } from '../core/Selectables'
@@ -36,7 +38,7 @@ import {
   strokeMaterial,
   strokePolylines,
 } from '../core/geometry'
-import type { LatLng } from '../shared'
+import type { Bounds, LatLng } from '../shared'
 import { defaultLabels } from '../labels/defaultLabels'
 import { makeDistanceFormatter } from '../labels/measure'
 
@@ -288,6 +290,30 @@ export class DrawLayer implements Layer {
   defaultsFor?: (tool: DrawTool) => DrawDefaults
 
   private drawings: Drawing[] = []
+
+  /**
+   * Contribution au panneau de diagnostic (cf. `CounterRegistry`).
+   *
+   * Le balayage est fait ICI et non dans `update()` : appelé à la cadence du panneau et
+   * seulement pendant qu'il est ouvert, il ne coûte rien le reste du temps. C'était la
+   * différence entre 8 balayages par seconde et 60, panneau fermé compris.
+   *
+   * Sort au PREMIER sommet trouvé. ⚠️ Le pire cas est donc le dessin HORS cadre, parcouru
+   * entièrement — c'est acceptable à cette cadence, mais ce serait le point à reprendre
+   * (bbox mémoïsée par dessin) si un hôte portait des milliers de tracés denses.
+   */
+  stats(bounds: Bounds): StatContribution {
+    let visible = 0
+    for (const d of this.drawings) {
+      for (const p of d.points) {
+        if (boundsContains(bounds, p)) {
+          visible++
+          break
+        }
+      }
+    }
+    return { kind: 'drawings', visible, total: this.drawings.length }
+  }
   private readonly history = new History()
   private overlaySel: SelectionOverlay | null = null
   private readonly selection = new SelectionManager({

@@ -312,6 +312,24 @@ export type {
 // contexte carte, donc il vit partout sous `<Map>`.
 export { CameraReadout } from './react/components/CameraReadout'
 export type { CameraReadoutProps, ReadoutField, ReadoutCorner } from './react/components/CameraReadout'
+/**
+ * Panneau de diagnostic. Déjà monté par la barre de dessin, en ligne du menu « Réglages »
+ * — à côté de « Plugins » et « Catalogue ». Exporté pour l'hôte qui préfère le poser dans
+ * SA propre surface (tiroir de réglages, fenêtre d'exploitation).
+ */
+export { StatsPanel } from './react/components/StatsPanel'
+export type { StatsPanelProps, StatsSection } from './react/components/StatsPanel'
+// Formatage des grandeurs, comme `makeReadoutFormatter` l'est pour le bloc de lecture :
+// sans lui, un hôte qui pose ces valeurs dans SA surface a le verdict mais pas les nombres.
+export { makeStatFormatter, statLabel, isCameraField } from './labels/stats'
+export type { StatFormatter } from './labels/stats'
+export type { StatField, StatLevel, StatThreshold, StatContribution, ViewStats } from './core/viewStats'
+// Registre des compteurs de diagnostic (`engine.counters`) : une couche custom s'y branche
+// pour que le panneau compte SES éléments. Exporté comme les autres registres — sans le
+// type, un hôte ne peut pas nommer le contributeur qu'il doit fournir.
+export { CounterRegistry } from './core/CounterRegistry'
+export type { StatCounter } from './core/CounterRegistry'
+export { statLevel } from './core/viewStats'
 export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar, useToolbar } from './react/components/Toolbar'

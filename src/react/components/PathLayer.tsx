@@ -1,6 +1,6 @@
 import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLayer'
 import { useMapContext } from '../context'
-import { useLayer, useLayerSync } from '../hooks/useLayer'
+import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
 export type PathLayerProps = {
   /** Tracés à afficher, drapés sur le relief. */
@@ -29,6 +29,7 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
       ),
   )
 
+  useStatCounter(ref)
   useLayerSync(ref, theme, (layer, t) =>
     layer.setDefaults({ color: t.colors.path.base, casingColor: t.colors.path.casing }),
   )

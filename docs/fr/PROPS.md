@@ -361,3 +361,12 @@ aucun three.js ni GPU.
 |---|---|---|
 | `draw` **(requis)** | FeatureCollection GeoJSON du dessin à prévisualiser. | — |
 | `size` | Côté du carré de rendu (px). | `40` |
+
+## `<StatsPanel>`
+
+Panneau de diagnostic, déjà monté en ligne « Infos » du menu « Réglages ». À rendre soi-même pour le poser dans une autre surface — cf. [CAMERA.md](CAMERA.md).
+
+| Prop | Type | Défaut | Rôle |
+| --- | --- | --- | --- |
+| `sections` | `readonly StatsSection[]` | les quatre | Sections affichées, dans l'ordre du panneau : `'camera'`, `'content'`, `'render'`, `'tiles'`. |
+| `refreshMs` | `number` | `config.performance.readoutRefreshMs` | Cadence maximale d'écriture. C'est aussi la cadence à laquelle les compteurs des couches sont interrogés — le panneau ne coûte rien fermé. |

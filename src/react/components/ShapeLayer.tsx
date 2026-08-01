@@ -5,7 +5,7 @@ import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMat
 import { emptyResult, SHAPE_GROUP } from '../../search/registry'
 import type { Bounds } from '../../shared'
 import { useLabels, useMapContext } from '../context'
-import { useLayer, useLayerSync } from '../hooks/useLayer'
+import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
 export type ShapeLayerProps = {
   /** Zones à afficher (cercles, rectangles, polygones), drapées sur le relief. */
@@ -26,6 +26,7 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
       }),
   )
 
+  useStatCounter(ref)
   useLayerSync(ref, theme, (layer, t) => layer.setDefaults({ color: t.colors.zone.stroke }))
   useLayerSync(ref, shapes, (layer, s) => layer.setShapes(s))
 

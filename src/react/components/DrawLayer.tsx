@@ -305,6 +305,8 @@ export function DrawLayer(props: DrawLayerProps) {
     // Labels de mesure traduits via le provider (ref : labels changés sans recréer le core).
     core.formatDistance = (m) => makeDistanceFormatter(labelsRef.current.measure)(m)
     engine.addLayer(core)
+    // Compteur du panneau de diagnostic : inscrit avec la couche, retiré avec elle.
+    const unregisterCounter = engine.counters.register({ stats: (bounds) => core.stats(bounds) })
     coreRef.current = core
     setCoreReady(true)
     // Pont pour le gestionnaire de templates : lui donne accès au dessin depuis la
@@ -326,6 +328,7 @@ export function DrawLayer(props: DrawLayerProps) {
       offSelection()
       engine.inputInterceptor = null
       engine.setDrawing(false)
+      unregisterCounter()
       engine.removeLayer(core)
       engine.templates.drawPort = null
       engine.tags.unreport(tagSource)

@@ -6,7 +6,9 @@ import type { Projection } from '../core/Projection'
 import { clearGroup, disposeObject3D } from '../core/geometry'
 import { GroundedState } from '../core/GroundedState'
 import { DrapeSync } from '../core/resettle'
-import type { LatLng } from '../shared'
+import type { Bounds, LatLng } from '../shared'
+import { boundsContains } from '../core/MarkerQuery'
+import type { StatContribution } from '../core/viewStats'
 
 /**
  * Groupe drapé auto-porteur : sa base ENU, l'ancre qui l'a produite, la hauteur de
@@ -219,6 +221,29 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
     if (this.sync.active) ctx.invalidate()
     this.onUpdate?.(ctx)
   }
+
+  /**
+   * Contribution au panneau de diagnostic (cf. `CounterRegistry`).
+   *
+   * Le balayage est fait ICI et non dans `update()` : appelé à la cadence du panneau et
+   * seulement pendant qu'il est ouvert, il ne coûte rien le reste du temps.
+   *
+   * C'est l'ANCRE qui est testée, pas l'emprise : une forme dont l'ancre sort du cadre peut
+   * encore déborder à l'écran. Le compte est donc un ordre de grandeur de ce qui est
+   * affiché — ce qu'on lui demande — et non un verdict de rendu, que seul le frustum du GPU
+   * rend vraiment.
+   */
+  stats(bounds: Bounds): StatContribution {
+    let visible = 0
+    for (const d of this.drapes) if (boundsContains(bounds, d.anchor)) visible++
+    return { kind: this.statKind, visible, total: this.drapes.length }
+  }
+
+  /**
+   * Genre sous lequel cette couche compte. Déclaré par la sous-classe : `DrapedLayer` sert
+   * les formes, les tracés et les liens, et le panneau les distingue.
+   */
+  protected abstract readonly statKind: StatContribution['kind']
 
   /** Passe écran (overlays 2D). Vide par défaut : la plupart des couches drapées
    *  n'ont rien à repositionner en pixels. */

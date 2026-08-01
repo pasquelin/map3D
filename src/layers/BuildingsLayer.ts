@@ -2,12 +2,13 @@ import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { defaultConfig } from '../config/defaultConfig'
 import type { BuildingsConfig, InternalServerConfig } from '../config/types'
-import { attachBVH, bvhBytes, detachBVH } from '../core/bvh'
+import { attachPackedBVH, bvhBytes, detachBVH } from '../core/bvh'
 import { latToTileY, lngToTileX, tileXToLng, tileYToLat } from '../core/googleTiles'
 import { trimSlash } from '../core/internalTiles'
 import { DEG2RAD } from '../core/math'
 import { intersectsView, type Tile, TileQueue, tileRange } from '../core/TileQueue'
-import { BuildingsSource, type BuiltTile } from '../data/buildingsSource'
+import { BuildingsSource } from '../data/buildingsSource'
+import type { BuiltTile } from '../data/buildTile'
 import type { Shading, TileBuildings, TileFrame } from '../data/mvt'
 import type { Bounds } from '../shared'
 import { defaultTheme } from '../theme/defaultTheme'
@@ -100,7 +101,9 @@ export type BuildingColors = {
  */
 export class BuildingsLayer {
   readonly group = new THREE.Group()
-  private readonly source = new BuildingsSource()
+  // Accesseur et non valeur : le nombre de workers se relit à chaque tuile, donc se règle
+  // à chaud comme les autres budgets de la file.
+  private readonly source = new BuildingsSource(() => this.cfg.workerPoolSize)
   private disposed = false
   /** Origine substituée dans le gabarit ; vide = rien à demander. */
   private origin = ''
@@ -285,6 +288,21 @@ export class BuildingsLayer {
     return this.cache.usedBytes
   }
 
+  /** Tuiles de volume en cache, montées ou non — lu par le panneau de diagnostic. */
+  get tileCount(): number {
+    return this.cache.size
+  }
+
+  /** Tuiles encore en chargement ou en attente de montage — cf. `TileQueue.pending`. */
+  get tilePending(): number {
+    return this.cache.pending
+  }
+
+  /** Workers d'extrusion vivants. `0` avant la première tuile, ou en repli main thread. */
+  get workerCount(): number {
+    return this.source.workerCount
+  }
+
   /**
    * Appelée chaque frame quand le volume interne est affiché. Demande les tuiles couvrant
    * la vue au zoom des données, montre celles qui sont prêtes, fait tourner file et
@@ -416,13 +434,14 @@ export class BuildingsLayer {
     // sous zones, tracés et dessins (≥ 1).
     mesh.renderOrder = 0
     /**
-     * Sans arbre, ce mesh à lui seul remettrait la carte à genoux (cf. `attachBVH`).
+     * Sans arbre, ce mesh à lui seul remettrait la carte à genoux (cf. `packTileBVH`).
      *
-     * Construit ICI et non dans le worker : `MeshBVH` importe three, et le tirer dans un
-     * worker empaqueté en blob autonome y embarquerait le moteur entier. C'est
-     * `mountPerFrame` qui répond au coût, en n'en payant qu'un par frame.
+     * ⚠️ L'arbre arrive CONSTRUIT, depuis le worker. Il l'était auparavant ici même, au
+     * motif que `MeshBVH` importe three et qu'un worker en blob autonome y aurait embarqué
+     * le moteur entier — mesuré depuis : +58 Ko gzip sur le blob, une fois, contre ~41 ms
+     * de gel PAR TUILE, soit 97 % du coût de ce montage. Le poser coûte ~0,05 ms.
      */
-    attachBVH(mesh)
+    attachPackedBVH(mesh, built.bvh)
     t.mesh = mesh
     t.buildings = built.buildings
     t.shade = built.shade

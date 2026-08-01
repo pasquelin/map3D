@@ -96,6 +96,8 @@ export function boundsOfShapes(shapes: Iterable<ShapeData>): Bounds | null {
  * géométrie propre aux formes.
  */
 export class ShapeLayer extends DrapedLayer<ShapeData> {
+  protected readonly statKind = 'shapes' as const
+
   private shapes: ShapeData[] = []
 
   constructor(

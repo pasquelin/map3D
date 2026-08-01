@@ -90,6 +90,15 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'graticule.tiltFade': 'Fondu à l’inclinaison',
   'graticule.labels': 'Étiquettes',
 
+  'performance.statThresholds': 'Seuils du panneau de diagnostic',
+  'performance.statThresholds.fps': 'Images par seconde',
+  'performance.statThresholds.paintedRatio': 'Frames peintes',
+  'performance.statThresholds.markersVisible': 'Markers affichés',
+  'performance.statThresholds.triangles': 'Triangles',
+  'performance.statThresholds.drawCalls': 'Appels de rendu',
+  'performance.statThresholds.textures': 'Textures',
+  'performance.statThresholds.resolutionScale': 'Échelle de résolution',
+  'performance.statThresholds.tileBytes': 'Mémoire des tuiles',
   catalog: 'Catalogue',
 }
 
@@ -200,6 +209,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.evictSlack': 'éviction forcée au-delà de (tuiles)',
   'providers.buildings.mountPerFrame': 'tuiles montées par frame',
   'providers.buildings.maxInflight': 'téléchargements simultanés',
+  'providers.buildings.workerPoolSize': 'workers d’extrusion',
   'providers.buildings.maxRequest': 'budget de tuiles par vue',
   'providers.buildings.maxAttempts': 'essais par tuile',
   'providers.buildings.retryDelays': 'délais entre essais (ms)',
@@ -496,4 +506,23 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'catalog.overscanRows': 'lignes de sur-rendu',
   'catalog.prefetchMarginPx': 'marge de préchargement (px)',
   'catalog.persistDebounceMs': 'anti-rebond d’écriture (ms)',
+  // ── performance.statThresholds ─────────────────────────────────────────────
+  // `ok`/`warn` : le sens se déduit de leur ORDRE (cf. `StatThreshold`), d'où des
+  // libellés qui parlent de bornes et non de « minimum » ou « maximum ».
+  'performance.statThresholds.fps.ok': 'borne verte',
+  'performance.statThresholds.fps.warn': 'borne jaune',
+  'performance.statThresholds.paintedRatio.ok': 'borne verte',
+  'performance.statThresholds.paintedRatio.warn': 'borne jaune',
+  'performance.statThresholds.markersVisible.ok': 'borne verte',
+  'performance.statThresholds.markersVisible.warn': 'borne jaune',
+  'performance.statThresholds.triangles.ok': 'borne verte',
+  'performance.statThresholds.triangles.warn': 'borne jaune',
+  'performance.statThresholds.drawCalls.ok': 'borne verte',
+  'performance.statThresholds.drawCalls.warn': 'borne jaune',
+  'performance.statThresholds.textures.ok': 'borne verte',
+  'performance.statThresholds.textures.warn': 'borne jaune',
+  'performance.statThresholds.resolutionScale.ok': 'borne verte',
+  'performance.statThresholds.resolutionScale.warn': 'borne jaune',
+  'performance.statThresholds.tileBytes.ok': 'borne verte',
+  'performance.statThresholds.tileBytes.warn': 'borne jaune',
 }

@@ -16,6 +16,12 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-accent': c.ui.accent,
     '--m3d-error': c.ui.error,
     '--m3d-border': c.ui.border,
+    // Verdicts du panneau de diagnostic. Repli sur la couleur de TEXTE et non sur
+    // `error`/`accent` : sans teintes déclarées, mieux vaut aucune couleur qu'une couleur
+    // qui affirmerait un verdict que le thème n'a pas voulu donner.
+    '--m3d-stat-ok': c.ui.stat?.ok ?? c.ui.text,
+    '--m3d-stat-warn': c.ui.stat?.warn ?? c.ui.text,
+    '--m3d-stat-bad': c.ui.stat?.bad ?? c.ui.text,
     '--m3d-cluster-core': c.cluster.core,
     '--m3d-cluster-satellite': c.cluster.satellite,
     '--m3d-cluster-text': c.cluster.text,

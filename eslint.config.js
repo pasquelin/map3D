@@ -41,4 +41,26 @@ export default tseslint.config(
       'react-hooks/use-memo': 'off',
     },
   },
+  {
+    // Outils de l'exemple écrits en JS pur : la sonde de perf n'est ni buildée ni
+    // bundlée, elle se charge à la main dans la console du navigateur (cf. son mode
+    // d'emploi). Elle échappe donc au `tsc` qui couvre tout le reste — et c'est
+    // précisément pourquoi `no-undef` la frappe, alors qu'il est neutralisé sur les
+    // fichiers TS, où c'est TypeScript qui répond.
+    //
+    // Les globals sont déclarés UN PAR UN plutôt que par un `no-undef: off` : la règle
+    // garde ainsi son seul intérêt ici, attraper une coquille sur un nom de variable.
+    files: ['examples/*/tools/**/*.js'],
+    languageOptions: {
+      globals: {
+        PerformanceObserver: 'readonly',
+        console: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        performance: 'readonly',
+        requestAnimationFrame: 'readonly',
+        setTimeout: 'readonly',
+      },
+    },
+  },
 )

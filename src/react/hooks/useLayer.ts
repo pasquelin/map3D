@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef } from 'react'
 import type { Layer } from '../../core/Layer'
+import type { StatCounter } from '../../core/CounterRegistry'
 import { useMapContext } from '../context'
 
 /**
@@ -58,4 +59,21 @@ export function useLayerSync<T, V>(ref: RefObject<T | null>, value: V, apply: (l
   useEffect(() => {
     if (ref.current) latest.current(ref.current, value)
   }, [ref, value, latest])
+}
+
+/**
+ * Inscrit une couche au registre des compteurs tant qu'elle est montée.
+ *
+ * Appelé APRÈS `useLayer` : l'ordre des effets suit celui des hooks, donc la couche est
+ * déjà posée dans la ref quand celui-ci s'exécute. La désinscription part avec le
+ * démontage — un compteur qui survivrait à sa couche afficherait un chiffre figé, ce qui
+ * est pire que pas de chiffre du tout.
+ */
+export function useStatCounter<T extends StatCounter>(ref: RefObject<T | null>): void {
+  const { engine } = useMapContext()
+  useEffect(() => {
+    const counter = ref.current
+    if (!counter) return
+    return engine.counters.register({ stats: (bounds) => counter.stats(bounds) })
+  }, [engine, ref])
 }

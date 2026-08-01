@@ -27,7 +27,7 @@ import {
 } from '../../relations/visuals'
 import { markerColorOf, tagColorOf } from '../../theme/colors'
 import { RelationContext, type RelationApi, useConfig, useLabels, useMapContext } from '../context'
-import { useLayer, useLayerSync } from '../hooks/useLayer'
+import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 import { useRelationInteraction } from '../hooks/useRelationInteraction'
 import type { MenuItem } from './ContextMenu'
 
@@ -309,6 +309,7 @@ export function RelationLayer({
   // changer de thème ou de langue ne repeindrait pas les liens. La valeur RÉSOLUE est
   // la clé de synchro, jamais la source : `useLayerSync` ne réagit qu'à `value`, donc
   // synchroniser sur `theme` seul laissait un changement de `casingColor` sans effet.
+  useStatCounter(layerRef)
   useLayerSync(layerRef, casingColor ?? theme.colors.path.casing, (layer, c) => layer.setDefaults({ casingColor: c }))
   useLayerSync(layerRef, hoverDarken, (layer, v) => layer.setDefaults({ hoverDarken: v }))
   useLayerSync(layerRef, casingWidth, (layer, v) => layer.setDefaults({ casingWidth: v }))

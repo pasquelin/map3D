@@ -257,8 +257,13 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `actions.panMap` | Actions d'édition du dessin (récapitulatif des raccourcis). | `'Déplacer la carte'` |
-| `actions.rotateCamera` | Actions d'édition du dessin (récapitulatif des raccourcis). | `'Tourner la caméra'` |
+| `actions.panMap` | Actions du récapitulatif des raccourcis (navigation, vue, dessin, édition). | `'Déplacer la carte'` |
+| `actions.navigate` | Déplacement CONTINU de la caméra au clavier (ZQSD/WASD + flèches). | `'Se déplacer (caméra)'` |
+| `actions.boost` | Modificateur d'accélération du déplacement (Maj). | `'Accélérer'` |
+| `actions.zoom` | Zoom avant / arrière (une seule ligne, comme `undoRedo`). | `'Zoom avant / arrière'` |
+| `actions.basemap` | Bascule fond 3D photoréaliste ↔ plan 2D. | `'Vue 3D / plan'` |
+| `actions.layers` | Ouvre le panneau « Couches » (filtre par tag). | `'Couches'` |
+| `actions.rotateCamera` | Actions du récapitulatif des raccourcis (navigation, vue, dessin, édition). | `'Tourner la caméra'` |
 | `actions.rotateShape` | Actions d'édition du dessin (récapitulatif des raccourcis). | `'Tourner la forme'` |
 | `actions.undoRedo` | Actions d'édition du dessin (récapitulatif des raccourcis). | `'Annuler / Rétablir'` |
 | `actions.selectAll` | Actions d'édition du dessin (récapitulatif des raccourcis). | `'Tout sélectionner'` |
@@ -300,6 +305,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `keys.shiftClick` | Noms de touches affichés (tooltips, récap raccourcis). | `'Maj + clic'` |
 | `keys.altOrCmd` | Noms de touches affichés (tooltips, récap raccourcis). | `'Alt / ⌘'` |
 | `keys.shift` | Glyphe Maj seul, pour composer un raccourci affiché (⇧Z). | `'⇧'` |
+| `keys.shiftKey` | Nom de la touche Maj, seule (accélération du déplacement). | `'Maj'` |
 
 ## `format` — Gabarits de composition
 
@@ -330,6 +336,40 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `duration.minutes` | Durée de trajet — `{value}`, ou `{h}`/`{m}` au-delà de l'heure. | `'{value} min'` |
 | `duration.hours` | Heures pleines (minutes nulles) — `{h}`. | `'{h} h'` |
 | `duration.hoursMinutes` | Heures et minutes — `{h}`, `{m}`. | `'{h} h {m}'` |
+
+## `stats` — 📊 Panneau de diagnostic
+
+Libellés du panneau ouvert par la ligne « Infos » du menu « Réglages ». Les grandeurs de **caméra** n'y figurent pas : elles sont nommées par [`readout`](#readout--🌍-bloc-de-lecture-de-la-vue) ci-dessous, et le panneau les reprend telles quelles — les redire ici créerait deux libellés pour une même grandeur, qu'un hôte pourrait traduire différemment.
+
+| Clé | Rôle | Défaut |
+| --- | --- | --- |
+| `stats.title` | Titre du panneau et de sa ligne dans le menu. | `'Infos'` |
+| `stats.sections.camera` | Intitulé de la section caméra. | `'Caméra'` |
+| `stats.sections.content` | Intitulé de la section contenu. | `'Contenu affiché'` |
+| `stats.sections.render` | Intitulé de la section rendu. | `'Rendu'` |
+| `stats.sections.tiles` | Intitulé de la section tuiles. | `'Tuiles et mémoire'` |
+| `stats.markersVisible` | Markers réellement peints. | `'markers affichés'` |
+| `stats.markersTotal` | Markers pris en charge, vue ou non. | `'markers au total'` |
+| `stats.clusters` | Pastilles de regroupement à l'écran. | `'pastilles de regroupement'` |
+| `stats.shapes` | Formes drapées dans la vue. | `'formes'` |
+| `stats.paths` | Tracés dans la vue. | `'tracés'` |
+| `stats.links` | Liens de relation dans la vue. | `'liens'` |
+| `stats.drawings` | Objets de la couche de dessin. | `'dessins'` |
+| `stats.fps` | Cadence obtenue, sur fenêtre glissante. | `'images par seconde'` |
+| `stats.paintedRatio` | Part des frames de la boucle réellement peintes. | `'frames peintes'` |
+| `stats.drawCalls` | Appels de rendu de la frame. | `'appels de rendu'` |
+| `stats.triangles` | Triangles rendus. | `'triangles'` |
+| `stats.textures` | Textures en mémoire GPU. | `'textures'` |
+| `stats.geometries` | Géométries en mémoire GPU. | `'géométries'` |
+| `stats.resolutionScale` | Échelle de résolution appliquée. | `'échelle de résolution'` |
+| `stats.tilesCached` | Tuiles en cache, tous fournisseurs. | `'tuiles en cache'` |
+| `stats.tilesInflight` | Tuiles en chargement ou en attente de montage. | `'tuiles en chargement'` |
+| `stats.tileBytes` | Mémoire retenue par les tuiles. | `'mémoire des tuiles'` |
+| `stats.workers` | Workers d'extrusion vivants. | `'workers d’extrusion'` |
+| `stats.percentFormat` | Gabarit d'un pourcentage — `{value}`. Seule façon de coller l'unité au nombre. | `'{value} %'` |
+| `stats.byteUnits` | Suffixes d'octets, du plus petit au plus grand. Une liste plus courte fait afficher des milliers de la dernière unité, jamais une unité inventée. | `['o', 'Ko', 'Mo', 'Go']` |
+
+⚠️ Ces libellés ne sont **pas abrégés**, contrairement à `readout` : le panneau se lit posément, une ligne par grandeur, là où le bloc se lit d'un coup d'œil en naviguant.
 
 ## `readout` — 🌍 Bloc de lecture de la vue
 
@@ -424,3 +464,16 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.settings.persist` | Interrupteur de persistance. | `'Conserver les éléments affichés entre les sessions'` |
 | `catalog.settings.fitOnAdd` | Interrupteur de cadrage. | `'Cadrer à l’ajout'` |
 | `catalog.settings.clear` | Bouton de purge. | `'Tout retirer'` |
+
+## `plugins` — Hub de plugins
+
+Ligne « Plugins » du menu engrenage : plugins enregistrés, activation, config dépliante et désactivation groupée — cf. le guide [PLUGINS.md](PLUGINS.md). La ligne est masquée s'il n'y a aucun plugin enregistré.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `plugins.button` | Tooltip/aria du bouton du hub. | `'Plugins'` |
+| `plugins.title` | Titre du panneau. | `'Plugins'` |
+| `plugins.empty` | Aucun plugin enregistré. | `'Aucun plugin disponible'` |
+| `plugins.toggle` | aria-label du toggle d'activation d'un plugin — `{name}`. | `'Activer {name}'` |
+| `plugins.reset` | Bouton de remise aux défauts d'un plugin. | `'Réinitialiser'` |
+| `plugins.clear` | Bouton de pied : désactive tous les plugins actifs (pendant du « Tout retirer » du catalogue). | `'Tout désactiver'` |

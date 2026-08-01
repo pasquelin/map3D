@@ -168,8 +168,10 @@ export const defaultConfig: MapConfig = {
       // divisait par la hauteur du viewport, donc le même réglage laissait les bâtiments
       // affichés jusqu'à 15 km sur une fenêtre de 700 px et 31 km sur 1 440 px.
       maxViewAltitude: 1000,
-      // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour tenir
-      // le montage (~20 ms/tuile, `mountPerFrame: 1`) sans à-coup à l'arrivée.
+      // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour que la
+      // tuile ait le temps d'arriver. ⚠️ Ce que cette bande absorbe a changé de nature : le
+      // montage ne coûte plus ~20 ms (l'arbre est construit côté worker) mais ~1 ms — c'est
+      // désormais la LATENCE du pipeline, téléchargement et extrusion compris.
       requestAltitudeFactor: 1.5,
       // RAYON du disque de couverture (cf. `MapEngine.volumeBounds`), et non plus portée d'un
       // trapèze : le volume ne bouge donc plus du tout quand on tourne la caméra.
@@ -217,12 +219,19 @@ export const defaultConfig: MapConfig = {
       // celle du raster : une tuile de volume coûte vingt fois plus qu'une texture.
       evictEvery: 10,
       evictSlack: 16,
-      // ⚠️ Nouveau, et c'est UNE tuile : son montage coûte une vingtaine de millisecondes
-      // (couleurs développées, arbre de collision construit). Deux dans la même frame — ce
-      // que `maxInflight` autorise — faisaient un gel franc de 50 ms, chaque fois qu'une
-      // vue nouvelle arrivait. Étalées, la carte perd une frame au lieu de trois.
-      mountPerFrame: 1,
-      maxInflight: 2,
+      // ⚠️ 1 → 2. Le montage d'une tuile dense coûtait une quarantaine de millisecondes,
+      // presque entièrement l'arbre de collision — construit côté worker depuis. Il ne
+      // reste que ~1 ms de couleurs développées et la pose de l'arbre (~0,05 ms), plus un
+      // upload GPU non mesuré : d'où un doublement, et non une ouverture en grand.
+      mountPerFrame: 2,
+      // ⚠️ 2 → 4, aligné sur `workerPoolSize`. La file ne lance pas plus de téléchargements
+      // que ça : laissé à 2, il aurait affamé le pool, dont deux workers sur quatre
+      // seraient restés oisifs quelle que soit la vue.
+      maxInflight: 4,
+      // Plateau mesuré sur 24 tuiles z14 parisiennes (1430 ms à un worker, 559 ms à
+      // quatre) ; au-delà le gain s'annule et finit par s'inverser. Le pool se borne
+      // lui-même au nombre de cœurs moins un, donc une machine modeste en aura moins.
+      workerPoolSize: 4,
       // ⚠️ 25 → 49 : carré 7×7 (~11 km à Paris) au lieu de 5×5 (~8 km), pour que le volume
       // remplisse davantage la vue inclinée au lieu d'un petit bloc. Chaque tuile dense pesant
       // ~4,9 Mo, monter ce budget se paie en RAM (cf. `maxTiles`/`maxBytes`, relevés d'autant).
@@ -387,6 +396,37 @@ export const defaultConfig: MapConfig = {
     // ~8 Hz : au-delà les chiffres deviennent illisibles à force de défiler, en deçà le
     // bloc semble en retard sur la carte.
     readoutRefreshMs: 120,
+    /**
+     * Bornes calibrées sur un budget de 16,6 ms (60 Hz). Le sens vient de l'ORDRE des
+     * bornes : `ok > warn` pour ce qui porte, `ok < warn` pour ce qui pèse.
+     *
+     * Ne sont jugées que les grandeurs dont l'excès coûte VRAIMENT. Une latitude, un cap
+     * ou une altitude n'ont pas de bonne valeur — les colorer apprendrait à ignorer la
+     * couleur, qui doit rester rare pour rester lue.
+     */
+    statThresholds: {
+      // 55 laisse passer les micro-décrochages d'un écran 60 Hz sans crier ; sous 30, le
+      // mouvement de caméra devient perceptiblement saccadé.
+      fps: { ok: 55, warn: 30 },
+      // Sous 90 % de frames peintes, le rendu à la demande saute des images qu'on attendait.
+      paintedRatio: { ok: 0.9, warn: 0.6 },
+      // Chaque marker visible est un nœud DOM composé par le navigateur : c'est le poste qui
+      // décroche le plus tôt, bien avant la géométrie.
+      markersVisible: { ok: 400, warn: 1200 },
+      // Mesuré : une tuile de volume dense en porte ~131 000 à elle seule. Le seuil vise la
+      // scène entière, tuiles de fond comprises.
+      triangles: { ok: 2_000_000, warn: 5_000_000 },
+      drawCalls: { ok: 300, warn: 800 },
+      textures: { ok: 400, warn: 900 },
+      // La résolution adaptative descend sous 1 quand le GPU ne suit plus : c'est un
+      // symptôme, pas un réglage — d'où un seuil qui le signale.
+      resolutionScale: { ok: 1, warn: 0.75 },
+      // ⚠️ Seuil ABSOLU, volontairement décorrélé des `maxBytes` : ceux-ci sont des filets
+      // (256 Mio pour le fond, 448 pour le volume) qu'un hôte relève sans que sa machine
+      // suive. 384 Mio est ce qu'une machine modeste encaisse sans évincer en boucle. Un
+      // hôte qui abaisse ses budgets de cache doit resserrer ces bornes avec.
+      tileBytes: { ok: 384 * 1024 * 1024, warn: 768 * 1024 * 1024 },
+    },
     // Unifié sur la valeur des COUCHES (1e-6 / 1e-3), pas sur celle du moteur
     // (1e-7 / 1e-4) : c'est elle qui décidait réellement des re-échantillonnages, et
     // la plus fine faisait rouvrir la fenêtre pour un mouvement de ~1 cm.

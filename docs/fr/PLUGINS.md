@@ -278,7 +278,9 @@ par plugin) — une ligne du menu **Réglages** de la `<Toolbar>` (masquée s'il
 aucun plugin enregistré), ouvrant un sous-panneau latéral : par ligne, icône + nom
 + toggle on/off, et si le plugin a un `config`, un dépliant avec les contrôles
 **auto-rendus** depuis le schéma (§ 3) — checkbox, slider+nombre, `input
-type=password` si `secret`, select.
+type=password` si `secret`, select. En pied de liste, un bouton **« Tout
+désactiver »** (`labels.plugins.clear`) coupe d'un coup tous les plugins actifs —
+grisé si aucun ne l'est ; pendant du « Tout retirer » des réglages du catalogue.
 
 Côté hôte, `usePlugins()` donne le même accès programmatique :
 

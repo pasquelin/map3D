@@ -178,10 +178,14 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'providers.buildings.maxBytes': { min: 16 * MIB, max: 512 * MIB, step: 16 * MIB },
   'providers.buildings.evictEvery': { min: 1, max: 60, step: 1 },
   'providers.buildings.evictSlack': { min: 0, max: 64, step: 4 },
-  // À 1, la carte perd une frame par tuile montée au lieu de trois. Le monter fait
-  // réapparaître le gel d'origine — c'est le réglage qui le démontre.
+  // Le montage ne porte plus l'arbre de collision (construit côté worker) : ce qu'il reste
+  // à étaler, ce sont les couleurs développées et l'upload GPU.
   'providers.buildings.mountPerFrame': { min: 1, max: 8, step: 1 },
-  'providers.buildings.maxInflight': { min: 1, max: 6, step: 1 },
+  'providers.buildings.maxInflight': { min: 1, max: 8, step: 1 },
+  // À 1, on retrouve le worker unique d'avant le pool : les tuiles s'extrudent l'une après
+  // l'autre et mettent nettement plus longtemps à apparaître. C'est le réglage qui le
+  // démontre — le thread principal, lui, ne gèle dans aucun des deux cas.
+  'providers.buildings.workerPoolSize': { min: 1, max: 6, step: 1 },
   'providers.buildings.maxRequest': { min: 1, max: 49, step: 1 },
   'providers.buildings.maxAttempts': { min: 1, max: 6, step: 1 },
   'providers.buildings.retryDelays': { kind: 'csvNumber' },

@@ -42,6 +42,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.ui.accent` | Couleur d'accent : état actif, focus, sélection. | `'#2E7CF6'` |
 | `colors.ui.error` | Erreurs et actions destructrices. | `'#d11a01'` |
 | `colors.ui.border` | Bordures et séparateurs. | `'rgba(255,255,255,0.10)'` |
+| `colors.ui.stat` | **Optionnel.** Verdicts du panneau de diagnostic (`ok` / `warn` / `bad`), cf. [`performance.statThresholds`](CONFIG.md). Distinct d'`error` : une valeur excessive n'est pas une erreur, c'est un budget dépassé — les confondre ferait lire une carte lourde comme une carte cassée. Absent, le panneau retombe sur `colors.ui.text` : pas de couleur plutôt qu'un verdict que le thème n'a pas voulu donner. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }` |
 | `colors.attention.sonar` | Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels, couleurs volontairement très voyantes. Optionnel : thème antérieur valide. | `'#ffd60a'` |
 | `colors.attention.target` | Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels, couleurs volontairement très voyantes. Optionnel : thème antérieur valide. | `'#ff3b30'` |
 | `colors.path.base` | Couleur d'un tracé. | `'#2E7CF6'` |
