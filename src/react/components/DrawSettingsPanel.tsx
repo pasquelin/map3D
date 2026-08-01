@@ -174,7 +174,7 @@ export function DrawSettingsButton({
               anchor={subRow}
               position={position}
               maxHeight={theme.sizing.panelMaxHeight.settingsSub}
-              // Récap raccourcis sur deux colonnes : la surface s'élargit pour eux seuls,
+              // Récap raccourcis sur trois colonnes : la surface s'élargit pour eux seuls,
               // les autres sous-panneaux (style d'outil, plugins…) restent étroits.
               panelClassName={`m3d-settings-sub${openSub === 'shortcuts' ? ' m3d-settings-sub-wide' : ''}`}
               onPointerEnter={cancelClose}
