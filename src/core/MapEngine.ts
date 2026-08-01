@@ -1468,6 +1468,12 @@ export class MapEngine {
       this.applyPedestrianView()
     }
     this.syncPedestrian()
+    // Déjà en plein écran à l'entrée : l'immersion s'active du même coup, pour tenir
+    // l'invariant plein écran ⇔ immersion. Le clic de placement qui nous amène ici est un
+    // geste utilisateur, donc `requestPointerLock` y est permis.
+    if (this.canvas.parentElement !== null && document.fullscreenElement === this.canvas.parentElement) {
+      this.setPedestrianImmersion('full')
+    }
     return true
   }
 
@@ -1487,6 +1493,11 @@ export class MapEngine {
     // voit `immersion` déjà à 'explore', donc n'y touche plus.
     this.canvas.parentElement?.classList.remove('m3d-immersive')
     document.exitPointerLock()
+    // Sortie déclenchée AUTREMENT que par le plein écran (bouton piéton, bascule 2D, provider
+    // qui change) alors qu'on y était : on en sort aussi, pour tenir l'invariant plein écran
+    // ⇔ immersion. `cameraMode` est déjà 'orbit', donc le `fullscreenchange` qui suit ne
+    // rappellera pas `exitPedestrian` (pas de boucle).
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
     this.releasePlacement()
     this.setGroundedView(false)
     this.restoreOrbitView()
@@ -1509,12 +1520,32 @@ export class MapEngine {
     if (this.cameraMode !== 'pedestrian' || this.pedestrianPhase !== 'active') return
     if (this.immersion === level) return
     this.applyImmersion(level)
-    // Le Pointer Lock est ce qui DISTINGUE l'immersion totale : 'full' capture la souris
-    // (regard libre sans bouton, cf. `onPointerMove`), 'explore' la relâche. Le relâchement
-    // NATIF (Échap du navigateur) repasse par `onPointerLockChange`, qui rappelle
-    // `applyImmersion('explore')` sans re-relâcher — d'où la séparation état / verrou.
-    if (level === 'full') void Promise.resolve(this.canvas.requestPointerLock()).catch(() => {})
-    else document.exitPointerLock()
+    const root = this.canvas.parentElement
+    // L'immersion totale est un VRAI plein écran navigateur (chrome du navigateur retiré),
+    // pas seulement un masquage des barres : le masquage `.m3d-immersive` reste nécessaire en
+    // plus, car mettre `root` en plein écran n'en cache pas les barres, qui en sont enfants.
+    if (level === 'full') {
+      if (root !== null && document.fullscreenElement !== root) {
+        // Pas encore en plein écran : on le demande, et le Pointer Lock est DIFFÉRÉ à
+        // `onFullscreenChange` — le demander avant que le plein écran soit effectif échoue sur
+        // les navigateurs stricts, et le garde ci-dessus interdirait un second essai.
+        void root.requestFullscreen?.().catch(() => {})
+      } else {
+        this.engagePointerLock()
+      }
+    } else {
+      // 'explore' relâche tout : verrou puis plein écran. Quitter le plein écran repasse par
+      // `onFullscreenChange`, qui sort du mode piéton (invariant plein écran ⇔ immersion).
+      document.exitPointerLock()
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    }
+  }
+
+  /** Capture la souris pour le regard libre — idempotent (no-op si déjà verrouillée). */
+  private engagePointerLock(): void {
+    if (document.pointerLockElement !== this.canvas) {
+      void Promise.resolve(this.canvas.requestPointerLock()).catch(() => {})
+    }
   }
 
   /**
@@ -1532,14 +1563,40 @@ export class MapEngine {
   }
 
   /**
-   * Souris relâchée alors qu'on était en immersion totale = Échap natif du Pointer Lock :
-   * on retombe en exploration (UI de nouveau visible), sans re-relâcher le verrou (c'est
-   * déjà fait) et sans quitter le piéton. La sortie du mode, elle, reste à Échap depuis
-   * `explore` — cf. `usePedestrianKeys`.
+   * Souris relâchée alors qu'on était en immersion totale = Échap natif du Pointer Lock.
+   *
+   * Si l'immersion vient du PLEIN ÉCRAN (le chemin nominal — cf. `onFullscreenChange`), Échap
+   * doit tout refermer : on sort du plein écran, ce qui quitte le mode piéton. Un seul Échap
+   * suffit alors, même si le navigateur relâche d'abord le verrou puis le plein écran.
+   *
+   * Sinon (immersion armée par l'API `setImmersion` / le raccourci, hors plein écran), simple
+   * retour en exploration, sans quitter le mode.
    */
   private onPointerLockChange = (): void => {
-    if (this.immersion === 'full' && document.pointerLockElement !== this.canvas) {
-      this.applyImmersion('explore')
+    if (this.immersion !== 'full' || document.pointerLockElement === this.canvas) return
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    else this.applyImmersion('explore')
+  }
+
+  /**
+   * Le plein écran PILOTE l'immersion piéton : y entrer, en marche active, arme l'immersion
+   * totale (Pointer Lock, UI masquée, réticule) ; en sortir quitte le mode piéton. C'est le
+   * déclencheur nominal — « le plein écran gère l'action » —, à la place d'un bouton flottant.
+   *
+   * N'agit QUE sur notre racine : un plein écran demandé par un autre élément de la page ne
+   * doit pas emporter la carte.
+   */
+  private onFullscreenChange = (): void => {
+    const root = this.canvas.parentElement
+    if (root !== null && document.fullscreenElement === root) {
+      if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
+        // Le plein écran est effectif : on arme l'immersion (no-op si déjà armée par l'API) et
+        // on engage le verrou MAINTENANT — c'est ici, plein écran acquis, qu'il est fiable.
+        this.setPedestrianImmersion('full')
+        this.engagePointerLock()
+      }
+    } else if (this.cameraMode === 'pedestrian') {
+      this.exitPedestrian()
     }
   }
 
@@ -2969,11 +3026,14 @@ export class MapEngine {
     // Relâchement du Pointer Lock (Échap natif en immersion totale) : sur `document`, seul
     // émetteur de cet événement — cf. `onPointerLockChange`.
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
+    // Le plein écran pilote l'immersion piéton — cf. `onFullscreenChange`.
+    document.addEventListener('fullscreenchange', this.onFullscreenChange)
   }
 
   private unbindInput(): void {
     this.navKeys.unbind()
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange)
     this.canvas.removeEventListener('pointerdown', this.invalidate)
     this.canvas.removeEventListener('pointermove', this.invalidate)
     window.removeEventListener('pointerup', this.invalidate)

@@ -6,15 +6,11 @@ import { usePedestrianKeys } from '../hooks/usePedestrianKeys'
  * HUD du mode piéton — monté INDÉPENDAMMENT du dessin et des contrôles (il doit exister même
  * sous `draw={false}` / `controls={false}`, le mode piéton ne dépendant d'aucune barre).
  *
- * Deux états, exclusifs :
- * - **exploration** : un bouton propose d'entrer en immersion totale. Son clic est
- *   précisément le geste utilisateur qu'exige `requestPointerLock` — d'où un bouton, et non
- *   une bascule automatique que le navigateur refuserait.
- * - **immersion totale** : le réticule de visée et le rappel « Échap pour quitter ». L'UI de
- *   contrôle (barres) est masquée par la classe `.m3d-immersive` (cf. `css/base`), posée par
- *   le moteur ; le réticule, lui, n'apparaît qu'ici.
- *
- * Hors mode piéton actif, ne rend rien.
+ * Ne rend QUE l'incrustation d'IMMERSION TOTALE : le réticule de visée et le rappel « Échap
+ * pour quitter ». L'immersion elle-même se DÉCLENCHE par le plein écran (le bouton plein
+ * écran, cf. `MapEngine.onFullscreenChange`), pas par un bouton flottant. L'UI de contrôle
+ * est masquée par la classe `.m3d-immersive`, posée par le moteur ; le réticule n'apparaît
+ * qu'ici. Hors immersion totale, ne rend rien (mais le clavier reste monté).
  */
 export function PedestrianHud() {
   const chrome = usePedestrianChrome()
@@ -23,22 +19,14 @@ export function PedestrianHud() {
   // retour) : il partage l'abonnement de `usePedestrianChrome` — cf. `usePedestrianKeys`.
   usePedestrianKeys(chrome)
 
-  if (chrome.mode !== 'pedestrian' || chrome.phase !== 'active') return null
-
-  if (chrome.immersion === 'full') {
-    return (
-      <>
-        <div className="m3d-reticle" aria-hidden="true" />
-        <div className="m3d-pedestrian-hint" role="status">
-          {labels.controls.pedestrianHint}
-        </div>
-      </>
-    )
-  }
+  if (chrome.mode !== 'pedestrian' || chrome.phase !== 'active' || chrome.immersion !== 'full') return null
 
   return (
-    <button type="button" className="m3d-pedestrian-immerse" onClick={() => chrome.setImmersion('full')}>
-      {labels.controls.immersion}
-    </button>
+    <>
+      <div className="m3d-reticle" aria-hidden="true" />
+      <div className="m3d-pedestrian-hint" role="status">
+        {labels.controls.pedestrianHint}
+      </div>
+    </>
   )
 }
