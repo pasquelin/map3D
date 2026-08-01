@@ -10,6 +10,14 @@ export const CSS_MENU = `
   border-radius:8px;font-size:var(--m3d-size-sm);cursor:pointer;user-select:none;color:var(--m3d-text);
   position:relative}
 .m3d-menu-item:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+/* Action destructive (rouge du thème colors.ui.error) — DÉFINITION PARTAGÉE : entrée de
+   menu contextuel ET corbeille du panneau de sélection (m3d-selrow-x). Sélecteurs composés
+   pour primer sur la couleur et le survol de base de chaque élément, quel que soit l'ordre
+   d'injection. Le survol refixe la couleur : sinon le hover de m3d-selrow-x la ramènerait
+   au neutre. */
+.m3d-menu-item.m3d-danger,.m3d-selrow-x.m3d-danger{color:var(--m3d-error)}
+.m3d-menu-item.m3d-danger:hover,.m3d-selrow-x.m3d-danger:hover{
+  color:var(--m3d-error);background:color-mix(in srgb,var(--m3d-error) 14%,transparent)}
 .m3d-menu-item .m3d-menu-icon{width:17px;text-align:center;flex:none}
 .m3d-menu-item .m3d-menu-label{flex:1}
 .m3d-menu-item .m3d-menu-arrow{font-size:10px;color:var(--m3d-muted)}

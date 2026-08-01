@@ -9,6 +9,16 @@ export const CSS_DRAG = `
    la poigne fermée est forcée sur TOUT le document — le pointeur sort du marker. */
 .m3d-repositionable{touch-action:none;cursor:grab}
 .m3d-repositionable:active{cursor:grabbing}
+/* Point au sol devenu cible de CLIC (parité icône : au clic sur la base, sélection /
+   menu, et suppression sous la gomme). Il doit recevoir le pointeur — le calque CSS2D
+   est en pointer-events:none — et offrir une cible élargie via un ::before transparent,
+   sans changer le visuel du point de 7 px. Défini AVANT la variante repositionnable pour
+   que le cursor:move de celle-ci l'emporte quand les deux classes coexistent. */
+.m3d-marker-anchor .m3d-marker-dot.m3d-dot-hit,
+.m3d-marker-dot.m3d-dot-hit{pointer-events:auto;cursor:pointer}
+.m3d-marker-dot.m3d-dot-hit::before{content:'';position:absolute;left:50%;top:50%;
+  width:var(--m3d-reposition-hit,22px);height:var(--m3d-reposition-hit,22px);transform:translate(-50%,-50%)}
+.m3d-marker-dot.m3d-dot-hit:hover{transform:scale(1.5)}
 /* Point au sol devenu poignée de repositionnement : il doit recevoir le pointeur
    (le calque CSS2D est en pointer-events:none) et offrir une cible plus large que
    ses 7 px — un ::before transparent centré, sans changer le visuel.

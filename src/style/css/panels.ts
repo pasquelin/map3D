@@ -42,6 +42,23 @@ export const CSS_PANELS = `
   color:var(--m3d-muted);transition:background .14s,color .14s;flex:none}
 .m3d-selrow-x:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent);
   color:var(--m3d-text)}
+/* La corbeille rouge (.m3d-selrow-x.m3d-danger) partage le style de l'action destructive
+   avec l'entrée de menu : définition unique dans css/menu.ts. */
+/* Chevron de dépliage d'un groupe de formes, calqué sur le catalogue : tourne à 90° ouvert. */
+.m3d-selrow-chevron{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex:none;
+  border:none;background:transparent;padding:0;cursor:pointer;color:var(--m3d-muted);
+  transition:transform .14s,color .14s}
+.m3d-selrow-chevron:hover{color:var(--m3d-text)}
+.m3d-selrow-chevron.m3d-on{transform:rotate(90deg)}
+/* Gouttière du chevron pour une forme SEULE (affichée directement, sans groupe) : garde
+   son icône alignée sur celles des groupes dépliables. */
+.m3d-selrow-chevron-spacer{width:16px;flex:none}
+/* Formes individuelles d'un groupe déplié : indentées sous la ligne du groupe, chacune
+   avec sa corbeille. Un clic sur l'étiquette ne fait rien (pas de fiche par forme ici). */
+.m3d-selchildren{display:flex;flex-direction:column;gap:1px}
+.m3d-selchild{display:flex;align-items:center;gap:8px;padding:5px 8px 5px 30px;border-radius:8px;
+  font-size:var(--m3d-size-sm)}
+.m3d-selchild:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 /* Pied du panneau : rappel des modificateurs — vit et meurt avec la liste. */
 .m3d-selfoot{border-top:1px solid var(--m3d-border);padding-top:6px;
   display:flex;flex-direction:column;gap:3px}

@@ -263,6 +263,10 @@ Per-surface overrides, when they must differ:
 
 Both listings add **“Target” at the top themselves** — no need to include it.
 
+A `danger: true` entry renders in **red** (destructive action): this is how placed
+symbols prepend a “Delete” to their menu — see
+[SYMBOLS.md § 6](SYMBOLS.md#6-what-a-symbol-inherits).
+
 The menu opens on **right-click** on the map, and via the “…” button in lists.
 
 ---
@@ -513,6 +517,11 @@ over the data field.
   is payload drag-and-drop. Both gestures start from the same `pointerdown`: as long as
   the leader line is shown they coexist (repositioning from the **ground point**,
   dragging to the dock from the **icon**); without a leader line, repositioning wins.
+- The **ground point is also a click target** (whenever a leader line is shown):
+  **tapping** it selects / opens the menu just like the icon, **dragging** it
+  repositions. The distinction is made by the slop threshold (`repositionSlopPx`), not by
+  the native `click`. This is what lets the eraser delete a symbol by clicking its base,
+  not only its icon.
 
 For a custom layer: `useRepositionable()` and
 `engine.pickLatLngAtClient(clientX, clientY, fallbackToEllipsoid?)`.

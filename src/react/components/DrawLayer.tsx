@@ -20,15 +20,14 @@ import {
   type DrawingApi,
   DrawPresetsContext,
   LensContext,
-  RelationContext,
-  type RelationApi,
   useConfig,
   useLabels,
   useMapContext,
 } from '../context'
 import type { Bounds } from '../../shared'
 import type { MarkerData } from '../../data/types'
-import type { MenuItem } from './ContextMenu'
+import { type MenuItem, prependMenuAction } from './ContextMenu'
+import { UiIcon } from './UiIcon'
 import { mdiTrashCanOutline } from '@mdi/js'
 import { usePedestrian } from '../hooks/usePedestrian'
 import { SymbolMarkers, type SymbolMarkersProps, type PlacedSymbolShape } from './SymbolMarkers'
@@ -105,15 +104,16 @@ export type DrawLayerProps = {
     minZoom?: number
   }
   /**
-   * Menu contextuel des symboles posés — **parité stricte avec les markers**. Reçoit
-   * la MÊME fonction que `<Map markerMenu>` (liée aux relations par la surface), pour
-   * qu'un symbole ouvre au clic le même menu qu'un marker de données. La lib y ajoute
-   * d'office « Supprimer » en tête (elle seule possède la forme, donc peut l'effacer).
+   * Menu contextuel des symboles posés — **parité stricte avec les markers**. Reçoit le
+   * menu de `<Map markerMenu>` **déjà lié aux relations** par la surface (comme les
+   * markers de données, la loupe et le panneau de sélection, via `useMenuWithRelations`),
+   * pour qu'un symbole ouvre au clic le même menu qu'un marker. La lib y ajoute d'office
+   * « Supprimer » en tête (elle seule possède la forme, donc peut l'effacer).
    *
-   * Câblé par `<MapSurfaces>` ; une application qui monte `<DrawLayer>` à la main peut
-   * le fournir elle-même. Le second argument, l'API des relations, est résolu ici.
+   * Câblé par `<MapSurfaces>` ; une application qui monte `<DrawLayer>` à la main fournit
+   * ici un menu déjà lié.
    */
-  markerMenu?: (p: MarkerData<unknown>, relations: RelationApi | null) => MenuItem[]
+  markerMenu?: (m: MarkerData<unknown>) => MenuItem[]
   /** Monté dans le contexte de dessin — y placer barre et panneaux. */
   children?: ReactNode
 }
@@ -477,27 +477,26 @@ export function DrawLayer(props: DrawLayerProps) {
     moveSymbol,
   } = useDrawSymbols(props.symbols, config.providers.symbols.cacheMaxEntries, coreRef, toolRef, setTool, coreReady)
 
-  // Menu contextuel d'un symbole posé — PARITÉ markers. `useContext` direct (et non
-  // `useRelations()`, qui lève hors d'un `<RelationLayer>`) : l'absence de relations est
-  // le cas courant. `<DrawLayer>` est monté sous `<RelationsHost>`, donc le contexte y est.
-  const relations = useContext(RelationContext)
-  const markerMenu = props.markerMenu
+  // Menu contextuel d'un symbole posé — PARITÉ markers. `props.markerMenu` arrive DÉJÀ
+  // lié aux relations par `<MapSurfaces>` (même helper que les markers/loupe/sélection).
+  // Mémoïsé : `menu` est dans les deps du `useMemo` des portails de `MarkerLayer` — une
+  // flèche neuve par rendu reconstruirait les N portails de symboles. « Supprimer » (la
+  // lib possède la forme) précède le menu de l'hôte, rendu ROUGE (`danger`) comme toute
+  // action destructive. Icône passée en NŒUD (`<UiIcon>`) et non en path : le slot
+  // d'icône du menu rend son contenu tel quel — une chaîne s'y afficherait en texte.
   const deleteLabel = labels.symbols.delete
-  // Mémoïsé : `menu` est dans les deps du `useMemo` des portails de `MarkerLayer` —
-  // une flèche neuve par rendu reconstruirait les N portails de symboles. « Supprimer »
-  // (la lib possède la forme) précède le menu de l'hôte, comme un marker propose ses
-  // actions génériques avant les entrées de relations.
+  const hostMenu = props.markerMenu
   const symbolMenu = useCallback(
     (m: MarkerData<PlacedSymbolShape>): MenuItem[] => {
       const del: MenuItem = {
-        icon: mdiTrashCanOutline,
+        icon: <UiIcon path={mdiTrashCanOutline} />,
+        danger: true,
         label: deleteLabel,
         onSelect: () => coreRef.current?.removeShape(m.data.id),
       }
-      const host = markerMenu?.(m, relations) ?? []
-      return host.length > 0 ? [del, { separator: true }, ...host] : [del]
+      return prependMenuAction(del, hostMenu?.(m) ?? [])
     },
-    [markerMenu, relations, deleteLabel],
+    [hostMenu, deleteLabel],
   )
   // Suppression à la gomme : un clic sur le symbole l'efface (cf. `SymbolMarkers.onErase`).
   const eraseSymbol = useCallback((id: string) => void coreRef.current?.removeShape(id), [])

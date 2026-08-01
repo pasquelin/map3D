@@ -319,6 +319,12 @@ export type MapLabels = {
     clearAll: string
     /** aria-label de la poignée de déplacement du panneau. */
     movePanel: string
+    /** aria-label du chevron dépliant un groupe de formes — `{label}` = libellé du groupe. */
+    expandGroup: string
+    /** Libellé d'une forme dépliée sans nom propre — `{type}` (kind traduit), `{n}` (rang). */
+    shapeItem: string
+    /** aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. */
+    deleteShape: string
   }
   /** Regroupement de markers (`<ClusterSurface>`). */
   clusters: {

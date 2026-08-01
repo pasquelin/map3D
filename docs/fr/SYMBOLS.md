@@ -158,6 +158,8 @@ variante affichée.
 
 Détails d'usage, et pourquoi :
 
+- Chaque vignette affiche le **nom du symbole sous l'icône** (tronqué à deux lignes,
+  nom complet au survol) : un pictogramme MIL-STD seul ne dit pas de quoi il s'agit.
 - La prise est **immédiate** sur une vignette (`longPressMs: 0`) — une palette n'a pas
   de clic à préserver, contrairement à un marker dont le clic ouvre une fiche.
 - Les entrées `multiPoint` sont **listées mais grisées** plutôt que masquées, pour ne
@@ -220,6 +222,8 @@ du filtre « Couches » sans les réimplémenter.
 | **Icône de liste** | `MarkerData.icon` est renseigné d'office : pour un symbole, le graphisme **est** l'identité — une pastille de couleur ne dirait rien de ce qui est posé. |
 | **Regroupement** | Les symboles participent au regroupement **de la carte**, avec les markers de l'application : une même pastille peut les mélanger. `draw.symbols.cluster = { enabled: false }` les en retire ; l'apparence des pastilles est sur `<Map cluster>`. |
 | **Recherche** | via le nom de la forme, rubrique `draw` — cf. [SEARCH.md](SEARCH.md). |
+| **Menu contextuel** | Un symbole posé ouvre **au clic** le **même menu qu'un marker** (`<Map markerMenu>`, cf. [MARKERS.md § 6](MARKERS.md#6-menu-contextuel)) — parité stricte, clic sur l'icône **ou** sur le point au sol. La lib y ajoute d'office **« Supprimer »** en tête (en rouge, `danger`) : elle seule possède la forme, donc peut l'effacer. |
+| **Gomme** | L'outil **Gomme** (`E`) efface un symbole comme n'importe quelle forme, au clic sur son **icône ou son point au sol** — là où le hit-test géométrique du moteur, lui, l'ignore (un symbole est un marker DOM qui capte le clic). |
 | **Historique / GeoJSON** | ceux des formes ; `symbol: { key, variant }` est préservé au round-trip. |
 
 Rendu manuel : `<SymbolMarkers>` est exporté (monté par `<DrawLayer>`) pour une

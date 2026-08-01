@@ -202,6 +202,9 @@ export const defaultLabels: MapLabels = {
     deselectGroup: 'Désélectionner {label}',
     clearAll: 'Tout désélectionner',
     movePanel: 'Déplacer le panneau',
+    expandGroup: 'Déplier / replier {label}',
+    shapeItem: '{type} {n}',
+    deleteShape: 'Supprimer {label}',
   },
   clusters: {
     label: 'Groupe de {count} marqueurs',

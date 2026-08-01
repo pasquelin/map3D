@@ -1,9 +1,9 @@
-import { mdiClose, mdiSelectionOff } from '@mdi/js'
+import { mdiChevronRight, mdiClose, mdiSelectionOff, mdiTrashCanOutline } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { type ReactNode, useCallback, useMemo, useRef, useSyncExternalStore } from 'react'
+import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { DrawTool } from '../../layers/DrawLayer'
-import { formatLabel } from '../../labels/mergeLabels'
+import { formatLabel, symbolText } from '../../labels/mergeLabels'
 import { useLabels, useMapContext } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
@@ -35,7 +35,18 @@ export type SelectionBadgesProps = {
 export function SelectionBadges(props: SelectionBadgesProps) {
   const { engine } = useMapContext()
   const labels = useLabels()
-  const { tool, selection, markerSelection, selectionDetails, select, deselectMarkers, clearSelection } = useDrawing()
+  const {
+    tool,
+    selection,
+    markerSelection,
+    selectionDetails,
+    select,
+    deselectMarkers,
+    clearSelection,
+    removeShape,
+    getShape,
+    symbols,
+  } = useDrawing()
 
   // Panneau flottant déplaçable — mécanique partagée (drag clampé, re-clamp resize).
   // Le hook vit ICI, pas dans `FloatingPanel` : ce composant reste monté quand la
@@ -78,6 +89,23 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   deselectRef.current = deselectMarkers
   const onRemoveMarker = useCallback((id: string | number) => deselectRef.current([id]), [])
 
+  // Groupes de formes DÉPLIÉS (par kind), comme le catalogue : un groupe ouvert liste ses
+  // formes individuelles, chacune supprimable. État local — l'ouverture est une préférence
+  // d'affichage, pas de la sélection.
+  const [expanded, setExpanded] = useState<ReadonlySet<DrawTool>>(() => new Set())
+  const toggleExpand = useCallback((kind: DrawTool) => {
+    setExpanded((cur) => {
+      const next = new Set(cur)
+      if (next.has(kind)) next.delete(kind)
+      else next.add(kind)
+      return next
+    })
+  }, [])
+  // Index clé→entrée du catalogue : le libellé d'un symbole déplié le résout sinon par un
+  // scan O(catalogue) par forme (le catalogue MIL-STD compte des milliers d'entrées). Même
+  // mémoïsation que `SymbolMarkers.byKey`.
+  const symbolByKey = useMemo(() => new Map(symbols.catalog.entries.map((e) => [e.key, e])), [symbols.catalog])
+
   // La sélection n'existe que pendant l'outil sélection (vidée à la sortie).
   const total = selection.length + markerSelection.length
   if (tool !== 'select' || total === 0) return null
@@ -92,6 +120,38 @@ export function SelectionBadges(props: SelectionBadgesProps) {
 
   const rowLabel = (group: string, type: string): string => formatLabel(labels.selection.group, { group, type })
 
+  // Libellé d'une forme individuelle : le vrai libellé du catalogue pour un symbole, son
+  // nom propre s'il en a un, sinon « {Type} {rang} » (numéroté dans le groupe). Résolu
+  // seulement pour les groupes DÉPLIÉS (appelé dans le rendu conditionnel).
+  const childLabel = (id: string, kind: DrawTool, index: number): string => {
+    const shape = getShape(id)
+    if (shape?.symbol) {
+      const entry = symbolByKey.get(shape.symbol.key)
+      if (entry) return symbolText(labels, entry).label
+    }
+    if (shape?.title) return shape.title
+    return formatLabel(labels.selection.shapeItem, {
+      type: props.shapeKindLabel?.(kind) ?? labels.tools[kind],
+      n: String(index + 1),
+    })
+  }
+
+  // Nom d'une forme + sa corbeille rouge — commun à la ligne d'une forme SEULE et à une
+  // ligne enfant d'un groupe déplié (mêmes deux éléments, seul l'entourage diffère).
+  const deletableLabel = (id: string, clabel: string) => (
+    <>
+      <span className="m3d-taglabel">{clabel}</span>
+      <button
+        type="button"
+        className="m3d-selrow-x m3d-danger"
+        onClick={() => removeShape(id)}
+        aria-label={formatLabel(labels.selection.deleteShape, { label: clabel })}
+      >
+        <UiIcon path={mdiTrashCanOutline} />
+      </button>
+    </>
+  )
+
   return (
     <FloatingPanel
       panel={panel}
@@ -105,20 +165,67 @@ export function SelectionBadges(props: SelectionBadgesProps) {
           <div className="m3d-taglist">
             {[...shapeGroups].map(([kind, ids]) => {
               const text = rowLabel(labels.selection.shapesGroup, props.shapeKindLabel?.(kind) ?? labels.tools[kind])
-              const aria = formatLabel(labels.selection.deselectGroup, { label: text })
+              const isOpen = expanded.has(kind)
               // Calculé AU CLIC seulement (pas à chaque render, O(S×groupe) sinon).
               const deselectGroup = () => {
                 const drop = new Set(ids)
                 select(selection.filter((id) => !drop.has(id)))
               }
+
+              // Une SEULE forme : inutile de la nicher dans un groupe dépliable — on la montre
+              // DIRECTEMENT (son nom réel + corbeille), avec une gouttière pour rester alignée.
+              if (ids.length === 1) {
+                const id = ids[0]!
+                const clabel = childLabel(id, kind, 0)
+                return (
+                  <div key={`shape:${kind}`} className="m3d-tagrow">
+                    <span className="m3d-selrow-chevron-spacer" />
+                    <UiIcon path={TOOL_ICONS[kind]} />
+                    {deletableLabel(id, clabel)}
+                    <button
+                      type="button"
+                      className="m3d-selrow-x"
+                      onClick={deselectGroup}
+                      aria-label={formatLabel(labels.selection.deselectGroup, { label: clabel })}
+                    >
+                      <UiIcon path={mdiClose} />
+                    </button>
+                  </div>
+                )
+              }
+
+              const aria = formatLabel(labels.selection.deselectGroup, { label: text })
               return (
-                <div key={`shape:${kind}`} className="m3d-tagrow">
-                  <UiIcon path={TOOL_ICONS[kind]} />
-                  <span className="m3d-taglabel">{text}</span>
-                  <span className="m3d-tagcount">{ids.length}</span>
-                  <button type="button" className="m3d-selrow-x" onClick={deselectGroup} aria-label={aria}>
-                    <UiIcon path={mdiClose} />
-                  </button>
+                <div key={`shape:${kind}`}>
+                  <div className="m3d-tagrow">
+                    {/* Chevron : déplie le groupe pour lister ses formes, comme le catalogue. */}
+                    <button
+                      type="button"
+                      className={isOpen ? 'm3d-selrow-chevron m3d-on' : 'm3d-selrow-chevron'}
+                      aria-expanded={isOpen}
+                      aria-label={formatLabel(labels.selection.expandGroup, { label: text })}
+                      onClick={() => toggleExpand(kind)}
+                    >
+                      <UiIcon path={mdiChevronRight} />
+                    </button>
+                    <UiIcon path={TOOL_ICONS[kind]} />
+                    <span className="m3d-taglabel">{text}</span>
+                    <span className="m3d-tagcount">{ids.length}</span>
+                    {/* La croix du groupe DÉSÉLECTIONNE (ne supprime pas) — la suppression est
+                        par forme, sous le chevron. */}
+                    <button type="button" className="m3d-selrow-x" onClick={deselectGroup} aria-label={aria}>
+                      <UiIcon path={mdiClose} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div className="m3d-selchildren">
+                      {ids.map((id, i) => (
+                        <div key={id} className="m3d-selchild">
+                          {deletableLabel(id, childLabel(id, kind, i))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}

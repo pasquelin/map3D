@@ -21,6 +21,8 @@ export type MenuItem =
       swatch?: string
       /** Item inerte : ni sélection, ni sous-menu, ni focus clavier. */
       disabled?: boolean
+      /** Action destructive (suppression) : rendue en rouge, icône comprise. */
+      danger?: boolean
       onSelect?: () => void
       /**
        * Sous-menu. La forme FONCTION est **synchrone** et n'est évaluée qu'à
@@ -185,7 +187,7 @@ function MenuLevel({ items, onClose, onExit, autoFocus }: LevelProps) {
             ref={(el) => {
               refs.current[i] = el
             }}
-            className="m3d-menu-item"
+            className={it.danger ? 'm3d-menu-item m3d-danger' : 'm3d-menu-item'}
             role="menuitem"
             tabIndex={it.disabled || i !== active ? -1 : 0}
             aria-disabled={it.disabled || undefined}
@@ -285,3 +287,13 @@ export function ContextMenu({ items, header, onClose, className, style, panelRef
 
 /** Ref inerte — évite un `useMergedRefs` conditionnel (règles des hooks). */
 const noRef: PanelRef = () => {}
+
+/**
+ * Préfixe une action propre à la lib (« Cibler », « Supprimer »…) à un menu fourni par
+ * l'hôte. Le **séparateur n'apparaît que si l'hôte fournit des entrées** : sans lui, la
+ * seule action lib se retrouverait isolée sous un trait. Partagé par `MarkerList` (Cibler)
+ * et le menu des symboles (`DrawLayer`, Supprimer) — même geste, une seule définition.
+ */
+export function prependMenuAction(lead: MenuItem, host: readonly MenuItem[]): MenuItem[] {
+  return host.length > 0 ? [lead, { separator: true }, ...host] : [lead]
+}

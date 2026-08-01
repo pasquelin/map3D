@@ -1528,6 +1528,10 @@ Per-surface overrides, when they must differ:
 
 Both listings add **“Target” at the top themselves** — no need to include it.
 
+A `danger: true` entry renders in **red** (destructive action): this is how placed
+symbols prepend a “Delete” to their menu — see
+[SYMBOLS.md § 6](SYMBOLS.md#6-what-a-symbol-inherits).
+
 The menu opens on **right-click** on the map, and via the “…” button in lists.
 
 ---
@@ -1778,6 +1782,11 @@ over the data field.
   is payload drag-and-drop. Both gestures start from the same `pointerdown`: as long as
   the leader line is shown they coexist (repositioning from the **ground point**,
   dragging to the dock from the **icon**); without a leader line, repositioning wins.
+- The **ground point is also a click target** (whenever a leader line is shown):
+  **tapping** it selects / opens the menu just like the icon, **dragging** it
+  repositions. The distinction is made by the slop threshold (`repositionSlopPx`), not by
+  the native `click`. This is what lets the eraser delete a symbol by clicking its base,
+  not only its icon.
 
 For a custom layer: `useRepositionable()` and
 `engine.pickLatLngAtClient(clientX, clientY, fallbackToEllipsoid?)`.
@@ -2761,7 +2770,7 @@ Manual mounting:
 | Freehand | `H` | continuous stroke |
 | Arrow | `A` | polyline + head |
 | Measure | `M` | thin dashed dimension ⊢––⊣ with a distance label — **parent of a submenu** (see below) |
-| Eraser | `E` | deletes on click |
+| Eraser | `E` | deletes on click — shapes **and** symbols (click on the icon or the ground point) |
 | Symbols | `Y` | opens the palette (see [SYMBOLS.md](SYMBOLS.md)) |
 
 The **ruler opens a submenu on hover**, like the Select button — but with only a single
@@ -2817,8 +2826,11 @@ const { selection, markerSelection, selectionDetails } = useDrawing()
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 
-The **selection badges** (`draw.selectionBadges`) list what is selected: shapes grouped
-by `kind`, markers as rows with their menu. Mounted by default;
+The **selection badges** (`draw.selectionBadges`) list what is selected: **markers** as
+rows with their menu; **shapes** grouped by `kind`, each group **expandable** (chevron,
+like the catalogue) to list its shapes one by one, each with a **red trash button** that
+deletes it (undoable via `Ctrl+Z`). A `kind` with a **single shape** shows directly,
+without a group. A group's cross **deselects** (it does not delete). Mounted by default;
 `selectionBadges: false` removes them.
 
 ---
@@ -3365,6 +3377,8 @@ variant on display.
 
 Usage details, and why:
 
+- Each thumbnail shows the **symbol's name below the icon** (clamped to two lines, full
+  name on hover): a MIL-STD pictogram alone does not say what it is.
 - The grab is **immediate** on a thumbnail (`longPressMs: 0`) — a palette has no click
   to preserve, unlike a marker whose click opens a sheet.
 - `multiPoint` entries are **listed but greyed out** rather than hidden, so the
@@ -3427,6 +3441,8 @@ filter without reimplementing any of them.
 | **List icon** | `MarkerData.icon` is filled in automatically: for a symbol, the artwork **is** the identity — a colour chip would say nothing about what is on the map. |
 | **Grouping** | Symbols take part in the **map's** grouping, alongside the application's markers: one chip can mix them. `draw.symbols.cluster = { enabled: false }` takes them out; the chips' appearance lives on `<Map cluster>`. |
 | **Search** | through the shape's name, group `draw` — see [SEARCH.md](SEARCH.md). |
+| **Context menu** | A placed symbol opens **on click** the **same menu as a marker** (`<Map markerMenu>`, see [MARKERS.md § 6](MARKERS.md#6-context-menu)) — strict parity, click on the icon **or** the ground point. The library prepends **“Delete”** (red, `danger`): it alone owns the shape, so it alone can erase it. |
+| **Eraser** | The **Eraser** tool (`E`) erases a symbol like any other shape, on a click on its **icon or ground point** — whereas the engine's geometric hit-test ignores it (a symbol is a DOM marker that captures the click itself). |
 | **History / GeoJSON** | the shapes' own; `symbol: { key, variant }` survives the round trip. |
 
 Manual rendering: `<SymbolMarkers>` is exported (mounted by `<DrawLayer>`) for a custom
@@ -8610,6 +8626,7 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `symbols.noMatch` | The search matches no catalogue entry. | `'Aucun symbole ne correspond'` |
 | `symbols.affiliation` | Title of the affiliation selection section. | `'Affiliation'` |
 | `symbols.multiPointHint` | Multi-point graphic: placed by successive clicks, not by dropping. | `'Tracé multi-points — bientôt disponible'` |
+| `symbols.delete` | “Delete” entry in the context menu of a symbol placed on the map. | `'Supprimer'` |
 | `symbols.categories.installations` | Label per catalogue category (catalogue key → displayed text). | `'Installations'` |
 | `symbols.categories.units` | Label per catalogue category (catalogue key → displayed text). | `'Unités'` |
 | `symbols.categories.equipment` | Label per catalogue category (catalogue key → displayed text). | `'Équipements'` |
@@ -8768,6 +8785,9 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.deselectGroup` | aria-label of a row's cross — `{label}` = the row's label. | `'Désélectionner {label}'` |
 | `selection.clearAll` | Selection panel (list of selected elements, by group). | `'Tout désélectionner'` |
 | `selection.movePanel` | aria-label of the panel's move grip. | `'Déplacer le panneau'` |
+| `selection.expandGroup` | aria-label of the chevron expanding a shape group — `{label}` = the group's label. | `'Déplier / replier {label}'` |
+| `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
+| `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
 
 ## `clusters` — Marker grouping
 

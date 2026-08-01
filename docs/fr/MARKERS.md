@@ -263,6 +263,10 @@ Surcharges par surface, quand elles doivent différer :
 
 Les deux listings ajoutent **« Cibler » en tête d'eux-mêmes** — inutile de le prévoir.
 
+Une entrée `danger: true` s'affiche en **rouge** (action destructive) : c'est ainsi que
+les symboles posés font précéder leur menu d'un « Supprimer » — cf.
+[SYMBOLS.md § 6](SYMBOLS.md#6-ce-dont-un-symbole-hérite).
+
 Le menu s'ouvre au **clic droit** sur la carte, et via le bouton « … » des listes.
 
 ---
@@ -516,6 +520,10 @@ alors sur le champ de la donnée.
   tant que la tige est affichée ils cohabitent (repositionnement depuis le **point au
   sol**, saisie vers le dock depuis l'**icône**) ; sans tige, le repositionnement
   prend le pas.
+- Le **point au sol est aussi une cible de clic** (dès qu'une tige est affichée) : le
+  **taper** sélectionne / ouvre le menu comme l'icône, le **glisser** repositionne. La
+  distinction se fait au seuil (`repositionSlopPx`), pas via le `click` natif. C'est ce
+  qui permet d'effacer un symbole à la gomme en cliquant sa base, pas seulement l'icône.
 
 Pour une couche custom : `useRepositionable()` et
 `engine.pickLatLngAtClient(clientX, clientY, fallbackToEllipsoid?)`.

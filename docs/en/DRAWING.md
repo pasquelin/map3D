@@ -54,7 +54,7 @@ Manual mounting:
 | Freehand | `H` | continuous stroke |
 | Arrow | `A` | polyline + head |
 | Measure | `M` | thin dashed dimension ⊢––⊣ with a distance label — **parent of a submenu** (see below) |
-| Eraser | `E` | deletes on click |
+| Eraser | `E` | deletes on click — shapes **and** symbols (click on the icon or the ground point) |
 | Symbols | `Y` | opens the palette (see [SYMBOLS.md](SYMBOLS.md)) |
 
 The **ruler opens a submenu on hover**, like the Select button — but with only a single
@@ -110,8 +110,11 @@ const { selection, markerSelection, selectionDetails } = useDrawing()
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 
-The **selection badges** (`draw.selectionBadges`) list what is selected: shapes grouped
-by `kind`, markers as rows with their menu. Mounted by default;
+The **selection badges** (`draw.selectionBadges`) list what is selected: **markers** as
+rows with their menu; **shapes** grouped by `kind`, each group **expandable** (chevron,
+like the catalogue) to list its shapes one by one, each with a **red trash button** that
+deletes it (undoable via `Ctrl+Z`). A `kind` with a **single shape** shows directly,
+without a group. A group's cross **deselects** (it does not delete). Mounted by default;
 `selectionBadges: false` removes them.
 
 ---

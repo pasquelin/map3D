@@ -259,6 +259,10 @@ export function MapSurfaces<T, TPin>({
   const drawEnabled = draw !== false
   // `selectionBadges` est rendu PAR nous, pas par la couche : on l'extrait de sa config.
   const { selectionBadges, ...drawProps } = draw === false ? { selectionBadges: undefined } : (draw ?? {})
+  // Menu commun DÉJÀ lié aux relations, comme pour le panneau de sélection et la loupe :
+  // `<DrawLayer>` le reçoit tel quel pour l'offrir aux symboles posés (parité markers),
+  // sans refaire la liaison de son côté.
+  const boundMarkerMenu = useMenuWithRelations(markerMenu as MarkerMenu | undefined)
   const inner = (
     <>
       {drawEnabled && toolbar !== false && <Toolbar {...toolbarConfig(toolbar)} />}
@@ -278,9 +282,9 @@ export function MapSurfaces<T, TPin>({
   return (
     <>
       {drawEnabled ? (
-        // `markerMenu` propage aux SYMBOLES posés le même menu qu'aux markers (parité) :
-        // `<DrawLayer>` y ajoute « Supprimer » et lie les relations lui-même.
-        <DrawLayer {...drawProps} markerMenu={markerMenu as MarkerMenu | undefined}>
+        // `boundMarkerMenu` propage aux SYMBOLES posés le même menu (déjà lié aux
+        // relations) qu'aux markers — parité ; `<DrawLayer>` n'y ajoute que « Supprimer ».
+        <DrawLayer {...drawProps} markerMenu={boundMarkerMenu}>
           {inner}
         </DrawLayer>
       ) : (

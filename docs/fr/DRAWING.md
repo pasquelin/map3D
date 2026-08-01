@@ -54,7 +54,7 @@ Montage manuel :
 | Main levée | `H` | tracé continu |
 | Flèche | `A` | polyligne + tête |
 | Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance — **parent d'un sous-menu** (cf. ci-dessous) |
-| Gomme | `E` | supprime au clic |
+| Gomme | `E` | supprime au clic — formes **et** symboles (clic sur l'icône ou le point au sol) |
 | Symboles | `Y` | ouvre la palette (cf. [SYMBOLS.md](SYMBOLS.md)) |
 
 La **règle ouvre un sous-menu au survol**, comme le bouton Sélection — mais avec une
@@ -111,8 +111,12 @@ Contours en **marching-ants** noir/blanc (lisibles sur tout fond, y compris sate
 et neige — cf. `theme.colors.marquee`), bbox englobante en multi-sélection.
 
 Les **vignettes de sélection** (`draw.selectionBadges`) listent ce qui est
-sélectionné : formes groupées par `kind`, markers en lignes avec leur menu. Montées
-d'office ; `selectionBadges: false` les retire.
+sélectionné : **markers** en lignes avec leur menu ; **formes** groupées par `kind`,
+chaque groupe **dépliable** (chevron, comme le catalogue) pour lister ses formes une
+par une, chacune avec une **corbeille rouge** qui la supprime (annulable via `Ctrl+Z`).
+Un `kind` à **une seule forme** s'affiche directement, sans groupe. La croix d'un
+groupe **désélectionne** (elle ne supprime pas). Montées d'office ; `selectionBadges:
+false` les retire.
 
 ---
 

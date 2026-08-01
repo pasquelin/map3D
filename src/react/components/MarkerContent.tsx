@@ -2,6 +2,7 @@ import { type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useR
 import type { MarkerLayer as CoreMarkerLayer } from '../../layers/MarkerLayer'
 import type { LatLng } from '../../shared'
 import type { MarkerData } from '../../data/types'
+import { useConfig } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
 import { useRepositionable } from '../hooks/useRepositionable'
 
@@ -34,7 +35,7 @@ export function MarkerContent<T>({
   isMarker: boolean
   draggable: boolean
   repositionable: boolean
-  /** La couche dessine-t-elle la tige + le point au sol ? (cf. `surLeDot`) */
+  /** La couche dessine-t-elle la tige + le point au sol ? Sans tige, le repositionnement retombe sur le contenu. */
   leaderLine: boolean
   layer: CoreMarkerLayer | null
   /** Le geste est devenu un déplacement (seuil franchi) — cf. `useRepositionable`. */
@@ -100,28 +101,69 @@ export function MarkerContent<T>({
    * symboles, qui le sont tous — et pouvait mentir si la sonde tombait avant que le
    * core n'ait bâti le nœud.
    */
-  const surLeDot = repositionable && leaderLine
+  // Seuil tap/déplacement, commun avec le repositionnement — un tap sur le point sous ce
+  // seuil vaut clic ; au-delà, c'est un drag (repositionnement) et le tap ne déclenche rien.
+  const slop = useConfig().interaction.repositionSlopPx
+  // Le point au sol est une cible de CLIC équivalente à l'icône (parité markers) : dès
+  // qu'il y a une tige, taper la base sélectionne / ouvre le menu — et efface sous la
+  // gomme, où l'icône n'est plus le seul point d'entrée. Le DRAG de repositionnement, lui,
+  // reste conditionné à `repositionable` (sinon la base ne ferait que déplacer).
   useEffect(() => {
-    if (!surLeDot) return
+    if (!leaderLine) return
     // Le point est un FRÈRE du conteneur de portail, dans `.m3d-marker-anchor`.
     const dot = rootRef.current?.closest('.m3d-marker-anchor')?.querySelector<HTMLElement>('.m3d-marker-dot')
     if (!dot) return
-    const onDown = (e: PointerEvent) => moveRef.current(e as unknown as ReactPointerEvent)
-    dot.classList.add('m3d-repositionable')
-    dot.addEventListener('pointerdown', onDown)
-    return () => {
-      dot.classList.remove('m3d-repositionable')
-      dot.removeEventListener('pointerdown', onDown)
+    // TAP lu directement au pointeur (pointerup sans franchir le seuil), et NON via le
+    // `click` natif : après un vrai drag, l'ordre des écouteurs capture/bulle d'un même
+    // nœud n'est pas garanti, donc `suppressNextClick` ne pourrait pas fiablement l'avaler.
+    // Ici un déplacement au-delà du seuil marque `moved` et le tap ne déclenche rien.
+    const onTapDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      const sx = e.clientX
+      const sy = e.clientY
+      let moved = false
+      const onMove = (ev: PointerEvent) => {
+        if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > slop) moved = true
+      }
+      const cleanup = () => {
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointercancel', onCancel)
+      }
+      // Tap = relâché sans avoir franchi le seuil. `pointercancel` (geste volé) ne clique jamais.
+      const onUp = (ev: PointerEvent) => {
+        cleanup()
+        if (!moved) onClickRef.current(ev as unknown as React.MouseEvent)
+      }
+      const onCancel = () => cleanup()
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp, { once: true })
+      window.addEventListener('pointercancel', onCancel, { once: true })
     }
-  }, [surLeDot])
+    // Repositionnement (drag) : co-attaché au point quand le marker est repositionnable.
+    // Sur un drag, `onTapDown` voit `moved` et n'ouvre rien ; sur un tap, c'est l'inverse.
+    const onReposDown = repositionable ? (e: PointerEvent) => moveRef.current(e as unknown as ReactPointerEvent) : null
+    dot.classList.add(repositionable ? 'm3d-repositionable' : 'm3d-dot-hit')
+    dot.addEventListener('pointerdown', onTapDown)
+    if (onReposDown) dot.addEventListener('pointerdown', onReposDown)
+    return () => {
+      dot.classList.remove(repositionable ? 'm3d-repositionable' : 'm3d-dot-hit')
+      dot.removeEventListener('pointerdown', onTapDown)
+      if (onReposDown) dot.removeEventListener('pointerdown', onReposDown)
+    }
+  }, [leaderLine, repositionable, slop])
 
   const moveRef = useRef(move.onPointerDown)
   moveRef.current = move.onPointerDown
+  // Lu par le détecteur de tap du point au sol (écouteurs attachés à la main) : via ref
+  // pour ne pas ré-attacher à chaque changement d'identité de `onClick`.
+  const onClickRef = useRef(onClick)
+  onClickRef.current = onClick
 
   const className = [
     isMarker ? 'm3d-marker-content' : '',
     draggable ? drag.className : '',
-    repositionable && !surLeDot ? move.className : '',
+    repositionable && !leaderLine ? move.className : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -135,7 +177,7 @@ export function MarkerContent<T>({
       role="button"
       tabIndex={0}
       aria-label={label}
-      onPointerDown={repositionable && !surLeDot ? move.onPointerDown : draggable ? drag.onPointerDown : undefined}
+      onPointerDown={repositionable && !leaderLine ? move.onPointerDown : draggable ? drag.onPointerDown : undefined}
       onClick={onClick}
       onKeyDown={(e) => {
         // Espace scrolle la page par défaut ; Entrée n'a pas d'effet natif sur un div,

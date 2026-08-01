@@ -158,6 +158,8 @@ variant on display.
 
 Usage details, and why:
 
+- Each thumbnail shows the **symbol's name below the icon** (clamped to two lines, full
+  name on hover): a MIL-STD pictogram alone does not say what it is.
 - The grab is **immediate** on a thumbnail (`longPressMs: 0`) — a palette has no click
   to preserve, unlike a marker whose click opens a sheet.
 - `multiPoint` entries are **listed but greyed out** rather than hidden, so the
@@ -220,6 +222,8 @@ filter without reimplementing any of them.
 | **List icon** | `MarkerData.icon` is filled in automatically: for a symbol, the artwork **is** the identity — a colour chip would say nothing about what is on the map. |
 | **Grouping** | Symbols take part in the **map's** grouping, alongside the application's markers: one chip can mix them. `draw.symbols.cluster = { enabled: false }` takes them out; the chips' appearance lives on `<Map cluster>`. |
 | **Search** | through the shape's name, group `draw` — see [SEARCH.md](SEARCH.md). |
+| **Context menu** | A placed symbol opens **on click** the **same menu as a marker** (`<Map markerMenu>`, see [MARKERS.md § 6](MARKERS.md#6-context-menu)) — strict parity, click on the icon **or** the ground point. The library prepends **“Delete”** (red, `danger`): it alone owns the shape, so it alone can erase it. |
+| **Eraser** | The **Eraser** tool (`E`) erases a symbol like any other shape, on a click on its **icon or ground point** — whereas the engine's geometric hit-test ignores it (a symbol is a DOM marker that captures the click itself). |
 | **History / GeoJSON** | the shapes' own; `symbol: { key, variant }` survives the round trip. |
 
 Manual rendering: `<SymbolMarkers>` is exported (mounted by `<DrawLayer>`) for a custom

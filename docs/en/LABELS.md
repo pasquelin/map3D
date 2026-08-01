@@ -71,6 +71,7 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `symbols.noMatch` | The search matches no catalogue entry. | `'Aucun symbole ne correspond'` |
 | `symbols.affiliation` | Title of the affiliation selection section. | `'Affiliation'` |
 | `symbols.multiPointHint` | Multi-point graphic: placed by successive clicks, not by dropping. | `'Tracé multi-points — bientôt disponible'` |
+| `symbols.delete` | “Delete” entry in the context menu of a symbol placed on the map. | `'Supprimer'` |
 | `symbols.categories.installations` | Label per catalogue category (catalogue key → displayed text). | `'Installations'` |
 | `symbols.categories.units` | Label per catalogue category (catalogue key → displayed text). | `'Unités'` |
 | `symbols.categories.equipment` | Label per catalogue category (catalogue key → displayed text). | `'Équipements'` |
@@ -229,6 +230,9 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.deselectGroup` | aria-label of a row's cross — `{label}` = the row's label. | `'Désélectionner {label}'` |
 | `selection.clearAll` | Selection panel (list of selected elements, by group). | `'Tout désélectionner'` |
 | `selection.movePanel` | aria-label of the panel's move grip. | `'Déplacer le panneau'` |
+| `selection.expandGroup` | aria-label of the chevron expanding a shape group — `{label}` = the group's label. | `'Déplier / replier {label}'` |
+| `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
+| `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
 
 ## `clusters` — Marker grouping
 

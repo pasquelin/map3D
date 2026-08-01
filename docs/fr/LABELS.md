@@ -63,6 +63,7 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `symbols.noMatch` | La recherche ne matche aucune entrée du catalogue. | `'Aucun symbole ne correspond'` |
 | `symbols.affiliation` | Titre de la section de choix d'affiliation. | `'Affiliation'` |
 | `symbols.multiPointHint` | Graphique multi-points : posé par clics successifs, pas par dépôt. | `'Tracé multi-points — bientôt disponible'` |
+| `symbols.delete` | Entrée « Supprimer » du menu contextuel d'un symbole posé sur la carte. | `'Supprimer'` |
 | `symbols.categories.installations` | Libellé par catégorie du catalogue (clé du catalogue → texte affiché). | `'Installations'` |
 | `symbols.categories.units` | Libellé par catégorie du catalogue (clé du catalogue → texte affiché). | `'Unités'` |
 | `symbols.categories.equipment` | Libellé par catégorie du catalogue (clé du catalogue → texte affiché). | `'Équipements'` |
@@ -221,6 +222,9 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `selection.deselectGroup` | aria-label de la croix d'une rangée — `{label}` = libellé de la rangée. | `'Désélectionner {label}'` |
 | `selection.clearAll` | Panneau de sélection (liste des éléments sélectionnés, par groupe). | `'Tout désélectionner'` |
 | `selection.movePanel` | aria-label de la poignée de déplacement du panneau. | `'Déplacer le panneau'` |
+| `selection.expandGroup` | aria-label du chevron dépliant un groupe de formes — `{label}` = libellé du groupe. | `'Déplier / replier {label}'` |
+| `selection.shapeItem` | Libellé d'une forme dépliée sans nom propre — `{type}` (kind traduit), `{n}` (rang). | `'{type} {n}'` |
+| `selection.deleteShape` | aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. | `'Supprimer {label}'` |
 
 ## `clusters` — Regroupement de markers
 

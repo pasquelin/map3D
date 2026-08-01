@@ -6,7 +6,7 @@ import { altitudeForZoom } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useConfig, useLabels, useMapContext } from '../context'
-import { ContextMenu, type MenuItem } from './ContextMenu'
+import { ContextMenu, type MenuItem, prependMenuAction } from './ContextMenu'
 import { useMergedRefs, useNudgeInside } from './panelFit'
 import { Swatch } from './Swatch'
 import { useDismiss } from './useDismiss'
@@ -115,7 +115,7 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
       onSelect: () => target(m),
     }
     const provided = props.menu?.(m)
-    if (provided) return provided.length > 0 ? [targetItem, { separator: true }, ...provided] : [targetItem]
+    if (provided) return prependMenuAction(targetItem, provided)
     return [
       targetItem,
       ...(props.actions ?? []).map((a) => ({
