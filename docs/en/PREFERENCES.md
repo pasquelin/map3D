@@ -48,8 +48,9 @@ force the level. Each level applies this bundle of **hot** levers:
 | `providers.tiles.retina` | on if dpr > 1 | off | off |
 
 "High" broadly mirrors the library defaults — except for `adaptiveResolution.minRatio`,
-where the preset (0.75) is more permissive than `defaultConfig`'s default (0.5, set as an
-anti-blur floor for the photogrammetric ground). **Deliberately excluded**:
+where the preset **raises** the floor (0.75 vs 0.5 in `defaultConfig`): adaptive resolution
+drops less, so the photogrammetric ground stays sharper, at a little GPU cost — a deliberate
+notch for a capable machine. **Deliberately excluded**:
 `performance.antialias` and `performance.powerPreference` (read at WebGL context creation —
 changing them would require a remount), and the **raster** budget `tiles.maxTiles`
 (lowering it reopens the flat far-field).

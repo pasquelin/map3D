@@ -48,8 +48,10 @@ forcent le niveau. Chaque niveau applique ce bundle de leviers **à chaud** :
 | `providers.tiles.retina` | on si dpr > 1 | off | off |
 
 « Élevé » reprend globalement les défauts de la lib — à l'exception
-d'`adaptiveResolution.minRatio`, où le preset (0.75) est plus permissif que le défaut de
-`defaultConfig` (0.5, posé comme plancher anti-flou du sol photogrammétrique). Sont **volontairement exclus** :
+d'`adaptiveResolution.minRatio`, où le preset **relève** le plancher (0.75 contre 0.5 en
+`defaultConfig`) : la résolution adaptative descend moins, donc le sol photogrammétrique
+reste plus net, au prix d'un peu de charge GPU — un cran assumé pour une machine capable.
+Sont **volontairement exclus** :
 `performance.antialias` et `performance.powerPreference` (lus à la création du contexte
 WebGL — les changer exigerait un remontage), et le budget **raster** `tiles.maxTiles` (le
 baisser rouvre l'aplat uniforme au loin).

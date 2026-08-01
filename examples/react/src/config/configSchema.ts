@@ -356,6 +356,8 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'pedestrian.placement.refreshMs': { min: 0, max: 200, step: 1 },
   'pedestrian.headBob.amplitudeMeters': { min: 0, max: 0.5, step: 0.01 },
   'pedestrian.headBob.frequency': { min: 0.5, max: 5, step: 0.1 },
+  'pedestrian.transitions.enterMs': { min: 0, max: 3000, step: 50 },
+  'pedestrian.transitions.exitMs': { min: 0, max: 3000, step: 50 },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -9,7 +9,8 @@
 //
 // Les valeurs reprennent celles calibrées dans `defaultConfig` — le niveau « Élevé » en
 // est proche (à un cran près sur `adaptiveResolution.minRatio` : 0.75 ici, 0.5 en défaut
-// lib) — et descendent selon les repères que ses commentaires donnent
+// lib — un plancher RELEVÉ, donc moins de dégradation et un sol plus net, assumé pour une
+// machine capable) — et descendent selon les repères que ses commentaires donnent
 // explicitement — au premier chef le budget des bâtiments, « ELLE qu'il faut baisser sur
 // une machine modeste (perte de contexte WebGL sinon) ».
 
