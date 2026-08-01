@@ -548,6 +548,7 @@ export const defaultConfig: MapConfig = {
       templates: 'm3d:templates',
       catalog: 'm3d:catalog',
       catalogSettings: 'm3d:catalog-settings',
+      preferences: 'm3d:preferences',
     },
     search: {
       minQuery: 2,

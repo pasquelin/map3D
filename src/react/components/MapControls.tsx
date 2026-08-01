@@ -60,8 +60,7 @@ export type MapControlButton =
   | 'zoomOut'
   | 'tilt'
   | 'globe'
-  /** Grille de coordonnées. Sa TOUCHE vit dans `shortcuts.draw.graticule`, avec le
-   *  sous-menu « Mesures » qu'elle partage — pas dans `shortcuts.controls`. */
+  /** Grille de coordonnées. Touche : `shortcuts.controls.graticule`, qui porte le pourquoi. */
   | 'graticule'
   | 'layers'
   /** Catalogue d'entités distantes — partage le groupe `layers` avec « Couches ». */

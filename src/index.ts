@@ -193,6 +193,15 @@ export { GoogleTileSource } from './core/googleTiles'
 export { type BasemapSupport, canEnterMode, deriveBasemapCapabilities } from './core/basemap'
 export { defaultConfig } from './config/defaultConfig'
 export { mergeConfig, resolveLocale, resolveRegion } from './config/mergeConfig'
+// Préférences utilisateur : presets de qualité 3D + rebind déplacement/vue, appliqués
+// et persistés par `<MapProvider>`. Le panneau est monté par le ⚙ de la barre ; ces
+// exports servent à un hôte qui veut sonder, forcer un niveau, ou lire les préférences.
+export type { QualityLevel, DeviceCaps } from './config/qualityPresets'
+export { detectDeviceCaps, detectQuality, qualityPreset } from './config/qualityPresets'
+export type { Preferences, QualityChoice, KeyboardLayout, MoveSpeed, BindableAction } from './config/preferences'
+export { defaultPreferences, preferencesToPartialConfig } from './config/preferences'
+export type { PreferencesStore } from './react/preferences/preferencesStore'
+export { usePreferences } from './react/preferences/context'
 export { fetchWithPolicy, HttpError } from './core/fetchPolicy'
 /** Constantes à source unique — cf. l'audit des valeurs dupliquées. */
 export { CAMERA_FOV, TILE_SIZE } from './core/math'
@@ -319,6 +328,10 @@ export type { CameraReadoutProps, ReadoutField, ReadoutCorner } from './react/co
  */
 export { StatsPanel } from './react/components/StatsPanel'
 export type { StatsPanelProps, StatsSection } from './react/components/StatsPanel'
+// Panneau « Préférences » (qualité 3D + contrôles), monté par le ⚙ de la barre. Exporté
+// comme `StatsPanel` : l'accès par le ⚙ exige `<DrawLayer>`, donc un hôte sans dessin le
+// pose dans SA propre surface. N'exige qu'un `<MapProvider>` (le store) au-dessus.
+export { PreferencesPanel } from './react/components/PreferencesPanel'
 // Formatage des grandeurs, comme `makeReadoutFormatter` l'est pour le bloc de lecture :
 // sans lui, un hôte qui pose ces valeurs dans SA surface a le verdict mais pas les nombres.
 export { makeStatFormatter, statLabel, isCameraField } from './labels/stats'

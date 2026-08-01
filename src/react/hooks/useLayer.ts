@@ -74,6 +74,8 @@ export function useStatCounter<T extends StatCounter>(ref: RefObject<T | null>):
   useEffect(() => {
     const counter = ref.current
     if (!counter) return
-    return engine.counters.register({ stats: (bounds) => counter.stats(bounds) })
+    // La couche satisfait déjà `StatCounter` : l'envelopper allouait un objet et une
+    // closure par couche montée, pour rappeler la même méthode sur le même `this`.
+    return engine.counters.register(counter)
   }, [engine, ref])
 }

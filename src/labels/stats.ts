@@ -22,17 +22,21 @@ export type StatFormatter = {
 }
 
 /**
- * Grandeurs exprimées en octets. Table plutôt que test sur le nom : un champ ajouté
- * demain doit être classé sciemment, pas attrapé par une correspondance de chaîne qui
- * marcherait par accident.
+ * Mise en forme de chaque grandeur qui n'est pas un simple compte. Table plutôt que test
+ * sur le nom : un champ ajouté demain doit être classé sciemment, pas attrapé par une
+ * correspondance de chaîne qui marcherait par accident.
+ *
+ * Une table et non trois ensembles : `fps` et `resolutionScale` sont tous deux « à
+ * décimales » mais ne se rendent pas pareil (une décimale contre deux), ce qui obligeait à
+ * rouvrir un cas particulier À L'INTÉRIEUR du dernier ensemble. Ici chaque grandeur nomme
+ * sa mise en forme, et une nouvelle ne demande qu'une ligne.
  */
-const BYTE_FIELDS = new Set<StatField>(['tileBytes'])
-
-/** Grandeurs qui sont des ratios 0…1, à rendre en pourcentage. */
-const RATIO_FIELDS = new Set<StatField>(['paintedRatio'])
-
-/** Grandeurs à décimales — un compte n'en a pas, un facteur d'échelle si. */
-const SCALE_FIELDS = new Set<StatField>(['resolutionScale', 'fps'])
+const FIELD_FORMAT: Partial<Record<StatField, 'bytes' | 'percent' | 'scale' | 'rate'>> = {
+  tileBytes: 'bytes',
+  paintedRatio: 'percent',
+  resolutionScale: 'scale',
+  fps: 'rate',
+}
 
 /**
  * Formateurs du panneau. À construire UNE fois par jeu de libellés : `Intl.NumberFormat`
@@ -73,17 +77,25 @@ export function makeStatFormatter(labels: MapLabels): StatFormatter {
 
   const scale = (value: number): string => (Number.isFinite(value) ? twoDecimals.format(value) : '—')
 
+  // Une décimale, et le même tiret que les autres quand la mesure manque : la cadence
+  // n'existe pas avant la première fenêtre glissante, et « NaN » dans un panneau de
+  // diagnostic se lit comme une panne de la carte, pas comme une valeur pas encore prête.
+  const rate = (value: number): string => (Number.isFinite(value) ? decimal.format(value) : '—')
+
+  const byKind: Record<'bytes' | 'percent' | 'scale' | 'rate' | 'count', (value: number) => string> = {
+    bytes,
+    percent,
+    scale,
+    rate,
+    count,
+  }
+
   return {
     count,
     percent,
     bytes,
     scale,
-    field: (field, value) => {
-      if (BYTE_FIELDS.has(field)) return bytes(value)
-      if (RATIO_FIELDS.has(field)) return percent(value)
-      if (SCALE_FIELDS.has(field)) return field === 'fps' ? decimal.format(value) : scale(value)
-      return count(value)
-    },
+    field: (field, value) => byKind[FIELD_FORMAT[field] ?? 'count'](value),
   }
 }
 

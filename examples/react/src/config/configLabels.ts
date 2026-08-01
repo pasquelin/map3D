@@ -404,6 +404,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'data.storageKeys.templates': 'templates de dessin',
   'data.storageKeys.catalog': 'éléments de catalogue affichés',
   'data.storageKeys.catalogSettings': 'réglages du catalogue',
+  'data.storageKeys.preferences': 'préférences utilisateur',
   'data.search.minQuery': 'saisie minimale',
   'data.search.debounceMs': 'anti-rebond de frappe (ms)',
   'data.search.limitPerGroup': 'résultats par rubrique',

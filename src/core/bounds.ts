@@ -150,8 +150,9 @@ export const WORLD_BOUNDS: Bounds = { north: 85, south: -85, east: 180, west: -1
  * Deux emprises se recoupent-elles ?
  *
  * ⚠️ Ne gère PAS le franchissement de l'antiméridien, contrairement à `boundsContains` :
- * les consommateurs sont des compteurs de diagnostic, pour qui un faux positif au bord du
- * ±180° est sans conséquence — là où l'inventaire de la loupe, lui, doit être exact.
+ * les consommateurs sont des compteurs de diagnostic et le cull de tuiles (`intersectsView`),
+ * pour qui un faux positif au bord du ±180° coûte au pire une tuile gardée une frame de trop
+ * — là où l'inventaire de la loupe, lui, doit être exact.
  */
 export function boundsIntersect(a: Bounds, b: Bounds): boolean {
   return !(a.east < b.west || a.west > b.east || a.south > b.north || a.north < b.south)

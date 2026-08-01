@@ -42,6 +42,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 | [BUILDINGS.md](BUILDINGS.md) | sélection d'un bâtiment du volume interne : outil, `buildingMenu`, attributs remontés |
 | [GRATICULE.md](GRATICULE.md) | grille de coordonnées : maille adaptative, lignes remarquables, étiquettes, fondu à l'inclinaison |
 | [PLUGINS.md](PLUGINS.md) | guide auteur des plugins : contrat, config, source de données, enrichissement au pick, hub, registre des officiels |
+| [PREFERENCES.md](PREFERENCES.md) | préférences de l'utilisateur final : presets de qualité 3D, disposition clavier, rebind déplacement/vue, persistance |
 | [DATA.md](DATA.md) | viewport-driven, temps réel, tags, épinglage, persistance |
 | [HOOKS.md](HOOKS.md) | tous les hooks, et ce qui fait re-rendre quoi |
 | [ENGINE.md](ENGINE.md) | moteur, events, registres, couches custom |

@@ -72,6 +72,8 @@ export class TiledGlobeLayer {
   readonly group = new THREE.Group()
   private readonly ocean: THREE.Mesh
   private readonly scratch = new THREE.Vector3()
+  /** Centre du disque `steady` réutilisé chaque frame — lu par `requestRing`, jamais retenu. */
+  private readonly under: LatLng = { lat: 0, lng: 0 }
   /** Origine locale de la tuile en cours de construction (cf. `buildMesh`). */
   private readonly tileOrigin = new THREE.Vector3()
   private elevation = 0
@@ -284,7 +286,9 @@ export class TiledGlobeLayer {
     this.requestLevel(baseZ, WORLD_BOUNDS, 0)
     // Centre du disque `steady`, c'est-à-dire le sol sous la caméra : c'est autour de LUI que
     // s'ordonnent les anneaux du lointain, pour qu'ils ne dépendent pas du cap.
-    const under: LatLng = { lat: (steady.north + steady.south) / 2, lng: (steady.east + steady.west) / 2 }
+    const under = this.under
+    under.lat = (steady.north + steady.south) / 2
+    under.lng = (steady.east + steady.west) / 2
 
     /**
      * CASCADE de niveaux, du plus fin au plus grossier.

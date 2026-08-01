@@ -8,6 +8,7 @@
 //
 // Sans three.js ni DOM : la file se teste seule, sans WebGL.
 
+import { boundsIntersect } from './bounds'
 import { clamp } from './math'
 import type { Bounds, LatLng } from '../shared'
 
@@ -355,7 +356,9 @@ export class TileQueue<T extends Tile, R> {
 
 /** L'emprise de la tuile recoupe-t-elle celle de la vue ? */
 export function intersectsView(t: Tile, b: Bounds): boolean {
-  return !(t.east < b.west || t.west > b.east || t.south > b.north || t.north < b.south)
+  // Une tuile EST une emprise : le prédicat générique fait exactement ce travail. Le garder
+  // recopié ici, c'était deux corps à corriger le jour où l'antiméridien sera traité.
+  return boundsIntersect(t, b)
 }
 
 /** Plage de tuiles couvrant `bounds` au zoom `z` (marge incluse), bornée au globe. */

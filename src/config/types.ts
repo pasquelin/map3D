@@ -965,6 +965,12 @@ export type StorageKeysConfig = {
    * partagée effacerait du même geste le réglage qu'on vient de changer.
    */
   catalogSettings: string
+  /**
+   * Préférences de l'utilisateur final (qualité 3D, disposition clavier, vitesse,
+   * inertie) — cf. `Preferences`. Absente du localStorage tant que l'utilisateur n'a
+   * rien réglé : la carte suit alors la config de l'application, intacte.
+   */
+  preferences: string
 }
 
 /** Boîte de recherche — 💰 chaque frappe non amortie est un appel Places facturé. */

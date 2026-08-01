@@ -57,6 +57,13 @@ const LABEL_TILT_MAX = 45
  */
 const MAX_SEG_DEG = 0.25
 
+/**
+ * Plafond du cache de tailles d'étiquettes. Une maille en produit au plus `maxLines`, mais une
+ * session qui traverse les niveaux de zoom en accumule de nouvelles indéfiniment : au-delà, on
+ * vide plutôt que d'entretenir un LRU pour quelques dizaines d'octets par entrée.
+ */
+const MAX_LABEL_SIZES = 512
+
 export type GraticuleColors = { line: string; remarkable: string }
 
 /**
@@ -118,10 +125,24 @@ export class GraticuleLayer implements Layer {
    * étiquette d'avaler un début de déplacement de carte.
    */
   private readonly labelHits: { x: number; y: number; hw: number; hh: number }[] = []
-  /** Nombre d'étiquettes réellement affichées à la dernière passe. */
+  /**
+   * Nombre d'étiquettes affichées à la dernière passe — donc aussi la borne haute des slots
+   * VISIBLES : `hideLabelsFrom` n'a rien à faire au-delà. Un second compteur pour cette borne
+   * ne pouvait que valoir le même nombre, et se désynchroniser sur un chemin oublié.
+   */
   private labelCount = 0
-  /** Borne haute des étiquettes VISIBLES — au-delà, `hideLabelsFrom` n'a rien à faire. */
-  private shownCount = 0
+  /**
+   * Demi-taille mesurée par TEXTE. La taille d'une pastille ne dépend que de son contenu :
+   * mesurer par slot obligeait à relire le layout dès qu'une ligne entrait ou sortait du cadre,
+   * ce qui décale l'affectation slot→ligne et donc tous les textes suivants. Ici chaque texte
+   * n'est mesuré qu'une fois, et la mesure a lieu dans la passe de LECTURE.
+   */
+  private readonly labelSizes = new Map<string, { hw: number; hh: number }>()
+  /**
+   * Pastille hors flux dédiée à la mesure. Mesurer sur un slot du pool écraserait le texte que
+   * `project` vient d'y écrire — et ferait dépendre la mesure de l'ordre des passes.
+   */
+  private measureEl: HTMLElement | null = null
   /** Dernière opacité écrite par slot : réécrire la même valeur est une écriture CSSOM pour rien. */
   private readonly labelOpacity: number[] = []
   /** Rect de l'overlay, mémoïsé par frame — `getBoundingClientRect` force une mise en page. */
@@ -280,6 +301,10 @@ export class GraticuleLayer implements Layer {
       this.builtLat = lat
       this.builtLng = lng
       this.rebuild(band, height)
+      // Mesure ICI, dans la passe de LECTURE : les seules lectures de layout de la couche
+      // tombent ainsi hors de `project`, qui doit rester une passe d'écriture pure. Et une
+      // reconstruction est rare — quelques mesures par changement de maille, pas par frame.
+      if (g.labels.enabled) this.measureLabels()
     }
 
     // L'inclinaison n'est PAS dans `ctx.cameraState` : `getState()` la rend toujours nulle,
@@ -307,7 +332,7 @@ export class GraticuleLayer implements Layer {
       this.group.visible = false
       return
     }
-    this.applyOpacity()
+    this.applyFade(this.group, this.fade)
     this.group.visible = true
   }
 
@@ -348,7 +373,18 @@ export class GraticuleLayer implements Layer {
     const g = this.config.graticule
     const wanted = this.lines.filter((l) => (l.remarkable !== null) === remarkable)
     if (wanted.length === 0) return null
-    const positions = new Float32Array(wanted.length * (Math.max(2, g.segmentsPerLine) - 1) * 2 * 3)
+    // UNE seule fois : ce plafond borne la densification par ligne.
+    const maxSegs = Math.max(2, g.segmentsPerLine)
+    // La densification ne dépend que de l'étendue de la bande dans l'axe de la ligne : deux
+    // valeurs pour tout le jeu, pas une par ligne.
+    const segsParallel = this.segsFor(band.east - band.west, maxSegs)
+    const segsMeridian = this.segsFor(band.north - band.south, maxSegs)
+    let total = 0
+    for (const line of wanted) total += (line.kind === 'parallel' ? segsParallel : segsMeridian) - 1
+    // Taille EXACTE. Dimensionner sur `maxSegs` réservait le pire cas — deux ordres de grandeur
+    // de trop en vue rue, où 128 segments par ligne se réduisent à 2 — et le `subarray` final
+    // laissait ce tampon vivant tant que la géométrie l'était.
+    const positions = new Float32Array(total * 2 * 3)
     let o = 0
     const push = (p: LatLng) => {
       this.projection.latLngToWorld(p, this.scratch, height)
@@ -360,13 +396,7 @@ export class GraticuleLayer implements Layer {
       // La bande sort DÉJÀ bornée aux pôles de `bandFor` : re-borner ici ne pouvait jamais mordre.
       const from = line.kind === 'parallel' ? band.west : band.south
       const to = line.kind === 'parallel' ? band.east : band.north
-      // Densification proportionnée à l'ÉTENDUE, plafonnée par la config. À 128 segments fixes,
-      // un parallèle couvrant 0,002° en vue rue produisait 126 sommets colinéaires — transformés
-      // par le vertex shader à chaque frame peinte, pour une courbure nulle.
-      const segs = Math.max(
-        2,
-        Math.min(Math.max(2, g.segmentsPerLine), Math.ceil(Math.abs(to - from) / MAX_SEG_DEG) + 1),
-      )
+      const segs = line.kind === 'parallel' ? segsParallel : segsMeridian
       const step = (to - from) / (segs - 1)
       for (let i = 0; i < segs - 1; i++) {
         const a = from + i * step
@@ -378,9 +408,10 @@ export class GraticuleLayer implements Layer {
       }
     }
     const geo = new THREE.BufferGeometry()
-    // Tranché à `o` : des sommets non écrits resteraient à (0,0,0), donc une ligne parasite
-    // partant du centre de la Terre.
-    geo.setAttribute('position', new THREE.BufferAttribute(positions.subarray(0, o), 3))
+    // Le tampon est exactement rempli (`o === positions.length`) : plus rien à trancher, donc
+    // plus de sommets non écrits restés à (0,0,0) — la ligne parasite partant du centre de la
+    // Terre ne peut plus apparaître.
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     const color = new THREE.Color(remarkable ? this.colors.remarkable : this.colors.line)
     const opacity = remarkable ? g.remarkableOpacity : g.opacity
     // `LineDashedMaterial` est écarté partout ailleurs dans la lib parce qu'il « rend un
@@ -410,6 +441,17 @@ export class GraticuleLayer implements Layer {
   }
 
   /**
+   * Nombre de sommets d'une ligne couvrant `spanDeg`, plafonné par la config.
+   *
+   * Densification proportionnée à l'ÉTENDUE : à 128 segments fixes, un parallèle couvrant
+   * 0,002° en vue rue produisait 126 sommets colinéaires — transformés par le vertex shader à
+   * chaque frame peinte, pour une courbure nulle.
+   */
+  private segsFor(spanDeg: number, maxSegs: number): number {
+    return Math.max(2, Math.min(maxSegs, Math.ceil(Math.abs(spanDeg) / MAX_SEG_DEG) + 1))
+  }
+
+  /**
    * Point de la ligne à l'abscisse `v` (longitude sur un parallèle, latitude sur un
    * méridien), écrit dans `out` — jamais alloué : appelé par ligne, par segment et par frame.
    */
@@ -424,12 +466,18 @@ export class GraticuleLayer implements Layer {
     return out
   }
 
-  /** Reporte le fondu sur les matériaux — deux écritures de scalaire par frame. */
-  private applyOpacity(): void {
-    const g = this.config.graticule
-    if (this.ordinary) (this.ordinary.material as THREE.LineBasicMaterial).opacity = g.opacity * this.fade
-    if (this.remarkableSeg) {
-      ;(this.remarkableSeg.material as THREE.LineBasicMaterial).opacity = g.remarkableOpacity * this.fade
+  /**
+   * Reporte un facteur de fondu sur les matériaux d'un groupe — deux écritures de scalaire.
+   *
+   * Valeur ABSOLUE depuis l'opacité de base retenue au rebuild : un `*=` composerait
+   * l'atténuation à chaque frame et le jeu concerné disparaîtrait en trois frames, pas en
+   * `levelFadeMs`. Écrivain UNIQUE : le jeu courant et le jeu sortant ne diffèrent que par le
+   * facteur, et une règle d'opacité écrite à deux endroits finit par diverger.
+   */
+  private applyFade(group: THREE.Group, factor: number): void {
+    for (const child of group.children) {
+      const seg = child as THREE.LineSegments
+      ;(seg.material as THREE.LineBasicMaterial).opacity = (seg.userData.baseOpacity as number) * factor
     }
   }
 
@@ -442,13 +490,7 @@ export class GraticuleLayer implements Layer {
       this.dropOutgoing()
       return
     }
-    for (const child of out.group.children) {
-      const seg = child as THREE.LineSegments
-      const mat = seg.material as THREE.LineBasicMaterial
-      // Valeur ABSOLUE depuis l'opacité de base : un `*=` composerait l'atténuation à chaque
-      // frame et le jeu sortant disparaîtrait en trois, pas en `levelFadeMs`.
-      mat.opacity = (seg.userData.baseOpacity as number) * this.fade * out.fade
-    }
+    this.applyFade(out.group, this.fade * out.fade)
     // La maille sortante s'efface encore : l'image change sans que rien d'autre ne bouge.
     ctx.invalidate()
   }
@@ -464,11 +506,11 @@ export class GraticuleLayer implements Layer {
   project(ctx: FrameContext): void {
     const g = this.config.graticule
     if (!this.group.visible || !g.labels.enabled || this.level === null) {
+      // `hideLabelsFrom` remet `labelCount` à zéro, et avec lui la portée de `labelHits` :
+      // sans ça, le pointeur entrant dans une boîte PÉRIMÉE faisait basculer `hovered`, donc
+      // réveillait la boucle pour trois frames (`renderOnDemand.idleFrames`) — sur une carte
+      // immobile, grille éteinte.
       this.hideLabelsFrom(0)
-      // ⚠️ Sans ça, `labelHits` gardait des boîtes PÉRIMÉES : le pointeur entrant dans l'une
-      // d'elles faisait basculer `hovered`, donc réveillait la boucle pour trois frames
-      // (`renderOnDemand.idleFrames`) — sur une carte immobile, grille éteinte.
-      this.labelCount = 0
       this.hovered = -1
       return
     }
@@ -500,18 +542,18 @@ export class GraticuleLayer implements Layer {
       const hit = (this.labelHits[i] ??= { x: 0, y: 0, hw: 0, hh: 0 })
       hit.x = s.sx
       hit.y = s.sy
-      // Écriture CONDITIONNELLE, et la MESURE avec elle : la taille d'une pastille ne dépend
-      // que de son texte. Mesurer à chaque frame plaçait 80 lectures de layout dans une passe
-      // d'ÉCRITURE, entrelacées avec les écritures des autres couches — le cas d'école du
-      // layout thrashing. Le texte, lui, vient du cache de reconstruction.
+      // Taille lue au cache, jamais mesurée ici : `project` est une passe d'ÉCRITURE, et une
+      // lecture de layout entrelacée avec les écritures des autres couches est le cas d'école
+      // du layout thrashing. Le cache est amorcé au rebuild, donc ce `sizeOf` ne mesure pas.
+      const size = this.sizeOf(text)
+      hit.hw = size.hw
+      hit.hh = size.hh
+      // Écriture CONDITIONNELLE : réécrire le même texte est une écriture DOM pour rien.
       const title = el.firstElementChild as HTMLElement
-      if (title.textContent !== text) {
-        title.textContent = text
-        hit.hw = el.offsetWidth / 2
-        hit.hh = el.offsetHeight / 2
-      }
-      // `display` n'est posé qu'à l'apparition : au-delà de `shownCount`, le slot était caché.
-      if (i >= this.shownCount) el.style.display = 'block'
+      if (title.textContent !== text) title.textContent = text
+      // `display` n'est posé qu'à l'apparition : au-delà de `labelCount`, qui porte encore le
+      // compte de la passe précédente, le slot était caché.
+      if (i >= this.labelCount) el.style.display = 'block'
       const opacity = this.fade * (i === this.hovered ? 1 : g.labels.idleOpacity)
       if (this.labelOpacity[i] !== opacity) {
         el.style.opacity = String(opacity)
@@ -522,7 +564,8 @@ export class GraticuleLayer implements Layer {
       const rot = g.labels.rotate ? this.screenAngle(line, anchor, s, ctx) : 0
       el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
     }
-    this.labelCount = used
+    // `hideLabelsFrom` a besoin de l'ANCIEN `labelCount` pour savoir jusqu'où cacher, et pose
+    // le nouveau lui-même : l'écrire avant l'appel laisserait des slots visibles.
     this.hideLabelsFrom(used)
     // Le pointeur n'a pas bougé mais les étiquettes, si : ce qui est sous lui a changé.
     if (this.hovered >= used) this.hovered = -1
@@ -573,24 +616,65 @@ export class GraticuleLayer implements Layer {
   private labelAt(i: number): HTMLElement {
     const existing = this.labelPool[i]
     if (existing) return existing
-    const el = document.createElement('div')
-    el.className = LABEL_CLASS
-    const title = document.createElement('div')
-    title.className = LABEL_TITLE_CLASS
-    el.appendChild(title)
-    this.overlay.appendChild(el)
+    const el = this.createLabel(false)
     this.labelPool.push(el)
     return el
   }
 
   /**
-   * Cache les slots au-delà de `i`. Borné par `shownCount` et non par la taille du pool :
-   * grille éteinte, réécrire `display: none` sur quarante éléments déjà cachés coûtait quarante
-   * écritures CSSOM par frame, indéfiniment — la couche restant montée en permanence.
+   * Pastille montée dans l'overlay. `measuring` la rend invisible SANS la sortir de la mise en
+   * page : `display: none` rendrait des dimensions nulles, `visibility: hidden` non. Le châssis
+   * étant `position: absolute; pointer-events: none`, elle ne déplace ni n'intercepte rien.
+   */
+  private createLabel(measuring: boolean): HTMLElement {
+    const el = document.createElement('div')
+    el.className = LABEL_CLASS
+    if (measuring) el.style.visibility = 'hidden'
+    const title = document.createElement('div')
+    title.className = LABEL_TITLE_CLASS
+    el.appendChild(title)
+    this.overlay.appendChild(el)
+    return el
+  }
+
+  /**
+   * Cache les slots au-delà de `i`, et fait de `i` le nouveau compte affiché. Borné par
+   * `labelCount` et non par la taille du pool : grille éteinte, réécrire `display: none` sur
+   * quarante éléments déjà cachés coûtait quarante écritures CSSOM par frame, indéfiniment —
+   * la couche restant montée en permanence.
    */
   private hideLabelsFrom(i: number): void {
-    for (let k = i; k < this.shownCount; k++) this.labelPool[k]!.style.display = 'none'
-    this.shownCount = i
+    for (let k = i; k < this.labelCount; k++) this.labelPool[k]!.style.display = 'none'
+    this.labelCount = i
+  }
+
+  /**
+   * Amorce le cache de tailles pour la maille qui vient d'être construite. Appelé depuis
+   * `update` — la passe de LECTURE — pour que `project` n'ait plus qu'à consulter.
+   */
+  private measureLabels(): void {
+    for (const text of this.lineTexts) this.sizeOf(text)
+  }
+
+  /**
+   * Demi-taille d'une pastille portant `text`, mesurée au plus une fois.
+   *
+   * ⚠️ En cas d'absence du cache, la mesure force une mise en page. C'est pourquoi
+   * `measureLabels` l'amorce hors de `project` : tout texte que la passe d'écriture rencontre
+   * y est déjà.
+   */
+  private sizeOf(text: string): { hw: number; hh: number } {
+    const cached = this.labelSizes.get(text)
+    if (cached) return cached
+    // Le cache ne peut pas grossir sans fin : au plafond, on repart de zéro plutôt que
+    // d'entretenir un LRU pour des entrées de quelques octets.
+    if (this.labelSizes.size >= MAX_LABEL_SIZES) this.labelSizes.clear()
+    const el = (this.measureEl ??= this.createLabel(true))
+    const title = el.firstElementChild as HTMLElement
+    title.textContent = text
+    const size = { hw: el.offsetWidth / 2, hh: el.offsetHeight / 2 }
+    this.labelSizes.set(text, size)
+    return size
   }
 
   dispose(): void {
@@ -601,5 +685,8 @@ export class GraticuleLayer implements Layer {
     this.scene.remove(this.group)
     for (const el of this.labelPool) el.remove()
     this.labelPool.length = 0
+    this.measureEl?.remove()
+    this.measureEl = null
+    this.labelSizes.clear()
   }
 }

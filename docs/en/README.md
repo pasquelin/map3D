@@ -53,6 +53,7 @@ cover each one **in depth**.
 | [BUILDINGS.md](BUILDINGS.md) | picking a building of the internal volume: the tool, `buildingMenu`, surfaced attributes |
 | [GRATICULE.md](GRATICULE.md) | coordinate grid: adaptive mesh, remarkable lines, labels, tilt fade |
 | [PLUGINS.md](PLUGINS.md) | plugin author guide: contract, config, data source, enrichment at pick, hub, official registry |
+| [PREFERENCES.md](PREFERENCES.md) | end-user preferences: 3D quality presets, keyboard layout, movement/view rebinding, persistence |
 | [DATA.md](DATA.md) | viewport-driven, real time, tags, pinning, persistence |
 | [HOOKS.md](HOOKS.md) | every hook, and what makes what re-render |
 | [ENGINE.md](ENGINE.md) | engine, events, registries, custom layers |

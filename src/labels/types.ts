@@ -362,6 +362,65 @@ export type MapLabels = {
     resetAll: string
     resetTool: string
     shortcutsTitle: string
+    /**
+     * Panneau « Préférences » de l'utilisateur final (qualité 3D, clavier, vitesse) —
+     * distinct du réglage par outil et du récap de raccourcis.
+     */
+    preferences: {
+      title: string
+      /** Bouton de pied : efface toutes les préférences (retour aux réglages de l'app). */
+      reset: string
+      quality: {
+        title: string
+        /** Niveau déduit de la machine. */
+        auto: string
+        high: string
+        medium: string
+        low: string
+      }
+      controls: {
+        title: string
+        /** Titre du groupe des touches de déplacement continu. */
+        move: string
+        /** Titre du groupe des commandes de vue. */
+        view: string
+        /** Étiquette du choix de disposition clavier. */
+        keyboard: string
+        azerty: string
+        qwerty: string
+        /** Étiquette de la vitesse de déplacement. */
+        speed: string
+        slow: string
+        normal: string
+        fast: string
+        /** Interrupteur d'inertie des gestes de caméra. */
+        damping: string
+        /** Invite pendant la capture d'une touche. */
+        press: string
+        /** aria/titre du bouton de capture d'une touche — `{action}`. */
+        rebind: string
+        /** Message quand la touche saisie est déjà prise par une autre action du panneau — `{action}`. */
+        conflict: string
+        /** Idem quand la touche est prise par une commande hors panneau (nom non traduit ici). */
+        conflictOther: string
+        /** Bouton de remise des touches à la disposition choisie. */
+        resetKeys: string
+      }
+      /** Nom de chaque action réassignable (déplacement + vue). */
+      actions: {
+        forward: string
+        backward: string
+        left: string
+        right: string
+        boost: string
+        north: string
+        tilt: string
+        globe: string
+        zoomIn: string
+        zoomOut: string
+        fullscreen: string
+      }
+    }
   }
   /** Actions du récapitulatif des raccourcis (navigation, vue, dessin, édition). */
   actions: {

@@ -696,6 +696,9 @@ const CSS = `
 .m3d-settings-sub{width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
 /* Récap raccourcis : trois colonnes, donc surface plus large que les autres sous-panneaux. */
 .m3d-settings-sub-wide{width:568px}
+/* Préférences : plus large que le sous-panneau par défaut (212) pour que les groupes
+   segmentés (Auto/Élevé/Moyen/Léger) et les touches en bout de ligne ne soient pas rognés. */
+.m3d-settings-sub-pref{width:300px}
 .m3d-settings-subtitle{font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
   text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
@@ -709,6 +712,37 @@ const CSS = `
 .m3d-shortcut-row .m3d-kbd{flex:none}
 /* Séparateur d'une liste en sections (récap raccourcis d'antan, panneau Stats). */
 .m3d-shortcut-sep{border-top:1px solid var(--m3d-border);margin:5px 0}
+
+/* ── Panneau « Préférences » (qualité 3D + contrôles) ─────────────────────────
+   Vit dans la même surface .m3d-settings-sub ; largeur un peu plus généreuse pour que
+   les groupes segmentés (Auto/Élevé/Moyen/Léger) tiennent sur une ligne. */
+.m3d-pref{display:flex;flex-direction:column;gap:9px;width:100%}
+/* Boutons exclusifs : un rail segmenté, l'actif prend l'accent. */
+.m3d-pref-seg{display:flex;gap:2px;background:color-mix(in srgb,var(--m3d-text) 6%,transparent);
+  border-radius:8px;padding:2px}
+.m3d-pref-segbtn{flex:1;min-width:0;padding:5px 6px;border:0;border-radius:6px;background:transparent;
+  color:var(--m3d-muted);font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.m3d-pref-segbtn:hover{color:var(--m3d-text)}
+.m3d-pref-segbtn.m3d-on{background:var(--m3d-panel);color:var(--m3d-text);
+  box-shadow:0 1px 2px color-mix(in srgb,#000 18%,transparent)}
+/* Étiquette ↔ contrôle sur une ligne (Vitesse). */
+.m3d-pref-field{display:flex;align-items:center;gap:8px}
+.m3d-pref-fieldlabel{flex:none;width:56px;font-size:11.5px;color:var(--m3d-text)}
+.m3d-pref-field .m3d-pref-seg{flex:1}
+/* <kbd> ÉDITABLE du récap : même taille/place que les autres, mais SIGNALÉ cliquable —
+   pleine opacité, bordure teintée accent, petit crayon. 'm3d-on' = capture en cours,
+   'm3d-kbd-bad' = touche déjà prise (refus). La grille du récap ne change pas. */
+.m3d-kbd-edit{cursor:pointer;opacity:1;display:inline-flex;align-items:center;gap:3px;
+  border-color:color-mix(in srgb,var(--m3d-accent) 45%,transparent);
+  transition:background .12s,color .12s,border-color .12s}
+.m3d-editpen{opacity:.5;flex:none}
+.m3d-kbd-edit:hover{background:color-mix(in srgb,var(--m3d-accent) 16%,transparent);border-color:var(--m3d-accent)}
+.m3d-kbd-edit:hover .m3d-editpen{opacity:.95}
+.m3d-kbd-edit:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:1px}
+.m3d-kbd-edit.m3d-on{background:var(--m3d-accent);color:#fff;border-color:transparent}
+.m3d-kbd-edit.m3d-on .m3d-editpen{opacity:0}
+.m3d-kbd-edit.m3d-kbd-bad{color:#fff;background:var(--m3d-error);border-color:transparent}
 
 /* Panneau « Couches » (filtre par tag) : ancré au groupe du bouton, ouvert du
    côté opposé à la barre (m3d-right = barre à droite → panneau à gauche).

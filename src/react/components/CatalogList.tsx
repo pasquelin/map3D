@@ -213,11 +213,19 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    * Identité STABLE entre deux renders : c'est elle qui rend `memo(CatalogRow)`
    * opérant. Une closure `(next) => onCheck(node, next)` créée par ligne le défaisait
    * intégralement — aucune ligne ne pouvait jamais être sautée au défilement.
+   *
+   * ⚠️ Les dépendances sont les MÉTHODES, jamais l'objet `catalog` : celui-ci est mémoïsé
+   * sur `token`, donc neuf à chaque mutation du store — chaque géométrie qui arrive aurait
+   * refait cette closure et redéfait le `memo` qu'on vient de gagner. Les deux méthodes,
+   * elles, ne dépendent que du store et de l'engine. Déstructurées et non lues en
+   * `catalog.toggle` : `exhaustive-deps` ne sait pas voir la stabilité d'un membre et
+   * réclamerait l'objet entier, c'est-à-dire exactement ce qu'on évite.
    */
+  const { toggle, setMany } = catalog
   const onCheck = useCallback(
     (node: CatalogNode, next: boolean) => {
       if (!node.item.hasChildren || !source.children) {
-        catalog.toggle(source, node.item)
+        toggle(source, node.item)
         return
       }
       // Cocher un agrégat porte sur ses ENFANTS, qu'il faut donc connaître — même
@@ -225,16 +233,16 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
       // même zone serait comptée deux fois et un décochage d'enfant ne dirait rien.
       void ensureChildren(node.item.id)
         .then((kids) => {
-          if (kids.length > 0) catalog.setMany(source, kids, next)
+          if (kids.length > 0) setMany(source, kids, next)
         })
         .catch(() => {
           // Enfants indisponibles : rien à cocher, et la case reste où elle était.
         })
     },
-    [catalog, ensureChildren, source],
+    [setMany, toggle, ensureChildren, source],
   )
 
-  const onActivate = useCallback((item: CatalogItem) => catalog.toggle(source, item, { fit: true }), [catalog, source])
+  const onActivate = useCallback((item: CatalogItem) => toggle(source, item, { fit: true }), [toggle, source])
 
   const nodes = useMemo(() => flattenCatalog(items, expanded, children), [items, expanded, children])
 

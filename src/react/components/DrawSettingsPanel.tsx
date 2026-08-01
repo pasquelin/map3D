@@ -6,10 +6,11 @@ import {
   mdiMapSearchOutline,
   mdiPuzzleOutline,
   mdiRestore,
+  mdiTune,
 } from '@mdi/js'
 import { StatsPanel } from './StatsPanel'
 import { UiIcon } from './UiIcon'
-import { useMemo, useRef, useState } from 'react'
+import { useContext, useMemo, useRef, useState } from 'react'
 import type { EditShortcut } from '../../config/types'
 import { DEFAULT_STROKE_OPACITY } from '../../core/geometry'
 import type { DrawTool } from '../../layers/DrawLayer'
@@ -24,6 +25,10 @@ import { maxRadiusOf } from './drawPresets'
 import { Dropdown, DropdownSurface } from './Dropdown'
 import { CatalogSettingsPanel } from './CatalogSettings'
 import { PluginHubPanel } from './PluginHubPanel'
+import { PreferencesPanel } from './PreferencesPanel'
+import { EditableKbd } from './preferenceControls'
+import { PreferencesContext } from '../preferences/context'
+import type { BindableAction, MoveDirection } from '../../config/preferences'
 import { formatEdit } from './shortcuts'
 import { formatKey } from './tooltip'
 
@@ -35,8 +40,20 @@ import { formatKey } from './tooltip'
  */
 const UNSTYLED_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['select', 'erase', 'symbol'])
 
-/** Entrées du panneau ouvrant un sous-panneau latéral : un outil, les raccourcis, le hub plugins, le catalogue. */
-type SubKey = DrawTool | 'shortcuts' | 'plugins' | 'catalog' | 'stats'
+/** Entrées du panneau ouvrant un sous-panneau latéral : un outil, les raccourcis, le hub plugins, le catalogue, les préférences. */
+type SubKey = DrawTool | 'shortcuts' | 'plugins' | 'catalog' | 'stats' | 'preferences'
+
+/** Sous-panneaux qui ne sont pas un outil de dessin (le reste ouvre un `StyleEditor`). */
+const NON_TOOL_SUBS: ReadonlySet<SubKey> = new Set<SubKey>(['shortcuts', 'plugins', 'catalog', 'stats', 'preferences'])
+
+/** Un sous-panneau d'outil ouvre un `StyleEditor` : garde de type qui resserre vers `DrawTool`. */
+const isToolSub = (k: SubKey): k is DrawTool => !NON_TOOL_SUBS.has(k)
+
+/** Classe de largeur d'un sous-panneau : les autres restent étroits. */
+const SUB_WIDTH: Partial<Record<SubKey, string>> = {
+  shortcuts: ' m3d-settings-sub-wide', // récap raccourcis sur trois colonnes
+  preferences: ' m3d-settings-sub-pref',
+}
 
 /**
  * Bouton engrenage + panneau « Réglages des outils » : chaque outil garde ses
@@ -65,6 +82,10 @@ export function DrawSettingsButton({
   // Réglages du catalogue : seulement si une source est déclarée. Sans elles, l'entrée
   // ouvrirait deux interrupteurs qui ne gouvernent rien de visible.
   const hasCatalog = useCatalogSources().length > 0
+  // Préférences : seulement s'il y a un store (donc un `<MapProvider>` au-dessus, le nôtre
+  // ou celui de l'hôte). Sans lui, l'entrée ouvrirait un panneau vide. `useContext` plutôt
+  // que `usePreferences` — on ne veut PAS re-rendre la barre à chaque changement de réglage.
+  const hasPreferences = useContext(PreferencesContext) !== null
   const [openSub, setOpenSub] = useState<SubKey | null>(null)
   /** Ligne survolée : c'est elle qui ANCRE le sous-menu, comme un bouton ancre le sien. */
   const [subRow, setSubRow] = useState<HTMLElement | null>(null)
@@ -118,10 +139,7 @@ export function DrawSettingsButton({
     </div>
   )
 
-  const openedTool =
-    openSub && openSub !== 'shortcuts' && openSub !== 'plugins' && openSub !== 'catalog' && openSub !== 'stats'
-      ? openSub
-      : null
+  const openedTool = openSub && isToolSub(openSub) ? openSub : null
   const openedSettings = openedTool ? settings.get(openedTool) : null
 
   return (
@@ -166,6 +184,9 @@ export function DrawSettingsButton({
           <div className="m3d-settings-footer">
             {row('shortcuts', mdiKeyboardOutline, labels.settings.shortcutsTitle)}
             {hasPlugins && row('plugins', mdiPuzzleOutline, labels.plugins.title)}
+            {/* Préférences utilisateur (qualité 3D, contrôles) : présente dès qu'un
+                `<MapProvider>` fournit le store (le nôtre ou celui de l'hôte). */}
+            {hasPreferences && row('preferences', mdiTune, labels.settings.preferences.title)}
             {hasCatalog && row('catalog', mdiMapSearchOutline, labels.catalog.settings.title)}
             {row('stats', mdiChartBoxOutline, labels.stats.title)}
           </div>
@@ -174,9 +195,7 @@ export function DrawSettingsButton({
               anchor={subRow}
               position={position}
               maxHeight={theme.sizing.panelMaxHeight.settingsSub}
-              // Récap raccourcis sur trois colonnes : la surface s'élargit pour eux seuls,
-              // les autres sous-panneaux (style d'outil, plugins…) restent étroits.
-              panelClassName={`m3d-settings-sub${openSub === 'shortcuts' ? ' m3d-settings-sub-wide' : ''}`}
+              panelClassName={`m3d-settings-sub${(openSub && SUB_WIDTH[openSub]) || ''}`}
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >
@@ -206,6 +225,8 @@ export function DrawSettingsButton({
                 </>
               ) : openSub === 'plugins' ? (
                 <PluginHubPanel />
+              ) : openSub === 'preferences' ? (
+                <PreferencesPanel />
               ) : openSub === 'catalog' ? (
                 <CatalogSettingsPanel />
               ) : openSub === 'stats' ? (
@@ -282,40 +303,41 @@ function ShortcutsList() {
   const hasCatalog = useCatalogSources().length > 0
   const fmt = (s: EditShortcut) => formatEdit(s, labels.modKey, labels.keys.shift)
   const one = (k: string | false) => (k ? formatKey(k) : undefined)
-  // Deux touches séparées par « / » sur une seule ligne (zoom, annuler/rétablir).
+  // Deux touches séparées par « / » sur une seule ligne (annuler/rétablir).
   const pair = (a?: string, b?: string) => (a || b ? `${a ?? ''} / ${b ?? ''}` : undefined)
+  // Lettre de déplacement (hors flèche) d'une direction — les flèches restent liées en plus.
+  const moveKey = (d: MoveDirection) => {
+    const letter = sc.navigate[d].find((k) => !k.startsWith('arrow'))
+    return letter ? formatKey(letter) : undefined
+  }
+  const boost0 = sc.navigate.boost[0]
+  const boostDisp = boost0 ? (boost0 === 'shift' ? labels.keys.shiftKey : formatKey(boost0)) : undefined
 
-  // Déplacement continu : le sous-ensemble LETTRES (ZQSD/WASD), plus « Flèches » si liées.
-  const nav = sc.navigate
-  const navLetters = [nav.forward, nav.left, nav.backward, nav.right]
-    .map((d) => d.find((k) => !k.startsWith('arrow'))?.toUpperCase())
-    .filter(Boolean)
-    .join(' ')
-  const navArrows = [nav.forward, nav.left, nav.backward, nav.right].some((d) => d.some((k) => k.startsWith('arrow')))
-  const navKeys = [navLetters, navArrows ? labels.keys.arrows : ''].filter(Boolean).join(' / ') || undefined
-  const boostKeys =
-    nav.boost.length > 0
-      ? nav.boost.map((k) => (k === 'shift' ? labels.keys.shiftKey : formatKey(k))).join(' ')
-      : undefined
-
-  // Ordre : navigation → vue/panneaux → outils → sélection → édition. `column-count`
-  // équilibre l'ensemble, donc pas de séparateur (il tomberait au hasard d'une colonne).
-  const rows: Array<[string, string | undefined]> = [
+  // MÊME récap qu'avant, MÊME grille, MÊME style : la 3ᵉ valeur (optionnelle) marque une
+  // ligne dont le `<kbd>` est ÉDITABLE en place (déplacement + vue). Le déplacement et le
+  // zoom, jadis regroupés sur une ligne, sont éclatés par touche pour être réassignables
+  // un par un — c'est le seul écart, la mise en page est inchangée.
+  const pa = labels.settings.preferences.actions
+  const rows: Array<[string, string | undefined, BindableAction?]> = [
     // Navigation caméra
     [labels.actions.panMap, labels.keys.space],
-    [labels.actions.navigate, navKeys],
-    [labels.actions.boost, boostKeys],
+    [pa.forward, moveKey('forward'), 'forward'],
+    [pa.backward, moveKey('backward'), 'backward'],
+    [pa.left, moveKey('left'), 'left'],
+    [pa.right, moveKey('right'), 'right'],
+    [pa.boost, boostDisp, 'boost'],
     [labels.actions.rotateCamera, labels.keys.spaceShift],
-    [labels.controls.north, one(sc.controls.north)],
-    [labels.controls.tilt, one(sc.controls.tilt)],
-    [labels.controls.globe, one(sc.controls.globe)],
-    [labels.actions.zoom, pair(one(sc.controls.zoomIn), one(sc.controls.zoomOut))],
+    [pa.north, one(sc.controls.north), 'north'],
+    [pa.tilt, one(sc.controls.tilt), 'tilt'],
+    [pa.globe, one(sc.controls.globe), 'globe'],
+    [pa.zoomIn, one(sc.controls.zoomIn), 'zoomIn'],
+    [pa.zoomOut, one(sc.controls.zoomOut), 'zoomOut'],
     // Vue / panneaux
     [labels.actions.basemap, one(sc.controls.basemap)],
     [labels.controls.graticule, one(sc.controls.graticule)],
     [labels.actions.layers, one(sc.controls.layers)],
     [labels.catalog.button, hasCatalog ? one(sc.controls.catalog) : undefined],
-    [labels.controls.fullscreen, one(sc.controls.fullscreen)],
+    [pa.fullscreen, one(sc.controls.fullscreen), 'fullscreen'],
     [labels.controls.pedestrian, one(sc.controls.pedestrian)],
     [labels.lens.tool, one(sc.lens.toggle)],
     // Outils de dessin : dérivés des raccourcis effectifs, filtrés aux vrais outils.
@@ -339,16 +361,20 @@ function ShortcutsList() {
     [labels.actions.closePolygon, labels.keys.enter],
     [labels.actions.cancel, labels.keys.escape],
   ]
-  const shortcutRow = ([label, key]: [string, string]) => (
-    <div key={label} className="m3d-shortcut-row">
+  // Clé par INDEX (et non par libellé) : deux lignes peuvent porter le même intitulé —
+  // « Polygone » est à la fois un outil de dessin et un mode de sélection.
+  const shortcutRow = ([label, key, action]: [string, string, BindableAction?], i: number) => (
+    <div key={i} className="m3d-shortcut-row">
       <span>{label}</span>
-      <kbd className="m3d-kbd">{key}</kbd>
+      {action ? <EditableKbd action={action} display={key} /> : <kbd className="m3d-kbd">{key}</kbd>}
     </div>
   )
   return (
     <div className="m3d-shortcuts">
       <div className="m3d-settings-subtitle">{labels.settings.shortcutsTitle}</div>
-      <div className="m3d-shortcut-cols">{rows.filter((r): r is [string, string] => !!r[1]).map(shortcutRow)}</div>
+      <div className="m3d-shortcut-cols">
+        {rows.filter((r): r is [string, string, BindableAction?] => !!r[1]).map(shortcutRow)}
+      </div>
     </div>
   )
 }
