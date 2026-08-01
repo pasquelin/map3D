@@ -1,15 +1,4 @@
-import {
-  type ReactNode,
-  type RefObject,
-  useCallback,
-  useContext,
-  useEffect,
-  useId,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from 'react'
+import { type ReactNode, useCallback, useContext, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
 import { boundsOfLatLngs, centerOfBounds } from '../../core/bounds'
 import { type Hit, NO_MATCH, normalizeSearch, proximityRank, rankHits, scoreMatch } from '../../search/match'
 import { DRAW_GROUP, emptyResult } from '../../search/registry'
@@ -43,6 +32,7 @@ import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
 import { useMergedByContent } from '../hooks/useMergedByContent'
 import { useDrawKeyboard } from '../hooks/useDrawKeyboard'
 import { useDrawSymbols } from '../hooks/useDrawSymbols'
+import { useYieldsTool } from '../hooks/useYieldsTool'
 
 export type DrawLayerProps = {
   /** Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. */
@@ -111,27 +101,6 @@ export type DrawLayerProps = {
   }
   /** Monté dans le contexte de dessin — y placer barre et panneaux. */
   children?: ReactNode
-}
-
-/**
- * Une surface concurrente (loupe, palette de symboles) prend la main : l'outil de
- * tracé l'abandonne. Deux boutons allumés dans la barre ne diraient plus lequel des
- * deux reçoit le prochain geste.
- *
- * La garde `toolRef.current !== null` est CAPITALE — sans outil actif, `setTool(null)`
- * reprendrait quand même le slot `engine.inputInterceptor` (et `setDrawing(false)`)
- * que la surface vient de prendre : elle resterait affichée active mais morte. Même
- * piège que la cascade Échap. Elle est ici écrite UNE fois, au lieu d'être recopiée
- * par surface concurrente — la troisième aurait recopié le piège avec.
- */
-export function useYieldsTool(
-  taken: boolean,
-  toolRef: RefObject<DrawTool | null>,
-  setTool: (t: DrawTool | null) => void,
-) {
-  useEffect(() => {
-    if (taken && toolRef.current !== null) setTool(null)
-  }, [taken, setTool, toolRef])
 }
 
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */

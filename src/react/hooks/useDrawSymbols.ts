@@ -5,7 +5,7 @@ import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/mi
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 import { useMapDropZone } from './useMapDropZone'
 import { SYMBOL_DRAG_TYPE } from '../components/SymbolPaletteButton'
-import { useYieldsTool } from '../components/DrawLayer'
+import { useYieldsTool } from './useYieldsTool'
 
 /** Sous-ensemble de `DrawLayerProps.symbols` consommé par le sous-système. */
 type DrawSymbolsProps = {

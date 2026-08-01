@@ -1127,6 +1127,22 @@ export class MapEngine {
   }
 
   /**
+   * Bascule le plein écran du conteneur de la carte, **préfixes fournisseurs compris**
+   * (`webkit`/`moz`/`ms`) — d'où l'unique implémentation ici plutôt qu'un appel DOM brut
+   * côté React qui échouerait en silence sur Safari. En marche active, le passage en plein
+   * écran arme l'immersion piéton via `onFullscreenChange` (invariant plein écran ⇔ immersion) :
+   * « le plein écran gère l'action ». Cible le même élément que l'invariant (`canvas.parentElement`).
+   */
+  toggleFullscreen(): void {
+    if (fullscreenElementOf(document) === null) {
+      const root = this.canvas.parentElement
+      if (root) requestFullscreenOn(root)
+    } else {
+      exitFullscreenDoc(document)
+    }
+  }
+
+  /**
    * Incline la caméra autour du point visé au centre écran, de `step` radians
    * (positif = plus incliné). L'angle est **borné** à `[0, controls.maxAltitude]`
    * (donc à la limite du mode courant en 2D) → jamais de bascule/tête à l'envers.

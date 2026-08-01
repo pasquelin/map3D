@@ -218,14 +218,11 @@ export function MapControls({
   const topDown = useCallback(() => engine.flyToTopDown(), [engine])
   const tiltUp = useCallback(() => engine.tiltBy(config.camera.tiltStep), [engine, config.camera.tiltStep])
   const globe = useCallback(() => engine.flyToGlobe(), [engine])
-  const toggleFs = useCallback(() => {
-    // Plein écran du conteneur, dans tous les modes. En marche active, le moteur détecte ce
-    // plein écran et arme l'immersion (masquage des barres + Pointer Lock) — cf.
-    // `MapEngine.onFullscreenChange`. C'est « le plein écran gère l'action », sans bouton central.
-    const root = engine.renderer.domElement.parentElement
-    if (!document.fullscreenElement) root?.requestFullscreen?.()
-    else document.exitFullscreen?.()
-  }, [engine])
+  // Plein écran du conteneur, dans tous les modes. En marche active, le moteur détecte ce
+  // plein écran et arme l'immersion (masquage des barres + Pointer Lock) — cf.
+  // `MapEngine.onFullscreenChange`. C'est « le plein écran gère l'action », sans bouton central.
+  // Le moteur détient l'unique implémentation préfixée (Safari/Firefox), le bouton n'émet que l'intention.
+  const toggleFs = useCallback(() => engine.toggleFullscreen(), [engine])
 
   // Sections configurables : convention partagée avec `Toolbar` (cf. `slots.ts`).
   const { slot, isDefault } = resolveSlots<Slot>(components)
