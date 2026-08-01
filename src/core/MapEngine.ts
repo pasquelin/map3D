@@ -303,6 +303,49 @@ export const WHEEL_SURFACE_ATTR = 'data-m3d-wheel-surface'
 /** Garde-fou sous `adaptiveResolution.minRatio` : à zéro, le tampon de rendu n'existe plus. */
 const MIN_RESOLUTION_SCALE = 0.05
 
+/** Plein écran avec préfixes fournisseurs (Safari/anciens Chrome/Firefox/IE) — cf. leur usage. */
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => void
+  mozRequestFullScreen?: () => void
+  msRequestFullscreen?: () => void
+}
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null
+  mozFullScreenElement?: Element | null
+  msFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => void
+  mozCancelFullScreen?: () => void
+  msExitFullscreen?: () => void
+}
+
+/** Élément actuellement en plein écran, préfixes compris (`null` si aucun). */
+function fullscreenElementOf(doc: Document): Element | null {
+  const d = doc as FullscreenDocument
+  return doc.fullscreenElement ?? d.webkitFullscreenElement ?? d.mozFullScreenElement ?? d.msFullscreenElement ?? null
+}
+
+/** Met un élément en plein écran, préfixes fournisseurs compris. */
+function requestFullscreenOn(el: HTMLElement): void {
+  const e = el as FullscreenElement
+  const req =
+    el.requestFullscreen?.bind(el) ??
+    e.webkitRequestFullscreen?.bind(e) ??
+    e.mozRequestFullScreen?.bind(e) ??
+    e.msRequestFullscreen?.bind(e)
+  if (req) void Promise.resolve(req()).catch(() => {})
+}
+
+/** Quitte le plein écran, préfixes fournisseurs compris. */
+function exitFullscreenDoc(doc: Document): void {
+  const d = doc as FullscreenDocument
+  const exit =
+    doc.exitFullscreen?.bind(doc) ??
+    d.webkitExitFullscreen?.bind(d) ??
+    d.mozCancelFullScreen?.bind(d) ??
+    d.msExitFullscreen?.bind(d)
+  if (exit) void Promise.resolve(exit()).catch(() => {})
+}
+
 /**
  * Cœur du moteur : scène Three, `TilesRenderer` (Google Photorealistic 3D Tiles
  * ou tileset custom), `GlobeControls` (navigation façon Google Earth), globe
@@ -1468,12 +1511,6 @@ export class MapEngine {
       this.applyPedestrianView()
     }
     this.syncPedestrian()
-    // Déjà en plein écran à l'entrée : l'immersion s'active du même coup, pour tenir
-    // l'invariant plein écran ⇔ immersion. Le clic de placement qui nous amène ici est un
-    // geste utilisateur, donc `requestPointerLock` y est permis.
-    if (this.canvas.parentElement !== null && document.fullscreenElement === this.canvas.parentElement) {
-      this.setPedestrianImmersion('full')
-    }
     return true
   }
 
@@ -1497,7 +1534,7 @@ export class MapEngine {
     // qui change) alors qu'on y était : on en sort aussi, pour tenir l'invariant plein écran
     // ⇔ immersion. `cameraMode` est déjà 'orbit', donc le `fullscreenchange` qui suit ne
     // rappellera pas `exitPedestrian` (pas de boucle).
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    if (fullscreenElementOf(document)) exitFullscreenDoc(document)
     this.releasePlacement()
     this.setGroundedView(false)
     this.restoreOrbitView()
@@ -1520,16 +1557,14 @@ export class MapEngine {
     if (this.cameraMode !== 'pedestrian' || this.pedestrianPhase !== 'active') return
     if (this.immersion === level) return
     this.applyImmersion(level)
-    const root = this.canvas.parentElement
-    // L'immersion totale est un VRAI plein écran navigateur (chrome du navigateur retiré),
-    // pas seulement un masquage des barres : le masquage `.m3d-immersive` reste nécessaire en
-    // plus, car mettre `root` en plein écran n'en cache pas les barres, qui en sont enfants.
+    // L'immersion totale met le CANVAS lui-même en plein écran (pas le conteneur) : seul le
+    // rendu de la carte remplit l'écran, « comme une vidéo », sans barres ni chrome navigateur.
     if (level === 'full') {
-      if (root !== null && document.fullscreenElement !== root) {
-        // Pas encore en plein écran : on le demande, et le Pointer Lock est DIFFÉRÉ à
+      if (fullscreenElementOf(document) !== this.canvas) {
+        // Pas encore en plein écran : on le demande. Le Pointer Lock est DIFFÉRÉ à
         // `onFullscreenChange` — le demander avant que le plein écran soit effectif échoue sur
         // les navigateurs stricts, et le garde ci-dessus interdirait un second essai.
-        void root.requestFullscreen?.().catch(() => {})
+        requestFullscreenOn(this.canvas)
       } else {
         this.engagePointerLock()
       }
@@ -1537,7 +1572,7 @@ export class MapEngine {
       // 'explore' relâche tout : verrou puis plein écran. Quitter le plein écran repasse par
       // `onFullscreenChange`, qui sort du mode piéton (invariant plein écran ⇔ immersion).
       document.exitPointerLock()
-      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+      if (fullscreenElementOf(document)) exitFullscreenDoc(document)
     }
   }
 
@@ -1574,24 +1609,33 @@ export class MapEngine {
    */
   private onPointerLockChange = (): void => {
     if (this.immersion !== 'full' || document.pointerLockElement === this.canvas) return
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    if (fullscreenElementOf(document)) exitFullscreenDoc(document)
     else this.applyImmersion('explore')
   }
 
   /**
-   * Le plein écran PILOTE l'immersion piéton : y entrer, en marche active, arme l'immersion
-   * totale (Pointer Lock, UI masquée, réticule) ; en sortir quitte le mode piéton. C'est le
-   * déclencheur nominal — « le plein écran gère l'action » —, à la place d'un bouton flottant.
+   * Le plein écran du CANVAS pilote l'immersion piéton : le canvas passe en plein écran (carte
+   * plein cadre), on arme l'immersion + le Pointer Lock ; en sortir quitte le mode piéton.
+   * C'est le déclencheur nominal — « le plein écran gère l'action » —, sans bouton flottant.
    *
-   * N'agit QUE sur notre racine : un plein écran demandé par un autre élément de la page ne
-   * doit pas emporter la carte.
+   * Le canvas en plein écran ne fait PAS varier la taille du conteneur, donc son
+   * `ResizeObserver` ne se déclenche pas : on redimensionne le rendu à la main (à l'entrée sur
+   * l'écran, à la sortie sur le conteneur), sans quoi la carte resterait à la résolution
+   * précédente, étirée pour remplir.
    */
   private onFullscreenChange = (): void => {
-    const root = this.canvas.parentElement
-    if (root !== null && document.fullscreenElement === root) {
+    const canvasFs = fullscreenElementOf(document) === this.canvas
+    // Taille du buffer = taille réellement affichée du canvas (écran en plein écran, conteneur
+    // sinon). `getBoundingClientRect` est déjà à jour quand `fullscreenchange` se déclenche.
+    const measured = canvasFs ? this.canvas : this.canvas.parentElement
+    if (measured) {
+      const r = measured.getBoundingClientRect()
+      if (r.width >= 1 && r.height >= 1) this.setSize(r.width, r.height)
+    }
+    if (canvasFs) {
       if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
-        // Le plein écran est effectif : on arme l'immersion (no-op si déjà armée par l'API) et
-        // on engage le verrou MAINTENANT — c'est ici, plein écran acquis, qu'il est fiable.
+        // Plein écran effectif : on arme l'immersion (no-op si déjà armée) et on engage le
+        // verrou MAINTENANT — c'est ici, plein écran acquis, qu'il est fiable.
         this.setPedestrianImmersion('full')
         this.engagePointerLock()
       }
