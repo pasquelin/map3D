@@ -118,8 +118,14 @@ export type DrawingApi = {
   markerSelection: ReadonlyArray<string | number>
   /** Ids des tracés sélectionnés (préfixés `path:`) — pour leur rangée de badges. */
   pathSelection: ReadonlyArray<string | number>
-  /** Clusters sélectionnés — rangée pliable « Cluster (N) » listant ses markers enfants. */
-  clusterGroups: ReadonlyArray<{ id: string; label: string; memberIds: (string | number)[] }>
+  /** Clusters sélectionnés — rangée pliable « Cluster (N) » listant ses markers enfants.
+   *  `counts` = répartition par type (mini-camembert du badge). */
+  clusterGroups: ReadonlyArray<{
+    id: string
+    label: string
+    memberIds: (string | number)[]
+    counts?: Record<string, number>
+  }>
   /** Détail des formes sélectionnées (kind par id) — pour les badges de sélection. */
   selectionDetails: ReadonlyArray<{ id: string; kind: DrawTool }>
   /** Sélectionne par ids (les formes verrouillées/masquées sont filtrées). */

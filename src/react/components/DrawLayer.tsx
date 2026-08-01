@@ -193,7 +193,7 @@ export function DrawLayer(props: DrawLayerProps) {
   const [markerSelection, setMarkerSelection] = useState<ReadonlyArray<string | number>>([])
   const [pathSelection, setPathSelection] = useState<ReadonlyArray<string | number>>([])
   const [clusterGroups, setClusterGroups] = useState<
-    ReadonlyArray<{ id: string; label: string; memberIds: (string | number)[] }>
+    ReadonlyArray<{ id: string; label: string; memberIds: (string | number)[]; counts?: Record<string, number> }>
   >([])
   const [selectMode, setSelectModeState] = useState<SelectMode>('rect')
   const [eraseMode, setEraseModeState] = useState<EraseMode>('point')

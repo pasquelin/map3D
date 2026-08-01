@@ -6,6 +6,17 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Sélection : langage visuel homogène (cluster) + mini-camembert dans les badges
+
+- **Cluster sélectionné** : même **anneau marching-ants** N/B que les markers (`.m3d-ants-ring`,
+  réutilisé), au lieu d'un anneau plein — langage visuel de sélection UNIQUE. Les clés de thème
+  `clusters.selectedColor` / `clusters.selectedWidth` (anneau plein) sont **retirées** (rupture 0.x,
+  non publiée) : la couleur des marching-ants est fixe N/B, comme pour les markers.
+- **Badges de sélection** : la rangée d'un groupe **cluster** affiche un **mini-camembert** aux
+  couleurs des parts (`conic-gradient`, parts égales par type comme la pastille) au lieu d'une icône
+  générique. `SelectableGroup` porte désormais `counts` (répartition par type) ; `useDrawing().clusterGroups`
+  aussi.
+
 ### Sélection des tracés et des clusters (outil sélection généralisé)
 
 L'outil sélection ne pouvait atteindre **que les markers**. Il sélectionne désormais aussi les

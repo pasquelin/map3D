@@ -1,10 +1,11 @@
 import { mdiChevronRight, mdiClose, mdiGroup, mdiSelectionOff, mdiTrashCanOutline, mdiVectorPolyline } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { MarkerData } from '../../data/types'
 import type { DrawTool } from '../../layers/DrawLayer'
 import { formatLabel, symbolText } from '../../labels/mergeLabels'
-import { useLabels, useMapContext } from '../context'
+import { markerColorOf } from '../../theme/colors'
+import { useLabels, useMapContext, useTheme } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
 import { TOOL_ICONS } from './drawControls'
@@ -33,11 +34,40 @@ export type SelectionBadgesProps = {
  * Déplaçable par sa poignée. La croix d'une ligne de marker la désélectionne.
  */
 /**
+ * Mini-camembert d'un groupe de cluster : mêmes couleurs de parts que la pastille sur la
+ * carte (parts ÉGALES par type, comme `<DefaultCluster>`), en `conic-gradient`. Remplace
+ * l'icône générique du groupe pour que la ligne « ressemble » au cluster qu'elle représente.
+ */
+function ClusterPie({ counts }: { counts: Record<string, number> }) {
+  const theme = useTheme()
+  const types = Object.keys(counts)
+  if (types.length === 0) return <UiIcon path={mdiGroup} />
+  const stops =
+    types.length === 1
+      ? markerColorOf(theme, types[0]!).base
+      : types
+          .map(
+            (t, i) =>
+              `${markerColorOf(theme, t).base} ${(i / types.length) * 360}deg ${((i + 1) / types.length) * 360}deg`,
+          )
+          .join(', ')
+  return (
+    <span
+      aria-hidden
+      className="m3d-clusterpie"
+      style={{ background: types.length === 1 ? stops : `conic-gradient(${stops})` } as CSSProperties}
+    />
+  )
+}
+
+/**
  * En-tête d'un groupe pliable des badges (chevron + icône + libellé + compteur +
  * croix de désélection) — factorisé pour les formes, les tracés et les clusters.
  */
 function CollapsibleGroupHeader(props: {
-  iconPath: string
+  /** Icône du groupe — chemin mdi (formes/tracés) OU nœud custom (mini-camembert d'un cluster). */
+  iconPath?: string
+  icon?: ReactNode
   label: string
   count: number
   open: boolean
@@ -45,7 +75,7 @@ function CollapsibleGroupHeader(props: {
   onDeselect: () => void
 }) {
   const labels = useLabels()
-  const { iconPath, label, count, open, onToggle, onDeselect } = props
+  const { iconPath, icon, label, count, open, onToggle, onDeselect } = props
   return (
     <div className="m3d-tagrow">
       {/* Chevron : déplie le groupe pour lister ses éléments, comme le catalogue. */}
@@ -58,7 +88,7 @@ function CollapsibleGroupHeader(props: {
       >
         <UiIcon path={mdiChevronRight} />
       </button>
-      <UiIcon path={iconPath} />
+      {icon ?? (iconPath ? <UiIcon path={iconPath} /> : null)}
       <span className="m3d-taglabel">{label}</span>
       <span className="m3d-tagcount">{count}</span>
       {/* La croix DÉSÉLECTIONNE le groupe (ne supprime pas). */}
@@ -322,7 +352,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
                 <div key={g.id}>
                   {/* La croix désélectionne le cluster ENTIER (tous ses enfants). */}
                   <CollapsibleGroupHeader
-                    iconPath={mdiGroup}
+                    icon={<ClusterPie counts={g.counts ?? {}} />}
                     label={g.label}
                     count={g.memberIds.length}
                     open={open}

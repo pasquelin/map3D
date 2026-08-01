@@ -94,8 +94,8 @@ export class SelectionManager {
   }
 
   /** Groupes (clusters) sélectionnés — pour les badges (rangée pliable) et l'application visuelle. */
-  get groups(): { id: string; label: string; memberIds: (string | number)[] }[] {
-    return [...this.groupSel].map(([id, g]) => ({ id, label: g.label, memberIds: [...g.memberIds] }))
+  get groups(): { id: string; label: string; memberIds: (string | number)[]; counts?: Record<string, number> }[] {
+    return [...this.groupSel].map(([id, g]) => ({ id, label: g.label, memberIds: [...g.memberIds], counts: g.counts }))
   }
 
   /** Set des markers effectifs (externes plats + membres des groupes) — base de `effectiveMarkerIds`/`appliedIds`. */

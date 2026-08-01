@@ -50,6 +50,10 @@ export const CSS_PANELS = `
   transition:transform .14s,color .14s}
 .m3d-selrow-chevron:hover{color:var(--m3d-text)}
 .m3d-selrow-chevron.m3d-on{transform:rotate(90deg)}
+/* Mini-camembert d'un groupe de cluster (badges) : disque conic-gradient aux couleurs des
+   parts, à la place de l'icône générique — la ligne ressemble au cluster sur la carte. */
+.m3d-clusterpie{width:16px;height:16px;border-radius:50%;flex:none;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--m3d-text) 30%,transparent)}
 /* Gouttière du chevron pour une forme SEULE (affichée directement, sans groupe) : garde
    son icône alignée sur celles des groupes dépliables. */
 .m3d-selrow-chevron-spacer{width:16px;flex:none}

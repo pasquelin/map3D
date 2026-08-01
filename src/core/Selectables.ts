@@ -37,8 +37,10 @@ export type SelectableScreenItem = {
   geometry?: SelectableGeometry
 }
 
-/** Agrégat pliable (cluster) : libellé + membres résolus, exposé à l'outil et aux badges. */
-export type SelectableGroup = { label: string; memberIds: (string | number)[] }
+/** Agrégat pliable (cluster) : libellé + membres résolus, exposé à l'outil et aux badges.
+ *  `counts` = répartition par type (comme `ClusterInfo.counts`) : permet aux badges de
+ *  dessiner un mini-camembert aux couleurs des parts, au lieu d'une icône générique. */
+export type SelectableGroup = { label: string; memberIds: (string | number)[]; counts?: Record<string, number> }
 
 /**
  * Métadonnées d'un sélectionnable, pour la politique (`kind`), les badges

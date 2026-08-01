@@ -87,8 +87,6 @@ export const defaultTheme: MapTheme = {
     strokeWidth: 2.5,
     segmentGap: 0.045,
     startAngle: Math.PI,
-    selectedColor: '#ffd54a',
-    selectedWidth: 3,
   },
   animations: {
     enabled: true,

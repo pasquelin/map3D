@@ -476,7 +476,8 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
         const memberIds = leavesOf(node.members).map((p) => p.owner.idOf(p.marker))
         const l = labelsRef.current
         const label = formatCount(l.clusters.labelSingular, l.clusters.label, node.cluster.total, l.plural)
-        return { kind: 'cluster', type: 'cluster', group: { label, memberIds } }
+        // `counts` (répartition par type) → mini-camembert dans les badges de sélection.
+        return { kind: 'cluster', type: 'cluster', group: { label, memberIds, counts: { ...node.cluster.counts } } }
       },
     })
   }, [engine, leavesOf])
@@ -600,20 +601,12 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
               }
             >
               {isSelected && (
+                // Même anneau marching-ants N/B que les markers (`.m3d-ants-ring`) — langage
+                // visuel de sélection UNIQUE. Diamètre = celui de la pastille (donut ou custom).
                 <span
                   aria-hidden
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    width: ringSize,
-                    height: ringSize,
-                    marginLeft: -ringSize / 2,
-                    marginTop: -ringSize / 2,
-                    borderRadius: '50%',
-                    boxShadow: `0 0 0 ${theme.clusters.selectedWidth}px ${theme.clusters.selectedColor}`,
-                    pointerEvents: 'none',
-                  }}
+                  className="m3d-ants-ring"
+                  style={{ position: 'absolute', left: 0, top: 0, '--ring-d': `${ringSize}px` } as CSSProperties}
                 />
               )}
               {content}

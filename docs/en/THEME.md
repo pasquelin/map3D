@@ -115,8 +115,6 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `clusters.strokeWidth` | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5` |
 | `clusters.segmentGap` | Angular gap between two slices (rad); `0` makes them contiguous. | `0.045` |
 | `clusters.startAngle` | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom. | `3.141592653589793` |
-| `clusters.selectedColor` | Ring colour of a selected cluster badge (selection tool). | `'#ffd54a'` |
-| `clusters.selectedWidth` | Selection ring width (px) of a cluster badge. | `3` |
 
 ## `animations` — Animation and camera-flight rhythm
 

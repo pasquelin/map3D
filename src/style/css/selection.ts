@@ -36,6 +36,7 @@ export const CSS_SELECTION = `
    re-rastérise le sous-arbre à chaque frame d'animation. */
 .m3d-marker-node.m3d-multisel::before,.m3d-marker-node.m3d-multisel::after,
 .m3d-marker-node.m3d-selected:not(.m3d-multisel)::after,
+.m3d-ants-ring::before,.m3d-ants-ring::after,
 .m3d-sonar::before,.m3d-sonar::after,
 .m3d-target::before,.m3d-target::after{content:'';position:absolute;left:0;top:0;
   box-sizing:border-box;width:var(--ring-d);height:var(--ring-d);
@@ -68,8 +69,12 @@ export const CSS_SELECTION = `
    tourne lentement — même langage N/B que les formes. */
 .m3d-marker-node.m3d-multisel::before,
 .m3d-marker-node.m3d-multisel::after{--ring-d:var(--m3d-selring,52px)}
-.m3d-marker-node.m3d-multisel::before{border:1.6px solid #fff}
-.m3d-marker-node.m3d-multisel::after{border:1.6px dashed #000;
+/* .m3d-ants-ring : le MÊME anneau marching-ants, réutilisable par un nœud non-marker
+   (pastille de cluster) — son diamètre vient de --ring-d posé en style inline. */
+.m3d-marker-node.m3d-multisel::before,
+.m3d-ants-ring::before{border:1.6px solid #fff}
+.m3d-marker-node.m3d-multisel::after,
+.m3d-ants-ring::after{border:1.6px dashed #000;
   animation:m3d-selring-spin 7s linear infinite}
 @keyframes m3d-selring-spin{to{transform:rotate(360deg)}}
 

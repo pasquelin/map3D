@@ -112,8 +112,6 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `clusters.strokeWidth` | Contour clair des parts (px) — il déborde du rayon extérieur de sa moitié. | `2.5` |
 | `clusters.segmentGap` | Écart angulaire entre deux parts (rad) ; `0` les rend jointives. | `0.045` |
 | `clusters.startAngle` | Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas. | `3.141592653589793` |
-| `clusters.selectedColor` | Couleur de l'anneau d'une pastille sélectionnée (outil sélection). | `'#ffd54a'` |
-| `clusters.selectedWidth` | Épaisseur (px) de l'anneau de sélection d'une pastille. | `3` |
 
 ## `animations` — Rythme des animations et des vols caméra
 
