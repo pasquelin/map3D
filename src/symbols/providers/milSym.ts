@@ -1,4 +1,5 @@
 import { defaultConfig } from '../../config/defaultConfig'
+import { LruMap } from '../../core/LruMap'
 import type { SymbolCatalog, SymbolEntry, SymbolRenderer, SymbolRenderOptions, RenderedSymbol } from '../types'
 
 /**
@@ -778,12 +779,12 @@ export function createMilSymRenderer(opts: MilSymRendererOptions = {}): SymbolRe
   const defaultSize = opts.size ?? 40
   const maxEntries = opts.cacheMaxEntries ?? defaultConfig.providers.symbols.cacheMaxEntries
   /**
-   * `Map` = ordre d'insertion garanti : la première clé itérée est la plus ancienne.
-   * Le plafond est nécessaire — la clé combine SIDC ET taille, or la taille varie avec
-   * le zoom pour les vignettes : sans borne, la table croissait indéfiniment, chaque
-   * entrée retenant un SVG rendu.
+   * La clé combine SIDC ET taille, or la taille varie avec le zoom pour les
+   * vignettes : sans borne, la table croîtrait indéfiniment, chaque entrée
+   * retenant un SVG rendu. `maxEntries <= 0` = illimité (cf. JSDoc de
+   * `cacheMaxEntries`) — le `LruMap` traite déjà ce cas (pas d'éviction).
    */
-  const cache = new Map<string, RenderedSymbol>()
+  const cache = new LruMap<string, RenderedSymbol>(maxEntries)
   let mod: MilSymModule | null = null
 
   const ready = loadMilSym()
@@ -804,14 +805,10 @@ export function createMilSymRenderer(opts: MilSymRendererOptions = {}): SymbolRe
       if (!sidc) return null
 
       const cacheKey = `${sidc}/${size}`
+      // `LruMap.get` promeut déjà en fin d'ordre sur un hit — vrai LRU, pas un FIFO
+      // qui jetterait l'entrée la plus ancienne même si c'est la plus consultée.
       const cached = cache.get(cacheKey)
-      if (cached) {
-        // Réinsertion = promotion : l'éviction est un vrai LRU, pas un FIFO qui
-        // jetterait l'entrée la plus ancienne même si c'est la plus consultée.
-        cache.delete(cacheKey)
-        cache.set(cacheKey, cached)
-        return cached
-      }
+      if (cached) return cached
 
       try {
         const attributes = new Map<string, string>([[mod.MilStdAttributes.PixelSize, String(size)]])
@@ -825,10 +822,6 @@ export function createMilSymRenderer(opts: MilSymRendererOptions = {}): SymbolRe
           info.getImageBounds().getHeight(),
         )
         cache.set(cacheKey, rendered)
-        if (maxEntries > 0 && cache.size > maxEntries) {
-          const oldest = cache.keys().next()
-          if (!oldest.done) cache.delete(oldest.value)
-        }
         return rendered
       } catch (error) {
         opts.onError?.(error)

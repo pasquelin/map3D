@@ -2,6 +2,7 @@
 // quantifiée de la cible : un TTL seul laisserait un marker mobile traîner un temps
 // de trajet calculé là où il n'est plus.
 
+import { LruMap } from '../../core/LruMap'
 import { defaultConfig } from '../../config/defaultConfig'
 import type { RoutingCacheConfig } from '../../config/types'
 import { quantizeKey } from './geo'
@@ -10,8 +11,12 @@ import type { MapPoint, TravelMode } from './types'
 type Entry = { value: unknown; expiresAt: number }
 
 export class RouteCache {
-  /** `Map` = ordre d'insertion garanti : la première clé itérée est la plus ancienne. */
-  private readonly entries = new Map<string, Entry>()
+  /**
+   * `max <= 0` : l'auto-éviction du `LruMap` est désactivée — cette classe évince
+   * elle-même (TTL d'abord, puis LRU), une politique que le LruMap générique ne
+   * connaît pas. Il ne fournit ici que l'ordre d'insertion et la promotion.
+   */
+  private readonly entries = new LruMap<string, Entry>(0)
 
   /**
    * TTL, côté de cellule et plafond d'entrées viennent de
@@ -37,21 +42,18 @@ export class RouteCache {
   }
 
   get<T>(key: string): T | null {
+    // `LruMap.get` promeut déjà en fin d'ordre sur un hit — y compris une entrée
+    // expirée, mais sans effet observable puisqu'elle est supprimée juste après.
     const hit = this.entries.get(key)
     if (!hit) return null
     if (hit.expiresAt <= this.now()) {
       this.entries.delete(key)
       return null
     }
-    // Réinsertion = promotion en fin d'ordre : l'éviction devient un vrai LRU et non
-    // un FIFO, qui jetterait l'entrée la plus ANCIENNE même si elle est la plus lue.
-    this.entries.delete(key)
-    this.entries.set(key, hit)
     return hit.value as T
   }
 
   set<T>(key: string, value: T): void {
-    this.entries.delete(key)
     this.entries.set(key, { value, expiresAt: this.now() + this.cfg.ttlMs })
     if (this.entries.size > this.cfg.maxEntries) this.evict()
   }
@@ -62,10 +64,10 @@ export class RouteCache {
    */
   private evict(): void {
     const t = this.now()
-    for (const [k, e] of this.entries) {
+    for (const [k, e] of this.entries.entries()) {
       if (e.expiresAt <= t) this.entries.delete(k)
     }
-    for (const k of this.entries.keys()) {
+    for (const [k] of this.entries.entries()) {
       if (this.entries.size <= this.cfg.maxEntries) break
       this.entries.delete(k)
     }
