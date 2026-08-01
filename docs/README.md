@@ -2,10 +2,10 @@
 
 Choose your language · Choisissez votre langue
 
-| | | |
-|---|---|---|
-| 🇫🇷 | **[Français](fr/README.md)** | Documentation complète — guides et références |
-| 🇬🇧 | **[English](en/README.md)** | Full documentation — guides and reference |
+| Language · Langue | Contents · Contenu |
+|---|---|
+| 🇫🇷 **[Français](fr/README.md)** | Documentation complète — guides et références |
+| 🇬🇧 **[English](en/README.md)** | Full documentation — guides and reference |
 
 ---
 

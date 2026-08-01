@@ -16,7 +16,7 @@ or the style panel.
 
 Three families of lines, and their labels:
 
-| | |
+| Family | Description |
 |---|---|
 | **Parallels** | constant latitudes — horizontal in a north-up view |
 | **Meridians** | constant longitudes — they **converge** towards the poles, which the grid actually shows since it follows the curvature |

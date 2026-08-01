@@ -389,7 +389,7 @@ All of them appear in tooltips and are ignored while typing.
 
 Defaults (`config.interaction.shortcuts.draw` and `.edit`):
 
-| | |
+| Keys | Action |
 |---|---|
 | `V` `1` `2` `3` | select, rectangle, polygon, lasso |
 | `L` `P` `R` `C` `H` `A` `M` `E` `Y` | line, polygon, rect, circle, freehand (`H`), arrow, measure, eraser, symbols |

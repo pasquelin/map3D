@@ -389,7 +389,7 @@ saisie.
 
 Défauts (`config.interaction.shortcuts.draw` et `.edit`) :
 
-| | |
+| Touches | Action |
 |---|---|
 | `V` `1` `2` `3` | sélection, rectangle, polygone, lasso |
 | `L` `P` `R` `C` `H` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, main levée (`H`), flèche, mesure, gomme, symboles |

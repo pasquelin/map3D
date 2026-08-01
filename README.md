@@ -1,12 +1,10 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="map3d" width="180" />
+<img src="docs/assets/logo.png" alt="map3d — React 3D mapping library" width="180" />
 
-# map3d
+### map3d — real-time 3D mapping for React: photorealistic globe, DOM markers, a Figma-style drawing editor, and live data.
 
-### Real-time 3D mapping for React — photorealistic globe, DOM markers, a Figma-style drawing editor, and live data.
-
-*Cartographie 3D temps réel pour React — globe photoréaliste, markers DOM, éditeur de dessin, données temps réel.*
+*map3d — cartographie 3D temps réel pour React : globe photoréaliste, markers DOM, éditeur de dessin, données temps réel.*
 
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![Three.js ≥0.160](https://img.shields.io/badge/Three.js-%E2%89%A50.160-000000?logo=three.js&logoColor=white)](https://threejs.org)
@@ -38,7 +36,7 @@ An **imperative Three.js engine driven declaratively by React**. `MapEngine` own
 
 ## Gallery
 
-<table>
+<table width="100%">
   <tr>
     <td width="50%"><img src="docs/assets/globe.png" alt="Photorealistic globe with clustered markers" width="100%"/><br/><sub><b>Globe → flat map</b> · ellipsoid fallback, smart clustering</sub></td>
     <td width="50%"><img src="docs/assets/drawing-selection.png" alt="Drawing editor with marquee selection and marker list" width="100%"/><br/><sub><b>Drawing & selection</b> · marquee/lasso, live marker list</sub></td>

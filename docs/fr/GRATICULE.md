@@ -16,7 +16,7 @@ panneau de style.
 
 Trois familles de traits, et leurs étiquettes :
 
-| | |
+| Famille | Description |
 |---|---|
 | **Parallèles** | latitudes constantes — horizontales en vue nord-en-haut |
 | **Méridiens** | longitudes constantes — ils **convergent** vers les pôles, ce que la grille montre réellement puisqu'elle épouse la courbure |
