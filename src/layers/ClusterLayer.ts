@@ -2,7 +2,8 @@ import { defaultConfig } from '../config/defaultConfig'
 import type { InteractionConfig } from '../config/types'
 import Supercluster from 'supercluster'
 import type { Bounds, LatLng } from '../shared'
-import { clamp, DEG2RAD, M_PER_DEG, metersPerPixelAtZoom, RAD2DEG } from '../core/math'
+import { offsetLatLng } from '../core/geodesy'
+import { clamp, metersPerPixelAtZoom, RAD2DEG } from '../core/math'
 import type { MarkerData } from '../data/types'
 
 export type ClusterInfo = {
@@ -54,18 +55,17 @@ export function spiderfyLayout(
     count === 2
       ? ringPx * cfg.pairRadiusRatio
       : Math.max(ringPx * cfg.minRingRatio, (count * (ringPx + cfg.gapPx)) / (2 * Math.PI))
-  const cosLat = Math.cos(center.lat * DEG2RAD)
   const meters = radiusPx * metersPerPixelAtZoom(zoom, center.lat)
   // Paire à l'horizontale (côte à côte) ; au-delà, premier satellite en haut (−90°).
   const base = count === 2 ? 0 : -Math.PI / 2
   const slots: SpiderfySlot[] = []
   for (let i = 0; i < count; i++) {
     const angle = (2 * Math.PI * i) / count + base
+    // `offsetLatLng` : identique bit à bit à l'ancien calcul inline (même garde cos,
+    // même ordre d'opérations), et la corrige au voisinage d'un pôle (division par
+    // ≈0 auparavant non gardée ici).
     slots.push({
-      position: {
-        lat: center.lat - (Math.sin(angle) * meters) / M_PER_DEG,
-        lng: center.lng + (Math.cos(angle) * meters) / (M_PER_DEG * cosLat),
-      },
+      position: offsetLatLng(center, -Math.sin(angle) * meters, Math.cos(angle) * meters),
       angleDeg: angle * RAD2DEG,
       radiusPx,
     })

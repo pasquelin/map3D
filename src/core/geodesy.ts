@@ -125,18 +125,56 @@ export function predicateSegments(renderSegments: number): number {
 }
 
 /**
+ * Plancher du cosinus de latitude employé par `offsetLatLng` et les sites qui en
+ * partagent la garde (`circleRing`) : au voisinage d'un pôle `1 / cos` diverge, ce
+ * plancher échange une imprécision locale contre un résultat fini. Nommée pour
+ * n'exister qu'une fois — les sites qui la dupliquaient en littéral divergeaient.
+ */
+export const OFFSET_COS_EPS = 1e-6
+
+/**
+ * Décale `center` de `northMeters` (nord signé) et `eastMeters` (est signé),
+ * conversion équirectangulaire (`M_PER_DEG`, cf. son propre commentaire — valide
+ * sous ~1 km, l'usage de tous les appelants).
+ *
+ * Ni la latitude renvoyée n'est bornée à ±90° ni la longitude ramenée dans
+ * [-180, 180] : chaque appelant sait déjà s'il en a besoin (`circleRing` borne et
+ * normalise lui-même) — le faire ici aurait dédoublé cette étape pour certains
+ * appelants et l'aurait imposée à d'autres qui n'en veulent pas.
+ *
+ * N'A PAS pu remplacer `circleRing`/`Projection.sampleGroundHeight` : ces deux
+ * précalculent leur delta degrés UNE fois hors boucle puis le multiplient par
+ * angle (`dLat * cos(a)`), alors qu'un appel par angle recomposerait
+ * `(radiusMeters * cos(a)) / M_PER_DEG` — même valeur réelle, ORDRE d'opérations
+ * flottantes différent : vérifié, ~6 % des couples rayon/angle divergent du
+ * dernier bit. Seul `ClusterLayer.spiderfyLayout`, qui multiplie déjà avant de
+ * diviser, produit le MÊME ordre que cette fonction — c'est le seul site migré.
+ */
+export function offsetLatLng(center: LatLng, northMeters: number, eastMeters: number): LatLng {
+  const cos = Math.max(Math.abs(Math.cos(center.lat * DEG2RAD)), OFFSET_COS_EPS)
+  return {
+    lat: center.lat + northMeters / M_PER_DEG,
+    lng: center.lng + eastMeters / (M_PER_DEG * cos),
+  }
+}
+
+/**
  * Approche un disque géodésique par un anneau de `segments` sommets. Sert à
  * ramener cercles et rayons au même modèle que les polygones, pour que les
  * prédicats n'aient qu'un seul type d'entrée à traiter.
+ *
+ * N'appelle PAS `offsetLatLng` : `dLat` est précalculé une fois puis multiplié par
+ * angle, un ordre d'opérations flottantes que `offsetLatLng` ne reproduit pas
+ * bit à bit (cf. son commentaire). Seule la garde cos est partagée (`OFFSET_COS_EPS`).
  */
 export function circleRing(center: LatLng, radiusMeters: number, segments = PREDICATE_CIRCLE_SEGMENTS): LatLng[] {
-  // `M_PER_DEG` et non `EARTH_RADIUS` : c'est la conversion qu'emploie
+  // `M_PER_DEG` et non `EARTH_RADIUS_MEAN` : c'est la conversion qu'emploie
   // `boundsOfCircle` pour le MÊME cercle. Deux rayons de référence différents
   // feraient sortir l'anneau de son propre cadre englobant (~0.1 % d'écart).
   const dLat = radiusMeters / M_PER_DEG
   // Près des pôles le cosinus s'effondre : borné pour ne pas produire un anneau
   // dégénéré large de plusieurs tours.
-  const cos = Math.max(Math.cos(center.lat * DEG2RAD), 1e-6)
+  const cos = Math.max(Math.cos(center.lat * DEG2RAD), OFFSET_COS_EPS)
   const out: LatLng[] = []
   for (let i = 0; i < segments; i++) {
     const a = (i / segments) * TAU

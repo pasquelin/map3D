@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { M_PER_DEG } from './math'
+import { DEG2RAD, M_PER_DEG } from './math'
 import {
   circleRing,
+  OFFSET_COS_EPS,
+  offsetLatLng,
   PREDICATE_CIRCLE_SEGMENTS,
   pointInRing,
   polygonAreaM2,
@@ -125,5 +127,54 @@ describe('circleRing', () => {
       expect(p.lat).toBeLessThanOrEqual(90)
       expect(p.lat).toBeGreaterThanOrEqual(-90)
     }
+  })
+})
+
+// `offsetLatLng` centralise l'idiome « décaler une lat/lng de N mètres », réimplémenté
+// jusqu'ici site par site avec une garde cos anti-pôle incohérente (présente ici,
+// absente ailleurs). Zéro régression exigée aux latitudes non polaires : la garde ne
+// doit JAMAIS s'activer hors du voisinage immédiat d'un pôle.
+describe('offsetLatLng', () => {
+  it.each([0, 45, 60, -60])(
+    'identique à la formule non gardée à lat=%i° (cos non clampé)',
+    (lat) => {
+      const center = { lat, lng: 4.5 }
+      const north = 250
+      const east = -80
+      const cos = Math.cos(lat * DEG2RAD)
+      // Garde-fou du test lui-même : à ces latitudes, la garde ne doit pas s'activer.
+      expect(Math.abs(cos)).toBeGreaterThan(OFFSET_COS_EPS)
+      const expected = {
+        lat: center.lat + north / M_PER_DEG,
+        lng: center.lng + east / (M_PER_DEG * cos),
+      }
+      const got = offsetLatLng(center, north, east)
+      expect(got.lat).toBe(expected.lat)
+      expect(got.lng).toBe(expected.lng)
+    },
+  )
+
+  it('nord/est nuls laissent le centre inchangé, bit à bit', () => {
+    const center = { lat: 37.5, lng: -12.25 }
+    expect(offsetLatLng(center, 0, 0)).toEqual(center)
+  })
+
+  /**
+   * Au pôle, `1 / cos` diverge : sans garde, `lng` part à ±Infinity/NaN. C'est le SEUL
+   * changement de comportement toléré par cette centralisation — corrige les sites qui
+   * ne clampaient pas (`Projection.sampleGroundHeight`, `ClusterLayer.spiderfyLayout`).
+   */
+  it('reste fini au voisinage immédiat du pôle, grâce à la garde', () => {
+    const p = offsetLatLng({ lat: 90, lng: 0 }, 100, 100)
+    expect(Number.isFinite(p.lat)).toBe(true)
+    expect(Number.isFinite(p.lng)).toBe(true)
+  })
+
+  it('la garde borne exactement à `OFFSET_COS_EPS`, pas à une autre valeur', () => {
+    // cos(90°) = 0 exactement (à l'epsilon flottant de Math.cos près) : la longitude
+    // décalée doit correspondre au plancher `OFFSET_COS_EPS`, ni plus large ni plus étroite.
+    const east = 111.32 // 1e-3° * M_PER_DEG, pour un delta lisible
+    const p = offsetLatLng({ lat: 90, lng: 0 }, 0, east)
+    expect(p.lng).toBeCloseTo(east / (M_PER_DEG * OFFSET_COS_EPS), 6)
   })
 })

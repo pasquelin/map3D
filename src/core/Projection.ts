@@ -2,6 +2,7 @@ import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
+import { OFFSET_COS_EPS } from './geodesy'
 import type { LatLng } from '../shared'
 import { CAMERA_FOV, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG, TAU } from './math'
 
@@ -393,7 +394,10 @@ export class Projection {
     if (center === null) return null
     let min = center
     const dLat = radiusMeters / M_PER_DEG
-    const dLng = radiusMeters / (M_PER_DEG * Math.cos(p.lat * DEG2RAD))
+    // Cosinus borné (`OFFSET_COS_EPS`, cf. `offsetLatLng`) : sans garde, `dLng` divergeait
+    // (Infinity/NaN) au voisinage d'un pôle au lieu d'un simple anneau imprécis. Identique
+    // au-delà, `Math.abs(cos)` valant `cos` pour toute latitude non polaire.
+    const dLng = radiusMeters / (M_PER_DEG * Math.max(Math.abs(Math.cos(p.lat * DEG2RAD)), OFFSET_COS_EPS))
     // `samples` tirs répartis sur la couronne. Chaque appel coûte `1 + samples`
     // raycasts BVH : c'est le budget le plus sensible de la pose au sol, et il était
     // figé à 8 par un pas de 45° écrit en dur.
