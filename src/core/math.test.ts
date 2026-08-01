@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { approach, smoothstep, volumeVisibility } from './math'
+import { approach, smoothstep, TAU, volumeVisibility } from './math'
+
+describe('TAU', () => {
+  it('vaut exactement Math.PI * 2', () => {
+    expect(TAU).toBe(Math.PI * 2)
+  })
+})
 
 describe('smoothstep', () => {
   it('vaut 0 avant, 1 après', () => {

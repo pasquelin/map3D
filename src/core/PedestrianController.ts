@@ -3,6 +3,7 @@ import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import type { LatLng } from '../shared'
 import { bearingFromHeading, headingFromForward, projectViewForward } from './enu'
+import { DEG2RAD, TAU } from './math'
 import type { NavKeys } from './NavKeys'
 import { type FeelerHit, slideMove, smoothHeight, stepGround } from './pedestrianCollision'
 import type { LookAngles } from './pedestrianState'
@@ -17,9 +18,6 @@ export type PedestrianPose = {
   /** Regard vertical (rad), 0 = horizon, positif vers le haut. */
   pitch: number
 }
-
-const DEG2RAD = Math.PI / 180
-const TAU = Math.PI * 2
 
 /**
  * Angles (rad) des palpeurs autour de la direction de marche : répartition UNIFORME sur le

@@ -6,7 +6,7 @@
 // besoin d'un verdict stable, d'où ce module.
 
 import type { LatLng } from '../shared'
-import { DEG2RAD, M_PER_DEG, normalizeLng, unwrapLng } from './math'
+import { DEG2RAD, M_PER_DEG, normalizeLng, TAU, unwrapLng } from './math'
 
 /** Rayon moyen terrestre (m) — sphère de référence des calculs d'aire. */
 const EARTH_RADIUS = 6_371_008.8
@@ -142,7 +142,7 @@ export function circleRing(center: LatLng, radiusMeters: number, segments = PRED
   const cos = Math.max(Math.cos(center.lat * DEG2RAD), 1e-6)
   const out: LatLng[] = []
   for (let i = 0; i < segments; i++) {
-    const a = (i / segments) * Math.PI * 2
+    const a = (i / segments) * TAU
     out.push({
       // Latitude bornée : un grand rayon près d'un pôle produirait sinon des
       // sommets au-delà de ±90°, que les prédicats planaires traiteraient comme

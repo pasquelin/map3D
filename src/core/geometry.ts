@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
+import { TAU } from './math'
 
 export type Pt = { x: number; z: number }
 
@@ -130,7 +131,7 @@ export function ribbon(
     if (withDistance) dst.push(dists[i]!)
     v++
     for (let s = 0; s <= seg; s++) {
-      const a = (s / seg) * Math.PI * 2
+      const a = (s / seg) * TAU
       pos.push(p.x + Math.cos(a) * half, 0, p.z + Math.sin(a) * half)
       if (withDistance) dst.push(dists[i]!)
       v++
@@ -675,7 +676,7 @@ export function circlePoints(center: Pt, radius: number, segments = defaultConfi
   }
   const out: Pt[] = []
   for (let i = 0; i < segments; i++) {
-    const a = (i / segments) * Math.PI * 2
+    const a = (i / segments) * TAU
     out.push({ x: center.x + Math.cos(a) * radius, z: center.z + Math.sin(a) * radius })
   }
   return out

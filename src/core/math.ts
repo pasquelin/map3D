@@ -3,6 +3,8 @@
 
 export const DEG2RAD = Math.PI / 180
 export const RAD2DEG = 180 / Math.PI
+/** Un tour complet (rad). SOURCE UNIQUE — ne pas réécrire `Math.PI * 2` en littéral. */
+export const TAU = Math.PI * 2
 
 /** Circonférence terrestre (m) — base des conversions zoom ↔ altitude ↔ résolution. */
 export const EARTH_CIRCUMFERENCE = 40_075_016

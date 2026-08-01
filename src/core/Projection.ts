@@ -3,7 +3,7 @@ import type { MapConfig } from '../config/types'
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import type { LatLng } from '../shared'
-import { CAMERA_FOV, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG } from './math'
+import { CAMERA_FOV, DEG2RAD, M_PER_DEG, metersPerPixelAt, RAD2DEG, TAU } from './math'
 
 /**
  * Empaquetage des deux index de cellule du cache de niveau de rue en UN entier (cf.
@@ -399,7 +399,7 @@ export class Projection {
     // figé à 8 par un pas de 45° écrit en dur.
     const { samples } = this.config.performance.groundSample
     for (let i = 0; i < samples; i++) {
-      const rad = (i / samples) * 2 * Math.PI
+      const rad = (i / samples) * TAU
       const h = this.sampleSurfaceHeight({
         lat: p.lat + dLat * Math.sin(rad),
         lng: p.lng + dLng * Math.cos(rad),
