@@ -217,12 +217,19 @@ export const defaultConfig: MapConfig = {
       // celle du raster : une tuile de volume coûte vingt fois plus qu'une texture.
       evictEvery: 10,
       evictSlack: 16,
-      // ⚠️ Nouveau, et c'est UNE tuile : son montage coûte une vingtaine de millisecondes
-      // (couleurs développées, arbre de collision construit). Deux dans la même frame — ce
-      // que `maxInflight` autorise — faisaient un gel franc de 50 ms, chaque fois qu'une
-      // vue nouvelle arrivait. Étalées, la carte perd une frame au lieu de trois.
-      mountPerFrame: 1,
-      maxInflight: 2,
+      // ⚠️ 1 → 2. Le montage d'une tuile dense coûtait une quarantaine de millisecondes,
+      // presque entièrement l'arbre de collision — construit côté worker depuis. Il ne
+      // reste que ~1 ms de couleurs développées et la pose de l'arbre (~0,05 ms), plus un
+      // upload GPU non mesuré : d'où un doublement, et non une ouverture en grand.
+      mountPerFrame: 2,
+      // ⚠️ 2 → 4, aligné sur `workerPoolSize`. La file ne lance pas plus de téléchargements
+      // que ça : laissé à 2, il aurait affamé le pool, dont deux workers sur quatre
+      // seraient restés oisifs quelle que soit la vue.
+      maxInflight: 4,
+      // Plateau mesuré sur 24 tuiles z14 parisiennes (1430 ms à un worker, 559 ms à
+      // quatre) ; au-delà le gain s'annule et finit par s'inverser. Le pool se borne
+      // lui-même au nombre de cœurs moins un, donc une machine modeste en aura moins.
+      workerPoolSize: 4,
       // ⚠️ 25 → 49 : carré 7×7 (~11 km à Paris) au lieu de 5×5 (~8 km), pour que le volume
       // remplisse davantage la vue inclinée au lieu d'un petit bloc. Chaque tuile dense pesant
       // ~4,9 Mo, monter ce budget se paie en RAM (cf. `maxTiles`/`maxBytes`, relevés d'autant).

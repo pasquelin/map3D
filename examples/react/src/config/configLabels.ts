@@ -200,6 +200,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.evictSlack': 'éviction forcée au-delà de (tuiles)',
   'providers.buildings.mountPerFrame': 'tuiles montées par frame',
   'providers.buildings.maxInflight': 'téléchargements simultanés',
+  'providers.buildings.workerPoolSize': 'workers d’extrusion',
   'providers.buildings.maxRequest': 'budget de tuiles par vue',
   'providers.buildings.maxAttempts': 'essais par tuile',
   'providers.buildings.retryDelays': 'délais entre essais (ms)',

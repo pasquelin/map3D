@@ -13,7 +13,7 @@ import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '../config/defaultConfig'
 import type { BuildingsConfig } from '../config/types'
-import { attachBVH } from '../core/bvh'
+import { attachPackedBVH, packTileBVH } from '../core/bvh'
 import { extrudeTile, type Shading, type TileFrame } from '../data/mvt'
 import { encodeTile, square } from '../data/mvt.fixture'
 import { buildingAtVertex, buildingAttrs } from './buildingPick'
@@ -47,7 +47,8 @@ function meshOf(tile: Awaited<ReturnType<typeof twoBuildings>>): THREE.Mesh {
   geo.setAttribute('position', new THREE.BufferAttribute(tile.positions as Float32Array, 3))
   geo.setIndex(new THREE.BufferAttribute(tile.indices, 1))
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial())
-  attachBVH(mesh)
+  // Comme en production : l'arbre arrive construit depuis le worker.
+  attachPackedBVH(mesh, packTileBVH(tile.positions, tile.indices))
   mesh.updateMatrixWorld(true)
   return mesh
 }

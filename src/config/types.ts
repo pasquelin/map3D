@@ -107,11 +107,15 @@ export type TileCacheBudget = {
   /**
    * Tuiles montées dans la scène par frame au plus.
    *
-   * ⚠️ Nouveau. Le montage (couleurs développées, arbre de collision construit, tampons
-   * envoyés au GPU) est la seule part du travail qui reste sur le thread principal — une
-   * vingtaine de millisecondes pour une tuile de volume dense. Plusieurs chargements qui
-   * aboutissaient dans la même frame les additionnaient en un gel franc ; étalés, chaque
-   * frame n'en paie qu'un.
+   * Le montage (couleurs développées, arbre de collision POSÉ, tampons envoyés au GPU) est
+   * la seule part du travail qui reste sur le thread principal. Plusieurs chargements qui
+   * aboutissent dans la même frame y additionnent leur coût ; étalés, chaque frame n'en
+   * paie qu'une part.
+   *
+   * ⚠️ Ce coût s'est effondré. L'arbre de collision valait à lui seul ~41 ms par tuile de
+   * volume dense — 97 % du montage — et il est désormais construit côté worker : le poser
+   * coûte ~0,05 ms, et développer les couleurs ~1 ms. Ce qui reste non mesuré, et qui
+   * justifie de ne pas ouvrir ce budget en grand, c'est l'upload GPU des tampons.
    */
   mountPerFrame: number
 }
@@ -457,9 +461,13 @@ export type BuildingsConfig = {
   maxViewAltitude: number
   /**
    * Bande de préchargement au-dessus de `maxViewAltitude`, en multiple de celle-ci : les
-   * tuiles y sont téléchargées et montées sans être montrées, pour que la descente ne les
-   * découvre pas à faire (une tuile dense coûte ~20 ms de montage, `mountPerFrame: 1`).
-   * `1` supprime la bande — l'affichage arrive alors par à-coups.
+   * tuiles y sont téléchargées et extrudées sans être montrées, pour que la descente ne
+   * les découvre pas à faire. `1` supprime la bande — l'affichage arrive alors par
+   * à-coups.
+   *
+   * ⚠️ Ce qu'elle masque a changé de nature : le montage ne coûte plus ~41 ms (l'arbre est
+   * construit côté worker, cf. `workerPoolSize`) mais ~1 ms. Ce n'est donc plus un gel
+   * qu'elle absorbe, c'est la LATENCE du pipeline — téléchargement et extrusion compris.
    */
   requestAltitudeFactor: number
   /**
@@ -479,6 +487,25 @@ export type BuildingsConfig = {
   margin: number
   /** Téléchargements simultanés. */
   maxInflight: number
+  /**
+   * Workers d'extrusion tournant en parallèle.
+   *
+   * ⚠️ Nouveau, et c'est le pendant obligé de l'arbre de collision construit côté worker
+   * (cf. `buildTile`) : une tuile dense y coûte désormais ~60 ms au lieu de ~19, et un fil
+   * unique les sérialiserait. Mesuré sur 24 tuiles z14 parisiennes — 1430 ms à un worker,
+   * 775 ms à deux, 587 ms à trois, 559 ms à quatre, puis plus rien, et une RÉGRESSION à
+   * huit (591 ms) : au-delà du plateau, les workers se disputent la mémoire et chacun
+   * retient plusieurs mégaoctets de tuile en vol.
+   *
+   * Le pool se borne de lui-même au nombre de cœurs moins un (il en laisse un au thread
+   * principal) et à un plafond interne. `1` retrouve le comportement d'un worker unique ;
+   * `0` est ramené à 1 — pour tout mettre sur le thread principal, il n'y a pas de
+   * réglage, c'est le repli automatique des environnements sans `Worker`.
+   *
+   * ⚠️ Ne sert à rien au-delà de `maxInflight` : la file ne lance pas plus de
+   * téléchargements que ça, donc les workers en trop resteraient oisifs.
+   */
+  workerPoolSize: number
   /** Budget de tuiles demandées pour une vue. */
   maxRequest: number
   /** Essais par tuile avant abandon définitif. */

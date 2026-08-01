@@ -74,11 +74,14 @@ export type TileBudget = {
   /**
    * Tuiles montées par frame au plus.
    *
-   * Le montage est la seule part du travail qui reste sur le thread principal, et elle
-   * n'est pas négligeable pour un volume : développer les couleurs et construire l'arbre
-   * de collision coûtent ensemble une vingtaine de millisecondes par tuile. Plusieurs
-   * chargements qui aboutissent dans la même frame les additionnaient donc en un gel
-   * franc ; étalés, chaque frame n'en paie qu'un.
+   * Le montage est la seule part du travail qui reste sur le thread principal. Plusieurs
+   * chargements qui aboutissent dans la même frame y additionnent leur coût ; étalés,
+   * chaque frame n'en paie qu'une part.
+   *
+   * ⚠️ Pour un volume, ce coût était dominé par la construction de l'arbre de collision
+   * (~41 ms par tuile dense, 97 % du montage), désormais faite côté worker : il ne reste
+   * que la pose de l'arbre (~0,05 ms), le développement des couleurs (~1 ms) et l'upload
+   * GPU des tampons.
    */
   mountPerFrame: number
 }
