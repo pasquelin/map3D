@@ -66,7 +66,7 @@ export function useCatalogQuery(source: CatalogSource | undefined, query: string
   const guard = guardRef.current
   const lastSourceRef = useRef<string | null>(null)
 
-  // « Latest ref » assumé (cf. CLAUDE.md § 3) : `run` doit survivre à ses renders sans
+  // « Latest ref » assumé (cf. docs/ARCHITECTURE.md § 3) : `run` doit survivre à ses renders sans
   // se reconstruire, sinon l'effet qui en dépend relancerait une requête à chaque
   // render de l'hôte. Ces trois valeurs sont LUES au moment de l'appel, pas capturées.
   const sourceRef = useRef(source)
