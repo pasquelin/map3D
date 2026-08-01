@@ -1633,12 +1633,16 @@ export class MapEngine {
    */
   private onFullscreenChange = (): void => {
     const canvasFs = fullscreenElementOf(document) === this.canvas
-    // Taille du buffer = taille réellement affichée du canvas (écran en plein écran, conteneur
-    // sinon). `getBoundingClientRect` est déjà à jour quand `fullscreenchange` se déclenche.
-    const measured = canvasFs ? this.canvas : this.canvas.parentElement
-    if (measured) {
-      const r = measured.getBoundingClientRect()
-      if (r.width >= 1 && r.height >= 1) this.setSize(r.width, r.height)
+    // Redimensionne le rendu à la taille RÉELLEMENT affichée :
+    // - en plein écran, l'ÉCRAN (`innerWidth/innerHeight`) — surtout PAS le rect du canvas :
+    //   `setSize` lui a posé une taille CSS fixe (celle de la fenêtre), qui le laisserait
+    //   centré avec des bandes noires sur un écran d'un autre ratio ;
+    // - sinon, le conteneur (retour à la taille fenêtrée).
+    if (canvasFs) {
+      if (window.innerWidth >= 1 && window.innerHeight >= 1) this.setSize(window.innerWidth, window.innerHeight)
+    } else {
+      const r = this.canvas.parentElement?.getBoundingClientRect()
+      if (r && r.width >= 1 && r.height >= 1) this.setSize(r.width, r.height)
     }
     if (canvasFs) {
       if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
