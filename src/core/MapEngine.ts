@@ -56,6 +56,7 @@ import {
 } from './math'
 import { viewScaleDistance } from './viewScale'
 import { SkyController } from './SkyController'
+import { IntroFlight } from './IntroFlight'
 import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
 import { Projection } from './Projection'
@@ -772,6 +773,19 @@ export class MapEngine {
       () => this.flatGroundElevation,
     )
     this.pedestrianCtl.setConfig(this.config)
+    // Sous-système intro : dépendances injectées par closures (état live via getter, effets
+    // moteur via callback) — aucun accès à MapEngine, donc pas de cycle ni de privés exposés.
+    this.introFlight = new IntroFlight({
+      camera: this.camera,
+      tiles: this.tiles,
+      projection: this.projection,
+      config: () => this.config,
+      mapMode: () => this.mapMode,
+      terrainElevation: () => this.terrainElevation,
+      terrainKnown: () => this.terrainKnown,
+      setOverlaysVisible: (visible) => this.setOverlaysVisible(visible),
+      emitReady: () => this.emit('ready', this),
+    })
     if (opts.intro === false) {
       // Sans intro : survol nadir direct à l'altitude déduite du zoom (NB : comptée
       // depuis l'ellipsoïde, le terrain n'étant pas encore streamé).
@@ -780,13 +794,7 @@ export class MapEngine {
       // Intro : vue globe au-dessus de la cible ; le vol part quand le terrain est
       // connu (cf. intro dans tick). Départ déterministe, jamais sous le terrain.
       this.camera.jumpTo(opts.center, this.tiles.ellipsoid.radius.x * this.config.startup.introAltitudeFactor)
-      this.intro = {
-        center: opts.center,
-        altitude: altitudeForZoom(opts.zoom),
-        flying: false,
-        startedAt: performance.now(),
-      }
-      this.setOverlaysVisible(false)
+      this.introFlight.begin(opts.center, altitudeForZoom(opts.zoom))
     }
 
     // Limite de dézoom : la Terre reste bien visible avec une petite marge d'espace,
@@ -870,7 +878,7 @@ export class MapEngine {
     this.lastTime = performance.now()
     // Origine du garde-fou de `ready` : le temps passé AVANT le démarrage (montage
     // React, création du moteur) ne doit pas entamer le délai d'attente des tuiles.
-    if (!this.readyEmitted) this.startedAt = this.lastTime
+    this.introFlight.markStarted(this.lastTime)
     const loop = (t: number) => {
       if (!this.running) return
       this.raf = requestAnimationFrame(loop)
@@ -938,7 +946,7 @@ export class MapEngine {
     this.listeners[event].add(cb)
     // `ready` ne se produit qu'une fois : un abonné monté après coup (couche ajoutée
     // tardivement, vue remontée) attendrait sinon un event définitivement passé.
-    if (event === 'ready' && this.readyEmitted) (cb as Listener<'ready'>)(this)
+    if (event === 'ready' && this.introFlight.ready) (cb as Listener<'ready'>)(this)
     return () => this.listeners[event].delete(cb)
   }
 
@@ -1244,9 +1252,9 @@ export class MapEngine {
     // En 2D le terrain n'est plus suivi : une intro encore en attente ne partirait
     // jamais — on lance la descente tout de suite (le fond plat est à terrainElevation),
     // sauf si un autre pilotage caméra a déjà pris la main (l'intro s'efface alors).
-    if (in2d && this.intro && !this.intro.flying) {
+    if (in2d && this.introFlight.isWaitingToFly()) {
       if (this.camera.isControlling()) this.cancelIntro()
-      else this.startIntroFlight()
+      else this.introFlight.startFlight()
     }
     this.applyModeVisibility()
     // Le trafic est un calque du fond 2D : repasser en 3D l'éteint. La règle est
@@ -1762,59 +1770,28 @@ export class MapEngine {
   /** true dès qu'un échantillon de terrain a réellement touché les tuiles. */
   private terrainKnown = false
 
-  /**
-   * Vol d'intro façon Google Earth : `center`/`altitude` (au-dessus du sol) demandés
-   * au constructeur. `flying=false` = en attente du terrain streamé (bornée par
-   * `INTRO_MAX_WAIT_MS`) ; `flying=true` = descente en cours, destination affinée
-   * chaque frame (`retargetFlyAltitude`) au fil du raffinement des tuiles. `null` =
-   * terminé ou annulé. L'intro **s'efface devant tout autre pilotage caméra**
-   * (interaction, flyTo programmatique, suivi) — elle ne vole jamais la main.
-   */
-  private intro: { center: LatLng; altitude: number; flying: boolean; startedAt: number } | null = null
+  /** Sous-système « vol d'intro » + garde-fou `ready` — détient son propre état de machine. */
+  private readonly introFlight: IntroFlight
 
   /** Intro encore active (attente du terrain ou descente en cours). */
   get introActive(): boolean {
-    return this.intro !== null
+    return this.introFlight.active
   }
-
-  private readyEmitted = false
-  /** Horodatage de `start()` — origine du garde-fou d'attente de `ready`. */
-  private startedAt = 0
 
   /** La carte est-elle exploitable ? (cf. l'event `ready`) */
   get ready(): boolean {
-    return this.readyEmitted
-  }
-
-  /**
-   * Émet `ready` dès que la carte est exploitable, ou au bout du garde-fou.
-   *
-   * En 3D, « exploitable » veut dire que le terrain a été touché au moins une fois
-   * et que la file de tuiles est vidée — c'est exactement la condition qui décide
-   * du décollage de l'intro, et c'est le seuil à partir duquel un cadrage vise le
-   * sol réel. En 2D il n'y a pas de terrain à attendre : la projection suffit.
-   */
-  private checkReady(now: number): void {
-    if (this.readyEmitted) return
-    const usable =
-      this.projection.isReady() && (this.mapMode !== '3d' || (this.terrainKnown && this.tiles.loadProgress >= 1))
-    if (!usable && now - this.startedAt < this.config.startup.readyMaxWaitMs) return
-    this.readyEmitted = true
-    this.emit('ready', this)
+    return this.introFlight.ready
   }
 
   /**
    * Interrompt le vol de démarrage et révèle les overlays. **Toute prise de main doit
    * passer par là** — un geste (cf. `bindInput`), une entrée en piéton, ou une vue
    * mémorisée qu'on recharge : sans cet appel l'intro continue de piloter la caméra et
-   * reprend la main à la frame suivante, effaçant la vue qui vient d'être posée.
+   * reprend la main à la frame suivante. Délègue au sous-système `introFlight` ; garde son
+   * identité d'`arrow` pour rester le MÊME listener à ajouter/retirer.
    */
   readonly cancelIntro = (): void => {
-    // N'annule QUE le vol d'intro : un vol de recherche/suivi qui a pris la main
-    // n'est jamais tué par une interaction destinée à stopper l'intro.
-    if (this.camera.isFlying('intro')) this.camera.cancelFly()
-    this.intro = null
-    this.setOverlaysVisible(true)
+    this.introFlight.cancel()
   }
 
   /**
@@ -1854,57 +1831,6 @@ export class MapEngine {
       this.terrainKnown = true
       // Repli de hauteur des formes drapées quand leur raycast d'ancre ne touche rien.
       this.projection.surfaceFallbackHeight = e
-    }
-  }
-
-  // Durée du vol d'intro et attente max des tuiles : `startup.introDuration` /
-  // `startup.introMaxWaitMs`. Le garde-fou évite qu'une source en échec (403, token
-  // invalide, réseau) laisse la carte bloquée en vue globe, overlays masqués.
-
-  /** Lance la descente de l'intro vers la cible, au-dessus du sol connu. */
-  private startIntroFlight(): void {
-    if (!this.intro || this.intro.flying) return
-    this.intro.flying = true
-    this.camera.flyTo(
-      { ...this.intro.center, altitude: this.terrainElevation + this.intro.altitude },
-      { duration: this.config.startup.introDuration, tag: 'intro' },
-    )
-  }
-
-  /**
-   * Avance la machine à états de l'intro (appelée chaque tick) : lance la descente
-   * quand le terrain est connu, affine la destination pendant le vol, se termine à
-   * l'atterrissage. Le vol passe par `Camera.flyTo` — le même chemin éprouvé que la
-   * recherche de lieux — jamais par téléportation derrière GlobeControls. L'intro
-   * s'efface (overlays révélés) dès qu'un autre pilotage caméra prend la main.
-   */
-  private updateIntro(now: number): void {
-    const intro = this.intro
-    if (!intro) return
-    if (!intro.flying) {
-      // Un vol programmatique (recherche…) ou un suivi a pris la main pendant
-      // l'attente : l'intro s'efface au lieu de l'écraser à son décollage.
-      if (this.camera.isControlling()) {
-        this.cancelIntro()
-        return
-      }
-      // Décollage quand le terrain est connu ET la file de tuiles vidée
-      // (`loadProgress` = 1) : la planète est visible AVANT la descente. Au-delà du
-      // délai max (tuiles en échec), on part quand même avec la meilleure hauteur
-      // connue — même arrivée que l'ancien placement direct, jamais de blocage.
-      const ready = this.terrainKnown && this.tiles.loadProgress >= 1
-      if (!ready && now - intro.startedAt < this.config.startup.introMaxWaitMs) return
-      this.startIntroFlight()
-      return
-    }
-    if (this.camera.isFlying('intro')) {
-      // Le sol se précise pendant la descente (LOD) → la destination suit.
-      this.camera.retargetFlyAltitude(this.terrainElevation + intro.altitude, 'intro')
-    } else {
-      // Atterri, ou remplacé par un autre vol/suivi (qui garde la main) : l'intro est
-      // finie dans les deux cas — cancelIntro est l'unique sortie de l'état (le
-      // cancelFly y est un no-op : plus de vol taggé 'intro').
-      this.cancelIntro()
     }
   }
 
@@ -2345,8 +2271,8 @@ export class MapEngine {
     if (this.mapMode === '3d' && this.pedestrianPhase !== 'active') this.trackTerrainElevation()
     // Après le suivi de terrain : c'est lui qui fait bouger la nappe du fournisseur interne.
     this.syncGroundPlane()
-    this.updateIntro(now)
-    this.checkReady(now)
+    this.introFlight.update(now)
+    this.introFlight.checkReady(now)
 
     // État caméra calculé UNE fois par frame (chaque getState = inversion de matrice)
     // et réutilisé par updateNearFar/computeView/ctx.
