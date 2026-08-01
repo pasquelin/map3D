@@ -5,13 +5,17 @@ import type { Agent, AgentStatus } from './types'
  * Avatars de démo (clé `avatar` GÉRÉE par la lib : pastille photo cerclée couleur du
  * type, prioritaire sur `icon`). Volontairement partiels — chaque ville a des agents
  * avec photo et des agents sans (repli sprite), pour comparer les deux rendus.
+ *
+ * ⚠️ Source **CORS** (DiceBear, `Access-Control-Allow-Origin: *`) et non `i.pravatar.cc`
+ * (aucun en-tête CORS) : la capture d'image inline les overlays via `html-to-image`, qui
+ * doit pouvoir re-télécharger ces avatars sans être bloqué par le CORS du navigateur.
  */
 export const AGENT_AVATARS: Record<string, string> = {
-  'agent-0': 'https://i.pravatar.cc/80?img=12',
-  'agent-2': 'https://i.pravatar.cc/80?img=32',
-  'agent-4': 'https://i.pravatar.cc/80?img=15',
-  'agent-6': 'https://i.pravatar.cc/80?img=47',
-  'agent-8': 'https://i.pravatar.cc/80?img=68',
+  'agent-0': 'https://api.dicebear.com/9.x/avataaars/png?size=80&seed=Milo',
+  'agent-2': 'https://api.dicebear.com/9.x/avataaars/png?size=80&seed=Aneka',
+  'agent-4': 'https://api.dicebear.com/9.x/avataaars/png?size=80&seed=Zoe',
+  'agent-6': 'https://api.dicebear.com/9.x/avataaars/png?size=80&seed=Kai',
+  'agent-8': 'https://api.dicebear.com/9.x/avataaars/png?size=80&seed=Nova',
 }
 
 /** Activité lisible portée en tag (filtre « Couches »), dérivée du statut. */
