@@ -22,7 +22,8 @@ import { useOverlayLayer } from '../hooks/useOverlayLayer'
 import { useGroundedView } from '../hooks/usePedestrian'
 import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { hasTipContent, MarkerTip } from './MarkerTip'
-import { MarkerContent, svgToDataUri } from './MarkerLayer'
+import { svgToDataUri } from './MarkerLayer'
+import { MarkerContent } from './MarkerContent'
 
 /** Apparence et contenu d'une pastille — cf. `ClusterSurfaceProps`. */
 export type ClusterChrome<T = unknown> = {

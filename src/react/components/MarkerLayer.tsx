@@ -1,39 +1,23 @@
-import {
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { SelectableScreenItem } from '../../core/Selectables'
-import { boundsContains } from '../../core/MarkerQuery'
 import { type ClusterContributor, type ClusterPlacement, NO_PLACEMENT } from '../../core/ClusterRegistry'
-import { countTags } from '../../core/TagFilter'
 import type { MarkerLayer as CoreMarkerLayer, OverlayItem } from '../../layers/MarkerLayer'
 import type { LatLng } from '../../shared'
-import { markerTags, staticMinZoomOf } from '../../data/types'
+import { markerTags } from '../../data/types'
 import type { DataSource, MarkerData } from '../../data/types'
-import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMatch } from '../../search/match'
-import { markerGroupId } from '../../search/registry'
-import type { SearchEntry, SearchGroup } from '../../search/types'
 import { useLiveData } from '../hooks/useLiveData'
 import { useTagSelection } from '../hooks/useTags'
-import { useDraggable } from '../hooks/useDraggable'
-import { useRepositionable } from '../hooks/useRepositionable'
 import { useEntriesSignature } from '../hooks/useEntriesSignature'
 import { useOverlayLayer } from '../hooks/useOverlayLayer'
-import { useZoomGate } from '../hooks/useZoomGate'
+import { useVisibleMarkers } from '../hooks/useVisibleMarkers'
+import { useMarkerRegistries } from '../hooks/useMarkerRegistries'
 import { useConfig, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { DefaultMarker } from './DefaultMarker'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { useDismiss } from './useDismiss'
 import { markerColorOf } from '../../theme/colors'
+import { MarkerContent } from './MarkerContent'
 
 export type MarkerLayerProps<T> = {
   /** Markers à afficher. Exclusif avec `source`, qui les charge selon la vue. */
@@ -206,97 +190,17 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // regroupement compris — un calque décoché disparaît aussi des pastilles. Recalculé
   // uniquement au changement des points ou de la sélection de calques.
   const tagFilter = useTagSelection()
-  // Le marker SÉLECTIONNÉ et celui qui est SUIVI échappent au filtre : masquer ce
-  // sur quoi la carte est centrée (ou ce que la caméra suit) ferait disparaître la
-  // cible sans explication, et le suivi perdrait sa position en cours de route.
-  const visible = useMemo(
-    () => (tagFilter.isActive ? allPoints.filter((p) => tagFilter.isVisible(p.tags)) : allPoints),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allPoints, tagFilter.selectionVersion],
+  // Pipeline de visibilité (filtre tags + gate de zoom des statiques + exemptions
+  // sélection/suivi) — cf. `useVisibleMarkers`.
+  const { points, rendered } = useVisibleMarkers(
+    allPoints,
+    tagFilter,
+    props.selectedId,
+    props.followId,
+    props.staticMinZoom,
+    config.markers.staticMinZoom,
+    getId,
   )
-  /**
-   * Les exemptions sont ajoutées EN SECOND, et seulement quand le filtre les masque
-   * vraiment : le cas courant (cible déjà visible, ou aucun filtre) rend alors la
-   * MÊME référence de tableau. Les inclure dans le filtre lui-même faisait qu'un
-   * simple clic de sélection produisait un tableau neuf, donc un rechargement complet
-   * de l'index supercluster (O(n log n)) et un rebuild de tous les portails —
-   * précisément quand un filtre est actif, c'est-à-dire quand la liste est grande.
-   */
-  const points = useMemo(() => {
-    const exempt = [props.selectedId, props.followId].filter(
-      (id) => id !== undefined && !visible.some((p) => getId(p) === id),
-    )
-    if (exempt.length === 0) return visible
-    return [...visible, ...allPoints.filter((p) => exempt.includes(getId(p)))]
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, allPoints, props.selectedId, props.followId])
-
-  /**
-   * Gate de zoom des markers `static` (décor fixe : symboles posés, défibrillateurs).
-   *
-   * Contrairement au filtre de tags, il ne s'applique QU'À L'AFFICHAGE : `points`
-   * reste complet et continue d'alimenter la recherche, la loupe et le panneau
-   * « Couches ». Un seuil de zoom dit ce qui est lisible, pas ce que l'utilisateur a
-   * choisi de masquer — chercher « défibrillateur » doit le trouver et y voler quel
-   * que soit le zoom, là où un calque décoché doit disparaître partout.
-   *
-   * `rendered` alimente en revanche supercluster ET la pose des nœuds : un statique
-   * masqué disparaît donc de la carte et cesse du même geste de gonfler le total des
-   * clusters. Un cluster ne compte jamais que ce qu'il cache réellement.
-   */
-  // Seuil de CETTE couche, comme `size` : deux cartes de la même app — alertes denses
-  // d'un côté, décor de l'autre — n'ont pas le même horizon de lisibilité. Un marker
-  // garde le dernier mot avec `static: { minZoom }`.
-  const staticMinZoom = props.staticMinZoom ?? config.markers.staticMinZoom
-  /**
-   * Seuil de chaque point du décor, et la liste des seuils à surveiller. Les deux
-   * sortent d'un balayage UNIQUE : les calculer séparément appelait `staticMinZoomOf`
-   * deux fois par point et par rendu, pour la même réponse.
-   */
-  const { thresholds, minZoomOf } = useMemo(() => {
-    const set = new Set<number>()
-    const byPoint = new Map<MarkerData<T>, number>()
-    for (const p of points) {
-      const min = staticMinZoomOf(p, staticMinZoom)
-      if (min !== null && min > 0) {
-        set.add(min)
-        byPoint.set(p, min)
-      }
-    }
-    return { thresholds: [...set], minZoomOf: byPoint }
-  }, [points, staticMinZoom])
-  const zoomAllows = useZoomGate(thresholds)
-  /**
-   * Décor masqué par le zoom, INDÉPENDANT de la sélection.
-   *
-   * L'indépendance est le point : ce mémo alimente l'index de regroupement, et le
-   * refaire dépendre de `selectedId` rendait un tableau neuf à chaque clic dès qu'un
-   * seul statique était masqué — donc un rechargement de l'index (O(n log n)) et un
-   * rebuild de tous les portails, alors que rien n'avait bougé sur la carte.
-   */
-  const gated = useMemo(() => {
-    if (minZoomOf.size === 0) return points
-    const out = points.filter((p) => {
-      const min = minZoomOf.get(p)
-      return min === undefined || zoomAllows(min)
-    })
-    // Au-dessus de tous les seuils, rien n'est masqué : rendre la MÊME référence.
-    return out.length === points.length ? points : out
-  }, [points, minZoomOf, zoomAllows])
-  /**
-   * Exemptions ajoutées EN SECOND, et seulement quand le zoom masque vraiment la
-   * cible : on ne fait pas disparaître ce sur quoi la carte est centrée ni ce que la
-   * caméra suit, fût-ce du décor. Même construction que `points` ci-dessus.
-   */
-  const rendered = useMemo(() => {
-    if (gated === points) return gated
-    const exempt = [props.selectedId, props.followId].filter(
-      (id) => id !== undefined && !gated.some((p) => getId(p) === id),
-    )
-    if (exempt.length === 0) return gated
-    return [...gated, ...points.filter((p) => exempt.includes(getId(p)))]
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gated, points, props.selectedId, props.followId])
 
   // Registre du panneau « Couches » : tags portés par TOUS les points (même masqués).
   const tagSource = useId()
@@ -304,13 +208,6 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const searchSource = useId()
   /** Clé de cette couche dans le registre de regroupement — cf. `ClusterContributor.key`. */
   const clusterSource = useId()
-  useEffect(() => {
-    tagFilter.report(
-      tagSource,
-      countTags(allPoints, (p) => p.tags),
-    )
-  }, [allPoints, tagFilter, tagSource])
-  useEffect(() => () => tagFilter.unreport(tagSource), [tagFilter, tagSource])
 
   /** Ce que la surface de clusters a décidé pour cette couche — cf. `ClusterPlacement`. */
   const placementRef = useRef<ClusterPlacement>(NO_PLACEMENT)
@@ -365,11 +262,6 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   }
   const latest = useRef(snapshot)
   latest.current = snapshot
-
-  // Titres normalisés mémoïsés PAR OBJET marker : un tick temps réel reconstruit le
-  // tableau mais préserve la plupart des références, donc ne renormalise que ce qui
-  // a réellement changé.
-  const normalizedTitle = useMemo(() => createTitleCache<MarkerData<T>>((m) => m.title), [])
 
   // Couche DOM de positionnement (pool, tween, ancrage CSS2DObject) — cf. `useOverlayLayer`.
   const { layerRef: coreRef, nodes } = useOverlayLayer(
@@ -475,125 +367,22 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     recompute()
   }, [rendered, recompute, engine])
 
-  // Provider du registre de sélection : expose au marquee les markers que cette
-  // couche pose RÉELLEMENT — ceux qu'une pastille agrège n'en sont pas.
-  useEffect(() => {
-    return engine.selectables.register({
-      screenItems: () => {
-        const core = coreRef.current
-        if (!core) return []
-        const out: SelectableScreenItem[] = []
-        for (const it of core.screenPositions(engine.threeCamera)) {
-          const marker = entriesRef.current.get(it.id)
-          if (marker) out.push({ id: latest.current.getId(marker), x: it.x, y: it.y })
-        }
-        return out
-      },
-      setSelected: (ids) => {
-        coreRef.current?.setMultiSelected(new Set(ids))
-      },
-      info: (id) => {
-        const p = pointsByIdRef.current.get(id)
-        return p ? { type: p.type } : null
-      },
-    })
-  }, [coreRef, engine])
-
-  // Fournisseur d'inventaire de l'outil loupe : TOUS les markers d'un cadre géo,
-  // depuis les données sources (post-filtre tags) — donc clusters inclus, à la
-  // différence du provider de sélection qui ne voit que les markers visibles.
-  useEffect(() => {
-    return engine.markers.register({
-      markersInBounds: (bounds) => {
-        const out: MarkerData<T>[] = []
-        for (const p of latest.current.points) {
-          if (boundsContains(bounds, p.position)) out.push(p)
-        }
-        return out
-      },
-      markerById: (id) => pointsByIdRef.current.get(id) ?? null,
-    })
-  }, [engine])
-
-  // Fournisseur de recherche : une rubrique par TYPE présent, alimentée par
-  // `MarkerData.title`. Part des mêmes `points` que le registre d'inventaire — donc
-  // post-filtre « Couches » : ce qui est masqué sur la carte est introuvable, ce qui
-  // évite de faire voler la caméra vers un marker que l'utilisateur ne verra pas.
-  //
-  // Un marker sans `title` est ÉCARTÉ, jamais indexé sous son id : proposer
-  // « 7f3a-91b2 » dans une liste de résultats n'aide personne.
-  useEffect(() => {
-    return engine.search.register({
-      query: (needle, opts) => {
-        const { points, getId, menu, onSelect } = latest.current
-        const perGroup = new Map<string, Hit<MarkerData<T>>[]>()
-        for (const m of points) {
-          if (!m.title) continue
-          const group = markerGroupId(m.type)
-          if (opts.group && opts.group !== group) continue
-          const score = scoreMatch(normalizedTitle(m), needle)
-          if (score === NO_MATCH) continue
-          const distance = opts.origin ? proximityRank(m.position, opts.origin) : 0
-          const bucket = perGroup.get(group)
-          if (bucket) bucket.push({ item: m, score, distance })
-          else perGroup.set(group, [{ item: m, score, distance }])
-        }
-        const entries: SearchEntry[] = []
-        const totals = new Map<string, number>()
-        // Les entrées (et leurs closures) ne sont construites qu'APRÈS la troncature :
-        // une requête de deux lettres peut correspondre à des centaines de markers
-        // dont six seulement seront affichés.
-        for (const [group, hits] of perGroup) {
-          totals.set(group, hits.length)
-          for (const m of rankHits(hits, opts.limit)) {
-            entries.push({
-              group,
-              id: getId(m),
-              title: m.title!,
-              titleColor: m.titleColor,
-              // Pas de sous-titre de type : l'en-tête de rubrique le dit déjà, et le
-              // répéter sur chaque ligne noierait le nom qu'on cherche à lire.
-              position: m.position,
-              avatar: m.avatar,
-              icon: m.icon,
-              color: markerColorOf(theme, m.type).base,
-              // Le chemin EXACT d'un clic sur la carte : la couche signale, l'hôte
-              // décide de `selectedId`. Court-circuiter reviendrait à inventer une
-              // seconde sémantique de sélection.
-              select: () => onSelect?.(m),
-              menu: menu ? () => menu(m) : undefined,
-            })
-          }
-        }
-        return { entries, totals }
-      },
-    })
-  }, [engine, theme, normalizedTitle])
-
-  // Rubriques DÉCLARÉES (et non demandées) : `points` est remplacé à chaque tick d'un
-  // flux temps réel, alors que les rubriques ne bougent quasiment jamais. Le registre
-  // compare avant d'émettre, donc les abonnés ne se re-rendent que sur changement réel.
-  // Déstructuré hors de l'effet : appeler `props.typeLabel?.()` ferait réclamer `props`
-  // entier en dépendance, donc un re-report à chaque prop qui bouge.
-  const { typeLabel } = props
-  useEffect(() => {
-    const counts = new Map<string, SearchGroup>()
-    for (const p of points) {
-      if (!p.title) continue
-      const id = markerGroupId(p.type)
-      const prev = counts.get(id)
-      if (prev) prev.count++
-      else
-        counts.set(id, {
-          id,
-          label: typeLabel?.(p.type) ?? p.type,
-          color: markerColorOf(theme, p.type).base,
-          count: 1,
-        })
-    }
-    engine.search.report(searchSource, [...counts.values()])
-  }, [engine, points, typeLabel, theme, searchSource])
-  useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
+  // Câblage des registres (sélection marquee, inventaire loupe, recherche, tags) —
+  // cf. `useMarkerRegistries`.
+  useMarkerRegistries(
+    engine,
+    coreRef,
+    entriesRef,
+    pointsByIdRef,
+    latest,
+    tagSource,
+    allPoints,
+    tagFilter,
+    searchSource,
+    points,
+    props.typeLabel,
+    theme,
+  )
 
   // Sélection — réappliquée quand un nœud (ré)apparaît.
   useEffect(() => {
@@ -848,155 +637,4 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   ])
 
   return <>{portals}</>
-}
-
-/**
- * Zone de contenu d'un marker/cluster : porte le clic (sélection/menu), le survol
- * (infobulle) et, pour les markers, la **saisie au long-press** (`useDraggable`).
- * Composant à part — et non `<div>` inline — parce que `useDraggable` est un hook :
- * chaque nœud a ainsi son propre état de geste (timer, nettoyage). Le hook est
- * toujours appelé (`disabled` selon `draggable`) pour respecter l'ordre des hooks.
- */
-export function MarkerContent<T>({
-  isMarker,
-  draggable,
-  repositionable,
-  leaderLine,
-  layer,
-  onRepositionStart,
-  onReposition,
-  onRepositionMove,
-  markerId,
-  nodeKey,
-  markerData,
-  ghost,
-  label,
-  onClick,
-  onHoverEnter,
-  onHoverLeave,
-  children,
-}: {
-  isMarker: boolean
-  draggable: boolean
-  repositionable: boolean
-  /** La couche dessine-t-elle la tige + le point au sol ? (cf. `surLeDot`) */
-  leaderLine: boolean
-  layer: CoreMarkerLayer | null
-  /** Le geste est devenu un déplacement (seuil franchi) — cf. `useRepositionable`. */
-  onRepositionStart?: () => void
-  onReposition?: (latLng: LatLng) => void
-  onRepositionMove?: (latLng: LatLng) => void
-  markerId: string | number
-  /**
-   * Clé du nœud dans la couche DOM. Distincte de `markerId` (l'id HÔTE, qui voyage
-   * dans la charge du drag) : c'est elle que la couche connaît, donc la seule qui
-   * permette de déplacer le bon nœud — une pastille de cluster n'a d'ailleurs pas
-   * d'id hôte du tout.
-   */
-  nodeKey: string | number
-  markerData: MarkerData<T> | null
-  /** Vignette suivie par le curseur pendant une saisie. `null` si le nœud ne se saisit pas. */
-  ghost: ReactNode
-  /**
-   * Ce qu'un lecteur d'écran annonce. Un marker est un pictogramme : sans lui, il
-   * n'existe que pour la souris.
-   */
-  label?: string
-  onClick: (e: React.MouseEvent | React.KeyboardEvent) => void
-  onHoverEnter?: () => void
-  onHoverLeave?: () => void
-  children: ReactNode
-}) {
-  const drag = useDraggable({
-    payload: { type: 'marker', id: markerId, data: markerData ?? undefined },
-    ghost,
-    disabled: !draggable,
-  })
-  // Comme `useDraggable` : toujours appelé, désactivé par `disabled`, pour ne pas
-  // rompre l'ordre des hooks quand un marker devient (non) repositionnable.
-  const move = useRepositionable({
-    // La CLÉ DU NŒUD, pas l'id hôte : `moveItemNow` sur un id que la couche ne connaît
-    // pas sort sans rien faire — le marker ne suivrait alors le curseur qu'au
-    // relâchement, une fois les données de l'hôte mises à jour.
-    id: nodeKey,
-    layer,
-    disabled: !repositionable,
-    onStart: onRepositionStart,
-    onMove: onRepositionMove,
-    onDrop: onReposition,
-  })
-  /**
-   * Le repositionnement est porté par le POINT AU SOL, pas par l'icône : déplacer un
-   * marker consiste à déplacer son point d'ancrage (précis), tandis que l'icône garde
-   * le geste commun à tous les markers — la saisie au long-press vers la dock.
-   *
-   * Le point est créé par la couche core (hors React) : le handler du hook lui est
-   * donc attaché à la main. Il ne lit que `currentTarget`, `clientX/Y`, `pointerType`
-   * et `button`, tous présents sur un `PointerEvent` natif.
-   */
-  const rootRef = useRef<HTMLDivElement>(null)
-  /**
-   * Sans tige (`leaderLine={false}`), il n'y a pas de point au sol : le geste
-   * retombe alors sur le CONTENU, sinon le marker ne serait plus déplaçable du tout.
-   *
-   * DÉDUIT de la prop, pas sondé : la couche ne crée le point que si `leaderLine`
-   * (cf. `layers/MarkerLayer.createNode`). Un `useState` posé depuis l'effet coûtait
-   * un second rendu par marker repositionnable au montage — systématique pour les
-   * symboles, qui le sont tous — et pouvait mentir si la sonde tombait avant que le
-   * core n'ait bâti le nœud.
-   */
-  const surLeDot = repositionable && leaderLine
-  useEffect(() => {
-    if (!surLeDot) return
-    // Le point est un FRÈRE du conteneur de portail, dans `.m3d-marker-anchor`.
-    const dot = rootRef.current?.closest('.m3d-marker-anchor')?.querySelector<HTMLElement>('.m3d-marker-dot')
-    if (!dot) return
-    const onDown = (e: PointerEvent) => moveRef.current(e as unknown as ReactPointerEvent)
-    dot.classList.add('m3d-repositionable')
-    dot.addEventListener('pointerdown', onDown)
-    return () => {
-      dot.classList.remove('m3d-repositionable')
-      dot.removeEventListener('pointerdown', onDown)
-    }
-  }, [surLeDot])
-
-  const moveRef = useRef(move.onPointerDown)
-  moveRef.current = move.onPointerDown
-
-  const className = [
-    isMarker ? 'm3d-marker-content' : '',
-    draggable ? drag.className : '',
-    repositionable && !surLeDot ? move.className : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  return (
-    <div
-      ref={rootRef}
-      className={className || undefined}
-      // Un marker EST un bouton : il porte une action (sélectionner, ouvrir un menu,
-      // zoomer sur un groupe). Sans rôle ni tabulation, il n'existe que pour la souris.
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      onPointerDown={repositionable && !surLeDot ? move.onPointerDown : draggable ? drag.onPointerDown : undefined}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        // Espace scrolle la page par défaut ; Entrée n'a pas d'effet natif sur un div,
-        // mais les deux sont attendus sur `role="button"`.
-        if (e.key !== 'Enter' && e.key !== ' ') return
-        e.preventDefault()
-        onClick(e)
-      }}
-      onPointerEnter={onHoverEnter}
-      onPointerLeave={onHoverLeave}
-      // L'infobulle est la seule information du marker : au clavier, elle doit suivre
-      // le focus comme elle suit le survol, sinon elle reste inatteignable.
-      onFocus={onHoverEnter}
-      onBlur={onHoverLeave}
-    >
-      {children}
-    </div>
-  )
 }
