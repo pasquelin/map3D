@@ -5,6 +5,22 @@ import type { MarkerData } from '../../data/types'
 import { useZoomGate } from './useZoomGate'
 
 /**
+ * Réapplique les exemptions (sélection/suivi) sur `base` : les ids non déjà présents dans
+ * `base` sont réinjectés depuis `pool`. Rend la MÊME référence `base` quand aucune exemption
+ * n'est nécessaire (cas courant), pour ne pas invalider l'index de regroupement en aval.
+ */
+function applyExemptions<T>(
+  base: MarkerData<T>[],
+  pool: MarkerData<T>[],
+  ids: Array<string | number | undefined>,
+  getId: (p: MarkerData<T>) => string | number,
+): MarkerData<T>[] {
+  const exempt = ids.filter((id) => id !== undefined && !base.some((p) => getId(p) === id))
+  if (exempt.length === 0) return base
+  return [...base, ...pool.filter((p) => exempt.includes(getId(p)))]
+}
+
+/**
  * Pipeline de visibilité d'une couche de markers : filtre « Couches » (tags), gate de
  * zoom des `static`, et exemptions (sélection/suivi) réappliquées en second sur chacun
  * des deux étages — cf. `MarkerLayer` pour le détail de chaque décision.
@@ -39,9 +55,7 @@ export function useVisibleMarkers<T>(
    * précisément quand un filtre est actif, c'est-à-dire quand la liste est grande.
    */
   const points = useMemo(() => {
-    const exempt = [selectedId, followId].filter((id) => id !== undefined && !visible.some((p) => getId(p) === id))
-    if (exempt.length === 0) return visible
-    return [...visible, ...allPoints.filter((p) => exempt.includes(getId(p)))]
+    return applyExemptions(visible, allPoints, [selectedId, followId], getId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, allPoints, selectedId, followId])
 
@@ -104,9 +118,7 @@ export function useVisibleMarkers<T>(
    */
   const rendered = useMemo(() => {
     if (gated === points) return gated
-    const exempt = [selectedId, followId].filter((id) => id !== undefined && !gated.some((p) => getId(p) === id))
-    if (exempt.length === 0) return gated
-    return [...gated, ...points.filter((p) => exempt.includes(getId(p)))]
+    return applyExemptions(gated, points, [selectedId, followId], getId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gated, points, selectedId, followId])
 

@@ -378,7 +378,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   // Câblage des registres (sélection marquee, inventaire loupe, recherche) —
   // cf. `useMarkerRegistries`. Le registre tags est à part (`useTagRegistry`, appelé
   // plus haut) pour garder sa position d'origine dans l'ordre des hooks.
-  useMarkerRegistries(
+  useMarkerRegistries({
     engine,
     coreRef,
     entriesRef,
@@ -386,10 +386,10 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     latest,
     searchSource,
     points,
-    props.typeLabel,
+    typeLabel: props.typeLabel,
     theme,
     normalizedTitle,
-  )
+  })
 
   // Sélection — réappliquée quand un nœud (ré)apparaît.
   useEffect(() => {

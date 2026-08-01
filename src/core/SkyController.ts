@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { SkyConfig } from '../config/types'
 import type { LatLng } from '../shared'
 import type { CameraState } from './Camera'
-import { clamp, easeInOutCubic } from './math'
+import { clamp, easeInOutCubic, TAU } from './math'
 import type { Projection } from './Projection'
 import { Sky } from './Sky'
 import { subsolarPoint } from './sun'
@@ -54,7 +54,7 @@ export class SkyController {
     const R = STAR_RADIUS
     for (let i = 0; i < count; i++) {
       const u = Math.random() * 2 - 1
-      const theta = Math.random() * Math.PI * 2
+      const theta = Math.random() * TAU
       const s = Math.sqrt(1 - u * u)
       pos[i * 3] = R * s * Math.cos(theta)
       pos[i * 3 + 1] = R * s * Math.sin(theta)

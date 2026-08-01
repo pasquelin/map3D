@@ -28,18 +28,29 @@ type MarkerRegistriesSnapshot<T> = {
  * hooks — `normalizedTitle` (mémo, consommateur unique de ce hook) le suit de même,
  * reçu ici en paramètre plutôt que recréé.
  */
-export function useMarkerRegistries<T>(
-  engine: MapEngine,
-  coreRef: RefObject<CoreMarkerLayer | null>,
-  entriesRef: RefObject<Map<string | number, MarkerData<T>>>,
-  pointsByIdRef: RefObject<Map<string | number, MarkerData<T>>>,
-  latest: RefObject<MarkerRegistriesSnapshot<T>>,
-  searchSource: string,
-  points: MarkerData<T>[],
-  typeLabel: ((type: string) => string) | undefined,
-  theme: MapTheme,
-  normalizedTitle: (m: MarkerData<T>) => string,
-): void {
+export function useMarkerRegistries<T>({
+  engine,
+  coreRef,
+  entriesRef,
+  pointsByIdRef,
+  latest,
+  searchSource,
+  points,
+  typeLabel,
+  theme,
+  normalizedTitle,
+}: {
+  engine: MapEngine
+  coreRef: RefObject<CoreMarkerLayer | null>
+  entriesRef: RefObject<Map<string | number, MarkerData<T>>>
+  pointsByIdRef: RefObject<Map<string | number, MarkerData<T>>>
+  latest: RefObject<MarkerRegistriesSnapshot<T>>
+  searchSource: string
+  points: MarkerData<T>[]
+  typeLabel: ((type: string) => string) | undefined
+  theme: MapTheme
+  normalizedTitle: (m: MarkerData<T>) => string
+}): void {
   // Provider du registre de sélection : expose au marquee les markers que cette
   // couche pose RÉELLEMENT — ceux qu'une pastille agrège n'en sont pas.
   useEffect(() => {

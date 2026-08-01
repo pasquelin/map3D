@@ -15,21 +15,35 @@ type ShortcutTable = Partial<Record<DrawTool | DrawAction, string | false>>
  * (le geste en cours est gelé, pas perdu), et raccourcis outils/édition (Entrée,
  * Échap, Ctrl+Z…). Extrait tel quel : mêmes handlers, mêmes bindings/cleanups.
  */
-export function useDrawKeyboard(
-  engine: MapEngine,
-  overlay: HTMLElement,
-  coreRef: RefObject<CoreDrawLayer | null>,
-  toolRef: RefObject<DrawTool | null>,
-  selectionRef: RefObject<readonly string[]>,
-  pedestrianRef: RefObject<PedestrianApi>,
-  lensRef: RefObject<LensApi | null>,
-  releaseSpaceRef: RefObject<() => void>,
-  setTool: (t: DrawTool | null) => void,
-  setSelectMode: (m: SelectMode) => void,
-  shortcuts: ShortcutTable | undefined,
-  drawKeys: DrawToolShortcuts,
-  editKeys: EditShortcuts,
-): void {
+export function useDrawKeyboard({
+  engine,
+  overlay,
+  coreRef,
+  toolRef,
+  selectionRef,
+  pedestrianRef,
+  lensRef,
+  releaseSpaceRef,
+  setTool,
+  setSelectMode,
+  shortcuts,
+  drawKeys,
+  editKeys,
+}: {
+  engine: MapEngine
+  overlay: HTMLElement
+  coreRef: RefObject<CoreDrawLayer | null>
+  toolRef: RefObject<DrawTool | null>
+  selectionRef: RefObject<readonly string[]>
+  pedestrianRef: RefObject<PedestrianApi>
+  lensRef: RefObject<LensApi | null>
+  releaseSpaceRef: RefObject<() => void>
+  setTool: (t: DrawTool | null) => void
+  setSelectMode: (m: SelectMode) => void
+  shortcuts: ShortcutTable | undefined
+  drawKeys: DrawToolShortcuts
+  editKeys: EditShortcuts
+}): void {
   // Barre espace = pan caméra temporaire (le dessin/geste en cours est gelé, pas
   // perdu) ; Espace+Maj = rotation caméra. Relâcher = reprise exacte de l'outil.
   const spaceRef = useRef<{ prevMode: ReturnType<MapEngine['getDragMode']> } | null>(null)

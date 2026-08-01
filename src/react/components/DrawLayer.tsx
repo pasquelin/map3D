@@ -395,7 +395,7 @@ export function DrawLayer(props: DrawLayerProps) {
 
   // Gestion clavier (barre-espace pan/rotation temporaire + raccourcis outils/édition)
   // — cf. `useDrawKeyboard`.
-  useDrawKeyboard(
+  useDrawKeyboard({
     engine,
     overlay,
     coreRef,
@@ -406,10 +406,10 @@ export function DrawLayer(props: DrawLayerProps) {
     releaseSpaceRef,
     setTool,
     setSelectMode,
-    props.shortcuts,
+    shortcuts: props.shortcuts,
     drawKeys,
     editKeys,
-  )
+  })
 
   // Hors du memo `api` (qui recompute à chaque `rev`, jusqu'à 1×/frame pendant
   // un restyle) : kind par id ne change qu'avec la sélection elle-même.
