@@ -255,15 +255,23 @@ export class Projection {
     return out.transformDirection(this.group.matrixWorld).normalize()
   }
 
-  /** Position monde → lat/lng. */
+  /**
+   * Position monde → lat/lng.
+   *
+   * L'objet cartographique intermédiaire réutilise `cartoScratch` (comme `heightAtWorld`) :
+   * lu immédiatement ci-dessous, jamais retenu. Le `{lat, lng}` RETOURNÉ, lui, reste alloué
+   * — `buildingHitOf` (`MapEngine`) l'appelle en `.map()` sur plusieurs points et garde
+   * chaque résultat dans un tableau ; un scratch partagé y aliaserait toutes les entrées sur
+   * la dernière valeur calculée.
+   */
   worldToLatLng(v: THREE.Vector3): LatLng {
     if (!this.ellipsoid || !this.group) return { lat: 0, lng: 0 }
     this.scratchLocal.copy(v).applyMatrix4(this.groupInverse())
-    const c = this.ellipsoid.getPositionToCartographic(this.scratchLocal, {
-      lat: 0,
-      lon: 0,
-      height: 0,
-    }) as { lat: number; lon: number; height: number }
+    const c = this.ellipsoid.getPositionToCartographic(this.scratchLocal, this.cartoScratch) as {
+      lat: number
+      lon: number
+      height: number
+    }
     return { lat: c.lat * RAD2DEG, lng: c.lon * RAD2DEG }
   }
 
