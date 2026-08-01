@@ -2744,7 +2744,7 @@ export class MapEngine {
     if (!this.viewDirty && this.cachedView) return this.cachedView
     const view: MapView = {
       center: { lat: state.lat, lng: state.lng },
-      zoom: zoomForAltitude(this.scaleDistance(state)),
+      zoom: zoomForAltitude(this.scaleDistanceMemo(state)),
       bounds: this.computeBounds(state),
     }
     this.cachedView = view
@@ -2781,6 +2781,22 @@ export class MapEngine {
   private readonly scaleScratch = new THREE.Vector3()
 
   /**
+   * `scaleDistance` mémoïsée sur la frame, sous EXACTEMENT la même fraîcheur que
+   * `cachedView` (`viewDirty`) : `computeView` (via son `zoom`) ET `steadyBounds` en
+   * dépendent dans le même `tick`, ce qui lançait deux raycasts d'ellipsoïde identiques.
+   * `cachedView.zoom` dérive déjà de `scaleDistance(state)` sous cette même condition —
+   * ce cache ne fait que nommer une fraîcheur déjà tenue pour valide, pas en inventer une.
+   */
+  private cachedScaleDistance: number | null = null
+
+  private scaleDistanceMemo(state: CameraState): number {
+    if (!this.viewDirty && this.cachedScaleDistance !== null) return this.cachedScaleDistance
+    const d = this.scaleDistance(state)
+    this.cachedScaleDistance = d
+    return d
+  }
+
+  /**
    * Emprise du volume : un DISQUE centré sous la caméra, jamais la bbox du trapèze de vue.
    *
    * ⚠️ Deux défauts en un. (1) La bbox axis-aligned du trapèze dépend du CAP : elle croît d'un
@@ -2798,7 +2814,7 @@ export class MapEngine {
    * Analytique : aucun rayon lancé, contrairement à `computeBounds`.
    */
   private steadyBounds(state: CameraState, maxRadius = Infinity): Bounds {
-    const radius = Math.min(2 * this.scaleDistance(state), maxRadius)
+    const radius = Math.min(2 * this.scaleDistanceMemo(state), maxRadius)
     return boundsOfCircle({ lat: state.lat, lng: state.lng }, radius)
   }
 
