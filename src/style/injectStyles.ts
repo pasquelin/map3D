@@ -21,6 +21,7 @@ import { CSS_MARKER_LIST } from './css/markerList'
 import { CSS_SYMBOLS } from './css/symbols'
 import { CSS_TOGGLES } from './css/toggles'
 import { CSS_MOTION } from './css/motion'
+import { CSS_WATERMARK } from './css/watermark'
 
 const STYLE_ID = 'm3d-styles'
 
@@ -83,4 +84,5 @@ const CSS =
   CSS_MARKER_LIST +
   CSS_SYMBOLS +
   CSS_TOGGLES +
-  CSS_MOTION
+  CSS_MOTION +
+  CSS_WATERMARK

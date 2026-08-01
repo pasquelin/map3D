@@ -6,6 +6,22 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Signature « map3D » (attribution)
+
+Une signature **« map3D »** est désormais apposée en **bas à droite** de la carte, liée au
+dépôt et à sa licence. Elle est **peinte dans le canvas WebGL** (après le rendu de la carte,
+dans `MapEngine.tick`) : insensible au CSS et au DOM de l'hôte, elle ne se masque pas par
+`display:none` ni par retrait d'un nœud. Un doublon DOM transparent (`WatermarkLink`) pose
+par-dessus la seule **zone de clic** vers le dépôt — le masquer n'ôte que le clic, jamais les
+pixels. Conforme à la mention requise par la licence **PolyForm-Noncommercial**.
+
+- Aucune API publique ajoutée : la signature est **montée automatiquement par `<Map>`**,
+  toujours affichée, non configurable par l'hôte (texte/URL/style hors `config`/`theme`/`labels`
+  à dessein — un réglage surchargeable serait un vecteur de suppression de l'attribution).
+- Une désactivation pour clients sous licence commerciale viendra plus tard, via un mécanisme
+  **signé** distinct (pas un simple booléen).
+- Coût par frame : un seul quad texturé (`depthTest:false`), zéro allocation.
+
 ### Publication npm
 
 - Le paquet est renommé **`@pasquelin/map3d`** (l'unscoped `map3d` est déjà pris sur npm).

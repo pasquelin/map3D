@@ -33,6 +33,7 @@ import {
 import { DrawLayer } from './components/DrawLayer'
 import type { MenuItem } from './components/ContextMenu'
 import { CameraReadout } from './components/CameraReadout'
+import { WatermarkLink } from './components/WatermarkLink'
 import { GraticuleLayer } from './components/GraticuleLayer'
 import { LensLayer, type LensOptions } from './components/LensLayer'
 import { MapControls } from './components/MapControls'
@@ -321,6 +322,10 @@ export function MapSurfaces<T, TPin>({
           auquel cas la dernière montée passe devant (même plan d'empilement). */}
       {readout ? <CameraReadout {...(readout === true ? {} : readout)} /> : null}
       {dock && <PinnedDock<TPin> {...dock} />}
+      {/* Signature « map3D » : zone de clic vers le dépôt/la licence, posée SANS condition
+          sur la marque peinte dans le canvas (cf. `Watermark`). Le mark visible ne dépend
+          pas de ce nœud — le retirer n'enlève que le clic, pas les pixels. */}
+      <WatermarkLink />
     </>
   )
 }

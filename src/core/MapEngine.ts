@@ -56,6 +56,7 @@ import {
 } from './math'
 import { viewScaleDistance } from './viewScale'
 import { SkyController } from './SkyController'
+import { Watermark } from './Watermark'
 import { IntroFlight } from './IntroFlight'
 import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
@@ -501,6 +502,8 @@ export class MapEngine {
 
   /** Sous-système ciel (fond étoilé + dome atmosphérique) — détient son propre état. */
   private readonly sky: SkyController
+  /** Signature « map3D » peinte dans le canvas — attribution non supprimable en CSS/DOM. */
+  private readonly watermark = new Watermark()
   private drawingMode = false
   /** Barre espace maintenue : gel pan/rotation levé le temps du pan caméra. */
   private drawingSuspended = false
@@ -971,6 +974,7 @@ export class MapEngine {
     this.labelCamera.updateProjectionMatrix()
     this.projection.setViewportSize(w, h)
     this.labelRenderer.setSize(w, h)
+    this.watermark.setSize(w, h)
     this.invalidate()
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     // La taille du viewport change les bounds : invalide la vue mémoïsée.
@@ -2711,6 +2715,9 @@ export class MapEngine {
     // (même séquence qu'avant, sortie tôt et gratuite en vue globe).
     this.sky.update(this.config.sky, state)
     this.renderer.render(this.scene, this.threeCamera)
+    // Signature « map3D » : peinte APRÈS la carte, dans les mêmes pixels (insensible au
+    // CSS/DOM de l'hôte). Coupe puis restaure `autoClear` en interne.
+    this.watermark.render(this.renderer)
     /**
      * Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls garde
      * une plage serrée pour la précision de profondeur du rendu WebGL — mais le
@@ -3275,6 +3282,7 @@ export class MapEngine {
     this.tiles.dispose()
     this.renderer.dispose()
     this.sky.dispose()
+    this.watermark.dispose()
     this.enrichment.dispose()
     this.plugins.dispose()
     this.templates.dispose()
