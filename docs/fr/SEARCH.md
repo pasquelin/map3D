@@ -112,7 +112,7 @@ ville étant le geste de cadrage le plus courant.
 ### Géocodeur
 
 ```tsx
-import { createGooglePlacesSearch } from 'map3d'
+import { createGooglePlacesSearch } from '@pasquelin/map3d'
 
 <Map search={{ search: createGooglePlacesSearch({ apiKey, language: 'fr', region: 'fr', limit: 5 }) }} />
 ```

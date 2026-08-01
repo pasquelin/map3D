@@ -497,7 +497,7 @@ A ready-to-paste starting point. Only the visible strings are translated; templa
 their `{variables}`.
 
 ```tsx
-import { imperialMeasure } from 'map3d'
+import { imperialMeasure } from '@pasquelin/map3d'
 
 <MapProvider
   labels={{

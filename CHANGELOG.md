@@ -6,6 +6,14 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Publication npm
+
+- Le paquet est renommé **`@pasquelin/map3d`** (l'unscoped `map3d` est déjà pris sur npm).
+  Import : `import { … } from '@pasquelin/map3d'`.
+- Publication **automatisée** : un tag `vX.Y.Z` (via `npm version`) déclenche le workflow
+  `.github/workflows/release.yml` (valide, build, `npm publish --provenance`). Requiert le
+  secret repo `NPM_TOKEN`.
+
 ### Grille de coordonnées (graticule)
 
 Parallèles et méridiens drapés sur le globe, à **maille adaptative** sur l'échelle

@@ -1,4 +1,4 @@
-import { type MapTheme, type MarkerColor, type PartialTheme, defaultTheme, mergeTheme } from 'map3d'
+import { type MapTheme, type MarkerColor, type PartialTheme, defaultTheme, mergeTheme } from '@pasquelin/map3d'
 
 import { TAG_COLORS, TYPE_COLORS, ZONE_STROKE } from './colors'
 

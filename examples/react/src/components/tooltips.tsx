@@ -1,4 +1,4 @@
-import type { ClusterInfo, MarkerData } from 'map3d'
+import type { ClusterInfo, MarkerData } from '@pasquelin/map3d'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { typeColor } from '../config/colors'

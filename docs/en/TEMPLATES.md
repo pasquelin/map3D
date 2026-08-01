@@ -15,7 +15,7 @@ The manager lives **in the controls bar, under “Layers”** (same structure). 
 ## 1. In two minutes
 
 ```tsx
-import { Map } from 'map3d'
+import { Map } from '@pasquelin/map3d'
 
 <Map draw templates />
 ```
@@ -99,7 +99,7 @@ With a provider, **the API is authoritative**: its list is loaded on mount and
 overwrites the view; mutations (save, rename, delete) go through it.
 
 ```tsx
-import { Map, createHttpTemplateProvider } from 'map3d'
+import { Map, createHttpTemplateProvider } from '@pasquelin/map3d'
 
 const provider = createHttpTemplateProvider() // reads config.providers.templates
 
@@ -242,7 +242,7 @@ without failing the others:
 here” button, a default view on mount:
 
 ```ts
-import { captureView, applyView } from 'map3d'
+import { captureView, applyView } from '@pasquelin/map3d'
 
 const view = captureView(engine)                    // store it wherever you like
 applyView(engine, view, { duration: 1.2 })          // 0 or omitted = instant

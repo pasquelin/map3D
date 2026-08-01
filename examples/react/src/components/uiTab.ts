@@ -1,4 +1,4 @@
-import { defaultLabels } from 'map3d'
+import { defaultLabels } from '@pasquelin/map3d'
 import type { FolderApi, TabPageApi } from 'tweakpane'
 
 import { assignDraft, cloneDraft } from '../config/draft'

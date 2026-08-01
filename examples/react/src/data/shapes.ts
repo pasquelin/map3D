@@ -1,4 +1,4 @@
-import { type LatLng, MapMath, type ShapeData } from 'map3d'
+import { type LatLng, MapMath, type ShapeData } from '@pasquelin/map3d'
 
 import { BUILDING_COLOR, VOLUME_COLORS, ZONE_STROKE } from '../config/colors'
 import { CITY_LIST } from './cities'

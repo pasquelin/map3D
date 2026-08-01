@@ -96,7 +96,7 @@ dock, du point au sol, qui pilote le repositionnement (cf.
 ## 3. La symbologie MIL-STD-2525D fournie
 
 ```tsx
-import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+import { MILSYM_CATALOG, createMilSymRenderer } from '@pasquelin/map3d'
 
 const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
 

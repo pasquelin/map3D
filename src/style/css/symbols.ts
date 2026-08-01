@@ -20,14 +20,24 @@ export const CSS_SYMBOLS = `
 .m3d-symgroup-title{display:flex;align-items:center;gap:6px;margin:0 0 4px;padding:0 2px;
   font-size:var(--m3d-size-xs);font-weight:var(--m3d-weight-semibold);text-transform:uppercase;letter-spacing:.04em;
   color:var(--m3d-muted)}
-.m3d-symgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:3px}
-.m3d-symitem{display:grid;place-items:center;border:1px solid transparent;border-radius:9px;
+/* Vignettes plus larges qu'avant : chacune loge désormais un libellé sous le glyphe,
+   un pictogramme MIL-STD seul ne disant pas de quoi il s'agit. */
+.m3d-symgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:3px}
+/* Colonne glyphe + libellé. Le libellé a une hauteur constante (deux lignes), ce qui
+   garde les glyphes d'une même rangée alignés même si un nom tient sur une seule ligne. */
+.m3d-symitem{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;
+  padding:5px 3px 4px;border:1px solid transparent;border-radius:9px;
   cursor:grab;transition:background .14s,border-color .14s,transform .1s}
 .m3d-symitem:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent);
   border-color:var(--m3d-border)}
 .m3d-symitem:active{transform:scale(.94)}
 .m3d-symitem.m3d-disabled{cursor:default;opacity:.4}
 .m3d-symitem.m3d-disabled:hover{background:none;border-color:transparent}
+/* Libellé tronqué à deux lignes : hauteur constante pour que toutes les cases d'une
+   rangée s'alignent, le texte entier restant dans l'infobulle (title) au survol. */
+.m3d-symlabel{width:100%;font-size:var(--m3d-size-xs);line-height:1.15;height:2.3em;
+  color:var(--m3d-muted);text-align:center;overflow:hidden;text-overflow:ellipsis;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
 .m3d-symglyph{display:grid;place-items:center}
 .m3d-symglyph > svg{width:100%;height:100%;display:block;overflow:visible}
 .m3d-symskeleton{display:block;border-radius:var(--m3d-radius-sm);

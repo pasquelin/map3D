@@ -1,4 +1,4 @@
-import type { LatLng, MarkerData } from 'map3d'
+import type { LatLng, MarkerData } from '@pasquelin/map3d'
 
 import type { CityId } from './cities'
 import { seedToMarker } from './toMarkers'

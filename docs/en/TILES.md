@@ -172,7 +172,7 @@ A host building its own toolbar reads the same flags, or calls the pure function
 settles them:
 
 ```ts
-import { canEnterMode } from 'map3d'
+import { canEnterMode } from '@pasquelin/map3d'
 
 const basemap = engine.getBasemap()
 if (canEnterMode(basemap, '3d')) {
@@ -327,7 +327,7 @@ prepare whatever that URL needs. Both shipped sources implement it, and nothing 
 writing a third one (corporate proxy, local cache, custom signing).
 
 ```ts
-import { createTileSource, type TileSource } from 'map3d'
+import { createTileSource, type TileSource } from '@pasquelin/map3d'
 
 export type TileSource = {
   tileUrl(z: number, x: number, y: number): string

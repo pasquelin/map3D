@@ -1,4 +1,4 @@
-import type { LatLng, MarkerData, ShapeData } from 'map3d'
+import type { LatLng, MarkerData, ShapeData } from '@pasquelin/map3d'
 import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { typeColor } from '../config/colors'

@@ -1,4 +1,4 @@
-import { MapMath, statsOf, type Template, type TemplateProvider, type TemplateView } from 'map3d'
+import { MapMath, statsOf, type Template, type TemplateProvider, type TemplateView } from '@pasquelin/map3d'
 
 /* ══════════════════ PROVIDER DE TEMPLATES — DÉMO IN-MEMORY ══════════════════
    Simule un backend REST sans serveur : la liste distante prime sur le localStorage,

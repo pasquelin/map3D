@@ -245,7 +245,7 @@ Each value turns green, amber or red according to [`performance.statThresholds`]
 
 ```tsx
 // In your own surface rather than in the menu:
-import { StatsPanel } from 'map3d'
+import { StatsPanel } from '@pasquelin/map3d'
 ;<StatsPanel sections={['render', 'tiles']} refreshMs={250} />
 ```
 

@@ -11,7 +11,7 @@
 - **Imperative engine driven by React**, not a component tree that owns state. `MapEngine`
   (three.js, camera, tiles, layer list) is the single source of truth; usable standalone,
   outside React. The React layer mounts it declaratively.
-- **Single public entry point**: `import { … } from 'map3d'`. Everything is re-exported from
+- **Single public entry point**: `import { … } from '@pasquelin/map3d'`. Everything is re-exported from
   `src/index.ts`. `VERSION` exposes the current version.
 - **`<Map>` mounts every surface and layer internally** (bar, controls, cluster, catalog,
   pedestrian HUD, coordinate grid…), driven by `config`/`theme`/`labels`/props. Its `children`
@@ -22,7 +22,7 @@
   text), `config` (`MapConfig` — API keys, quotas, gestures, budgets, support). A component's
   props **override** these trees for a single instance.
 - **Peer deps**: `react`/`react-dom` **19**, `three` **≥ 0.160**. Install:
-  `npm i map3d three react react-dom`.
+  `npm i @pasquelin/map3d three react react-dom`.
 - **Per-frame read/write separation**: layers run `update()` (advance the 3D — read pass) then
   `project()` (write DOM overlays in a single pass) — aim for zero allocation in the frame loop.
 - **Photorealistic 3D**: Google Photorealistic 3D Tiles via **Cesium Ion** (a single token,
@@ -37,7 +37,7 @@
 ## Quick start
 
 ```tsx
-import { MapProvider, Map, markersLayer, imperialMeasure, type MarkerData } from 'map3d'
+import { MapProvider, Map, markersLayer, imperialMeasure, type MarkerData } from '@pasquelin/map3d'
 
 type Agent = { status: string }
 
@@ -239,7 +239,7 @@ for one instance: passing nothing follows the map.
 ## Install
 
 ```bash
-npm i map3d three react react-dom
+npm i @pasquelin/map3d three react react-dom
 ```
 
 `three` and `react`/`react-dom` (19) are **peer dependencies**.
@@ -254,7 +254,7 @@ not display symbols (see [Symbols](#symbols-a-drag-and-drop-icon-catalogue)).
 import {
   MapProvider, Map, MarkerLayer, MapControls,
   defaultTheme, type MarkerData,
-} from 'map3d'
+} from '@pasquelin/map3d'
 
 type Alert = { title: string }
 
@@ -283,7 +283,7 @@ export function App() {
 ## Dynamic data (bbox + real time)
 
 ```tsx
-import type { DataSource, MarkerData } from 'map3d'
+import type { DataSource, MarkerData } from '@pasquelin/map3d'
 
 // Refetched on move (zoom gate + debounce + cancellation built in).
 const source: DataSource<MarkerData<Alert>> = {
@@ -369,7 +369,7 @@ distances and durations from a routing provider. A “Distance around” section
 applicable to the source are listed directly, each opening its selection presets.
 
 ```tsx
-import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from 'map3d'
+import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from '@pasquelin/map3d'
 
 // The ONLY place the domain lives: the engine only knows tags.
 const RULES: RelationRule[] = [
@@ -737,7 +737,7 @@ A ready-to-use catalogue and renderer ship with the library, backed by the offic
 `@armyc2.c5isr.renderer` SDK:
 
 ```tsx
-import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+import { MILSYM_CATALOG, createMilSymRenderer } from '@pasquelin/map3d'
 
 const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
 
@@ -1284,7 +1284,7 @@ selection, repositioning, zoom-gated scenery, and the surfaces that consume mark
 ## 1. In two minutes
 
 ```tsx
-import { Map, markersLayer, type MarkerData } from 'map3d'
+import { Map, markersLayer, type MarkerData } from '@pasquelin/map3d'
 
 type Agent = { status: string }
 
@@ -1998,7 +1998,7 @@ two, and paths (`<PathLayer>`), its open-ended cousin.
 ## 1. In two minutes
 
 ```tsx
-import { Map, shapesLayer, type ShapeData } from 'map3d'
+import { Map, shapesLayer, type ShapeData } from '@pasquelin/map3d'
 
 const zones: ShapeData[] = [
   { kind: 'circle',  id: 'z1', title: 'Perimeter A', center: PARIS, radiusMeters: 800 },
@@ -2392,7 +2392,7 @@ framing. A type with 36,699 entries costs the same code as one with 5.
 ## 1. In two minutes
 
 ```tsx
-import { Map, type CatalogSource } from 'map3d'
+import { Map, type CatalogSource } from '@pasquelin/map3d'
 import { mdiCityVariantOutline } from '@mdi/js'
 
 const towns: CatalogSource = {
@@ -3303,7 +3303,7 @@ dock, from the ground point, which drives repositioning (see
 ## 3. The bundled MIL-STD-2525D symbology
 
 ```tsx
-import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+import { MILSYM_CATALOG, createMilSymRenderer } from '@pasquelin/map3d'
 
 const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
 
@@ -3488,7 +3488,7 @@ The manager lives **in the controls bar, under “Layers”** (same structure). 
 ## 1. In two minutes
 
 ```tsx
-import { Map } from 'map3d'
+import { Map } from '@pasquelin/map3d'
 
 <Map draw templates />
 ```
@@ -3572,7 +3572,7 @@ With a provider, **the API is authoritative**: its list is loaded on mount and
 overwrites the view; mutations (save, rename, delete) go through it.
 
 ```tsx
-import { Map, createHttpTemplateProvider } from 'map3d'
+import { Map, createHttpTemplateProvider } from '@pasquelin/map3d'
 
 const provider = createHttpTemplateProvider() // reads config.providers.templates
 
@@ -3715,7 +3715,7 @@ without failing the others:
 here” button, a default view on mount:
 
 ```ts
-import { captureView, applyView } from 'map3d'
+import { captureView, applyView } from '@pasquelin/map3d'
 
 const view = captureView(engine)                    // store it wherever you like
 applyView(engine, view, { duration: 1.2 })          // 0 or omitted = instant
@@ -3748,7 +3748,7 @@ opening its selection presets.
 ## 1. In two minutes
 
 ```tsx
-import { createGoogleRoutesProvider, type RelationRule } from 'map3d'
+import { createGoogleRoutesProvider, type RelationRule } from '@pasquelin/map3d'
 
 // The ONLY place the domain lives: the engine only knows tags.
 const RULES: RelationRule[] = [
@@ -4330,7 +4330,7 @@ for a city is the most common framing gesture.
 ### Geocoder
 
 ```tsx
-import { createGooglePlacesSearch } from 'map3d'
+import { createGooglePlacesSearch } from '@pasquelin/map3d'
 
 <Map search={{ search: createGooglePlacesSearch({ apiKey, language: 'en', region: 'gb', limit: 5 }) }} />
 ```
@@ -4708,7 +4708,7 @@ Each value turns green, amber or red according to [`performance.statThresholds`]
 
 ```tsx
 // In your own surface rather than in the menu:
-import { StatsPanel } from 'map3d'
+import { StatsPanel } from '@pasquelin/map3d'
 ;<StatsPanel sections={['render', 'tiles']} refreshMs={250} />
 ```
 
@@ -5097,7 +5097,7 @@ it, the initial heading picks up the current line of sight projected onto the gr
 so as not to disorient the user at the moment of the dive.
 
 ```ts
-import { captureView, applyView } from 'map3d'
+import { captureView, applyView } from '@pasquelin/map3d'
 
 const view = captureView(engine)          // camera pose + basemap + tags + pedestrian view, if active
 applyView(engine, view, { duration: 1.2 }) // 0 or omitted = instant; always instant if `view.pedestrian`
@@ -5450,7 +5450,7 @@ A host building its own toolbar reads the same flags, or calls the pure function
 settles them:
 
 ```ts
-import { canEnterMode } from 'map3d'
+import { canEnterMode } from '@pasquelin/map3d'
 
 const basemap = engine.getBasemap()
 if (canEnterMode(basemap, '3d')) {
@@ -5605,7 +5605,7 @@ prepare whatever that URL needs. Both shipped sources implement it, and nothing 
 writing a third one (corporate proxy, local cache, custom signing).
 
 ```ts
-import { createTileSource, type TileSource } from 'map3d'
+import { createTileSource, type TileSource } from '@pasquelin/map3d'
 
 export type TileSource = {
   tileUrl(z: number, x: number, y: number): string
@@ -5710,7 +5710,7 @@ like `markerMenu`: information rows (`disabled: true` makes them inert), actions
 separators, submenus.
 
 ```tsx
-import type { BuildingInfo, MenuItem } from 'map3d'
+import type { BuildingInfo, MenuItem } from '@pasquelin/map3d'
 
 function buildingMenu(info: BuildingInfo): MenuItem[] {
   const coord = `${info.lat.toFixed(5)}, ${info.lng.toFixed(5)}`
@@ -7212,7 +7212,7 @@ The entry point is `definePlugin`, which infers `C` (the config type) from the
 schema, so `ctx.config` is typed without any annotation:
 
 ```ts
-import { definePlugin } from 'map3d'
+import { definePlugin } from '@pasquelin/map3d'
 
 export const myPlugin = () =>
   definePlugin({
@@ -7388,7 +7388,7 @@ map3D **orchestrates** everything:
 - The host reads the merged result via `useBuildingEnrichment()`:
 
 ```tsx
-import { useBuildingEnrichment } from 'map3d'
+import { useBuildingEnrichment } from '@pasquelin/map3d'
 
 function BuildingSheet() {
   const { loading, data, tags, error, byPlugin } = useBuildingEnrichment()
@@ -7452,7 +7452,7 @@ none is; the counterpart of the catalog settings' “Tout retirer”.
 On the host side, `usePlugins()` gives the same programmatic access:
 
 ```tsx
-import { usePlugins } from 'map3d'
+import { usePlugins } from '@pasquelin/map3d'
 
 const { plugins, byId } = usePlugins()
 const p = byId('my-plugin')
@@ -7576,8 +7576,8 @@ official plugins (`@map3d/plugin-geopf`, `@map3d/plugin-windy`,
 
 ```ts
 import { mdiMapMarkerStar } from '@mdi/js'
-import { definePlugin } from 'map3d'
-import type { MarkerData } from 'map3d'
+import { definePlugin } from '@pasquelin/map3d'
+import type { MarkerData } from '@pasquelin/map3d'
 
 export const demoPlugin = () =>
   definePlugin({
@@ -7793,7 +7793,7 @@ import {
   defaultPreferences,
   type Preferences, type QualityLevel, type QualityChoice,
   type KeyboardLayout, type MoveSpeed, type BindableAction,
-} from 'map3d'
+} from '@pasquelin/map3d'
 ```
 
 - **Storage key**: `config.data.storageKeys.preferences` (default `m3d:preferences`) — set
@@ -9036,7 +9036,7 @@ A ready-to-paste starting point. Only the visible strings are translated; templa
 their `{variables}`.
 
 ```tsx
-import { imperialMeasure } from 'map3d'
+import { imperialMeasure } from '@pasquelin/map3d'
 
 <MapProvider
   labels={{

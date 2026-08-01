@@ -1,6 +1,6 @@
 import { mdiPinOffOutline, mdiPinOutline } from '@mdi/js'
 import Icon from '@mdi/react'
-import type { MarkerData, MenuItem } from 'map3d'
+import type { MarkerData, MenuItem } from '@pasquelin/map3d'
 
 import { type Agent, type Alert, type AnyData, isAgentMarker } from '../data/types'
 

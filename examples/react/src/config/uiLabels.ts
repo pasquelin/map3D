@@ -1,5 +1,5 @@
-import type { ControlGroup, DrawToolbarSection, MapControlButton, SelectMode } from 'map3d'
-import { defaultLabels } from 'map3d'
+import type { ControlGroup, DrawToolbarSection, MapControlButton, SelectMode } from '@pasquelin/map3d'
+import { defaultLabels } from '@pasquelin/map3d'
 
 /* ══════════════════ LIBELLÉS DES SURFACES D'INTERFACE ══════════════════
    Le pendant de `configLabels` pour ce qui n'est pas dans `MapConfig` : les boutons, les

@@ -17,8 +17,8 @@ import {
   mdiShapePolygonPlus,
   mdiViewGridOutline,
 } from '@mdi/js'
-import { createTitleCache, normalizeSearch } from 'map3d'
-import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from 'map3d'
+import { createTitleCache, normalizeSearch } from '@pasquelin/map3d'
+import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from '@pasquelin/map3d'
 
 /** Générateur congruentiel — semé, donc reproductible d'une exécution à l'autre. */
 const rng = (seed: number) => {

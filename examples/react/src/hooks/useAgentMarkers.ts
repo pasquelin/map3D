@@ -1,4 +1,4 @@
-import { type MarkerData } from 'map3d'
+import { type MarkerData } from '@pasquelin/map3d'
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 
 import { typeColor } from '../config/colors'

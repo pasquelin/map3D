@@ -1,4 +1,4 @@
-import type { ControlGroup, DrawTool, DrawToolbarSection, MapControlButton, ReadoutCorner, SelectMode } from 'map3d'
+import type { ControlGroup, DrawTool, DrawToolbarSection, MapControlButton, ReadoutCorner, SelectMode } from '@pasquelin/map3d'
 
 /* ══════════════════ SURFACES D'INTERFACE, PILOTABLES ══════════════════
    `<Map>` monte son interface à partir de ses props : `toolbar`, `controls`, `search`,

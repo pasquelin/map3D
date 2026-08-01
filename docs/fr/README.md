@@ -100,7 +100,7 @@ carte.
 ## Installation
 
 ```bash
-npm i map3d three react react-dom
+npm i @pasquelin/map3d three react react-dom
 ```
 
 `three` et `react`/`react-dom` (19) sont des **peer dependencies**.
@@ -113,7 +113,7 @@ Le SDK de symbologie MIL-STD (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 Mo) es
 import {
   MapProvider, Map, MarkerLayer, MapControls,
   defaultTheme, type MarkerData,
-} from 'map3d'
+} from '@pasquelin/map3d'
 
 type Alert = { title: string }
 
@@ -142,7 +142,7 @@ export function App() {
 ## Données dynamiques (bbox + temps réel)
 
 ```tsx
-import type { DataSource, MarkerData } from 'map3d'
+import type { DataSource, MarkerData } from '@pasquelin/map3d'
 
 // Rechargé au déplacement (gate de zoom + debounce + annulation intégrés).
 const source: DataSource<MarkerData<Alert>> = {
@@ -203,7 +203,7 @@ Ce réglage ne réduit **pas** le nombre d'objets montés (le tri z du `CSS2DRen
 `<RelationLayer>` relie un marker à ses voisins **par tags**, avec les distances et durées **routières réelles** d'un fournisseur de routage. Une section « Distance autour » se **greffe** sur le menu contextuel du marker : elle ne le remplace pas. Les familles de tags applicables à la source y sont listées directement, chacune ouvrant ses presets de sélection.
 
 ```tsx
-import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from 'map3d'
+import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from '@pasquelin/map3d'
 
 // Le SEUL endroit où vit le métier : le moteur ne connaît que des tags.
 const RULES: RelationRule[] = [
@@ -422,7 +422,7 @@ Détails d'usage : la prise est **immédiate** sur une vignette (`longPressMs: 0
 Un catalogue et un renderer prêts à l'emploi sont livrés, adossés au SDK officiel `@armyc2.c5isr.renderer` :
 
 ```tsx
-import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+import { MILSYM_CATALOG, createMilSymRenderer } from '@pasquelin/map3d'
 
 const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
 

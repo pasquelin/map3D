@@ -96,7 +96,7 @@ dock, from the ground point, which drives repositioning (see
 ## 3. The bundled MIL-STD-2525D symbology
 
 ```tsx
-import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+import { MILSYM_CATALOG, createMilSymRenderer } from '@pasquelin/map3d'
 
 const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
 

@@ -75,7 +75,7 @@ like `markerMenu`: information rows (`disabled: true` makes them inert), actions
 separators, submenus.
 
 ```tsx
-import type { BuildingInfo, MenuItem } from 'map3d'
+import type { BuildingInfo, MenuItem } from '@pasquelin/map3d'
 
 function buildingMenu(info: BuildingInfo): MenuItem[] {
   const coord = `${info.lat.toFixed(5)}, ${info.lng.toFixed(5)}`

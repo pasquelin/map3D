@@ -248,7 +248,7 @@ Chaque valeur se colore en vert, jaune ou rouge selon [`performance.statThreshol
 
 ```tsx
 // Dans sa propre surface, plutôt que dans le menu :
-import { StatsPanel } from 'map3d'
+import { StatsPanel } from '@pasquelin/map3d'
 ;<StatsPanel sections={['render', 'tiles']} refreshMs={250} />
 ```
 

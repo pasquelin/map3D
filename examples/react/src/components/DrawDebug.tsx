@@ -1,4 +1,4 @@
-import { type DrawnShape, useDrawSettings, useDrawing } from 'map3d'
+import { type DrawnShape, useDrawSettings, useDrawing } from '@pasquelin/map3d'
 import { useEffect } from 'react'
 
 /**

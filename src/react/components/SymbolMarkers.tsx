@@ -4,6 +4,7 @@ import type { ShapeSymbol } from '../../layers/DrawLayer'
 import type { LatLng } from '../../shared'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 import { useConfig, useLabels } from '../context'
+import type { MenuItem } from './ContextMenu'
 import { MarkerLayer, type MarkerLayerProps, svgToDataUri } from './MarkerLayer'
 
 /** Symbole posé, tel que le fournit la couche de dessin. */
@@ -62,6 +63,21 @@ export type SymbolMarkersProps = {
   minZoom?: number
   /** Nouvelle position après déplacement du marker. */
   onMove: (id: string, at: LatLng) => void
+  /**
+   * Menu contextuel au clic — **parité stricte avec les markers** : un symbole posé
+   * s'ouvre au clic comme n'importe quel marker (cf. `MarkerLayer.menu`). Construit par
+   * `<DrawLayer>` avec « Supprimer » (la lib possède la forme) suivi du `markerMenu` de
+   * l'hôte lié aux relations, exactement comme un marker de données.
+   */
+  menu?: (m: MarkerData<PlacedSymbolShape>) => MenuItem[]
+  /**
+   * Outil **gomme** actif : un clic sur un symbole le supprime (via `onErase`) au lieu
+   * d'ouvrir le menu, et le déplacement est neutralisé — un symbole s'efface alors
+   * comme n'importe quelle forme.
+   */
+  eraseMode?: boolean
+  /** Suppression d'un symbole par la gomme. */
+  onErase?: (id: string) => void
 }
 
 /** Vignette neutre tant que le graphisme n'est pas disponible (SDK en vol). */
@@ -89,6 +105,9 @@ export function SymbolMarkers({
   cluster,
   minZoom,
   onMove,
+  menu,
+  eraseMode,
+  onErase,
 }: SymbolMarkersProps) {
   // Taille écran d'un symbole posé. Hook appelé INCONDITIONNELLEMENT (cf. `ToolButton`).
   const symbolsCfg = useConfig().interaction.symbols
@@ -164,6 +183,10 @@ export function SymbolMarkers({
 
   const reposition = useCallback((m: MarkerData<PlacedSymbolShape>, at: LatLng) => onMove(m.data.id, at), [onMove])
 
+  // Clic-gomme : supprime le symbole cliqué. Passé à `onSelect` UNIQUEMENT en mode
+  // gomme (le menu est alors coupé) — un clic efface, comme sur une forme.
+  const eraseClick = useCallback((m: MarkerData<PlacedSymbolShape> | null) => m && onErase?.(m.data.id), [onErase])
+
   return (
     <MarkerLayer<PlacedSymbolShape>
       points={points}
@@ -173,9 +196,16 @@ export function SymbolMarkers({
       staticMinZoom={minZoom}
       icon={icon}
       typeLabel={symbolTypeLabel}
+      // Parité markers : le clic ouvre le menu contextuel. En mode gomme, le menu cède
+      // la place à la suppression au clic (`onSelect`), et le geste de déplacement est
+      // neutralisé pour qu'un clic efface au lieu de traîner le symbole.
+      menu={eraseMode ? undefined : menu}
+      onSelect={eraseMode ? eraseClick : undefined}
       // Deux gestes distincts et complémentaires : l'ICÔNE se saisit au long-press
       // vers la dock (comme tout marker), le POINT AU SOL se glisse pour repositionner.
-      draggable
+      // Coupés en mode gomme.
+      draggable={!eraseMode}
+      repositionable={eraseMode ? false : undefined}
       onReposition={reposition}
     />
   )

@@ -50,7 +50,7 @@ An **imperative Three.js engine driven declaratively by React**. `MapEngine` own
 ## Install
 
 ```bash
-npm i map3d three react react-dom
+npm i @pasquelin/map3d three react react-dom
 ```
 
 `three` and `react`/`react-dom` **19** are **peer dependencies**. The MIL-STD symbology SDK (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 MB) is a dependency loaded through a **dynamic import** — it never enters a bundle that does not display symbols.
@@ -60,7 +60,7 @@ npm i map3d three react react-dom
 A full map with clustered markers in a dozen lines:
 
 ```tsx
-import { Map, markersLayer, type MarkerData } from 'map3d'
+import { Map, markersLayer, type MarkerData } from '@pasquelin/map3d'
 
 type Alert = { title: string }
 

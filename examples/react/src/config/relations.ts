@@ -1,4 +1,4 @@
-import type { RelationRule } from 'map3d'
+import type { RelationRule } from '@pasquelin/map3d'
 
 /** Plafonds communs aux quatre règles : ce qui varie d'une règle à l'autre, c'est `selection`. */
 const LIMIT = { compute: 15, render: 10 }

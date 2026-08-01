@@ -19,7 +19,7 @@ import {
   pathsLayer,
   shapesLayer,
   useBuildingEnrichment,
-} from 'map3d'
+} from '@pasquelin/map3d'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ConfigPane } from './components/ConfigPane'

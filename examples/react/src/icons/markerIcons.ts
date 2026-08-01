@@ -1,4 +1,4 @@
-import type { MarkerData } from 'map3d'
+import type { MarkerData } from '@pasquelin/map3d'
 
 import { typeColor } from '../config/colors'
 import { type Glyph, markerTypeSpec } from '../config/markerTypes'

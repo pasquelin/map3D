@@ -19,7 +19,7 @@ consomment les markers (recherche, loupe, dock).
 ## 1. En deux minutes
 
 ```tsx
-import { Map, markersLayer, type MarkerData } from 'map3d'
+import { Map, markersLayer, type MarkerData } from '@pasquelin/map3d'
 
 type Agent = { statut: string }
 

@@ -78,7 +78,7 @@ comme `markerMenu` : entrées d'information (`disabled: true` les rend inertes),
 séparateurs, sous-menus.
 
 ```tsx
-import type { BuildingInfo, MenuItem } from 'map3d'
+import type { BuildingInfo, MenuItem } from '@pasquelin/map3d'
 
 function buildingMenu(info: BuildingInfo): MenuItem[] {
   const coord = `${info.lat.toFixed(5)}, ${info.lng.toFixed(5)}`

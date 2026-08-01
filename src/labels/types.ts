@@ -104,6 +104,8 @@ export type MapLabels = {
     affiliation: string
     /** Graphique multi-points : posé par clics successifs, pas par dépôt. */
     multiPointHint: string
+    /** Entrée « Supprimer » du menu contextuel d'un symbole posé sur la carte. */
+    delete: string
     /** Libellé par catégorie du catalogue (clé du catalogue → texte affiché). */
     categories: Record<string, string>
     /** Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). */

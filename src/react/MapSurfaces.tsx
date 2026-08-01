@@ -277,7 +277,15 @@ export function MapSurfaces<T, TPin>({
 
   return (
     <>
-      {drawEnabled ? <DrawLayer {...drawProps}>{inner}</DrawLayer> : inner}
+      {drawEnabled ? (
+        // `markerMenu` propage aux SYMBOLES posés le même menu qu'aux markers (parité) :
+        // `<DrawLayer>` y ajoute « Supprimer » et lie les relations lui-même.
+        <DrawLayer {...drawProps} markerMenu={markerMenu as MarkerMenu | undefined}>
+          {inner}
+        </DrawLayer>
+      ) : (
+        inner
+      )}
       {/* APRÈS les couches : elles se sont inscrites au registre, la surface n'a plus
           qu'à regrouper. Elle rend les pastilles ; chaque couche rend ses markers. */}
       {cluster !== false && <ClusterSurface {...(cluster ?? {})} />}

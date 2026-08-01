@@ -1,5 +1,5 @@
-import type { LatLng, MapEngine, MarkerData, PartialConfig } from 'map3d'
-import { defaultConfig, mergeConfig } from 'map3d'
+import type { LatLng, MapEngine, MarkerData, PartialConfig } from '@pasquelin/map3d'
+import { defaultConfig, mergeConfig } from '@pasquelin/map3d'
 import { useEffect, useRef } from 'react'
 import type { BindingParams, FolderApi, NumberInputParams, StringInputParams, TabPageApi } from 'tweakpane'
 import { Pane } from 'tweakpane'

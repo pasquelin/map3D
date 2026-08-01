@@ -49,7 +49,7 @@ Le point d'entrée est `definePlugin`, qui infère `C` (le type de la config) de
 le schéma, pour que `ctx.config` soit typé sans annotation :
 
 ```ts
-import { definePlugin } from 'map3d'
+import { definePlugin } from '@pasquelin/map3d'
 
 export const monPlugin = () =>
   definePlugin({
@@ -225,7 +225,7 @@ map3D **orchestre** tout :
 - L'hôte lit le résultat fusionné via `useBuildingEnrichment()` :
 
 ```tsx
-import { useBuildingEnrichment } from 'map3d'
+import { useBuildingEnrichment } from '@pasquelin/map3d'
 
 function BuildingSheet() {
   const { loading, data, tags, error, byPlugin } = useBuildingEnrichment()
@@ -290,7 +290,7 @@ grisé si aucun ne l'est ; pendant du « Tout retirer » des réglages du catalo
 Côté hôte, `usePlugins()` donne le même accès programmatique :
 
 ```tsx
-import { usePlugins } from 'map3d'
+import { usePlugins } from '@pasquelin/map3d'
 
 const { plugins, byId } = usePlugins()
 const p = byId('mon-plugin')
@@ -416,8 +416,8 @@ plugins officiels (`@map3d/plugin-geopf`, `@map3d/plugin-windy`,
 
 ```ts
 import { mdiMapMarkerStar } from '@mdi/js'
-import { definePlugin } from 'map3d'
-import type { MarkerData } from 'map3d'
+import { definePlugin } from '@pasquelin/map3d'
+import type { MarkerData } from '@pasquelin/map3d'
 
 export const demoPlugin = () =>
   definePlugin({

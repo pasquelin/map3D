@@ -16,7 +16,7 @@ cache local (des templates peuvent avoir été publiés par d'autres utilisateur
 ## 1. En deux minutes
 
 ```tsx
-import { Map } from 'map3d'
+import { Map } from '@pasquelin/map3d'
 
 <Map draw templates />
 ```
@@ -103,7 +103,7 @@ Avec un provider, **l'API fait autorité** : sa liste est chargée au montage et
 la vue ; les mutations (sauvegarde, renommage, suppression) passent par lui.
 
 ```tsx
-import { Map, createHttpTemplateProvider } from 'map3d'
+import { Map, createHttpTemplateProvider } from '@pasquelin/map3d'
 
 const provider = createHttpTemplateProvider() // lit config.providers.templates
 
@@ -248,7 +248,7 @@ seul, sans faire échouer les autres :
 bouton « revenir ici », une vue par défaut au montage :
 
 ```ts
-import { captureView, applyView } from 'map3d'
+import { captureView, applyView } from '@pasquelin/map3d'
 
 const vue = captureView(engine)                     // à mémoriser où vous voulez
 applyView(engine, vue, { duration: 1.2 })           // 0 ou omis = instantané

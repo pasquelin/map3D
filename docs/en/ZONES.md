@@ -23,7 +23,7 @@ two, and paths (`<PathLayer>`), its open-ended cousin.
 ## 1. In two minutes
 
 ```tsx
-import { Map, shapesLayer, type ShapeData } from 'map3d'
+import { Map, shapesLayer, type ShapeData } from '@pasquelin/map3d'
 
 const zones: ShapeData[] = [
   { kind: 'circle',  id: 'z1', title: 'Perimeter A', center: PARIS, radiusMeters: 800 },

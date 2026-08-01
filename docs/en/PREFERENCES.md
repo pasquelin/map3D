@@ -97,7 +97,7 @@ import {
   defaultPreferences,
   type Preferences, type QualityLevel, type QualityChoice,
   type KeyboardLayout, type MoveSpeed, type BindableAction,
-} from 'map3d'
+} from '@pasquelin/map3d'
 ```
 
 - **Storage key**: `config.data.storageKeys.preferences` (default `m3d:preferences`) — set

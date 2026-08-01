@@ -1,4 +1,4 @@
-import { type MapEngine, useCatalogSource } from 'map3d'
+import { type MapEngine, useCatalogSource } from '@pasquelin/map3d'
 import { useEffect, useRef } from 'react'
 import Stats from 'stats.js'
 

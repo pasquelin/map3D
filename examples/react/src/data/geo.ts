@@ -1,4 +1,4 @@
-import { type LatLng, MapMath } from 'map3d'
+import { type LatLng, MapMath } from '@pasquelin/map3d'
 
 /**
  * Décale un point de `eastM` mètres vers l'est et `northM` vers le nord.

@@ -1,4 +1,4 @@
-import type { DragPayload, MarkerData, PinnedItem, PlacedSymbolShape } from 'map3d'
+import type { DragPayload, MarkerData, PinnedItem, PlacedSymbolShape } from '@pasquelin/map3d'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { markerLabel } from '../config/labels'

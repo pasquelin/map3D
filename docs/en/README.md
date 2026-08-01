@@ -110,7 +110,7 @@ for one instance: passing nothing follows the map.
 ## Install
 
 ```bash
-npm i map3d three react react-dom
+npm i @pasquelin/map3d three react react-dom
 ```
 
 `three` and `react`/`react-dom` (19) are **peer dependencies**.
@@ -125,7 +125,7 @@ not display symbols (see [Symbols](#symbols-a-drag-and-drop-icon-catalogue)).
 import {
   MapProvider, Map, MarkerLayer, MapControls,
   defaultTheme, type MarkerData,
-} from 'map3d'
+} from '@pasquelin/map3d'
 
 type Alert = { title: string }
 
@@ -154,7 +154,7 @@ export function App() {
 ## Dynamic data (bbox + real time)
 
 ```tsx
-import type { DataSource, MarkerData } from 'map3d'
+import type { DataSource, MarkerData } from '@pasquelin/map3d'
 
 // Refetched on move (zoom gate + debounce + cancellation built in).
 const source: DataSource<MarkerData<Alert>> = {
@@ -240,7 +240,7 @@ distances and durations from a routing provider. A “Distance around” section
 applicable to the source are listed directly, each opening its selection presets.
 
 ```tsx
-import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from 'map3d'
+import { RelationLayer, RelationStatusBar, createGoogleRoutesProvider, type RelationRule } from '@pasquelin/map3d'
 
 // The ONLY place the domain lives: the engine only knows tags.
 const RULES: RelationRule[] = [
@@ -608,7 +608,7 @@ A ready-to-use catalogue and renderer ship with the library, backed by the offic
 `@armyc2.c5isr.renderer` SDK:
 
 ```tsx
-import { MILSYM_CATALOG, createMilSymRenderer } from 'map3d'
+import { MILSYM_CATALOG, createMilSymRenderer } from '@pasquelin/map3d'
 
 const renderer = useMemo(() => createMilSymRenderer({ affiliation: 'friendly' }), [])
 

@@ -5,9 +5,9 @@
 // pour Paris. Ce sont des rubans drapés sur le relief, pas des itinéraires calculés — le
 // routage réel, lui, passe par le moteur de relations.
 
-import type { LatLng } from 'map3d'
+import type { LatLng } from '@pasquelin/map3d'
 import { CITIES, CITY_LIST, type CityId } from './cities'
-import type { PathData } from 'map3d'
+import type { PathData } from '@pasquelin/map3d'
 
 /**
  * Chemin en arc de cercle autour d'un centre, échantillonné en `steps` points.

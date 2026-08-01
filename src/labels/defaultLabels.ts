@@ -55,6 +55,7 @@ export const defaultLabels: MapLabels = {
     noMatch: 'Aucun symbole ne correspond',
     affiliation: 'Affiliation',
     multiPointHint: 'Tracé multi-points — bientôt disponible',
+    delete: 'Supprimer',
     categories: {
       installations: 'Installations',
       units: 'Unités',

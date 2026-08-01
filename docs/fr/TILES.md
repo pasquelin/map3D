@@ -174,7 +174,7 @@ Un hôte qui compose sa propre barre lit ces mêmes drapeaux, ou appelle la fonc
 les tranche :
 
 ```ts
-import { canEnterMode } from 'map3d'
+import { canEnterMode } from '@pasquelin/map3d'
 
 const basemap = engine.getBasemap()
 if (canEnterMode(basemap, '3d')) {
@@ -333,7 +333,7 @@ préparer ce dont cette URL a besoin. Les deux sources livrées l'implémentent,
 n'empêche d'en écrire une troisième (proxy d'entreprise, cache local, signature maison).
 
 ```ts
-import { createTileSource, type TileSource } from 'map3d'
+import { createTileSource, type TileSource } from '@pasquelin/map3d'
 
 export type TileSource = {
   tileUrl(z: number, x: number, y: number): string

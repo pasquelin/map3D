@@ -1,4 +1,4 @@
-import type { InteractiveMode, MapMode } from 'map3d'
+import type { InteractiveMode, MapMode } from '@pasquelin/map3d'
 
 /* ══════════════════ PROPS DE `<Map>` HORS `MapConfig` ══════════════════
    Le clair/sombre, le fond, l'interactivité ne sont pas des réglages de `MapConfig` :

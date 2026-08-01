@@ -1,5 +1,5 @@
 import type { FolderApi, TabPageApi } from 'tweakpane'
-import type { MapEngine, PluginField } from 'map3d'
+import type { MapEngine, PluginField } from '@pasquelin/map3d'
 
 /**
  * Onglet Plugins du dev panel : lit `engine.plugins`, un FolderApi par plugin (toggle +

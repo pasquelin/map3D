@@ -190,7 +190,7 @@ it, the initial heading picks up the current line of sight projected onto the gr
 so as not to disorient the user at the moment of the dive.
 
 ```ts
-import { captureView, applyView } from 'map3d'
+import { captureView, applyView } from '@pasquelin/map3d'
 
 const view = captureView(engine)          // camera pose + basemap + tags + pedestrian view, if active
 applyView(engine, view, { duration: 1.2 }) // 0 or omitted = instant; always instant if `view.pedestrian`

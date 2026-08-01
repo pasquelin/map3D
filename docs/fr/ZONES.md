@@ -23,7 +23,7 @@ deux autres, et les tracés (`<PathLayer>`) qui en sont le cousin ouvert.
 ## 1. En deux minutes
 
 ```tsx
-import { Map, shapesLayer, type ShapeData } from 'map3d'
+import { Map, shapesLayer, type ShapeData } from '@pasquelin/map3d'
 
 const zones: ShapeData[] = [
   { kind: 'circle',  id: 'z1', title: 'Périmètre A', center: PARIS, radiusMeters: 800 },

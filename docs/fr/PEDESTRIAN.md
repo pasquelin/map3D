@@ -192,7 +192,7 @@ initial reprend l'axe de visée courant projeté au sol, pour ne pas désoriente
 l'utilisateur au moment de la plongée.
 
 ```ts
-import { captureView, applyView } from 'map3d'
+import { captureView, applyView } from '@pasquelin/map3d'
 
 const vue = captureView(engine)           // pose caméra + fond + tags + vue piéton, si active
 applyView(engine, vue, { duration: 1.2 }) // 0 ou omis = instantané ; toujours instantané si `vue.pedestrian`

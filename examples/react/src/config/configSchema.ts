@@ -8,7 +8,7 @@
 // config apparaît d'elle-même dans le panneau, sans rien toucher ici. La table
 // ci-dessous ne sert qu'aux exceptions : ce qu'un `typeof` ne peut pas deviner.
 
-import { defaultConfig, type MapConfig, type PartialConfig } from 'map3d'
+import { defaultConfig, type MapConfig, type PartialConfig } from '@pasquelin/map3d'
 
 import { CONFIG_LABELS, FOLDER_LABELS } from './configLabels'
 import { isRecord } from './isRecord'

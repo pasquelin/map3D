@@ -20,13 +20,18 @@ import {
   type DrawingApi,
   DrawPresetsContext,
   LensContext,
+  RelationContext,
+  type RelationApi,
   useConfig,
   useLabels,
   useMapContext,
 } from '../context'
 import type { Bounds } from '../../shared'
+import type { MarkerData } from '../../data/types'
+import type { MenuItem } from './ContextMenu'
+import { mdiTrashCanOutline } from '@mdi/js'
 import { usePedestrian } from '../hooks/usePedestrian'
-import { SymbolMarkers, type SymbolMarkersProps } from './SymbolMarkers'
+import { SymbolMarkers, type SymbolMarkersProps, type PlacedSymbolShape } from './SymbolMarkers'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
 import { useMergedByContent } from '../hooks/useMergedByContent'
@@ -99,6 +104,16 @@ export type DrawLayerProps = {
     /** Zoom en deçà duquel les symboles posés disparaissent — cf. `SymbolMarkersProps.minZoom`. */
     minZoom?: number
   }
+  /**
+   * Menu contextuel des symboles posés — **parité stricte avec les markers**. Reçoit
+   * la MÊME fonction que `<Map markerMenu>` (liée aux relations par la surface), pour
+   * qu'un symbole ouvre au clic le même menu qu'un marker de données. La lib y ajoute
+   * d'office « Supprimer » en tête (elle seule possède la forme, donc peut l'effacer).
+   *
+   * Câblé par `<MapSurfaces>` ; une application qui monte `<DrawLayer>` à la main peut
+   * le fournir elle-même. Le second argument, l'API des relations, est résolu ici.
+   */
+  markerMenu?: (p: MarkerData<unknown>, relations: RelationApi | null) => MenuItem[]
   /** Monté dans le contexte de dessin — y placer barre et panneaux. */
   children?: ReactNode
 }
@@ -462,6 +477,31 @@ export function DrawLayer(props: DrawLayerProps) {
     moveSymbol,
   } = useDrawSymbols(props.symbols, config.providers.symbols.cacheMaxEntries, coreRef, toolRef, setTool, coreReady)
 
+  // Menu contextuel d'un symbole posé — PARITÉ markers. `useContext` direct (et non
+  // `useRelations()`, qui lève hors d'un `<RelationLayer>`) : l'absence de relations est
+  // le cas courant. `<DrawLayer>` est monté sous `<RelationsHost>`, donc le contexte y est.
+  const relations = useContext(RelationContext)
+  const markerMenu = props.markerMenu
+  const deleteLabel = labels.symbols.delete
+  // Mémoïsé : `menu` est dans les deps du `useMemo` des portails de `MarkerLayer` —
+  // une flèche neuve par rendu reconstruirait les N portails de symboles. « Supprimer »
+  // (la lib possède la forme) précède le menu de l'hôte, comme un marker propose ses
+  // actions génériques avant les entrées de relations.
+  const symbolMenu = useCallback(
+    (m: MarkerData<PlacedSymbolShape>): MenuItem[] => {
+      const del: MenuItem = {
+        icon: mdiTrashCanOutline,
+        label: deleteLabel,
+        onSelect: () => coreRef.current?.removeShape(m.data.id),
+      }
+      const host = markerMenu?.(m, relations) ?? []
+      return host.length > 0 ? [del, { separator: true }, ...host] : [del]
+    },
+    [markerMenu, relations, deleteLabel],
+  )
+  // Suppression à la gomme : un clic sur le symbole l'efface (cf. `SymbolMarkers.onErase`).
+  const eraseSymbol = useCallback((id: string) => void coreRef.current?.removeShape(id), [])
+
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
   // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
   const api: DrawingApi = useMemo(
@@ -587,6 +627,9 @@ export function DrawLayer(props: DrawLayerProps) {
             cluster={props.symbols?.cluster}
             minZoom={props.symbols?.minZoom}
             onMove={moveSymbol}
+            menu={symbolMenu}
+            eraseMode={tool === 'erase'}
+            onErase={eraseSymbol}
           />
         )}
         {props.children}

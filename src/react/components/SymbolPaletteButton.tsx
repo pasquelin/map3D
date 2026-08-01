@@ -254,16 +254,20 @@ const PaletteItem = memo(function PaletteItem({
       className={[disabled ? 'm3d-symitem m3d-disabled' : 'm3d-symitem', disabled ? '' : drag.className]
         .filter(Boolean)
         .join(' ')}
+      // La description complète reste dans le `title` : le libellé sous l'image est
+      // tronqué à deux lignes, le survol donne le texte entier (et la consigne si désactivé).
       title={disabled ? `${text.label} — ${hint}` : (text.description ?? text.label)}
       aria-label={text.label}
       aria-disabled={disabled || undefined}
-      style={{ width: previewSize + 10, height: previewSize + 10 }}
     >
       {svg ? (
         <SymbolGlyph svg={svg} size={previewSize} />
       ) : (
         <span className="m3d-symskeleton" style={{ width: previewSize, height: previewSize }} />
       )}
+      {/* Nom lisible sous le glyphe : un pictogramme MIL-STD seul ne dit pas de quoi
+          il s'agit. Texte DÉJÀ traduit (`text.label`), tronqué par CSS. */}
+      <span className="m3d-symlabel">{text.label}</span>
     </div>
   )
 })

@@ -1,6 +1,6 @@
 import { mdiContentCopy, mdiCropFree, mdiMapMarkerOutline } from '@mdi/js'
 import Icon from '@mdi/react'
-import type { BuildingInfo, MapHandle, MenuItem } from 'map3d'
+import type { BuildingInfo, MapHandle, MenuItem } from '@pasquelin/map3d'
 import type { RefObject } from 'react'
 
 /**

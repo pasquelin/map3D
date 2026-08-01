@@ -49,7 +49,7 @@ The entry point is `definePlugin`, which infers `C` (the config type) from the
 schema, so `ctx.config` is typed without any annotation:
 
 ```ts
-import { definePlugin } from 'map3d'
+import { definePlugin } from '@pasquelin/map3d'
 
 export const myPlugin = () =>
   definePlugin({
@@ -225,7 +225,7 @@ map3D **orchestrates** everything:
 - The host reads the merged result via `useBuildingEnrichment()`:
 
 ```tsx
-import { useBuildingEnrichment } from 'map3d'
+import { useBuildingEnrichment } from '@pasquelin/map3d'
 
 function BuildingSheet() {
   const { loading, data, tags, error, byPlugin } = useBuildingEnrichment()
@@ -289,7 +289,7 @@ none is; the counterpart of the catalog settings' “Tout retirer”.
 On the host side, `usePlugins()` gives the same programmatic access:
 
 ```tsx
-import { usePlugins } from 'map3d'
+import { usePlugins } from '@pasquelin/map3d'
 
 const { plugins, byId } = usePlugins()
 const p = byId('my-plugin')
@@ -413,8 +413,8 @@ official plugins (`@map3d/plugin-geopf`, `@map3d/plugin-windy`,
 
 ```ts
 import { mdiMapMarkerStar } from '@mdi/js'
-import { definePlugin } from 'map3d'
-import type { MarkerData } from 'map3d'
+import { definePlugin } from '@pasquelin/map3d'
+import type { MarkerData } from '@pasquelin/map3d'
 
 export const demoPlugin = () =>
   definePlugin({

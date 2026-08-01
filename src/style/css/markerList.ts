@@ -27,6 +27,10 @@ export const CSS_MARKER_LIST = `
 .m3d-mlact{border-radius:var(--m3d-radius-sm)}
 .m3d-mlremove{border-radius:50%}
 .m3d-mlact:hover,.m3d-mlremove:hover{background:color-mix(in srgb,var(--m3d-text) 12%,transparent);color:var(--m3d-text)}
-/* Menu déroulant d'actions (portail) : réutilise .m3d-menu-panel/-item/-label. */
-.m3d-mlmenu{position:absolute;z-index:var(--m3d-z-list-menu,96);min-width:160px}
+/* Menu déroulant d'actions (portail) : réutilise .m3d-menu-panel/-item/-label.
+   Le menu est PORTÉ dans .m3d-root (cf. MarkerList) — frère du HUD flottant
+   (.m3d-floathud, z-index floatingHud), PAS enfant du plan carte. Il doit donc
+   passer au z-index des MENUS (--m3d-z-menu), au-dessus du HUD : --m3d-z-list-menu
+   (96) vit dans le plan carte, sous mapOverlay, et le peindrait derrière le panneau. */
+.m3d-mlmenu{position:absolute;z-index:var(--m3d-z-menu,9999);min-width:160px}
 `

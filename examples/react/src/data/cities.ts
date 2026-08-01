@@ -1,4 +1,4 @@
-import type { LatLng } from 'map3d'
+import type { LatLng } from '@pasquelin/map3d'
 
 /* ══════════════════ VILLES DE LA DÉMO ══════════════════
    Trois terrains réels, choisis pour leurs contrastes : une métropole dense (Paris),

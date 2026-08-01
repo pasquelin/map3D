@@ -19,7 +19,7 @@ selection, repositioning, zoom-gated scenery, and the surfaces that consume mark
 ## 1. In two minutes
 
 ```tsx
-import { Map, markersLayer, type MarkerData } from 'map3d'
+import { Map, markersLayer, type MarkerData } from '@pasquelin/map3d'
 
 type Agent = { status: string }
 

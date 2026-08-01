@@ -11,7 +11,7 @@
 - **Imperative engine driven by React**, not a component tree that owns state. `MapEngine`
   (three.js, camera, tiles, layer list) is the single source of truth; usable standalone,
   outside React. The React layer mounts it declaratively.
-- **Single public entry point**: `import { … } from 'map3d'`. Everything is re-exported from
+- **Single public entry point**: `import { … } from '@pasquelin/map3d'`. Everything is re-exported from
   `src/index.ts`. `VERSION` exposes the current version.
 - **`<Map>` mounts every surface and layer internally** (bar, controls, cluster, catalog,
   pedestrian HUD, coordinate grid…), driven by `config`/`theme`/`labels`/props. Its `children`
@@ -22,7 +22,7 @@
   text), `config` (`MapConfig` — API keys, quotas, gestures, budgets, support). A component's
   props **override** these trees for a single instance.
 - **Peer deps**: `react`/`react-dom` **19**, `three` **≥ 0.160**. Install:
-  `npm i map3d three react react-dom`.
+  `npm i @pasquelin/map3d three react react-dom`.
 - **Per-frame read/write separation**: layers run `update()` (advance the 3D — read pass) then
   `project()` (write DOM overlays in a single pass) — aim for zero allocation in the frame loop.
 - **Photorealistic 3D**: Google Photorealistic 3D Tiles via **Cesium Ion** (a single token,
@@ -37,7 +37,7 @@
 ## Quick start
 
 ```tsx
-import { MapProvider, Map, markersLayer, imperialMeasure, type MarkerData } from 'map3d'
+import { MapProvider, Map, markersLayer, imperialMeasure, type MarkerData } from '@pasquelin/map3d'
 
 type Agent = { status: string }
 

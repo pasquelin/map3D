@@ -1,10 +1,20 @@
 {
-  "name": "map3d",
+  "name": "@pasquelin/map3d",
   "version": "0.1.0",
   "description": "Bibliothèque React de cartographie 3D (Three.js + Google Photorealistic 3D Tiles) : globe, markers, clusters, tracés, dessin, entièrement thémable.",
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Alban Pasquelin <alban.pasquelin@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pasquelin/map3D.git"
+  },
+  "homepage": "https://github.com/pasquelin/map3D#readme",
+  "bugs": "https://github.com/pasquelin/map3D/issues",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=18"
   },
@@ -27,6 +37,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && vite build",
+    "prepack": "pnpm build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

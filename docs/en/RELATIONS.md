@@ -14,7 +14,7 @@ opening its selection presets.
 ## 1. In two minutes
 
 ```tsx
-import { createGoogleRoutesProvider, type RelationRule } from 'map3d'
+import { createGoogleRoutesProvider, type RelationRule } from '@pasquelin/map3d'
 
 // The ONLY place the domain lives: the engine only knows tags.
 const RULES: RelationRule[] = [

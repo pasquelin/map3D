@@ -110,7 +110,7 @@ for a city is the most common framing gesture.
 ### Geocoder
 
 ```tsx
-import { createGooglePlacesSearch } from 'map3d'
+import { createGooglePlacesSearch } from '@pasquelin/map3d'
 
 <Map search={{ search: createGooglePlacesSearch({ apiKey, language: 'en', region: 'gb', limit: 5 }) }} />
 ```

@@ -23,7 +23,7 @@ code qu'un type à 5.
 ## 1. En deux minutes
 
 ```tsx
-import { Map, type CatalogSource } from 'map3d'
+import { Map, type CatalogSource } from '@pasquelin/map3d'
 import { mdiCityVariantOutline } from '@mdi/js'
 
 const villes: CatalogSource = {

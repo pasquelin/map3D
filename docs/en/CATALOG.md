@@ -22,7 +22,7 @@ framing. A type with 36,699 entries costs the same code as one with 5.
 ## 1. In two minutes
 
 ```tsx
-import { Map, type CatalogSource } from 'map3d'
+import { Map, type CatalogSource } from '@pasquelin/map3d'
 import { mdiCityVariantOutline } from '@mdi/js'
 
 const towns: CatalogSource = {
