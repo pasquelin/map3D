@@ -10,7 +10,9 @@ import { useTagSelection } from '../hooks/useTags'
 import { useEntriesSignature } from '../hooks/useEntriesSignature'
 import { useOverlayLayer } from '../hooks/useOverlayLayer'
 import { useVisibleMarkers } from '../hooks/useVisibleMarkers'
+import { useTagRegistry } from '../hooks/useTagRegistry'
 import { useMarkerRegistries } from '../hooks/useMarkerRegistries'
+import { createTitleCache } from '../../search/match'
 import { useConfig, useMapContext } from '../context'
 import { ContextMenu, type MenuItem } from './ContextMenu'
 import { DefaultMarker } from './DefaultMarker'
@@ -208,6 +210,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const searchSource = useId()
   /** Clé de cette couche dans le registre de regroupement — cf. `ClusterContributor.key`. */
   const clusterSource = useId()
+  useTagRegistry(tagFilter, tagSource, allPoints)
 
   /** Ce que la surface de clusters a décidé pour cette couche — cf. `ClusterPlacement`. */
   const placementRef = useRef<ClusterPlacement>(NO_PLACEMENT)
@@ -262,6 +265,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   }
   const latest = useRef(snapshot)
   latest.current = snapshot
+
+  // Titres normalisés mémoïsés PAR OBJET marker : un tick temps réel reconstruit le
+  // tableau mais préserve la plupart des références, donc ne renormalise que ce qui
+  // a réellement changé.
+  const normalizedTitle = useMemo(() => createTitleCache<MarkerData<T>>((m) => m.title), [])
 
   // Couche DOM de positionnement (pool, tween, ancrage CSS2DObject) — cf. `useOverlayLayer`.
   const { layerRef: coreRef, nodes } = useOverlayLayer(
@@ -367,21 +375,20 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     recompute()
   }, [rendered, recompute, engine])
 
-  // Câblage des registres (sélection marquee, inventaire loupe, recherche, tags) —
-  // cf. `useMarkerRegistries`.
+  // Câblage des registres (sélection marquee, inventaire loupe, recherche) —
+  // cf. `useMarkerRegistries`. Le registre tags est à part (`useTagRegistry`, appelé
+  // plus haut) pour garder sa position d'origine dans l'ordre des hooks.
   useMarkerRegistries(
     engine,
     coreRef,
     entriesRef,
     pointsByIdRef,
     latest,
-    tagSource,
-    allPoints,
-    tagFilter,
     searchSource,
     points,
     props.typeLabel,
     theme,
+    normalizedTitle,
   )
 
   // Sélection — réappliquée quand un nœud (ré)apparaît.

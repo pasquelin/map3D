@@ -1,12 +1,10 @@
-import { type RefObject, useEffect, useMemo } from 'react'
+import { type RefObject, useEffect } from 'react'
 import { boundsContains } from '../../core/MarkerQuery'
 import type { MapEngine } from '../../core/MapEngine'
 import type { SelectableScreenItem } from '../../core/Selectables'
-import { countTags } from '../../core/TagFilter'
-import type { TagFilter } from '../../core/TagFilter'
 import type { MarkerData } from '../../data/types'
 import type { MarkerLayer as CoreMarkerLayer } from '../../layers/MarkerLayer'
-import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMatch } from '../../search/match'
+import { type Hit, NO_MATCH, proximityRank, rankHits, scoreMatch } from '../../search/match'
 import { markerGroupId } from '../../search/registry'
 import type { SearchEntry, SearchGroup } from '../../search/types'
 import { markerColorOf } from '../../theme/colors'
@@ -22,10 +20,13 @@ type MarkerRegistriesSnapshot<T> = {
 }
 
 /**
- * Câblage des registres portés par le moteur pour une couche de markers : panneau
- * « Couches » (tags), marquee (`selectables`), inventaire loupe (`markers`) et
- * recherche unifiée (`search`). Extrait tel quel de `MarkerLayer` : mêmes effets,
- * mêmes deps, même ordre relatif entre eux.
+ * Câblage des registres portés par le moteur pour une couche de markers : marquee
+ * (`selectables`), inventaire loupe (`markers`) et recherche unifiée (`search`).
+ * Extrait tel quel de `MarkerLayer` : mêmes effets, mêmes deps, même ordre relatif
+ * entre eux. Le registre « Couches » (tags) est à part (`useTagRegistry`), appelé
+ * plus tôt dans `MarkerLayer` pour garder sa position D'ORIGINE dans l'ordre des
+ * hooks — `normalizedTitle` (mémo, consommateur unique de ce hook) le suit de même,
+ * reçu ici en paramètre plutôt que recréé.
  */
 export function useMarkerRegistries<T>(
   engine: MapEngine,
@@ -33,23 +34,12 @@ export function useMarkerRegistries<T>(
   entriesRef: RefObject<Map<string | number, MarkerData<T>>>,
   pointsByIdRef: RefObject<Map<string | number, MarkerData<T>>>,
   latest: RefObject<MarkerRegistriesSnapshot<T>>,
-  tagSource: string,
-  allPoints: MarkerData<T>[],
-  tagFilter: TagFilter,
   searchSource: string,
   points: MarkerData<T>[],
   typeLabel: ((type: string) => string) | undefined,
   theme: MapTheme,
+  normalizedTitle: (m: MarkerData<T>) => string,
 ): void {
-  // Registre du panneau « Couches » : tags portés par TOUS les points (même masqués).
-  useEffect(() => {
-    tagFilter.report(
-      tagSource,
-      countTags(allPoints, (p) => p.tags),
-    )
-  }, [allPoints, tagFilter, tagSource])
-  useEffect(() => () => tagFilter.unreport(tagSource), [tagFilter, tagSource])
-
   // Provider du registre de sélection : expose au marquee les markers que cette
   // couche pose RÉELLEMENT — ceux qu'une pastille agrège n'en sont pas.
   useEffect(() => {
@@ -91,11 +81,6 @@ export function useMarkerRegistries<T>(
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])
-
-  // Titres normalisés mémoïsés PAR OBJET marker : un tick temps réel reconstruit le
-  // tableau mais préserve la plupart des références, donc ne renormalise que ce qui
-  // a réellement changé.
-  const normalizedTitle = useMemo(() => createTitleCache<MarkerData<T>>((m) => m.title), [])
 
   // Fournisseur de recherche : une rubrique par TYPE présent, alimentée par
   // `MarkerData.title`. Part des mêmes `points` que le registre d'inventaire — donc
