@@ -135,24 +135,21 @@ describe('circleRing', () => {
 // absente ailleurs). Zéro régression exigée aux latitudes non polaires : la garde ne
 // doit JAMAIS s'activer hors du voisinage immédiat d'un pôle.
 describe('offsetLatLng', () => {
-  it.each([0, 45, 60, -60])(
-    'identique à la formule non gardée à lat=%i° (cos non clampé)',
-    (lat) => {
-      const center = { lat, lng: 4.5 }
-      const north = 250
-      const east = -80
-      const cos = Math.cos(lat * DEG2RAD)
-      // Garde-fou du test lui-même : à ces latitudes, la garde ne doit pas s'activer.
-      expect(Math.abs(cos)).toBeGreaterThan(OFFSET_COS_EPS)
-      const expected = {
-        lat: center.lat + north / M_PER_DEG,
-        lng: center.lng + east / (M_PER_DEG * cos),
-      }
-      const got = offsetLatLng(center, north, east)
-      expect(got.lat).toBe(expected.lat)
-      expect(got.lng).toBe(expected.lng)
-    },
-  )
+  it.each([0, 45, 60, -60])('identique à la formule non gardée à lat=%i° (cos non clampé)', (lat) => {
+    const center = { lat, lng: 4.5 }
+    const north = 250
+    const east = -80
+    const cos = Math.cos(lat * DEG2RAD)
+    // Garde-fou du test lui-même : à ces latitudes, la garde ne doit pas s'activer.
+    expect(Math.abs(cos)).toBeGreaterThan(OFFSET_COS_EPS)
+    const expected = {
+      lat: center.lat + north / M_PER_DEG,
+      lng: center.lng + east / (M_PER_DEG * cos),
+    }
+    const got = offsetLatLng(center, north, east)
+    expect(got.lat).toBe(expected.lat)
+    expect(got.lng).toBe(expected.lng)
+  })
 
   it('nord/est nuls laissent le centre inchangé, bit à bit', () => {
     const center = { lat: 37.5, lng: -12.25 }
