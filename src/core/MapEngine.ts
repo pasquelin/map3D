@@ -3267,15 +3267,13 @@ export class MapEngine {
      * Le delta est ACCUMULÉ ici et appliqué une seule fois dans le tick : `pointermove` peut
      * tirer plusieurs fois par frame (spec §9).
      */
-    if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
-      if (document.pointerLockElement === this.canvas) {
-        this.pedestrianCtl.addLook(e.movementX, e.movementY)
-        return
-      }
-      if (this.pointerDrag) {
-        this.pedestrianCtl.addLook(e.movementX, e.movementY)
-        return
-      }
+    if (
+      this.cameraMode === 'pedestrian' &&
+      this.pedestrianPhase === 'active' &&
+      (document.pointerLockElement === this.canvas || this.pointerDrag)
+    ) {
+      this.pedestrianCtl.addLook(e.movementX, e.movementY)
+      return
     }
     // Transmet le survol (pointer up) à l'outil aussi : indispensable au mode clic
     // du polygone (élastique + aimant de fermeture entre deux clics).

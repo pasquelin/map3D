@@ -48,6 +48,16 @@ type LoadOutcome = {
   failed: boolean
 }
 
+/**
+ * Prête un titre de repli aux formes ANONYMES : une forme sans nom est invisible pour la
+ * recherche (cf. ZONES.md § 5), on lui donne celui de son élément de catalogue. `undefined`
+ * (aucun titre connu) rend les formes inchangées. Partagé par la pose et la restauration.
+ */
+function withFallbackTitle(shapes: readonly ShapeData[], title: string | undefined): readonly ShapeData[] {
+  if (title === undefined) return shapes
+  return shapes.map((s) => (s.title ? s : { ...s, title }))
+}
+
 /** S'abonne à l'état partagé du catalogue (`engine.catalogState`). */
 function useCatalogStore() {
   const { engine } = useMapContext()
@@ -113,10 +123,8 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
         .then((shapes) => {
           // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
           if (ctrl.signal.aborted || !store.isShown(key)) return { key, shapes: null, failed: false }
-          // Une forme sans nom est invisible pour la recherche (cf. ZONES.md § 5) : on
-          // lui prête celui de son élément, qui est précisément ce qu'on a cliqué.
-          const named = shapes.map((s) => (s.title ? s : { ...s, title: item.title }))
-          return { key, shapes: named as readonly ShapeData[], failed: false }
+          // Le titre de repli est celui de l'élément cliqué, toujours défini ici.
+          return { key, shapes: withFallbackTitle(shapes, item.title), failed: false }
         })
         .catch(() => ({ key, shapes: null, failed: !ctrl.signal.aborted }))
         .finally(() => store.endLoad(key, ctrl))
@@ -342,13 +350,9 @@ export function useCatalogHost(): readonly ShapeData[] {
           .geometry(restoreCatalogId(parsed.itemId), ctrl.signal)
           .then((shapes) => {
             if (ctrl.signal.aborted || !store.isShown(key)) return { key, shapes: null }
-            // MÊME repli que `fetchGeometry` : une forme anonyme reçoit le titre persisté de
-            // son élément, sans quoi une zone restaurée sortait introuvable de la recherche.
-            const title = store.titleOf(key)
-            const named = title
-              ? (shapes as readonly ShapeData[]).map((s) => (s.title ? s : { ...s, title }))
-              : (shapes as readonly ShapeData[])
-            return { key, shapes: named }
+            // Repli avec le titre PERSISTÉ (l'élément n'est plus en portée), sinon une zone
+            // restaurée sortait introuvable de la recherche.
+            return { key, shapes: withFallbackTitle(shapes, store.titleOf(key)) }
           })
           // Échec silencieux, volontairement : une zone supprimée côté API n'a pas à
           // ouvrir une erreur au démarrage. On la retire, sans pastille.

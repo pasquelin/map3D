@@ -1,5 +1,5 @@
 import { useLabels } from '../context'
-import { usePedestrian } from '../hooks/usePedestrian'
+import { usePedestrianChrome } from '../hooks/usePedestrian'
 import { usePedestrianKeys } from '../hooks/usePedestrianKeys'
 
 /**
@@ -17,14 +17,15 @@ import { usePedestrianKeys } from '../hooks/usePedestrianKeys'
  * Hors mode piéton actif, ne rend rien.
  */
 export function PedestrianHud() {
-  const { state, setImmersion } = usePedestrian()
+  const chrome = usePedestrianChrome()
   const labels = useLabels()
-  // Échap piéton, toujours monté (avant tout retour) : cf. `usePedestrianKeys`.
-  usePedestrianKeys()
+  // Clavier piéton (Échap deux niveaux + bascule immersion), toujours monté (avant tout
+  // retour) : il partage l'abonnement de `usePedestrianChrome` — cf. `usePedestrianKeys`.
+  usePedestrianKeys(chrome)
 
-  if (state.mode !== 'pedestrian' || state.phase !== 'active') return null
+  if (chrome.mode !== 'pedestrian' || chrome.phase !== 'active') return null
 
-  if (state.immersion === 'full') {
+  if (chrome.immersion === 'full') {
     return (
       <>
         <div className="m3d-reticle" aria-hidden="true" />
@@ -36,7 +37,7 @@ export function PedestrianHud() {
   }
 
   return (
-    <button type="button" className="m3d-pedestrian-immerse" onClick={() => setImmersion('full')}>
+    <button type="button" className="m3d-pedestrian-immerse" onClick={() => chrome.setImmersion('full')}>
       {labels.controls.immersion}
     </button>
   )
