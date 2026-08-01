@@ -332,7 +332,15 @@ function requestFullscreenOn(el: HTMLElement): void {
     e.webkitRequestFullscreen?.bind(e) ??
     e.mozRequestFullScreen?.bind(e) ??
     e.msRequestFullscreen?.bind(e)
-  if (req) void Promise.resolve(req()).catch(() => {})
+  if (!req) {
+    console.warn('[m3d] requestFullscreen indisponible sur cet élément')
+    return
+  }
+  // Le rejet est SURFACÉ (et non avalé) : un plein écran refusé (DevTools ancrés, geste
+  // expiré, Permissions-Policy) doit se voir plutôt que d'échouer en silence.
+  void Promise.resolve(req()).catch((err: unknown) => {
+    console.warn('[m3d] plein écran refusé par le navigateur :', err)
+  })
 }
 
 /** Quitte le plein écran, préfixes fournisseurs compris. */
