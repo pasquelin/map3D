@@ -9,7 +9,9 @@
   },
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "llms.txt",
+    "llms-full.txt"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

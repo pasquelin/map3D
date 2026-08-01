@@ -1,0 +1,138 @@
+# map3d
+
+> **React 3D mapping library** (Three.js), published to npm (ESM + CJS + types).
+> Photorealistic globe → flat map, DOM/CSS markers and clusters, ground-draped paths and
+> shapes, Figma-style drawing editor, viewport-driven + real-time data, tag filtering,
+> unified search, pedestrian mode, MIL-STD-2525D symbology — **fully themable and 100 %
+> translatable** (no hard-coded text or values anywhere).
+
+## Mental model (read this first)
+
+- **Imperative engine driven by React**, not a component tree that owns state. `MapEngine`
+  (three.js, camera, tiles, layer list) is the single source of truth; usable standalone,
+  outside React. The React layer mounts it declaratively.
+- **Single public entry point**: `import { … } from 'map3d'`. Everything is re-exported from
+  `src/index.ts`. `VERSION` exposes the current version.
+- **Three settings trees** provided by `<MapProvider>`, deep-merged onto a complete base:
+  `theme` (visual identity — colors/sizes/rhythm), `labels` (language + units, no hard-coded
+  text), `config` (`MapConfig` — API keys, quotas, gestures, budgets, support). A component's
+  props **override** these trees for a single instance.
+- **Peer deps**: `react`/`react-dom` **19**, `three` **≥ 0.160**. Install:
+  `npm i map3d three react react-dom`.
+- **Per-frame read/write separation**: layers run `update()` (advance the 3D — read pass) then
+  `project()` (write DOM overlays in a single pass) — aim for zero allocation in the frame loop.
+- **Photorealistic 3D**: Google Photorealistic 3D Tiles via **Cesium Ion** (a single token,
+  `VITE_CESIUM_ION_TOKEN` in the example), with an ellipsoid globe fallback when no token is
+  set. The 2D basemap comes from Google **or** a self-hosted XYZ server, chosen by config alone.
+- **"Latest ref pattern" is intentional**: state lives in `MapEngine`, not React. The
+  `ref.current = props` on render, read by a long-lived handler, is deliberate — do not convert
+  it into React state.
+- **MIL-STD-2525D symbology**: `@armyc2.c5isr.renderer/mil-sym-ts-web` SDK (~9 MB) loaded via
+  **dynamic import** — never bundled until a symbol is actually on screen.
+
+## Quick start
+
+```tsx
+import { MapProvider, Map, markersLayer, imperialMeasure, type MarkerData } from 'map3d'
+
+type Agent = { status: string }
+
+const agents: MarkerData<Agent>[] = [
+  {
+    id: 'a1',
+    type: 'agent-available',
+    position: { lat: 48.8566, lng: 2.3522 },
+    title: 'Dupont',            // human-readable name: tooltip, lists, SEARCH
+    tags: ['user', 'standby'],  // "Layers" filter
+    data: { status: 'available' },
+  },
+]
+
+export function MyMap() {
+  const [selected, setSelected] = useState<string>()
+  return (
+    <MapProvider
+      theme={{ colors: { ui: { accent: '#0af' } } }}   // visual identity
+      labels={{ measure: imperialMeasure }}            // language and units
+      config={{ performance: { antialias: false } }}   // machine, quota, support
+    >
+      <Map
+        center={{ lat: 48.8566, lng: 2.3522 }}
+        zoom={14}
+        layers={[
+          markersLayer<Agent>({
+            points: agents,
+            cluster: { enabled: true },
+            selectedId: selected,
+            onSelect: (m) => setSelected(m?.id ?? undefined),
+          }),
+        ]}
+      />
+    </MapProvider>
+  )
+}
+```
+
+`markersLayer<Agent>({…})` / `pathsLayer` / `shapesLayer` are the **typed factories**: since
+`layers` is heterogeneous, its public type sees `data` as `unknown`; the factory moves the
+generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts the UI via the
+`toolbar` / `controls` / `search` / `readout` / `dock` / `draw` / `relations` / `layers` props.
+`MapHandle` (a `ref` on `<Map>`) frames/draws/queries the map from the outside.
+
+## Guides
+
+- [MARKERS](docs/en/MARKERS.md): points, `MarkerData`, clustering, selection, following, threshold decor, repositioning, dock, performance
+- [ZONES](docs/en/ZONES.md): ground-draped zones and shapes, volumetric extrusion, geodesic predicates, framing, paths
+- [CATALOG](docs/en/CATALOG.md): browsable remote repositories — paginated sources, aggregates with children, tri-state checkboxes, persistence
+- [DRAWING](docs/en/DRAWING.md): tools, selection, editing, style, history, GeoJSON, CRUD by identity, constraints
+- [SYMBOLS](docs/en/SYMBOLS.md): drag-and-drop icon catalog, MIL-STD-2525D symbology
+- [TEMPLATES](docs/en/TEMPLATES.md): named drawing saves, local or API storage, sharing, `.m3dt` export
+- [RELATIONS](docs/en/RELATIONS.md): tag-based links, real routing distances and durations (Google Routes)
+- [LENS](docs/en/LENS.md): lens tool — inventory of the markers within an area
+- [SEARCH](docs/en/SEARCH.md): unified search over map elements + place geocoding
+- [CAMERA](docs/en/CAMERA.md): initial position, `ready`, flights, `fitBounds` framing, frozen map, basemap
+- [PEDESTRIAN](docs/en/PEDESTRIAN.md): pedestrian mode — ground walking, collision, gravity, first-person immersion
+- [TILES](docs/en/TILES.md): tile provider — Google or self-hosted server, capabilities and buttons
+- [BUILDINGS](docs/en/BUILDINGS.md): selecting a building from the internal volume — tool, `buildingMenu`, surfaced attributes
+- [GRATICULE](docs/en/GRATICULE.md): coordinate grid — adaptive mesh, remarkable lines, labels, fade-out on tilt
+- [DATA](docs/en/DATA.md): viewport-driven (bbox refetch on move), real-time, tags, pinning, persistence
+- [HOOKS](docs/en/HOOKS.md): every React hook, and what re-renders what
+- [ENGINE](docs/en/ENGINE.md): engine, events, registries, writing a custom layer
+- [PLUGINS](docs/en/PLUGINS.md): plugin author guide — contract, config, data source, pick-time enrichment, hub, registry
+- [PREFERENCES](docs/en/PREFERENCES.md): end-user preferences — 3D quality presets, keyboard layout, move/view rebinding, persistence
+
+## Reference (generated from the source types + JSDoc)
+
+- [CONFIG](docs/en/CONFIG.md): `MapConfig` — what you **tune**: providers, gestures, budgets, storage
+- [THEME](docs/en/THEME.md): `MapTheme` — what you **see**: colors, sizes, rhythm
+- [LABELS](docs/en/LABELS.md): `MapLabels` — every **text string** and formatting rule (units, distances, durations)
+- [PROPS](docs/en/PROPS.md): React component props
+
+## Public API — landmarks by domain (all from `'map3d'`)
+
+- **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer`, `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
+- **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
+- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog`, `usePreferences`, `useDraggable` / `useDropZone` / `useMapDropZone`.
+- **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
+- **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
+- **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`; `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`.
+- **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
+- **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`.
+- **Relations / routing**: `RelationEngine`, `selectTargets`, `createGoogleRoutesProvider`, `haversineMeters`, `decodePolyline`, `RouteCache`.
+- **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
+- **Tiles**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities`, `canEnterMode`.
+
+## Codebase conventions (when contributing)
+
+- `docs/` is **bilingual**: any API change updates FR **and** EN in the same move. Reference docs are generated from the types (do not hand-edit the FR side).
+- Prettier style: no `;`, single quotes, `printWidth: 120`, `trailingComma: all`.
+- `any` is **forbidden**; `tsconfig` is strict + `noUncheckedIndexedAccess`. Use `type`, never `interface`.
+- Nothing hard-coded: every behavior/color/label/threshold goes through `config` / `theme` / `labels` or a prop.
+- Colocated `*.test.ts` tests (vitest, jsdom). Commands: `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm lint`, `pnpm dev:example`.
+
+## Optional
+
+- [Root README](README.md): pitch, install, highlights, links (bilingual)
+- [Full guide + index](docs/en/README.md): guided tour of every domain, "where to start"
+- [CLAUDE.md](CLAUDE.md): detailed architecture, working principles, conventions (for agents)

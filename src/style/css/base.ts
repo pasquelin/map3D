@@ -74,7 +74,7 @@ export const CSS_BASE = `
   z-index:var(--m3d-z-ui,999);box-shadow:0 0 0 1.5px rgba(0,0,0,.45)}
 /* Invite « Échap pour quitter » et bouton d'entrée en immersion : centrés en bas, hors de
    la ligne de visée. Le bouton n'existe qu'en exploration ; l'invite qu'en immersion. */
-.m3d-pedestrian-hint,.m3d-pedestrian-immerse{position:absolute;left:50%;bottom:24px;
+.m3d-pedestrian-hint,.m3d-pedestrian-immerse{position:absolute;left:50%;top:10%;
   transform:translateX(-50%);z-index:var(--m3d-z-ui,999);font:inherit;font-size:13px;
   padding:6px 12px;border-radius:999px;background:var(--m3d-panel,#0b1220);
   color:var(--m3d-text,#f8fafc);border:1px solid var(--m3d-border,transparent);

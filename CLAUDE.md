@@ -43,8 +43,9 @@ Règles à tenir :
 - **Références** (`CONFIG.md`, `THEME.md`, `LABELS.md`, `PROPS.md`) : **générées depuis les sources** côté FR (types + JSDoc, qui sont en français), à ne pas éditer à la main. Leur version EN est traduite à la main et porte un encadré le disant — à revoir quand les types changent.
 - **Guides** (les 11 autres) : manuels, dans les deux langues.
 - Ne se traduisent **pas** : code des exemples, noms d'API, clés de `labels`, identifiants (`marker:agent`, `m3d:tag-filter`). Les défauts de `LABELS.md` restent les chaînes françaises réelles de la lib — ce sont des données.
+- **Fichiers `llms.txt` / `llms-full.txt`** (racine, **anglais uniquement**, destinés aux IA, publiés dans le paquet npm via `files`) : `llms.txt` est l'index (résumé, quick start, liens vers `docs/en/`, carte de l'API) ; `llms-full.txt` est autoportant (les 24 docs EN concaténées). **Toute évolution d'API ou de doc EN les périme** : les régénérer depuis `docs/en/` dans le même mouvement (en-tête + concat de `README, MARKERS, ZONES, CATALOG, DRAWING, SYMBOLS, TEMPLATES, RELATIONS, LENS, SEARCH, CAMERA, PEDESTRIAN, TILES, BUILDINGS, GRATICULE, DATA, HOOKS, ENGINE, PLUGINS, PREFERENCES, CONFIG, THEME, LABELS, PROPS`, ligne de sélecteur de langue retirée). Vérifier aussi que les exports cités dans la « carte de l'API » suivent `src/index.ts`.
 
-NB : le script `pnpm doc` évoqué dans les docs n'est pas défini dans `package.json`.
+NB : le script `pnpm doc` évoqué dans les docs n'est pas défini dans `package.json`, pas plus qu'un `pnpm llms` : la régénération des `llms*.txt` est manuelle.
 
 ## Architecture — la grande image
 
