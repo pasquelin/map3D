@@ -4,8 +4,12 @@ import type { CatalogId, CatalogKey } from './types'
  * Version de la charge persistée. L'incrémenter invalide les sélections d'un ancien
  * format plutôt que de tenter de les migrer — une sélection perdue se refait en trois
  * clics, une migration ratée laisse un état incohérent.
+ *
+ * v2 : la charge porte désormais, à côté des clés, le TITRE de chaque forme anonyme, sans
+ * quoi une zone restaurée sans nom propre sortait introuvable de la recherche (cf.
+ * `deserializeSelectionTitles` et le repli de `useCatalog`).
  */
-export const SELECTION_STORAGE_VERSION = 1
+export const SELECTION_STORAGE_VERSION = 2
 
 /**
  * Clé globale d'un élément.
@@ -56,10 +60,22 @@ export const purgeSources = (sel: readonly CatalogKey[], known: ReadonlySet<stri
   return kept.length === sel.length ? sel : kept
 }
 
-export const serializeSelection = (sel: readonly CatalogKey[]): unknown => ({
-  v: SELECTION_STORAGE_VERSION,
-  keys: sel,
-})
+/**
+ * Sérialise la sélection ET les titres à restituer aux formes anonymes.
+ *
+ * Seuls les titres des clés ENCORE sélectionnées sont écrits — un titre orphelin (clé
+ * retirée) gonflerait la charge pour une forme que plus rien ne réaffichera.
+ */
+export const serializeSelection = (sel: readonly CatalogKey[], titles?: ReadonlyMap<CatalogKey, string>): unknown => {
+  const kept: Record<string, string> = {}
+  if (titles) {
+    for (const k of sel) {
+      const t = titles.get(k)
+      if (t !== undefined) kept[k] = t
+    }
+  }
+  return { v: SELECTION_STORAGE_VERSION, keys: sel, titles: kept }
+}
 
 /**
  * Tolérante par construction : une charge corrompue, écrite par une autre version, ou
@@ -73,4 +89,22 @@ export const deserializeSelection = (raw: unknown): readonly CatalogKey[] => {
   const { v, keys } = raw as { v?: unknown; keys?: unknown }
   if (v !== SELECTION_STORAGE_VERSION || !Array.isArray(keys)) return []
   return keys.filter((k): k is CatalogKey => typeof k === 'string' && parseCatalogKey(k) !== null)
+}
+
+/**
+ * Titres retenus par clé — le nom prêté à une forme anonyme pour qu'elle reste cherchable
+ * après restauration (cf. `useCatalog`, repli identique à `fetchGeometry`).
+ *
+ * Même tolérance que `deserializeSelection` : une charge illisible ou d'une autre version
+ * rend une table vide, jamais une erreur.
+ */
+export const deserializeSelectionTitles = (raw: unknown): ReadonlyMap<CatalogKey, string> => {
+  const out = new Map<CatalogKey, string>()
+  if (typeof raw !== 'object' || raw === null) return out
+  const { v, titles } = raw as { v?: unknown; titles?: unknown }
+  if (v !== SELECTION_STORAGE_VERSION || typeof titles !== 'object' || titles === null) return out
+  for (const [k, t] of Object.entries(titles as Record<string, unknown>)) {
+    if (typeof t === 'string' && parseCatalogKey(k) !== null) out.set(k, t)
+  }
+  return out
 }

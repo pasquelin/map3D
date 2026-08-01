@@ -1,5 +1,11 @@
 import type { ShapeData } from '../layers/ShapeLayer'
-import { deserializeSelection, purgeSources, removeFromSelection, serializeSelection } from './selection'
+import {
+  deserializeSelection,
+  deserializeSelectionTitles,
+  purgeSources,
+  removeFromSelection,
+  serializeSelection,
+} from './selection'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { CatalogKey } from './types'
 
@@ -38,12 +44,21 @@ export type CatalogStoreKeys = {
  * différentes. Deux `useState` auraient divergé : vider la sélection depuis les
  * réglages n'aurait pas vidé la carte. Même raison que `TagFilter`.
  *
- * Les géométries ne sont pas persistées, seules les CLÉS le sont : une géométrie est
- * la réponse d'une API à un instant donné, la resservir depuis un stockage local ferait
- * afficher un périmètre que le backend a peut-être déplacé depuis.
+ * Les géométries ne sont pas persistées : clés et titres le sont, mais pas les formes —
+ * une géométrie est la réponse d'une API à un instant donné, la resservir depuis un
+ * stockage local ferait afficher un périmètre que le backend a peut-être déplacé depuis.
+ * Le titre, lui, est retenu pour rendre une forme anonyme restaurée cherchable par nom.
  */
 export class CatalogStore {
   private selectionKeys: readonly CatalogKey[] = []
+  /**
+   * Titre à prêter à chaque forme anonyme, par clé — persisté avec la sélection.
+   *
+   * Une forme sans nom propre n'entre pas dans la recherche (cf. ZONES.md § 5) : à la pose
+   * on lui prête celui de son élément (`fetchGeometry`). Ce nom-là n'était pas retenu, si
+   * bien qu'une zone restaurée redevenait introuvable. On le persiste donc à côté des clés.
+   */
+  private titles = new Map<CatalogKey, string>()
   /**
    * Index d'appartenance doublant `selectionKeys`, qui garde l'ordre et la sérialisation.
    *
@@ -111,7 +126,11 @@ export class CatalogStore {
     this.settings = this.loadSettings(keys.settings)
     // Ne relire la sélection que si la persistance est active : sinon une charge
     // laissée par une session précédente ressusciterait un réglage qu'on a désactivé.
-    this.selectionKeys = this.settings.persist ? deserializeSelection(readStoredJSON(keys.selection)) : []
+    // Une seule lecture du stockage, deux dérivations : clés et titres viennent de la
+    // même charge, la relire deux fois doublerait un `JSON.parse` sur le chemin de démarrage.
+    const raw = this.settings.persist ? readStoredJSON(keys.selection) : null
+    this.selectionKeys = raw !== null ? deserializeSelection(raw) : []
+    this.titles = raw !== null ? new Map(deserializeSelectionTitles(raw)) : new Map()
     this.shown = new Set(this.selectionKeys)
     this.toRestore = new Set(this.selectionKeys)
     this.bump()
@@ -191,8 +210,17 @@ export class CatalogStore {
     this.toRestore.delete(key)
   }
 
+  /** Nom prêté à une forme anonyme sous cette clé — `undefined` si aucun. */
+  titleOf(key: CatalogKey): string | undefined {
+    return this.titles.get(key)
+  }
+
   /** Entre dans la sélection AVANT que la géométrie arrive : la ligne réagit au clic. */
-  markSelected(key: CatalogKey): void {
+  markSelected(key: CatalogKey, title?: string): void {
+    // Avant la sortie anticipée « déjà affiché » : le titre sert à la RESTAURATION et doit
+    // entrer dans la table même quand la clé y est déjà, au cas où il n'était pas connu au
+    // premier ajout. La prochaine écriture (ajout, retrait) l'emportera.
+    if (title !== undefined) this.titles.set(key, title)
     // Un geste explicite l'emporte sur la restauration : sans cela, l'effet de
     // restauration lancerait un SECOND chargement pour la même clé et annulerait le
     // premier — celui qui portait le cadrage demandé par le clic.
@@ -216,9 +244,12 @@ export class CatalogStore {
    * chaque clé recopiait la sélection entière (O(k²)), la réécrivait dans le stockage
    * et notifiait — k écritures synchrones et k cascades de rendu pour un seul geste.
    */
-  markSelectedMany(keys: readonly CatalogKey[]): readonly CatalogKey[] {
+  markSelectedMany(keys: readonly CatalogKey[], titles?: ReadonlyMap<CatalogKey, string>): readonly CatalogKey[] {
     const added: CatalogKey[] = []
     for (const key of keys) {
+      // Titre retenu pour toutes les clés du lot, même déjà affichées — cf. `markSelected`.
+      const title = titles?.get(key)
+      if (title !== undefined) this.titles.set(key, title)
       // Un geste explicite l'emporte sur la restauration — cf. `markSelected`.
       this.toRestore.delete(key)
       if (this.shown.has(key)) continue
@@ -265,6 +296,7 @@ export class CatalogStore {
   remove(key: CatalogKey, failed = false): void {
     this.shown.delete(key)
     this.selectionKeys = removeFromSelection(this.selectionKeys, key)
+    this.titles.delete(key)
     this.geometries.delete(key)
     this.pending.delete(key)
     if (failed) this.errors.add(key)
@@ -286,6 +318,7 @@ export class CatalogStore {
     for (const key of keys) {
       if (!this.shown.has(key)) continue
       this.shown.delete(key)
+      this.titles.delete(key)
       this.geometries.delete(key)
       this.pending.delete(key)
       // Même règle que `remove` : un lot qui échoue laisse ses pastilles d'erreur.
@@ -303,6 +336,7 @@ export class CatalogStore {
   clear(): void {
     if (this.selectionKeys.length === 0 && this.geometries.size === 0) return
     this.selectionKeys = []
+    this.titles.clear()
     this.shown.clear()
     this.geometries.clear()
     this.pending.clear()
@@ -330,6 +364,7 @@ export class CatalogStore {
     for (const key of [...this.pending]) if (!keep.has(key)) this.pending.delete(key)
     for (const key of [...this.errors]) if (!keep.has(key)) this.errors.delete(key)
     for (const key of [...this.toRestore]) if (!keep.has(key)) this.toRestore.delete(key)
+    for (const key of [...this.titles.keys()]) if (!keep.has(key)) this.titles.delete(key)
     this.shown = keep
     this.selectionKeys = kept
     this.rebuildShapes()
@@ -439,7 +474,7 @@ export class CatalogStore {
     if (!this.persistDirty) return
     this.persistDirty = false
     if (!this.keys || !this.settings.persist) return
-    writeStoredJSON(this.keys.selection, serializeSelection(this.selectionKeys))
+    writeStoredJSON(this.keys.selection, serializeSelection(this.selectionKeys, this.titles))
   }
 
   /** Abandonne l'écriture en attente — la charge qu'elle porterait n'a plus lieu d'être. */

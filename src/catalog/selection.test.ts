@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   catalogKey,
   deserializeSelection,
+  deserializeSelectionTitles,
   parseCatalogKey,
   purgeSources,
   removeFromSelection,
@@ -102,10 +103,46 @@ describe('sérialisation', () => {
   })
 
   it('ignore les entrées non conformes dans une charge valide', () => {
-    expect(deserializeSelection({ v: 1, keys: ['a:1', 42, null, 'sans-separateur'] })).toEqual(['a:1'])
+    expect(deserializeSelection({ v: 2, keys: ['a:1', 42, null, 'sans-separateur'] })).toEqual(['a:1'])
   })
 
   it('ignore une charge dont `keys` n’est pas un tableau', () => {
-    expect(deserializeSelection({ v: 1, keys: 'a:1' })).toEqual([])
+    expect(deserializeSelection({ v: 2, keys: 'a:1' })).toEqual([])
+  })
+})
+
+describe('sérialisation des titres', () => {
+  it('fait un aller-retour fidèle des titres des clés sélectionnées', () => {
+    const sel = ['cities:42', 'zones:geo:ref:7']
+    const titles = new Map([
+      ['cities:42', 'Paris'],
+      ['zones:geo:ref:7', 'Secteur 7'],
+    ])
+    const back = deserializeSelectionTitles(serializeSelection(sel, titles))
+    expect(back.get('cities:42')).toBe('Paris')
+    expect(back.get('zones:geo:ref:7')).toBe('Secteur 7')
+  })
+
+  it('n’écrit que les titres des clés encore sélectionnées', () => {
+    const titles = new Map([
+      ['a:1', 'Gardé'],
+      ['a:2', 'Orphelin'],
+    ])
+    const back = deserializeSelectionTitles(serializeSelection(['a:1'], titles))
+    expect(back.get('a:1')).toBe('Gardé')
+    expect(back.has('a:2')).toBe(false)
+  })
+
+  it('rend une table vide sans titres, sur une charge illisible ou d’une autre version', () => {
+    expect(deserializeSelectionTitles(serializeSelection(['a:1'])).size).toBe(0)
+    expect(deserializeSelectionTitles('pas un objet').size).toBe(0)
+    expect(deserializeSelectionTitles({ v: 1, titles: { 'a:1': 'x' } }).size).toBe(0)
+  })
+
+  it('ignore les titres non conformes (valeur non chaîne, clé malformée)', () => {
+    const back = deserializeSelectionTitles({ v: 2, titles: { 'a:1': 'ok', 'b:2': 42, malformee: 'x' } })
+    expect(back.get('a:1')).toBe('ok')
+    expect(back.has('b:2')).toBe(false)
+    expect(back.has('malformee')).toBe(false)
   })
 })

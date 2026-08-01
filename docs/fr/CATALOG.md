@@ -219,11 +219,13 @@ ensuite trouvable par son nom (cf. [ZONES.md § 5](ZONES.md#5-recherche)). Une f
 C'est ce qui permet d'ajouter cinq éléments d'affilée sans que la vue saute, tout en
 gardant un geste direct pour « montre-moi celui-là ».
 
-**Persistance.** Ce qui est affiché survit au rechargement : seules les **clés** sont
-retenues (`config.data.storageKeys.catalog`), et les géométries sont redemandées à la
-source. Une géométrie est la réponse d'une API à un instant donné — la resservir depuis
-un stockage local afficherait un périmètre que le backend a peut-être déplacé depuis. Une
-entrée devenue introuvable est retirée silencieusement.
+**Persistance.** Ce qui est affiché survit au rechargement : les **clés** sont retenues
+(`config.data.storageKeys.catalog`), et les géométries sont redemandées à la source. Une
+géométrie est la réponse d'une API à un instant donné — la resservir depuis un stockage
+local afficherait un périmètre que le backend a peut-être déplacé depuis. Une entrée
+devenue introuvable est retirée silencieusement. Le **titre** prêté à une forme anonyme est
+persisté avec sa clé : une zone posée depuis le catalogue reste donc trouvable par son nom
+**même après un rechargement**, et pas seulement dans la session où on l'a posée.
 
 L'utilisateur règle tout cela depuis l'engrenage de la barre d'outils : *conserver entre
 les sessions*, *cadrer à l'ajout*, *tout retirer*.
