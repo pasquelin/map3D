@@ -4,6 +4,7 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
+import type { StatContribution } from '../core/viewStats'
 import type { Projection, ScreenPoint } from '../core/Projection'
 import type { SelectableScreenItem } from '../core/Selectables'
 import { clamp, DEG2RAD, shortestLngDelta } from '../core/math'
@@ -537,7 +538,12 @@ export class MarkerLayer implements Layer {
     const occlude = this.occlude && !this.grounded
     // Hors marche, aucune borne : la scène porte jusqu'à l'horizon, que l'occlusion gère.
     const range = this.grounded ? this.config.pedestrian.viewDistanceMeters : 0
-    if (!occlude && !cull && range <= 0) return
+    if (!occlude && !cull && range <= 0) {
+      // Aucun verdict à rendre : tout ce qui est monté est à l'écran. Le compteur doit le
+      // DIRE, sinon il garderait la valeur d'avant la bascule et le panneau mentirait.
+      this.visibleCount = this.nodes.size
+      return
+    }
     const camPos = ctx.camera.position
     const { width, height } = ctx.size
     // Hors marche, la borne de distance est inerte — mais l'argument, lui, serait quand
@@ -545,6 +551,7 @@ export class MarkerLayer implements Layer {
     const ranged = range > 0
     // Sens de visée de la frame, posé une fois pour toute la boucle (cf. `setViewDirection`).
     if (cull) this.projection.setViewDirection(ctx.camera)
+    let seen = 0
     for (const node of this.nodes.values()) {
       /**
        * Lecture DIRECTE de la matrice monde, sans `getWorldPosition` : celui-ci commence
@@ -572,7 +579,22 @@ export class MarkerLayer implements Layer {
         node.obj.visible = visible
         node.visible = visible
       }
+      if (visible) seen++
     }
+    this.visibleCount = seen
+  }
+
+  /**
+   * Markers réellement peints à la dernière passe — le seul chiffre qui dise ce que la
+   * frame paie. Compté DANS la boucle de cull, qui posait déjà le verdict : le lire
+   * ailleurs demanderait de reparcourir les nœuds, et un compteur de diagnostic n'a pas
+   * à ajouter une passe à ce qu'il mesure.
+   */
+  private visibleCount = 0
+
+  /** Contribution au panneau de diagnostic (cf. `CounterRegistry`). */
+  stats(): StatContribution {
+    return { kind: 'markers', visible: this.visibleCount, total: this.nodes.size }
   }
 
   dispose(): void {
