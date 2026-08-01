@@ -252,11 +252,13 @@ Navigation bar.
 
 ## `<GraticuleLayer>`
 
-Geographic coordinate grid — see [GRATICULE.md](GRATICULE.md). **No props**: it is configured
+Geographic coordinate grid — see [GRATICULE.md](GRATICULE.md). **Mounted automatically by
+`<Map>`**: do not mount it yourself (two grids would stack). **No props**: it is configured
 through `config.graticule`, themed through `theme.colors.graticule`, and toggled through
 `useGraticule()`, the “Measure” submenu or the `graticule` button of `<MapControls>`.
 
-It costs nothing while the grid is off: it can stay mounted permanently.
+It costs nothing while the grid is off. The component stays exported for maps built without
+`<Map>` (full imperative mounting).
 
 ## `<MeasureToolButton>`
 

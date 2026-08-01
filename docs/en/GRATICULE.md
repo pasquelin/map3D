@@ -28,32 +28,28 @@ current mesh's precision: `45°N` at degree level, `45°11'N` at minute level,
 
 ## 2. Turning it on
 
-Three paths, depending on who decides.
-
-**The layer must be mounted** in every case — it is what paints:
-
-```tsx
-<Map center={PARIS} zoom={14} controls={{}}>
-  <GraticuleLayer />
-</Map>
-```
-
-It costs nothing while the grid is off: no geometry, no label, no render-loop wake-up. So
-it can stay mounted permanently.
+The layer is mounted **automatically** by `<Map>` — nothing to add to its children. It costs
+nothing while the grid is off: no geometry, no label, no render-loop wake-up. Three paths
+remain to turn it on, depending on who decides.
 
 **On at startup** — through config:
 
 ```tsx
-<Map config={{ graticule: { enabled: true } }}>
-  <GraticuleLayer />
-</Map>
+<Map center={PARIS} zoom={14} config={{ graticule: { enabled: true } }} />
 ```
+
+**From the bar** — the `graticule` button of `<MapControls>` (shown by default) and the
+"Measures" submenu toggle it, without a line on the host side.
 
 **Driven from the application** — through the hook, which reads engine state:
 
 ```tsx
 const { visible, setVisible, toggle } = useGraticule()
 ```
+
+> ⚠️ **Do not mount `<GraticuleLayer>` yourself**: `<Map>` already does. A manual mount would
+> stack two grids. The component stays exported for the rare maps built without `<Map>` (full
+> imperative mounting).
 
 ⚠️ `graticule.enabled` is only the **starting** state. The current source of truth lives
 in the engine (`engine.setGraticuleVisible`), because several commands drive it — the

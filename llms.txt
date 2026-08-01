@@ -13,6 +13,10 @@
   outside React. The React layer mounts it declaratively.
 - **Single public entry point**: `import { … } from 'map3d'`. Everything is re-exported from
   `src/index.ts`. `VERSION` exposes the current version.
+- **`<Map>` mounts every surface and layer internally** (bar, controls, cluster, catalog,
+  pedestrian HUD, coordinate grid…), driven by `config`/`theme`/`labels`/props. Its `children`
+  are for the host's OWN overlays only — you get a full map without putting anything there. Never
+  require the host to child-mount a lib layer.
 - **Three settings trees** provided by `<MapProvider>`, deep-merged onto a complete base:
   `theme` (visual identity — colors/sizes/rhythm), `labels` (language + units, no hard-coded
   text), `config` (`MapConfig` — API keys, quotas, gestures, budgets, support). A component's

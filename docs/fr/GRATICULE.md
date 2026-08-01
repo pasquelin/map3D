@@ -28,32 +28,28 @@ au format de la maille courante : `45°N` au degré, `45°11'N` à la minute,
 
 ## 2. L'activer
 
-Trois chemins, selon qui décide.
-
-**La couche doit être montée** dans tous les cas — c'est elle qui peint :
-
-```tsx
-<Map center={PARIS} zoom={14} controls={{}}>
-  <GraticuleLayer />
-</Map>
-```
-
-Elle ne coûte rien tant que la grille est éteinte : ni géométrie, ni étiquette, ni
-réveil de la boucle de rendu. On peut donc la monter en permanence.
+La couche est montée **automatiquement** par `<Map>` — rien à ajouter dans les enfants. Elle
+ne coûte rien tant que la grille est éteinte : ni géométrie, ni étiquette, ni réveil de la
+boucle de rendu. Il reste trois chemins pour l'allumer, selon qui décide.
 
 **Allumée au démarrage** — par la config :
 
 ```tsx
-<Map config={{ graticule: { enabled: true } }}>
-  <GraticuleLayer />
-</Map>
+<Map center={PARIS} zoom={14} config={{ graticule: { enabled: true } }} />
 ```
+
+**Depuis la barre** — le bouton `graticule` de `<MapControls>` (affiché par défaut) et le
+sous-menu « Mesures » la basculent, sans une ligne côté hôte.
 
 **Pilotée depuis l'application** — par le hook, qui lit l'état au moteur :
 
 ```tsx
 const { visible, setVisible, toggle } = useGraticule()
 ```
+
+> ⚠️ **Ne montez pas `<GraticuleLayer>` vous-même** : `<Map>` le fait déjà. Un montage manuel
+> superposerait deux grilles. Le composant reste exporté pour les rares cartes construites sans
+> `<Map>` (montage impératif complet).
 
 ⚠️ `graticule.enabled` n'est que l'état de **départ**. La source de vérité courante vit
 dans le moteur (`engine.setGraticuleVisible`), parce que plusieurs commandes la pilotent —

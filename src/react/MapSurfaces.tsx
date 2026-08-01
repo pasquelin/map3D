@@ -33,6 +33,7 @@ import {
 import { DrawLayer } from './components/DrawLayer'
 import type { MenuItem } from './components/ContextMenu'
 import { CameraReadout } from './components/CameraReadout'
+import { GraticuleLayer } from './components/GraticuleLayer'
 import { LensLayer, type LensOptions } from './components/LensLayer'
 import { MapControls } from './components/MapControls'
 import { PedestrianHud } from './components/PedestrianHud'
@@ -296,6 +297,13 @@ export function MapSurfaces<T, TPin>({
           piéton est proposable dès la 3D externe, indépendamment de `draw`/`controls`, et
           l'immersion doit pouvoir se déclencher et s'annoncer même sans aucune barre. */}
       <PedestrianHud />
+      {/* Grille de coordonnées : montée SANS condition, comme le HUD piéton. C'est la SEULE
+          couche qui peint — le bouton `graticule` de `<MapControls>` et le raccourci ne font que
+          basculer un booléen du moteur, ils ne dessinent rien sans elle. Zéro coût tant que la
+          grille est éteinte (défaut `graticule.enabled:false`) : `update`/`project` sortent au
+          premier `if`. L'hôte n'a donc RIEN à mettre dans les enfants de `<Map>` — la monter en
+          plus soi-même donnerait deux grilles superposées. */}
+      <GraticuleLayer />
       {/* Après les barres : il se pose dans un coin, donc il ne dispute sa place à
           aucune d'elles — l'ordre ne joue que si deux surfaces visent le même coin,
           auquel cas la dernière montée passe devant (même plan d'empilement). */}

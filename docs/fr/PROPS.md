@@ -249,11 +249,13 @@ Barre de navigation.
 
 ## `<GraticuleLayer>`
 
-Grille de coordonnées géographiques — cf. [GRATICULE.md](GRATICULE.md). **Sans prop** : elle se
-règle par `config.graticule`, se thème par `theme.colors.graticule`, et se bascule par
+Grille de coordonnées géographiques — cf. [GRATICULE.md](GRATICULE.md). **Montée automatiquement
+par `<Map>`** : ne la montez pas vous-même (deux grilles se superposeraient). **Sans prop** :
+elle se règle par `config.graticule`, se thème par `theme.colors.graticule`, et se bascule par
 `useGraticule()`, le sous-menu « Mesures » ou le bouton `graticule` de `<MapControls>`.
 
-Elle ne coûte rien tant que la grille est éteinte : on peut la monter en permanence.
+Elle ne coûte rien tant que la grille est éteinte. Le composant reste exporté pour les cartes
+construites sans `<Map>` (montage impératif complet).
 
 ## `<MeasureToolButton>`
 

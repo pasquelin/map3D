@@ -19,8 +19,9 @@ Guide : [docs/fr/GRATICULE.md](docs/fr/GRATICULE.md) · [EN](docs/en/GRATICULE.m
 
 **Ajouts**
 
-- `<GraticuleLayer />`, `useGraticule()`, `MeasureToolButton`, types `GraticuleConfig` /
-  `CoordFormat` / `MeasureTool`.
+- `<GraticuleLayer />` (**monté automatiquement par `<Map>`** — l'hôte n'a rien à placer dans
+  les enfants ; le composant reste exporté pour un montage impératif sans `<Map>`),
+  `useGraticule()`, `MeasureToolButton`, types `GraticuleConfig` / `CoordFormat` / `MeasureTool`.
 - Moteur : `engine.setGraticuleVisible()` / `getGraticuleVisible()` / `setGraticuleMounted()`
   et l'event `graticule`. L'état vit là parce que trois commandes le pilotent.
 - `config.graticule` (30 réglages), `theme.colors.graticule` (optionnel, repli sur le thème
