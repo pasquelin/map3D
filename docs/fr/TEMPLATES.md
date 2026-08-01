@@ -23,8 +23,10 @@ import { Map } from 'map3d'
 
 `templates` monte le bouton sous « Couches ». Il ouvre un panneau qui permet de
 **sauvegarder** le dessin courant (nom + catégories cochées), de **lister** les
-templates (vignette d'aperçu, stats, nom éditable, suppression), de les **appliquer**
-au dessin (ajouter ou remplacer), et d'**exporter/importer** un fichier `.m3dt`.
+templates (vignette d'aperçu, stats, nom éditable, suppression), de les **mettre à
+jour** avec le dessin courant (écrase le contenu existant, avec confirmation), de les
+**appliquer** au dessin (ajouter ou remplacer), et d'**exporter/importer** un fichier
+`.m3dt`.
 
 > Le bouton vit dans la barre de contrôles : il faut donc `controls` actif (le défaut).
 > Un template sauve le dessin : il faut `draw` actif.
@@ -182,6 +184,7 @@ const t = useTemplates({ provider })
 t.templates            // liste réactive
 t.saveCurrent(name, ['shapes', 'symbols'], { view: true })  // { view } est optionnel
 t.saveCurrent('Vernon', [], { view: true })                 // vue seule, sans dessin
+t.updateFromDrawing(id, { view: true })   // écrase le contenu d'un template existant
 t.apply(id, 'merge')
 t.rename(id, name); t.remove(id)
 t.exportFile(id); t.importFile(file)

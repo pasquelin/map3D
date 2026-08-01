@@ -225,12 +225,17 @@ road value is known, plus a `status` (`pending` | `ready` | `unavailable`).
 
 ```ts
 type RoutingProvider = {
-  matrix(...): Promise<MatrixEntry[]>   // durations/distances in bulk
-  route(...): Promise<ProviderRoute>    // detailed route for one pair
+  matrix(...): Promise<MatrixEntry[]>     // durations/distances in bulk
+  route(...): Promise<ProviderRoute[]>    // routes for one pair, alternatives included (index 0 = main one)
+  setConfig?(config: RoutingConfig): void // receives the map's providers.routing on every change
 }
 ```
 
-Two methods, that is all. The core depends on nothing but this contract.
+Two required methods, plus an optional `setConfig` to track the map's
+`providers.routing` (endpoints, FieldMasks, `routingPreference`, locale, network)
+without the application having to recreate the provider — omitted, the provider keeps
+control of its own settings (server proxy, test mock). The core depends on nothing but
+this contract.
 
 > ### ⚠️ API key — read before going to production
 >
@@ -302,8 +307,14 @@ or in tests with a fake provider.
 | `menuPresets` | steps offered by a family's menu |
 | `fanMaxLegs` | beyond this, the fan collapses into an aggregated link (default 5) |
 | `fastestOversample` | 💰 candidates queried per displayed link (default 3) |
-| `statusBar` | `false` removes the status bar; an object supplies `nameOf` |
 | `children` | `ReactNode`, or a **function** receiving the API |
+
+⚠️ **`statusBar` is not a `RelationLayerProps` prop.** It's an addition from `<Map
+relations>` (`RelationsConfig`): the map extracts it and mounts `<RelationStatusBar>`
+itself — `false` removes it, an object supplies `nameOf` and `modes` (travel modes
+offered by the bar). With `<RelationLayer>` mounted by hand (§ 1), mount
+`<RelationStatusBar>` yourself among its children; the layer itself doesn't know this
+prop.
 
 Real defaults: [PROPS.md](PROPS.md). Labels and templates: `labels.relations` and
 `labels.duration` — see [LABELS.md](LABELS.md).

@@ -98,8 +98,12 @@ const off = engine.on('viewport', (view) => refetch(view.bounds))
 | `viewport` | `MapView` | after settling |
 | `click` | `{ latLng, originalEvent }` | click on the map |
 | `dragmode` | `'pan' \| 'rotate'` | mode change |
-| `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable }` | basemap **or capability** change |
+| `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable, canPickBuildings }` | basemap **or capability** change |
+| `pedestrian` | `PedestrianState` | entering/leaving pedestrian mode, immersion, availability, noticeable rotation — see `usePedestrian` ([HOOKS.md](HOOKS.md)) |
+| `buildingpickmode` | `boolean` | the "pick a building" tool was just armed or disarmed |
+| `buildingclick` | `{ hit: { ref, info }, originalEvent }` | a building in the internal volume was clicked, tool active — see [BUILDINGS.md](BUILDINGS.md) |
 | `graticule` | `boolean` | the coordinate grid was just switched on or off |
+| `templatesave` / `templateremove` / `templateapply` | see [TEMPLATES.md](TEMPLATES.md) | template created/renamed, removed, applied |
 | `ready` | `MapEngine` | **once only**, replayed for late subscribers |
 
 React version: `useMapEvents({ onClick, onCameraChange, onViewportChange, onReady })`.
@@ -118,6 +122,7 @@ have nothing to switch on.
 | `canPlan` | a flat map is servable: Google key with `external`, `origin` with `internal`. Without it the basemap button group has nothing to offer |
 | `can3d` | volume is servable: photorealistic tileset with `external`, terrain/buildings with `internal`. **Informational** — hides no button |
 | `trafficAvailable` | traffic offerable: **external** provider, 2D basemap present, not in 3D mode |
+| `canPickBuildings` | a building is **pickable**: internal volume (extruded MVT footprints, each with its own identity) — the external photorealistic mesh is out of reach by nature, a single fused mesh with nothing to tell buildings apart |
 
 `engine.supportsBasemap2d` is still available: it is the historical alias of `canPlan`.
 `setMapMode('plan')` without `canPlan`, like `setTrafficVisible(true)` without
@@ -129,7 +134,7 @@ than a clean refusal.
 ## 3. Writing a layer
 
 ```ts
-interface Layer {
+type Layer = {
   update(ctx: FrameContext): void    // advances the 3D state (geometry)
   project(ctx: FrameContext): void   // writes the DOM overlays — a pure WRITE pass
   dispose(): void
@@ -353,11 +358,16 @@ registry can be built without rewriting these safeguards.
 
 ## 6. Pointer interception
 
-A tool (drawing, lens) arms itself by setting a `PointerInterceptor` on the engine:
+A tool (drawing, lens) arms itself by setting a `PointerInterceptor` on `engine.inputInterceptor`:
 
 ```ts
-type PointerInterceptor = (phase: 'down' | 'move' | 'up', event: PointerEvent) => boolean
+type PointerInterceptor = (phase: 'down' | 'move' | 'up', latLng: LatLng | null, event: PointerEvent) => boolean
+
+engine.inputInterceptor = myInterceptor   // `null` to disarm
 ```
+
+`latLng` is already resolved by the engine (raycast against the terrain): the
+interceptor does not have to re-pick the point under the pointer itself.
 
 Returning `true` **consumes** the event: the camera does not move. This is what makes
 drawing and the lens **mutually exclusive** — there is only one interceptor.
@@ -428,3 +438,5 @@ component: it runs server-side or in tests with a fake provider (no Three, no Re
 - [CAMERA.md](CAMERA.md) — `Camera`, view events, basemap
 - [CONFIG.md](CONFIG.md) — every budget and threshold quoted here
 - [ZONES.md](ZONES.md) — `DrapedLayer` in practice
+- [BUILDINGS.md](BUILDINGS.md) — `buildingMenu`, building picking
+- [TEMPLATES.md](TEMPLATES.md) — the `templatesave` / `templateremove` / `templateapply` events

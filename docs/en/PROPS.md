@@ -232,7 +232,7 @@ Drawing toolbar.
 | `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.interaction.drawToolbarMinZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
-| `measureTools` | Rows offered by the “Measure” submenu (default: measure + grid); a single one = no submenu, the button becomes a plain tool again. `['measure']` therefore removes the grid from the bar — it stays reachable through `<MapControls>` and config. | — |
+| `measureTools` | Rows offered by the “Measure” button — only one (`measure`) exists today, so the submenu never opens: the button acts directly. The coordinate grid has moved to the view controls (`<MapControls>`, `config.graticule`); the submenu's chassis stays in place for a future row. | — |
 | `components` | Hides (`false`) or replaces (ReactNode) each section — default: everything displayed. | `{}` |
 | `extraTools` | **Application** tools rendered as primary items of the bar, after the native tools (drawing, symbols, lens): they take on the bar's visual language instead of floating in a corner of the map. They drive their own state, the bar does not… | — |
 
@@ -247,6 +247,7 @@ Navigation bar.
 | `buttons` | BUTTON granularity: `false` hides a specific button (e.g. `{ rotate: false, zoomOut: false }`). A group whose buttons are all hidden disappears, and a hidden button's keyboard shortcut is disabled with it. | `{}` |
 | `shortcuts` | Keyboard shortcuts per action — `false` to disable one, another key to remap it if it is already taken elsewhere in the app. BARE letters (no ⌘/Ctrl: browsers reserve ⌘T/⌘N/⌘W…), identical on Mac and PC, shown in the… | — |
 | `tagLabel` | Readable label of a tag in the “Layers” panel (default: the raw tag). | — |
+| `templates` | Templates manager (button below “Layers”, same structure). `false`/absent removes it; an object configures it (API provider, categories…). Provided by `<Map templates>`. | — |
 | `target` | The screen's point of reference (the alert being viewed, the ongoing event…): providing this prop adds a **“back to target”** button to the bar; omitting it removes the button. The map does not need to know what the target represents, only where it is. | — |
 
 ## `<GraticuleLayer>`
@@ -265,7 +266,7 @@ manual mount (custom bar).
 | Prop | Description | Default |
 |---|---|---|
 | `position` | Anchor side, for opening the submenu. | — |
-| `tools` | Rows displayed; a single one = no submenu. | both |
+| `tools` | Rows displayed; a single one = no submenu — the current state, since only one row (`measure`) exists. | *(the only existing row)* |
 
 ## `<PinnedDock>`
 
@@ -317,6 +318,10 @@ Bar button + panel of the template manager (drawing snapshots). Also accepts all
 | `defaultCategories` | Categories checked by default in the “Save” form. | `config.providers.templates.defaultCategories` |
 | `defaultApply` | Default apply mode on click (`'merge'` \| `'replace'`). | `config.providers.templates.defaultApply` |
 | `allowExport` | Allows `.m3dt` file export/import. | `config.providers.templates.allowExport` |
+| `saveView` | Offers the “View” checkbox when saving (remembers camera pose, basemap, layers, pedestrian mode). | `config.providers.templates.saveView` |
+| `defaultSaveView` | “View” checkbox checked by default. No effect if `saveView` is false. | `config.providers.templates.defaultSaveView` |
+| `applyView` | Replays a template's view on load, when it carries one. | `config.providers.templates.applyView` |
+| `viewFlyDuration` | Duration (s) of the flight to the loaded view; `0` = instant. | `config.providers.templates.viewFlyDuration` |
 | `position` | Side of the host bar: the panel opens on the opposite side. | `'right'` |
 | `tipId` | id of the host bar's shared `<Tooltip>` (MapControls). | — |
 | `shortcut` | Key (single letter) that opens/closes the panel. `false` = no shortcut. | — |
@@ -337,7 +342,7 @@ custom bar.
 |---|---|---|
 | `position` | Host bar side: the panel opens on the opposite side. | `'right'` |
 | `tipId` | id of the host bar's shared `<Tooltip>` (MapControls). | — |
-| `shortcut` | Key (single letter) that opens/closes the panel. `false` = no shortcut. | `interaction.shortcuts.controls.catalog` |
+| `shortcut` | Key (single letter) that opens/closes the panel. `false` = no shortcut. Mounted by `<MapControls>`, it receives `interaction.shortcuts.controls.catalog`; no default of its own in a manual mount. | — |
 | `grouped` | Rendered WITHOUT its own `.m3d-controls-group` card — to sit alongside "Layers". | — |
 
 ## `<Confirm>`
@@ -381,5 +386,6 @@ Diagnostics panel, already mounted as the “Infos” row of the “Settings” 
 | --- | --- | --- | --- |
 | `paths` | `PathData[]` | — | Displayed paths. Each carries its points and may override `color`, `width`, `casing`. |
 | `animateHead` | `boolean` | `true` | Pulse on the current point, at the head of the path. |
+| `id` | `string` | — | Layer key (like `markersLayer`/`shapesLayer`) — provide it as soon as `layers` can be reordered or filtered. |
 
 Width is in **world metres**: a path grows with zoom, unlike drawing-layer strokes which keep a constant on-screen thickness. For a **computed** itinerary (traffic, travel time), see [RELATIONS.md](RELATIONS.md).

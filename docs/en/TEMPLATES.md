@@ -22,8 +22,9 @@ import { Map } from 'map3d'
 
 `templates` mounts the button under “Layers”. It opens a panel to **save** the current
 drawing (name + checked categories), **list** templates (preview thumbnail, stats,
-editable name, delete), **apply** them to the drawing (merge or replace), and
-**export/import** a `.m3dt` file.
+editable name, delete), **update** them with the current drawing (overwrites the
+existing content, with confirmation), **apply** them to the drawing (merge or
+replace), and **export/import** a `.m3dt` file.
 
 > The button lives in the controls bar, so `controls` must be enabled (the default).
 > A template saves the drawing, so `draw` must be enabled.
@@ -177,6 +178,7 @@ const t = useTemplates({ provider })
 t.templates            // reactive list
 t.saveCurrent(name, ['shapes', 'symbols'], { view: true })  // { view } is optional
 t.saveCurrent('Vernon', [], { view: true })                 // view only, no drawing
+t.updateFromDrawing(id, { view: true })   // overwrites an existing template's content
 t.apply(id, 'merge')
 t.rename(id, name); t.remove(id)
 t.exportFile(id); t.importFile(file)

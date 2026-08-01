@@ -23,9 +23,10 @@ docs/
 ├── README.md          ← vous êtes ici / you are here
 ├── fr/
 │   ├── README.md      guide + index
-│   ├── MARKERS.md  ZONES.md  DRAWING.md  SYMBOLS.md  RELATIONS.md
-│   ├── LENS.md     SEARCH.md CAMERA.md   DATA.md     HOOKS.md  ENGINE.md
-│   ├── TILES.md    BUILDINGS.md PLUGINS.md
+│   ├── MARKERS.md    ZONES.md      CATALOG.md      DRAWING.md   SYMBOLS.md   TEMPLATES.md
+│   ├── RELATIONS.md  LENS.md       SEARCH.md        CAMERA.md   TILES.md     BUILDINGS.md
+│   ├── GRATICULE.md  PLUGINS.md    PREFERENCES.md   DATA.md     HOOKS.md     ENGINE.md
+│   ├── PEDESTRIAN.md ← marche au sol, immersion première personne
 │   └── CONFIG.md   THEME.md  LABELS.md   PROPS.md          ← références
 └── en/
     └── (mêmes fichiers / same files)
@@ -36,14 +37,20 @@ docs/
 | Guide + index | [fr/README.md](fr/README.md) | [en/README.md](en/README.md) |
 | Markers | [fr](fr/MARKERS.md) | [en](en/MARKERS.md) |
 | Zones & formes / Zones & shapes | [fr](fr/ZONES.md) | [en](en/ZONES.md) |
+| Catalogue / Catalog | [fr](fr/CATALOG.md) | [en](en/CATALOG.md) |
 | Dessin / Drawing | [fr](fr/DRAWING.md) | [en](en/DRAWING.md) |
 | Symboles / Symbols | [fr](fr/SYMBOLS.md) | [en](en/SYMBOLS.md) |
+| Templates | [fr](fr/TEMPLATES.md) | [en](en/TEMPLATES.md) |
 | Relations | [fr](fr/RELATIONS.md) | [en](en/RELATIONS.md) |
 | Loupe / Lens | [fr](fr/LENS.md) | [en](en/LENS.md) |
 | Recherche / Search | [fr](fr/SEARCH.md) | [en](en/SEARCH.md) |
 | Caméra / Camera | [fr](fr/CAMERA.md) | [en](en/CAMERA.md) |
+| Mode piéton / Pedestrian mode | [fr](fr/PEDESTRIAN.md) | [en](en/PEDESTRIAN.md) |
+| Tuiles / Tiles | [fr](fr/TILES.md) | [en](en/TILES.md) |
 | Bâtiments / Buildings | [fr](fr/BUILDINGS.md) | [en](en/BUILDINGS.md) |
+| Graticule | [fr](fr/GRATICULE.md) | [en](en/GRATICULE.md) |
 | Plugins | [fr](fr/PLUGINS.md) | [en](en/PLUGINS.md) |
+| Préférences / Preferences | [fr](fr/PREFERENCES.md) | [en](en/PREFERENCES.md) |
 | Données / Data | [fr](fr/DATA.md) | [en](en/DATA.md) |
 | Hooks | [fr](fr/HOOKS.md) | [en](en/HOOKS.md) |
 | Moteur / Engine | [fr](fr/ENGINE.md) | [en](en/ENGINE.md) |

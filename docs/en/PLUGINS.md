@@ -109,8 +109,7 @@ type PluginField =
 `secret: true` (on `string` fields) masks the value in the control; the hub and
 the dev panel **never** copy it to the clipboard or to logs (§ 11).
 
-Example, the example app's demo plugin
-(`examples/react/src/plugins/demoPlugin.tsx`):
+Illustrative example, a self-contained demo plugin with no network (§ 12):
 
 ```ts
 config: [
@@ -236,7 +235,12 @@ function BuildingSheet() {
 }
 ```
 
-Wire it into the component that `<Map buildingMenu>` opens.
+Mount it anywhere under `<Map>` (a side panel, a modal, `<Map>`'s `children`) — the
+library doesn't attach it to any particular UI; `useBuildingEnrichment()` reads from
+any child component of the map context. Unrelated to `<Map buildingMenu>`: that prop
+only builds the `MenuItem[]` context menu opened on a building click (see
+[BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--the-contract)), it doesn't render any
+component.
 
 **Provenance tags**: `{ attrs, tags? }` — `tags` (default `[plugin.meta.id]`) marks
 **where** each block comes from. When N plugins enrich the same building, the host
@@ -397,12 +401,13 @@ responsibility:
 
 ---
 
-## 12. Cookbook — building the demo plugin step by step
+## 12. Cookbook — building a demo plugin step by step
 
-The example app's through-line
-(`examples/react/src/plugins/demoPlugin.tsx`): a plugin with no network
-(procedural), exercising path A, the 4 config field types, `refetch` vs cosmetic,
-and enrichment at pick.
+A self-contained plugin with no network (procedural), exercising path A, the 4
+config field types, `refetch` vs cosmetic, and enrichment at pick. Purely
+illustrative: it doesn't live in `examples/react/`, which instead wires in real
+official plugins (`@map3d/plugin-geopf`, `@map3d/plugin-windy`,
+`@map3d/plugin-plan-3d` — see § 13).
 
 **1. Meta and activation**
 
@@ -484,7 +489,9 @@ and `note` only change the appearance of already-generated points → no `refetc
 **5. Wiring it up**
 
 ```tsx
-<Map plugins={[demoPlugin()]} buildingMenu={(info, close) => <BuildingSheet info={info} onClose={close} />} />
+<Map plugins={[demoPlugin()]}>
+  <BuildingSheet />
+</Map>
 ```
 
 This plugin never touches the network (procedural data), so it doesn't illustrate

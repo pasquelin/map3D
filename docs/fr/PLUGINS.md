@@ -109,7 +109,7 @@ type PluginField =
 `secret: true` (champs `string`) masque la valeur dans le contrôle ; le hub et le
 dev panel ne la copient **jamais** dans le presse-papier ni les logs (§ 11).
 
-Exemple, le plugin de démo de l'exemple (`examples/react/src/plugins/demoPlugin.tsx`) :
+Exemple illustratif, un plugin de démonstration autonome sans réseau (§ 12) :
 
 ```ts
 config: [
@@ -235,7 +235,12 @@ function BuildingSheet() {
 }
 ```
 
-À brancher dans le composant qu'ouvre `<Map buildingMenu>`.
+À monter n'importe où sous `<Map>` (panneau latéral, modale, `children` de `<Map>`) —
+la lib ne l'attache à aucune UI en particulier, `useBuildingEnrichment()` se lit depuis
+n'importe quel composant enfant du contexte carte. Sans rapport avec `<Map
+buildingMenu>` : ce dernier ne fait que construire le menu contextuel `MenuItem[]`
+ouvert au clic sur un bâtiment (cf. [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--le-contrat)),
+il ne rend aucun composant.
 
 **Tags de provenance** : `{ attrs, tags? }` — `tags` (défaut `[plugin.meta.id]`)
 marque **d'où vient** chaque bloc. Quand N plugins enrichissent le même bâtiment,
@@ -399,11 +404,13 @@ l'auteur :
 
 ---
 
-## 12. Cookbook — construire le plugin démo pas à pas
+## 12. Cookbook — construire un plugin de démonstration pas à pas
 
-Le fil rouge de l'exemple de la lib (`examples/react/src/plugins/demoPlugin.tsx`) :
-un plugin sans réseau (procédural), qui exerce la voie A, les 4 types de champ de
-config, `refetch` vs cosmétique, et l'enrichissement au pick.
+Un plugin autonome, sans réseau (procédural), qui exerce la voie A, les 4 types de
+champ de config, `refetch` vs cosmétique, et l'enrichissement au pick. À but purement
+illustratif : il ne vit pas dans `examples/react/`, qui branche à la place de vrais
+plugins officiels (`@map3d/plugin-geopf`, `@map3d/plugin-windy`,
+`@map3d/plugin-plan-3d` — cf. § 13).
 
 **1. Meta et activation**
 
@@ -485,7 +492,9 @@ export const demoPlugin = () =>
 **5. Le brancher**
 
 ```tsx
-<Map plugins={[demoPlugin()]} buildingMenu={(info, close) => <BuildingSheet info={info} onClose={close} />} />
+<Map plugins={[demoPlugin()]}>
+  <BuildingSheet />
+</Map>
 ```
 
 Ce plugin ne fait jamais de réseau (données procédurales), donc n'illustre pas

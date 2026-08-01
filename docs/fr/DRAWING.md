@@ -57,10 +57,11 @@ Montage manuel :
 | Gomme | `E` | supprime au clic |
 | Symboles | `Y` | ouvre la palette (cf. [SYMBOLS.md](SYMBOLS.md)) |
 
-La **règle ouvre un sous-menu au survol**, comme le bouton Sélection : « Mesurer » et
-« Grille » (la grille de coordonnées, cf. [GRATICULE.md](GRATICULE.md)). Les deux rangées ne
-sont pas de même nature — la règle est un outil de tracé, la grille un calque, dont la touche
-vit donc dans `shortcuts.controls` et non ici.
+La **règle ouvre un sous-menu au survol**, comme le bouton Sélection — mais avec une
+seule rangée disponible par défaut (`measure`), le sous-menu **ne s'ouvre pas** : le
+bouton agit directement. La grille de coordonnées a quitté ce sous-menu pour les
+contrôles de vue (`shortcuts.controls.graticule`, touche `K`), dont elle survit au repli
+de la barre — cf. [GRATICULE.md](GRATICULE.md).
 
 ```tsx
 <Toolbar measureTools={['measure']} />   // une seule rangée = pas de sous-menu
@@ -437,7 +438,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer
 ```
 
 Sans ça, deux boutons restent allumés et la barre ne dit plus où on en est.
-`ToolbarApi` = `{ retracted, nativeActive, claim() }`.
+`ToolbarApi` porte `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
+les trois derniers ancrent un panneau qui suit l'outil actif, au-delà du minimum montré ici.
 
 ---
 
@@ -449,7 +451,7 @@ Obtenue par `useDrawing()` (lève hors d'un `<DrawLayer>`) ou par
 | Groupe | Membres |
 |---|---|
 | Outil | `tool`, `setTool`, `tools`, `shortcuts` |
-| Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect` |
+| Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Verrou | `lock`, `unlock` |
 | Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |

@@ -33,13 +33,14 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `colors.marker.default.base` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#2E7CF6'` |
 | `colors.marker.default.accent` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#78BEFF'` |
 | `colors.marker.default.contrast` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#ffffff'` |
+| `colors.tags` | Per-tag colour ("Layers" panel), key = tag name. A tag absent from this object falls back to the library's hashed palette. Optional. | `{}` |
 | `colors.cluster.core` | Donut core. | `'#1e293b'` |
 | `colors.cluster.satellite` | Reserved for satellites (legacy model). | `'#6344F0'` |
 | `colors.cluster.text` | Total displayed in the centre. | `'#ffffff'` |
 | `colors.cluster.ring` | Separating ring between core and slices. | `'#ffffff'` |
 | `colors.draw.palette` | Palette offered by the drawing colour picker. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
 | `colors.draw.default` | Colour of a newly drawn shape. | `'#2E7CF6'` |
-| `colors.ui.panel` | Panel and bar background (translucent). | `'rgba(20,26,30,0.92)'` |
+| `colors.ui.panel` | Panel and bar background (translucent). | `'rgba(20,26,30,0.9)'` |
 | `colors.ui.text` | Primary text. | `'#f8fafc'` |
 | `colors.ui.muted` | Secondary text, discreet labels. | `'#94a3b8'` |
 | `colors.ui.accent` | Accent colour: active state, focus, selection. | `'#2E7CF6'` |
@@ -48,6 +49,9 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `colors.ui.stat` | **Optional.** Diagnostics panel verdicts (`ok` / `warn` / `bad`), see [`performance.statThresholds`](CONFIG.md). Distinct from `error`: an excessive value is not an error, it is a budget overrun — conflating them would make a heavy map read as a broken one. When absent the panel falls back to `colors.ui.text`: no colour rather than a verdict the theme did not intend. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }` |
 | `colors.attention.sonar` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ffd60a'` |
 | `colors.attention.target` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ff3b30'` |
+| `colors.pedestrian.placeValid` | Pedestrian mode: placement cursor and full-immersion reticle. Target shown when the aimed point is a placeable street. Optional: an earlier theme stays valid. | `'#2E7CF6'` |
+| `colors.pedestrian.placeBlocked` | Pedestrian mode: crossed-out target when the aimed point is a roof or the sky. Optional. | `'#d11a01'` |
+| `colors.pedestrian.reticle` | Pedestrian mode: central reticle of full immersion. Optional. | `'#f8fafc'` |
 | `colors.path.base` | Colour of a path. | `'#2E7CF6'` |
 | `colors.path.casing` | Path casing (legibility on satellite imagery). | `'#ffffff'` |
 | `colors.zone.fill` | Zone fill. | `'#079A7D'` |
@@ -180,6 +184,8 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `tiles.filter.brightness` | `1` = unchanged; `< 1` darkens. | `0.85` |
 | `tiles.filter.saturation` | `1` = unchanged; `< 1` desaturates. | `0.9` |
 | `tiles.filter.contrast` | `1` = unchanged. | `1.05` |
+| `tiles.filter.invert` | `0` = unchanged; `1` inverts — dramatic but rarely legible. Optional. | *(unset)* |
+| `tiles.filter.hueRotate` | Hue rotation, in degrees. Optional. | *(unset)* |
 
 ## `globe` — Globe and atmosphere
 
@@ -197,3 +203,4 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `globe.buildingShadeMin` | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading. | `0.62` |
 | `globe.buildingHoverColor` | Tint of a hovered building while the selection tool is active. It replaces the footprint's vertex colours but stays MODULATED by the shading baked into them: the building stands out of the neighbourhood without losing the relief of its walls. | `'#F2B441'` |
 | `globe.buildingSelectColor` | Tint of the building whose context menu is open. | `'#E8613C'` |
+| `globe.textureUrl` | Fallback texture for the fallback globe. Optional. | *(unset)* |

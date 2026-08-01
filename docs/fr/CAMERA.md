@@ -88,6 +88,11 @@ mouvement — l'événement `camera` est émis par frame tant que la caméra bou
 poignée `map.current?.camera`, elle, ne re-rend rien — c'est la différence entre les
 deux chemins.
 
+Deux lignes du tableau ne sont pas symétriques entre les trois chemins : `getState()`
+n'existe que sur `engine.camera` / `map.current?.camera` (la classe `Camera`) — via
+`useCamera()`, l'équivalent est `.state`. `moveTo` est l'inverse : un raccourci ajouté
+par le hook (durée courte du thème incluse), absent de `engine.camera` en direct.
+
 Un troisième chemin pour le cas courant : `useCameraCommands()` rend les **commandes
 seules**, d'identité stable et sans abonnement. Un bouton qui ne fait que `flyTo` n'a
 aucune raison de se re-rendre soixante fois par seconde pendant un pan.
@@ -338,8 +343,11 @@ aucune tuile n'est disponible : la carte reste une carte même sans réseau ni t
 ```
 
 Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
-`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen`.
+`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `catalog`, `fullscreen`.
 Groupes : `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
+
+`catalog` (catalogue d'entités distantes, cf. [CATALOG.md](CATALOG.md)) partage le
+groupe `layers` avec « Couches ».
 
 Le groupe `compass` réunit tout le **point de vue** : boussole (nord / vue du dessus),
 inclinaison, bascule `mode3d`, trafic, retour au globe et grille — il n'y a plus de groupe
@@ -368,9 +376,14 @@ resserrer déplace donc l'angle auquel la grille disparaît — cf.
 | `+` / `−` | zoom avant / arrière |
 | `I` | incliner |
 | `G` | retour au globe |
+| `K` | grille de coordonnées (graticule) |
 | `B` | fond de carte : 3D ↔ plan |
 | `T` | panneau « Couches » |
+| `C` | panneau « Catalogue » |
+| `W` | mode piéton |
 | `F` | plein écran |
+
+Le bouton trafic n'a **pas** de raccourci par défaut (n'existe qu'en mode plan, cf. § 7).
 
 ```tsx
 <MapControls shortcuts={{ layers: 'y', fullscreen: false }} />   // remappe / désactive
@@ -433,4 +446,5 @@ map.current?.camera.fitBounds(bounds, { padding: 60 })
 - [DATA.md](DATA.md) — recharger les données au déplacement
 - [ZONES.md](ZONES.md) — cadrer sur une zone
 - [ENGINE.md](ENGINE.md) — events, projection, interception de pointeur
+- [PEDESTRIAN.md](PEDESTRIAN.md) — le troisième pilote de la caméra : la marche au sol
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)

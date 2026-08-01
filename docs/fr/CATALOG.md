@@ -234,9 +234,12 @@ les sessions*, *cadrer à l'ajout*, *tout retirer*.
 
 ```ts
 config.catalog = {
-  pageSize: 50,          // éléments demandés par page
-  debounceMs: 250,       // 💰 anti-rebond : le levier direct sur le volume d'appels
-  maxInlineActions: 2,   // actions rendues en ligne
+  pageSize: 50,            // éléments demandés par page
+  debounceMs: 250,         // 💰 anti-rebond de la recherche : le levier direct sur le volume d'appels
+  maxInlineActions: 2,     // actions rendues en ligne
+  overscanRows: 4,         // lignes rendues hors écran de chaque côté de la fenêtre virtuelle
+  prefetchMarginPx: 200,   // 💰 distance au bas de liste qui déclenche la page suivante
+  persistDebounceMs: 250,  // anti-rebond de l'écriture de la sélection dans le stockage
 }
 config.data.storageKeys.catalog          // 'm3d:catalog'         — la sélection
 config.data.storageKeys.catalogSettings  // 'm3d:catalog-settings' — les réglages
@@ -247,7 +250,9 @@ config.interaction.shortcuts.controls.catalog  // 'c'
 |---|---|
 | `sizing.catalogRowHeight` | hauteur d'une ligne — **constante**, la virtualisation en dépend |
 | `sizing.catalogIndent` | décalage d'une ligne enfant |
-| `sizing.catalogPanelW` | largeur du panneau, et marge de cadrage réservée |
+| `sizing.catalogChevronW` | largeur du chevron de dépliage — aussi la gouttière des lignes sans enfants |
+| `sizing.catalogPanelW` | largeur du panneau des types |
+| `sizing.catalogSubPanelW` | largeur du panneau de la liste — avec `catalogPanelW`, la marge de cadrage réservée |
 | `sizing.panelMaxHeight.catalog` | hauteur maximale |
 
 Tous les textes vivent dans `labels.catalog` (cf. [LABELS.md](LABELS.md)). Les **noms des

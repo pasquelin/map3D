@@ -87,6 +87,11 @@ the `camera` event is emitted every frame while the camera moves); the
 `map.current?.camera` handle re-renders nothing — that is the difference between the
 two paths.
 
+Two rows of the table are not symmetric across the three paths: `getState()` only
+exists on `engine.camera` / `map.current?.camera` (the `Camera` class) — via
+`useCamera()`, the equivalent is `.state`. `moveTo` is the reverse case: a shortcut
+added by the hook (short theme duration included), absent from `engine.camera` directly.
+
 A third path for the common case: `useCameraCommands()` returns the **commands alone**,
 with a stable identity and no subscription. A button that only calls `flyTo` has no
 reason to re-render sixty times per second during a pan.
@@ -332,8 +337,11 @@ tile is available: the map stays a map even without network or token.
 ```
 
 Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
-`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen`.
+`mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `catalog`, `fullscreen`.
 Groups: `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
+
+`catalog` (remote entity catalog, see [CATALOG.md](CATALOG.md)) shares the `layers`
+group with “Layers”.
 
 The `compass` group gathers the whole **point of view**: compass (north / top-down), tilt,
 the `mode3d` toggle, traffic, back-to-globe and the grid — there is no separate `view` or
@@ -362,9 +370,14 @@ therefore moves the angle at which the grid disappears — see
 | `+` / `−` | zoom in / out |
 | `I` | tilt |
 | `G` | back to globe |
+| `K` | coordinate grid (graticule) |
 | `B` | basemap: 3D ↔ plan |
 | `T` | “Layers” panel |
+| `C` | “Catalog” panel |
+| `W` | pedestrian mode |
 | `F` | fullscreen |
+
+The traffic button has **no** default shortcut (only exists in plan mode, see § 7).
 
 ```tsx
 <MapControls shortcuts={{ layers: 'y', fullscreen: false }} />   // remap / disable
@@ -427,4 +440,5 @@ map.current?.camera.fitBounds(bounds, { padding: 60 })
 - [DATA.md](DATA.md) — refetching data on move
 - [ZONES.md](ZONES.md) — framing on a zone
 - [ENGINE.md](ENGINE.md) — events, projection, pointer interception
+- [PEDESTRIAN.md](PEDESTRIAN.md) — the camera's third driver: ground-level walking
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)

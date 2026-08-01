@@ -86,8 +86,10 @@ chargement d'un éventuel SDK passe par `ready`, après quoi la couche se re-ren
 > terrain. **Recentrer le viewBox sur l'ancre est la responsabilité du provider** ;
 > la couche, elle, place le centre de l'image sur la coordonnée.
 
-Corollaire de rendu : un symbole est posé **sans tige** (`leaderLine={false}`) — son
-graphisme porte lui-même son point d'ancrage.
+Corollaire de rendu : un symbole posé garde en revanche sa **tige** (`leaderLine` à sa
+valeur par défaut) — c'est elle qui sépare l'icône, saisissable au long-press vers un
+dock, du point au sol, qui pilote le repositionnement (cf.
+[MARKERS.md § 11](MARKERS.md#11-markers-repositionnables)).
 
 ---
 
@@ -146,10 +148,9 @@ Le bouton qui ouvre la palette est un **outil natif de la barre** (comme la loup
 Le catalogue, l'affiliation et les libellés viennent du contexte de `<DrawLayer>` :
 **la palette n'a aucune configuration à recevoir**.
 
-Le panneau reprend le langage visuel de « Couches » — recherche, compteurs, panneau
-ancré du côté opposé à la barre, fermeture au clic extérieur ou `Échap` — et ajoute
-une grille par catégorie. Un badge sur le bouton compte les symboles présents sur la
-carte.
+Le panneau reprend le langage visuel de « Couches » — recherche, compteurs par
+catégorie, panneau ancré du côté opposé à la barre, fermeture au clic extérieur ou
+`Échap` — et ajoute une grille par catégorie.
 
 Chaque vignette est rendue par le `SymbolRenderer` **dans l'affiliation courante** :
 changer d'affiliation redessine toute la palette, et le symbole posé hérite de la

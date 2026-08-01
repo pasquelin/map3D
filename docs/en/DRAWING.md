@@ -57,10 +57,11 @@ Manual mounting:
 | Eraser | `E` | deletes on click |
 | Symbols | `Y` | opens the palette (see [SYMBOLS.md](SYMBOLS.md)) |
 
-The **ruler opens a submenu on hover**, like the Select button: “Measure” and “Grid” (the
-coordinate grid, see [GRATICULE.md](GRATICULE.md)). The two rows are not of the same nature —
-the ruler is a drawing tool, the grid a layer, whose key therefore lives in
-`shortcuts.controls` and not here.
+The **ruler opens a submenu on hover**, like the Select button — but with only a single
+row available by default (`measure`), the submenu **does not open**: the button acts
+directly. The coordinate grid has left this submenu for the view controls
+(`shortcuts.controls.graticule`, key `K`), where it survives the bar retracting — see
+[GRATICULE.md](GRATICULE.md).
 
 ```tsx
 <Toolbar measureTools={['measure']} />   // a single row = no submenu
@@ -436,7 +437,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
 ```
 
 Without this, two buttons stay lit and the bar no longer tells you where you are.
-`ToolbarApi` = `{ retracted, nativeActive, claim() }`.
+`ToolbarApi` carries `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
+the last three anchor a panel that follows the active tool, beyond the minimum shown here.
 
 ---
 
@@ -448,7 +450,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Group | Members |
 |---|---|
 | Tool | `tool`, `setTool`, `tools`, `shortcuts` |
-| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect` |
+| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
 | History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |

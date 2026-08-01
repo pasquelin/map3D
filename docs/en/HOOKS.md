@@ -16,6 +16,7 @@ Every hook must be called **under `<Map>`** (they consume the map context). Thos
 | `useTheme()` | `MapTheme` | resolved theme (light/dark + `prefers-reduced-motion`) |
 | `useLabels()` | `MapLabels` | resolved labels — every string in the library goes through it |
 | `useConfig()` | `MapConfig` | resolved settings, **always complete** |
+| `usePreferences()` | `{ prefs, hasStored, store }` | resolved by `<MapProvider>`; `store` is `null` outside a map — see [PREFERENCES.md § 5](PREFERENCES.md#5-for-the-application) |
 
 > **Prefer `useConfig()` over `engine.config` in the React layer.** The engine receives
 > the config from an effect in `<Map>`, and a child's effects run **before** its
@@ -124,6 +125,30 @@ breakdown. Re-renders on `loading→data→error` transitions and when the "Laye
 changes. Read it in the component opened by `<Map buildingMenu>` — see
 [BUILDINGS.md](BUILDINGS.md) and [PLUGINS.md](PLUGINS.md).
 
+### `useCatalog(side?): CatalogApi`
+
+```ts
+const catalog = useCatalog() // side: 'left' | 'right' (default 'right')
+catalog.toggle(source, item, { fit: true })
+catalog.setMany(source, items, true)
+catalog.clear()
+```
+
+Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`, `toggle`,
+`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`). `side` reserves the framing
+margin on the side where the panel opens. Details in
+[CATALOG.md § 9](CATALOG.md#9-recipes).
+
+### `useCatalogSources()` / `useCatalogSource(id)`
+
+Declared catalog sources (`engine.catalog`), reactive to a source registering or
+unregistering. The second isolates one source by id (`undefined` if absent).
+
+### `useCatalogSettings(): CatalogSettingsApi`
+
+Persisted catalog settings (`persist`, `fitOnAdd`) + `setPersist` / `setFitOnAdd` — shared
+with `useCatalog`, never out of sync.
+
 ---
 
 ## Drawing, lens, relations
@@ -225,10 +250,11 @@ const { isOver } = useMapDropZone({ accept, onDrop: (payload, latLng, point) => 
 ```
 
 The counterpart of the pair above when the target is the **terrain**: the zone covers
-the three map surfaces (canvas, markers, overlay) — never the toolbars — and the
-callback receives the targeted coordinate via **ellipsoid raycast** (accurate in a
-tilted view as in 2D). A drop beside the globe is ignored, there being no position to
-hand over.
+the canvas and the HTML overlay — **never the markers layer** (a marker can float above
+another zone, e.g. the dock, and would otherwise divert its drop to the map) nor the
+toolbars — and the callback receives the targeted coordinate via **ellipsoid raycast**
+(accurate in a tilted view as in 2D). A drop beside the globe is ignored, there being no
+position to hand over.
 
 ### `useRepositionable(opts)`
 

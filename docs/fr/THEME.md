@@ -30,13 +30,14 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.marker.default.base` | Couleur par type de marker (ex. 'alert-critical', 'agent-available'). | `'#2E7CF6'` |
 | `colors.marker.default.accent` | Couleur par type de marker (ex. 'alert-critical', 'agent-available'). | `'#78BEFF'` |
 | `colors.marker.default.contrast` | Couleur par type de marker (ex. 'alert-critical', 'agent-available'). | `'#ffffff'` |
+| `colors.tags` | Couleur de repérage par tag (panneau « Couches »), clé = nom du tag. Tag absent de cet objet → palette hashée de la lib. Optionnel. | `{}` |
 | `colors.cluster.core` | Cœur du donut. | `'#1e293b'` |
 | `colors.cluster.satellite` | Réservée aux satellites (modèle historique). | `'#6344F0'` |
 | `colors.cluster.text` | Total affiché au centre. | `'#ffffff'` |
 | `colors.cluster.ring` | Anneau de séparation cœur/parts. | `'#ffffff'` |
 | `colors.draw.palette` | Palette proposée par le sélecteur de couleur du dessin. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
 | `colors.draw.default` | Couleur d'une forme nouvellement tracée. | `'#2E7CF6'` |
-| `colors.ui.panel` | Fond des panneaux et barres (translucide). | `'rgba(20,26,30,0.92)'` |
+| `colors.ui.panel` | Fond des panneaux et barres (translucide). | `'rgba(20,26,30,0.9)'` |
 | `colors.ui.text` | Texte principal. | `'#f8fafc'` |
 | `colors.ui.muted` | Texte secondaire, libellés discrets. | `'#94a3b8'` |
 | `colors.ui.accent` | Couleur d'accent : état actif, focus, sélection. | `'#2E7CF6'` |
@@ -45,6 +46,9 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.ui.stat` | **Optionnel.** Verdicts du panneau de diagnostic (`ok` / `warn` / `bad`), cf. [`performance.statThresholds`](CONFIG.md). Distinct d'`error` : une valeur excessive n'est pas une erreur, c'est un budget dépassé — les confondre ferait lire une carte lourde comme une carte cassée. Absent, le panneau retombe sur `colors.ui.text` : pas de couleur plutôt qu'un verdict que le thème n'a pas voulu donner. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }` |
 | `colors.attention.sonar` | Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels, couleurs volontairement très voyantes. Optionnel : thème antérieur valide. | `'#ffd60a'` |
 | `colors.attention.target` | Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels, couleurs volontairement très voyantes. Optionnel : thème antérieur valide. | `'#ff3b30'` |
+| `colors.pedestrian.placeValid` | Mode piéton : curseur de placement et réticule d'immersion totale. Cible affichée quand le point visé est une rue posable. Optionnel : thème antérieur valide. | `'#2E7CF6'` |
+| `colors.pedestrian.placeBlocked` | Mode piéton : cible barrée quand le point visé est un toit ou le ciel. Optionnel. | `'#d11a01'` |
+| `colors.pedestrian.reticle` | Mode piéton : réticule central de l'immersion totale. Optionnel. | `'#f8fafc'` |
 | `colors.path.base` | Couleur d'un tracé. | `'#2E7CF6'` |
 | `colors.path.casing` | Contour du tracé (lisibilité sur imagerie satellite). | `'#ffffff'` |
 | `colors.zone.fill` | Remplissage d'une zone. | `'#079A7D'` |
@@ -177,6 +181,8 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `tiles.filter.brightness` | `1` = inchangé ; `< 1` assombrit. | `0.85` |
 | `tiles.filter.saturation` | `1` = inchangé ; `< 1` désature. | `0.9` |
 | `tiles.filter.contrast` | `1` = inchangé. | `1.05` |
+| `tiles.filter.invert` | `0` = inchangé ; `1` inverse — spectaculaire mais rarement lisible. Optionnel. | *(non défini)* |
+| `tiles.filter.hueRotate` | Rotation de teinte, en degrés. Optionnel. | *(non défini)* |
 
 ## `globe` — Globe et atmosphère
 
@@ -194,3 +200,4 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `globe.buildingShadeMin` | Teinte de la façade la moins exposée, en fraction de sa couleur. `1` désactive l'ombrage. | `0.62` |
 | `globe.buildingHoverColor` | Teinte d'un bâtiment survolé, l'outil de sélection actif. Elle remplace la couleur des sommets de l'emprise, mais reste MODULÉE par l'ombrage cuit dedans : le bâtiment ressort du quartier sans perdre le relief de ses façades. | `'#F2B441'` |
 | `globe.buildingSelectColor` | Teinte du bâtiment dont le menu contextuel est ouvert. | `'#E8613C'` |
+| `globe.textureUrl` | Texture de substitution du globe de repli. Optionnel. | *(non défini)* |

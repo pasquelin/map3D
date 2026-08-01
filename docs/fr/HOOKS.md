@@ -17,6 +17,7 @@ d'exécution lointain.
 | `useTheme()` | `MapTheme` | thème résolu (clair/sombre + `prefers-reduced-motion`) |
 | `useLabels()` | `MapLabels` | libellés résolus — chaque texte de la lib passe par là |
 | `useConfig()` | `MapConfig` | réglages résolus, **toujours complets** |
+| `usePreferences()` | `{ prefs, hasStored, store }` | résolu par `<MapProvider>` ; `store` vaut `null` hors d'une carte — cf. [PREFERENCES.md § 5](PREFERENCES.md#5-pour-lapplication) |
 
 > **`useConfig()` plutôt que `engine.config` dans la couche React.** Le moteur reçoit
 > la config depuis un effet de `<Map>`, et les effets d'un enfant s'exécutent **avant**
@@ -126,6 +127,30 @@ détail. Se re-rend aux transitions `loading→data→error` et au changement du
 « Couches ». À lire dans le composant qu'ouvre `<Map buildingMenu>` — voir
 [BUILDINGS.md](BUILDINGS.md) et [PLUGINS.md](PLUGINS.md).
 
+### `useCatalog(side?): CatalogApi`
+
+```ts
+const catalog = useCatalog() // side: 'left' | 'right' (défaut 'right')
+catalog.toggle(source, item, { fit: true })
+catalog.setMany(source, items, true)
+catalog.clear()
+```
+
+Sélection et gestes du catalogue : `selection`, `isShown`, `isPending`, `hasError`,
+`toggle`, `setMany`, `clear`, `shapes` (formes à passer à `<ShapeLayer>`). `side` réserve la
+marge de cadrage du côté où s'ouvre le panneau. Détail dans
+[CATALOG.md § 9](CATALOG.md#9-recettes).
+
+### `useCatalogSources()` / `useCatalogSource(id)`
+
+Sources de catalogue déclarées (`engine.catalog`), réactif à l'inscription ou au retrait
+d'une source. Le second isole une source par id (`undefined` si absente).
+
+### `useCatalogSettings(): CatalogSettingsApi`
+
+Réglages persistés du catalogue (`persist`, `fitOnAdd`) + `setPersist` / `setFitOnAdd` —
+partagés avec `useCatalog`, jamais désynchronisés.
+
 ---
 
 ## Dessin, loupe, relations
@@ -226,10 +251,12 @@ par une charge **acceptée**.
 const { isOver } = useMapDropZone({ accept, onDrop: (payload, latLng, point) => poser(payload, latLng) })
 ```
 
-Pendant du couple ci-dessus quand la cible est le **terrain** : la zone couvre les
-trois surfaces carte (canvas, markers, overlay) — jamais les barres d'outils — et le
-callback reçoit la coordonnée visée par **raycast ellipsoïde** (juste en vue inclinée
-comme en 2D). Un dépôt à côté du globe est ignoré, faute de position à donner.
+Pendant du couple ci-dessus quand la cible est le **terrain** : la zone couvre le canvas
+et l'overlay HTML — **jamais le calque des markers** (un marker peut flotter au-dessus
+d'une autre zone, ex. la dock, et détournerait alors son dépôt vers la carte) ni les
+barres d'outils — et le callback reçoit la coordonnée visée par **raycast ellipsoïde**
+(juste en vue inclinée comme en 2D). Un dépôt à côté du globe est ignoré, faute de
+position à donner.
 
 ### `useRepositionable(opts)`
 

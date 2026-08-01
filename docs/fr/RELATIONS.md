@@ -231,12 +231,16 @@ indisponible ».
 
 ```ts
 type RoutingProvider = {
-  matrix(...): Promise<MatrixEntry[]>   // durées/distances en lot
-  route(...): Promise<ProviderRoute>    // itinéraire détaillé d'un couple
+  matrix(...): Promise<MatrixEntry[]>     // durées/distances en lot
+  route(...): Promise<ProviderRoute[]>    // itinéraires d'un couple, alternatifs compris (index 0 = principal)
+  setConfig?(config: RoutingConfig): void // reçoit providers.routing de la carte, à chaque changement
 }
 ```
 
-Deux méthodes, c'est tout. Le core ne dépend que de ce contrat.
+Deux méthodes requises, plus `setConfig` en option pour suivre `providers.routing` de
+la carte (endpoints, FieldMasks, `routingPreference`, locale, réseau) sans que
+l'application ait à recréer le provider — absent, celui-ci garde la main sur ses
+propres réglages (proxy serveur, mock de test). Le core ne dépend que de ce contrat.
 
 > ### ⚠️ Clé d'API — à lire avant la production
 >
@@ -308,8 +312,14 @@ serveur, ou en test avec un fournisseur factice.
 | `menuPresets` | paliers proposés par le menu d'une famille |
 | `fanMaxLegs` | au-delà, l'éventail se replie en trait agrégé (défaut 5) |
 | `fastestOversample` | 💰 candidats interrogés par lien affiché (défaut 3) |
-| `statusBar` | `false` retire la barre d'état ; un objet fournit `nameOf` |
 | `children` | `ReactNode`, ou une **fonction** qui reçoit l'API |
+
+⚠️ **`statusBar` n'est pas un prop de `RelationLayerProps`.** C'est un ajout de `<Map
+relations>` (`RelationsConfig`) : la carte l'extrait puis monte
+`<RelationStatusBar>` elle-même — `false` la retire, un objet fournit `nameOf` et
+`modes` (transports proposés par la barre). Avec `<RelationLayer>` monté à la main
+(§ 1), montez `<RelationStatusBar>` vous-même parmi ses enfants ; la couche ne
+connaît pas cette prop.
 
 Défauts réels : [PROPS.md](PROPS.md). Libellés et gabarits : `labels.relations` et
 `labels.duration` — cf. [LABELS.md](LABELS.md).

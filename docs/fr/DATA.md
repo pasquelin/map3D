@@ -216,9 +216,10 @@ useDropZone({ id: 'ma-zone', accept: (p) => p.type === 'icone', onDrop: (p, poin
 useMapDropZone({ accept: (p) => p.type === 'icone', onDrop: (p, latLng) => poser(p.data, latLng) })
 ```
 
-`useMapDropZone` couvre les trois surfaces carte (canvas, markers, overlay) et **jamais
-les barres d'outils**. Un dépôt à côté du globe est ignoré : il n'y a alors pas de
-position à donner.
+`useMapDropZone` couvre le canvas et l'overlay HTML — **jamais le calque des markers**
+(un marker peut flotter au-dessus d'une autre zone, ex. la dock, et détournerait alors
+son dépôt vers la carte) **ni les barres d'outils**. Un dépôt à côté du globe est
+ignoré : il n'y a alors pas de position à donner.
 
 État de vérité : `engine.drag` (`DragRegistry`) — zones, payload typé, phase du geste.
 

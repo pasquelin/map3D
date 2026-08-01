@@ -60,7 +60,8 @@ While the tool is active:
 | `Escape` | removes the area, then leaves the tool |
 
 A drag shorter than `config.interaction.lens.minDragPx` counts as a **click**: it must
-create nothing.
+create nothing. Resizing by a handle keeps a guaranteed minimum side
+(`config.interaction.lens.minSizePx`): no flipping over.
 
 The lens is a **fixed screen overlay**: the list **recomputes live** as the map scrolls
 underneath it.
@@ -91,6 +92,11 @@ and false negatives near the edges.
 A row's menu follows the general rule: `toolbar.lens.menu`, otherwise
 `<Map markerMenu>`, otherwise `actions`. **“Target” is added at the top by the list** —
 do not add it again.
+
+The panel anchors by default to the **right** of the area (width
+`theme.sizing.lensPanelW`), and switches to the **left** when the right side does not
+fit inside the container. It stays **draggable** by its grip and clamped to the screen
+wherever it is dropped.
 
 ---
 

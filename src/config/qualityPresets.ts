@@ -7,8 +7,9 @@
 // contexte WebGL, donc les changer exigerait un remontage (flash) : ce sont des choix
 // matériel de l'application hôte, pas un réglage que l'utilisateur bascule en direct.
 //
-// Les valeurs reprennent celles calibrées dans `defaultConfig` (le niveau « Élevé » est
-// le défaut de la lib) et descendent selon les repères que ses commentaires donnent
+// Les valeurs reprennent celles calibrées dans `defaultConfig` — le niveau « Élevé » en
+// est proche (à un cran près sur `adaptiveResolution.minRatio` : 0.75 ici, 0.5 en défaut
+// lib) — et descendent selon les repères que ses commentaires donnent
 // explicitement — au premier chef le budget des bâtiments, « ELLE qu'il faut baisser sur
 // une machine modeste (perte de contexte WebGL sinon) ».
 

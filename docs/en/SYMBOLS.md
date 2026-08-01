@@ -86,8 +86,10 @@ side. Loading of any SDK goes through `ready`, after which the layer re-renders;
 > terrain. **Recentring the viewBox on the anchor is the provider's responsibility**;
 > the layer merely places the centre of the image on the coordinate.
 
-Rendering corollary: a symbol is placed **without a leader line**
-(`leaderLine={false}`) — its artwork carries its own anchor point.
+Rendering corollary: a placed symbol keeps its **leader line** (`leaderLine` at its
+default value) — it is what separates the icon, grabbable on long-press towards a
+dock, from the ground point, which drives repositioning (see
+[MARKERS.md § 11](MARKERS.md#11-repositionable-markers)).
 
 ---
 
@@ -146,9 +148,9 @@ The button that opens the palette is a **native tool of the bar** (like the lens
 The catalogue, the affiliation and the labels come from `<DrawLayer>`'s context: **the
 palette takes no configuration at all**.
 
-The panel reuses the visual language of “Layers” — search, counters, panel docked on
-the side opposite the bar, closing on outside click or `Escape` — and adds a grid per
-category. A badge on the button counts the symbols present on the map.
+The panel reuses the visual language of “Layers” — search, per-category counters,
+panel docked on the side opposite the bar, closing on outside click or `Escape` — and
+adds a grid per category.
 
 Every thumbnail is rendered by the `SymbolRenderer` **in the current affiliation**:
 changing affiliation redraws the whole palette, and the placed symbol inherits the

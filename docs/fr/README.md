@@ -38,6 +38,7 @@ ci-dessous le reprennent **en profondeur**, un par domaine.
 | [LENS.md](LENS.md) | loupe : inventaire des markers d'une zone |
 | [SEARCH.md](SEARCH.md) | recherche unifiée carte + lieux |
 | [CAMERA.md](CAMERA.md) | position initiale, `ready`, vols, cadrage, carte figée, fond de carte |
+| [PEDESTRIAN.md](PEDESTRIAN.md) | mode piéton : marche au sol, collision, gravité, immersion première personne |
 | [TILES.md](TILES.md) | fournisseur de tuiles : Google ou serveur auto-hébergé, capacités et boutons |
 | [BUILDINGS.md](BUILDINGS.md) | sélection d'un bâtiment du volume interne : outil, `buildingMenu`, attributs remontés |
 | [GRATICULE.md](GRATICULE.md) | grille de coordonnées : maille adaptative, lignes remarquables, étiquettes, fondu à l'inclinaison |
@@ -67,6 +68,7 @@ ne peut diverger de ce que la lib applique :
 | laisser l'utilisateur dessiner | [DRAWING.md § 1](DRAWING.md#1-en-deux-minutes) |
 | recharger vos données au déplacement | [DATA.md § 2](DATA.md#2-viewport-driven) |
 | cadrer la carte sur du contenu | [CAMERA.md § 4](CAMERA.md#4-cadrer-fitbounds) |
+| marcher au sol en première personne | [PEDESTRIAN.md § 1](PEDESTRIAN.md#1-en-deux-minutes) |
 | traduire l'interface | [LABELS.md](LABELS.md) |
 | adapter la charte | [THEME.md](THEME.md) |
 | afficher une grille de coordonnées | [GRATICULE.md § 2](GRATICULE.md#2-lactiver) |

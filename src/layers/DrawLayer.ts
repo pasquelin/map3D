@@ -1535,7 +1535,7 @@ export class DrawLayer implements Layer {
     const d = this.hitTest(p)
     if (!d) return
     if (d.locked) {
-      this.onLockedHit?.(d)
+      this.lockedFeedback(d)
       return
     }
     this.history.push(this.drawings)

@@ -116,6 +116,8 @@ What that means in practice:
   stays open until real resolution.
 - **Draped shapes do not depth-test**: they draw on top of the terrain, so they stay
   readable in a hollow. **Volumes**, on the other hand, do depth-test (see § 4).
+  Exception: in **pedestrian mode**, draped shapes depth-test too, so they stay
+  occludable by buildings at eye level.
 
 The protocol is shared (`DrapedLayer`) between zones, paths and relation links. A
 custom layer projecting its own draped elements can reuse `AnchorHeightCache` instead
@@ -383,4 +385,5 @@ const valid = ringInsideRing(ringOfShape(inputZone), ring)
 - [CAMERA.md](CAMERA.md) — framing, flights, basemap
 - [CATALOG.md](CATALOG.md) — browsing a remote reference set and placing zones from it
 - [SEARCH.md](SEARCH.md) — unified search
+- [PEDESTRIAN.md](PEDESTRIAN.md) — why draped shapes depth-test while walking
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)

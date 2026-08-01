@@ -700,4 +700,5 @@ step on each other.
 - [LENS.md](LENS.md) — lens (inventory of the markers in an area)
 - [SEARCH.md](SEARCH.md) — unified search
 - [RELATIONS.md](RELATIONS.md) — tag links and real routes
+- [PEDESTRIAN.md](PEDESTRIAN.md) — eye-level declutter and view bounds
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)

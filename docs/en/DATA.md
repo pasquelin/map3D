@@ -213,8 +213,10 @@ useDropZone({ id: 'my-zone', accept: (p) => p.type === 'icon', onDrop: (p, point
 useMapDropZone({ accept: (p) => p.type === 'icon', onDrop: (p, latLng) => place(p.data, latLng) })
 ```
 
-`useMapDropZone` covers the three map surfaces (canvas, markers, overlay) and **never
-the toolbars**. A drop beside the globe is ignored: there is no position to hand over.
+`useMapDropZone` covers the canvas and the HTML overlay — **never the markers layer**
+(a marker can float above another zone, e.g. the dock, and would otherwise divert its
+drop to the map) **nor the toolbars**. A drop beside the globe is ignored: there is no
+position to hand over.
 
 Source of truth: `engine.drag` (`DragRegistry`) — zones, typed payload, gesture phase.
 

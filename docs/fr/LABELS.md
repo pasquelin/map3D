@@ -12,10 +12,11 @@ Tous les textes de l'interface, et les règles de formatage qui en dépendent
 Les `{accolades}` sont des variables substituées par `formatLabel`. Pour passer en
 impérial, `imperialMeasure` remplace le bloc `measure` d'un coup.
 
-Helpers exportés : `formatLabel(gabarit, params)` (interpolation), `formatCount(n,
-singulier, pluriel, labels)` (dénombrable, via `labels.plural`), `mergeLabels`,
-`symbolText` (libellé d'une entrée de catalogue), et les fabriques de formatage
-`makeDistanceFormatter`, `makeDurationFormatter`, `makeLinkLabelFormatter`.
+Helpers exportés : `formatLabel(gabarit, params)` (interpolation), `formatCount(one,
+other, count, plural)` (dénombrable — `plural` vient typiquement de `labels.plural`),
+`mergeLabels`, `symbolText` (libellé d'une entrée de catalogue), et les fabriques de
+formatage `makeDistanceFormatter`, `makeDurationFormatter`, `makeLinkLabelFormatter`,
+`makeReadoutFormatter`, `makeStatFormatter` (+ `statLabel`, `isCameraField`).
 
 Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 
@@ -32,10 +33,15 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `controls.zoomOut` | Tooltips/aria des boutons de `<MapControls>`. | `'Zoom arrière'` |
 | `controls.tilt` | Tooltips/aria des boutons de `<MapControls>`. | `'Incliner'` |
 | `controls.globe` | Tooltips/aria des boutons de `<MapControls>`. | `'Retour au globe'` |
+| `controls.graticule` | Grille de coordonnées — cf. le guide [GRATICULE.md](GRATICULE.md). | `'Grille de coordonnées'` |
 | `controls.fullscreen` | Tooltips/aria des boutons de `<MapControls>`. | `'Plein écran'` |
 | `controls.target` | Bouton « revenir à la cible » — n'apparaît qu'avec `MapControls target`. | `'Revenir à la cible'` |
 | `controls.mode3d` | Fond de carte : bascule 3D ↔ plan (bouton unique, toujours ce libellé). | `'Vue 3D'` |
 | `controls.traffic` | Calque trafic Google (mode plan uniquement). | `'Trafic'` |
+| `controls.pedestrian` | Bouton d'entrée en mode piéton — n'apparaît qu'en 3D photoréaliste externe. | `'Mode piéton'` |
+| `controls.pedestrianExit` | Même bouton, mode armé ou actif : il quitte. | `'Quitter le mode piéton'` |
+| `controls.immersion` | Bascule exploration ↔ immersion totale. | `'Immersion totale'` |
+| `controls.pedestrianHint` | Rappel affiché en immersion totale, la souris étant cachée. | `'Échap pour quitter'` |
 
 ## `tags` — Panneau « Couches »
 
@@ -68,6 +74,7 @@ Généré depuis `src/labels/defaultLabels.ts` et `src/labels/types.ts`.
 | `symbols.affiliations.hostile` | Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Hostile'` |
 | `symbols.affiliations.neutral` | Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Neutre'` |
 | `symbols.affiliations.unknown` | Libellé par affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Inconnu'` |
+| `symbols.catalog` | Traductions du catalogue MIL-STD-2525D par clé d'entrée (`{ label, description }`), cf. `symbolText`. Une entrée absente garde le texte français du catalogue. | `{}` |
 
 ## `templates` — Gestionnaire de templates
 
@@ -134,8 +141,6 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `buildingPick.description` | Son infobulle. | `'Sélectionner un bâtiment (volume 3D interne)'` |
 | `measureTools.measure.label` | Rangées du sous-menu « Mesures » : `label` = rangée du flyout, `description` = infobulle (avec le raccourci) — même convention que `selectModes`. | `'Mesurer'` |
 | `measureTools.measure.description` | Son infobulle. | `'Mesurer une distance'` |
-| `measureTools.graticule.label` | Rangée « grille de coordonnées » du même sous-menu — un CALQUE, pas un outil de tracé. | `'Grille'` |
-| `measureTools.graticule.description` | Son infobulle. | `'Grille de coordonnées géographiques'` |
 | `graticule.remarkable.equator` | Noms des lignes remarquables, indexés par `config.graticule.remarkable[].labelKey`. Une clé absente fait afficher la coordonnée à la place du nom. | `'Équateur'` |
 | `graticule.remarkable.tropicCancer` | — | `'Tropique du Cancer'` |
 | `graticule.remarkable.tropicCapricorn` | — | `'Tropique du Capricorne'` |
@@ -252,6 +257,40 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `settings.resetAll` | Panneau « Réglages des outils ». | `'Tout réinitialiser'` |
 | `settings.resetTool` | Panneau « Réglages des outils ». | `'Réinitialiser cet outil'` |
 | `settings.shortcutsTitle` | Panneau « Réglages des outils ». | `'Raccourcis clavier'` |
+| `settings.preferences.title` | Panneau « Préférences » de l'utilisateur final (qualité 3D, clavier, vitesse) — distinct du réglage par outil et du récap de raccourcis. Cf. le guide [PREFERENCES.md](PREFERENCES.md). | `'Préférences'` |
+| `settings.preferences.reset` | Bouton de pied : efface toutes les préférences (retour aux réglages de l'application). | `'Réinitialiser les préférences'` |
+| `settings.preferences.quality.title` | Sélecteur de qualité 3D, en presets. | `'Qualité 3D'` |
+| `settings.preferences.quality.auto` | Niveau déduit de la machine. | `'Auto'` |
+| `settings.preferences.quality.high` | Preset de qualité 3D. | `'Élevé'` |
+| `settings.preferences.quality.medium` | Preset de qualité 3D. | `'Moyen'` |
+| `settings.preferences.quality.low` | Preset de qualité 3D. | `'Léger'` |
+| `settings.preferences.controls.title` | Titre du groupe des contrôles (déplacement, vue, clavier). | `'Contrôles'` |
+| `settings.preferences.controls.move` | Titre du groupe des touches de déplacement continu. | `'Déplacement'` |
+| `settings.preferences.controls.view` | Titre du groupe des commandes de vue. | `'Vue'` |
+| `settings.preferences.controls.keyboard` | Étiquette du choix de disposition clavier. | `'Clavier'` |
+| `settings.preferences.controls.azerty` | Option de disposition clavier. | `'AZERTY'` |
+| `settings.preferences.controls.qwerty` | Option de disposition clavier. | `'QWERTY'` |
+| `settings.preferences.controls.speed` | Étiquette de la vitesse de déplacement. | `'Vitesse'` |
+| `settings.preferences.controls.slow` | Preset de vitesse. | `'Lent'` |
+| `settings.preferences.controls.normal` | Preset de vitesse. | `'Normal'` |
+| `settings.preferences.controls.fast` | Preset de vitesse. | `'Rapide'` |
+| `settings.preferences.controls.damping` | Interrupteur d'inertie des gestes de caméra. | `'Glissement de la carte'` |
+| `settings.preferences.controls.press` | Invite pendant la capture d'une touche. | `'Appuyez sur une touche…'` |
+| `settings.preferences.controls.rebind` | aria/titre du bouton de capture d'une touche — `{action}`. | `'Changer la touche : {action}'` |
+| `settings.preferences.controls.conflict` | Message quand la touche saisie est déjà prise par une autre action du panneau — `{action}`. | `'Touche déjà utilisée ({action})'` |
+| `settings.preferences.controls.conflictOther` | Idem quand la touche est prise par une commande hors panneau (nom non traduit ici). | `'Touche déjà utilisée par une autre commande'` |
+| `settings.preferences.controls.resetKeys` | Bouton de remise des touches à la disposition choisie. | `'Réinitialiser les touches'` |
+| `settings.preferences.actions.forward` | Nom de chaque action réassignable (déplacement + vue). | `'Avancer'` |
+| `settings.preferences.actions.backward` | Nom de chaque action réassignable (déplacement + vue). | `'Reculer'` |
+| `settings.preferences.actions.left` | Nom de chaque action réassignable (déplacement + vue). | `'Gauche'` |
+| `settings.preferences.actions.right` | Nom de chaque action réassignable (déplacement + vue). | `'Droite'` |
+| `settings.preferences.actions.boost` | Nom de chaque action réassignable (déplacement + vue). | `'Accélérer (piéton)'` |
+| `settings.preferences.actions.north` | Nom de chaque action réassignable (déplacement + vue). | `'Nord'` |
+| `settings.preferences.actions.tilt` | Nom de chaque action réassignable (déplacement + vue). | `'Inclinaison'` |
+| `settings.preferences.actions.globe` | Nom de chaque action réassignable (déplacement + vue). | `'Globe'` |
+| `settings.preferences.actions.zoomIn` | Nom de chaque action réassignable (déplacement + vue). | `'Zoom avant'` |
+| `settings.preferences.actions.zoomOut` | Nom de chaque action réassignable (déplacement + vue). | `'Zoom arrière'` |
+| `settings.preferences.actions.fullscreen` | Nom de chaque action réassignable (déplacement + vue). | `'Plein écran'` |
 
 ## `actions` — Aide-mémoire des gestes
 
@@ -430,7 +469,7 @@ distance de la lib.
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `plural` | Fonction `(count: number) => 'one' \| 'other'`. ⚠️ Le défaut est la règle **française** (`n > 1`) : elle est **fausse pour l'anglais**, où `0` est pluriel, et insuffisante pour le polonais ou le russe (trois formes). Renvoyer l'une des deux formes que la lib sait rendre, ou brancher `Intl.PluralRules`. | `(n) => (n > 1 ? 'other' : 'one')` |
+| `plural` | Fonction `(count: number) => 'one' \| 'other'`. ⚠️ Le défaut est la règle **française** (`n > 1`) : elle est **fausse pour l'anglais**, où `0` est pluriel, et insuffisante pour le polonais ou le russe (trois formes). Renvoyer l'une des deux formes que la lib sait rendre, ou brancher `Intl.PluralRules`. | `(count) => (count > 1 ? 'other' : 'one')` |
 
 ## `errors` — Messages d'erreur (développeur)
 

@@ -111,6 +111,15 @@ The request cost is far lower than it looks: a coarse level covers a huge area, 
 requested once and reused for the whole session. Only the finest level is renewed as you
 move.
 
+This cascade is not systematic: as soon as **a single level is enough to cover the whole
+extent** — a near-vertical view, low tilt — the basemap switches to a **uniform** level
+(`providers.tiles.uniformDetail`, default `true`): no more detail disc at the centre,
+sharpness is the same everywhere, and coarser levels are prefetched as a clean fallback
+while a step loads. It reverts to the cascade as soon as the view is too spread out for a
+single level — the gap between the targeted level and the one covering the whole view
+exceeds `providers.tiles.uniformMaxSpread` (default `1`) — and systematically in pedestrian
+mode, where the near/far gradient at eye level is intentional.
+
 ## 3. Switching at runtime
 
 Changing `provider` (or `origin`, `style`, `retina`) replaces the source **without
@@ -212,7 +221,7 @@ What to know when tuning it:
 - **`maxHeight`** (1000 m) bounds absurd heights. `height=99999` is a common OSM typo, and
   it produced a hundred-kilometre building whose bounding box kept the tile permanently
   visible and stopped the camera on a ghost.
-- **`maxBytes`** (256 MiB) bounds cache memory, where `maxTiles` only bounds a count. It is
+- **`maxBytes`** (448 MiB) bounds cache memory, where `maxTiles` only bounds a count. It is
   the setting that matters: between a countryside tile and a city-centre one, what a tile
   retains varies a hundredfold.
 
@@ -261,10 +270,6 @@ A distant level of detail built on z13 would therefore extrude everything at
 `maxViewDistance` (the tile peak grows as n², so raise `maxTiles`/`maxBytes` with it),
 lower `camera.maxTilt3d` so the
 view no longer reaches the horizon, or serve a tileset carrying heights below level 14.
-- **Colours live in the theme**: `theme.globe.buildingColor` (walls) and
-  `buildingRoofColor` (roofs). A footprint carrying the `colour` attribute keeps its own —
-  hex as well as CSS keyword (`beige`, `silver`). The scene has no light: the roof/wall
-  contrast is what conveys volume.
 
 ### What it costs, and why you never see it
 
@@ -340,6 +345,7 @@ that provider has nothing to serve.
 ## See also
 
 - [BUILDINGS.md](BUILDINGS.md) — picking a building of that internal volume
+- [PEDESTRIAN.md](PEDESTRIAN.md) — tile level of detail while walking
 - [CONFIG.md](CONFIG.md) — every `providers.tiles` key
 - [ENGINE.md](ENGINE.md) — `BasemapState`, `basemap` event
 - [PROPS.md](PROPS.md) — `<MapControls>` buttons

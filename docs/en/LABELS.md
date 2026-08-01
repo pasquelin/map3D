@@ -12,10 +12,11 @@ plurals, templates). No visible string may live outside this tree.
 `{braces}` are variables substituted by `formatLabel`. To switch to imperial,
 `imperialMeasure` replaces the whole `measure` block at once.
 
-Exported helpers: `formatLabel(template, params)` (interpolation), `formatCount(n,
-singular, plural, labels)` (countable, through `labels.plural`), `mergeLabels`,
-`symbolText` (label of a catalogue entry), and the formatting factories
-`makeDistanceFormatter`, `makeDurationFormatter`, `makeLinkLabelFormatter`.
+Exported helpers: `formatLabel(template, params)` (interpolation), `formatCount(one,
+other, count, plural)` (countable — `plural` is typically `labels.plural`),
+`mergeLabels`, `symbolText` (label of a catalogue entry), and the formatting factories
+`makeDistanceFormatter`, `makeDurationFormatter`, `makeLinkLabelFormatter`,
+`makeReadoutFormatter`, `makeStatFormatter` (+ `statLabel`, `isCameraField`).
 
 Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 
@@ -40,10 +41,15 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `controls.zoomOut` | Tooltips/aria of the `<MapControls>` buttons. | `'Zoom arrière'` |
 | `controls.tilt` | Tooltips/aria of the `<MapControls>` buttons. | `'Incliner'` |
 | `controls.globe` | Tooltips/aria of the `<MapControls>` buttons. | `'Retour au globe'` |
+| `controls.graticule` | Coordinate grid — see the [GRATICULE.md](GRATICULE.md) guide. | `'Grille de coordonnées'` |
 | `controls.fullscreen` | Tooltips/aria of the `<MapControls>` buttons. | `'Plein écran'` |
 | `controls.target` | “Back to target” button — only appears with `MapControls target`. | `'Revenir à la cible'` |
 | `controls.mode3d` | Basemap: 3D ↔ plan toggle (single button, always this label). | `'Vue 3D'` |
 | `controls.traffic` | Google traffic overlay (plan mode only). | `'Trafic'` |
+| `controls.pedestrian` | Button entering pedestrian mode — only appears in external photorealistic 3D. | `'Mode piéton'` |
+| `controls.pedestrianExit` | Same button, mode armed or active: it exits. | `'Quitter le mode piéton'` |
+| `controls.immersion` | Toggles exploration ↔ full immersion. | `'Immersion totale'` |
+| `controls.pedestrianHint` | Reminder shown in full immersion, the mouse being hidden. | `'Échap pour quitter'` |
 
 ## `tags` — “Layers” panel
 
@@ -76,6 +82,7 @@ Generated from `src/labels/defaultLabels.ts` and `src/labels/types.ts`.
 | `symbols.affiliations.hostile` | Label per affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Hostile'` |
 | `symbols.affiliations.neutral` | Label per affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Neutre'` |
 | `symbols.affiliations.unknown` | Label per affiliation (`friendly`, `hostile`, `neutral`, `unknown`). | `'Inconnu'` |
+| `symbols.catalog` | Translations of the MIL-STD-2525D catalogue by entry key (`{ label, description }`), see `symbolText`. A missing entry keeps the catalogue's French text. | `{}` |
 
 ## `templates` — Templates manager
 
@@ -142,8 +149,6 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `buildingPick.description` | Its tooltip. | `'Sélectionner un bâtiment (volume 3D interne)'` |
 | `measureTools.measure.label` | Rows of the “Measure” submenu: `label` = flyout row, `description` = tooltip (with the shortcut) — same convention as `selectModes`. | `'Mesurer'` |
 | `measureTools.measure.description` | Its tooltip. | `'Mesurer une distance'` |
-| `measureTools.graticule.label` | The “coordinate grid” row of the same submenu — a LAYER, not a drawing tool. | `'Grille'` |
-| `measureTools.graticule.description` | Its tooltip. | `'Grille de coordonnées géographiques'` |
 | `graticule.remarkable.equator` | Names of remarkable lines, indexed by `config.graticule.remarkable[].labelKey`. A missing key shows the coordinate instead of the name. | `'Équateur'` |
 | `graticule.remarkable.tropicCancer` | — | `'Tropique du Cancer'` |
 | `graticule.remarkable.tropicCapricorn` | — | `'Tropique du Capricorne'` |
@@ -260,6 +265,40 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `settings.resetAll` | “Tool settings” panel. | `'Tout réinitialiser'` |
 | `settings.resetTool` | “Tool settings” panel. | `'Réinitialiser cet outil'` |
 | `settings.shortcutsTitle` | “Tool settings” panel. | `'Raccourcis clavier'` |
+| `settings.preferences.title` | End-user “Preferences” panel (3D quality, keyboard, speed) — distinct from the per-tool settings and the shortcut summary. See the [PREFERENCES.md](PREFERENCES.md) guide. | `'Préférences'` |
+| `settings.preferences.reset` | Footer button: clears all preferences (back to the app's settings). | `'Réinitialiser les préférences'` |
+| `settings.preferences.quality.title` | 3D quality selector, as presets. | `'Qualité 3D'` |
+| `settings.preferences.quality.auto` | Level inferred from the machine. | `'Auto'` |
+| `settings.preferences.quality.high` | 3D quality preset. | `'Élevé'` |
+| `settings.preferences.quality.medium` | 3D quality preset. | `'Moyen'` |
+| `settings.preferences.quality.low` | 3D quality preset. | `'Léger'` |
+| `settings.preferences.controls.title` | Heading of the controls group (movement, view, keyboard). | `'Contrôles'` |
+| `settings.preferences.controls.move` | Heading of the continuous-movement keys group. | `'Déplacement'` |
+| `settings.preferences.controls.view` | Heading of the view commands group. | `'Vue'` |
+| `settings.preferences.controls.keyboard` | Label of the keyboard layout choice. | `'Clavier'` |
+| `settings.preferences.controls.azerty` | Keyboard layout option. | `'AZERTY'` |
+| `settings.preferences.controls.qwerty` | Keyboard layout option. | `'QWERTY'` |
+| `settings.preferences.controls.speed` | Label of the movement speed. | `'Vitesse'` |
+| `settings.preferences.controls.slow` | Speed preset. | `'Lent'` |
+| `settings.preferences.controls.normal` | Speed preset. | `'Normal'` |
+| `settings.preferences.controls.fast` | Speed preset. | `'Rapide'` |
+| `settings.preferences.controls.damping` | Camera-gesture inertia toggle. | `'Glissement de la carte'` |
+| `settings.preferences.controls.press` | Prompt while capturing a key. | `'Appuyez sur une touche…'` |
+| `settings.preferences.controls.rebind` | aria/title of the key-capture button — `{action}`. | `'Changer la touche : {action}'` |
+| `settings.preferences.controls.conflict` | Message when the entered key is already used by another panel action — `{action}`. | `'Touche déjà utilisée ({action})'` |
+| `settings.preferences.controls.conflictOther` | Same, when the key is used by a command outside the panel (its name is not translated here). | `'Touche déjà utilisée par une autre commande'` |
+| `settings.preferences.controls.resetKeys` | Button resetting keys to the chosen layout. | `'Réinitialiser les touches'` |
+| `settings.preferences.actions.forward` | Name of each reassignable action (movement + view). | `'Avancer'` |
+| `settings.preferences.actions.backward` | Name of each reassignable action (movement + view). | `'Reculer'` |
+| `settings.preferences.actions.left` | Name of each reassignable action (movement + view). | `'Gauche'` |
+| `settings.preferences.actions.right` | Name of each reassignable action (movement + view). | `'Droite'` |
+| `settings.preferences.actions.boost` | Name of each reassignable action (movement + view). | `'Accélérer (piéton)'` |
+| `settings.preferences.actions.north` | Name of each reassignable action (movement + view). | `'Nord'` |
+| `settings.preferences.actions.tilt` | Name of each reassignable action (movement + view). | `'Inclinaison'` |
+| `settings.preferences.actions.globe` | Name of each reassignable action (movement + view). | `'Globe'` |
+| `settings.preferences.actions.zoomIn` | Name of each reassignable action (movement + view). | `'Zoom avant'` |
+| `settings.preferences.actions.zoomOut` | Name of each reassignable action (movement + view). | `'Zoom arrière'` |
+| `settings.preferences.actions.fullscreen` | Name of each reassignable action (movement + view). | `'Plein écran'` |
 
 ## `actions` — Gesture cheat sheet
 
@@ -440,7 +479,7 @@ the library.
 
 | Key | Description | Default |
 |---|---|---|
-| `plural` | A `(count: number) => 'one' \| 'other'` function. ⚠️ The default is the **French** rule (`n > 1`): it is **wrong for English**, where `0` is plural, and insufficient for Polish or Russian (three forms). **Override it in an English setup.** Return one of the two forms the library can render, or plug in `Intl.PluralRules`. | `(n) => (n > 1 ? 'other' : 'one')` |
+| `plural` | A `(count: number) => 'one' \| 'other'` function. ⚠️ The default is the **French** rule (`n > 1`): it is **wrong for English**, where `0` is plural, and insufficient for Polish or Russian (three forms). **Override it in an English setup.** Return one of the two forms the library can render, or plug in `Intl.PluralRules`. | `(count) => (count > 1 ? 'other' : 'one')` |
 
 ## `errors` — Error messages (developer-facing)
 

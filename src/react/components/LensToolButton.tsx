@@ -8,7 +8,7 @@ import { useTip } from './tooltip'
 /**
  * Bouton de l'outil loupe — item principal de la barre, au même langage visuel que
  * les outils de dessin. Rendu par `<Toolbar>` elle-même : rien à câbler côté
- * application. Il ne s'affiche que si la loupe est montée (`<Map lens>`, le défaut) ;
+ * application. Il ne s'affiche que si la loupe est montée (`toolbar.lens`, le défaut) ;
  * une carte sans loupe le fait disparaître au lieu de planter, comme la palette de
  * symboles quand l'outil est désactivé.
  *

@@ -47,7 +47,9 @@ forcent le niveau. Chaque niveau applique ce bundle de leviers **à chaud** :
 | `sky.enabled` / `clouds.coverage` | on / 0.35 | on / 0.2 | **off** |
 | `providers.tiles.retina` | on si dpr > 1 | off | off |
 
-« Élevé » reprend les défauts de la lib. Sont **volontairement exclus** :
+« Élevé » reprend globalement les défauts de la lib — à l'exception
+d'`adaptiveResolution.minRatio`, où le preset (0.75) est plus permissif que le défaut de
+`defaultConfig` (0.5, posé comme plancher anti-flou du sol photogrammétrique). Sont **volontairement exclus** :
 `performance.antialias` et `performance.powerPreference` (lus à la création du contexte
 WebGL — les changer exigerait un remontage), et le budget **raster** `tiles.maxTiles` (le
 baisser rouvre l'aplat uniforme au loin).

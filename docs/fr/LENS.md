@@ -62,7 +62,8 @@ Tant que l'outil est actif :
 | `Échap` | retire la zone, puis quitte l'outil |
 
 Un glissé plus court que `config.interaction.lens.minDragPx` compte comme un **clic** :
-il ne doit rien créer.
+il ne doit rien créer. Un redimensionnement par poignée garde, lui, un côté minimal
+garanti (`config.interaction.lens.minSizePx`) : pas de retournement.
 
 La loupe est un **overlay écran fixe** : la liste **se recalcule en direct** quand la
 carte défile dessous.
@@ -94,6 +95,10 @@ négatifs près des bords.
 Le menu d'une ligne suit la règle générale : `toolbar.lens.menu`, sinon
 `<Map markerMenu>`, sinon `actions`. **« Cibler » est ajouté en tête par la liste** —
 ne le remettez pas.
+
+Le panneau s'ancre par défaut à **droite** de la zone (largeur `theme.sizing.lensPanelW`),
+et bascule à **gauche** si la droite ne tient pas dans le conteneur. Il reste
+**déplaçable** par sa poignée et clampé à l'écran quel que soit l'endroit où on le lâche.
 
 ---
 

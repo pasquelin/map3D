@@ -49,6 +49,7 @@ cover each one **in depth**.
 | [LENS.md](LENS.md) | lens: inventory of the markers in an area |
 | [SEARCH.md](SEARCH.md) | unified map + place search |
 | [CAMERA.md](CAMERA.md) | initial position, `ready`, flights, framing, frozen map, basemap |
+| [PEDESTRIAN.md](PEDESTRIAN.md) | pedestrian mode: ground-level walking, collision, gravity, first-person immersion |
 | [TILES.md](TILES.md) | tile provider: Google or self-hosted server, capabilities and buttons |
 | [BUILDINGS.md](BUILDINGS.md) | picking a building of the internal volume: the tool, `buildingMenu`, surfaced attributes |
 | [GRATICULE.md](GRATICULE.md) | coordinate grid: adaptive mesh, remarkable lines, labels, tilt fade |
@@ -78,6 +79,7 @@ diverge from what the library applies:
 | let the user draw | [DRAWING.md § 1](DRAWING.md#1-in-two-minutes) |
 | refetch your data on move | [DATA.md § 2](DATA.md#2-viewport-driven) |
 | frame the map on some content | [CAMERA.md § 4](CAMERA.md#4-framing-fitbounds) |
+| walk the ground in first person | [PEDESTRIAN.md § 1](PEDESTRIAN.md#1-in-two-minutes) |
 | translate the interface | [LABELS.md](LABELS.md) |
 | adapt the visual identity | [THEME.md](THEME.md) |
 | show a coordinate grid | [GRATICULE.md § 2](GRATICULE.md#2-turning-it-on) |

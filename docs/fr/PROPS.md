@@ -229,7 +229,7 @@ Barre d'outils de dessin.
 | `minZoom` | Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. | `config.interaction.drawToolbarMinZoom` |
 | `tools` | Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. | — |
-| `measureTools` | Rangées proposées par le sous-menu « Mesures » (défaut : mesurer + grille) ; une seule = pas de sous-menu, le bouton redevient un simple outil. `['measure']` retire donc la grille de la barre — elle reste atteignable par `<MapControls>` et par la config. | — |
+| `measureTools` | Rangées proposées par le bouton « Mesures » — une seule (`measure`) existe aujourd'hui, donc le sous-menu ne s'ouvre pas : le bouton agit directement. La grille de coordonnées a rejoint les contrôles de vue (`<MapControls>`, `config.graticule`) ; le châssis du sous-menu reste en place pour une rangée future. | — |
 | `components` | Masque (`false`) ou remplace (ReactNode) chaque section — défaut : tout affiché. | `{}` |
 | `extraTools` | Outils **de l'application** rendus en items principaux de la barre, après les outils natifs (dessin, symboles, loupe) : ils prennent le langage visuel de la barre au lieu de flotter dans un coin de la carte. Ils pilotent leur propre état, la barre ne les… | — |
 
@@ -244,6 +244,7 @@ Barre de navigation.
 | `buttons` | Grain BOUTON : `false` masque un bouton précis (ex. `{ rotate: false, zoomOut: false }`). Un groupe dont tous les boutons sont masqués disparaît, et le raccourci clavier d'un bouton masqué est désactivé avec lui. | `{}` |
 | `shortcuts` | Raccourcis clavier par action — `false` pour en désactiver un, une autre touche pour le remapper si elle est déjà prise ailleurs dans l'app. Lettres SEULES (pas de ⌘/Ctrl : les navigateurs réservent ⌘T/⌘N/⌘W…), identiques Mac/PC, affichées dans les… | — |
 | `tagLabel` | Libellé lisible d'un tag dans le panneau « Couches » (défaut : le tag brut). | — |
+| `templates` | Gestionnaire de templates (bouton sous « Couches », même structure). `false`/absent le retire ; un objet le règle (provider API, catégories…). Fourni par `<Map templates>`. | — |
 | `target` | Point de référence de l'écran (l'alerte consultée, l'événement en cours…) : fournir cette prop ajoute un bouton **« revenir à la cible »** à la barre ; l'omettre le retire. La carte n'a pas à savoir ce que la cible représente, seulement où elle est. | — |
 
 ## `<GraticuleLayer>`
@@ -262,7 +263,7 @@ qu'à un montage manuel (barre maison).
 | Prop | Description | Défaut |
 |---|---|---|
 | `position` | Côté d'ancrage, pour l'ouverture du sous-menu. | — |
-| `tools` | Rangées affichées ; une seule = pas de sous-menu. | les deux |
+| `tools` | Rangées affichées ; une seule = pas de sous-menu — l'état actuel, une seule rangée (`measure`) existant. | *(l'unique rangée existante)* |
 
 ## `<PinnedDock>`
 
@@ -315,6 +316,10 @@ en plus toutes les options de [`useTemplates`](HOOKS.md) ci-dessous. Détail dan
 | `defaultCategories` | Catégories cochées par défaut dans le formulaire « Sauver ». | `config.providers.templates.defaultCategories` |
 | `defaultApply` | Mode d'application par défaut au clic (`'merge'` \| `'replace'`). | `config.providers.templates.defaultApply` |
 | `allowExport` | Autorise l'export/import de fichiers `.m3dt`. | `config.providers.templates.allowExport` |
+| `saveView` | Offre la case « Vue » à la sauvegarde (mémorise pose caméra, fond de carte, couches, piéton). | `config.providers.templates.saveView` |
+| `defaultSaveView` | Case « Vue » cochée d'avance. Sans effet si `saveView` est faux. | `config.providers.templates.defaultSaveView` |
+| `applyView` | Rejoue la vue d'un template à son chargement, quand il en porte une. | `config.providers.templates.applyView` |
+| `viewFlyDuration` | Durée (s) du trajet vers la vue chargée ; `0` = instantané. | `config.providers.templates.viewFlyDuration` |
 | `position` | Côté de la barre hôte : le panneau s'ouvre du côté opposé. | `'right'` |
 | `tipId` | id du `<Tooltip>` partagé de la barre hôte (MapControls). | — |
 | `shortcut` | Touche (lettre seule) qui ouvre/ferme le panneau. `false` = aucun raccourci. | — |
@@ -335,7 +340,7 @@ dans une barre custom.
 |---|---|---|
 | `position` | Côté de la barre hôte : le panneau s'ouvre du côté opposé. | `'right'` |
 | `tipId` | id du `<Tooltip>` partagé de la barre hôte (MapControls). | — |
-| `shortcut` | Touche (lettre seule) qui ouvre/ferme le panneau. `false` = aucun raccourci. | `interaction.shortcuts.controls.catalog` |
+| `shortcut` | Touche (lettre seule) qui ouvre/ferme le panneau. `false` = aucun raccourci. Monté par `<MapControls>`, il reçoit `interaction.shortcuts.controls.catalog` ; sans défaut propre en montage manuel. | — |
 | `grouped` | Rendu SANS sa propre carte `.m3d-controls-group` — pour cohabiter avec « Couches ». | — |
 
 ## `<Confirm>`
@@ -379,5 +384,6 @@ Couche de **tracés drapés** (parcours, itinéraires), à poser dans `layers` c
 | --- | --- | --- | --- |
 | `paths` | `PathData[]` | — | Tracés affichés. Chacun porte ses points, et peut surcharger `color`, `width`, `casing`. |
 | `animateHead` | `boolean` | `true` | Pulsation du point courant, en tête du tracé. |
+| `id` | `string` | — | Clé de la couche (comme `markersLayer`/`shapesLayer`) — à fournir dès que `layers` peut être réordonnée ou filtrée. |
 
 L'épaisseur est en **mètres monde** : un tracé grossit au zoom, contrairement aux traits de la couche de dessin qui restent à épaisseur écran constante. Pour un itinéraire **calculé** (trafic, temps de parcours), voir [RELATIONS.md](RELATIONS.md).

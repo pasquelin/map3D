@@ -47,7 +47,9 @@ force the level. Each level applies this bundle of **hot** levers:
 | `sky.enabled` / `clouds.coverage` | on / 0.35 | on / 0.2 | **off** |
 | `providers.tiles.retina` | on if dpr > 1 | off | off |
 
-"High" mirrors the library defaults. **Deliberately excluded**:
+"High" broadly mirrors the library defaults — except for `adaptiveResolution.minRatio`,
+where the preset (0.75) is more permissive than `defaultConfig`'s default (0.5, set as an
+anti-blur floor for the photogrammetric ground). **Deliberately excluded**:
 `performance.antialias` and `performance.powerPreference` (read at WebGL context creation —
 changing them would require a remount), and the **raster** budget `tiles.maxTiles`
 (lowering it reopens the flat far-field).

@@ -102,7 +102,9 @@ désactiver) et **re-résolus à la position courante** au réaffichage.
 | `groupOrder` | — | les rubriques absentes suivent par ordre alphabétique |
 | `minQuery` | `2` | 💰 à relever pour épargner un fournisseur facturé à l'appel ; à abaisser à `1` pour des libellés courts (codes, tournées) |
 | `debounceMs` | `250` | 💰 chaque frappe déclenche un appel au géocodeur |
+| `flyAltitude` | `2500` | altitude de repli quand le résultat choisi n'a pas d'emprise (`bounds`) |
 | `historyStorageKey` | — | `null` désactive |
+| `historySize` | `8` | entrées max conservées dans l'historique |
 
 « Lieux » est **hors classement** : la rubrique ouvre toujours la liste, chercher une
 ville étant le geste de cadrage le plus courant.
@@ -205,6 +207,8 @@ type SearchGroup = { id: string; label: string; count: number; color?: string }
 | `scoreMatch` / `NO_MATCH` | score d'un titre normalisé face à une requête |
 | `rankHits(hits, limit)` | tri score puis proximité, troncature |
 | `proximityRank(a, b)` | rang de proximité, départage les scores égaux |
+| `Hit<T>` | `{ item, score, distance }` — la correspondance retenue, avant mise en forme en `SearchEntry` |
+| `createTitleCache(titleOf)` | mémoïse la normalisation d'un titre par référence d'objet (`WeakMap`) — décisif sur un flux temps réel |
 | `createGooglePlacesSearch` | géocodeur Google Places |
 
 La couleur d'une rubrique doit être **la même** que celle de ses éléments sur la carte

@@ -117,7 +117,8 @@ Ce que ça implique, concrètement :
   fenêtre reste ouverte jusqu'à résolution réelle.
 - **Les formes drapées ne testent pas la profondeur** : elles se dessinent par-dessus
   le terrain, donc restent lisibles dans un creux. Les **volumes**, eux, testent la
-  profondeur (cf. § 4).
+  profondeur (cf. § 4). Exception : en **mode piéton**, les formes drapées aussi
+  testent la profondeur, pour rester occultables par le bâti à hauteur d'homme.
 
 Le protocole est mutualisé (`DrapedLayer`) entre zones, tracés et liens de relation.
 Une couche custom qui projette ses propres éléments drapés peut réutiliser
@@ -389,4 +390,5 @@ const valide = ringInsideRing(ringOfShape(zoneSaisie), ring)
 - [CAMERA.md](CAMERA.md) — cadrage, vols, fond de carte
 - [CATALOG.md](CATALOG.md) — parcourir un référentiel distant et en poser des zones
 - [SEARCH.md](SEARCH.md) — recherche unifiée
+- [PEDESTRIAN.md](PEDESTRIAN.md) — pourquoi les formes drapées testent la profondeur en marche
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)

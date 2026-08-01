@@ -112,6 +112,15 @@ Le coût en requêtes est bien moindre qu'il n'y paraît : un niveau grossier co
 immense surface, donc il est demandé une fois puis resservi toute la session. Seul le niveau
 le plus fin se renouvelle quand on se déplace.
 
+Cette cascade n'est pas systématique : dès qu'**un seul niveau suffit à couvrir toute
+l'emprise** — vue proche du zénith, faible inclinaison — le fond passe en niveau
+**uniforme** (`providers.tiles.uniformDetail`, défaut `true`) : plus de disque de détail au
+centre, la netteté est la même partout, et les niveaux plus grossiers sont préchargés en
+repli net pendant qu'un cran se charge. Il repasse en cascade dès que la vue est trop étalée
+pour un seul niveau — l'écart entre le niveau visé et celui qui couvre toute la vue dépasse
+`providers.tiles.uniformMaxSpread` (défaut `1`) — et systématiquement en mode piéton, où le
+gradient près/loin à hauteur d'homme est voulu.
+
 ## 3. Basculer à chaud
 
 Changer `provider` (ou `origin`, `style`, `retina`) remplace la source **sans remonter la
@@ -213,7 +222,7 @@ Ce qu'il faut savoir pour le régler :
 - **`maxHeight`** (1000 m) borne les hauteurs aberrantes. `height=99999` est une faute de
   saisie courante dans OSM, et elle produisait un bâtiment de cent kilomètres : sa boîte
   englobante gardait la tuile visible en permanence et arrêtait la caméra sur un fantôme.
-- **`maxBytes`** (256 Mio) borne la mémoire du cache, là où `maxTiles` ne borne qu'un
+- **`maxBytes`** (448 Mio) borne la mémoire du cache, là où `maxTiles` ne borne qu'un
   nombre. C'est le réglage qui compte : entre une tuile de campagne et une tuile de
   centre-ville, ce que retient une tuile va de un à cent.
 
@@ -342,6 +351,7 @@ export type TileSource = {
 ## Voir aussi
 
 - [BUILDINGS.md](BUILDINGS.md) — désigner un bâtiment de ce volume interne
+- [PEDESTRIAN.md](PEDESTRIAN.md) — niveau de détail des tuiles en marche
 - [CONFIG.md](CONFIG.md) — toutes les clés de `providers.tiles`
 - [ENGINE.md](ENGINE.md) — `BasemapState`, événement `basemap`
 - [PROPS.md](PROPS.md) — boutons de `<MapControls>`

@@ -232,9 +232,12 @@ on add*, *remove all*.
 
 ```ts
 config.catalog = {
-  pageSize: 50,          // items requested per page
-  debounceMs: 250,       // 💰 debounce: the direct lever on call volume
-  maxInlineActions: 2,   // actions rendered inline
+  pageSize: 50,            // items requested per page
+  debounceMs: 250,         // 💰 search debounce: the direct lever on call volume
+  maxInlineActions: 2,     // actions rendered inline
+  overscanRows: 4,         // rows rendered off-screen on each side of the virtual window
+  prefetchMarginPx: 200,   // 💰 distance from the list bottom that triggers the next page
+  persistDebounceMs: 250,  // debounce for writing the selection to storage
 }
 config.data.storageKeys.catalog          // 'm3d:catalog'          — the selection
 config.data.storageKeys.catalogSettings  // 'm3d:catalog-settings' — the settings
@@ -245,7 +248,9 @@ config.interaction.shortcuts.controls.catalog  // 'c'
 |---|---|
 | `sizing.catalogRowHeight` | row height — **constant**, virtualization depends on it |
 | `sizing.catalogIndent` | child row offset |
-| `sizing.catalogPanelW` | panel width, and the framing margin it reserves |
+| `sizing.catalogChevronW` | expand chevron width — also the gutter reserved on rows without children |
+| `sizing.catalogPanelW` | type panel width |
+| `sizing.catalogSubPanelW` | list panel width — together with `catalogPanelW`, the framing margin it reserves |
 | `sizing.panelMaxHeight.catalog` | maximum height |
 
 All text lives in `labels.catalog` (see [LABELS.md](LABELS.md)). **Type names** are not

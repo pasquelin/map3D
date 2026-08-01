@@ -54,6 +54,7 @@ partiel est une erreur de compilation.
 | `providers.tiles.margin` | Anneau de tuiles préchargées autour du viewport. | `1` |
 | `providers.tiles.maxRequest` | Budget de tuiles demandées pour le niveau de zoom cible. En vue du dessus (`uniformDetail`), c'est lui qui décide jusqu'où le niveau uniforme peut atteindre celui des bâtiments avant de retomber sur du plus grossier — le relever étend la portée des bâtiments (plus de RAM). ⚠️ 140 → 200. | `200` |
 | `providers.tiles.uniformDetail` | Demander UN SEUL niveau de détail sur toute l'emprise (celui qui la couvre dans `maxRequest`) au lieu de la cascade d'anneaux fins autour du point visé — cette dernière concentre le détail en une **boîte** au centre, grossière autour. Uniforme = même niveau partout, jamais de boîte partielle, **à plat comme incliné** (le zoom au point visé décide déjà de la finesse). Relever `maxRequest` étend la portée du niveau fin (plus de RAM). La cascade n'est gardée qu'en **marche** (piéton). `false` = cascade partout (comportement d'origine). | `true` |
+| `providers.tiles.uniformMaxSpread` | Écart de zoom toléré, en crans, entre ce que réclame le sol REGARDÉ et ce que la vue entière permet, avant que `uniformDetail` ne cède la place à la cascade. À plat l'écart est nul ; en vue rasante il explose (mesuré : 73 m d'altitude et 73° d'inclinaison → tuiles de 805 m, onze fois la hauteur de l'œil). `1` tolère un cran (invisible) et bascule au-delà. `0` = cascade dès le moindre écart ; une valeur très haute revient à l'ancien comportement, uniforme quoi qu'il arrive. | `1` |
 | `providers.tiles.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
 | `providers.tiles.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
 | `providers.routing.matrixUrl` | Endpoint `computeRouteMatrix` — à viser sur un proxy serveur en production. | `'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix'` |
@@ -180,14 +181,18 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.controls.tilt` | Bascule l'inclinaison de la caméra. | `'i'` |
 | `interaction.shortcuts.controls.globe` | Recul en vue globe. | `'g'` |
 | `interaction.shortcuts.controls.layers` | Ouvre le panneau « Couches » (filtre par tag). | `'t'` |
+| `interaction.shortcuts.controls.catalog` | Ouvre le panneau « Catalogue ». Sans source déclarée, la touche est inactive. | `'c'` |
 | `interaction.shortcuts.controls.fullscreen` | Plein écran. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Bascule 3D photoréaliste ↔ plan 2D. | `'b'` |
+| `interaction.shortcuts.controls.graticule` | Bascule de la grille de coordonnées — une commande de VUE, fonctionne sans aucune couche de dessin montée. `'g'` (mnémonique) est déjà pris par `globe`, d'où le défaut `'k'`. | `'k'` |
 | `interaction.shortcuts.controls.traffic` | Calque trafic — le bouton n'existe qu'en mode plan. | `false` |
+| `interaction.shortcuts.controls.pedestrian` | Entrer / quitter le mode piéton — le bouton n'existe qu'en 3D photoréaliste externe. | `'w'` |
 | `interaction.shortcuts.navigate.forward` | Avancer — maintenu. Plusieurs touches : les flèches, universelles, et une famille de lettres qui dépend de la disposition du clavier. | `['arrowup', 'z']` |
 | `interaction.shortcuts.navigate.backward` | Reculer. | `['arrowdown', 's']` |
 | `interaction.shortcuts.navigate.left` | Dériver à gauche. | `['arrowleft', 'q']` |
 | `interaction.shortcuts.navigate.right` | Dériver à droite. | `['arrowright', 'd']` |
 | `interaction.shortcuts.navigate.boost` | Modificateur d'accélération, maintenu. | `['shift']` |
+| `interaction.shortcuts.pedestrian.immersion` | Bascule exploration ↔ immersion totale (Pointer Lock). L'ENTRÉE dans le mode piéton a déjà sa touche dans `controls.pedestrian` ; celle-ci ne reste que pour ce qui n'a pas de bouton de barre. `false` par défaut : Échap suffit à sortir de l'immersion (relâchement natif du Pointer Lock), brûler une touche globale serait déroutant. | `false` |
 | `interaction.shortcuts.draw.select` | Outil sélection. | `'v'` |
 | `interaction.shortcuts.draw.selectRect` | Sélection au rectangle. | `'1'` |
 | `interaction.shortcuts.draw.selectPoly` | Sélection au polygone. | `'2'` |
@@ -231,6 +236,7 @@ partiel est une erreur de compilation.
 | `performance.adaptiveResolution.minRatio` | Plancher du ratio, en fraction de `pixelRatio`. | `0.5` |
 | `performance.adaptiveResolution.step` | Pas de descente/remontée, en fraction de `pixelRatio`. | `0.1` |
 | `performance.adaptiveResolution.sampleFrames` | Frames mesurées avant d'agir — ignore les à-coups isolés. | `30` |
+| `performance.textureAnisotropy` | Filtrage anisotrope des textures de tuiles. `0` = maximum du matériel (typiquement 16), `1` = aucun. ⚠️ Décisif en vue RASANTE : sans lui, une texture regardée sous un angle faible produit un moiré en éventail qui se recalcule à chaque frame — invisible vu du ciel, insupportable à hauteur d'homme. Le coût GPU est négligeable devant le gain. | `0` |
 | `performance.renderOnDemand.enabled` | Ne peindre que ce qui a changé. La boucle de frame tourne toujours ; ce qui est sauté, c'est le RENDU (passe WebGL + overlays DOM) quand rien ne l'a demandé. | `true` |
 | `performance.renderOnDemand.idleFrames` | Frames peintes après la dernière demande. | `3` |
 | `performance.renderOnDemand.maxIdleMs` | Délai au-delà duquel une frame est peinte même sans demande (filet de sécurité). `0` le retire. | `1000` |
@@ -257,6 +263,8 @@ partiel est une erreur de compilation.
 >
 > Ces valeurs sont calibrées sur un budget de 16,6 ms (60 Hz). Un hôte qui vise des postes modestes les resserre. Cf. [Panneau de diagnostic](CAMERA.md).
 
+| Clé | Description | Défaut |
+|---|---|---|
 | `performance.cameraMoveEpsilon.deg` | Écart de latitude/longitude (degrés) au-delà duquel la caméra a bougé. | `1e-06` |
 | `performance.cameraMoveEpsilon.altitudeRatio` | Écart d'altitude, en fraction de l'altitude courante. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Plancher absolu du précédent (m) — près du sol, un ratio seul ne déclenche jamais. | `1` |
@@ -311,6 +319,7 @@ doit les revoir.
 | `style.zIndex.modal` | Plan RACINE. Modales (dialogue de confirmation) : au-dessus de tout, menus compris. | `1092` |
 | `style.zIndex.relationBar` | Plan CARTE. Barre d'état d'une relation, posée sur la carte. | `6` |
 | `style.zIndex.editOverlay` | Plan CARTE. Overlay SVG de sélection (poignées de transformation). | `15` |
+| `style.zIndex.graticuleLabel` | Plan CARTE. Étiquettes du graticule — volontairement le niveau le plus BAS : la grille est un fond de repère, elle ne doit passer devant rien de ce que la carte porte. | `1` |
 | `style.zIndex.tooltip` | Plan LOCAL. Infobulles, DANS la surface qui les porte : l'ancre du marker pour `.m3d-markertip`, la barre ou le panneau pour `.m3d-tip`. Toutes deux sont des contextes d'empilement isolés (z-index d'ancre écrit par CSS2DRenderer, `backdrop-filter` d'un panneau), si bien que cette valeur ne se compare jamais aux niveaux du plan CARTE. La monter ne fera passer l'infobulle au-dessus de rien. | `2` |
 | `style.zIndex.listMenu` | Plan CARTE. Menu d'actions d'une ligne de liste. | `96` |
 | `style.zIndex.markerSelected` | Marker sélectionné, DANS l'ancre de son propre marker. ⚠️ Ne le hisse pas au-dessus des markers voisins : l'ancre porte un `z-index` numérique, donc elle crée un contexte et cette valeur y reste enfermée. L'ordre ENTRE markers est décidé par le `renderOrder` que le moteur donne à CSS2DRenderer (cf. `setRaised`), pas ici. | `80` |
@@ -370,6 +379,9 @@ doit les revoir.
 | `data.storageKeys.searchHistory` | Historique de la boîte de recherche. | `'m3d:search-history'` |
 | `data.storageKeys.plugins` | État des plugins (activation + config), cf. [PLUGINS.md § 8](PLUGINS.md#8-le-hub-et-la-config-utilisateur). | `'m3d:plugins'` |
 | `data.storageKeys.templates` | Templates de dessin locaux (tableau `Template[]`), cf. [TEMPLATES.md](TEMPLATES.md). | `'m3d:templates'` |
+| `data.storageKeys.catalog` | Éléments de catalogue affichés sur la carte (tableau de `CatalogKey`), cf. [CATALOG.md](CATALOG.md). | `'m3d:catalog'` |
+| `data.storageKeys.catalogSettings` | Réglages du catalogue (persistance, cadrage à l'ajout). Distincte de la précédente : décocher « conserver » efface la SÉLECTION, et une clé partagée effacerait du même geste le réglage qu'on vient de changer. | `'m3d:catalog-settings'` |
+| `data.storageKeys.preferences` | Préférences de l'utilisateur final (qualité 3D, disposition clavier, vitesse, inertie), cf. [PREFERENCES.md](PREFERENCES.md). Absente du localStorage tant que l'utilisateur n'a rien réglé : la carte suit alors la config de l'application, intacte. | `'m3d:preferences'` |
 | `data.search.minQuery` | Longueur minimale de saisie avant d'interroger les fournisseurs. | `2` |
 | `data.search.debounceMs` | Anti-rebond de la frappe. 💰 Le levier le plus direct sur le nombre d'appels. | `250` |
 | `data.search.limitPerGroup` | Résultats affichés par rubrique. | `6` |
@@ -407,6 +419,44 @@ Ciel calculé (modèle de Preetham + nuages), **révélé en fondu quand on desc
 | `sky.fade.start` | Altitude caméra (m) au-dessus de laquelle le ciel est invisible (vue globe intacte). | `500000` |
 | `sky.fade.end` | Altitude caméra (m) en dessous de laquelle le ciel est plein. `start` doit être > `end`. | `90000` |
 | `sky.date` | Instant (ms epoch, comme `Date.now()`) qui fixe la position du soleil. `0` = l'heure de montage de la carte, figée. Une valeur > 0 fige un instant précis (déterministe). | `0` |
+
+## `pedestrian` — Mode piéton / première personne
+
+Vue première personne au niveau du sol. ⚠️ Tout ce qui suit est de la CONFIG et non du
+thème : rien ne s'y voit directement. L'apparence du curseur de placement et du
+réticule vit dans `theme.colors.pedestrian`. La touche d'ENTRÉE dans le mode vit dans
+`interaction.shortcuts.controls.pedestrian` (bouton de barre) ; celle d'immersion totale
+dans `interaction.shortcuts.pedestrian.immersion`.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `pedestrian.eyeHeightMeters` | Hauteur de l'œil au-dessus du sol (m). | `1.7` |
+| `pedestrian.walkSpeed` | Vitesse de marche (m/s) — INDÉPENDANTE de l'altitude, contrairement au vol orbital. 5 m/s (18 km/h) : la marche réelle (1,4) donne l'impression de faire du surplace dans un décor à l'échelle. À ramener à 1,4 pour une vitesse fidèle. | `5` |
+| `pedestrian.sprintFactor` | Multiplicateur appliqué tant que la touche `boost` est maintenue. 2 et non 3 : à 3, la touche donnait 15 m/s (54 km/h) — on ne lit plus rien de ce qu'on traverse. | `2` |
+| `pedestrian.lookSpeed` | Sensibilité du regard : degrés de rotation par pixel de souris. | `0.15` |
+| `pedestrian.invertY` | Inverse l'axe vertical du regard. ⚠️ Le défaut suit la convention du CLIQUER-GLISSER de la carte (tirer vers le bas relève la vue), et non celle d'un FPS. Sous Pointer Lock (immersion totale), la convention FPS s'applique d'elle-même. | `true` |
+| `pedestrian.invertX` | Inverse l'axe horizontal du regard. | `false` |
+| `pedestrian.pitchMaxDeg` | Borne du regard vertical (°) — à 90° la base du repère dégénère. | `89` |
+| `pedestrian.viewDistanceMeters` | Distance de vue (m) : borne le `far` de la caméra, donc le frustum culling, donc les tuiles demandées — le levier de performance n°1 de la vue rasante. Borne AUSSI les markers et pastilles de regroupement, qui cessent d'être affichés là où le décor cesse de l'être. | `1000` |
+| `pedestrian.fogStartMeters` | Début du brouillard (m). Il finit toujours à `viewDistanceMeters`. | `700` |
+| `pedestrian.nearMeters` | Plan proche de la caméra (m) en mode piéton. | `0.1` |
+| `pedestrian.groundProbeMeters` | Portée (m) du rayon qui cherche le sol sous les pieds, à chaque frame de marche. ⚠️ Court par nécessité : `sampleGroundHeight` porte sur 40 km d'ordinaire, un rayon aussi long serait le poste le plus cher de la boucle de marche. Borne aussi la chute : au-delà, le sol est réputé introuvable et la hauteur précédente est conservée. | `5` |
+| `pedestrian.tileDetailDistanceMeters` | Distance de référence (m) du niveau de détail des tuiles pendant la marche — la distance à laquelle on regarde réellement, pas celle de ses pieds (1,70 m réclamerait le zoom maximal partout). Baisser = plus net de près et plus lourd ; monter = plus léger et plus grossier. | `120` |
+| `pedestrian.tileRefreshMs` | Période minimale (ms) entre deux mises à jour de la couverture de tuiles en marche. Chaque passage reconstruit toute la cascade de niveaux : à hauteur d'homme la refaire soixante fois par seconde ne sert à rien. | `250` |
+| `pedestrian.groundSmoothing` | Constante de temps (SECONDES) du lissage vertical de l'œil. Trop fort → sensation de flottement ; trop faible → sautillement quand les tuiles se raffinent. | `0.25` |
+| `pedestrian.collision.radiusMeters` | Demi-largeur du corps (m) : distance en deçà de laquelle un mur repousse. | `0.3` |
+| `pedestrian.collision.feelers` | Nombre de rayons horizontaux lancés en éventail autour de la direction de marche. | `6` |
+| `pedestrian.collision.feelerMarginMeters` | Longueur des palpeurs EN PLUS du rayon (m) — de quoi voir le mur avant de l'atteindre. | `0.2` |
+| `pedestrian.collision.maxStepHeightMeters` | Montée franchissable d'un pas (m) : trottoir, marche. Au-delà, c'est un mur. | `0.4` |
+| `pedestrian.placement.maxRoofDeltaMeters` | Écart maximal (m) entre la surface visée et le niveau de rue de la couronne. Au-delà, le point est un toit et le clic est refusé. | `2` |
+| `pedestrian.placement.ringRadiusMeters` | Rayon de la couronne d'échantillonnage du sol (m). ⚠️ 20 m et non 4 : la couronne doit SORTIR de l'emprise du bâtiment visé pour trouver la rue en contrebas — à 4 m elle restait sur le toit, qui devenait sa propre « rue ». | `20` |
+| `pedestrian.placement.refreshMs` | Période minimale (ms) entre deux validations du curseur pendant le placement. Chaque validation coûte une dizaine de raycasts ; `pointermove` tire beaucoup plus vite que ça. | `33` |
+| `pedestrian.placement.refreshSlopPx` | Déplacement (px) en deçà duquel la validation précédente est réutilisée telle quelle. | `3` |
+| `pedestrian.headBob.enabled` | Balancement de la marche — un effet, désactivé par défaut. | `false` |
+| `pedestrian.headBob.amplitudeMeters` | Amplitude du balancement (m). | `0.05` |
+| `pedestrian.headBob.frequency` | Oscillations par seconde (Hz) à vitesse de marche nominale. | `1.8` |
+| `pedestrian.transitions.enterMs` | Durée (ms) de la plongée à l'entrée du mode piéton. | `800` |
+| `pedestrian.transitions.exitMs` | Durée (ms) de la remontée à la sortie du mode piéton. | `600` |
 
 ## `graticule` — Grille de coordonnées géographiques
 
@@ -458,6 +508,3 @@ Référentiels parcourables déclarés par l'hôte et par les plugins (`engine.c
 | `catalog.overscanRows` | Lignes rendues hors écran de chaque côté de la fenêtre virtuelle. Curseur entre « pas de vide au défilement rapide » et « travail React par frame » : chaque unité ajoute DEUX lignes rendues à chaque frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance au bas de liste qui déclenche la page suivante (px). Décide du VOLUME d'appels à `CatalogSource.list` : une marge large précharge pendant qu'on défile encore, mais demande des pages qu'on ne regardera peut-être jamais. | `200` |
 | `catalog.persistDebounceMs` | Anti-rebond avant d'écrire la sélection dans le stockage. `localStorage.setItem` est SYNCHRONE : sans amortissement, une rafale de gestes écrit autant de fois qu'elle compte d'éléments, sur une charge qui grossit. `0` écrit immédiatement ; la charge en attente est toujours vidée avant que la page ne disparaisse. | `250` |
-| `data.storageKeys.catalog` | Éléments de catalogue affichés sur la carte (tableau de `CatalogKey`). | `'m3d:catalog'` |
-| `data.storageKeys.catalogSettings` | Réglages du catalogue. Distincte de la précédente : décocher « conserver » efface la SÉLECTION, et une clé partagée effacerait du même geste le réglage qu'on vient de changer. | `'m3d:catalog-settings'` |
-| `interaction.shortcuts.controls.catalog` | Ouvre le panneau « Catalogue ». Sans source déclarée, la touche est inactive. | `'c'` |

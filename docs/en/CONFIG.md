@@ -57,6 +57,7 @@ compile error.
 | `providers.tiles.margin` | Ring of tiles preloaded around the viewport. | `1` |
 | `providers.tiles.maxRequest` | Budget of tiles requested for the target zoom level. In top-down view (`uniformDetail`), it decides how far the uniform level can reach the buildings' level before falling back to a coarser one — raising it extends buildings' reach (more RAM). ⚠️ 140 → 200. | `200` |
 | `providers.tiles.uniformDetail` | Request a SINGLE detail level over the whole extent (the one that covers it within `maxRequest`) instead of the cascade of fine rings around the looked-at point — the latter concentrates detail into a **box** at the center, coarse around it. Uniform = same level everywhere, never a partial box, **top-down and tilted alike** (the zoom at the looked-at point already decides fineness). Raising `maxRequest` extends the fine level's reach (more RAM). The cascade is kept only when **walking** (pedestrian). `false` = cascade everywhere (original behavior). | `true` |
+| `providers.tiles.uniformMaxSpread` | Zoom gap tolerated, in steps, between what the LOOKED-AT ground requires and what the whole view allows, before `uniformDetail` gives way to the cascade. On a flat view the gap is nil; in grazing view it explodes (measured: 73 m altitude and 73° tilt → 805 m tiles, eleven times eye height). `1` tolerates one step (invisible) and switches beyond that. `0` = cascade at the slightest gap; a very high value reverts to the old behaviour, uniform no matter what. | `1` |
 | `providers.tiles.maxAttempts` | Attempts per tile before giving up for good. | `3` |
 | `providers.tiles.retryDelays` | Backoff between two attempts at the same tile. | `[1000, 4000]` |
 | `providers.routing.matrixUrl` | `computeRouteMatrix` endpoint — point it at a server proxy in production. | `'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix'` |
@@ -183,14 +184,18 @@ compile error.
 | `interaction.shortcuts.controls.tilt` | Toggles the camera tilt. | `'i'` |
 | `interaction.shortcuts.controls.globe` | Pull back to globe view. | `'g'` |
 | `interaction.shortcuts.controls.layers` | Opens the “Layers” panel (tag filter). | `'t'` |
+| `interaction.shortcuts.controls.catalog` | Opens the “Catalog” panel. With no source declared, the key is inactive. | `'c'` |
 | `interaction.shortcuts.controls.fullscreen` | Fullscreen. | `'f'` |
 | `interaction.shortcuts.controls.basemap` | Switch photorealistic 3D ↔ 2D plan. | `'b'` |
+| `interaction.shortcuts.controls.graticule` | Toggles the coordinate grid — a VIEW command, works with no drawing layer mounted. `'g'` (the mnemonic choice) is already taken by `globe`, hence the default `'k'`. | `'k'` |
 | `interaction.shortcuts.controls.traffic` | Traffic overlay — the button only exists in plan mode. | `false` |
+| `interaction.shortcuts.controls.pedestrian` | Enter / exit pedestrian mode — the button only exists in external photorealistic 3D. | `'w'` |
 | `interaction.shortcuts.navigate.forward` | Move forward — held. Several keys: the arrows, universal, and a letter family that depends on keyboard layout. | `['arrowup', 'z']` |
 | `interaction.shortcuts.navigate.backward` | Move back. | `['arrowdown', 's']` |
 | `interaction.shortcuts.navigate.left` | Strafe left. | `['arrowleft', 'q']` |
 | `interaction.shortcuts.navigate.right` | Strafe right. | `['arrowright', 'd']` |
 | `interaction.shortcuts.navigate.boost` | Speed-up modifier, held. | `['shift']` |
+| `interaction.shortcuts.pedestrian.immersion` | Toggles exploration ↔ full immersion (Pointer Lock). ENTERING pedestrian mode already has its own key in `controls.pedestrian`; this one only covers what has no toolbar button. `false` by default: Escape alone exits immersion (native Pointer Lock release), burning a global key for it would be confusing. | `false` |
 | `interaction.shortcuts.draw.select` | Select tool. | `'v'` |
 | `interaction.shortcuts.draw.selectRect` | Rectangle selection. | `'1'` |
 | `interaction.shortcuts.draw.selectPoly` | Polygon selection. | `'2'` |
@@ -234,6 +239,7 @@ compile error.
 | `performance.adaptiveResolution.minRatio` | Floor of the ratio, as a fraction of `pixelRatio`. | `0.5` |
 | `performance.adaptiveResolution.step` | Step down/up, as a fraction of `pixelRatio`. | `0.1` |
 | `performance.adaptiveResolution.sampleFrames` | Frames measured before acting — ignores isolated hiccups. | `30` |
+| `performance.textureAnisotropy` | Anisotropic filtering of tile textures. `0` = hardware maximum (typically 16), `1` = none. ⚠️ Decisive in GRAZING view: without it, a texture viewed at a shallow angle produces a fan-shaped moiré that gets recomputed every frame — invisible from the sky, unbearable at eye height. The GPU cost is negligible next to the gain. | `0` |
 | `performance.renderOnDemand.enabled` | Paint only what changed. The frame loop always runs; what is skipped is the RENDER (WebGL pass + DOM overlays) when nothing asked for it. | `true` |
 | `performance.renderOnDemand.idleFrames` | Frames painted after the last request. | `3` |
 | `performance.renderOnDemand.maxIdleMs` | Delay after which a frame is painted even without a request (safety net). `0` removes it. | `1000` |
@@ -260,6 +266,8 @@ compile error.
 >
 > These values are calibrated for a 16.6 ms budget (60 Hz). A host targeting modest machines tightens them. See [Diagnostics panel](CAMERA.md).
 
+| Key | Description | Default |
+|---|---|---|
 | `performance.cameraMoveEpsilon.deg` | Latitude/longitude difference (degrees) beyond which the camera counts as moved. | `1e-06` |
 | `performance.cameraMoveEpsilon.altitudeRatio` | Altitude difference, as a fraction of the current altitude. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Absolute floor of the previous one (m) — near the ground, a ratio alone never triggers. | `1` |
@@ -312,6 +320,7 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `style.zIndex.modal` | ROOT plane. Modals (confirmation dialog): above everything, menus included. | `1092` |
 | `style.zIndex.relationBar` | MAP plane. Status bar of a relation, resting on the map. | `6` |
 | `style.zIndex.editOverlay` | MAP plane. SVG selection overlay (transformation handles). | `15` |
+| `style.zIndex.graticuleLabel` | MAP plane. Graticule labels — deliberately the LOWEST level: the grid is a reference backdrop, it must never pass in front of anything the map carries. | `1` |
 | `style.zIndex.tooltip` | LOCAL plane. Tooltips, INSIDE the surface carrying them: the marker anchor for `.m3d-markertip`, the bar or panel for `.m3d-tip`. Both are isolated stacking contexts (anchor z-index written by CSS2DRenderer, a panel's `backdrop-filter`), so this value never compares with the MAP plane levels. Raising it will put the tooltip above nothing. | `2` |
 | `style.zIndex.listMenu` | MAP plane. Actions menu of a list row. | `96` |
 | `style.zIndex.markerSelected` | Selected marker, INSIDE its own marker anchor. ⚠️ Do not raise it above neighbouring markers: the anchor carries a numeric `z-index`, so it creates a context and this value stays locked inside it. The order BETWEEN markers is decided by the `renderOrder` the engine gives to CSS2DRenderer (see `setRaised`), not here. | `80` |
@@ -371,6 +380,9 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `data.storageKeys.searchHistory` | Search box history. | `'m3d:search-history'` |
 | `data.storageKeys.plugins` | Plugin state (enabled + config), see [PLUGINS.md § 8](PLUGINS.md#8-the-hub-and-user-configuration). | `'m3d:plugins'` |
 | `data.storageKeys.templates` | Local drawing templates (`Template[]` array), see [TEMPLATES.md](TEMPLATES.md). | `'m3d:templates'` |
+| `data.storageKeys.catalog` | Catalog items displayed on the map (array of `CatalogKey`), see [CATALOG.md](CATALOG.md). | `'m3d:catalog'` |
+| `data.storageKeys.catalogSettings` | Catalog settings (persistence, framing on add). Distinct from the previous one: unticking "keep" clears the SELECTION, and a shared key would wipe the very setting just changed. | `'m3d:catalog-settings'` |
+| `data.storageKeys.preferences` | End-user preferences (3D quality, keyboard layout, speed, inertia), see [PREFERENCES.md](PREFERENCES.md). Absent from localStorage until the user has changed anything: the map then follows the application's config, untouched. | `'m3d:preferences'` |
 | `data.search.minQuery` | Minimum input length before querying the providers. | `2` |
 | `data.search.debounceMs` | Keystroke debounce. 💰 The most direct lever on the number of calls. | `250` |
 | `data.search.limitPerGroup` | Results displayed per group. | `6` |
@@ -408,6 +420,44 @@ Computed sky (Preetham model + clouds), **faded in as you descend toward the gro
 | `sky.fade.start` | Camera altitude (m) above which the sky is invisible (globe view intact). | `500000` |
 | `sky.fade.end` | Camera altitude (m) below which the sky is full. `start` must be > `end`. | `90000` |
 | `sky.date` | Instant (ms epoch, like `Date.now()`) that fixes the sun's position. `0` = the map's mount time, frozen. A value > 0 freezes a precise instant (deterministic). | `0` |
+
+## `pedestrian` — Pedestrian / first-person mode
+
+Ground-level first-person view. ⚠️ Everything below is CONFIG, not theme: none of it
+is visible directly. The look of the placement cursor and the reticle lives in
+`theme.colors.pedestrian`. The key that ENTERS the mode lives in
+`interaction.shortcuts.controls.pedestrian` (toolbar button); full-immersion toggling
+lives in `interaction.shortcuts.pedestrian.immersion`.
+
+| Key | Description | Default |
+|---|---|---|
+| `pedestrian.eyeHeightMeters` | Eye height above ground (m). | `1.7` |
+| `pedestrian.walkSpeed` | Walking speed (m/s) — INDEPENDENT of altitude, unlike orbital flight. 5 m/s (18 km/h): real walking (1.4) feels like standing still in a scaled-down scene. Set to 1.4 for a faithful speed. | `5` |
+| `pedestrian.sprintFactor` | Multiplier applied while the `boost` key is held. 2 rather than 3: at 3 the key gave 15 m/s (54 km/h) — you no longer read anything you cross. | `2` |
+| `pedestrian.lookSpeed` | Look sensitivity: degrees of rotation per mouse pixel. | `0.15` |
+| `pedestrian.invertY` | Inverts the vertical look axis. ⚠️ The default follows the map's CLICK-AND-DRAG convention (pulling down raises the view), not an FPS one. Under Pointer Lock (full immersion), the FPS convention applies on its own. | `true` |
+| `pedestrian.invertX` | Inverts the horizontal look axis. | `false` |
+| `pedestrian.pitchMaxDeg` | Bound of the vertical look (°) — at 90° the reference frame degenerates. | `89` |
+| `pedestrian.viewDistanceMeters` | View distance (m): bounds the camera's `far`, hence frustum culling, hence the tiles requested — the #1 performance lever in grazing view. ALSO bounds markers and cluster chips, which stop being shown wherever the scenery stops being shown. | `1000` |
+| `pedestrian.fogStartMeters` | Fog start (m). It always ends at `viewDistanceMeters`. | `700` |
+| `pedestrian.nearMeters` | Near plane of the camera (m) in pedestrian mode. | `0.1` |
+| `pedestrian.groundProbeMeters` | Range (m) of the ray that searches for the ground underfoot, every walking frame. ⚠️ Deliberately short: `sampleGroundHeight` normally reaches 40 km, and a ray that long would be the most expensive step of the walking loop. Also bounds falling: beyond it, the ground is deemed unreachable and the previous height is kept. | `5` |
+| `pedestrian.tileDetailDistanceMeters` | Reference distance (m) for tile detail while walking — the distance you actually look at, not the one to your own feet (1.70 m would demand maximum zoom everywhere). Lower = sharper up close and heavier; higher = lighter and coarser. | `120` |
+| `pedestrian.tileRefreshMs` | Minimum interval (ms) between two tile-coverage updates while walking. Every pass rebuilds the whole level cascade: at eye height redoing it sixty times a second serves no purpose. | `250` |
+| `pedestrian.groundSmoothing` | Time constant (SECONDS) of the eye's vertical smoothing. Too strong → floaty feel; too weak → jitter as tiles refine. | `0.25` |
+| `pedestrian.collision.radiusMeters` | Half-width of the body (m): distance below which a wall pushes back. | `0.3` |
+| `pedestrian.collision.feelers` | Number of horizontal rays fanned out around the walking direction. | `6` |
+| `pedestrian.collision.feelerMarginMeters` | Feeler length ON TOP of the radius (m) — enough to see the wall before reaching it. | `0.2` |
+| `pedestrian.collision.maxStepHeightMeters` | Climbable step height (m): kerb, stair. Beyond it, it's a wall. | `0.4` |
+| `pedestrian.placement.maxRoofDeltaMeters` | Maximum gap (m) between the targeted surface and the ring's street level. Beyond it, the point is a roof and the click is refused. | `2` |
+| `pedestrian.placement.ringRadiusMeters` | Radius of the ground-sampling ring (m). ⚠️ 20 m rather than 4: the ring must EXIT the targeted building's footprint to find the street below — at 4 m it stayed on the roof, which became its own "street". | `20` |
+| `pedestrian.placement.refreshMs` | Minimum interval (ms) between two cursor validations during placement. Each validation costs about ten raycasts; `pointermove` fires much faster than that. | `33` |
+| `pedestrian.placement.refreshSlopPx` | Movement (px) below which the previous validation is reused as is. | `3` |
+| `pedestrian.headBob.enabled` | Walking sway — an effect, disabled by default. | `false` |
+| `pedestrian.headBob.amplitudeMeters` | Sway amplitude (m). | `0.05` |
+| `pedestrian.headBob.frequency` | Oscillations per second (Hz) at nominal walking speed. | `1.8` |
+| `pedestrian.transitions.enterMs` | Duration (ms) of the dive on entering pedestrian mode. | `800` |
+| `pedestrian.transitions.exitMs` | Duration (ms) of the rise on exiting pedestrian mode. | `600` |
 
 ## `graticule` — Geographic coordinate grid
 
@@ -459,6 +509,3 @@ Browsable reference sets declared by the host and by plugins (`engine.catalog`) 
 | `catalog.overscanRows` | Rows rendered off-screen on each side of the virtual window. The dial between "no blank on fast scroll" and "React work per frame": each unit adds TWO rendered rows on every frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance from the list bottom that triggers the next page (px). Decides the VOLUME of calls to `CatalogSource.list`: a wide margin prefetches while you are still scrolling, but requests pages you may never look at. | `200` |
 | `catalog.persistDebounceMs` | Debounce before writing the selection to storage. `localStorage.setItem` is SYNCHRONOUS: without damping, a burst of gestures writes as many times as it has items, on a payload that keeps growing. `0` writes immediately; a pending payload is always flushed before the page goes away. | `250` |
-| `data.storageKeys.catalog` | Catalog items displayed on the map (array of `CatalogKey`). | `'m3d:catalog'` |
-| `data.storageKeys.catalogSettings` | Catalog settings. Distinct from the previous one: unticking "keep" clears the SELECTION, and a shared key would wipe the very setting just changed. | `'m3d:catalog-settings'` |
-| `interaction.shortcuts.controls.catalog` | Opens the "Catalog" panel. With no source declared, the key is inactive. | `'c'` |

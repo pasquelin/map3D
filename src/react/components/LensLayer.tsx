@@ -26,7 +26,7 @@ const norm = (x0: number, y0: number, x1: number, y1: number): LensRect => ({
 
 /**
  * Réglages de l'outil loupe. Tous facultatifs : la loupe fonctionne sans aucune
- * configuration. Passés à `<Map lens={…}>`, qui monte la couche pour vous.
+ * configuration. Passés à `toolbar.lens` (`<Map toolbar={{ lens: … }}>`), qui monte la couche pour vous.
  */
 export type LensOptions<T = unknown> = {
   /** Clé stable d'un marker (défaut : `m.id`). */
@@ -72,7 +72,7 @@ export type LensLayerProps<T = unknown> = LensOptions<T> & {
  * observe `LensContext` : la loupe ignore donc tout du dessin, et fonctionne sur
  * une carte qui n'en a pas.
  *
- * Montée par `<Map lens={…}>` — la monter à la main suppose `<Map lens={false}>`,
+ * Montée par `toolbar.lens` — la monter à la main suppose `toolbar={{ lens: false }}`,
  * sinon deux loupes cohabitent (deux raccourcis, deux zones).
  */
 export function LensLayer<T = unknown>(props: LensLayerProps<T>) {

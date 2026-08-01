@@ -100,7 +100,9 @@ number of rows displayed.
 | `groupOrder` | — | groups not listed follow in alphabetical order |
 | `minQuery` | `2` | 💰 raise it to spare a per-call billed provider; lower it to `1` for short labels (codes, round numbers) |
 | `debounceMs` | `250` | 💰 every keystroke triggers a geocoder call |
+| `flyAltitude` | `2500` | fallback altitude when the picked result has no `bounds` |
 | `historyStorageKey` | — | `null` disables |
+| `historySize` | `8` | max entries kept in history |
 
 “Places” is **outside the ordering**: the group always opens the list, since searching
 for a city is the most common framing gesture.
@@ -203,6 +205,8 @@ type SearchGroup = { id: string; label: string; count: number; color?: string }
 | `scoreMatch` / `NO_MATCH` | score of a normalised title against a query |
 | `rankHits(hits, limit)` | sort by score then proximity, truncate |
 | `proximityRank(a, b)` | proximity rank, breaks ties between equal scores |
+| `Hit<T>` | `{ item, score, distance }` — the retained match, before formatting into a `SearchEntry` |
+| `createTitleCache(titleOf)` | memoises title normalisation by object reference (`WeakMap`) — decisive on a real-time feed |
 | `createGooglePlacesSearch` | Google Places geocoder |
 
 A group's colour must be **the same** as that of its elements on the map

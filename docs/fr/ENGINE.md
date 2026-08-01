@@ -98,8 +98,12 @@ const off = engine.on('viewport', (view) => refetch(view.bounds))
 | `viewport` | `MapView` | après stabilisation |
 | `click` | `{ latLng, originalEvent }` | clic sur la carte |
 | `dragmode` | `'pan' \| 'rotate'` | changement de mode |
-| `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable }` | changement de fond **ou de capacités** |
+| `basemap` | `{ mode, traffic, canPlan, can3d, trafficAvailable, canPickBuildings }` | changement de fond **ou de capacités** |
+| `pedestrian` | `PedestrianState` | entrée/sortie du mode piéton, immersion, disponibilité, rotation perceptible — cf. `usePedestrian` ([HOOKS.md](HOOKS.md)) |
+| `buildingpickmode` | `boolean` | l'outil « sélectionner un bâtiment » vient d'être armé ou quitté |
+| `buildingclick` | `{ hit: { ref, info }, originalEvent }` | un bâtiment du volume interne a été cliqué, l'outil actif — cf. [BUILDINGS.md](BUILDINGS.md) |
 | `graticule` | `boolean` | la grille de coordonnées vient d'être allumée ou éteinte |
+| `templatesave` / `templateremove` / `templateapply` | cf. [TEMPLATES.md](TEMPLATES.md) | création/renommage, suppression, application d'un template |
 | `ready` | `MapEngine` | **une seule fois**, rejoué pour qui s'abonne après coup |
 
 Version React : `useMapEvents({ onClick, onCameraChange, onViewportChange, onReady })`.
@@ -118,6 +122,7 @@ le bouton trafic là où il n'aurait rien à allumer.
 | `canPlan` | une carte plate est servable : clé Google en `external`, `origin` en `internal`. Sans elle, le groupe de boutons du fond n'a rien à proposer |
 | `can3d` | du volume est servable : tileset photoréaliste en `external`, relief/bâtiments en `internal`. **Informatif** — ne masque aucun bouton |
 | `trafficAvailable` | trafic proposable : fournisseur **externe**, fond 2D présent, hors mode 3D |
+| `canPickBuildings` | un bâtiment est **désignable** : volume interne (emprises MVT extrudées, chacune avec son identité) — le photoréaliste externe, maillage fusionné, est hors de portée par nature |
 
 `engine.supportsBasemap2d` reste disponible : c'est l'alias historique de `canPlan`.
 `setMapMode('plan')` sans `canPlan`, comme `setTrafficVisible(true)` sans
@@ -129,7 +134,7 @@ qu'un refus net.
 ## 3. Écrire une couche
 
 ```ts
-interface Layer {
+type Layer = {
   update(ctx: FrameContext): void    // avance l'état 3D (géométrie)
   project(ctx: FrameContext): void   // écrit les overlays DOM — passe d'ÉCRITURE pure
   dispose(): void
@@ -354,11 +359,16 @@ registre custom sans réécrire ces précautions.
 
 ## 6. Interception de pointeur
 
-Un outil (dessin, loupe) s'arme en posant un `PointerInterceptor` sur le moteur :
+Un outil (dessin, loupe) s'arme en posant un `PointerInterceptor` sur `engine.inputInterceptor` :
 
 ```ts
-type PointerInterceptor = (phase: 'down' | 'move' | 'up', event: PointerEvent) => boolean
+type PointerInterceptor = (phase: 'down' | 'move' | 'up', latLng: LatLng | null, event: PointerEvent) => boolean
+
+engine.inputInterceptor = monIntercepteur   // `null` pour désarmer
 ```
+
+`latLng` est déjà résolu par le moteur (raycast sur le terrain) : l'intercepteur n'a pas
+à repicker lui-même le point sous le pointeur.
 
 Rendre `true` **consomme** l'événement : la caméra ne bouge pas. C'est ce qui rend le
 dessin et la loupe **mutuellement exclusifs** — il n'y a qu'un intercepteur.
@@ -429,3 +439,5 @@ Three, ni React, ni `fetch`).
 - [CAMERA.md](CAMERA.md) — `Camera`, events de vue, fond de carte
 - [CONFIG.md](CONFIG.md) — tous les budgets et seuils cités ici
 - [ZONES.md](ZONES.md) — `DrapedLayer` en pratique
+- [BUILDINGS.md](BUILDINGS.md) — `buildingMenu`, sélection de bâtiments
+- [TEMPLATES.md](TEMPLATES.md) — événements `templatesave` / `templateremove` / `templateapply`

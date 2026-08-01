@@ -704,4 +704,5 @@ elles ne se marchent pas dessus.
 - [LENS.md](LENS.md) — loupe (inventaire des markers d'une zone)
 - [SEARCH.md](SEARCH.md) — recherche unifiée
 - [RELATIONS.md](RELATIONS.md) — liens par tags et itinéraires réels
+- [PEDESTRIAN.md](PEDESTRIAN.md) — déclutter et bornes de vue à hauteur d'homme
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)

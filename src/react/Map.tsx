@@ -37,9 +37,9 @@ export type MapProps<T = unknown, TPin = unknown> = {
   /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
   cesiumIonAssetId?: string
   /**
-   * Type de carte au démarrage. Défaut : `'plan'` (fond 2D Google) dès que
-   * `googleMapsApiKey` est fourni, sinon `'3d'`. `'3d'` explicite pour démarrer sur
-   * les tuiles photoréalistes.
+   * Type de carte au démarrage. Défaut : `'plan'` dès qu'un fond 2D est disponible —
+   * clé `googleMapsApiKey` **ou** serveur de tuiles interne (`providers.internal.origin`) —,
+   * sinon `'3d'`. `'3d'` explicite pour démarrer sur les tuiles photoréalistes.
    */
   mapMode?: MapMode
   /** Globe ellipsoïde uni de repli quand aucune tuile n'est disponible (défaut: true). */
