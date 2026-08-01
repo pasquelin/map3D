@@ -1533,6 +1533,7 @@ export class MapEngine {
     this.cameraMode = 'orbit'
     this.pedestrianPhase = 'placing'
     this.immersion = 'explore'
+    this.pointerLockHeld = false
     // Quitter en pleine immersion doit rendre la souris et l'UI : on retire la classe et on
     // relâche le verrou (sans effet s'il ne l'était pas). Le `pointerlockchange` qui suivra
     // voit `immersion` déjà à 'explore', donc n'y touche plus.
@@ -1589,6 +1590,8 @@ export class MapEngine {
 
   /** Une demande de Pointer Lock est-elle en vol ? — évite une seconde requête concurrente. */
   private pointerLockPending = false
+  /** Le Pointer Lock a-t-il été RÉELLEMENT acquis ? — cf. `onPointerLockChange` (garde d'entrée). */
+  private pointerLockHeld = false
 
   /** Capture la souris pour le regard libre — idempotent (ni si déjà verrouillée, ni en vol). */
   private engagePointerLock(): void {
@@ -1610,6 +1613,9 @@ export class MapEngine {
    */
   private applyImmersion(level: ImmersionLevel): void {
     this.immersion = level
+    // Hors immersion, le verrou est retombé : on repart d'un état « non tenu » pour la
+    // prochaine entrée (sinon un ancien `true` ferait réagir `onPointerLockChange` à tort).
+    if (level !== 'full') this.pointerLockHeld = false
     this.canvas.parentElement?.classList.toggle('m3d-immersive', level === 'full')
     this.syncPedestrian()
   }
@@ -1625,19 +1631,29 @@ export class MapEngine {
    * retour en exploration, sans quitter le mode.
    */
   private onPointerLockChange = (): void => {
-    if (this.immersion !== 'full' || document.pointerLockElement === this.canvas) return
-    // EN PLEIN ÉCRAN, on ne touche à RIEN : la sortie du mode se décide en quittant le plein
-    // écran (`onFullscreenChange`), jamais au relâchement du verrou. Sinon une acquisition
-    // ratée ou un cycle verrou à l'ENTRÉE (le verrou n'est pas encore posé) faisait sortir du
-    // mode aussitôt entré en plein écran. Hors plein écran (immersion armée par l'API sans
-    // plein écran), simple retour en exploration.
-    if (!fullscreenElementOf(document)) this.applyImmersion('explore')
+    if (document.pointerLockElement === this.canvas) {
+      // Verrou acquis : on le note, pour ne réagir qu'à un relâchement APRÈS acquisition.
+      this.pointerLockHeld = true
+      return
+    }
+    if (this.immersion !== 'full' || !this.pointerLockHeld) return
+    // Verrou relâché alors qu'il était tenu = Échap de l'utilisateur. Le garde `pointerLockHeld`
+    // est CAPITAL : à l'ENTRÉE, le verrou n'est pas encore posé, et sans lui un
+    // `pointerlockchange` transitoire sortait aussitôt entré en plein écran.
+    this.pointerLockHeld = false
+    // Un seul Échap : relâcher le verrou quitte le plein écran, ce qui retombe en exploration
+    // (cf. `onFullscreenChange`) tout en RESTANT piéton. Hors plein écran (immersion via API),
+    // simple retour explore.
+    if (fullscreenElementOf(document)) exitFullscreenDoc(document)
+    else this.applyImmersion('explore')
   }
 
   /**
    * Le plein écran du CONTENEUR pilote l'immersion piéton : y entrer, en marche active, arme
-   * l'immersion (masquage des barres + Pointer Lock) ; en sortir quitte le mode piéton. C'est
-   * le déclencheur nominal — « le plein écran gère l'action » —, sans bouton flottant.
+   * l'immersion (masquage des barres + Pointer Lock) ; en SORTIR retombe en EXPLORATION —
+   * souris rendue, barres réaffichées — mais SANS quitter la marche (on reste piéton, la
+   * sortie du mode se fait par le bouton/raccourci piéton). C'est « le plein écran gère
+   * l'immersion », sans bouton flottant.
    *
    * Le `ResizeObserver` du conteneur recale le rendu tout seul (le conteneur EST l'élément en
    * plein écran) : rien à redimensionner ici, contrairement au plein écran du canvas seul.
@@ -1652,7 +1668,8 @@ export class MapEngine {
         this.engagePointerLock()
       }
     } else if (this.cameraMode === 'pedestrian') {
-      this.exitPedestrian()
+      // Sorti du plein écran : retour exploration, on RESTE piéton.
+      this.applyImmersion('explore')
     }
   }
 
