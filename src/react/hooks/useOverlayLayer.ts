@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef } from 'react'
 import { MarkerLayer as CoreMarkerLayer } from '../../layers/MarkerLayer'
+import type { StatContribution } from '../../core/viewStats'
 import { useMap } from '../context'
 
 /**
@@ -15,8 +16,15 @@ import { useMap } from '../context'
  * `setup` règle la couche à sa CRÉATION (tween, anneaux, tige, cull). Lu par ref :
  * une fonction redéfinie à chaque rendu ne remonte pas la couche, ce qui détruirait
  * tous les nœuds DOM et rejouerait leurs animations d'entrée.
+ *
+ * `kind` dit sous quel genre la couche COMPTE dans le panneau de diagnostic : les deux
+ * surfaces montent la même classe, mais une pastille n'est pas un marker. L'inscription
+ * se fait ici, avec le montage, pour qu'aucune surface ne puisse l'oublier.
  */
-export function useOverlayLayer(setup?: (core: CoreMarkerLayer) => void): {
+export function useOverlayLayer(
+  setup?: (core: CoreMarkerLayer) => void,
+  kind: StatContribution['kind'] = 'markers',
+): {
   /** La couche, ou `null` avant le premier montage et après le démontage. */
   layerRef: React.RefObject<CoreMarkerLayer | null>
   /** Nœuds DOM montés par la couche, par clé d'`OverlayItem`. */
@@ -30,6 +38,9 @@ export function useOverlayLayer(setup?: (core: CoreMarkerLayer) => void): {
 
   const setupRef = useRef(setup)
   setupRef.current = setup
+  // Lu par ref, comme `setup` : changer de genre ne doit pas remonter la couche.
+  const kindRef = useRef(kind)
+  kindRef.current = kind
 
   useEffect(() => {
     const core = new CoreMarkerLayer(
@@ -48,7 +59,11 @@ export function useOverlayLayer(setup?: (core: CoreMarkerLayer) => void): {
     setupRef.current?.(core)
     engine.addLayer(core)
     layerRef.current = core
+    // Compteur inscrit AVEC la couche : il vit et meurt avec elle, et une surface
+    // démontée ne peut pas laisser derrière elle un compte qui ne bouge plus.
+    const unregister = engine.counters.register({ stats: () => core.stats(kindRef.current) })
     return () => {
+      unregister()
       engine.removeLayer(core)
       layerRef.current = null
     }

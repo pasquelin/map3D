@@ -80,6 +80,7 @@ export const defaultLabels: MapLabels = {
     empty: 'Aucun plugin disponible',
     toggle: 'Activer {name}',
     reset: 'Réinitialiser',
+    clear: 'Tout désactiver',
   },
   templates: {
     title: 'Templates',
@@ -278,6 +279,33 @@ export const defaultLabels: MapLabels = {
     minutes: '{value} min',
     hours: '{h} h',
     hoursMinutes: '{h} h {m}',
+  },
+  stats: {
+    title: 'Infos',
+    sections: { camera: 'Caméra', content: 'Contenu affiché', render: 'Rendu', tiles: 'Tuiles et mémoire' },
+    // Ces libellés-ci ne sont PAS abrégés, contrairement à `readout` : le panneau se lit
+    // posément, une ligne par grandeur, là où le bloc se lisait d'un coup d'œil en
+    // naviguant. Abréger ferait deviner ce qu'on est venu vérifier.
+    markersVisible: 'markers affichés',
+    markersTotal: 'markers au total',
+    clusters: 'pastilles de regroupement',
+    shapes: 'formes',
+    paths: 'tracés',
+    links: 'liens',
+    drawings: 'dessins',
+    fps: 'images par seconde',
+    paintedRatio: 'frames peintes',
+    drawCalls: 'appels de rendu',
+    triangles: 'triangles',
+    textures: 'textures',
+    geometries: 'géométries',
+    resolutionScale: 'échelle de résolution',
+    tilesCached: 'tuiles en cache',
+    tilesInflight: 'tuiles en chargement',
+    tileBytes: 'mémoire des tuiles',
+    workers: 'workers d’extrusion',
+    percentFormat: '{value} %',
+    byteUnits: ['o', 'Ko', 'Mo', 'Go'],
   },
   readout: {
     title: 'Position de la caméra',

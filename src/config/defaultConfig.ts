@@ -394,6 +394,34 @@ export const defaultConfig: MapConfig = {
     // ~8 Hz : au-delà les chiffres deviennent illisibles à force de défiler, en deçà le
     // bloc semble en retard sur la carte.
     readoutRefreshMs: 120,
+    /**
+     * Bornes calibrées sur un budget de 16,6 ms (60 Hz). Le sens vient de l'ORDRE des
+     * bornes : `ok > warn` pour ce qui porte, `ok < warn` pour ce qui pèse.
+     *
+     * Ne sont jugées que les grandeurs dont l'excès coûte VRAIMENT. Une latitude, un cap
+     * ou une altitude n'ont pas de bonne valeur — les colorer apprendrait à ignorer la
+     * couleur, qui doit rester rare pour rester lue.
+     */
+    statThresholds: {
+      // 55 laisse passer les micro-décrochages d'un écran 60 Hz sans crier ; sous 30, le
+      // mouvement de caméra devient perceptiblement saccadé.
+      fps: { ok: 55, warn: 30 },
+      // Sous 90 % de frames peintes, le rendu à la demande saute des images qu'on attendait.
+      paintedRatio: { ok: 0.9, warn: 0.6 },
+      // Chaque marker visible est un nœud DOM composé par le navigateur : c'est le poste qui
+      // décroche le plus tôt, bien avant la géométrie.
+      markersVisible: { ok: 400, warn: 1200 },
+      // Mesuré : une tuile de volume dense en porte ~131 000 à elle seule. Le seuil vise la
+      // scène entière, tuiles de fond comprises.
+      triangles: { ok: 2_000_000, warn: 5_000_000 },
+      drawCalls: { ok: 300, warn: 800 },
+      textures: { ok: 400, warn: 900 },
+      // La résolution adaptative descend sous 1 quand le GPU ne suit plus : c'est un
+      // symptôme, pas un réglage — d'où un seuil qui le signale.
+      resolutionScale: { ok: 1, warn: 0.75 },
+      // 512 Mio : deux fois le filet `maxBytes` du fond seul, tuiles de volume comprises.
+      tileBytes: { ok: 384 * 1024 * 1024, warn: 768 * 1024 * 1024 },
+    },
     // Unifié sur la valeur des COUCHES (1e-6 / 1e-3), pas sur celle du moteur
     // (1e-7 / 1e-4) : c'est elle qui décidait réellement des re-échantillonnages, et
     // la plus fine faisait rouvrir la fenêtre pour un mouvement de ~1 cm.

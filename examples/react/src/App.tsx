@@ -483,10 +483,11 @@ export function App() {
           // — le géocodeur (Google Places par défaut, via `googleMapsApiKey`) et
           // l'ordre des rubriques carte. « Lieux » ouvre toujours la liste.
           search={searchProp}
-          // Bloc de lecture de la vue (haut-droite par défaut) : altitude de l'œil,
-          // point au sol sous lui, zoom. Il n'entre PAS dans la boucle de rendu React —
-          // il s'abonne à `camera` et écrit dans son propre DOM, à la cadence de
-          // `config.performance.readoutRefreshMs`.
+          // ⚠️ ÉTEINT par défaut : ses grandeurs sont passées dans le panneau de
+          // diagnostic (bouton « Infos » de la barre, touche J), avec le contenu affiché,
+          // le rendu et les tuiles. L'interrupteur « position de la caméra » (onglet
+          // Interface) le rallume — les deux surfaces cohabitent sans se gêner, et un
+          // hôte qui préfère le bandeau garde `<CameraReadout>` tel quel.
           readout={readoutProp}
           // Favoris : long-press sur un marker → glisser dans la barre du bas. Clic sur
           // une pastille = vol caméra + sélection. × ou glisser-hors = retrait.

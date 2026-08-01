@@ -245,6 +245,16 @@ export class TiledGlobeLayer {
     return this.cache.usedBytes
   }
 
+  /** Tuiles de fond en cache, montées ou non — lu par le panneau de diagnostic. */
+  get tileCount(): number {
+    return this.cache.size
+  }
+
+  /** Tuiles encore en chargement ou en attente de montage — cf. `TileQueue.pending`. */
+  get tilePending(): number {
+    return this.cache.pending
+  }
+
   /**
    * Appelé chaque frame en mode 2D. Demande les tuiles nécessaires (base + niveau de
    * la vue), affiche celles qui sont prêtes (toutes zooms confondus → fallback flou

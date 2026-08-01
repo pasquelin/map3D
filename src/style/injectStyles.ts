@@ -727,24 +727,24 @@ const CSS = `
   cursor:pointer;font-size:var(--m3d-size-sm);user-select:none}
 .m3d-tagrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 /* Checkbox custom au style du thème (case arrondie + coche dessinée en CSS). Réutilisée
-   telle quelle par le hub de plugins (toggle + champs booléens de la config) — même
-   apparence, pas de coche dupliquée. */
-.m3d-tagrow input,.m3d-plugin-row-head input[type='checkbox'],.m3d-plugin-checkbox,.m3d-catcheck{
+   telle quelle par les listes à toggle (plugins, réglages catalogue) et les champs
+   booléens de la config — même apparence, pas de coche dupliquée. */
+.m3d-tagrow input,.m3d-togglerow input[type='checkbox'],.m3d-plugin-checkbox,.m3d-catcheck{
   appearance:none;-webkit-appearance:none;margin:0;flex:none;cursor:pointer;
   width:15px;height:15px;border:1.5px solid color-mix(in srgb,var(--m3d-text) 35%,transparent);
   border-radius:5px;background:transparent;display:grid;place-items:center;
   transition:background .14s,border-color .14s}
-.m3d-tagrow:hover input,.m3d-plugin-checkbox:hover,.m3d-plugin-row-head input[type='checkbox']:hover,.m3d-catrow:hover .m3d-catcheck{
+.m3d-tagrow:hover input,.m3d-plugin-checkbox:hover,.m3d-togglerow input[type='checkbox']:hover,.m3d-catrow:hover .m3d-catcheck{
   border-color:color-mix(in srgb,var(--m3d-text) 55%,transparent)}
-.m3d-tagrow input:checked,.m3d-plugin-row-head input[type='checkbox']:checked,.m3d-plugin-checkbox:checked,.m3d-catcheck:checked{
+.m3d-tagrow input:checked,.m3d-togglerow input[type='checkbox']:checked,.m3d-plugin-checkbox:checked,.m3d-catcheck:checked{
   background:var(--m3d-accent);border-color:var(--m3d-accent)}
-.m3d-tagrow input::after,.m3d-plugin-row-head input[type='checkbox']::after,.m3d-plugin-checkbox::after,.m3d-catcheck::after{
+.m3d-tagrow input::after,.m3d-togglerow input[type='checkbox']::after,.m3d-plugin-checkbox::after,.m3d-catcheck::after{
   content:'';width:8px;height:4.5px;margin-top:-1.5px;opacity:0;
   border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(.5);
   transition:opacity .12s,transform .12s}
-.m3d-tagrow input:checked::after,.m3d-plugin-row-head input[type='checkbox']:checked::after,
+.m3d-tagrow input:checked::after,.m3d-togglerow input[type='checkbox']:checked::after,
 .m3d-plugin-checkbox:checked::after,.m3d-catcheck:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
-.m3d-tagrow input:focus-visible,.m3d-plugin-row-head input[type='checkbox']:focus-visible,
+.m3d-tagrow input:focus-visible,.m3d-togglerow input[type='checkbox']:focus-visible,
 .m3d-plugin-checkbox:focus-visible,.m3d-catcheck:focus-visible{outline:2px solid var(--m3d-accent);outline-offset:2px}
 .m3d-tagdot{width:9px;height:9px;border-radius:50%;flex:none}
 .m3d-taglabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -966,6 +966,19 @@ const CSS = `
 .m3d-readout-row{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
 .m3d-readout-key{color:var(--m3d-muted)}
 .m3d-readout-val{margin:0;pointer-events:auto;font-weight:var(--m3d-weight-medium)}
+
+/* Valeur d'une ligne du panneau de diagnostic. Chasse fixe pour la même raison que le
+   bloc de lecture : sans elle la colonne des nombres danse à chaque rafraîchissement, et
+   c'est précisément celle qu'on suit du regard. Le reste de la mise en page est celle des
+   sous-panneaux de réglages — ce sont les mêmes lignes libellé / valeur. */
+.m3d-stat{font-variant-numeric:tabular-nums;color:var(--m3d-text)}
+/* Verdicts. Le vert reste DISCRET : dans un panneau où tout va bien, tout serait vert, et
+   une couleur portée par toutes les lignes ne se lit plus. Ce sont le jaune et le rouge
+   qui doivent attraper l'œil. Sans teintes au thème, la valeur garde la couleur de texte :
+   pas de couleur plutôt qu'un verdict que le thème n'a pas voulu donner. */
+.m3d-stat-ok{color:var(--m3d-stat-ok,var(--m3d-text))}
+.m3d-stat-warn{color:var(--m3d-stat-warn,var(--m3d-text))}
+.m3d-stat-bad{color:var(--m3d-stat-bad,var(--m3d-text))}
 
 .m3d-search{position:absolute;left:16px;top:16px;z-index:var(--m3d-z-ui,999);width:320px}
 .m3d-search-box{display:flex;align-items:center;gap:9px;padding:11px 13px;
@@ -1361,23 +1374,26 @@ img.m3d-pin-media{object-fit:cover}
 .m3d-drag-ghost.m3d-symghost,.m3d-drag-ghost.m3d-symghost.m3d-drag-over{
   transform:translate(-50%,-50%) scale(1)}
 
-/* ── Hub de plugins (ligne « Plugins » du menu Réglages → PluginHubPanel/
-   PluginConfigControls). Contenu du sous-panneau .m3d-panel.m3d-settings-sub
-   (déjà stylé : fond, bordure, ombre, largeur, scroll) — on ne pose ici que la
-   mise en page interne : liste de plugins avec toggle, corps dépliant, et les
-   contrôles auto-rendus depuis le schéma déclaratif (D4). */
-.m3d-plugin-hub{display:flex;flex-direction:column;gap:2px}
-.m3d-plugin-hub-title{margin:0;padding:2px 6px 6px;font-size:11px;font-weight:var(--m3d-weight-semibold);
+/* ── Liste à toggle partagée : un titre + des rangées « libellé à gauche / case à
+   droite ». Utilisée telle quelle par le hub de plugins (ligne « Plugins ») ET par
+   les réglages du catalogue (ligne « Catalogue ») du menu Réglages — même mise en
+   page, une seule source. Contenu du sous-panneau .m3d-panel.m3d-settings-sub (déjà
+   stylé : fond, bordure, ombre, largeur, scroll) — on ne pose ici que la mise en
+   page interne. Le nom de rangée est un bouton côté plugins (déplie la config), un
+   span dans un label côté catalogue : le même style couvre les deux. */
+.m3d-togglelist{display:flex;flex-direction:column;gap:2px}
+.m3d-togglelist-title{margin:0;padding:2px 6px 6px;font-size:11px;font-weight:var(--m3d-weight-semibold);
   color:var(--m3d-muted);text-transform:uppercase;letter-spacing:.04em}
-.m3d-plugin-hub-empty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
-.m3d-plugin-row{display:flex;flex-direction:column;border-radius:8px}
-.m3d-plugin-row-head{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
+.m3d-togglelist-empty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
+.m3d-togglerow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
   transition:background .14s}
-.m3d-plugin-row-head:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
-.m3d-plugin-row-name{flex:1;min-width:0;border:none;background:transparent;padding:0;margin:0;
+.m3d-togglerow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+.m3d-togglerow-name{flex:1;min-width:0;border:none;background:transparent;padding:0;margin:0;
   font-family:inherit;font-size:var(--m3d-size-sm);color:var(--m3d-text);text-align:left;cursor:pointer;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m3d-plugin-row-name:disabled{cursor:default}
+.m3d-togglerow-name:disabled{cursor:default}
+/* ── Plugins : corps dépliant sous la rangée + contrôles auto-rendus depuis le schéma (D4). */
+.m3d-plugin-row{display:flex;flex-direction:column;border-radius:8px}
 .m3d-plugin-row-body{display:flex;flex-direction:column;gap:8px;padding:2px 8px 8px}
 .m3d-plugin-config{display:flex;flex-direction:column;gap:8px}
 .m3d-plugin-field{display:flex;flex-direction:column;gap:3px;font-size:12px}

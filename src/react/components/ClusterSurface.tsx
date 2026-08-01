@@ -113,6 +113,9 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     useCallback((core: CoreMarkerLayer) => {
       core.leaderLine = true
     }, []),
+    // Ces nœuds sont des PASTILLES, pas des markers : les compter comme des markers
+    // ferait annoncer au panneau un contenu que la carte n'a pas.
+    'clusters',
   )
 
   /**

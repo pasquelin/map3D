@@ -288,6 +288,21 @@ export class BuildingsLayer {
     return this.cache.usedBytes
   }
 
+  /** Tuiles de volume en cache, montées ou non — lu par le panneau de diagnostic. */
+  get tileCount(): number {
+    return this.cache.size
+  }
+
+  /** Tuiles encore en chargement ou en attente de montage — cf. `TileQueue.pending`. */
+  get tilePending(): number {
+    return this.cache.pending
+  }
+
+  /** Workers d'extrusion vivants. `0` avant la première tuile, ou en repli main thread. */
+  get workerCount(): number {
+    return this.source.workerCount
+  }
+
   /**
    * Appelée chaque frame quand le volume interne est affiché. Demande les tuiles couvrant
    * la vue au zoom des données, montre celles qui sont prêtes, fait tourner file et

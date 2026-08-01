@@ -16,6 +16,7 @@
 import type { DeepPartial } from '../theme/types'
 import type { ApplyDefault, TemplateCategory } from '../core/templates/types'
 import type { CoordFormat } from '../core/graticule'
+import type { StatField, StatThreshold } from '../core/viewStats'
 
 /**
  * `'auto'` = déduit de l'environnement au moment de l'appel (`navigator.language`),
@@ -877,6 +878,22 @@ export type PerformanceConfig = {
    * l'avant-dernière position serait pire que rafraîchi trop souvent.
    */
   readoutRefreshMs: number
+  /**
+   * Bornes de confort du panneau de diagnostic, par grandeur — ce qui décide de la
+   * couleur verte, jaune ou rouge.
+   *
+   * Le SENS de chaque seuil se déduit de l'ordre de ses bornes (cf. `StatThreshold`) :
+   * `{ ok: 60, warn: 30 }` pour une cadence (grand = bon), `{ ok: 400, warn: 1200 }` pour
+   * un compte de markers (petit = bon). Aucun drapeau à tenir en accord avec les valeurs.
+   *
+   * Une grandeur ABSENTE de cette table s'affiche sans couleur : c'est le défaut pour tout
+   * ce qui n'a pas de « bon » ou de « mauvais » universel — une latitude, un cap, une
+   * altitude ne se jugent pas. N'y mettre que ce dont l'excès coûte vraiment.
+   *
+   * Ces valeurs dépendent de la machine visée : les défauts sont calibrés sur un budget de
+   * 16,6 ms (60 Hz). Un hôte qui vise des postes modestes les resserre.
+   */
+  statThresholds: Partial<Record<StatField, StatThreshold>>
   resettle: {
     /** Éléments re-échantillonnés par passe (budget de raycasts). */
     batch: number

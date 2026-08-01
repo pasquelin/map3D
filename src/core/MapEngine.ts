@@ -66,6 +66,8 @@ import { CatalogRegistry } from '../catalog/registry'
 import { CatalogStore } from '../catalog/store'
 import { SearchRegistry } from '../search/registry'
 import { ClusterRegistry } from './ClusterRegistry'
+import { CounterRegistry } from './CounterRegistry'
+import type { ViewStats } from './viewStats'
 import { MarkerRegistry } from './MarkerQuery'
 import { TagFilter } from './TagFilter'
 
@@ -342,6 +344,14 @@ export class MapEngine {
    * un cluster regroupe ce qui se superpose à l'écran, d'où que viennent les points.
    */
   readonly clusters = new ClusterRegistry()
+  /**
+   * Registre des compteurs de diagnostic (cf. `CounterRegistry`).
+   *
+   * En LECTURE seule : une couche y déclare ce qu'elle a dans la vue, le panneau
+   * l'interroge, et rien de ce qui s'y branche ne décide de quoi que ce soit. C'est la
+   * condition pour qu'un outil de mesure ne devienne pas la cause de ce qu'il mesure.
+   */
+  readonly counters = new CounterRegistry()
   /** Registre des sources cherchables (markers, formes, dessins) consommé par la boîte de recherche. */
   readonly search = new SearchRegistry()
   /**
@@ -2327,6 +2337,66 @@ export class MapEngine {
     }
   }
 
+  /**
+   * Instantané de diagnostic de la vue COURANTE — ce que la frame paie réellement.
+   *
+   * À distinguer de `stats()`, qui est un relevé brut et cumulé : ici les compteurs de
+   * contenu viennent des couches elles-mêmes (`counters`) et ne portent que ce qui est à
+   * l'écran, et la cadence est une moyenne glissante plutôt qu'un ratio depuis le
+   * démarrage — une carte qui rame depuis dix secondes après dix minutes de fluidité doit
+   * se voir.
+   *
+   * `out` est RÉUTILISÉ par l'appelant d'un rafraîchissement à l'autre : le panneau qui
+   * lit ces chiffres ne doit pas allouer, sous peine de peser sur ce qu'il mesure.
+   */
+  viewStats(out: ViewStats = {}): ViewStats {
+    const info = this.renderer.info
+    this.counters.collect(out)
+    out.drawCalls = info.render.calls
+    out.triangles = info.render.triangles
+    out.geometries = info.memory.geometries
+    out.textures = info.memory.textures
+    out.resolutionScale = this.resolutionScale
+    out.fps = this.fpsValue
+    out.paintedRatio = this.paintedRatioValue
+    // Les deux fournisseurs de tuiles internes additionnés : c'est une seule mémoire et un
+    // seul réseau. Le tileset photoréaliste, lui, tient ses propres comptes hors de nous.
+    out.tilesCached = this.basemap2d.tileCount + this.buildings.tileCount
+    out.tilesInflight = this.basemap2d.tilePending + this.buildings.tilePending
+    out.tileBytes = this.basemap2d.usedBytes + this.buildings.usedBytes
+    out.workers = this.buildings.workerCount
+    return out
+  }
+
+  /**
+   * Cadence et taux de peinture sur une FENÊTRE GLISSANTE (cf. `FPS_WINDOW_S`).
+   *
+   * Un cumul depuis le démarrage se lisse jusqu'à ne plus rien dire : après dix minutes
+   * de fluidité, dix secondes de saccade ne le bougent pas d'un point. Or c'est
+   * exactement l'instant qu'on regarde quand on ouvre un panneau de diagnostic.
+   */
+  private fpsValue = 0
+  private paintedRatioValue = 1
+  private fpsElapsed = 0
+  private fpsFrames = 0
+  private fpsPainted = 0
+
+  /** Fenêtre de la moyenne glissante (s) : assez courte pour réagir, assez longue pour ne pas danser. */
+  private static readonly FPS_WINDOW_S = 0.5
+
+  /** Avance la fenêtre glissante. Appelé une fois par frame, quelques additions. */
+  private sampleFps(dt: number, painted: boolean): void {
+    this.fpsElapsed += dt
+    this.fpsFrames++
+    if (painted) this.fpsPainted++
+    if (this.fpsElapsed < MapEngine.FPS_WINDOW_S) return
+    this.fpsValue = this.fpsFrames / this.fpsElapsed
+    this.paintedRatioValue = this.fpsPainted / this.fpsFrames
+    this.fpsElapsed = 0
+    this.fpsFrames = 0
+    this.fpsPainted = 0
+  }
+
   /** Frames écoulées / réellement peintes — dénominateur et numérateur de `stats()`. */
   private totalFrames = 0
   private paintedFrames = 0
@@ -2556,7 +2626,11 @@ export class MapEngine {
      * ne reproduiraient qu'une image identique. C'est aussi ce qui rend la bascule sûre :
      * aucun état ne dépend d'avoir été peint.
      */
-    if (!this.shouldPaint(now)) return
+    const painted = this.shouldPaint(now)
+    // Échantillonné AVANT la sortie : une frame sautée est une frame de la boucle, et c'est
+    // précisément l'écart entre les deux que `paintedRatio` donne à lire.
+    this.sampleFps(dt, painted)
+    if (!painted) return
     this.paintedAt = now
     this.paintedFrames++
 

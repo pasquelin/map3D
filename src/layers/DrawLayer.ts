@@ -6,6 +6,8 @@ import { GroundedState } from '../core/GroundedState'
 import type { SymbolRenderer } from '../symbols/types'
 import { HEIGHT_EPSILON, HeightResettle } from '../core/resettle'
 import type { FrameContext, Layer } from '../core/Layer'
+import type { StatContribution } from '../core/viewStats'
+import { boundsContains } from '../core/MarkerQuery'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
 import type { SelectableRegistry } from '../core/Selectables'
@@ -36,7 +38,7 @@ import {
   strokeMaterial,
   strokePolylines,
 } from '../core/geometry'
-import type { LatLng } from '../shared'
+import type { Bounds, LatLng } from '../shared'
 import { defaultLabels } from '../labels/defaultLabels'
 import { makeDistanceFormatter } from '../labels/measure'
 
@@ -288,6 +290,35 @@ export class DrawLayer implements Layer {
   defaultsFor?: (tool: DrawTool) => DrawDefaults
 
   private drawings: Drawing[] = []
+
+  /**
+   * Dessins dont un sommet tombe dans le cadre de la vue — le compte que lit le panneau.
+   *
+   * Fait dans la passe qui a déjà le cadre, jamais dans `stats()` : un compteur doit être
+   * une lecture, sinon le panneau ajoute un balayage à ce qu'il prétend mesurer.
+   *
+   * Sort au PREMIER sommet trouvé : un tracé de mille points n'a pas à être parcouru
+   * entièrement pour qu'on sache qu'il est à l'écran.
+   */
+  private countVisible(bounds: Bounds): void {
+    let n = 0
+    for (const d of this.drawings) {
+      for (const p of d.points) {
+        if (boundsContains(bounds, p)) {
+          n++
+          break
+        }
+      }
+    }
+    this.visibleCount = n
+  }
+
+  private visibleCount = 0
+
+  /** Contribution au panneau de diagnostic (cf. `CounterRegistry`). */
+  stats(): StatContribution {
+    return { kind: 'drawings', visible: this.visibleCount, total: this.drawings.length }
+  }
   private readonly history = new History()
   private overlaySel: SelectionOverlay | null = null
   private readonly selection = new SelectionManager({
@@ -1716,6 +1747,7 @@ export class DrawLayer implements Layer {
   update(ctx: FrameContext): void {
     this.lastCamera = ctx.camera
     this.viewH = ctx.size.height
+    this.countVisible(ctx.view.bounds)
     this.hoverChecked = false
     this.overlayRect = null
     this.flushEmit()

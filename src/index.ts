@@ -312,6 +312,15 @@ export type {
 // contexte carte, donc il vit partout sous `<Map>`.
 export { CameraReadout } from './react/components/CameraReadout'
 export type { CameraReadoutProps, ReadoutField, ReadoutCorner } from './react/components/CameraReadout'
+/**
+ * Panneau de diagnostic. Déjà monté par la barre de dessin, en ligne du menu « Réglages »
+ * — à côté de « Plugins » et « Catalogue ». Exporté pour l'hôte qui préfère le poser dans
+ * SA propre surface (tiroir de réglages, fenêtre d'exploitation).
+ */
+export { StatsPanel } from './react/components/StatsPanel'
+export type { StatsPanelProps } from './react/components/StatsPanel'
+export type { StatField, StatLevel, StatThreshold, StatContribution, ViewStats } from './core/viewStats'
+export { statLevel } from './core/viewStats'
 export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar, useToolbar } from './react/components/Toolbar'

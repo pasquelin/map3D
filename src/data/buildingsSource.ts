@@ -29,6 +29,17 @@ type BuildInput = Extract<BuildRequest, { url: string }>
 export class BuildingsSource {
   private ready: Promise<WorkerPool<BuildInput, BuildResponse>> | null = null
   private disposed = false
+  /**
+   * Pool résolu, pour les lectures SYNCHRONES (diagnostic). `ready` est une promesse :
+   * l'attendre pour afficher un compteur ferait dépendre le panneau d'un `await`, et
+   * `0` avant la première tuile est la réponse juste — aucun worker ne vit encore.
+   */
+  private live: WorkerPool<BuildInput, BuildResponse> | null = null
+
+  /** Workers vivants. `0` avant la première tuile, ou en repli sur le thread principal. */
+  get workerCount(): number {
+    return this.live?.size ?? 0
+  }
 
   /**
    * `poolSize` est un ACCESSEUR et non une valeur : le réglage est relu à chaque demande,
@@ -68,18 +79,21 @@ export class BuildingsSource {
   private ensurePool(): Promise<WorkerPool<BuildInput, BuildResponse>> {
     this.ready ??= (async () => {
       const spawn = await workerFactory()
-      return new WorkerPool<BuildInput, BuildResponse>({
+      const pool = new WorkerPool<BuildInput, BuildResponse>({
         spawn,
         size: this.poolSize,
         cancelMessage: (id) => ({ id, cancel: true }) satisfies BuildRequest,
         fallback: runOnMainThread,
       })
+      this.live = pool
+      return pool
     })()
     return this.ready
   }
 
   dispose(): void {
     this.disposed = true
+    this.live = null
     // Le pool peut encore être en cours de création : on l'attend pour le démonter, sinon
     // ses workers naîtraient sur une carte déjà partie.
     void this.ready?.then((p) => p.dispose())

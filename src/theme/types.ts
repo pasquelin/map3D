@@ -50,6 +50,20 @@ export type MapTheme = {
       error: string
       /** Bordures et séparateurs. */
       border: string
+      /**
+       * Verdict d'une grandeur du panneau de diagnostic (cf. `performance.statThresholds`).
+       *
+       * Optionnel — un thème complet écrit avant cet ajout reste valide, et le panneau
+       * retombe alors sur `text` : pas de couleur plutôt qu'une couleur fausse.
+       *
+       * `bad` est distinct d'`error` : une valeur excessive n'est pas une erreur, c'est un
+       * budget dépassé. Les confondre ferait lire une carte lourde comme une carte cassée.
+       */
+      stat?: {
+        ok: string
+        warn: string
+        bad: string
+      }
     }
     /** Décorations d'attention des markers (`new`/`urgent`) — signaux opérationnels,
      *  couleurs volontairement très voyantes. Optionnel : thème antérieur valide. */

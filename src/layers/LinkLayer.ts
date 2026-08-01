@@ -141,6 +141,8 @@ const CASING_OPACITY_RATIO = 0.8
  *    par frame comme le label de la règle (`DrawLayer`).
  */
 export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
+  protected readonly statKind = 'links' as const
+
   private readonly scratch = new THREE.Vector3()
   /** Point écran réutilisé : `worldToScreen` alloue son résultat sans lui, et il est
    *  appelé une fois par SOMMET (jusqu'à 257 par lien) sur les chemins de survol et

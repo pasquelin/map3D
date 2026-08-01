@@ -133,6 +133,8 @@ export type MapLabels = {
     toggle: string
     /** Bouton de remise aux défauts d'un plugin. */
     reset: string
+    /** Bouton de pied : désactive tous les plugins actifs (pendant du « Tout retirer » du catalogue). */
+    clear: string
   }
   /** Gestionnaire de templates (panneau haut-droite : liste, sauvegarde, partage). */
   templates: {
@@ -479,6 +481,53 @@ export type MapLabels = {
    * toute distance de la lib — une carte en impérial doit lire son altitude en pieds
    * sans avoir à le redire ici.
    */
+  /**
+   * Panneau de diagnostic (bouton « Infos » de la barre d'outils).
+   *
+   * Les grandeurs de CAMÉRA n'y sont pas redites : elles viennent de `readout`, qui les
+   * nommait déjà. Le panneau les affiche avec les autres — c'est ce qui lui permet
+   * d'absorber le bloc de lecture au lieu de le doubler.
+   */
+  stats: {
+    /** Titre du panneau, et infobulle de son bouton. */
+    title: string
+    /** Intitulés des quatre sections. */
+    sections: {
+      camera: string
+      content: string
+      render: string
+      tiles: string
+    }
+    /** Markers réellement peints — le seul chiffre qui dise ce que la frame paie. */
+    markersVisible: string
+    /** Markers pris en charge, vue ou non. L'écart avec le précédent est le sujet. */
+    markersTotal: string
+    clusters: string
+    shapes: string
+    paths: string
+    links: string
+    drawings: string
+    fps: string
+    /** Part des frames de la boucle réellement peintes (rendu à la demande). */
+    paintedRatio: string
+    drawCalls: string
+    triangles: string
+    textures: string
+    geometries: string
+    resolutionScale: string
+    tilesCached: string
+    tilesInflight: string
+    tileBytes: string
+    /** Workers d'extrusion vivants (cf. `providers.buildings.workerPoolSize`). */
+    workers: string
+    /**
+     * Gabarit d'un pourcentage — `{value}`. Comme `degreeFormat`, c'est la seule façon de
+     * coller l'unité au nombre sans la coder en dur dans le formateur.
+     */
+    percentFormat: string
+    /** Suffixes d'octets, du plus petit au plus grand : `['o', 'Ko', 'Mo', 'Go']`. */
+    byteUnits: readonly string[]
+  }
   readout: {
     /** Nom accessible de la région (lecteurs d'écran) — le bloc n'a pas de titre visible. */
     title: string

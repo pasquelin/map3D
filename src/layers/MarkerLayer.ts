@@ -592,9 +592,16 @@ export class MarkerLayer implements Layer {
    */
   private visibleCount = 0
 
-  /** Contribution au panneau de diagnostic (cf. `CounterRegistry`). */
-  stats(): StatContribution {
-    return { kind: 'markers', visible: this.visibleCount, total: this.nodes.size }
+  /**
+   * Contribution au panneau de diagnostic (cf. `CounterRegistry`).
+   *
+   * `kind` est un PARAMÈTRE : cette même couche sert les markers et les pastilles de
+   * regroupement (cf. `useOverlayLayer`, monté par les deux surfaces). L'écrire en dur
+   * ferait compter les pastilles comme des markers, et le panneau annoncerait un contenu
+   * que la carte n'a pas.
+   */
+  stats(kind: StatContribution['kind'] = 'markers'): StatContribution {
+    return { kind, visible: this.visibleCount, total: this.nodes.size }
   }
 
   dispose(): void {

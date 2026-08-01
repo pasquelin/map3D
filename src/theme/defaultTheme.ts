@@ -28,6 +28,11 @@ export const defaultTheme: MapTheme = {
       accent: '#2E7CF6',
       error: '#d11a01',
       border: 'rgba(255,255,255,0.10)',
+      // Verdicts du panneau de diagnostic. Le vert est volontairement DISCRET (proche du
+      // texte) et le rouge distinct d'`error` : ici on lit un budget, pas une panne. Un
+      // panneau où tout crie n'apprend rien — c'est le jaune et le rouge qui doivent
+      // sauter aux yeux, et eux seuls.
+      stat: { ok: '#4ade80', warn: '#facc15', bad: '#f87171' },
     },
     // Signaux opérationnels (pas décoratifs) : jaune vif pour « à traiter »,
     // rouge vif pour le viseur d'urgence — faits pour sauter aux yeux.

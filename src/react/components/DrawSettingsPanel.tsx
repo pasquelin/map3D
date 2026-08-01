@@ -1,4 +1,13 @@
-import { mdiChevronRight, mdiCog, mdiKeyboardOutline, mdiMapSearchOutline, mdiPuzzleOutline, mdiRestore } from '@mdi/js'
+import {
+  mdiChartBoxOutline,
+  mdiChevronRight,
+  mdiCog,
+  mdiKeyboardOutline,
+  mdiMapSearchOutline,
+  mdiPuzzleOutline,
+  mdiRestore,
+} from '@mdi/js'
+import { StatsPanel } from './StatsPanel'
 import { UiIcon } from './UiIcon'
 import { useMemo, useRef, useState } from 'react'
 import type { EditShortcut } from '../../config/types'
@@ -27,7 +36,7 @@ import { formatKey } from './tooltip'
 const UNSTYLED_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['select', 'erase', 'symbol'])
 
 /** Entrées du panneau ouvrant un sous-panneau latéral : un outil, les raccourcis, le hub plugins, le catalogue. */
-type SubKey = DrawTool | 'shortcuts' | 'plugins' | 'catalog'
+type SubKey = DrawTool | 'shortcuts' | 'plugins' | 'catalog' | 'stats'
 
 /**
  * Bouton engrenage + panneau « Réglages des outils » : chaque outil garde ses
@@ -110,7 +119,9 @@ export function DrawSettingsButton({
   )
 
   const openedTool =
-    openSub && openSub !== 'shortcuts' && openSub !== 'plugins' && openSub !== 'catalog' ? openSub : null
+    openSub && openSub !== 'shortcuts' && openSub !== 'plugins' && openSub !== 'catalog' && openSub !== 'stats'
+      ? openSub
+      : null
   const openedSettings = openedTool ? settings.get(openedTool) : null
 
   return (
@@ -156,6 +167,7 @@ export function DrawSettingsButton({
             {row('shortcuts', mdiKeyboardOutline, labels.settings.shortcutsTitle)}
             {hasPlugins && row('plugins', mdiPuzzleOutline, labels.plugins.title)}
             {hasCatalog && row('catalog', mdiMapSearchOutline, labels.catalog.settings.title)}
+            {row('stats', mdiChartBoxOutline, labels.stats.title)}
           </div>
           {openSub && (
             <DropdownSurface
@@ -194,6 +206,8 @@ export function DrawSettingsButton({
                 <PluginHubPanel />
               ) : openSub === 'catalog' ? (
                 <CatalogSettingsPanel />
+              ) : openSub === 'stats' ? (
+                <StatsPanel />
               ) : (
                 <ShortcutsList />
               )}

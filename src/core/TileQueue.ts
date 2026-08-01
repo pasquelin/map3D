@@ -182,6 +182,15 @@ export class TileQueue<T extends Tile, R> {
     return this.inflight > 0 || this.queue.length > 0 || this.toMount.length > 0
   }
 
+  /**
+   * Travail en cours : chargements en vol, en attente de créneau, et résultats en attente
+   * de montage. Lu par le panneau de diagnostic — c'est ce chiffre, et non le nombre de
+   * tuiles en cache, qui dit si la carte est encore en train de se remplir.
+   */
+  get pending(): number {
+    return this.inflight + this.queue.length + this.toMount.length
+  }
+
   /** Tuile d'une clé, `undefined` si elle n'est pas (ou plus) en cache. */
   get(key: string): T | undefined {
     return this.tiles.get(key)
