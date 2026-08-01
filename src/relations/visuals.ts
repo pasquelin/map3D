@@ -203,8 +203,29 @@ function partitionLinks(
   return { direct, fans }
 }
 
-/** Liens réellement dessinés par une relation — le moteur en calcule davantage. */
-const shownLinks = (snapshot: RelationSnapshot): Link[] => snapshot.links.slice(0, shownCount(snapshot))
+/**
+ * `shownLinks` + `partitionLinks` d'un snapshot, calculés UNE FOIS par snapshot et par
+ * passe (`buildRelationVisuals`). `sharedPairs` et `visualsForRelation` en dépendaient
+ * chacun séparément — même liste de liens, même partitionnement — doublant le tri
+ * direct/éventail de chaque relation à chaque frame de survol.
+ */
+type SnapshotVisualData = {
+  snapshot: RelationSnapshot
+  /** Liens réellement dessinés par la relation — le moteur en calcule davantage. */
+  links: Link[]
+  /**
+   * `null` pour une relation qui TRACE un itinéraire valide : `visualsForRelation` n'a
+   * alors pas besoin du partitionnement direct/éventail (le tracé remplace l'affichage
+   * habituel), et le calculer quand même serait du travail jeté — exactement ce que
+   * l'ancien code, qui ne l'appelait jamais dans ce cas, ne payait pas non plus.
+   */
+  partition: { direct: Link[]; fans: { node: VisualNode; links: Link[] }[] } | null
+}
+
+function snapshotVisualData(snapshot: RelationSnapshot, ctx: RelationVisualContext): SnapshotVisualData {
+  const links = snapshot.links.slice(0, shownCount(snapshot))
+  return { snapshot, links, partition: snapshot.tracedLinkId ? null : partitionLinks(links, ctx) }
+}
 
 /**
  * Couples de markers reliés par plusieurs relations à la fois.
@@ -218,13 +239,14 @@ const shownLinks = (snapshot: RelationSnapshot): Link[] => snapshot.links.slice(
  * ordre d'ouverture) : c'est elle qui porte l'étiquette, le survol et le clic, donc
  * la plus récemment demandée — celle que l'utilisateur regarde.
  */
-function sharedPairs(snapshots: readonly RelationSnapshot[], ctx: RelationVisualContext): Map<string, SharedPair> {
+function sharedPairs(data: readonly SnapshotVisualData[], ctx: RelationVisualContext): Map<string, SharedPair> {
   const seen = new Map<string, SharedPair>()
-  for (const snapshot of snapshots) {
-    // Une relation dont l'itinéraire est tracé ne dessine plus ses traits directs.
-    if (snapshot.tracedLinkId) continue
+  for (const { snapshot, partition } of data) {
+    // Une relation dont l'itinéraire est tracé ne dessine plus ses traits directs
+    // (`partition` vaut alors `null`, cf. `snapshotVisualData`).
+    if (!partition) continue
     const color = ctx.colorOf(snapshot)
-    for (const link of partitionLinks(shownLinks(snapshot), ctx).direct) {
+    for (const link of partition.direct) {
       const key = pairKey(link)
       const entry = seen.get(key)
       if (entry) {
@@ -250,23 +272,24 @@ export function buildRelationVisuals(
 ): LinkVisual[] {
   if (ctx.perf) cache.setPerf(ctx.perf)
   cache.begin()
-  const shared = sharedPairs(snapshots, ctx)
+  const data = snapshots.map((snapshot) => snapshotVisualData(snapshot, ctx))
+  const shared = sharedPairs(data, ctx)
   const out: LinkVisual[] = []
-  for (const snapshot of snapshots) out.push(...visualsForRelation(snapshot, ctx, cache, shared))
+  for (const d of data) out.push(...visualsForRelation(d, ctx, cache, shared))
   cache.end()
   return out
 }
 
 function visualsForRelation(
-  snapshot: RelationSnapshot,
+  data: SnapshotVisualData,
   ctx: RelationVisualContext,
   cache: RelationGeometryCache,
   shared: ReadonlyMap<string, SharedPair>,
 ): LinkVisual[] {
+  const { snapshot, links, partition } = data
   const { source, tracedLinkId } = snapshot
   const { style, hoveredId } = ctx
   // Le moteur classe TOUT le pool calculé ; on ne dessine que la tête demandée.
-  const links = snapshot.links.slice(0, shownCount(snapshot))
   const total = links.length
   // UNE couleur pour toute la relation — celle de son marker source. Le socle, les
   // traits et le tronc d'un éventail la partagent : c'est ce qui fait lire le faisceau
@@ -321,8 +344,11 @@ function visualsForRelation(
   const result: LinkVisual[] = [hub]
   // Regroupement par nœud VISUEL : plusieurs cibles agrégées dans un même cluster
   // partagent un tronc et s'ouvrent en éventail. Le cluster n'est jamais éclaté — on
-  // ne fait qu'interroger l'état de clustering déjà affiché.
-  const { direct, fans } = partitionLinks(links, ctx)
+  // ne fait qu'interroger l'état de clustering déjà affiché. Déjà calculé une fois par
+  // `snapshotVisualData` (partagé avec `sharedPairs`) — sauf repli : `tracedLinkId`
+  // pointait un lien disparu/sans itinéraire (`partition` alors `null`), auquel cas on le
+  // calcule ici, comme le faisait déjà l'ancien code à chaque appel dans ce même cas.
+  const { direct, fans } = partition ?? partitionLinks(links, ctx)
   for (const group of fans) result.push(...fanVisuals(snapshot, group.node, group.links, total, color, ctx, cache))
 
   for (const link of direct) {
