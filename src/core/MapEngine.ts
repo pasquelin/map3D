@@ -1669,11 +1669,6 @@ export class MapEngine {
   }
 
   /**
-   * Invalide les programmes des matériaux déjà compilés — la seule façon de faire prendre
-   * (ou retirer) le brouillard sur ce qui est DÉJÀ à l'écran. Coût : une traversée, à
-   * l'entrée et à la sortie du mode. Jamais par frame.
-   */
-  /**
    * Annonce aux couches que la caméra passe (ou non) au ras du sol — elles en déduisent le
    * test de profondeur de leurs annotations plates (cf. `flatMaterial`).
    *
@@ -1693,6 +1688,11 @@ export class MapEngine {
   /** Vue au ras du sol courante — rejouée à l'ajout d'une couche (cf. `addLayer`). */
   private readonly grounded = new GroundedState()
 
+  /**
+   * Invalide les programmes des matériaux déjà compilés — la seule façon de faire prendre
+   * (ou retirer) le brouillard sur ce qui est DÉJÀ à l'écran. Coût : une traversée, à
+   * l'entrée et à la sortie du mode. Jamais par frame.
+   */
   private refreshFogMaterials(): void {
     // LES DEUX surfaces : le tileset photoréaliste ET la surface reconstruite localement
     // (raster interne + bâtiments extrudés). Le mode piéton s'ouvre sur l'un comme sur

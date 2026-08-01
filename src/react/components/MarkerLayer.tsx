@@ -77,12 +77,6 @@ export type MarkerLayerProps<T> = {
    * compris pour rendre `null`. À réserver aux titres que du texte ne peut pas dire.
    */
   tooltip?: (p: MarkerData<T>) => { title?: ReactNode; content?: ReactNode } | null
-  /**
-   * Infobulle au survol d'un CLUSTER : reçoit l'agrégat ET la liste des markers
-   * contenus (feuilles, fusion écran comprise) — permet de lister leurs infos.
-   * Au survol d'une PART du donut, `members` est restreint aux markers du type
-   * survolé et `segmentType` le porte ; cœur/`undefined` → infobulle globale.
-   */
   /** Menu contextuel d'un marker (clic droit, et bouton « … » des listes). */
   menu?: (p: MarkerData<T>) => MenuItem[]
   /** Marker sélectionné — **contrôlé** : la couche ne le change jamais d'elle-même. */

@@ -2,10 +2,11 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { clamp } from '../../core/math'
 import { useConfig, useTheme } from '../context'
 
-// `theme.spacing` est la source de ces deux valeurs, publiée AUSSI en variables CSS
-// (`--m3d-gap`, `--m3d-edge`) par `themeToVars` : la feuille de styles et le calcul
-// de place disponible lisent le même nombre, et une charte peut les changer sans
-// que les deux côtés divergent. Les défauts vivent dans `style/panelGeometry`.
+// `theme.spacing` est la source de ces deux valeurs. `themeToVars` publie `--m3d-gap`
+// en variable CSS (feuille de styles) ; `spacing.edge`, lui, n'est PAS émis en CSS —
+// il est lu ici en JS pour le calcul de place disponible. Un seul et même nombre des
+// deux côtés qui le consomment, et une charte peut le changer sans qu'ils divergent.
+// Les défauts vivent dans `style/panelGeometry`.
 
 /**
  * Placement des surfaces flottantes (panneaux ancrés, flyouts, menus, listes de
