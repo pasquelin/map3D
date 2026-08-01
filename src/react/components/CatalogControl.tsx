@@ -2,7 +2,7 @@ import { mdiMagnify, mdiMapSearchOutline } from '@mdi/js'
 import { useMemo, useRef, useState } from 'react'
 import type { CatalogSource } from '../../catalog/types'
 import { useLabels, useMapContext } from '../context'
-import { useCatalog } from '../hooks/useCatalog'
+import { useCatalogSelectionCount } from '../hooks/useCatalog'
 import { useCatalogSources } from '../hooks/useCatalogSources'
 import { CatalogList } from './CatalogList'
 import { Dropdown, DropdownSurface, useToggleShortcut } from './Dropdown'
@@ -34,14 +34,15 @@ export type CatalogControlProps = {
 export function CatalogControl({ position = 'right', tipId, shortcut, grouped }: CatalogControlProps) {
   const labels = useLabels()
   const { theme } = useMapContext()
-  const catalog = useCatalog(position)
+  // Le COMPTE et non l'API entière : le bouton n'affiche qu'un badge, il n'a pas à se
+  // re-rendre à chaque géométrie qui arrive pour réécrire le même chiffre.
+  const shown = useCatalogSelectionCount()
   const sources = useCatalogSources()
   const toggleRef = useRef<() => void>(() => {})
 
   useToggleShortcut(sources.length > 0 ? shortcut : false, toggleRef)
 
   const tip = useTip(tipId ?? '')
-  const shown = catalog.selection.length
 
   if (sources.length === 0) return null
 
@@ -95,6 +96,14 @@ function CatalogPanel({
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const [query, setQuery] = useState('')
 
+  // `Intl.NumberFormat` alimenté par les LABELS, et non `toLocaleString()` qui suit le
+  // navigateur : c'est l'interface qui décide de son séparateur de milliers, comme pour
+  // les distances et les coordonnées.
+  const formatTotal = useMemo(() => {
+    const locale = labels.catalog.numberLocale === 'auto' ? undefined : labels.catalog.numberLocale
+    return new Intl.NumberFormat(locale)
+  }, [labels.catalog.numberLocale])
+
   // La source ouverte a pu être retirée (plugin démonté) : le panneau se referme plutôt
   // que d'afficher une liste orpheline.
   const opened = openId === null ? null : (sources.find((s) => s.id === openId) ?? null)
@@ -133,7 +142,7 @@ function CatalogPanel({
                 >
                   <UiIcon path={s.icon} />
                   <span className="m3d-cattype-label">{s.label}</span>
-                  {s.total !== undefined && <span className="m3d-cattype-total">{s.total.toLocaleString()}</span>}
+                  {s.total !== undefined && <span className="m3d-cattype-total">{formatTotal.format(s.total)}</span>}
                 </button>
               </div>
             ))}

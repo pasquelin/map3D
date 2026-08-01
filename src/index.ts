@@ -357,6 +357,12 @@ export { SearchRegistry, markerGroupId, SHAPE_GROUP, DRAW_GROUP, PLACE_GROUP } f
 export type { SearchEntry, SearchGroup, SearchProvider, SearchQueryOptions, SearchQueryResult } from './search/types'
 export { normalizeSearch, scoreMatch, proximityRank, rankHits, NO_MATCH } from './search/match'
 export type { Hit } from './search/match'
+/**
+ * Titres normalisés mémoïsés par élément (`WeakMap`). Utile dès qu'un hôte filtre une
+ * liste à la frappe — une source de catalogue, typiquement : `normalizeSearch` sur
+ * chaque titre à chaque page est le coût qui se voit en défilement.
+ */
+export { createTitleCache } from './search/match'
 
 // ── Catalogue : référentiels distants parcourables ──
 //

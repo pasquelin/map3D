@@ -320,6 +320,24 @@ en plus toutes les options de [`useTemplates`](HOOKS.md) ci-dessous. Détail dan
 | `shortcut` | Touche (lettre seule) qui ouvre/ferme le panneau. `false` = aucun raccourci. | — |
 | `grouped` | Rendu SANS sa propre carte `.m3d-controls-group` — pour un groupe partagé (avec « Couches »). | — |
 
+## `<CatalogControl>`
+
+Bouton de barre + panneau « Catalogue » : parcourt des référentiels distants (zones,
+villes, départements…) et pose leurs géométries sur la carte. Les sources viennent du
+registre `engine.catalog`, pas des props. Détail dans [CATALOG.md](CATALOG.md).
+
+**Sans source déclarée, le composant ne rend rien** — un bouton qui n'ouvrirait qu'une
+liste vide est pire qu'un bouton absent. Il est déjà monté par `<MapControls>` (bouton
+`catalog`, dans le groupe de « Couches ») : ne l'instancier soi-même que pour le placer
+dans une barre custom.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `position` | Côté de la barre hôte : le panneau s'ouvre du côté opposé. | `'right'` |
+| `tipId` | id du `<Tooltip>` partagé de la barre hôte (MapControls). | — |
+| `shortcut` | Touche (lettre seule) qui ouvre/ferme le panneau. `false` = aucun raccourci. | `interaction.shortcuts.controls.catalog` |
+| `grouped` | Rendu SANS sa propre carte `.m3d-controls-group` — pour cohabiter avec « Couches ». | — |
+
 ## `<Confirm>`
 
 Dialogue modal de confirmation (au-dessus de tout, `style.zIndex.modal`). Se referme sur

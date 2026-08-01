@@ -40,6 +40,7 @@ export const defaultLabels: MapLabels = {
     remove: 'Retirer {label} de la carte',
     expand: 'Déplier',
     collapse: 'Replier',
+    numberLocale: 'auto',
     settings: {
       title: 'Catalogue',
       persist: 'Conserver les éléments affichés entre les sessions',

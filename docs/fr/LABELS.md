@@ -419,6 +419,7 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.add` | Case à cocher, état « pas encore sur la carte » — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Case à cocher, état « affiché » — `{label}`. | `'Retirer {label} de la carte'` |
 | `catalog.expand` / `catalog.collapse` | Chevron d'un agrégat. | `'Déplier'` / `'Replier'` |
+| `catalog.numberLocale` | Locale de formatage du total d'une source (`'auto'` suit le navigateur). `36 699` ou `36,699` est une décision d'INTERFACE, pas de navigateur — cf. `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Entrée du panneau engrenage. | `'Catalogue'` |
 | `catalog.settings.persist` | Interrupteur de persistance. | `'Conserver les éléments affichés entre les sessions'` |
 | `catalog.settings.fitOnAdd` | Interrupteur de cadrage. | `'Cadrer à l’ajout'` |

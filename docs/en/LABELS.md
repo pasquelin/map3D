@@ -481,6 +481,7 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.add` | Checkbox, "not on the map yet" state — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
 | `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
+| `catalog.numberLocale` | Locale used to format a source's total (`'auto'` follows the browser). `36 699` or `36,699` is an INTERFACE decision, not a browser one — see `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |
 | `catalog.settings.fitOnAdd` | Framing switch. | `'Cadrer à l’ajout'` |

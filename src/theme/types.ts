@@ -261,10 +261,29 @@ export type MapTheme = {
     /** Décalage horizontal d'une ligne enfant dépliée (px). */
     catalogIndent: number
     /**
-     * Largeur du panneau de catalogue (px). Sert aussi de marge de cadrage : une zone
-     * cadrée pendant que le panneau est ouvert ne doit pas atterrir dessous.
+     * Largeur du chevron de dépliage (px).
+     *
+     * ⚠️ Elle donne AUSSI sa largeur à la gouttière réservée sur les lignes sans
+     * enfants : les deux doivent coïncider, sinon les noms d'une même liste ne
+     * s'alignent plus selon que la ligne porte un chevron ou non.
+     */
+    catalogChevronW: number
+    /**
+     * Largeur du panneau de catalogue — le menu des types (px).
+     *
+     * Sert aussi de marge de cadrage, avec `catalogSubPanelW` : une zone cadrée pendant
+     * que le catalogue est ouvert ne doit pas atterrir dessous.
      */
     catalogPanelW: number
+    /**
+     * Largeur du second panneau, celui de la liste (px).
+     *
+     * Distincte de `catalogPanelW` bien qu'égale par défaut : les deux surfaces sont
+     * ACCOLÉES du même côté, donc c'est leur SOMME que le cadrage doit réserver. Les
+     * confondre faisait atterrir la zone cadrée sous la liste — et `fitOnAdd` étant
+     * actif par défaut, c'était le chemin nominal.
+     */
+    catalogSubPanelW: number
     /**
      * Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là
      * où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue.

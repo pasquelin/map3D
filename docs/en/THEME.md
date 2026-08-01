@@ -167,7 +167,9 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `sizing.panelMaxHeight.catalog` | Maximum height of the catalog panel (px). | `380` |
 | `sizing.catalogRowHeight` | Catalog row height (px). ⚠️ CONSTANT by contract: `visibleWindow` derives the window to render from it without measuring rows. A taller row would shift everything below it. | `34` |
 | `sizing.catalogIndent` | Horizontal offset of an expanded child row (px). | `18` |
-| `sizing.catalogPanelW` | Catalog panel width (px). Also used as a framing margin: a zone framed while the panel is open must not land underneath it. | `252` |
+| `sizing.catalogChevronW` | Expand-chevron width (px). ⚠️ It ALSO sets the width of the gutter reserved on rows without children: the two must match, otherwise names in the same list stop aligning depending on whether the row carries a chevron. | `18` |
+| `sizing.catalogPanelW` | Catalog panel width — the type menu (px). Also used as a framing margin, together with `catalogSubPanelW`: a zone framed while the catalog is open must not land underneath it. | `252` |
+| `sizing.catalogSubPanelW` | Width of the second panel, the list one (px). Distinct from `catalogPanelW` although equal by default: the two surfaces sit SIDE BY SIDE on the same edge, so framing must reserve their SUM. | `252` |
 | `sizing.iconSize` | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out. | `0.8` |
 
 ## `tiles` — Colour treatment of the basemap (dark mode)

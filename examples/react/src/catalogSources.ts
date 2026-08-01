@@ -17,7 +17,7 @@ import {
   mdiShapePolygonPlus,
   mdiViewGridOutline,
 } from '@mdi/js'
-import { normalizeSearch } from 'map3d'
+import { createTitleCache, normalizeSearch } from 'map3d'
 import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from 'map3d'
 
 /** Générateur congruentiel — semé, donc reproductible d'une exécution à l'autre. */
@@ -30,8 +30,7 @@ const rng = (seed: number) => {
 }
 
 /** Latence simulée : sans elle, on ne verrait jamais ni « Chargement… » ni la garde de course. */
-const delay = <T,>(value: T, ms = 120): Promise<T> =>
-  new Promise((resolve) => setTimeout(() => resolve(value), ms))
+const delay = <T>(value: T, ms = 120): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), ms))
 
 /**
  * Pagine un tableau déjà filtré. Le curseur est le DÉCALAGE : une vraie API rendrait
@@ -45,31 +44,84 @@ function page(items: readonly CatalogItem[], req: CatalogRequest): CatalogPage {
 }
 
 /**
+ * Titres normalisés, mémoïsés PAR ÉLÉMENT (`WeakMap`) — helper de la lib, pas une copie.
+ *
+ * C'était le vrai coût du filtre : le besoin était bien hissé hors du prédicat, mais
+ * `normalizeSearch(i.title)` y restait, soit un `normalize('NFD')` + deux regex + un
+ * `toLowerCase` sur chacun des 36 699 titres À CHAQUE page demandée — ~36 ms de thread
+ * principal injectés pendant le défilement, au moment précis où la sentinelle réclame
+ * la page suivante. Normalisé une fois, un titre ne l'est plus jamais.
+ */
+const normalizedTitle = createTitleCache<CatalogItem>((i) => i.title)
+
+/**
  * `normalizeSearch` de la lib, et non une copie : c'est elle qui produit le `query`
  * reçu ici (cf. `CatalogRequest.query`), donc comparer avec une autre normalisation
  * ferait diverger l'exemple du contrat qu'il est censé démontrer.
- *
- * Le besoin est hissé HORS du prédicat : dans le filtre, il était recalculé pour
- * chacun des 36 699 titres, à chaque page demandée.
  */
 const filtered = (items: readonly CatalogItem[], query: string): readonly CatalogItem[] => {
   if (!query) return items
   const needle = normalizeSearch(query)
-  return items.filter((i) => normalizeSearch(i.title).includes(needle))
+  return items.filter((i) => normalizedTitle(i).includes(needle))
 }
 
 // ── Villes : le cas du VOLUME ─────────────────────────────────────────────────
 
 const RACINES = [
-  'Beaumont', 'Villeneuve', 'Montreuil', 'Saint-Martin', 'Châteauneuf', 'Roquefort', 'Fontaine', 'Bourgneuf',
-  'Valberg', 'Puylaurens', 'Montfort', 'Rochefort', 'Vernon', 'Cluny', 'Auray', 'Étampes', 'Chamblis', 'Noirval',
-  'Belleroche', 'Sauveterre', 'Aiguebelle', 'Cornillon', 'Draveil', 'Estagel', 'Ferrières', 'Gouvieux', 'Hautval',
-  'Ivry', 'Jouarre', 'Lassay', 'Meslay', 'Nogent', 'Orval', 'Pontivy', 'Quincy', 'Réalmont', 'Sancerre', 'Thiviers',
-  'Uzès', 'Volnay',
+  'Beaumont',
+  'Villeneuve',
+  'Montreuil',
+  'Saint-Martin',
+  'Châteauneuf',
+  'Roquefort',
+  'Fontaine',
+  'Bourgneuf',
+  'Valberg',
+  'Puylaurens',
+  'Montfort',
+  'Rochefort',
+  'Vernon',
+  'Cluny',
+  'Auray',
+  'Étampes',
+  'Chamblis',
+  'Noirval',
+  'Belleroche',
+  'Sauveterre',
+  'Aiguebelle',
+  'Cornillon',
+  'Draveil',
+  'Estagel',
+  'Ferrières',
+  'Gouvieux',
+  'Hautval',
+  'Ivry',
+  'Jouarre',
+  'Lassay',
+  'Meslay',
+  'Nogent',
+  'Orval',
+  'Pontivy',
+  'Quincy',
+  'Réalmont',
+  'Sancerre',
+  'Thiviers',
+  'Uzès',
+  'Volnay',
 ]
 const SUFFIXES = [
-  '', '-sur-Mer', '-le-Château', '-en-Josas', '-sur-Loire', '-les-Bains', '-la-Forêt', '-sur-Yon', '-le-Vieux',
-  '-en-Brie', '-du-Lac', '-les-Vignes',
+  '',
+  '-sur-Mer',
+  '-le-Château',
+  '-en-Josas',
+  '-sur-Loire',
+  '-les-Bains',
+  '-la-Forêt',
+  '-sur-Yon',
+  '-le-Vieux',
+  '-en-Brie',
+  '-du-Lac',
+  '-les-Vignes',
 ]
 
 /** 36 699 villes — le compte annoncé dans la maquette de référence. */
@@ -140,7 +192,9 @@ const GROUP_MEMBERS: Readonly<Record<string, readonly string[]>> = {
 const zoneById = (id: string): CatalogItem | undefined => ZONES.find((z) => z.id === id)
 
 /** Teintes distinctes : trois zones d'un même groupe doivent se DISTINGUER à l'écran. */
-const ZONE_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f472b6', '#facc15']
+// Tuple NON VIDE : c'est ce qui rend `ZONE_COLORS[0]` sûr comme repli sous
+// `noUncheckedIndexedAccess`, sans recopier la première teinte ailleurs.
+const ZONE_COLORS: readonly [string, ...string[]] = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f472b6', '#facc15']
 
 const seedOf = (id: string): number => [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0
 
@@ -295,9 +349,4 @@ const flakySource: CatalogSource = {
 }
 
 /** Les sources du banc d'essai, dans l'ordre où elles apparaissent au sous-menu. */
-export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [
-  groupsSource,
-  zonesSource,
-  citiesSource,
-  flakySource,
-]
+export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [groupsSource, zonesSource, citiesSource, flakySource]

@@ -63,6 +63,8 @@ export const CONTROL_BUTTONS = keysOf<MapControlButton>({
   globe: true,
   graticule: true,
   layers: true,
+  // Même groupe de barre que « Couches » — cf. `MapControlButton`.
+  catalog: true,
   fullscreen: true,
   mode3d: true,
   plan: true,

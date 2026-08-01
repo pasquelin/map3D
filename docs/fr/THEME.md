@@ -164,7 +164,9 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `sizing.panelMaxHeight.catalog` | Hauteur maximale du panneau de catalogue (px). | `380` |
 | `sizing.catalogRowHeight` | Hauteur d'une ligne de catalogue (px). ⚠️ CONSTANTE par contrat : `visibleWindow` en déduit la fenêtre à rendre sans mesurer les lignes. Une ligne qui dépasserait décalerait tout le contenu sous elle. | `34` |
 | `sizing.catalogIndent` | Décalage horizontal d'une ligne enfant dépliée (px). | `18` |
-| `sizing.catalogPanelW` | Largeur du panneau de catalogue (px). Sert aussi de marge de cadrage : une zone cadrée pendant que le panneau est ouvert ne doit pas atterrir dessous. | `252` |
+| `sizing.catalogChevronW` | Largeur du chevron de dépliage (px). ⚠️ Elle donne AUSSI sa largeur à la gouttière réservée sur les lignes sans enfants : les deux doivent coïncider, sinon les noms d'une même liste ne s'alignent plus selon que la ligne porte un chevron ou non. | `18` |
+| `sizing.catalogPanelW` | Largeur du panneau de catalogue — le menu des types (px). Sert aussi de marge de cadrage, avec `catalogSubPanelW` : une zone cadrée pendant que le catalogue est ouvert ne doit pas atterrir dessous. | `252` |
+| `sizing.catalogSubPanelW` | Largeur du second panneau, celui de la liste (px). Distincte de `catalogPanelW` bien qu'égale par défaut : les deux surfaces sont ACCOLÉES du même côté, donc c'est leur SOMME que le cadrage réserve. | `252` |
 | `sizing.iconSize` | Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue. | `0.8` |
 
 ## `tiles` — Traitement colorimétrique du fond de carte (mode sombre)

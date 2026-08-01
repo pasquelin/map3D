@@ -72,6 +72,15 @@ export type MapLabels = {
     remove: string
     expand: string
     collapse: string
+    /**
+     * Locale de formatage du total d'une source (`'auto'` suit le navigateur).
+     *
+     * `36 699` ou `36,699` : c'est une décision d'INTERFACE, pas de navigateur. Sans
+     * elle, une carte aux libellés français affichait le séparateur anglais dès que le
+     * navigateur était configuré en anglais — le seul nombre de la lib qui échappait
+     * encore aux labels (cf. `measure.numberLocale`, `readout.numberLocale`).
+     */
+    numberLocale: string
     settings: {
       title: string
       persist: string

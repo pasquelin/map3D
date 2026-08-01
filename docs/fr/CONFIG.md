@@ -289,7 +289,8 @@ doit les revoir.
 | `style.zIndex.floatingHud` | Plan RACINE. HUD flottant (sélection, loupe) : au-dessus de la carte, sous les barres. | `900` |
 | `style.zIndex.dock` | Plan RACINE. Dock des favoris — volontairement SOUS les barres. | `990` |
 | `style.zIndex.ui` | Plan RACINE. Barres, panneaux, boîte de recherche : le plan des surfaces d'UI. | `991` |
-| `style.zIndex.menu` | Plan RACINE. Menus contextuels et ghosts de glisser-déposer : au sommet. | `992` |
+| `style.zIndex.barTooltip` | Plan RACINE. Infobulles des barres (`.m3d-tip`), portées à la racine par `<MapTooltip>` — donc SŒURS des panneaux, et non enfermées dans la barre. ⚠️ À ne pas confondre avec `tooltip`, qui est un plan LOCAL. Celle-ci doit passer au-dessus des panneaux (`ui`) — c'est tout son intérêt — mais RESTER SOUS `menu` : un menu ouvert est une décision en cours, une infobulle n'est qu'une explication. | `992` |
+| `style.zIndex.menu` | Plan RACINE. Menus contextuels et ghosts de glisser-déposer : au sommet. | `993` |
 | `style.zIndex.modal` | Plan RACINE. Modales (dialogue de confirmation) : au-dessus de tout, menus compris. | `1092` |
 | `style.zIndex.relationBar` | Plan CARTE. Barre d'état d'une relation, posée sur la carte. | `6` |
 | `style.zIndex.editOverlay` | Plan CARTE. Overlay SVG de sélection (poignées de transformation). | `15` |
@@ -437,6 +438,9 @@ Référentiels parcourables déclarés par l'hôte et par les plugins (`engine.c
 | `catalog.pageSize` | Éléments demandés par page à `CatalogSource.list`. Une page couvre plus que la hauteur d'un panneau, donc le défilement ne bute pas sur une sentinelle dès la première ligne. | `50` |
 | `catalog.debounceMs` | Anti-rebond de la frappe avant d'interroger la source. 💰 Le levier direct sur le nombre d'appels à l'API de l'hôte — aligné sur `data.search.debounceMs`. | `250` |
 | `catalog.maxInlineActions` | Actions de source rendues en ligne sur une ligne de liste. Au-delà, c'est le NOM qui disparaîtrait ; les suivantes sont ignorées, avec un avertissement. | `2` |
+| `catalog.overscanRows` | Lignes rendues hors écran de chaque côté de la fenêtre virtuelle. Curseur entre « pas de vide au défilement rapide » et « travail React par frame » : chaque unité ajoute DEUX lignes rendues à chaque frame. | `4` |
+| `catalog.prefetchMarginPx` | 💰 Distance au bas de liste qui déclenche la page suivante (px). Décide du VOLUME d'appels à `CatalogSource.list` : une marge large précharge pendant qu'on défile encore, mais demande des pages qu'on ne regardera peut-être jamais. | `200` |
+| `catalog.persistDebounceMs` | Anti-rebond avant d'écrire la sélection dans le stockage. `localStorage.setItem` est SYNCHRONE : sans amortissement, une rafale de gestes écrit autant de fois qu'elle compte d'éléments, sur une charge qui grossit. `0` écrit immédiatement ; la charge en attente est toujours vidée avant que la page ne disparaisse. | `250` |
 | `data.storageKeys.catalog` | Éléments de catalogue affichés sur la carte (tableau de `CatalogKey`). | `'m3d:catalog'` |
 | `data.storageKeys.catalogSettings` | Réglages du catalogue. Distincte de la précédente : décocher « conserver » efface la SÉLECTION, et une clé partagée effacerait du même geste le réglage qu'on vient de changer. | `'m3d:catalog-settings'` |
 | `interaction.shortcuts.controls.catalog` | Ouvre le panneau « Catalogue ». Sans source déclarée, la touche est inactive. | `'c'` |

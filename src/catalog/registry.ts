@@ -1,16 +1,17 @@
-import { ProviderRegistry } from '../core/ProviderRegistry'
+import { ChangeNotifier } from '../core/ProviderRegistry'
 import type { CatalogSource } from './types'
 
 /**
  * Registre des sources de catalogue partagé sur `MapEngine` (`engine.catalog`) : l'hôte
  * et les plugins y déclarent leurs types, le contrôle les liste sans en connaître aucun.
- * Même mécanique que `engine.tags` ou `engine.search`.
+ * Même mécanique de diffusion que `engine.tags` ou `engine.search`.
  *
- * Indexé par `id` et non par référence, contrairement au `Set` du socle : une source
- * réinscrite après un rechargement à chaud, ou deux montages concurrents du même plugin,
- * produiraient sinon deux entrées homonymes dans le sous-menu.
+ * Indexé par `id` et non par référence : une source réinscrite après un rechargement à
+ * chaud, ou deux montages concurrents du même plugin, produiraient sinon deux entrées
+ * homonymes dans le sous-menu. C'est aussi pourquoi il étend `ChangeNotifier` et non
+ * `ProviderRegistry` — le `Set` par référence de ce dernier ne serait jamais alimenté.
  */
-export class CatalogRegistry extends ProviderRegistry<CatalogSource> {
+export class CatalogRegistry extends ChangeNotifier {
   private readonly byIdMap = new Map<string, CatalogSource>()
 
   /** Inscrit (ou remplace) une source ; la fonction rendue la retire. */

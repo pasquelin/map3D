@@ -27,6 +27,9 @@ export const BUTTON_LABELS: Record<MapControlButton, string> = {
   compass: defaultLabels.controls.north,
   layers: 'Couches',
   plan: 'Plan',
+  // Même cas que `layers` : le libellé du catalogue vit sous `labels.catalog`, pas sous
+  // `labels.controls`. On le reprend à la source plutôt que de le retaper.
+  catalog: defaultLabels.catalog.button,
 }
 
 /** `selectModes` porte un objet `{ label, description }` : seul le libellé nous sert. */

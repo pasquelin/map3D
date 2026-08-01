@@ -59,7 +59,11 @@ export function useCatalogQuery(source: CatalogSource | undefined, query: string
   const [state, setState] = useState<InternalState>(EMPTY)
 
   const abortRef = useRef<AbortController | null>(null)
-  const guardRef = useRef(new RaceGuard())
+  // Initialisation PARESSEUSE : `useRef(new RaceGuard())` évalue son argument à chaque
+  // render et jette l'instance neuve — un objet alloué pour rien à chaque frappe.
+  const guardRef = useRef<RaceGuard | null>(null)
+  guardRef.current ??= new RaceGuard()
+  const guard = guardRef.current
   const lastSourceRef = useRef<string | null>(null)
 
   // « Latest ref » assumé (cf. CLAUDE.md § 3) : `run` doit survivre à ses renders sans
@@ -74,45 +78,48 @@ export function useCatalogQuery(source: CatalogSource | undefined, query: string
   const stateRef = useRef(state)
   stateRef.current = state
 
-  const run = useCallback((cursor: string | undefined, mode: 'first' | 'more') => {
-    const src = sourceRef.current
-    if (!src) return
+  const run = useCallback(
+    (cursor: string | undefined, mode: 'first' | 'more') => {
+      const src = sourceRef.current
+      if (!src) return
 
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    const token = guardRef.current.next()
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+      const token = guard.next()
 
-    setState((s) =>
-      mode === 'first'
-        ? { ...s, loading: true, loadingMore: false, error: false }
-        : { ...s, loadingMore: true, error: false },
-    )
+      setState((s) =>
+        mode === 'first'
+          ? { ...s, loading: true, loadingMore: false, error: false }
+          : { ...s, loadingMore: true, error: false },
+      )
 
-    src
-      .list({ query: needleRef.current, cursor, limit: pageSizeRef.current, signal: ctrl.signal })
-      .then((page) => {
-        if (!guardRef.current.isCurrent(token)) return
-        setState((s) => ({
-          items: mode === 'first' ? [...page.items] : [...s.items, ...page.items],
-          total: page.total ?? null,
-          cursor: page.nextCursor,
-          loading: false,
-          loadingMore: false,
-          error: false,
-        }))
-      })
-      .catch(() => {
-        // Une requête abandonnée rejette aussi : le jeton distingue « abandonnée » (à
-        // ignorer) de « vraiment en échec » (à montrer).
-        if (!guardRef.current.isCurrent(token)) return
-        setState((s) => ({ ...s, loading: false, loadingMore: false, error: true }))
-      })
-  }, [])
+      src
+        .list({ query: needleRef.current, cursor, limit: pageSizeRef.current, signal: ctrl.signal })
+        .then((page) => {
+          if (!guard.isCurrent(token)) return
+          setState((s) => ({
+            items: mode === 'first' ? [...page.items] : [...s.items, ...page.items],
+            total: page.total ?? null,
+            cursor: page.nextCursor,
+            loading: false,
+            loadingMore: false,
+            error: false,
+          }))
+        })
+        .catch(() => {
+          // Une requête abandonnée rejette aussi : le jeton distingue « abandonnée » (à
+          // ignorer) de « vraiment en échec » (à montrer).
+          if (!guard.isCurrent(token)) return
+          setState((s) => ({ ...s, loading: false, loadingMore: false, error: true }))
+        })
+    },
+    [guard],
+  )
 
   useEffect(() => {
     if (sourceId === null) {
-      guardRef.current.cancel()
+      guard.cancel()
       lastSourceRef.current = null
       setState(EMPTY)
       return
@@ -128,15 +135,15 @@ export function useCatalogQuery(source: CatalogSource | undefined, query: string
     }
     const t = setTimeout(() => run(undefined, 'first'), config.catalog.debounceMs)
     return () => clearTimeout(t)
-  }, [sourceId, needle, config.catalog.debounceMs, run])
+  }, [sourceId, needle, config.catalog.debounceMs, run, guard])
 
   // Démontage / fermeture du panneau : couper le réseau ET périmer ce qui reviendrait.
   useEffect(
     () => () => {
       abortRef.current?.abort()
-      guardRef.current.cancel()
+      guard.cancel()
     },
-    [],
+    [guard],
   )
 
   const loadMore = useCallback(() => {

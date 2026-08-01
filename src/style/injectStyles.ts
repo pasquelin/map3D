@@ -764,8 +764,12 @@ const CSS = `
 .m3d-catalog{position:relative}
 .m3d-catbtn{position:relative}
 /* Le panneau ancré à la barre ne contient QUE le menu des types : la liste vit dans
-   .m3d-catsub, accolé du côté opposé (même châssis que .m3d-settings-sub). */
-.m3d-catpanel,.m3d-catsub{width:var(--m3d-catalog-panel-w);padding:8px;display:flex;flex-direction:column;gap:7px}
+   .m3d-catsub, accolé du côté opposé (même châssis que .m3d-settings-sub).
+   Deux largeurs distinctes bien qu'égales par défaut : les surfaces sont ACCOLÉES, donc
+   c'est leur somme que le cadrage doit réserver (cf. useCatalog.fit). */
+.m3d-catpanel,.m3d-catsub{padding:8px;display:flex;flex-direction:column;gap:7px}
+.m3d-catpanel{width:var(--m3d-catalog-panel-w)}
+.m3d-catsub{width:var(--m3d-catalog-sub-panel-w)}
 /* Menu des types : familles séparées par un filet, pas par un titre — à cinq entrées,
    un en-tête par famille prend plus de place que ce qu'il classe. */
 .m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
@@ -785,10 +789,14 @@ const CSS = `
   height:var(--m3d-catalog-row-h);font-size:var(--m3d-size-sm);box-sizing:border-box}
 .m3d-catrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-catrow.m3d-child{padding-left:calc(6px + var(--m3d-catalog-indent))}
-.m3d-catchevron{display:grid;place-items:center;width:18px;height:18px;flex:none;border:none;border-radius:5px;
+/* Le chevron et sa gouttière de remplacement partagent LA MÊME variable : deux valeurs
+   séparées finissaient par diverger, et les noms d'une même liste cessaient de
+   s'aligner selon que la ligne portait un chevron ou non. */
+.m3d-catchevron{display:grid;place-items:center;width:var(--m3d-catalog-chevron-w);height:var(--m3d-catalog-chevron-w);
+  flex:none;border:none;border-radius:5px;
   background:transparent;cursor:pointer;color:var(--m3d-muted);transition:transform .14s}
 .m3d-catchevron.m3d-on{transform:rotate(90deg);color:var(--m3d-text)}
-.m3d-catchevron-spacer{width:18px;flex:none}
+.m3d-catchevron-spacer{width:var(--m3d-catalog-chevron-w);flex:none}
 /* Le NOM : c'est lui qui cède la place, et lui seul — d'où min-width:0. */
 /* Pas de soulignement au survol : la ligne s'éclaire déjà (.m3d-catrow:hover), et
    souligner un nom sur deux au passage de la souris fait clignoter la liste. */
@@ -827,12 +835,15 @@ const CSS = `
 .m3d-catrow.m3d-off{opacity:.45}
 .m3d-catrow.m3d-off:hover{background:transparent}
 .m3d-catrow.m3d-off .m3d-catmain{cursor:default}
-.m3d-caterrdot{color:var(--m3d-danger,#f87171)}
-.m3d-catempty,.m3d-catloading{padding:14px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
-.m3d-caterror{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;font-size:12px;
-  background:color-mix(in srgb,var(--m3d-danger,#f87171) 14%,transparent);color:var(--m3d-text)}
+/* --m3d-error (thème, colors.ui.error) et NON un --m3d-danger qui n'a jamais été émis :
+   avec son repli en dur, la pastille et le bandeau étaient les deux seuls éléments
+   d'UI de la lib qu'aucun thème ne pouvait atteindre. */
+.m3d-caterrdot{color:var(--m3d-error)}
+.m3d-catempty,.m3d-catloading{padding:14px 8px;font-size:var(--m3d-size-sm);color:var(--m3d-muted);text-align:center}
+.m3d-caterror{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;font-size:var(--m3d-size-sm);
+  background:color-mix(in srgb,var(--m3d-error) 14%,transparent);color:var(--m3d-text)}
 .m3d-caterror button{margin-left:auto;border:1px solid var(--m3d-border);border-radius:7px;padding:3px 8px;
-  background:transparent;cursor:pointer;font-family:inherit;font-size:11px;color:var(--m3d-text)}
+  background:transparent;cursor:pointer;font-family:inherit;font-size:var(--m3d-size-xs);color:var(--m3d-text)}
 .m3d-catmorespace{height:1px}
 
 /* ── Gestionnaire de templates ──

@@ -9,36 +9,41 @@ const enfants = new Map<CatalogId, readonly CatalogItem[]>([['g1', [item('a'), i
 
 describe('flattenCatalog', () => {
   it('rend les racines à plat quand rien n’est déplié', () => {
-    const nodes = flattenCatalog('zones', racines, new Set(), new Map())
+    const nodes = flattenCatalog(racines, new Set(), new Map())
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'z9'])
     expect(nodes.every((n) => n.depth === 0)).toBe(true)
   })
 
   it('insère les enfants JUSTE APRÈS leur parent, à depth 1', () => {
-    const nodes = flattenCatalog('zones', racines, new Set(['g1']), enfants)
+    const nodes = flattenCatalog(racines, new Set(['g1']), enfants)
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'a', 'b', 'z9'])
     expect(nodes.map((n) => n.depth)).toEqual([0, 1, 1, 0])
   })
 
-  it('porte une clé unique par ligne, préfixée par la source', () => {
-    const nodes = flattenCatalog('zones', racines, new Set(['g1']), enfants)
-    expect(nodes.map((n) => n.key)).toEqual(['zones:g1', 'zones:a', 'zones:b', 'zones:z9'])
+  it('ne porte PAS de clé globale : la liste la construit pour les seules lignes rendues', () => {
+    const nodes = flattenCatalog(racines, new Set(['g1']), enfants)
+    // Décision de perf, pas un oubli : ces nœuds sont produits pour tous les éléments
+    // accumulés (des dizaines de milliers après quelques pages), alors que la clé ne
+    // sert qu'aux ~19 lignes visibles. La porter ici allouait une chaîne par élément à
+    // chaque page chargée. Le contenu du nœud se limite donc à l'élément et sa
+    // profondeur — cf. `catalogKey` dans `selection.ts`.
+    expect(nodes.map((n) => Object.keys(n).sort())).toEqual(Array(4).fill(['depth', 'item']))
   })
 
   it('déplié mais enfants pas encore chargés : le parent reste seul', () => {
-    const nodes = flattenCatalog('zones', racines, new Set(['g1']), new Map())
+    const nodes = flattenCatalog(racines, new Set(['g1']), new Map())
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'z9'])
   })
 
   it('replier retire les enfants', () => {
-    const ouvert = flattenCatalog('zones', racines, new Set(['g1']), enfants)
-    const ferme = flattenCatalog('zones', racines, new Set(), enfants)
+    const ouvert = flattenCatalog(racines, new Set(['g1']), enfants)
+    const ferme = flattenCatalog(racines, new Set(), enfants)
     expect(ouvert).toHaveLength(4)
     expect(ferme).toHaveLength(2)
   })
 
   it('ignore un id déplié qui ne correspond à aucune racine', () => {
-    const nodes = flattenCatalog('zones', racines, new Set(['fantome']), enfants)
+    const nodes = flattenCatalog(racines, new Set(['fantome']), enfants)
     expect(nodes).toHaveLength(2)
   })
 
@@ -47,11 +52,11 @@ describe('flattenCatalog', () => {
       ['g1', [item('a', true)]],
       ['a', [item('a1')]],
     ])
-    const nodes = flattenCatalog('zones', racines, new Set(['g1', 'a']), profond)
+    const nodes = flattenCatalog(racines, new Set(['g1', 'a']), profond)
     expect(nodes.map((n) => n.item.id)).toEqual(['g1', 'a', 'z9'])
   })
 
   it('liste de racines vide : aucune ligne', () => {
-    expect(flattenCatalog('zones', [], new Set(['g1']), enfants)).toEqual([])
+    expect(flattenCatalog([], new Set(['g1']), enfants)).toEqual([])
   })
 })

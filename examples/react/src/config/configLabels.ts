@@ -493,4 +493,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'catalog.pageSize': 'éléments par page',
   'catalog.debounceMs': 'anti-rebond de frappe (ms)',
   'catalog.maxInlineActions': 'actions en ligne par élément',
+  'catalog.overscanRows': 'lignes de sur-rendu',
+  'catalog.prefetchMarginPx': 'marge de préchargement (px)',
+  'catalog.persistDebounceMs': 'anti-rebond d’écriture (ms)',
 }

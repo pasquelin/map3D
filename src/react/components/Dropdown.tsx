@@ -208,19 +208,24 @@ export function Dropdown({
   // deps, un littéral neuf par render réabonnerait ses listeners globaux à chaque render.
   const zones = useMemo(() => [rootRef, panelRef], [])
   // Surfaces filles montées à l'exécution : un `Set` de refs, résolu au moment du clic.
-  const subs = useRef(new Set<RefObject<HTMLElement | null>>())
+  // Initialisé PARESSEUSEMENT — `useRef(new Set())` alloue un `Set` à chaque render de
+  // chaque `Dropdown` monté (la barre en compte cinq à six) pour aussitôt le jeter.
+  const subsRef = useRef<Set<RefObject<HTMLElement | null>> | null>(null)
+  subsRef.current ??= new Set<RefObject<HTMLElement | null>>()
+  // Identité stable dès le premier render : les closures ci-dessous peuvent la capturer.
+  const subs = subsRef.current
   const subRegistry = useMemo<SubSurfaceRegistry>(
     () => ({
       add: (ref) => {
-        subs.current.add(ref)
+        subs.add(ref)
         return () => {
-          subs.current.delete(ref)
+          subs.delete(ref)
         }
       },
     }),
-    [],
+    [subs],
   )
-  const also = useCallback(() => [...subs.current].map((r) => r.current), [])
+  const also = useCallback(() => [...subs].map((r) => r.current), [subs])
   useDismiss(zones, open, close, { also })
   if (toggleRef) toggleRef.current = () => setOpen(!open)
 

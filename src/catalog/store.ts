@@ -20,6 +20,13 @@ export type CatalogStoreKeys = {
   selection: string
   /** Clé des RÉGLAGES (`config.data.storageKeys.catalogSettings`). */
   settings: string
+  /**
+   * Anti-rebond d'écriture de la sélection (`config.catalog.persistDebounceMs`).
+   *
+   * `0` écrit immédiatement. Quelle que soit la valeur, `flushPersist()` garantit qu'une
+   * charge en attente part avant que la page ne disparaisse.
+   */
+  persistDebounceMs: number
 }
 
 /**
@@ -72,6 +79,16 @@ export class CatalogStore {
    * annulant celui du clic, donc son cadrage. La zone apparaissait, la caméra non.
    */
   private toRestore = new Set<CatalogKey>()
+  /**
+   * Écriture de la sélection en attente.
+   *
+   * `localStorage.setItem` est SYNCHRONE : écrire à chaque clé d'une rafale (cocher un
+   * agrégat, restaurer une session) bloquait le thread principal autant de fois que la
+   * rafale comptait d'éléments, sur une charge qui grossissait à chaque tour. Même
+   * décision que la position caméra (`config.data.positionSaveDebounceMs`).
+   */
+  private persistTimer: ReturnType<typeof setTimeout> | null = null
+  private persistDirty = false
 
   /**
    * Branche les clés de stockage et relit ce qui avait été retenu.
@@ -80,7 +97,16 @@ export class CatalogStore {
    * peut tourner sans elle. Idempotent : deux montages successifs ne dupliquent rien.
    */
   configure(keys: CatalogStoreKeys): void {
-    if (this.keys?.selection === keys.selection && this.keys.settings === keys.settings) return
+    if (
+      this.keys?.selection === keys.selection &&
+      this.keys.settings === keys.settings &&
+      this.keys.persistDebounceMs === keys.persistDebounceMs
+    ) {
+      return
+    }
+    // Changer de clé alors qu'une écriture est en attente l'écrirait sous la NOUVELLE
+    // clé : on vide d'abord, tant que l'ancienne est encore la courante.
+    this.flushPersist()
     this.keys = keys
     this.settings = this.loadSettings(keys.settings)
     // Ne relire la sélection que si la persistance est active : sinon une charge
@@ -144,6 +170,17 @@ export class CatalogStore {
 
   // ── Écriture ──
 
+  /**
+   * Reste-t-il quelque chose à restaurer ?
+   *
+   * Sortie anticipée de l'effet de restauration, qui est rejoué à CHAQUE mutation du
+   * store (il dépend du jeton) : sans elle, chaque géométrie qui arrive payait une
+   * copie de `toRestore` et un balayage des sources pour ne rien faire.
+   */
+  hasPendingRestores(): boolean {
+    return this.toRestore.size > 0
+  }
+
   /** Clés du stockage restant à recharger — cf. `toRestore`. */
   pendingRestores(): readonly CatalogKey[] {
     return [...this.toRestore]
@@ -169,10 +206,57 @@ export class CatalogStore {
     this.bump()
   }
 
+  /**
+   * Entre un LOT dans la sélection — cocher un agrégat, restaurer une session.
+   *
+   * Rend les clés RÉELLEMENT ajoutées : l'appelant ne lance un chargement que pour
+   * celles-là, les autres ayant déjà leur géométrie ou leur requête en vol.
+   *
+   * Symétrique de `removeMany`, et pour la même raison : en boucle sur `markSelected`,
+   * chaque clé recopiait la sélection entière (O(k²)), la réécrivait dans le stockage
+   * et notifiait — k écritures synchrones et k cascades de rendu pour un seul geste.
+   */
+  markSelectedMany(keys: readonly CatalogKey[]): readonly CatalogKey[] {
+    const added: CatalogKey[] = []
+    for (const key of keys) {
+      // Un geste explicite l'emporte sur la restauration — cf. `markSelected`.
+      this.toRestore.delete(key)
+      if (this.shown.has(key)) continue
+      this.shown.add(key)
+      this.pending.add(key)
+      this.errors.delete(key)
+      added.push(key)
+    }
+    if (added.length === 0) return added
+    this.selectionKeys = [...this.selectionKeys, ...added]
+    this.persistSelection()
+    this.bump()
+    return added
+  }
+
   setGeometry(key: CatalogKey, shapes: readonly ShapeData[]): void {
     this.geometries.set(key, shapes)
     this.pending.delete(key)
     this.errors.delete(key)
+    this.rebuildShapes()
+    this.bump()
+  }
+
+  /**
+   * Pose les géométries d'un LOT en une passe.
+   *
+   * `rebuildShapes` est en O(formes totales) et chaque `bump` redescend jusqu'à
+   * `ShapeLayer`, qui reconstruit TOUTES ses formes. Élément par élément, afficher k
+   * zones coûtait O(k × total) itérations et k reconstructions complètes de la couche
+   * 3D — là où une seule suffit.
+   */
+  setGeometryMany(entries: readonly (readonly [CatalogKey, readonly ShapeData[]])[]): void {
+    if (entries.length === 0) return
+    for (const [key, shapes] of entries) {
+      this.geometries.set(key, shapes)
+      this.pending.delete(key)
+      this.errors.delete(key)
+    }
     this.rebuildShapes()
     this.bump()
   }
@@ -197,14 +281,16 @@ export class CatalogStore {
    * la sélection et notifiait : k × (formes totales) itérations, k écritures, k cascades
    * de rendu pour un seul geste.
    */
-  removeMany(keys: readonly CatalogKey[]): void {
+  removeMany(keys: readonly CatalogKey[], failed = false): void {
     let touched = false
     for (const key of keys) {
       if (!this.shown.has(key)) continue
       this.shown.delete(key)
       this.geometries.delete(key)
       this.pending.delete(key)
-      this.errors.delete(key)
+      // Même règle que `remove` : un lot qui échoue laisse ses pastilles d'erreur.
+      if (failed) this.errors.add(key)
+      else this.errors.delete(key)
       touched = true
     }
     if (!touched) return
@@ -226,17 +312,30 @@ export class CatalogStore {
     this.bump()
   }
 
-  /** Retire ce qui appartient à une source disparue (plugin démonté). */
-  purge(known: ReadonlySet<string>): void {
+  /**
+   * Retire ce qui appartient à une source disparue (plugin démonté).
+   *
+   * Rend `true` si quelque chose a bougé — l'appelant n'a pas à repeindre la carte pour
+   * une inscription de source qui n'a rien retiré, ce qui, sous `renderOnDemand`, était
+   * une frame rendue pour rien à chaque plugin qui arrive.
+   */
+  purge(known: ReadonlySet<string>): boolean {
     const kept = purgeSources(this.selectionKeys, known)
-    if (kept === this.selectionKeys) return
+    if (kept === this.selectionKeys) return false
     const keep = new Set(kept)
     for (const key of [...this.geometries.keys()]) if (!keep.has(key)) this.geometries.delete(key)
+    // `pending` et `errors` AUSSI : sans cela, un plugin démonté puis remonté retrouvait
+    // ses lignes en erreur ou en chargement alors que plus rien n'était en vol — une
+    // case désactivée et une pastille rouge que rien ne venait jamais effacer.
+    for (const key of [...this.pending]) if (!keep.has(key)) this.pending.delete(key)
+    for (const key of [...this.errors]) if (!keep.has(key)) this.errors.delete(key)
+    for (const key of [...this.toRestore]) if (!keep.has(key)) this.toRestore.delete(key)
     this.shown = keep
     this.selectionKeys = kept
     this.rebuildShapes()
     this.persistSelection()
     this.bump()
+    return true
   }
 
   setSettings(patch: Partial<CatalogSettings>): void {
@@ -244,8 +343,12 @@ export class CatalogStore {
     if (this.keys) writeStoredJSON(this.keys.settings, { v: SETTINGS_VERSION, ...this.settings })
     // Désactiver la persistance EFFACE la charge : la garder reviendrait à promettre
     // l'oubli tout en conservant la trace, et elle reviendrait au prochain réglage.
-    if (!this.settings.persist && this.keys) removeStoredKey(this.keys.selection)
-    else this.persistSelection()
+    // L'écriture en attente est abandonnée AVANT l'effacement — sinon son timer
+    // réécrivait la sélection juste après qu'on l'a effacée.
+    if (!this.settings.persist && this.keys) {
+      this.cancelPersist()
+      removeStoredKey(this.keys.selection)
+    } else this.persistSelection()
     this.bump()
   }
 
@@ -305,9 +408,47 @@ export class CatalogStore {
     this.shapesCache = out
   }
 
+  /**
+   * Écrit la sélection — amortie, parce que `localStorage.setItem` est SYNCHRONE.
+   *
+   * Marque simplement « à écrire » et arme un timer : une rafale de gestes ne produit
+   * qu'une écriture, sur la charge finale, au lieu d'une par élément sur une charge qui
+   * grossit. `persistDebounceMs: 0` retombe sur l'écriture immédiate.
+   */
   private persistSelection(): void {
     if (!this.keys || !this.settings.persist) return
+    this.persistDirty = true
+    if (this.keys.persistDebounceMs <= 0) {
+      this.flushPersist()
+      return
+    }
+    if (this.persistTimer !== null) clearTimeout(this.persistTimer)
+    this.persistTimer = setTimeout(() => this.flushPersist(), this.keys.persistDebounceMs)
+  }
+
+  /**
+   * Écrit tout de suite ce qui attend. À appeler avant que la page ne disparaisse
+   * (`pagehide`) et au démontage de la carte : une sélection amortie ne doit pas se
+   * perdre parce que l'onglet s'est fermé pendant le délai.
+   */
+  flushPersist(): void {
+    if (this.persistTimer !== null) {
+      clearTimeout(this.persistTimer)
+      this.persistTimer = null
+    }
+    if (!this.persistDirty) return
+    this.persistDirty = false
+    if (!this.keys || !this.settings.persist) return
     writeStoredJSON(this.keys.selection, serializeSelection(this.selectionKeys))
+  }
+
+  /** Abandonne l'écriture en attente — la charge qu'elle porterait n'a plus lieu d'être. */
+  private cancelPersist(): void {
+    if (this.persistTimer !== null) {
+      clearTimeout(this.persistTimer)
+      this.persistTimer = null
+    }
+    this.persistDirty = false
   }
 
   private loadSettings(key: string): CatalogSettings {

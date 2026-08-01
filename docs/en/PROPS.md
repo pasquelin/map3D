@@ -322,6 +322,24 @@ Bar button + panel of the template manager (drawing snapshots). Also accepts all
 | `shortcut` | Key (single letter) that opens/closes the panel. `false` = no shortcut. | — |
 | `grouped` | Rendered WITHOUT its own `.m3d-controls-group` card — for a shared group (with “Layers”). | — |
 
+## `<CatalogControl>`
+
+Bar button + "Catalog" panel: browses remote reference sets (zones, towns, departments…)
+and lays their geometries on the map. Sources come from the `engine.catalog` registry,
+not from props. Details in [CATALOG.md](CATALOG.md).
+
+**With no source declared, the component renders nothing** — a button that would only
+open an empty list is worse than no button. It is already mounted by `<MapControls>`
+(button `catalog`, in the "Layers" group): instantiate it yourself only to place it in a
+custom bar.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Host bar side: the panel opens on the opposite side. | `'right'` |
+| `tipId` | id of the host bar's shared `<Tooltip>` (MapControls). | — |
+| `shortcut` | Key (single letter) that opens/closes the panel. `false` = no shortcut. | `interaction.shortcuts.controls.catalog` |
+| `grouped` | Rendered WITHOUT its own `.m3d-controls-group` card — to sit alongside "Layers". | — |
+
 ## `<Confirm>`
 
 Modal confirmation dialog (above everything, `style.zIndex.modal`). Closes on Enter

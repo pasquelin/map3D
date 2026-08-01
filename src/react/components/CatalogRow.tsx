@@ -1,43 +1,21 @@
 import { mdiAlertCircleOutline, mdiChevronRight } from '@mdi/js'
 import { memo, useEffect, useRef } from 'react'
 import type { CatalogNode } from '../../catalog/flatten'
-import type { CatalogAction, CatalogId, CatalogSource } from '../../catalog/types'
+import type { CatalogAction, CatalogId, CatalogItem, CatalogSource } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
-import { useConfig, useLabels, useMapContext } from '../context'
-import type { CatalogApi } from '../hooks/useCatalog'
+import { useLabels, useMapContext } from '../context'
 import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
-
-/** Sources déjà averties d'un débordement d'actions — un avertissement par source, pas par render. */
-const warned = new Set<string>()
-
-/**
- * Actions rendues en ligne, plafonnées.
- *
- * Au-delà du plafond, c'est le NOM qui disparaît — déjà tronqué par construction. On
- * tronque donc la liste d'actions, mais en le DISANT : une action silencieusement
- * absente est un bug qu'on ne trouve qu'en production.
- *
- * Pas de garde `import.meta.env.DEV` : la lib est publiée en ESM **et** en CJS, où
- * `import.meta` n'existe pas. Un avertissement unique par source ne pollue rien.
- */
-function inlineActions(source: CatalogSource, max: number): readonly CatalogAction[] {
-  const all = source.actions ?? []
-  if (all.length <= max) return all
-  if (!warned.has(source.id)) {
-    warned.add(source.id)
-    console.warn(
-      `[map3d] catalogue « ${source.id} » : ${all.length} actions déclarées, ${max} rendues ` +
-        `(config.catalog.maxInlineActions). Les suivantes sont ignorées.`,
-    )
-  }
-  return all.slice(0, max)
-}
 
 export type CatalogRowProps = {
   node: CatalogNode
   source: CatalogSource
-  catalog: CatalogApi
+  /** Actions de la source, déjà plafonnées — identité stable entre deux renders. */
+  actions: readonly CatalogAction[]
+  /** Cet élément est-il sur la carte ? Pour un agrégat, `checkState` fait autorité. */
+  shown: boolean
+  pending: boolean
+  failed: boolean
   expanded: boolean
   onToggleExpand: (id: CatalogId) => void
   /**
@@ -45,14 +23,27 @@ export type CatalogRowProps = {
    * est affichée — c'est l'état natif `indeterminate`, pas une troisième valeur métier.
    */
   checkState: 'on' | 'off' | 'mixed'
-  /** Coche ou décoche : pour un agrégat, cela porte sur tous ses enfants. */
-  onCheck: (next: boolean) => void
+  /**
+   * Coche ou décoche : pour un agrégat, cela porte sur tous ses enfants.
+   *
+   * Reçoit le `node` en argument plutôt que d'être fermé dessus : une closure par ligne
+   * changeait d'identité à chaque render et défaisait le `memo` de ce composant.
+   */
+  onCheck: (node: CatalogNode, next: boolean) => void
+  /** Clic sur le nom : bascule ET cadre. */
+  onActivate: (item: CatalogItem) => void
   /** id du `<Tooltip>` de la barre hôte — les infobulles de la lib, pas des `title` natifs. */
   tipId: string
 }
 
 /**
  * Une ligne : chevron, case « sur la carte », pastille, nom, badges, actions.
+ *
+ * **Toutes ses props sont des primitives ou des identités stables.** C'est la condition
+ * du `memo` : la ligne recevait auparavant l'API du catalogue (identité neuve à chaque
+ * mutation du store) et une closure `onCheck` créée par ligne — le `memo` ne pouvait
+ * alors JAMAIS court-circuiter, et les dix-neuf lignes visibles se re-rendaient à chaque
+ * frame de défilement.
  *
  * **Infobulle sur les seules actions de source.** Partout ailleurs le sens est déjà à
  * l'écran — un nom, un compteur, une case dont l'état se voit — et une bulle par survol
@@ -75,29 +66,29 @@ export type CatalogRowProps = {
 function CatalogRowInner({
   node,
   source,
-  catalog,
+  actions,
+  shown: isShown,
+  pending,
+  failed,
   expanded,
   onToggleExpand,
   checkState,
   onCheck,
+  onActivate,
   tipId,
 }: CatalogRowProps) {
-  const { item, key, depth } = node
+  const { item, depth } = node
   const { theme } = useMapContext()
   const labels = useLabels()
-  const config = useConfig()
   const tip = useTip(tipId)
 
   const shown = checkState === 'on'
-  const pending = catalog.isPending(key)
   // `indeterminate` n'est pas un attribut : il ne s'écrit que sur le nœud, d'où le ref.
   const boxRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
     if (boxRef.current) boxRef.current.indeterminate = checkState === 'mixed'
   }, [checkState])
-  const failed = catalog.hasError(key)
   const off = item.disabled === true
-  const actions = inlineActions(source, config.catalog.maxInlineActions)
   // La COLONNE du chevron n'existe que si la source sait déplier : sur un référentiel
   // plat (villes, zones), réserver sa gouttière décalait chaque ligne de 18 px pour un
   // contrôle qui n'apparaîtra jamais.
@@ -135,15 +126,15 @@ function CatalogRowInner({
         disabled={off || pending}
         // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
         // convention des arbres de cases, et `e.target.checked` la donne déjà.
-        onChange={(e) => onCheck(e.target.checked)}
+        onChange={(e) => onCheck(node, e.target.checked)}
       />
 
       <button
         type="button"
         className="m3d-catmain"
-        aria-pressed={shown}
+        aria-pressed={isShown}
         disabled={off || pending}
-        onClick={() => catalog.toggle(source, item, { fit: true })}
+        onClick={() => onActivate(item)}
       >
         {item.icon ? (
           <UiIcon path={item.icon} color={item.color} />

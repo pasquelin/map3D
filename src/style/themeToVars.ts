@@ -56,7 +56,11 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     '--m3d-templates-panel-w': `${theme.sizing.templatesPanelW}px`,
     '--m3d-templates-panel-maxh': `${theme.sizing.panelMaxHeight.templates}px`,
     '--m3d-catalog-panel-w': `${theme.sizing.catalogPanelW}px`,
+    '--m3d-catalog-sub-panel-w': `${theme.sizing.catalogSubPanelW}px`,
     '--m3d-catalog-panel-maxh': `${theme.sizing.panelMaxHeight.catalog}px`,
+    // Le chevron ET la gouttière qui le remplace sur une ligne sans enfants : une seule
+    // valeur, sinon les noms cessent de s'aligner d'une ligne à l'autre.
+    '--m3d-catalog-chevron-w': `${theme.sizing.catalogChevronW}px`,
     // La virtualisation calcule sa fenêtre à partir de CETTE hauteur : le CSS et le
     // calcul doivent lire la même valeur, sinon les lignes dérivent au défilement.
     '--m3d-catalog-row-h': `${theme.sizing.catalogRowHeight}px`,

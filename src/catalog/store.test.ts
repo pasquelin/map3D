@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ShapeData } from '../layers/ShapeLayer'
 import { CatalogStore } from './store'
 
-const KEYS = { selection: 'test:catalog', settings: 'test:catalog-settings' }
+// `persistDebounceMs: 0` : les tests vérifient CE qui est écrit, pas quand. L'amortie
+// a sa propre série plus bas, avec des faux timers.
+const KEYS = { selection: 'test:catalog', settings: 'test:catalog-settings', persistDebounceMs: 0 }
 
 const shape = (id: string): ShapeData => ({ kind: 'circle', id, center: { lat: 48, lng: 2 }, radiusMeters: 100 })
 
@@ -205,5 +207,124 @@ describe('persistance', () => {
     s.markSelected('zones:1')
     s.setGeometry('zones:1', [shape('a')])
     expect(localStorage.getItem(KEYS.selection)).not.toContain('radiusMeters')
+  })
+})
+
+describe('gestes de LOT — une écriture, une notification', () => {
+  it('markSelectedMany n’écrit le stockage QU’UNE fois pour tout le lot', () => {
+    const s = fresh()
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    s.markSelectedMany(['zones:1', 'zones:2', 'zones:3'])
+    // C'est tout l'objet du lot : `localStorage.setItem` est synchrone, une écriture par
+    // enfant gelait le thread principal autant de fois que l'agrégat comptait d'enfants.
+    expect(setItem).toHaveBeenCalledTimes(1)
+    expect(s.selection()).toEqual(['zones:1', 'zones:2', 'zones:3'])
+    setItem.mockRestore()
+  })
+
+  it('markSelectedMany ne rend QUE les clés réellement ajoutées', () => {
+    const s = fresh()
+    s.markSelected('zones:1')
+    // `zones:1` est déjà là : l'appelant ne doit pas relancer son chargement.
+    expect(s.markSelectedMany(['zones:1', 'zones:2'])).toEqual(['zones:2'])
+  })
+
+  it('markSelectedMany ne notifie pas quand rien n’a été ajouté', () => {
+    const s = fresh()
+    s.markSelected('zones:1')
+    const seen = vi.fn()
+    s.onChanged(seen)
+    s.markSelectedMany(['zones:1'])
+    expect(seen).not.toHaveBeenCalled()
+  })
+
+  it('setGeometryMany ne notifie qu’une fois et lève l’attente de chacun', () => {
+    const s = fresh()
+    s.markSelectedMany(['zones:1', 'zones:2'])
+    const seen = vi.fn()
+    s.onChanged(seen)
+    s.setGeometryMany([
+      ['zones:1', [shape('a')]],
+      ['zones:2', [shape('b')]],
+    ])
+    expect(seen).toHaveBeenCalledTimes(1)
+    expect(s.isPending('zones:1')).toBe(false)
+    expect(s.isPending('zones:2')).toBe(false)
+    expect(s.shapes().map((sh) => sh.id)).toEqual(['a', 'b'])
+  })
+
+  it('removeMany peut marquer tout un lot en échec', () => {
+    const s = fresh()
+    s.markSelectedMany(['zones:1', 'zones:2'])
+    s.removeMany(['zones:1', 'zones:2'], true)
+    expect(s.hasError('zones:1')).toBe(true)
+    expect(s.hasError('zones:2')).toBe(true)
+    expect(s.selection()).toEqual([])
+  })
+})
+
+describe('purge d’une source disparue', () => {
+  it('nettoie AUSSI l’attente et l’échec, pas seulement la sélection', () => {
+    const s = fresh()
+    s.markSelected('zones:1')
+    s.remove('zones:2', true)
+    s.markSelected('zones:2')
+    // Sans ce nettoyage, un plugin démonté puis remonté retrouvait ses lignes en
+    // chargement (case désactivée) ou en erreur (pastille rouge) sans rien en vol.
+    expect(s.purge(new Set(['autre']))).toBe(true)
+    expect(s.isPending('zones:1')).toBe(false)
+    expect(s.hasError('zones:1')).toBe(false)
+    expect(s.isPending('zones:2')).toBe(false)
+    expect(s.hasError('zones:2')).toBe(false)
+    expect(s.hasPendingRestores()).toBe(false)
+  })
+
+  it('rend false quand rien n’a bougé — l’appelant ne repeint pas pour rien', () => {
+    const s = fresh()
+    s.markSelected('zones:1')
+    expect(s.purge(new Set(['zones']))).toBe(false)
+  })
+})
+
+describe('persistance amortie', () => {
+  const DEBOUNCE = { ...KEYS, persistDebounceMs: 250 }
+
+  it('n’écrit qu’une fois pour une rafale, et la charge est la dernière', () => {
+    vi.useFakeTimers()
+    const s = new CatalogStore()
+    s.configure(DEBOUNCE)
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    s.markSelected('zones:1')
+    s.markSelected('zones:2')
+    s.markSelected('zones:3')
+    expect(setItem).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(250)
+    expect(setItem).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(KEYS.selection)).toContain('zones:3')
+    setItem.mockRestore()
+    vi.useRealTimers()
+  })
+
+  it('flushPersist écrit tout de suite — la page peut disparaître pendant le délai', () => {
+    vi.useFakeTimers()
+    const s = new CatalogStore()
+    s.configure(DEBOUNCE)
+    s.markSelected('zones:1')
+    expect(localStorage.getItem(KEYS.selection)).toBeNull()
+    s.flushPersist()
+    expect(localStorage.getItem(KEYS.selection)).toContain('zones:1')
+    vi.useRealTimers()
+  })
+
+  it('couper la persistance abandonne l’écriture en attente au lieu de la laisser revenir', () => {
+    vi.useFakeTimers()
+    const s = new CatalogStore()
+    s.configure(DEBOUNCE)
+    s.markSelected('zones:1')
+    s.setSettings({ persist: false })
+    // Sans l'abandon, le timer réécrivait la sélection juste après son effacement.
+    vi.advanceTimersByTime(250)
+    expect(localStorage.getItem(KEYS.selection)).toBeNull()
+    vi.useRealTimers()
   })
 })

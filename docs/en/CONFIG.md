@@ -290,7 +290,8 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `style.zIndex.floatingHud` | ROOT plane. Floating HUD (selection, lens): above the map, below the bars. | `900` |
 | `style.zIndex.dock` | ROOT plane. Favourites dock — deliberately BELOW the bars. | `990` |
 | `style.zIndex.ui` | ROOT plane. Bars, panels, search box: the UI surface plane. | `991` |
-| `style.zIndex.menu` | ROOT plane. Context menus and drag-and-drop ghosts: at the top. | `992` |
+| `style.zIndex.barTooltip` | ROOT plane. Bar tooltips (`.m3d-tip`), portalled to the root by `<MapTooltip>` — hence SIBLINGS of the panels, not trapped inside the bar. ⚠️ Not to be confused with `tooltip`, which is a LOCAL plane. This one must sit above the panels (`ui`) — that is its whole point — but STAY BELOW `menu`: an open menu is a decision in progress, a tooltip is only an explanation. | `992` |
+| `style.zIndex.menu` | ROOT plane. Context menus and drag-and-drop ghosts: at the top. | `993` |
 | `style.zIndex.modal` | ROOT plane. Modals (confirmation dialog): above everything, menus included. | `1092` |
 | `style.zIndex.relationBar` | MAP plane. Status bar of a relation, resting on the map. | `6` |
 | `style.zIndex.editOverlay` | MAP plane. SVG selection overlay (transformation handles). | `15` |
@@ -438,6 +439,9 @@ Browsable reference sets declared by the host and by plugins (`engine.catalog`) 
 | `catalog.pageSize` | Items requested per page from `CatalogSource.list`. One page covers more than a panel's height, so scrolling doesn't hit a sentinel on the very first row. | `50` |
 | `catalog.debounceMs` | Keystroke debounce before querying the source. 💰 The direct lever on the number of calls to the host's API — aligned with `data.search.debounceMs`. | `250` |
 | `catalog.maxInlineActions` | Source actions rendered inline on a list row. Beyond that, the NAME would be what disappears; extra ones are ignored, with a warning. | `2` |
+| `catalog.overscanRows` | Rows rendered off-screen on each side of the virtual window. The dial between "no blank on fast scroll" and "React work per frame": each unit adds TWO rendered rows on every frame. | `4` |
+| `catalog.prefetchMarginPx` | 💰 Distance from the list bottom that triggers the next page (px). Decides the VOLUME of calls to `CatalogSource.list`: a wide margin prefetches while you are still scrolling, but requests pages you may never look at. | `200` |
+| `catalog.persistDebounceMs` | Debounce before writing the selection to storage. `localStorage.setItem` is SYNCHRONOUS: without damping, a burst of gestures writes as many times as it has items, on a payload that keeps growing. `0` writes immediately; a pending payload is always flushed before the page goes away. | `250` |
 | `data.storageKeys.catalog` | Catalog items displayed on the map (array of `CatalogKey`). | `'m3d:catalog'` |
 | `data.storageKeys.catalogSettings` | Catalog settings. Distinct from the previous one: unticking "keep" clears the SELECTION, and a shared key would wipe the very setting just changed. | `'m3d:catalog-settings'` |
 | `interaction.shortcuts.controls.catalog` | Opens the "Catalog" panel. With no source declared, the key is inactive. | `'c'` |
