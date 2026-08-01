@@ -1565,14 +1565,17 @@ export class MapEngine {
     if (this.cameraMode !== 'pedestrian' || this.pedestrianPhase !== 'active') return
     if (this.immersion === level) return
     this.applyImmersion(level)
-    // L'immersion totale met le CANVAS lui-même en plein écran (pas le conteneur) : seul le
-    // rendu de la carte remplit l'écran, « comme une vidéo », sans barres ni chrome navigateur.
+    // L'immersion met le CONTENEUR `.m3d-root` en plein écran — le MÊME plein écran fiable que
+    // le bouton hors piéton (son `ResizeObserver` recale le rendu tout seul, sans bande) — et
+    // masque les barres par-dessus (`.m3d-immersive`). Mettre le canvas seul en plein écran
+    // depuis une petite fenêtre laissait des bandes noires (taille CSS figée + timing).
+    const root = this.canvas.parentElement
     if (level === 'full') {
-      if (fullscreenElementOf(document) !== this.canvas) {
+      if (root !== null && fullscreenElementOf(document) !== root) {
         // Pas encore en plein écran : on le demande. Le Pointer Lock est DIFFÉRÉ à
         // `onFullscreenChange` — le demander avant que le plein écran soit effectif échoue sur
         // les navigateurs stricts, et le garde ci-dessus interdirait un second essai.
-        requestFullscreenOn(this.canvas)
+        requestFullscreenOn(root)
       } else {
         this.engagePointerLock()
       }
@@ -1584,11 +1587,17 @@ export class MapEngine {
     }
   }
 
-  /** Capture la souris pour le regard libre — idempotent (no-op si déjà verrouillée). */
+  /** Une demande de Pointer Lock est-elle en vol ? — évite une seconde requête concurrente. */
+  private pointerLockPending = false
+
+  /** Capture la souris pour le regard libre — idempotent (ni si déjà verrouillée, ni en vol). */
   private engagePointerLock(): void {
-    if (document.pointerLockElement !== this.canvas) {
-      void Promise.resolve(this.canvas.requestPointerLock()).catch(() => {})
+    if (document.pointerLockElement === this.canvas || this.pointerLockPending) return
+    this.pointerLockPending = true
+    const done = (): void => {
+      this.pointerLockPending = false
     }
+    void Promise.resolve(this.canvas.requestPointerLock()).then(done, done)
   }
 
   /**
@@ -1606,19 +1615,6 @@ export class MapEngine {
   }
 
   /**
-   * Redimensionne le rendu quand le CANVAS est en plein écran. Le conteneur (donc son
-   * `ResizeObserver`) ne bouge pas dans ce cas, et `innerWidth/innerHeight` ne valent la taille
-   * de l'ÉCRAN qu'une fois la fenêtre agrandie — ce que cet événement `resize` garantit, là où
-   * `fullscreenchange` peut arriver un cran trop tôt. Hors plein écran canvas, l'observateur du
-   * conteneur s'en charge : on ne double pas.
-   */
-  private onWindowResize = (): void => {
-    if (fullscreenElementOf(document) === this.canvas && window.innerWidth >= 1 && window.innerHeight >= 1) {
-      this.setSize(window.innerWidth, window.innerHeight)
-    }
-  }
-
-  /**
    * Souris relâchée alors qu'on était en immersion totale = Échap natif du Pointer Lock.
    *
    * Si l'immersion vient du PLEIN ÉCRAN (le chemin nominal — cf. `onFullscreenChange`), Échap
@@ -1630,34 +1626,25 @@ export class MapEngine {
    */
   private onPointerLockChange = (): void => {
     if (this.immersion !== 'full' || document.pointerLockElement === this.canvas) return
-    if (fullscreenElementOf(document)) exitFullscreenDoc(document)
-    else this.applyImmersion('explore')
+    // EN PLEIN ÉCRAN, on ne touche à RIEN : la sortie du mode se décide en quittant le plein
+    // écran (`onFullscreenChange`), jamais au relâchement du verrou. Sinon une acquisition
+    // ratée ou un cycle verrou à l'ENTRÉE (le verrou n'est pas encore posé) faisait sortir du
+    // mode aussitôt entré en plein écran. Hors plein écran (immersion armée par l'API sans
+    // plein écran), simple retour en exploration.
+    if (!fullscreenElementOf(document)) this.applyImmersion('explore')
   }
 
   /**
-   * Le plein écran du CANVAS pilote l'immersion piéton : le canvas passe en plein écran (carte
-   * plein cadre), on arme l'immersion + le Pointer Lock ; en sortir quitte le mode piéton.
-   * C'est le déclencheur nominal — « le plein écran gère l'action » —, sans bouton flottant.
+   * Le plein écran du CONTENEUR pilote l'immersion piéton : y entrer, en marche active, arme
+   * l'immersion (masquage des barres + Pointer Lock) ; en sortir quitte le mode piéton. C'est
+   * le déclencheur nominal — « le plein écran gère l'action » —, sans bouton flottant.
    *
-   * Le canvas en plein écran ne fait PAS varier la taille du conteneur, donc son
-   * `ResizeObserver` ne se déclenche pas : on redimensionne le rendu à la main (à l'entrée sur
-   * l'écran, à la sortie sur le conteneur), sans quoi la carte resterait à la résolution
-   * précédente, étirée pour remplir.
+   * Le `ResizeObserver` du conteneur recale le rendu tout seul (le conteneur EST l'élément en
+   * plein écran) : rien à redimensionner ici, contrairement au plein écran du canvas seul.
    */
   private onFullscreenChange = (): void => {
-    const canvasFs = fullscreenElementOf(document) === this.canvas
-    // Redimensionne le rendu à la taille RÉELLEMENT affichée :
-    // - en plein écran, l'ÉCRAN (`innerWidth/innerHeight`) — surtout PAS le rect du canvas :
-    //   `setSize` lui a posé une taille CSS fixe (celle de la fenêtre), qui le laisserait
-    //   centré avec des bandes noires sur un écran d'un autre ratio ;
-    // - sinon, le conteneur (retour à la taille fenêtrée).
-    if (canvasFs) {
-      if (window.innerWidth >= 1 && window.innerHeight >= 1) this.setSize(window.innerWidth, window.innerHeight)
-    } else {
-      const r = this.canvas.parentElement?.getBoundingClientRect()
-      if (r && r.width >= 1 && r.height >= 1) this.setSize(r.width, r.height)
-    }
-    if (canvasFs) {
+    const rootFs = this.canvas.parentElement !== null && fullscreenElementOf(document) === this.canvas.parentElement
+    if (rootFs) {
       if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
         // Plein écran effectif : on arme l'immersion (no-op si déjà armée) et on engage le
         // verrou MAINTENANT — c'est ici, plein écran acquis, qu'il est fiable.
@@ -3098,8 +3085,6 @@ export class MapEngine {
     // Le plein écran pilote l'immersion piéton — cf. `onFullscreenChange`.
     document.addEventListener('fullscreenchange', this.onFullscreenChange)
     document.addEventListener('webkitfullscreenchange', this.onFullscreenChange)
-    // Recalage du buffer quand le canvas est en plein écran — cf. `onWindowResize`.
-    window.addEventListener('resize', this.onWindowResize)
   }
 
   private unbindInput(): void {
@@ -3107,7 +3092,6 @@ export class MapEngine {
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     document.removeEventListener('fullscreenchange', this.onFullscreenChange)
     document.removeEventListener('webkitfullscreenchange', this.onFullscreenChange)
-    window.removeEventListener('resize', this.onWindowResize)
     this.canvas.removeEventListener('pointerdown', this.invalidate)
     this.canvas.removeEventListener('pointermove', this.invalidate)
     window.removeEventListener('pointerup', this.invalidate)

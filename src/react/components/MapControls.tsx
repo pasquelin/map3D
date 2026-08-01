@@ -219,14 +219,9 @@ export function MapControls({
   const tiltUp = useCallback(() => engine.tiltBy(config.camera.tiltStep), [engine, config.camera.tiltStep])
   const globe = useCallback(() => engine.flyToGlobe(), [engine])
   const toggleFs = useCallback(() => {
-    // En marche active, le plein écran EST l'immersion : le moteur met le CANVAS en plein écran
-    // (carte plein cadre, « comme une vidéo ») + Pointer Lock — cf. `setPedestrianImmersion`.
-    const ped = engine.getPedestrian()
-    if (ped.mode === 'pedestrian' && ped.phase === 'active') {
-      engine.setPedestrianImmersion(ped.immersion === 'full' ? 'explore' : 'full')
-      return
-    }
-    // Hors piéton : plein écran classique du conteneur (barres comprises).
+    // Plein écran du conteneur, dans tous les modes. En marche active, le moteur détecte ce
+    // plein écran et arme l'immersion (masquage des barres + Pointer Lock) — cf.
+    // `MapEngine.onFullscreenChange`. C'est « le plein écran gère l'action », sans bouton central.
     const root = engine.renderer.domElement.parentElement
     if (!document.fullscreenElement) root?.requestFullscreen?.()
     else document.exitFullscreen?.()
