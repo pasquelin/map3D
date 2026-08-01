@@ -71,6 +71,9 @@ export class Watermark {
       toneMapped: false,
     })
     this.mesh = new Mesh(this.geometry, this.material)
+    // Objet statique piloté par `setSize` : convention du repo — matrice recomposée à la
+    // main (`updateMatrix` dans `setSize`), pas à chaque frame par three.
+    this.mesh.matrixAutoUpdate = false
     this.scene.add(this.mesh)
   }
 
@@ -121,6 +124,8 @@ export class Watermark {
     this.mesh.scale.set(this.markW, MARK_H, 1)
     // Centre du quad : collé au coin bas-droit, à MARGIN des deux bords.
     this.mesh.position.set(width - MARGIN - this.markW / 2, MARGIN + MARK_H / 2, 0)
+    // `matrixAutoUpdate=false` : la transform ne serait sinon jamais appliquée.
+    this.mesh.updateMatrix()
   }
 
   /**
