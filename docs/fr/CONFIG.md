@@ -508,3 +508,13 @@ Référentiels parcourables déclarés par l'hôte et par les plugins (`engine.c
 | `catalog.overscanRows` | Lignes rendues hors écran de chaque côté de la fenêtre virtuelle. Curseur entre « pas de vide au défilement rapide » et « travail React par frame » : chaque unité ajoute DEUX lignes rendues à chaque frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance au bas de liste qui déclenche la page suivante (px). Décide du VOLUME d'appels à `CatalogSource.list` : une marge large précharge pendant qu'on défile encore, mais demande des pages qu'on ne regardera peut-être jamais. | `200` |
 | `catalog.persistDebounceMs` | Anti-rebond avant d'écrire la sélection dans le stockage. `localStorage.setItem` est SYNCHRONE : sans amortissement, une rafale de gestes écrit autant de fois qu'elle compte d'éléments, sur une charge qui grossit. `0` écrit immédiatement ; la charge en attente est toujours vidée avant que la page ne disparaisse. | `250` |
+
+---
+
+## `watermark` — Signature « map3D » (attribution)
+
+Signature apposée en bas à droite : marque **peinte dans le canvas WebGL** (insensible au CSS/DOM — ni `display:none` ni retrait de nœud ne la masquent) doublée d'un lien transparent vers le dépôt et sa licence. Le contenu (texte, URL, style) n'est **pas** réglable : le rendre surchargeable serait un vecteur de suppression de l'attribution.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `watermark.enabled` | Affiche la signature. La passer à `false` est **réservé aux clients disposant d'une licence commerciale** de map3D : sous la licence PolyForm-Noncommercial par défaut, retirer l'attribution viole la licence. | `true` |

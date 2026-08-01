@@ -8340,6 +8340,16 @@ Browsable reference sets declared by the host and by plugins (`engine.catalog`) 
 | `catalog.prefetchMarginPx` | 💰 Distance from the list bottom that triggers the next page (px). Decides the VOLUME of calls to `CatalogSource.list`: a wide margin prefetches while you are still scrolling, but requests pages you may never look at. | `200` |
 | `catalog.persistDebounceMs` | Debounce before writing the selection to storage. `localStorage.setItem` is SYNCHRONOUS: without damping, a burst of gestures writes as many times as it has items, on a payload that keeps growing. `0` writes immediately; a pending payload is always flushed before the page goes away. | `250` |
 
+---
+
+## `watermark` — "map3D" signature (attribution)
+
+Signature shown at the bottom right: a mark **painted into the WebGL canvas** (immune to CSS/DOM — neither `display:none` nor node removal hides it), doubled by a transparent link to the repository and its license. The content (text, URL, style) is **not** configurable: making it overridable would be a removal vector for the attribution.
+
+| Key | Description | Default |
+|---|---|---|
+| `watermark.enabled` | Show the signature. Setting it to `false` is **reserved for holders of a commercial license** of map3D: under the default PolyForm-Noncommercial license, removing the attribution violates the license. | `true` |
+
 
 
 <!-- ============================================================ -->

@@ -177,6 +177,7 @@ export type {
   PedestrianHeadBobConfig,
   PedestrianTransitionsConfig,
   PedestrianShortcuts,
+  WatermarkConfig,
 } from './config/types'
 /**
  * Sources de tuiles 2D. Exposées pour qu'un hôte puisse brancher son propre

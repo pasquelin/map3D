@@ -30,6 +30,7 @@ import type { SkyConfig } from './sky'
 import type { PedestrianConfig } from './pedestrian'
 import type { GraticuleConfig } from './graticule'
 import type { CatalogConfig } from './catalog'
+import type { WatermarkConfig } from './watermark'
 
 export * from './common'
 export * from './providers'
@@ -45,6 +46,7 @@ export * from './sky'
 export * from './pedestrian'
 export * from './graticule'
 export * from './catalog'
+export * from './watermark'
 
 export type MapConfig = {
   providers: ProvidersConfig
@@ -65,6 +67,8 @@ export type MapConfig = {
   graticule: GraticuleConfig
   /** Catalogue d'entités géographiques distantes — cf. `CatalogConfig`. */
   catalog: CatalogConfig
+  /** Signature « map3D » (attribution PolyForm) — cf. `WatermarkConfig`. */
+  watermark: WatermarkConfig
 }
 
 /** Ce que fournit l'application : n'importe quel sous-arbre de `MapConfig`. */

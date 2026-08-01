@@ -22,6 +22,7 @@ import { skyDefaults } from './defaults/sky'
 import { pedestrianDefaults } from './defaults/pedestrian'
 import { graticuleDefaults } from './defaults/graticule'
 import { catalogDefaults } from './defaults/catalog'
+import { watermarkDefaults } from './defaults/watermark'
 
 export const defaultConfig: MapConfig = {
   providers: providersDefaults,
@@ -37,4 +38,5 @@ export const defaultConfig: MapConfig = {
   pedestrian: pedestrianDefaults,
   graticule: graticuleDefaults,
   catalog: catalogDefaults,
+  watermark: watermarkDefaults,
 }

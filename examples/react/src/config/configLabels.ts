@@ -100,9 +100,10 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'performance.statThresholds.resolutionScale': 'Échelle de résolution',
   'performance.statThresholds.tileBytes': 'Mémoire des tuiles',
   catalog: 'Catalogue',
+  watermark: 'Signature',
 }
 
-/** Feuilles — les 196 de `defaultConfig`, plus les 3 clés optionnelles du type. */
+/** Feuilles — les 197 de `defaultConfig`, plus les 3 clés optionnelles du type. */
 export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   // ── providers.tiles ────────────────────────────────────────────────────────
   'providers.internal.origin': 'origine du serveur',
@@ -507,6 +508,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'catalog.overscanRows': 'lignes de sur-rendu',
   'catalog.prefetchMarginPx': 'marge de préchargement (px)',
   'catalog.persistDebounceMs': 'anti-rebond d’écriture (ms)',
+  // ── watermark ──────────────────────────────────────────────────────────────
+  'watermark.enabled': 'afficher la signature',
   // ── performance.statThresholds ─────────────────────────────────────────────
   // `ok`/`warn` : le sens se déduit de leur ORDRE (cf. `StatThreshold`), d'où des
   // libellés qui parlent de bornes et non de « minimum » ou « maximum ».

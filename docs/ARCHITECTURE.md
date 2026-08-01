@@ -64,10 +64,11 @@ liens par tags + routage réel (Google Routes). `src/symbols/` catalogue MIL-STD
 droite, **peinte dans le canvas WebGL** par `MapEngine.tick` juste après le rendu de la carte
 (`autoClear` coupé puis restauré) : insensible au CSS/DOM de l'hôte, donc non masquable par
 `display:none` ni par retrait de nœud. `WatermarkLink` ne pose par-dessus qu'une zone de clic
-transparente vers le dépôt. **Exception assumée** à « tout est config » : texte/URL/style
-(`src/core/watermark/constants.ts`) sont hors `config`/`theme`/`labels` — les rendre
-surchargeables serait un vecteur de suppression de l'attribution. Toujours affiché ; une
-désactivation licenciée signée est prévue plus tard.
+transparente vers le dépôt. **Exception assumée** à « tout est config » : le contenu
+(texte/URL/style, `src/core/watermark/constants.ts`) est hors `config`/`theme`/`labels` —
+les rendre surchargeables serait un vecteur de suppression. Seule l'existence de la
+signature se coupe via `config.watermark.enabled` (défaut `true`), interrupteur réservé aux
+clients sous licence commerciale.
 
 ## 5. Conventions de code (non négociables)
 

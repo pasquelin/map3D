@@ -1,4 +1,5 @@
 import { WATERMARK_ARIA, WATERMARK_HREF, WATERMARK_TEXT } from '../../core/watermark/constants'
+import { useConfig } from '../context'
 
 /**
  * Doublon CLIQUABLE de la signature « map3D ».
@@ -13,6 +14,8 @@ import { WATERMARK_ARIA, WATERMARK_HREF, WATERMARK_TEXT } from '../../core/water
  * marque peinte ; `aria-label` porte l'intitulé lu par les lecteurs d'écran.
  */
 export function WatermarkLink() {
+  // Même interrupteur que la passe WebGL : la zone de clic disparaît avec la marque.
+  if (!useConfig().watermark.enabled) return null
   return (
     <a
       className="m3d-watermark"

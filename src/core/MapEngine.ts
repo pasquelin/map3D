@@ -2716,8 +2716,9 @@ export class MapEngine {
     this.sky.update(this.config.sky, state)
     this.renderer.render(this.scene, this.threeCamera)
     // Signature « map3D » : peinte APRÈS la carte, dans les mêmes pixels (insensible au
-    // CSS/DOM de l'hôte). Coupe puis restaure `autoClear` en interne.
-    this.watermark.render(this.renderer)
+    // CSS/DOM de l'hôte). Coupe puis restaure `autoClear` en interne. L'interrupteur
+    // (`config.watermark.enabled`) est réservé aux clients sous licence commerciale.
+    if (this.config.watermark.enabled) this.watermark.render(this.renderer)
     /**
      * Overlay HTML (markers) : projeté avec une plage near/far ÉLARGIE. GlobeControls garde
      * une plage serrée pour la précision de profondeur du rendu WebGL — mais le
