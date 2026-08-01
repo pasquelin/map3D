@@ -7,6 +7,7 @@ import { clearGroup, disposeObject3D } from '../core/geometry'
 import { GroundedState } from '../core/GroundedState'
 import { DrapeSync } from '../core/resettle'
 import type { Bounds, LatLng } from '../shared'
+import { boundsIntersect } from '../core/bounds'
 import { boundsContains } from '../core/MarkerQuery'
 import type { StatContribution } from '../core/viewStats'
 
@@ -223,19 +224,31 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
   }
 
   /**
+   * Emprise géographique d'un item, pour le compteur du panneau.
+   *
+   * ⚠️ C'est l'EMPRISE et non l'ancre. Tester l'ancre paraissait suffisant et ne l'était
+   * pas : l'ancre d'un tracé de quelques kilomètres tombe volontiers hors du cadre alors
+   * que le tracé occupe tout l'écran — le compteur affichait 0 sur des tracés parfaitement
+   * visibles. `null` = emprise inconnue, l'ancre sert alors de repli.
+   */
+  protected abstract boundsOf(item: TItem): Bounds | null
+
+  /**
    * Contribution au panneau de diagnostic (cf. `CounterRegistry`).
    *
    * Le balayage est fait ICI et non dans `update()` : appelé à la cadence du panneau et
    * seulement pendant qu'il est ouvert, il ne coûte rien le reste du temps.
    *
-   * C'est l'ANCRE qui est testée, pas l'emprise : une forme dont l'ancre sort du cadre peut
-   * encore déborder à l'écran. Le compte est donc un ordre de grandeur de ce qui est
-   * affiché — ce qu'on lui demande — et non un verdict de rendu, que seul le frustum du GPU
-   * rend vraiment.
+   * Le verdict reste un RECOUPEMENT d'emprises, pas un test de frustum : un objet derrière
+   * la caméra ou masqué par le relief est compté. C'est ce qu'on lui demande — un ordre de
+   * grandeur de ce que la vue porte — et seul le GPU sait vraiment ce qu'il a peint.
    */
   stats(bounds: Bounds): StatContribution {
     let visible = 0
-    for (const d of this.drapes) if (boundsContains(bounds, d.anchor)) visible++
+    for (const d of this.drapes) {
+      const own = this.boundsOf(d.item)
+      if (own ? boundsIntersect(own, bounds) : boundsContains(bounds, d.anchor)) visible++
+    }
     return { kind: this.statKind, visible, total: this.drapes.length }
   }
 

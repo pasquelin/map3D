@@ -61,7 +61,7 @@ grouping **in the right nesting order**.
 | `templates` | Templates manager: named saves of the drawing. The button lives IN the controls bar, below “Layers” — so `controls` must be active. `false`/absent removes it; an object configures it (API provider, categories…). Acts on the drawing through `engine.templates.drawPort` (set by `draw`). See [TEMPLATES.md](TEMPLATES.md). | *(absent)* |
 | `draw` | Drawing layer (+ `selectionBadges`). `false` removes drawing AND the bar. | *(defaults)* |
 | `relations` | Tag relation engine (+ `statusBar`) — its presence enables it. | *(absent)* |
-| `layers` | Data layers, in render order (`markersLayer`, `shapesLayer`). | `[]` |
+| `layers` | Data layers, in render order (`markersLayer`, `shapesLayer`, `pathsLayer`). | `[]` |
 | `plugins` | Plugins to make available ([PLUGINS.md](PLUGINS.md)). Registry fed at mount; the user enables/configures through the hub. | `[]` |
 | `cluster` | The map's grouping surface (see `<ClusterSurface>`). `false` turns grouping off. | *(defaults)* |
 | `markerMenu` | Marker menu, **shared** by the map, the lens and the selection panel. | *(absent)* |
@@ -372,3 +372,14 @@ Diagnostics panel, already mounted as the “Infos” row of the “Settings” 
 | --- | --- | --- | --- |
 | `sections` | `readonly StatsSection[]` | all four | Sections shown, in panel order: `'camera'`, `'content'`, `'render'`, `'tiles'`. |
 | `refreshMs` | `number` | `config.performance.readoutRefreshMs` | Maximum write rate. It is also the rate at which layer counters are queried — the panel costs nothing while closed. |
+
+## `pathsLayer({ paths, animateHead })`
+
+**Draped path** layer (routes, itineraries), to be placed in `layers` like `shapesLayer`.
+
+| Prop | Type | Default | Role |
+| --- | --- | --- | --- |
+| `paths` | `PathData[]` | — | Displayed paths. Each carries its points and may override `color`, `width`, `casing`. |
+| `animateHead` | `boolean` | `true` | Pulse on the current point, at the head of the path. |
+
+Width is in **world metres**: a path grows with zoom, unlike drawing-layer strokes which keep a constant on-screen thickness. For a **computed** itinerary (traffic, travel time), see [RELATIONS.md](RELATIONS.md).

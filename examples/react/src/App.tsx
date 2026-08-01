@@ -17,6 +17,7 @@ import {
   createGoogleRoutesProvider,
   markerGroupId,
   markersLayer,
+  pathsLayer,
   shapesLayer,
   useBuildingEnrichment,
 } from 'map3d'
@@ -48,6 +49,7 @@ import {
   hiddenOnly,
 } from './config/uiSettings'
 import { CITY_LIST, PARIS, TEST_POINT } from './data/cities'
+import { DEMO_PATHS } from './data/paths'
 import { DEMO_SHAPES, MAX_DRAW_AREA_M2 } from './data/shapes'
 import type { AnyData } from './data/types'
 import { type DataSettings, defaultDataSettings, useDemoScene } from './hooks/useDemoScene'
@@ -525,6 +527,11 @@ export function App() {
             // `limits` (contraintes du dessin) ne prend que DEMO_SHAPES : les bâtiments
             // et les volumes sont là pour l'œil, ils n'autorisent aucune zone.
             shapesLayer({ shapes: scene.shapes }),
+            // Tracés drapés : rubans à épaisseur en MÈTRES (ils grossissent au zoom,
+            // contrairement aux traits de dessin qui restent en pixels écran), avec une
+            // tête animée en bout de parcours. C'est aussi ce qui rend la ligne « tracés »
+            // du panneau de diagnostic démontrable.
+            pathsLayer({ paths: DEMO_PATHS }),
             markersLayer<AnyData>({
               points: allMarkers,
               getId: (m) => m.id,

@@ -59,7 +59,7 @@ couches et regroupement **dans le bon ordre d'imbrication**.
 | `templates` | Gestionnaire de templates : sauvegardes nommées du dessin. Le bouton vit DANS la barre de contrôles, sous « Couches » — il faut donc `controls` actif. `false`/absent le retire ; un objet le règle (provider API, catégories…). Agit sur le dessin via `engine.templates.drawPort` (posé par `draw`). Cf. [TEMPLATES.md](TEMPLATES.md). | *(absent)* |
 | `draw` | Couche de dessin (+ `selectionBadges`). `false` retire le dessin ET la barre. | *(défauts)* |
 | `relations` | Moteur de relations par tags (+ `statusBar`) — sa présence l'active. | *(absent)* |
-| `layers` | Couches de données, dans l'ordre de rendu (`markersLayer`, `shapesLayer`). | `[]` |
+| `layers` | Couches de données, dans l'ordre de rendu (`markersLayer`, `shapesLayer`, `pathsLayer`). | `[]` |
 | `plugins` | Plugins à rendre disponibles ([PLUGINS.md](PLUGINS.md)). Registre alimenté au montage ; l'utilisateur active/config via le hub. | `[]` |
 | `cluster` | Surface de regroupement de la carte (cf. `<ClusterSurface>`). `false` coupe le regroupement. | *(défauts)* |
 | `markerMenu` | Menu d'un marker, **partagé** par la carte, la loupe et le panneau de sélection. | *(absent)* |
@@ -370,3 +370,14 @@ Panneau de diagnostic, déjà monté en ligne « Infos » du menu « Réglages �
 | --- | --- | --- | --- |
 | `sections` | `readonly StatsSection[]` | les quatre | Sections affichées, dans l'ordre du panneau : `'camera'`, `'content'`, `'render'`, `'tiles'`. |
 | `refreshMs` | `number` | `config.performance.readoutRefreshMs` | Cadence maximale d'écriture. C'est aussi la cadence à laquelle les compteurs des couches sont interrogés — le panneau ne coûte rien fermé. |
+
+## `pathsLayer({ paths, animateHead })`
+
+Couche de **tracés drapés** (parcours, itinéraires), à poser dans `layers` comme `shapesLayer`.
+
+| Prop | Type | Défaut | Rôle |
+| --- | --- | --- | --- |
+| `paths` | `PathData[]` | — | Tracés affichés. Chacun porte ses points, et peut surcharger `color`, `width`, `casing`. |
+| `animateHead` | `boolean` | `true` | Pulsation du point courant, en tête du tracé. |
+
+L'épaisseur est en **mètres monde** : un tracé grossit au zoom, contrairement aux traits de la couche de dessin qui restent à épaisseur écran constante. Pour un itinéraire **calculé** (trafic, temps de parcours), voir [RELATIONS.md](RELATIONS.md).

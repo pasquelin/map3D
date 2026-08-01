@@ -238,7 +238,7 @@ export type {
 // Fabriques de couches : `layers` est hétérogène, donc son type public voit les
 // données d'un marker comme `unknown`. Ces fonctions rendent le type à l'écriture —
 // `markersLayer<Agent>({…})` type `icon`, `menu` et `tooltip` sur vos données.
-export { markersLayer, shapesLayer } from './react/mapConfig'
+export { markersLayer, pathsLayer, shapesLayer } from './react/mapConfig'
 export { useMap, useTheme, useLabels, useConfig } from './react/context'
 export type { DrawingApi, DrawAction, LensApi } from './react/context'
 export { useCamera, useCameraCommands } from './react/hooks/useCamera'

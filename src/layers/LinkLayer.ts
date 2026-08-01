@@ -11,10 +11,11 @@ import {
   setDashColors,
   strokeMaterial,
 } from '../core/geometry'
+import { boundsOfLatLngs } from '../core/bounds'
 import type { FrameContext } from '../core/Layer'
 import type { Projection, ScreenPoint } from '../core/Projection'
 import { segDistPx } from './draw/hitTest'
-import type { LatLng } from '../shared'
+import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
 
 /**
@@ -142,6 +143,14 @@ const CASING_OPACITY_RATIO = 0.8
  */
 export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
   protected readonly statKind = 'links' as const
+
+  /**
+   * Emprise d'un lien : ses points, ou le centre du disque quand il en porte un —
+   * `points` est alors ignoré pour la géométrie (cf. `LinkVisual.disc`).
+   */
+  protected boundsOf(item: LinkVisual): Bounds | null {
+    return item.disc ? boundsOfLatLngs([item.disc.center]) : boundsOfLatLngs(item.points)
+  }
 
   private readonly scratch = new THREE.Vector3()
   /** Point écran réutilisé : `worldToScreen` alloue son résultat sans lui, et il est

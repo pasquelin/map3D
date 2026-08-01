@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
+import { boundsOfLatLngs } from '../core/bounds'
 import type { FrameContext } from '../core/Layer'
 import type { Projection } from '../core/Projection'
 import { circlePoints, fillGeo, fillMaterial, ribbon, strokeMaterial } from '../core/geometry'
-import type { LatLng } from '../shared'
+import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
 
 /** `width`/`casingWidth` : épaisseurs de trait en **pixels écran** (constantes au zoom). */
@@ -36,6 +37,11 @@ type PathDrape = Drape<PathData> & { head: Head | null }
  */
 export class PathLayer extends DrapedLayer<PathData, PathDrape> {
   protected readonly statKind = 'paths' as const
+
+  /** Emprise d'un tracé : ses points. */
+  protected boundsOf(item: PathData): Bounds | null {
+    return boundsOfLatLngs(item.points)
+  }
 
   private paths: PathData[] = []
   private time = 0

@@ -98,6 +98,11 @@ export function boundsOfShapes(shapes: Iterable<ShapeData>): Bounds | null {
 export class ShapeLayer extends DrapedLayer<ShapeData> {
   protected readonly statKind = 'shapes' as const
 
+  /** Emprise d'une forme — le helper que ce module expose déjà publiquement. */
+  protected boundsOf(item: ShapeData): Bounds | null {
+    return boundsOfShape(item)
+  }
+
   private shapes: ShapeData[] = []
 
   constructor(

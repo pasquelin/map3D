@@ -30,6 +30,7 @@ import type { RelationLayerProps } from './components/RelationLayer'
 import type { RelationStatusBarProps } from './components/RelationStatusBar'
 import type { SearchBoxProps } from './components/SearchBox'
 import type { SelectionBadgesProps } from './components/SelectionBadges'
+import type { PathLayerProps } from './components/PathLayer'
 import type { ShapeLayerProps } from './components/ShapeLayer'
 import type { TemplatesPanelProps } from './components/TemplatesPanel'
 import type { DrawToolbarProps } from './components/Toolbar'
@@ -180,7 +181,8 @@ export type MarkersSpec<T = unknown> = WithId & { kind: 'markers' } & Omit<Marke
  * hétérogène, donc ce type public voit les données d'un marker comme `unknown`, et
  * un callback annoté sur VOS données ne s'y assignerait pas.
  */
-export type LayerSpec = MarkersSpec | (WithId & { kind: 'shapes' } & ShapeLayerProps)
+export type LayerSpec =
+  MarkersSpec | (WithId & { kind: 'shapes' } & ShapeLayerProps) | (WithId & { kind: 'paths' } & PathLayerProps)
 
 /**
  * Couche de markers **typée sur vos données**.
@@ -199,6 +201,9 @@ export type LayerSpec = MarkersSpec | (WithId & { kind: 'shapes' } & ShapeLayerP
  */
 export const markersLayer = <T>(props: Omit<MarkersSpec<T>, 'kind'>): LayerSpec =>
   ({ kind: 'markers', ...props }) as unknown as LayerSpec
+
+/** Couche de tracés drapés (parcours, itinéraires). */
+export const pathsLayer = (props: WithId & PathLayerProps): LayerSpec => ({ kind: 'paths', ...props })
 
 /** Couche de formes drapées (zones, périmètres, volumes). */
 export const shapesLayer = (props: WithId & ShapeLayerProps): LayerSpec => ({ kind: 'shapes', ...props })

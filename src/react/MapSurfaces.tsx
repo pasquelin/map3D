@@ -36,6 +36,7 @@ import { CameraReadout } from './components/CameraReadout'
 import { LensLayer, type LensOptions } from './components/LensLayer'
 import { MapControls } from './components/MapControls'
 import { MarkerLayer } from './components/MarkerLayer'
+import { PathLayer } from './components/PathLayer'
 import { PinnedDock } from './components/PinnedDock'
 import { RelationLayer } from './components/RelationLayer'
 import { BuildingMenuHost } from './components/BuildingMenuHost'
@@ -91,6 +92,7 @@ function DataLayers({ specs, markerMenu }: { specs: LayerSpec[]; markerMenu?: Ma
       {specs.map((spec, i) => {
         const key = keyOf(spec, i)
         if (spec.kind === 'shapes') return <ShapeLayer key={key} shapes={spec.shapes} />
+        if (spec.kind === 'paths') return <PathLayer key={key} paths={spec.paths} animateHead={spec.animateHead} />
         if (spec.kind !== 'markers') return null
         const s = spec as MarkersSpec
         // Le menu de la couche l'emporte sur le menu commun : une carte peut avoir
