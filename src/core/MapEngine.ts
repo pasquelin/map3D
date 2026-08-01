@@ -1606,6 +1606,19 @@ export class MapEngine {
   }
 
   /**
+   * Redimensionne le rendu quand le CANVAS est en plein écran. Le conteneur (donc son
+   * `ResizeObserver`) ne bouge pas dans ce cas, et `innerWidth/innerHeight` ne valent la taille
+   * de l'ÉCRAN qu'une fois la fenêtre agrandie — ce que cet événement `resize` garantit, là où
+   * `fullscreenchange` peut arriver un cran trop tôt. Hors plein écran canvas, l'observateur du
+   * conteneur s'en charge : on ne double pas.
+   */
+  private onWindowResize = (): void => {
+    if (fullscreenElementOf(document) === this.canvas && window.innerWidth >= 1 && window.innerHeight >= 1) {
+      this.setSize(window.innerWidth, window.innerHeight)
+    }
+  }
+
+  /**
    * Souris relâchée alors qu'on était en immersion totale = Échap natif du Pointer Lock.
    *
    * Si l'immersion vient du PLEIN ÉCRAN (le chemin nominal — cf. `onFullscreenChange`), Échap
@@ -3084,12 +3097,17 @@ export class MapEngine {
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
     // Le plein écran pilote l'immersion piéton — cf. `onFullscreenChange`.
     document.addEventListener('fullscreenchange', this.onFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', this.onFullscreenChange)
+    // Recalage du buffer quand le canvas est en plein écran — cf. `onWindowResize`.
+    window.addEventListener('resize', this.onWindowResize)
   }
 
   private unbindInput(): void {
     this.navKeys.unbind()
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     document.removeEventListener('fullscreenchange', this.onFullscreenChange)
+    document.removeEventListener('webkitfullscreenchange', this.onFullscreenChange)
+    window.removeEventListener('resize', this.onWindowResize)
     this.canvas.removeEventListener('pointerdown', this.invalidate)
     this.canvas.removeEventListener('pointermove', this.invalidate)
     window.removeEventListener('pointerup', this.invalidate)

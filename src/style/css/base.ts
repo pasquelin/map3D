@@ -66,6 +66,12 @@ export const CSS_BASE = `
 .m3d-root.m3d-immersive .m3d-search,
 .m3d-root.m3d-immersive .m3d-readout,
 .m3d-root.m3d-immersive .m3d-pindock{display:none}
+/* Canvas en plein écran (immersion piéton) : il DOIT remplir l'écran. three lui pose une
+   taille CSS fixe (celle de la fenêtre d'origine) ; sans ce forçage il reste à cette taille,
+   centré, d'où des bandes noires sur un écran d'un autre ratio. Le !important bat le style
+   inline. Le buffer de rendu, lui, est recalé sur l'événement resize (cf. MapEngine). */
+canvas:fullscreen,
+canvas:-webkit-full-screen{width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important}
 /* Réticule : point de visée central, montré par le HUD seulement en immersion totale. Sa
    couleur vient du thème (--m3d-pedestrian-reticle) ; le halo sombre le garde lisible sur
    un décor clair comme sur un décor sombre. */
