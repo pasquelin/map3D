@@ -6,10 +6,7 @@
 // besoin d'un verdict stable, d'où ce module.
 
 import type { LatLng } from '../shared'
-import { DEG2RAD, M_PER_DEG, normalizeLng, TAU, unwrapLng } from './math'
-
-/** Rayon moyen terrestre (m) — sphère de référence des calculs d'aire. */
-const EARTH_RADIUS = 6_371_008.8
+import { DEG2RAD, EARTH_RADIUS_MEAN, M_PER_DEG, normalizeLng, TAU, unwrapLng } from './math'
 
 /**
  * Tolérance des tests de bord, en degrés (~1e-9° ≈ 0.1 mm) : une forme aimantée
@@ -42,7 +39,7 @@ export function polygonAreaM2(ring: readonly LatLng[]): number {
     const b = pts[(i + 1) % pts.length]!
     total += (b.lng - a.lng) * DEG2RAD * (2 + Math.sin(a.lat * DEG2RAD) + Math.sin(b.lat * DEG2RAD))
   }
-  return Math.abs((total * EARTH_RADIUS * EARTH_RADIUS) / 2)
+  return Math.abs((total * EARTH_RADIUS_MEAN * EARTH_RADIUS_MEAN) / 2)
 }
 
 /**

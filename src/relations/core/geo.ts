@@ -5,11 +5,8 @@
 
 import { defaultConfig } from '../../config/defaultConfig'
 import { boundsOfCircle } from '../../core/bounds'
-import { DEG2RAD, EARTH_CIRCUMFERENCE, M_PER_DEG, RAD2DEG } from '../../core/math'
+import { DEG2RAD, EARTH_RADIUS_EQUATOR, M_PER_DEG, RAD2DEG } from '../../core/math'
 import type { LatLng } from '../../shared'
-
-/** Rayon terrestre moyen, dérivé de la circonférence — jamais un littéral concurrent. */
-const EARTH_RADIUS = EARTH_CIRCUMFERENCE / (2 * Math.PI)
 
 /** Distance orthodromique (m). SEULE implémentation de haversine du dépôt. */
 export function haversineMeters(a: LatLng, b: LatLng): number {
@@ -18,7 +15,7 @@ export function haversineMeters(a: LatLng, b: LatLng): number {
   const la = a.lat * DEG2RAD
   const lb = b.lat * DEG2RAD
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(la) * Math.cos(lb) * Math.sin(dLng / 2) ** 2
-  return 2 * EARTH_RADIUS * Math.asin(Math.min(1, Math.sqrt(h)))
+  return 2 * EARTH_RADIUS_EQUATOR * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
 /** Azimut initial de `from` vers `to`, en degrés dans [0, 360). */
@@ -49,7 +46,7 @@ export function greatCirclePoints(
 ): LatLng[] {
   const distance = haversineMeters(a, b)
   const steps = Math.max(MIN_STEPS, Math.min(maxSteps, Math.ceil(distance / Math.max(1, stepMeters))))
-  const delta = distance / EARTH_RADIUS
+  const delta = distance / EARTH_RADIUS_EQUATOR
   // Points confondus (ou quasi) : l'interpolation sphérique dégénère (sin(δ) → 0).
   if (delta < 1e-9) return [a, b]
   const la = a.lat * DEG2RAD
@@ -88,7 +85,7 @@ export function fanLegs(trunkBearingDeg: number, count: number, spreadDeg: numbe
 
 /** Point atteint depuis `from` en suivant `bearing` (degrés) sur `distanceMeters`. */
 export function destinationPoint(from: LatLng, bearingDeg: number, distanceMeters: number): LatLng {
-  const delta = distanceMeters / EARTH_RADIUS
+  const delta = distanceMeters / EARTH_RADIUS_EQUATOR
   const theta = bearingDeg * DEG2RAD
   const la = from.lat * DEG2RAD
   const lat = Math.asin(Math.sin(la) * Math.cos(delta) + Math.cos(la) * Math.sin(delta) * Math.cos(theta))

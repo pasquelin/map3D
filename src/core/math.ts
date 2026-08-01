@@ -12,6 +12,21 @@ export const EARTH_CIRCUMFERENCE = 40_075_016
 export const M_PER_DEG = 111_320
 
 /**
+ * Rayon terrestre MOYEN (m, sphère IUGG) — référence des calculs d'AIRE
+ * (`polygonAreaM2`, excès sphérique). Distinct de `EARTH_RADIUS_EQUATOR` : les deux
+ * sont localement corrects pour leur usage, les fusionner en une seule valeur
+ * fausserait légèrement l'un des deux (~0.1 %).
+ */
+export const EARTH_RADIUS_MEAN = 6_371_008.8
+
+/**
+ * Rayon terrestre ÉQUATORIAL (m), dérivé de `EARTH_CIRCUMFERENCE` — référence des
+ * calculs de DISTANCE/CAP (`haversineMeters`, `destinationPoint`, `greatCirclePoints`).
+ * Dérivé plutôt que recopié en littéral : garantit le même bit qu'avant l'unification.
+ */
+export const EARTH_RADIUS_EQUATOR = EARTH_CIRCUMFERENCE / (2 * Math.PI)
+
+/**
  * Côté d'une tuile Web Mercator (px). Imposé par le protocole Google 2D Tiles — ce
  * n'est pas un réglage. Défini ICI parce que `metersPerPixelAtZoom` en dépend :
  * l'avoir laissé dans `googleTiles` obligeait ce module à réécrire `256` en littéral,
