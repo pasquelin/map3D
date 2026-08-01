@@ -530,3 +530,6 @@ Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **seria
 | `capture.quality` | Quality 0..1 for compressed formats (jpeg/webp); ignored for png. | `0.92` |
 | `capture.scale` | Default supersampling (`1 | 2`): ×2 is sharper than the display, at the cost of one heavy frame. | `1` |
 | `capture.background` | Default background (`'opaque' | 'transparent'`). `'transparent'` falls back to opaque today: the renderer is created without an alpha channel. | `'opaque'` |
+| `selection.selectable.marker` | Whether markers are selectable by the selection tool. | `true` |
+| `selection.selectable.path` | Whether paths are selectable by the selection tool. | `true` |
+| `selection.selectable.cluster` | Whether clusters are selectable (→ selects their child markers). | `true` |

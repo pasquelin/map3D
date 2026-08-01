@@ -6,6 +6,36 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Sélection des tracés et des clusters (outil sélection généralisé)
+
+L'outil sélection ne pouvait atteindre **que les markers**. Il sélectionne désormais aussi les
+**tracés** (`PathLayer`) et les **clusters**, avec **tous les outils** (clic, rectangle, lasso,
+polygone). Un cluster sélectionné apparaît dans le panneau comme un **groupe pliable** listant
+ses **markers enfants** (réutilise le pattern catalogue).
+
+- **Tracés** : `PathLayer` s'enregistre comme `SelectableProvider` (contour écran projeté au
+  finalize/clic — chemin froid). Un tracé sélectionné reçoit un **halo** (`theme.colors.path.selected`).
+- **Clusters** : `ClusterSurface` s'enregistre comme provider ; **clic sur pastille = zoom**
+  hors outil sélection, **sélection** (de ses enfants) quand l'outil sélection est actif. La
+  sélection d'un cluster **persiste par ses markers enfants** (la pastille est éphémère).
+- **Politique de sélectionnabilité** : **`config.selection.selectable`** — un booléen par type
+  (`marker` / `path` / `cluster`, tout `true` par défaut), surchargeable par `<Map config>`,
+  pour **limiter la sélection selon le cas**. Respectée par tous les outils.
+
+**Rupture d'API (0.x, mineure)** — élargissement du contrat de sélection :
+
+- `SelectableScreenItem` porte désormais **`kind: SelectableKind`** (requis) et, en option,
+  `radiusPx` et `geometry` (contour d'un tracé). `SelectableInfo` porte **`kind`** (requis) et
+  un `group` optionnel (agrégat pliable). `SelectableProvider` gagne `hitTest?`. Un provider
+  hôte custom doit ajouter `kind`.
+- `SelectableRegistry.items(policy?)` et le nouveau `SelectableRegistry.hitTest(x,y,tol,policy?)`
+  filtrent par politique. Nouveaux exports : `SelectableKind`, `SelectablePolicy`,
+  `SelectableGeometry`, `SelectableGroup`, `SELECTABLE_KINDS`, `kindAllowed`.
+- Le callback gagne un 3ᵉ argument : `onSelectionChange(ids, markerIds, pathIds)`. `markerIds` =
+  markers à plat (enfants des clusters sélectionnés **inclus**, ids bruts) ; `pathIds` = tracés,
+  **population distincte** (jamais mêlée aux markers). Rétrocompatible (arg optionnel).
+- Nouveau `theme.colors.path.selected`. Nouveaux `labels.selection.pathsGroup` / `pathItem`.
+
 ### Signature « map3D » (attribution)
 
 Une signature **« map3D »** est désormais apposée en **bas à droite** de la carte, liée au

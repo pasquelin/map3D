@@ -402,7 +402,7 @@ export class MarkerLayer implements Layer {
       // visée, jamais sur `z > 1`, qui confond « derrière moi » et « au-delà du far ».
       if (this.projection.isBehindCamera(world, camera.position)) continue
       const s = this.projection.worldToScreen(world, camera, this.screen)
-      out.push({ id: node.id, x: s.sx, y: s.sy })
+      out.push({ id: node.id, kind: 'marker', x: s.sx, y: s.sy })
     }
     return out
   }

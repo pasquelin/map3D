@@ -98,6 +98,8 @@ export type MapTheme = {
       base: string
       /** Contour du tracé (lisibilité sur imagerie satellite). */
       casing: string
+      /** Halo d'un tracé sélectionné (outil sélection). */
+      selected: string
     }
     zone: {
       /** Remplissage d'une zone. */
@@ -182,6 +184,10 @@ export type MapTheme = {
     segmentGap: number
     /** Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas. */
     startAngle: number
+    /** Couleur de l'anneau d'une pastille sélectionnée (outil sélection). */
+    selectedColor: string
+    /** Épaisseur (px) de l'anneau de sélection d'une pastille. */
+    selectedWidth: number
   }
   animations: {
     /** Coupe TOUTES les animations JS (le CSS a sa propre règle `prefers-reduced-motion`). */

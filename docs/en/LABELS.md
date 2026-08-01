@@ -233,6 +233,8 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.expandGroup` | aria-label of the chevron expanding a shape group — `{label}` = the group's label. | `'Déplier / replier {label}'` |
 | `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
+| `selection.pathsGroup` | Name of the paths category in a row. | `'Tracés'` |
+| `selection.pathItem` | Label of an expanded path — `{n}` (rank in the group). | `'Tracé {n}'` |
 
 ## `clusters` — Marker grouping
 

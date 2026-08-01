@@ -205,6 +205,8 @@ export const defaultLabels: MapLabels = {
     expandGroup: 'Déplier / replier {label}',
     shapeItem: '{type} {n}',
     deleteShape: 'Supprimer {label}',
+    pathsGroup: 'Tracés',
+    pathItem: 'Tracé {n}',
   },
   clusters: {
     label: 'Groupe de {count} marqueurs',

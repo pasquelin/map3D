@@ -100,23 +100,52 @@ Clic simple pour sélectionner une forme, `Maj+clic` pour ajouter/retirer.
 <Toolbar selectModes={['rect', 'lasso']} />   // un seul mode = pas de flyout
 ```
 
-La sélection porte sur les **formes** *et* sur les **markers** — les couches de
-markers s'inscrivent au registre `engine.selectables`. Les deux se lisent séparément :
+La sélection porte sur les **formes**, les **markers**, les **tracés** (`PathLayer`) et
+les **clusters** — chaque couche s'inscrit au registre `engine.selectables`. Les
+populations se lisent séparément :
 
 ```ts
-const { selection, markerSelection, selectionDetails } = useDrawing()
+const { selection, markerSelection, pathSelection, clusterGroups, selectionDetails } = useDrawing()
 ```
+
+### Ce qui est sélectionnable
+
+| Type | Sélectionnable | Clé de config | Note |
+|---|---|---|---|
+| Marker (et symbole posé) | oui | `marker` | — |
+| Forme dessinée (`line`/`polygon`/`rect`/`circle`/`freehand`/`arrow`/`measure`) | oui | — | gérée par `locked`/filtre « Couches » |
+| **Tracé** (`PathLayer`) | oui | `path` | halo `theme.colors.path.selected` |
+| **Cluster** (pastille) | oui → groupe pliable des enfants | `cluster` | clic = **zoom** hors outil sélection |
+| Zone (`ShapeLayer`) | non | *(réservé)* | — |
+| Lien / relation (`LinkLayer`) | non | *(réservé)* | clic = tracer un itinéraire |
+| Bâtiment 3D | non (picking dédié) | — | cf. [BUILDINGS.md](BUILDINGS.md) |
+| Grille, HUD, fond de carte | non | — | décor |
+
+**Cluster** : le sélectionner (clic quand l'outil sélection est actif, ou marquee sur la
+pastille) sélectionne **tous ses markers enfants**, affichés dans une **rangée pliable**.
+Hors outil sélection, un clic sur pastille **zoome** (comportement inchangé). La sélection
+d'un cluster **survit au pan/zoom** : elle est retenue par ses membres, pas par la pastille.
+
+### Limiter la sélection (`config.selection.selectable`)
+
+Un booléen par type (tout `true` par défaut), respecté par **tous** les outils :
+
+```tsx
+// N'autoriser que les markers (ni tracés ni clusters) dans ce contexte :
+<Map config={{ selection: { selectable: { path: false, cluster: false } } }} />
+```
+
+`SELECTABLE_KINDS` (export public) énumère les types pour construire sa propre UI.
 
 Contours en **marching-ants** noir/blanc (lisibles sur tout fond, y compris satellite
 et neige — cf. `theme.colors.marquee`), bbox englobante en multi-sélection.
 
 Les **vignettes de sélection** (`draw.selectionBadges`) listent ce qui est
-sélectionné : **markers** en lignes avec leur menu ; **formes** groupées par `kind`,
-chaque groupe **dépliable** (chevron, comme le catalogue) pour lister ses formes une
-par une, chacune avec une **corbeille rouge** qui la supprime (annulable via `Ctrl+Z`).
-Un `kind` à **une seule forme** s'affiche directement, sans groupe. La croix d'un
-groupe **désélectionne** (elle ne supprime pas). Montées d'office ; `selectionBadges:
-false` les retire.
+sélectionné : **markers** en lignes avec leur menu ; **formes** groupées par `kind` ;
+**tracés** dans un groupe « Tracés » ; **clusters** en une rangée « Cluster (N) » par
+cluster. Chaque groupe est **dépliable** (chevron, comme le catalogue) — un cluster
+déplié liste ses **markers enfants**. La croix d'un groupe **désélectionne** (elle ne
+supprime pas). Montées d'office ; `selectionBadges: false` les retire.
 
 ---
 
@@ -455,7 +484,7 @@ Obtenue par `useDrawing()` (lève hors d'un `<DrawLayer>`) ou par
 | Groupe | Membres |
 |---|---|
 | Outil | `tool`, `setTool`, `tools`, `shortcuts` |
-| Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
+| Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Verrou | `lock`, `unlock` |
 | Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |

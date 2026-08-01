@@ -24,6 +24,7 @@ import { graticuleDefaults } from './defaults/graticule'
 import { catalogDefaults } from './defaults/catalog'
 import { watermarkDefaults } from './defaults/watermark'
 import { captureDefaults } from './defaults/capture'
+import { selectionDefaults } from './defaults/selection'
 
 export const defaultConfig: MapConfig = {
   providers: providersDefaults,
@@ -41,4 +42,5 @@ export const defaultConfig: MapConfig = {
   catalog: catalogDefaults,
   watermark: watermarkDefaults,
   capture: captureDefaults,
+  selection: selectionDefaults,
 }

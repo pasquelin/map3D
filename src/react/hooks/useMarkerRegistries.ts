@@ -61,7 +61,7 @@ export function useMarkerRegistries<T>({
         const out: SelectableScreenItem[] = []
         for (const it of core.screenPositions(engine.threeCamera)) {
           const marker = entriesRef.current.get(it.id)
-          if (marker) out.push({ id: latest.current.getId(marker), x: it.x, y: it.y })
+          if (marker) out.push({ id: latest.current.getId(marker), kind: 'marker', x: it.x, y: it.y })
         }
         return out
       },
@@ -70,7 +70,7 @@ export function useMarkerRegistries<T>({
       },
       info: (id) => {
         const p = pointsByIdRef.current.get(id)
-        return p ? { type: p.type } : null
+        return p ? { kind: 'marker', type: p.type } : null
       },
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

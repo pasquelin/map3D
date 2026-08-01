@@ -52,12 +52,16 @@ export type { TagFilter, TagEntry } from './core/TagFilter'
 export type { Layer, FrameContext, MapView } from './core/Layer'
 // Registre des sélectionnables externes (`engine.selectables`) : un intégrateur
 // peut y brancher sa propre couche pour la rendre sélectionnable au marquee.
-export { SelectableRegistry } from './core/Selectables'
+export { SelectableRegistry, SELECTABLE_KINDS, kindAllowed } from './core/Selectables'
 export type {
   SelectableProvider,
   SelectableConsumer,
   SelectableInfo,
   SelectableScreenItem,
+  SelectableGeometry,
+  SelectableGroup,
+  SelectableKind,
+  SelectablePolicy,
   PickModifiers,
 } from './core/Selectables'
 // Registre du drag-and-drop générique (`engine.drag`) : source de vérité de

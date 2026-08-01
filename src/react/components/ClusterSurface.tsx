@@ -1,10 +1,23 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { createPortal } from 'react-dom'
 import type { ClusterContributor, ClusterPoint } from '../../core/ClusterRegistry'
 import { WORLD_BOUNDS } from '../../core/bounds'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { VisualNode } from '../../core/MarkerQuery'
+import * as THREE from 'three'
 import type { MarkerLayer as CoreMarkerLayer, OverlayItem } from '../../layers/MarkerLayer'
+import type { ScreenPoint } from '../../core/Projection'
+import type { SelectableScreenItem } from '../../core/Selectables'
 import { isWithinViewDistance } from '../../layers/markerCull'
 import {
   ClusterEngine,
@@ -15,7 +28,7 @@ import {
 } from '../../layers/ClusterLayer'
 import type { MarkerData } from '../../data/types'
 import { formatCount } from '../../labels/mergeLabels'
-import type { LatLng } from '../../shared'
+import { type LatLng, sameSet } from '../../shared'
 import { useConfig, useLabels, useMapContext } from '../context'
 import { useEntriesSignature } from '../hooks/useEntriesSignature'
 import { useOverlayLayer } from '../hooks/useOverlayLayer'
@@ -24,6 +37,11 @@ import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { svgToDataUri } from './MarkerLayer'
 import { MarkerContent } from './MarkerContent'
+
+// Scratch de projection des pastilles pour le registre de sélection (chemin froid,
+// synchrone) : réutilisés à travers tout le module, jamais aliasés entre deux lectures.
+const clusterScratchVec = new THREE.Vector3()
+const clusterScratchScreen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
 
 /** Apparence et contenu d'une pastille — cf. `ClusterSurfaceProps`. */
 export type ClusterChrome<T = unknown> = {
@@ -103,11 +121,19 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
 
   const [hoverId, setHoverId] = useState<string | number | null>(null)
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
+  // Clés (String) des pastilles sélectionnées — pilote l'anneau. Best-effort : une
+  // pastille est éphémère (recompute), donc l'anneau peut disparaître au pan ; la
+  // sélection, elle, persiste par les markers enfants (cf. groupSel côté DrawLayer).
+  const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set())
   const [rev, signature] = useEntriesSignature()
 
   const clusterSize = size ?? Math.round(theme.markers.size * 1.18)
   const latest = useRef({ chrome, clustering, config, theme, clusterSize, grounded })
   latest.current = { chrome, clustering, config, theme, clusterSize, grounded }
+  // Ref pour le provider de sélection : garder ses deps stables ([engine, leavesOf])
+  // tout en lisant des libellés à jour au moment (froid) où l'info d'un cluster est lue.
+  const labelsRef = useRef(labels)
+  labelsRef.current = labels
 
   // Couche DOM dédiée aux pastilles : les markers gardent la leur (cf. `useOverlayLayer`).
   const { layerRef: coreRef, nodes: els } = useOverlayLayer(
@@ -422,17 +448,57 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     })
   }, [engine, leavesOf])
 
+  // Provider du registre de sélection : chaque pastille est un item POINT ; son
+  // `info` porte un GROUPE (ses markers enfants résolus au moment de l'appel, donc
+  // vivants) — l'outil sélection l'aplatit alors en enfants (rangée pliable des badges).
+  useEffect(() => {
+    return engine.selectables.register({
+      screenItems: () => {
+        const out: SelectableScreenItem[] = []
+        // Scratch partagés (chemin froid, synchrone, lecture immédiate) — pas d'alloc par pastille.
+        for (const [key, node] of nodesRef.current) {
+          const world = engine.projection.latLngToWorld(node.cluster.position, clusterScratchVec)
+          const s = engine.projection.worldToScreen(world, engine.threeCamera, clusterScratchScreen)
+          if (s.z > 1) continue
+          out.push({ id: String(key), kind: 'cluster', x: s.sx, y: s.sy, radiusPx: latest.current.clusterSize / 2 })
+        }
+        return out
+      },
+      setSelected: (ids) => {
+        const next = new Set<string>()
+        for (const [key] of nodesRef.current) if (ids.has(String(key))) next.add(String(key))
+        setSelectedKeys((cur) => (sameSet(cur, next) ? cur : next))
+      },
+      // Les clés de nœuds sont des chaînes (`pt:`/`cl:`/`grp:`) : lookup direct O(1).
+      info: (id) => {
+        const node = nodesRef.current.get(id)
+        if (!node) return null
+        const memberIds = leavesOf(node.members).map((p) => p.owner.idOf(p.marker))
+        const l = labelsRef.current
+        const label = formatCount(l.clusters.labelSingular, l.clusters.label, node.cluster.total, l.plural)
+        return { kind: 'cluster', type: 'cluster', group: { label, memberIds } }
+      },
+    })
+  }, [engine, leavesOf])
+
   /** Markers d'une pastille, résolus à la demande (infobulle). */
   const membersOf = useCallback(
     (key: string | number): MarkerData[] => leavesOf(nodesRef.current.get(key)?.members ?? []).map((p) => p.marker),
     [leavesOf],
   )
 
-  // Clic sur une pastille : on ZOOME, on n'ouvre rien. Vers le zoom d'éclatement réel
-  // quand le nœud est séparable, sinon juste au-delà de l'arrêt du regroupement — où
-  // l'auto-éventail prend le relais. Toujours borné : jamais de zoom infini.
+  // Clic sur une pastille : outil sélection actif ⇒ la pastille alimente la
+  // multi-sélection (ses markers enfants), le consumer prime sur le zoom. Sinon on
+  // ZOOME, on n'ouvre rien : vers le zoom d'éclatement réel quand le nœud est
+  // séparable, sinon juste au-delà de l'arrêt du regroupement — où l'auto-éventail
+  // prend le relais. Toujours borné : jamais de zoom infini.
   const handleClick = useCallback(
-    (key: string | number, cluster: ClusterInfo) => {
+    (key: string | number, cluster: ClusterInfo, ev: ReactMouseEvent | ReactKeyboardEvent) => {
+      const consumer = engine.selectables.consumer
+      if (consumer) {
+        consumer.pick(String(key), ev)
+        return
+      }
       const { clustering: cfg, config: c, theme: th } = latest.current
       const members = nodesRef.current.get(key)?.members ?? []
       const solo = members.length === 1 && members[0]!.kind === 'cluster' ? members[0] : null
@@ -496,6 +562,10 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
       // Ancrage de l'infobulle : au-dessus du VISUEL réel — donut par défaut (rayon
       // dépendant du total) ou pastille custom.
       const tipLift = chrome.icon ? clusterSize / 2 + 10 : defaultClusterRadius(node.cluster.total, theme) + 10
+      // Anneau de sélection : disque absolu centré sur l'ancre (n'affecte pas le flux
+      // de la pastille), couleur du thème. Rayon = pastille custom ou donut par défaut.
+      const isSelected = selectedKeys.has(String(key))
+      const ringSize = chrome.icon ? clusterSize : defaultClusterRadius(node.cluster.total, theme) * 2
       out.push(
         createPortal(
           <>
@@ -518,7 +588,7 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
                 node.cluster.total,
                 labels.plural,
               )}
-              onClick={() => handleClick(key, node.cluster)}
+              onClick={(e) => handleClick(key, node.cluster, e)}
               onHoverEnter={chrome.tooltip ? () => setHoverId(key) : undefined}
               onHoverLeave={
                 chrome.tooltip
@@ -529,6 +599,23 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
                   : undefined
               }
             >
+              {isSelected && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    width: ringSize,
+                    height: ringSize,
+                    marginLeft: -ringSize / 2,
+                    marginTop: -ringSize / 2,
+                    borderRadius: '50%',
+                    boxShadow: `0 0 0 ${theme.clusters.selectedWidth}px ${theme.clusters.selectedColor}`,
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
               {content}
             </MarkerContent>
             {hasTipContent(tip) && (
@@ -560,6 +647,7 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     chrome.tooltip,
     membersOf,
     handleClick,
+    selectedKeys,
   ])
 
   return <>{portals}</>

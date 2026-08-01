@@ -32,6 +32,7 @@ import type { GraticuleConfig } from './graticule'
 import type { CatalogConfig } from './catalog'
 import type { WatermarkConfig } from './watermark'
 import type { CaptureConfig } from './capture'
+import type { SelectionConfig } from './selection'
 
 export * from './common'
 export * from './providers'
@@ -49,6 +50,7 @@ export * from './graticule'
 export * from './catalog'
 export * from './watermark'
 export * from './capture'
+export * from './selection'
 
 export type MapConfig = {
   providers: ProvidersConfig
@@ -73,6 +75,8 @@ export type MapConfig = {
   watermark: WatermarkConfig
   /** Capture d'image de la carte (« Prendre une photo », `engine.capture()`) — cf. `CaptureConfig`. */
   capture: CaptureConfig
+  /** Politique de sélectionnabilité (quels types l'outil sélection peut atteindre) — cf. `SelectionConfig`. */
+  selection: SelectionConfig
 }
 
 /** Ce que fournit l'application : n'importe quel sous-arbre de `MapConfig`. */

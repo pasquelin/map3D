@@ -529,3 +529,6 @@ Défauts de la capture (« Prendre une photo » et `engine.capture()`). Ne conti
 | `capture.quality` | Qualité 0..1 pour les formats compressés (jpeg/webp) ; ignorée en png. | `0.92` |
 | `capture.scale` | Suréchantillonnage par défaut (`1 | 2`) : ×2 rend plus net que l'affichage, au prix d'une frame lourde. | `1` |
 | `capture.background` | Fond par défaut (`'opaque' | 'transparent'`). `'transparent'` retombe sur opaque aujourd'hui : le renderer est créé sans canal alpha. | `'opaque'` |
+| `selection.selectable.marker` | Les markers sont-ils sélectionnables par l'outil sélection. | `true` |
+| `selection.selectable.path` | Les tracés sont-ils sélectionnables par l'outil sélection. | `true` |
+| `selection.selectable.cluster` | Les clusters sont-ils sélectionnables (→ sélectionne leurs markers enfants). | `true` |

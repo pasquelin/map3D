@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLayer'
 import { useMapContext } from '../context'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
@@ -24,6 +25,8 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
           width: 6,
           casingWidth: 3,
           renderOrder: 1,
+          selectedColor: theme.colors.path.selected,
+          selectedWidth: 6,
         },
         animateHead,
       ),
@@ -31,10 +34,26 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
 
   useStatCounter(ref)
   useLayerSync(ref, theme, (layer, t) =>
-    layer.setDefaults({ color: t.colors.path.base, casingColor: t.colors.path.casing }),
+    layer.setDefaults({
+      color: t.colors.path.base,
+      casingColor: t.colors.path.casing,
+      selectedColor: t.colors.path.selected,
+    }),
   )
   useLayerSync(ref, paths, (layer, p) => layer.setPaths(p))
   useLayerSync(ref, animateHead, (layer, v) => layer.setAnimateHead(v))
+
+  // Provider du registre de sélection : expose les tracés (contour écran) au marquee
+  // et au clic. Même patron que le provider marker (`useMarkerRegistries`).
+  useEffect(() => {
+    return engine.selectables.register({
+      screenItems: () => ref.current?.selectableItems(engine.threeCamera) ?? [],
+      setSelected: (ids) => ref.current?.setSelected(ids),
+      info: (id) => (ref.current?.hasSelectable(id) ? { kind: 'path', type: 'path' } : null),
+      hitTest: (x, y, tol) => ref.current?.hitTest(x, y, tol) ?? null,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine])
 
   return null
 }

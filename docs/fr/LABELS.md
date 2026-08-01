@@ -225,6 +225,8 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `selection.expandGroup` | aria-label du chevron dépliant un groupe de formes — `{label}` = libellé du groupe. | `'Déplier / replier {label}'` |
 | `selection.shapeItem` | Libellé d'une forme dépliée sans nom propre — `{type}` (kind traduit), `{n}` (rang). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. | `'Supprimer {label}'` |
+| `selection.pathsGroup` | Nom de la catégorie tracés dans une rangée. | `'Tracés'` |
+| `selection.pathItem` | Libellé d'un tracé déplié — `{n}` (rang dans le groupe). | `'Tracé {n}'` |
 
 ## `clusters` — Regroupement de markers
 

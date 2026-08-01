@@ -325,6 +325,10 @@ export type MapLabels = {
     shapeItem: string
     /** aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. */
     deleteShape: string
+    /** Nom de la catégorie tracés dans une rangée. */
+    pathsGroup: string
+    /** Libellé d'un tracé déplié — `{n}` (rang dans le groupe). */
+    pathItem: string
   }
   /** Regroupement de markers (`<ClusterSurface>`). */
   clusters: {

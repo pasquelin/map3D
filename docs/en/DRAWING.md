@@ -100,22 +100,50 @@ click to select a shape, `Shift+click` to add/remove.
 <Toolbar selectModes={['rect', 'lasso']} />   // a single mode = no flyout
 ```
 
-Selection covers **shapes** *and* **markers** — marker layers register with the
-`engine.selectables` registry. The two are read separately:
+Selection covers **shapes**, **markers**, **paths** (`PathLayer`) and **clusters** — each
+layer registers with the `engine.selectables` registry. The populations are read separately:
 
 ```ts
-const { selection, markerSelection, selectionDetails } = useDrawing()
+const { selection, markerSelection, pathSelection, clusterGroups, selectionDetails } = useDrawing()
 ```
+
+### What is selectable
+
+| Type | Selectable | Config key | Note |
+|---|---|---|---|
+| Marker (and placed symbol) | yes | `marker` | — |
+| Drawn shape (`line`/`polygon`/`rect`/`circle`/`freehand`/`arrow`/`measure`) | yes | — | governed by `locked`/"Layers" filter |
+| **Path** (`PathLayer`) | yes | `path` | halo `theme.colors.path.selected` |
+| **Cluster** (badge) | yes → collapsible group of children | `cluster` | click = **zoom** outside the selection tool |
+| Zone (`ShapeLayer`) | no | *(reserved)* | — |
+| Link / relation (`LinkLayer`) | no | *(reserved)* | click = trace a route |
+| 3D building | no (dedicated picking) | — | see [BUILDINGS.md](BUILDINGS.md) |
+| Graticule, HUD, basemap | no | — | chrome |
+
+**Cluster**: selecting it (click while the selection tool is active, or a marquee over the
+badge) selects **all its child markers**, shown as a **collapsible row**. Outside the
+selection tool, clicking a badge **zooms** (unchanged). A cluster selection **survives
+pan/zoom**: it is held by its members, not by the ephemeral badge.
+
+### Restricting selection (`config.selection.selectable`)
+
+One boolean per type (all `true` by default), honoured by **every** tool:
+
+```tsx
+// Allow only markers (no paths, no clusters) in this context:
+<Map config={{ selection: { selectable: { path: false, cluster: false } } }} />
+```
+
+`SELECTABLE_KINDS` (public export) enumerates the types to build your own UI.
 
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 
 The **selection badges** (`draw.selectionBadges`) list what is selected: **markers** as
-rows with their menu; **shapes** grouped by `kind`, each group **expandable** (chevron,
-like the catalogue) to list its shapes one by one, each with a **red trash button** that
-deletes it (undoable via `Ctrl+Z`). A `kind` with a **single shape** shows directly,
-without a group. A group's cross **deselects** (it does not delete). Mounted by default;
-`selectionBadges: false` removes them.
+rows with their menu; **shapes** grouped by `kind`; **paths** under a "Paths" group; and
+**clusters** as one "Cluster (N)" row each. Every group is **expandable** (chevron, like the
+catalogue) — an expanded cluster lists its **child markers**. A group's cross **deselects**
+(it does not delete). Mounted by default; `selectionBadges: false` removes them.
 
 ---
 
@@ -453,7 +481,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Group | Members |
 |---|---|
 | Tool | `tool`, `setTool`, `tools`, `shortcuts` |
-| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
+| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
 | History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |

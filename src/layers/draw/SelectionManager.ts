@@ -1,7 +1,13 @@
 import type { InteractionConfig } from '../../config/types'
 import type { PointerPhase } from '../../core/MapEngine'
-import type { SelectableScreenItem } from '../../core/Selectables'
-import type { LatLng } from '../../shared'
+import {
+  kindAllowed,
+  type SelectableGroup,
+  type SelectableInfo,
+  type SelectablePolicy,
+  type SelectableScreenItem,
+} from '../../core/Selectables'
+import { type LatLng, sameSet } from '../../shared'
 import type { Drawing } from '../DrawLayer'
 import { pointInPolygon, type ScreenPt, shapeTouchesSelector } from './hitTest'
 
@@ -21,8 +27,14 @@ export type SelectHost = {
   eventToScreen(e: PointerEvent): ScreenPt
   /** Un drag commence sur le corps d'une forme sélectionnée → bascule en édition. */
   beginBodyDrag?(latLng: LatLng | null): boolean
-  /** Sélectionnables externes (markers) visibles, en px canvas — lu au finalize. */
+  /** Sélectionnables externes (markers, tracés, clusters) visibles, en px canvas — lu au finalize. */
   externalItems?(): SelectableScreenItem[]
+  /** Clic générique sur un objet drapé externe (tracé) sous le curseur — id ou null. */
+  externalHitTest?(x: number, y: number, tolPx: number): string | number | null
+  /** Métadonnées d'un sélectionnable externe (kind, type, groupe éventuel). */
+  externalInfo?(id: string | number): SelectableInfo | null
+  /** Politique de sélectionnabilité courante (relue à chaud). */
+  selectionPolicy?(): SelectablePolicy
   /**
    * Seuils de geste courants. Lu à CHAQUE usage plutôt que capturé au montage : la
    * config change à chaud (bascule souris ↔ tactile), et une valeur figée à la
@@ -31,26 +43,35 @@ export type SelectHost = {
   interaction(): InteractionConfig
 }
 
+/** État d'un pressé sur un objet externe drapé (tracé) — pické au relâchement. */
+type PressedExternal = { id: string | number; additive: boolean; start: ScreenPt; dragging: boolean }
+
 /**
- * Sélection des dessins ET des sélectionnables externes (markers) : clic simple
- * (Maj = toggle), marquee rectangle/polygone/lasso avec sémantique « touche =
- * sélectionné » (façon Figma) ; Alt/⌘ pendant le marquee = markers seulement.
- * Machine à états pilotée par l'interceptor de DrawLayer quand l'outil `select`
- * est actif. Les markers vivent dans un Set séparé (`extSel`) : ils ne passent
- * jamais par l'édition (move/resize/rotation = formes uniquement).
+ * Sélection des dessins, des sélectionnables externes (markers, tracés) ET des
+ * agrégats pliables (clusters) : clic simple (Maj = toggle), marquee
+ * rectangle/polygone/lasso avec sémantique « touche = sélectionné » (façon
+ * Figma) ; Alt/⌘ pendant le marquee = objets non-formes seulement. Machine à
+ * états pilotée par l'interceptor de DrawLayer quand l'outil `select` est actif.
+ *
+ * Trois populations séparées : les formes (`sel`, éditables), les externes plats
+ * (`extSel` — markers ET tracés, jamais édités), et les groupes (`groupSel` —
+ * clusters, capturés par leurs membres pour survivre au recompute de la pastille).
  */
 export class SelectionManager {
   mode: SelectMode = 'rect'
 
   private readonly sel = new Set<string>()
-  /** Sélection externe (markers) — ids libres côté hôte, pas de namespacing. */
+  /** Sélection externe plate (markers + tracés) — ids libres côté hôte, pas de namespacing interne. */
   private readonly extSel = new Set<string | number>()
+  /** Groupes sélectionnés (clusters) : clé = String(id de l'agrégat) → membres résolus. */
+  private readonly groupSel = new Map<string, SelectableGroup>()
   private pressed: { id: string; additive: boolean; start: ScreenPt; dragging: boolean } | null = null
+  private pressedExternal: PressedExternal | null = null
   /** Tracé du sélecteur en cours (px canvas). `poly` = mode clics (persiste entre up/down). */
   private marqueePts: ScreenPt[] | null = null
   private marqueeKind: SelectMode = 'rect'
   private marqueeAdditive = false
-  /** Alt/⌘ enfoncé pendant le marquee : seuls les markers sont pris en compte. */
+  /** Alt/⌘ enfoncé pendant le marquee : seuls les objets non-formes sont pris en compte. */
   private marqueeMarkersOnly = false
 
   constructor(private readonly host: SelectHost) {}
@@ -59,9 +80,37 @@ export class SelectionManager {
     return [...this.sel]
   }
 
-  /** Ids des sélectionnables externes (markers) sélectionnés. */
+  /** Ids des sélectionnables externes plats (markers + tracés) sélectionnés. */
   get markerIds(): (string | number)[] {
     return [...this.extSel]
+  }
+
+  /** Groupes (clusters) sélectionnés — pour les badges (rangée pliable) et l'application visuelle. */
+  get groups(): { id: string; label: string; memberIds: (string | number)[] }[] {
+    return [...this.groupSel].map(([id, g]) => ({ id, label: g.label, memberIds: [...g.memberIds] }))
+  }
+
+  /** Set des markers effectifs (externes plats + membres des groupes) — base de `effectiveMarkerIds`/`appliedIds`. */
+  private effectiveMarkerSet(): Set<string | number> {
+    const out = new Set<string | number>(this.extSel)
+    for (const g of this.groupSel.values()) for (const m of g.memberIds) out.add(m)
+    return out
+  }
+
+  /**
+   * Markers effectivement sélectionnés : les externes plats PLUS les membres des
+   * groupes (clusters) — dédupliqués. C'est la sémantique publique
+   * « sélectionner un cluster = sélectionner ses enfants ».
+   */
+  effectiveMarkerIds(): (string | number)[] {
+    return [...this.effectiveMarkerSet()]
+  }
+
+  /** Ids diffusés aux providers pour l'application visuelle : membres effectifs + clés de groupe (pastilles). */
+  appliedIds(): Set<string | number> {
+    const out = this.effectiveMarkerSet()
+    for (const key of this.groupSel.keys()) out.add(key)
+    return out
   }
 
   has(id: string): boolean {
@@ -73,11 +122,16 @@ export class SelectionManager {
   }
 
   /**
-   * Réécrit les DEUX populations sans notifier — unique endroit qui mute les
-   * Sets en bloc. Renvoie true si le contenu a changé ; chaque geste appelant
-   * notifie alors UNE fois (au lieu d'une notification par population).
+   * Réécrit les TROIS populations sans notifier — unique endroit qui mute les
+   * Sets/Map en bloc. Renvoie true si le contenu a changé ; chaque geste appelant
+   * notifie alors UNE fois. `groups` par défaut = groupSel courant (un `write` de
+   * formes/markers ne touche pas aux clusters, sauf passage explicite).
    */
-  private write(shapeIds: readonly string[], markerIds: ReadonlyArray<string | number>): boolean {
+  private write(
+    shapeIds: readonly string[],
+    markerIds: ReadonlyArray<string | number>,
+    groups: ReadonlyMap<string, SelectableGroup> = this.groupSel,
+  ): boolean {
     // `Set` et non `shapeIds.includes` : les deux listes grandissent ENSEMBLE (un
     // marquee sélectionne d'autant plus d'ids qu'il y a de formes), donc le `includes`
     // en boucle était le seul O(n·m) du chemin de sélection.
@@ -87,49 +141,98 @@ export class SelectionManager {
       if (wanted.has(d.id) && this.host.isSelectable(d)) shapes.add(d.id)
     }
     const markers = new Set(markerIds)
-    const changed = !sameSet(shapes, this.sel) || !sameSet(markers, this.extSel)
+    // `groups === this.groupSel` (défaut) = les clusters ne bougent pas : on saute la
+    // comparaison ET la réécriture des groupes (rien à copier, rien à comparer).
+    const groupsUntouched = groups === this.groupSel
+    const changed =
+      !sameSet(shapes, this.sel) ||
+      !sameSet(markers, this.extSel) ||
+      (!groupsUntouched && !sameGroupMap(groups, this.groupSel))
     if (changed) {
+      // Matérialiser AVANT de vider quand on réécrit les groupes : `groups` ne peut
+      // pas être `this.groupSel` ici (groupsUntouched l'exclut), mais on fige l'entrée.
+      const nextGroups = groupsUntouched ? null : [...groups]
       this.sel.clear()
       for (const id of shapes) this.sel.add(id)
       this.extSel.clear()
       for (const id of markers) this.extSel.add(id)
+      if (nextGroups) {
+        this.groupSel.clear()
+        for (const [k, v] of nextGroups) this.groupSel.set(k, v)
+      }
     }
     return changed
   }
 
-  /** Remplace la sélection de formes (markers intacts — sert l'API publique `select`). */
+  /** Remplace la sélection de formes (externes/groupes intacts — sert l'API publique `select`). */
   set(ids: readonly string[]): void {
     if (this.write(ids, [...this.extSel])) this.host.selectionChanged()
   }
 
   clear(): void {
-    if (this.write([], [])) this.host.selectionChanged()
+    if (this.write([], [], new Map())) this.host.selectionChanged()
   }
 
-  /** Clic sur un sélectionnable externe (routé par le consumer du registre). */
+  /**
+   * Clic sur un sélectionnable externe (routé par le consumer du registre, ou par
+   * le hit-test générique des tracés). Route vers la population idoine (groupe si
+   * l'info porte un agrégat, sinon externe plat) et respecte la politique.
+   */
   pickExternal(id: string | number, additive: boolean): void {
+    const info = this.host.externalInfo?.(id) ?? null
+    if (info && !kindAllowed(info.kind, this.host.selectionPolicy?.())) return
+    if (info?.group) {
+      const key = String(id)
+      if (additive) {
+        if (this.groupSel.has(key)) this.groupSel.delete(key)
+        else this.groupSel.set(key, info.group)
+        this.host.selectionChanged()
+      } else if (this.write([], [], new Map([[key, info.group]]))) {
+        this.host.selectionChanged()
+      }
+      return
+    }
     if (additive) {
       if (this.extSel.has(id)) this.extSel.delete(id)
       else this.extSel.add(id)
       this.host.selectionChanged()
-    } else if (this.write([], [id])) {
+    } else if (this.write([], [id], new Map())) {
       this.host.selectionChanged()
     }
   }
 
-  /** Désélectionne des sélectionnables externes (croix d'un groupe de badges). */
+  /** Désélectionne des sélectionnables externes plats (croix d'une ligne de badge). */
   deselectExternal(ids: ReadonlyArray<string | number>): void {
     let changed = false
     for (const id of ids) if (this.extSel.delete(id)) changed = true
     if (changed) this.host.selectionChanged()
   }
 
-  /** Retire les sélectionnables externes disparus (données, filtre tags…). */
+  /** Désélectionne un groupe entier (croix d'une rangée cluster). */
+  deselectGroup(id: string | number): void {
+    if (this.groupSel.delete(String(id))) this.host.selectionChanged()
+  }
+
+  /**
+   * Retire les sélectionnables externes disparus (données, filtre tags…). Un
+   * GROUPE (cluster) survit tant qu'au moins un membre vit — jamais pruné sur
+   * l'existence de sa pastille, qui est recalculée en continu.
+   */
   pruneExternal(isAlive: (id: string | number) => boolean): void {
     let changed = false
     for (const id of [...this.extSel]) {
       if (!isAlive(id)) {
         this.extSel.delete(id)
+        changed = true
+      }
+    }
+    for (const [key, g] of [...this.groupSel]) {
+      const alive = g.memberIds.filter(isAlive)
+      if (alive.length === 0) {
+        this.groupSel.delete(key)
+        changed = true
+      } else if (alive.length !== g.memberIds.length) {
+        this.groupSel.set(key, { ...g, memberIds: alive })
         changed = true
       }
     }
@@ -165,7 +268,7 @@ export class SelectionManager {
       this.host.selectionChanged()
       return true
     }
-    if (this.sel.size > 0 || this.extSel.size > 0) {
+    if (this.sel.size > 0 || this.extSel.size > 0 || this.groupSel.size > 0) {
       this.clear()
       return true
     }
@@ -211,6 +314,12 @@ export class SelectionManager {
       this.pressed = { id: hit.id, additive: e.shiftKey, start: s, dragging: false }
       return true
     }
+    // Aucune forme touchée : essayer un objet drapé externe (tracé) sous le curseur.
+    const extId = this.host.externalHitTest?.(s.x, s.y, this.host.interaction().shapeHitTolerancePx)
+    if (extId !== null && extId !== undefined) {
+      this.pressedExternal = { id: extId, additive: e.shiftKey, start: s, dragging: false }
+      return true
+    }
     // Clic dans le vide → démarre un sélecteur (drag pour rect/lasso, clics pour poly).
     this.marqueeAdditive = e.shiftKey
     this.marqueeMarkersOnly = e.altKey || e.metaKey
@@ -230,6 +339,17 @@ export class SelectionManager {
         if (!this.pressed.additive && !this.sel.has(this.pressed.id) && this.write([this.pressed.id], []))
           this.host.selectionChanged()
         if (this.host.beginBodyDrag?.(latLng)) this.pressed = null
+      }
+      return true
+    }
+    if (this.pressedExternal) {
+      // Un tracé ne s'édite pas : au-delà du slop, on annule seulement le clic (pas de drag).
+      if (
+        !this.pressedExternal.dragging &&
+        Math.hypot(s.x - this.pressedExternal.start.x, s.y - this.pressedExternal.start.y) >
+          this.host.interaction().clickSlopPx
+      ) {
+        this.pressedExternal.dragging = true
       }
       return true
     }
@@ -259,9 +379,15 @@ export class SelectionManager {
           else this.sel.add(id)
           this.host.selectionChanged()
         } else {
-          if (this.write([id], [])) this.host.selectionChanged()
+          if (this.write([id], [], new Map())) this.host.selectionChanged()
         }
       }
+      return true
+    }
+    if (this.pressedExternal) {
+      const { id, additive, dragging } = this.pressedExternal
+      this.pressedExternal = null
+      if (!dragging) this.pickExternal(id, additive)
       return true
     }
     if (this.marqueePts && this.marqueeKind !== 'poly') {
@@ -288,7 +414,7 @@ export class SelectionManager {
       this.host.selectionChanged()
       return
     }
-    // Formes : sautées si Alt/⌘ (markers seulement). Alt filtre ce que le
+    // Formes : sautées si Alt/⌘ (non-formes seulement). Alt filtre ce que le
     // sélecteur voit ; la sémantique remplace/ajoute reste portée par Maj seul.
     const hits: string[] = []
     if (!markersOnly) {
@@ -298,21 +424,39 @@ export class SelectionManager {
         if (contour && shapeTouchesSelector(contour.pts, contour.closed, selector)) hits.push(d.id)
       }
     }
-    // Markers : un point est « touché » s'il est DANS le sélecteur.
+    // Externes : un item géométrique (tracé) est « touché » comme une forme ; un item
+    // point (marker, pastille de cluster) l'est s'il est DANS le sélecteur.
     const extHits: (string | number)[] = []
     for (const it of this.host.externalItems?.() ?? []) {
-      if (pointInPolygon({ x: it.x, y: it.y }, selector)) extHits.push(it.id)
+      const touched = it.geometry
+        ? shapeTouchesSelector(it.geometry.pts, it.geometry.closed, selector)
+        : pointInPolygon({ x: it.x, y: it.y }, selector)
+      if (touched) extHits.push(it.id)
+    }
+    // Classer les externes : plats (markers/tracés) vs groupes (clusters).
+    const extMarkers: (string | number)[] = []
+    const extGroups = new Map<string, SelectableGroup>()
+    for (const id of extHits) {
+      const info = this.host.externalInfo?.(id) ?? null
+      if (info?.group) extGroups.set(String(id), info.group)
+      else extMarkers.push(id)
     }
     const nextShapes = this.marqueeAdditive ? [...this.sel, ...hits] : hits
-    const nextMarkers = this.marqueeAdditive ? [...this.extSel, ...extHits] : extHits
-    this.write(nextShapes, nextMarkers)
+    const nextMarkers = this.marqueeAdditive ? [...this.extSel, ...extMarkers] : extMarkers
+    const nextGroups = this.marqueeAdditive ? new Map([...this.groupSel, ...extGroups]) : extGroups
+    this.write(nextShapes, nextMarkers, nextGroups)
     // Notification unique : porte le changement de sélection ET l'effacement du tracé.
     this.host.selectionChanged()
   }
 }
 
-function sameSet<T>(a: Set<T>, b: Set<T>): boolean {
+/** Égalité de deux maps de groupes : mêmes clés ET mêmes membres (ordre inclus). */
+function sameGroupMap(a: ReadonlyMap<string, SelectableGroup>, b: ReadonlyMap<string, SelectableGroup>): boolean {
   if (a.size !== b.size) return false
-  for (const v of a) if (!b.has(v)) return false
+  for (const [k, ga] of a) {
+    const gb = b.get(k)
+    if (!gb || ga.memberIds.length !== gb.memberIds.length) return false
+    for (let i = 0; i < ga.memberIds.length; i++) if (ga.memberIds[i] !== gb.memberIds[i]) return false
+  }
   return true
 }

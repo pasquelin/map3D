@@ -2,11 +2,16 @@ import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
 import { boundsOfLatLngs } from '../core/bounds'
 import type { FrameContext } from '../core/Layer'
-import type { Projection } from '../core/Projection'
+import type { Projection, ScreenPoint } from '../core/Projection'
+import type { SelectableScreenItem } from '../core/Selectables'
 import { circlePoints, fillGeo, ribbon } from '../core/geometry'
 import { fillMaterial, strokeMaterial } from '../core/geometryMaterials'
 import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
+import { segDistPx } from './draw/hitTest'
+
+/** Préfixe d'id des tracés dans le registre de sélection : évite les collisions avec les ids de markers. */
+const PATH_SID = 'path:'
 
 /** `width`/`casingWidth` : épaisseurs de trait en **pixels écran** (constantes au zoom). */
 export type PathData = {
@@ -24,6 +29,10 @@ export type PathLayerDefaults = {
   width: number
   casingWidth: number
   renderOrder: number
+  /** Couleur du halo de sélection (thème). */
+  selectedColor: string
+  /** Sur-épaisseur du halo de sélection, en px écran, autour du trait. */
+  selectedWidth: number
 }
 
 type Head = { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial }
@@ -46,6 +55,15 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
 
   private paths: PathData[] = []
   private time = 0
+  /** Scratch de projection (chemin froid : finalize/clic), même patron que `LinkLayer`. */
+  private readonly scratch = new THREE.Vector3()
+  private readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
+  /** Ids (préfixés `path:`) des tracés sélectionnés — pilote le halo. */
+  private selected = new Set<string>()
+  /** Id synthétique stable pour un tracé sans `id` propre (réassigné à chaque `setPaths`). */
+  private synth = new WeakMap<PathData, string>()
+  /** Un rebuild de halo attend un repaint (consommé au prochain `onUpdate`). */
+  private selectionDirty = false
 
   constructor(
     scene: THREE.Object3D,
@@ -58,7 +76,18 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
 
   setPaths(paths: PathData[]): void {
     this.paths = paths
+    // Id synthétique aux tracés sans `id` propre : indispensable pour les
+    // sélectionner. Un tracé sans `id` perd sa sélection au prochain `setPaths`
+    // (flux temps réel) — fournir un `id` pour une sélection stable.
+    this.synth = new WeakMap()
+    let auto = 0
+    for (const p of paths) if (p.id === undefined) this.synth.set(p, `auto-${auto++}`)
     this.rebuildAll(this.paths)
+  }
+
+  /** Id du tracé dans le registre de sélection (préfixé, stable). */
+  private sidOf(path: PathData): string {
+    return PATH_SID + (path.id ?? this.synth.get(path) ?? '')
   }
 
   setAnimateHead(v: boolean): void {
@@ -89,6 +118,17 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
 
     const enu = frame.group()
     let head: Head | null = null
+
+    // Halo de sélection : ruban le plus large, posé sous le casing (renderOrder le
+    // plus bas) pour cerner le trait sans le masquer. Couleur venue du thème.
+    if (this.selected.has(this.sidOf(path))) {
+      const hg = ribbon(pts, width + this.defaults.selectedWidth * mpp, false)
+      if (hg) {
+        const mesh = new THREE.Mesh(hg, strokeMaterial(this.defaults.selectedColor, this.flatDepthTest, 0.9))
+        mesh.renderOrder = this.defaults.renderOrder - 1
+        enu.add(mesh)
+      }
+    }
 
     if (path.casing ?? true) {
       const cg = ribbon(pts, width + this.defaults.casingWidth * mpp, false)
@@ -141,5 +181,94 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     // Une tête qui pulse fait changer l'image sans que rien ne bouge par ailleurs. Signalé
     // une fois pour la couche : le drapeau est global, le poser par tracé ne l'est pas plus.
     if (pulsing) ctx.invalidate()
+    // Repaint unique après un changement de sélection (halo posé/retiré hors geste).
+    if (this.selectionDirty) {
+      this.selectionDirty = false
+      ctx.invalidate()
+    }
+  }
+
+  /**
+   * Projette les points d'un tracé à sa hauteur de drapage — chemin FROID
+   * (finalize/clic, jamais par frame), d'où l'allocation. `visible` = devant la
+   * caméra (`z <= 1`) ; un segment n'est valide qu'entre deux points visibles.
+   * Mutualisé par `selectableItems` (contour) et `hitTest` (plus-proche-segment).
+   */
+  private projectPath(d: PathDrape, camera: THREE.Camera): { x: number; y: number; visible: boolean }[] {
+    const h = this.heightOf(d)
+    const out: { x: number; y: number; visible: boolean }[] = []
+    for (const p of d.item.points) {
+      const world = this.projection.latLngToWorld(p, this.scratch, h)
+      const s = this.projection.worldToScreen(world, camera, this.screen)
+      out.push({ x: s.sx, y: s.sy, visible: s.z <= 1 })
+    }
+    return out
+  }
+
+  /**
+   * Contours écran des tracés pour l'outil sélection. Un tracé est une polyligne
+   * OUVERTE (`closed:false`) des points visibles ; `x,y` = 1er point visible.
+   */
+  selectableItems(camera: THREE.Camera): SelectableScreenItem[] {
+    if (!this.projection.isReady()) return []
+    const out: SelectableScreenItem[] = []
+    for (const d of this.drapes) {
+      const pts = this.projectPath(d, camera).filter((p) => p.visible)
+      const first = pts[0]
+      if (!first) continue
+      out.push({ id: this.sidOf(d.item), kind: 'path', x: first.x, y: first.y, geometry: { pts, closed: false } })
+    }
+    return out
+  }
+
+  /** true si l'id (préfixé) correspond à un tracé encore présent — pour `info`/prune du registre. */
+  hasSelectable(id: string | number): boolean {
+    if (typeof id !== 'string' || !id.startsWith(PATH_SID)) return false
+    for (const d of this.drapes) if (this.sidOf(d.item) === id) return true
+    return false
+  }
+
+  /** Tracé le plus proche d'un point écran (clic), ou null — même seuil que les formes. */
+  hitTest(screenX: number, screenY: number, tolPx: number): string | null {
+    const camera = this.lastCamera
+    if (this.drapes.length === 0 || !camera || !this.projection.isReady()) return null
+    let bestId: string | null = null
+    let bestDistance = tolPx
+    for (const d of this.drapes) {
+      const pts = this.projectPath(d, camera)
+      // Segment testé seulement entre deux points visibles (jamais à travers un point derrière la caméra).
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1]!
+        const b = pts[i]!
+        if (!a.visible || !b.visible) continue
+        const dist = segDistPx(screenX, screenY, a.x, a.y, b.x, b.y)
+        if (dist < bestDistance) {
+          bestDistance = dist
+          bestId = this.sidOf(d.item)
+        }
+      }
+    }
+    return bestId
+  }
+
+  /**
+   * Applique la sélection : rebuild ciblé des seuls tracés dont l'appartenance a
+   * changé (pour poser/retirer le halo). Hors frame — coût acceptable.
+   */
+  setSelected(ids: ReadonlySet<string | number>): void {
+    const next = new Set<string>()
+    for (const id of ids) if (typeof id === 'string' && id.startsWith(PATH_SID)) next.add(id)
+    const prev = this.selected
+    this.selected = next
+    for (let i = 0; i < this.drapes.length; i++) {
+      const sid = this.sidOf(this.drapes[i]!.item)
+      if (prev.has(sid) !== next.has(sid)) {
+        this.rebuildDrape(i)
+        // Le rebuild ciblé change l'image (halo posé/retiré) sans passer par `sync`
+        // (qui rouvrirait la fenêtre de raycasts). Sous renderOnDemand, un `select()`
+        // programmatique — hors geste pointeur — ne repeindrait jamais sans ceci.
+        this.selectionDirty = true
+      }
+    }
   }
 }

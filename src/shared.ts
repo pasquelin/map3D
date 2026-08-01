@@ -17,3 +17,10 @@ export type Bounds = { north: number; south: number; east: number; west: number 
  * viewport du lieu quand le provider le fournit — sert à calculer le zoom adapté.
  */
 export type SearchResult = LatLng & { name: string; description?: string; bounds?: Bounds }
+
+/** Égalité de deux ensembles : même taille ET mêmes éléments. */
+export function sameSet<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean {
+  if (a.size !== b.size) return false
+  for (const v of a) if (!b.has(v)) return false
+  return true
+}

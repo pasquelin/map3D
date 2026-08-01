@@ -260,8 +260,16 @@ export class DrawLayer implements Layer {
   defaults: DrawDefaults
   /** Tentative d'action (gomme, sélection…) sur une forme verrouillée — feedback UI. */
   onLockedHit?: (d: Drawing) => void
-  /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
-  onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
+  /**
+   * Notifiée à chaque changement de sélection. `markerIds` = markers sélectionnés
+   * À PLAT (les markers isolés + les enfants des clusters sélectionnés, ids bruts).
+   * `pathIds` = tracés sélectionnés (population distincte — jamais mêlée aux markers).
+   */
+  onSelectionChange?: (
+    ids: string[],
+    markerIds: ReadonlyArray<string | number>,
+    pathIds: ReadonlyArray<string | number>,
+  ) => void
   /**
    * Events **par forme**, émis au moment exact du changement — contrairement à
    * `onChange` qui sérialise toute la collection, coalescée à 1×/frame. Une app qui
@@ -320,15 +328,26 @@ export class DrawLayer implements Layer {
     isSelectable: (d) => !d.locked && this.isShown(d),
     onLockedHit: (d) => this.lockedFeedback(d),
     selectionChanged: () => {
-      const markerIds = this.selection.markerIds
-      this.externalSelectables?.apply(new Set(markerIds))
-      this.onSelectionChange?.(this.selection.ids, markerIds)
+      // Diffusion visuelle : membres effectifs (dont enfants de clusters) + clés de pastilles.
+      this.externalSelectables?.apply(this.selection.appliedIds())
+      // Callback public : markers À PLAT (isolés + enfants de clusters, ids bruts) et
+      // tracés dans une population DISTINCTE — jamais de préfixe `path:` mêlé aux markers.
+      if (this.onSelectionChange) {
+        const { markers, paths } = this.externalSelectionByKind()
+        const flatMarkers = new Set<string | number>(markers)
+        for (const g of this.selection.groups) for (const m of g.memberIds) flatMarkers.add(m)
+        this.onSelectionChange(this.selection.ids, [...flatMarkers], paths)
+      }
       this.overlayDirty = true
       this.syncSelectionOverlay()
     },
     eventToScreen: (e) => this.eventToScreen(e),
     beginBodyDrag: (latLng) => (latLng ? this.editCtl.beginMove(latLng) : false),
-    externalItems: () => this.externalSelectables?.items() ?? [],
+    externalItems: () => this.externalSelectables?.items(this.config.selection.selectable) ?? [],
+    externalHitTest: (x, y, tol) =>
+      this.externalSelectables?.hitTest(x, y, tol, this.config.selection.selectable) ?? null,
+    externalInfo: (id) => this.externalSelectables?.info(id) ?? null,
+    selectionPolicy: () => this.config.selection.selectable,
     interaction: () => this.config.interaction,
   })
   private externalSelectables: SelectableRegistry | null = null
@@ -875,9 +894,35 @@ export class DrawLayer implements Layer {
       this.tool === 'select' ? { pick: (id, modifiers) => this.selection.pickExternal(id, modifiers.shiftKey) } : null
   }
 
-  /** Désélectionne des sélectionnables externes (croix d'un groupe de badges). */
+  /** Désélectionne des sélectionnables externes plats (croix d'une ligne de badge). */
   deselectExternal(ids: ReadonlyArray<string | number>): void {
     this.selection.deselectExternal(ids)
+  }
+
+  /** Désélectionne un groupe entier (cluster) — croix de sa rangée pliable. */
+  deselectSelectionGroup(id: string | number): void {
+    this.selection.deselectGroup(id)
+  }
+
+  /** Groupes (clusters) sélectionnés — pour la rangée pliable des badges. */
+  selectionGroups(): { id: string; label: string; memberIds: (string | number)[] }[] {
+    return this.selection.groups
+  }
+
+  /**
+   * Sélection externe plate ventilée par kind (via `info`) : les markers pour la
+   * liste partagée, les tracés pour leur propre rangée de badges. Les ids sans
+   * info (registre absent) retombent en markers — comportement historique.
+   */
+  externalSelectionByKind(): { markers: (string | number)[]; paths: (string | number)[] } {
+    const markers: (string | number)[] = []
+    const paths: (string | number)[] = []
+    for (const id of this.selection.markerIds) {
+      const info = this.externalSelectables?.info(id)
+      if (info?.kind === 'path') paths.push(id)
+      else markers.push(id)
+    }
+    return { markers, paths }
   }
 
   /**

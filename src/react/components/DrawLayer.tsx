@@ -65,7 +65,11 @@ export type DrawLayerProps = {
   /** Collection entière après chaque mutation, coalescée à 1×/frame. */
   onChange?: (geojson: GeoJSONFeatureCollection) => void
   /** Notifiée à chaque changement de sélection (ids des formes, ids des markers). */
-  onSelectionChange?: (ids: string[], markerIds: ReadonlyArray<string | number>) => void
+  onSelectionChange?: (
+    ids: string[],
+    markerIds: ReadonlyArray<string | number>,
+    pathIds: ReadonlyArray<string | number>,
+  ) => void
   /**
    * Events **par forme** — pour une app qui fait du CRUD par identité (une mutation
    * par zone). Émis au moment du changement, sans la coalescence de `onChange` qui
@@ -176,6 +180,10 @@ export function DrawLayer(props: DrawLayerProps) {
   constraintsRef.current = props.constraints
   const [selection, setSelection] = useState<readonly string[]>([])
   const [markerSelection, setMarkerSelection] = useState<ReadonlyArray<string | number>>([])
+  const [pathSelection, setPathSelection] = useState<ReadonlyArray<string | number>>([])
+  const [clusterGroups, setClusterGroups] = useState<
+    ReadonlyArray<{ id: string; label: string; memberIds: (string | number)[] }>
+  >([])
   const [selectMode, setSelectModeState] = useState<SelectMode>('rect')
   const toolRef = useRef(tool)
   toolRef.current = tool
@@ -270,10 +278,16 @@ export function DrawLayer(props: DrawLayerProps) {
       engine.tags.report(tagSource, core.tagCounts())
       bump()
     })
-    core.onSelectionChange = (ids, markerIds) => {
+    core.onSelectionChange = (ids, markerIds, pathIds) => {
       setSelection(ids)
-      setMarkerSelection(markerIds)
-      onSelectionChangeRef.current?.(ids, markerIds)
+      // Badges : populations SÉPARÉES par kind (markers plats SANS les enfants de
+      // clusters, tracés, groupes cluster) pour éviter le double affichage.
+      const { markers, paths } = core.externalSelectionByKind()
+      setMarkerSelection(markers)
+      setPathSelection(paths)
+      setClusterGroups(core.selectionGroups())
+      // Callback intégrateur : markers à plat (enfants de clusters inclus) + tracés à part.
+      onSelectionChangeRef.current?.(ids, markerIds, pathIds)
     }
     core.onShapeAdd = (s) => shapeCbRef.current.add?.(s)
     core.onShapeUpdate = (s) => shapeCbRef.current.update?.(s)
@@ -511,9 +525,13 @@ export function DrawLayer(props: DrawLayerProps) {
       setSelectMode,
       selection,
       markerSelection,
+      pathSelection,
+      clusterGroups,
       selectionDetails,
       select: (ids) => coreRef.current?.select(ids),
       deselectMarkers: (ids) => coreRef.current?.deselectExternal(ids),
+      deselectPaths: (ids) => coreRef.current?.deselectExternal(ids),
+      deselectClusterGroup: (id) => coreRef.current?.deselectSelectionGroup(id),
       clearSelection: () => coreRef.current?.clearSelection(),
       deleteSelection: () => coreRef.current?.deleteSelected(),
       selectAll: () => {
@@ -595,6 +613,8 @@ export function DrawLayer(props: DrawLayerProps) {
       selection,
       selectionDetails,
       markerSelection,
+      pathSelection,
+      clusterGroups,
       rev,
       settings,
       setTool,

@@ -102,6 +102,8 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   catalog: 'Catalogue',
   watermark: 'Signature',
   capture: 'Capture d’image',
+  selection: 'Sélection',
+  'selection.selectable': 'Types sélectionnables',
 }
 
 /** Feuilles — les 197 de `defaultConfig`, plus les 3 clés optionnelles du type. */
@@ -536,4 +538,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'capture.quality': 'qualité (jpeg/webp)',
   'capture.scale': 'échelle (netteté)',
   'capture.background': 'fond',
+
+  // ── selection ──────────────────────────────────────────────────────────────
+  'selection.selectable.marker': 'markers sélectionnables',
+  'selection.selectable.path': 'tracés sélectionnables',
+  'selection.selectable.cluster': 'clusters sélectionnables',
 }

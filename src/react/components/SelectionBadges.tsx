@@ -1,4 +1,4 @@
-import { mdiChevronRight, mdiClose, mdiSelectionOff, mdiTrashCanOutline } from '@mdi/js'
+import { mdiChevronRight, mdiClose, mdiGroup, mdiSelectionOff, mdiTrashCanOutline, mdiVectorPolyline } from '@mdi/js'
 import { UiIcon } from './UiIcon'
 import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { MarkerData } from '../../data/types'
@@ -32,6 +32,48 @@ export type SelectionBadgesProps = {
  * croix). Les **formes** dessinées restent regroupées par kind (compteur + croix).
  * Déplaçable par sa poignée. La croix d'une ligne de marker la désélectionne.
  */
+/**
+ * En-tête d'un groupe pliable des badges (chevron + icône + libellé + compteur +
+ * croix de désélection) — factorisé pour les formes, les tracés et les clusters.
+ */
+function CollapsibleGroupHeader(props: {
+  iconPath: string
+  label: string
+  count: number
+  open: boolean
+  onToggle: () => void
+  onDeselect: () => void
+}) {
+  const labels = useLabels()
+  const { iconPath, label, count, open, onToggle, onDeselect } = props
+  return (
+    <div className="m3d-tagrow">
+      {/* Chevron : déplie le groupe pour lister ses éléments, comme le catalogue. */}
+      <button
+        type="button"
+        className={open ? 'm3d-selrow-chevron m3d-on' : 'm3d-selrow-chevron'}
+        aria-expanded={open}
+        aria-label={formatLabel(labels.selection.expandGroup, { label })}
+        onClick={onToggle}
+      >
+        <UiIcon path={mdiChevronRight} />
+      </button>
+      <UiIcon path={iconPath} />
+      <span className="m3d-taglabel">{label}</span>
+      <span className="m3d-tagcount">{count}</span>
+      {/* La croix DÉSÉLECTIONNE le groupe (ne supprime pas). */}
+      <button
+        type="button"
+        className="m3d-selrow-x"
+        onClick={onDeselect}
+        aria-label={formatLabel(labels.selection.deselectGroup, { label })}
+      >
+        <UiIcon path={mdiClose} />
+      </button>
+    </div>
+  )
+}
+
 export function SelectionBadges(props: SelectionBadgesProps) {
   const { engine } = useMapContext()
   const labels = useLabels()
@@ -39,9 +81,13 @@ export function SelectionBadges(props: SelectionBadgesProps) {
     tool,
     selection,
     markerSelection,
+    pathSelection,
+    clusterGroups,
     selectionDetails,
     select,
     deselectMarkers,
+    deselectPaths,
+    deselectClusterGroup,
     clearSelection,
     removeShape,
     getShape,
@@ -92,12 +138,12 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   // Groupes de formes DÉPLIÉS (par kind), comme le catalogue : un groupe ouvert liste ses
   // formes individuelles, chacune supprimable. État local — l'ouverture est une préférence
   // d'affichage, pas de la sélection.
-  const [expanded, setExpanded] = useState<ReadonlySet<DrawTool>>(() => new Set())
-  const toggleExpand = useCallback((kind: DrawTool) => {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleExpand = useCallback((key: string) => {
     setExpanded((cur) => {
       const next = new Set(cur)
-      if (next.has(kind)) next.delete(kind)
-      else next.add(kind)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }, [])
@@ -107,8 +153,10 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   const symbolByKey = useMemo(() => new Map(symbols.catalog.entries.map((e) => [e.key, e])), [symbols.catalog])
 
   // La sélection n'existe que pendant l'outil sélection (vidée à la sortie).
-  const total = selection.length + markerSelection.length
+  const total = selection.length + markerSelection.length + pathSelection.length + clusterGroups.length
   if (tool !== 'select' || total === 0) return null
+
+  const pathsOpen = expanded.has('m3d:paths')
 
   // Groupes de formes par kind, dans l'ordre de la sélection.
   const shapeGroups = new Map<DrawTool, string[]>()
@@ -194,29 +242,17 @@ export function SelectionBadges(props: SelectionBadgesProps) {
                 )
               }
 
-              const aria = formatLabel(labels.selection.deselectGroup, { label: text })
               return (
                 <div key={`shape:${kind}`}>
-                  <div className="m3d-tagrow">
-                    {/* Chevron : déplie le groupe pour lister ses formes, comme le catalogue. */}
-                    <button
-                      type="button"
-                      className={isOpen ? 'm3d-selrow-chevron m3d-on' : 'm3d-selrow-chevron'}
-                      aria-expanded={isOpen}
-                      aria-label={formatLabel(labels.selection.expandGroup, { label: text })}
-                      onClick={() => toggleExpand(kind)}
-                    >
-                      <UiIcon path={mdiChevronRight} />
-                    </button>
-                    <UiIcon path={TOOL_ICONS[kind]} />
-                    <span className="m3d-taglabel">{text}</span>
-                    <span className="m3d-tagcount">{ids.length}</span>
-                    {/* La croix du groupe DÉSÉLECTIONNE (ne supprime pas) — la suppression est
-                        par forme, sous le chevron. */}
-                    <button type="button" className="m3d-selrow-x" onClick={deselectGroup} aria-label={aria}>
-                      <UiIcon path={mdiClose} />
-                    </button>
-                  </div>
+                  {/* La suppression reste PAR forme (corbeille sous le chevron) ; la croix du header désélectionne. */}
+                  <CollapsibleGroupHeader
+                    iconPath={TOOL_ICONS[kind]}
+                    label={text}
+                    count={ids.length}
+                    open={isOpen}
+                    onToggle={() => toggleExpand(kind)}
+                    onDeselect={deselectGroup}
+                  />
                   {isOpen && (
                     <div className="m3d-selchildren">
                       {ids.map((id, i) => (
@@ -224,6 +260,85 @@ export function SelectionBadges(props: SelectionBadgesProps) {
                           {deletableLabel(id, childLabel(id, kind, i))}
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {pathSelection.length > 0 && (
+          <div className="m3d-taglist">
+            <div>
+              {/* Groupe pliable « Tracés », même pattern que les formes/catalogue. */}
+              <CollapsibleGroupHeader
+                iconPath={mdiVectorPolyline}
+                label={labels.selection.pathsGroup}
+                count={pathSelection.length}
+                open={pathsOpen}
+                onToggle={() => toggleExpand('m3d:paths')}
+                onDeselect={() => deselectPaths(pathSelection)}
+              />
+              {pathsOpen && (
+                <div className="m3d-selchildren">
+                  {pathSelection.map((id, i) => {
+                    const clabel = formatLabel(labels.selection.pathItem, { n: String(i + 1) })
+                    return (
+                      <div key={id} className="m3d-selchild">
+                        <span className="m3d-taglabel">{clabel}</span>
+                        <button
+                          type="button"
+                          className="m3d-selrow-x"
+                          onClick={() => deselectPaths([id])}
+                          aria-label={formatLabel(labels.selection.deselectGroup, { label: clabel })}
+                        >
+                          <UiIcon path={mdiClose} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {clusterGroups.length > 0 && (
+          <div className="m3d-taglist">
+            {clusterGroups.map((g) => {
+              const open = expanded.has(`m3d:cluster:${g.id}`)
+              // Membres résolus depuis l'inventaire temps réel — l'id d'origine mémorisé
+              // pour `getId` (cf. la liste markers principale).
+              const members: MarkerData[] = []
+              const memberIdOf = new Map<MarkerData, string | number>()
+              for (const mid of g.memberIds) {
+                const m = snapshot.markerById(mid)
+                if (!m) continue
+                members.push(m)
+                memberIdOf.set(m, mid)
+              }
+              return (
+                <div key={g.id}>
+                  {/* La croix désélectionne le cluster ENTIER (tous ses enfants). */}
+                  <CollapsibleGroupHeader
+                    iconPath={mdiGroup}
+                    label={g.label}
+                    count={g.memberIds.length}
+                    open={open}
+                    onToggle={() => toggleExpand(`m3d:cluster:${g.id}`)}
+                    onDeselect={() => deselectClusterGroup(g.id)}
+                  />
+                  {open && members.length > 0 && (
+                    <div className="m3d-selchildren">
+                      <MarkerList
+                        markers={members}
+                        getId={(m) => memberIdOf.get(m) ?? m.id}
+                        renderItem={props.renderMarker}
+                        markerTypeLabel={props.markerTypeLabel}
+                        actions={props.markerActions}
+                        menu={props.markerMenu}
+                      />
                     </div>
                   )}
                 </div>

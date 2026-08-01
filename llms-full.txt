@@ -2817,22 +2817,34 @@ click to select a shape, `Shift+click` to add/remove.
 <Toolbar selectModes={['rect', 'lasso']} />   // a single mode = no flyout
 ```
 
-Selection covers **shapes** *and* **markers** — marker layers register with the
-`engine.selectables` registry. The two are read separately:
+Selection covers **shapes**, **markers**, **paths** (`PathLayer`) and **clusters** — each
+layer registers with the `engine.selectables` registry. The populations are read separately:
 
 ```ts
-const { selection, markerSelection, selectionDetails } = useDrawing()
+const { selection, markerSelection, pathSelection, clusterGroups, selectionDetails } = useDrawing()
 ```
+
+A **path** gets a halo (`theme.colors.path.selected`) when selected. A **cluster**, when
+selected (click while the selection tool is active, or a marquee over its badge), selects
+**all its child markers** — shown as a collapsible row — and survives pan/zoom (held by its
+members, not the ephemeral badge). Outside the selection tool, clicking a badge **zooms**.
+
+Which types are selectable is governed by `config.selection.selectable` (one boolean per
+`SelectableKind`: `marker` / `path` / `cluster`, all `true` by default), honoured by every
+tool: `<Map config={{ selection: { selectable: { cluster: false } } }} />`.
 
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 
 The **selection badges** (`draw.selectionBadges`) list what is selected: **markers** as
-rows with their menu; **shapes** grouped by `kind`, each group **expandable** (chevron,
-like the catalogue) to list its shapes one by one, each with a **red trash button** that
-deletes it (undoable via `Ctrl+Z`). A `kind` with a **single shape** shows directly,
-without a group. A group's cross **deselects** (it does not delete). Mounted by default;
-`selectionBadges: false` removes them.
+rows with their menu; **shapes** grouped by `kind`; **paths** under a "Paths" group; and
+**clusters** as one "Cluster (N)" row each, expandable to their child markers. A group's
+cross **deselects** (it does not delete). Mounted by default; `selectionBadges: false`
+removes them.
+
+`onSelectionChange(ids, markerIds, pathIds)` reports the flat selection: `markerIds` = the
+selected markers **including cluster children** (raw ids), `pathIds` = the selected paths
+(kept separate, never mixed into `markerIds`).
 
 ---
 

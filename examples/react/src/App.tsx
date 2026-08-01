@@ -398,7 +398,9 @@ export function App() {
         // `value` accepterait un jeu de formes initial (verrouillables) ; la démo
         // part d'une page blanche pour qu'aucun tracé ne se confonde avec les zones.
         onChange: (g) => console.log('[draw] change — GeoJSON complet (ce que reçoit l’API) :', g),
-        onSelectionChange: (ids, markerIds) => console.log('[draw] selection', ids, markerIds),
+        // markerIds = markers à plat (enfants de clusters inclus) ; pathIds = tracés à part.
+        onSelectionChange: (ids, markerIds, pathIds) =>
+          console.log('[draw] selection — formes:', ids, 'markers:', markerIds, 'tracés:', pathIds),
         // Démo du CRUD par identité : à la création, un « backend » simulé renvoie
         // un uuid qu'on rattache à la forme via `meta`, en `silent` pour ne pas
         // relancer un cycle d'events.

@@ -50,6 +50,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.pedestrian.reticle` | Mode piéton : réticule central de l'immersion totale. Optionnel. | `'#f8fafc'` |
 | `colors.path.base` | Couleur d'un tracé. | `'#2E7CF6'` |
 | `colors.path.casing` | Contour du tracé (lisibilité sur imagerie satellite). | `'#ffffff'` |
+| `colors.path.selected` | Halo d'un tracé sélectionné (outil sélection). | `'#ffd54a'` |
 | `colors.zone.fill` | Remplissage d'une zone. | `'#079A7D'` |
 | `colors.zone.stroke` | Contour d'une zone. | `'#079A7D'` |
 | `colors.graticule.line` | Grille de coordonnées : parallèles et méridiens ordinaires. Optionnel — un thème antérieur reste valide (repli sur le thème par défaut). | `'#ffd54a'` |
@@ -111,6 +112,8 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `clusters.strokeWidth` | Contour clair des parts (px) — il déborde du rayon extérieur de sa moitié. | `2.5` |
 | `clusters.segmentGap` | Écart angulaire entre deux parts (rad) ; `0` les rend jointives. | `0.045` |
 | `clusters.startAngle` | Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas. | `3.141592653589793` |
+| `clusters.selectedColor` | Couleur de l'anneau d'une pastille sélectionnée (outil sélection). | `'#ffd54a'` |
+| `clusters.selectedWidth` | Épaisseur (px) de l'anneau de sélection d'une pastille. | `3` |
 
 ## `animations` — Rythme des animations et des vols caméra
 
