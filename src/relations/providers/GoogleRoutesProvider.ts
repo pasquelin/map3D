@@ -6,9 +6,8 @@
 // — ne demander que ce qui est réellement affiché.
 
 import { defaultConfig } from '../../config/defaultConfig'
-import { resolveLocale, resolveRegion } from '../../config/mergeConfig'
-import type { FetchPolicy, RoutingConfig } from '../../config/types'
-import { fetchWithPolicy } from '../../core/fetchPolicy'
+import type { RoutingConfig } from '../../config/types'
+import { googleFetch, googleLocaleFields } from '../../search/googleFetch'
 import { decodePolyline } from '../core/polyline'
 import type { MapPoint, TravelMode } from '../core/types'
 import type { MatrixEntry, ProviderRoute, RoutingProvider } from './RoutingProvider'
@@ -63,29 +62,21 @@ async function post(
   apiKey: string,
   fields: string,
   body: unknown,
-  policy: FetchPolicy,
+  policy: RoutingConfig,
   signal?: AbortSignal,
   /** En-têtes de `providers.routing.headers` — prioritaires (cas du proxy serveur). */
   extraHeaders?: Readonly<Record<string, string>>,
 ): Promise<unknown> {
-  const res = await fetchWithPolicy(
+  const res = await googleFetch({
     url,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': fields,
-        // Après les nôtres : un proxy qui attend un `Authorization` doit pouvoir
-        // remplacer l'en-tête de clé Google, pas seulement s'y ajouter.
-        ...extraHeaders,
-      },
-      body: JSON.stringify(body),
-    },
+    apiKey,
+    fields,
+    body,
     policy,
     signal,
-    `Google Routes ${url.split(':').pop()}`,
-  )
+    extraHeaders,
+    label: `Google Routes ${url.split(':').pop()}`,
+  })
   return res.json()
 }
 
@@ -111,19 +102,14 @@ export function createGoogleRoutesProvider(opts: GoogleRoutesOptions): RoutingPr
 
   // `opts.language`/`opts.region` restent prioritaires sur la config quelle qu'en
   // soit la source ; la locale est donc recalculée à chaque changement de `cfg`.
-  const localeOf = (c: RoutingConfig) => {
-    const languageCode = opts.language ?? resolveLocale(c.languageCode)
-    const regionCode = opts.region ?? resolveRegion(c.regionCode)
-    return {
-      ...(languageCode ? { languageCode } : {}),
-      ...(regionCode ? { regionCode } : {}),
-      // Absent = l'API déduit le système d'unités de la langue. C'est le
-      // comportement historique, mais il ne suit PAS `labels.measure` : une
-      // application qui affiche des miles obtenait des textes de manœuvre en
-      // kilomètres. Le déclarer aligne les deux.
-      ...(c.units ? { units: c.units } : {}),
-    }
-  }
+  const localeOf = (c: RoutingConfig) => ({
+    ...googleLocaleFields(opts, c),
+    // Absent = l'API déduit le système d'unités de la langue. C'est le
+    // comportement historique, mais il ne suit PAS `labels.measure` : une
+    // application qui affiche des miles obtenait des textes de manœuvre en
+    // kilomètres. Le déclarer aligne les deux.
+    ...(c.units ? { units: c.units } : {}),
+  })
   let locale = localeOf(cfg)
 
   return {

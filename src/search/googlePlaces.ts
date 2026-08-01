@@ -3,11 +3,10 @@
 // contrairement au couple Autocomplete + Place Details qui en coûte deux.
 
 import { defaultConfig } from '../config/defaultConfig'
-import { resolveLocale, resolveRegion } from '../config/mergeConfig'
 import type { PlacesConfig } from '../config/types'
 import type { SearchResult } from '../shared'
-import { fetchWithPolicy } from '../core/fetchPolicy'
 import { clamp } from '../core/math'
+import { googleFetch, googleLocaleFields } from './googleFetch'
 
 export type GooglePlacesOptions = {
   apiKey: string
@@ -42,32 +41,18 @@ export function createGooglePlacesSearch(
   const cfg = opts.config ?? defaultConfig.providers.places
   const [minSize, maxSize] = cfg.pageSizeRange
   const pageSize = clamp(Math.round(opts.limit ?? cfg.pageSize), minSize, maxSize)
-  const languageCode = opts.language ?? resolveLocale(cfg.languageCode)
-  const regionCode = opts.region ?? resolveRegion(cfg.regionCode)
+  const locale = googleLocaleFields(opts, cfg)
   return async (query, signal) => {
-    const res = await fetchWithPolicy(
-      cfg.url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': opts.apiKey,
-          'X-Goog-FieldMask': cfg.fields,
-          // Après les nôtres, comme en routage : un proxy qui attend un `Authorization`
-          // doit pouvoir remplacer l'en-tête de clé Google, pas seulement s'y ajouter.
-          ...cfg.headers,
-        },
-        body: JSON.stringify({
-          textQuery: query,
-          pageSize,
-          ...(languageCode ? { languageCode } : {}),
-          ...(regionCode ? { regionCode } : {}),
-        }),
-      },
-      cfg,
+    const res = await googleFetch({
+      url: cfg.url,
+      apiKey: opts.apiKey,
+      fields: cfg.fields,
+      body: { textQuery: query, pageSize, ...locale },
+      policy: cfg,
       signal,
-      'Google Places searchText',
-    )
+      extraHeaders: cfg.headers,
+      label: 'Google Places searchText',
+    })
     const body = (await res.json()) as { places?: GooglePlace[] }
     const results: SearchResult[] = []
     for (const p of body.places ?? []) {
