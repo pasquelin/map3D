@@ -13,7 +13,7 @@ export const defaultTheme: MapTheme = {
     tags: {},
     // Couleur PROPRE au centre du cluster : gris ardoise neutre, distinct des couleurs
     // de type/accent → dit « total » sans se confondre avec une sévérité.
-    cluster: { core: '#1e293b', satellite: '#6344F0', text: '#ffffff', ring: '#ffffff' },
+    cluster: { core: '#1e293b', text: '#ffffff', ring: '#ffffff' },
     draw: {
       palette: ['#F0503A', '#EE8F0A', '#079A7D', '#2E7CF6', '#6344F0', '#101828'],
       default: '#2E7CF6',
@@ -69,7 +69,7 @@ export const defaultTheme: MapTheme = {
   typography: {
     fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     sizes: { xs: 10.5, sm: 12.5, md: 13.5, lg: 16 },
-    weights: { normal: 400, medium: 500, semibold: 600, bold: 700 },
+    weights: { medium: 500, semibold: 600, bold: 700 },
   },
   markers: {
     size: 44,
@@ -142,7 +142,6 @@ export const defaultTheme: MapTheme = {
   // apparence — et n'avaient aucun consommateur. Ne restent que les couleurs, dont
   // `oceanColor` est désormais réellement lue (globes de repli).
   globe: {
-    atmosphere: true,
     background: '#070C16',
     oceanColor: '#0F2942',
     landColor: '#4F7A45',

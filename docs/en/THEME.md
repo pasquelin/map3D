@@ -35,7 +35,6 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `colors.marker.default.contrast` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#ffffff'` |
 | `colors.tags` | Per-tag colour ("Layers" panel), key = tag name. A tag absent from this object falls back to the library's hashed palette. Optional. | `{}` |
 | `colors.cluster.core` | Donut core. | `'#1e293b'` |
-| `colors.cluster.satellite` | Reserved for satellites (legacy model). | `'#6344F0'` |
 | `colors.cluster.text` | Total displayed in the centre. | `'#ffffff'` |
 | `colors.cluster.ring` | Separating ring between core and slices. | `'#ffffff'` |
 | `colors.draw.palette` | Palette offered by the drawing colour picker. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
@@ -90,7 +89,6 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `typography.sizes.sm` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `12.5` |
 | `typography.sizes.md` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `13.5` |
 | `typography.sizes.lg` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `16` |
-| `typography.weights.normal` | Weights, published as `--m3d-weight-*`. | `400` |
 | `typography.weights.medium` | Weights, published as `--m3d-weight-*`. | `500` |
 | `typography.weights.semibold` | Weights, published as `--m3d-weight-*`. | `600` |
 | `typography.weights.bold` | Weights, published as `--m3d-weight-*`. | `700` |
@@ -191,7 +189,6 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 
 | Key | Description | Default |
 |---|---|---|
-| `globe.atmosphere` | Atmospheric halo around the globe. | `true` |
 | `globe.background` | Background behind the globe (space). | `'#070C16'` |
 | `globe.oceanColor` | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles. | `'#0F2942'` |
 | `globe.hazeColor` | Colour the distant scene dissolves into in **pedestrian mode** (fog from `pedestrian.fogStartMeters` to `viewDistanceMeters`). ⚠️ This used to be the canvas background, which was right as long as the background was what you saw behind the scene; since the atmospheric sky paints at the far plane, distant façades faded towards a light background **against a blue sky**, drawing a sharp horizontal bar at eye level. With the sky off (`sky.enabled: false`), the canvas background takes the role back. A low sky's tint varies with time of day and scattering: this default targets the default sky, at midday. | `'#C4D6E4'` |
@@ -203,4 +200,3 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `globe.buildingShadeMin` | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading. | `0.62` |
 | `globe.buildingHoverColor` | Tint of a hovered building while the selection tool is active. It replaces the footprint's vertex colours but stays MODULATED by the shading baked into them: the building stands out of the neighbourhood without losing the relief of its walls. | `'#F2B441'` |
 | `globe.buildingSelectColor` | Tint of the building whose context menu is open. | `'#E8613C'` |
-| `globe.textureUrl` | Fallback texture for the fallback globe. Optional. | *(unset)* |

@@ -32,7 +32,6 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.marker.default.contrast` | Couleur par type de marker (ex. 'alert-critical', 'agent-available'). | `'#ffffff'` |
 | `colors.tags` | Couleur de repérage par tag (panneau « Couches »), clé = nom du tag. Tag absent de cet objet → palette hashée de la lib. Optionnel. | `{}` |
 | `colors.cluster.core` | Cœur du donut. | `'#1e293b'` |
-| `colors.cluster.satellite` | Réservée aux satellites (modèle historique). | `'#6344F0'` |
 | `colors.cluster.text` | Total affiché au centre. | `'#ffffff'` |
 | `colors.cluster.ring` | Anneau de séparation cœur/parts. | `'#ffffff'` |
 | `colors.draw.palette` | Palette proposée par le sélecteur de couleur du dessin. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
@@ -87,7 +86,6 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `typography.sizes.sm` | Échelle typographique (px). Publiée en `--m3d-size-*`. ⚠️ Ne couvre pas encore toute la feuille de styles : 26 tailles accidentelles (9.5 à 22 px) y restent littérales, faute de palier correspondant. | `12.5` |
 | `typography.sizes.md` | Échelle typographique (px). Publiée en `--m3d-size-*`. ⚠️ Ne couvre pas encore toute la feuille de styles : 26 tailles accidentelles (9.5 à 22 px) y restent littérales, faute de palier correspondant. | `13.5` |
 | `typography.sizes.lg` | Échelle typographique (px). Publiée en `--m3d-size-*`. ⚠️ Ne couvre pas encore toute la feuille de styles : 26 tailles accidentelles (9.5 à 22 px) y restent littérales, faute de palier correspondant. | `16` |
-| `typography.weights.normal` | Graisses, publiées en `--m3d-weight-*`. | `400` |
 | `typography.weights.medium` | Graisses, publiées en `--m3d-weight-*`. | `500` |
 | `typography.weights.semibold` | Graisses, publiées en `--m3d-weight-*`. | `600` |
 | `typography.weights.bold` | Graisses, publiées en `--m3d-weight-*`. | `700` |
@@ -188,7 +186,6 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `globe.atmosphere` | Halo atmosphérique autour du globe. | `true` |
 | `globe.background` | Fond derrière le globe (espace). | `'#070C16'` |
 | `globe.oceanColor` | Océan des globes de repli — celui de secours et celui sous les tuiles 2D. | `'#0F2942'` |
 | `globe.hazeColor` | Couleur dans laquelle le décor lointain se dissout en **mode piéton** (brouillard de `pedestrian.fogStartMeters` à `viewDistanceMeters`). ⚠️ C'était le fond du canvas, ce qui était juste tant que le fond était ce qu'on voyait derrière le décor ; le ciel atmosphérique se peignant au plan far, les façades lointaines s'estompaient vers un fond clair **sur un ciel bleu** et dessinaient une barre horizontale nette à hauteur d'horizon. Ciel éteint (`sky.enabled: false`), le fond du canvas reprend ce rôle. La teinte d'un ciel bas varie avec l'heure et la diffusion : ce défaut vise le ciel par défaut, en milieu de journée. | `'#C4D6E4'` |
@@ -200,4 +197,3 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `globe.buildingShadeMin` | Teinte de la façade la moins exposée, en fraction de sa couleur. `1` désactive l'ombrage. | `0.62` |
 | `globe.buildingHoverColor` | Teinte d'un bâtiment survolé, l'outil de sélection actif. Elle remplace la couleur des sommets de l'emprise, mais reste MODULÉE par l'ombrage cuit dedans : le bâtiment ressort du quartier sans perdre le relief de ses façades. | `'#F2B441'` |
 | `globe.buildingSelectColor` | Teinte du bâtiment dont le menu contextuel est ouvert. | `'#E8613C'` |
-| `globe.textureUrl` | Texture de substitution du globe de repli. Optionnel. | *(non défini)* |

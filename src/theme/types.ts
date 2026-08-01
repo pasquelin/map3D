@@ -24,8 +24,6 @@ export type MapTheme = {
     cluster: {
       /** Cœur du donut. */
       core: string
-      /** Réservée aux satellites (modèle historique). */
-      satellite: string
       /** Total affiché au centre. */
       text: string
       /** Anneau de séparation cœur/parts. */
@@ -343,8 +341,6 @@ export type MapTheme = {
     }
   }
   globe: {
-    /** Halo atmosphérique autour du globe. */
-    atmosphere: boolean
     /** Fond derrière le globe (espace). */
     background: string
     /** Océan des globes de repli — celui de secours et celui sous les tuiles 2D. */
@@ -409,8 +405,6 @@ export type MapTheme = {
     buildingHoverColor: string
     /** Teinte du bâtiment dont le menu contextuel est ouvert. */
     buildingSelectColor: string
-    /** Texture de substitution du globe de repli. */
-    textureUrl?: string
   }
 }
 
