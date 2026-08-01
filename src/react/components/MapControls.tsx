@@ -501,7 +501,10 @@ export function MapControls({
           <div className="m3d-controls-group">
             <ToolButton
               icon={mdiFullscreen}
-              label={labels.controls.fullscreen}
+              // En marche à pied, le plein écran DÉCLENCHE l'immersion totale (cf.
+              // `MapEngine.onFullscreenChange`) : le libellé le dit, plutôt qu'un bouton
+              // flottant séparé au milieu de l'écran.
+              label={inPedestrian ? labels.controls.immersion : labels.controls.fullscreen}
               tip={tip}
               shortcut={keys.fullscreen}
               onClick={toggleFs}

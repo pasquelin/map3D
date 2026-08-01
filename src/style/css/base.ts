@@ -72,15 +72,13 @@ export const CSS_BASE = `
 .m3d-reticle{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;
   border-radius:50%;background:var(--m3d-pedestrian-reticle,#f8fafc);pointer-events:none;
   z-index:var(--m3d-z-ui,999);box-shadow:0 0 0 1.5px rgba(0,0,0,.45)}
-/* Invite « Échap pour quitter » et bouton d'entrée en immersion : centrés en bas, hors de
-   la ligne de visée. Le bouton n'existe qu'en exploration ; l'invite qu'en immersion. */
-.m3d-pedestrian-hint,.m3d-pedestrian-immerse{position:absolute;left:50%;top:10%;
+/* Invite « Échap pour quitter » : centrée en bas, hors de la ligne de visée, en immersion
+   seulement (l'entrée en immersion se fait par le plein écran, pas par un bouton flottant). */
+.m3d-pedestrian-hint{position:absolute;left:50%;bottom:24px;
   transform:translateX(-50%);z-index:var(--m3d-z-ui,999);font:inherit;font-size:13px;
   padding:6px 12px;border-radius:999px;background:var(--m3d-panel,#0b1220);
   color:var(--m3d-text,#f8fafc);border:1px solid var(--m3d-border,transparent);
   box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none;white-space:nowrap}
-.m3d-pedestrian-immerse{pointer-events:auto;cursor:pointer;border-color:var(--m3d-accent,#2563eb)}
-.m3d-pedestrian-immerse:hover{background:var(--m3d-accent,#2563eb);color:#fff}
 /* Enveloppe ancrée : positionnée (transform) par le CSS2DRenderer chaque frame.
    PAS de will-change : la promotion en couche GPU désynchronise le marker du
    canvas WebGL pendant le déplacement (les 2 couches sont présentées à ~1 frame

@@ -162,18 +162,24 @@ le regard suit chaque mouvement **sans bouton** — la vue FPS classique.
 | Niveau | Sens |
 |---|---|
 | `explore` (défaut) | souris visible, menus actifs — le regard suit le glisser décrit ci-dessus |
-| `full` | immersion totale : **Pointer Lock** (souris capturée, regard libre sans bouton), interface de contrôle **masquée**, **réticule** central de visée et rappel « Échap pour quitter » |
+| `full` | immersion totale : **vrai plein écran** navigateur + **Pointer Lock** (souris capturée, regard libre sans bouton), barres de contrôle **masquées**, **réticule** central de visée et rappel « Échap pour quitter » |
 
-**Entrer et sortir de l'immersion.** En mode piéton, un bouton **« Immersion totale »**
-s'affiche (son clic est le geste utilisateur qu'exige `requestPointerLock`) : la lib engage
-alors le Pointer Lock elle-même. `Échap` **relâche le verrou** et revient à `'explore'`
-(l'interface réapparaît) **sans quitter la marche** ; un second `Échap`, depuis `'explore'`,
-quitte le mode piéton. Un raccourci clavier peut aussi armer la bascule
-(`interaction.shortcuts.pedestrian.immersion`, désactivé par défaut — cf. § 8).
+**C'est le PLEIN ÉCRAN qui gère l'immersion.** En mode piéton, le bouton **plein écran** de
+la barre (libellé « Immersion totale ») déclenche l'immersion : la lib passe en **vrai plein
+écran** (`requestFullscreen`, le chrome du navigateur disparaît), masque ses barres et engage
+le **Pointer Lock**. Il n'y a donc **pas de bouton flottant** au milieu de l'écran.
+
+- **Entrer** : bouton plein écran (ou `F11`, ou `interaction.shortcuts.pedestrian.immersion`
+  si une touche est configurée — cf. § 8). Le clic/appui est le geste utilisateur qu'exige
+  `requestPointerLock` ; le verrou est engagé une fois le plein écran effectif.
+- **Sortir** : **quitter le plein écran** (`Échap`, `F11`, ou re-bascule) **quitte le mode
+  piéton** — retour à l'orbite. Un seul `Échap` suffit (il relâche le verrou puis le plein
+  écran, ce qui sort du mode).
 
 > Le réticule prend la couleur `theme.colors.pedestrian.reticle` ; le masquage ne cache que
-> les **barres de contrôle**, jamais la scène ni les markers. `setImmersion` reste appelable
-> par l'hôte (bouton custom, raccourci) — le HUD intégré n'est qu'un chemin par défaut.
+> les **barres de contrôle**, jamais la scène ni les markers (le vrai plein écran, lui, retire
+> le chrome du navigateur — les deux se cumulent). `setImmersion` reste appelable par l'hôte,
+> et arme alors le vrai plein écran de la même façon.
 
 ---
 
@@ -251,11 +257,12 @@ les autres contrôles (`interaction.shortcuts.controls.pedestrian`, `W` par déf
 <MapControls shortcuts={{ pedestrian: 'e' }} />
 ```
 
-La bascule d'immersion (`interaction.shortcuts.pedestrian.immersion`) alterne `explore` ↔
-`full` en marche active. Elle n'a **aucune** touche par défaut (`false`) — le bouton
-« Immersion totale » du HUD suffit, et brûler une lettre globale serait déroutant — mais
-lui en attribuer une la rend fonctionnelle (le `keydown` étant un geste utilisateur, il peut
-engager le Pointer Lock) :
+En mode piéton, le **bouton plein écran** (`interaction.shortcuts.controls.fullscreen`, `F`
+par défaut) prend le libellé « Immersion totale » et déclenche le vrai plein écran immersif
+(cf. § 5) — c'est le déclencheur principal. La bascule d'immersion dédiée
+(`interaction.shortcuts.pedestrian.immersion`) reste un raccord secondaire : sans touche par
+défaut (`false`), lui en attribuer une arme la même immersion (le `keydown` étant un geste
+utilisateur, il engage le vrai plein écran + le Pointer Lock) :
 
 ```tsx
 <Map config={{ interaction: { shortcuts: { pedestrian: { immersion: 'v' } } } }} />

@@ -160,18 +160,24 @@ follows every movement **without a button** — the classic FPS view.
 | Level | Meaning |
 |---|---|
 | `explore` (default) | mouse visible, menus active — the look follows the drag described above |
-| `full` | total immersion: **Pointer Lock** (mouse captured, free look without a button), control interface **hidden**, central aiming **reticle** and an "Escape to exit" hint |
+| `full` | total immersion: **real browser fullscreen** + **Pointer Lock** (mouse captured, free look without a button), control bars **hidden**, central aiming **reticle** and an "Escape to exit" hint |
 
-**Entering and leaving immersion.** In pedestrian mode a **"Total immersion"** button appears
-(its click being the user gesture `requestPointerLock` demands): the library then engages
-Pointer Lock itself. `Escape` **releases the lock** and returns to `'explore'` (the interface
-reappears) **without leaving the walk**; a second `Escape`, from `'explore'`, exits pedestrian
-mode. A keyboard shortcut can also arm the toggle
-(`interaction.shortcuts.pedestrian.immersion`, disabled by default — see § 8).
+**FULLSCREEN drives immersion.** In pedestrian mode the toolbar's **fullscreen** button
+(labelled "Total immersion") triggers it: the library goes into **real fullscreen**
+(`requestFullscreen`, the browser chrome disappears), hides its bars and engages **Pointer
+Lock**. So there is **no floating button** in the middle of the screen.
+
+- **Enter**: the fullscreen button (or `F11`, or `interaction.shortcuts.pedestrian.immersion`
+  if a key is set — see § 8). The click/press is the user gesture `requestPointerLock` demands;
+  the lock is engaged once fullscreen is effective.
+- **Leave**: **leaving fullscreen** (`Escape`, `F11`, or re-toggling) **leaves pedestrian
+  mode** — back to orbit. A single `Escape` is enough (it releases the lock, then fullscreen,
+  which exits the mode).
 
 > The reticle takes the `theme.colors.pedestrian.reticle` colour; masking hides only the
-> **control bars**, never the scene or markers. `setImmersion` remains callable by the host
-> (custom button, shortcut) — the built-in HUD is just a default path.
+> **control bars**, never the scene or markers (real fullscreen additionally removes the
+> browser chrome — the two combine). `setImmersion` remains callable by the host, and arms the
+> real fullscreen the same way.
 
 ---
 
@@ -248,10 +254,12 @@ controls (`interaction.shortcuts.controls.pedestrian`, `W` by default):
 <MapControls shortcuts={{ pedestrian: 'e' }} />
 ```
 
-The immersion toggle (`interaction.shortcuts.pedestrian.immersion`) switches `explore` ↔
-`full` while actively walking. It has **no** default key (`false`) — the HUD's "Total
-immersion" button is enough, and burning a global letter would be confusing — but assigning
-one makes it functional (the `keydown` being a user gesture, it can engage Pointer Lock):
+In pedestrian mode the **fullscreen** button (`interaction.shortcuts.controls.fullscreen`,
+`F` by default) is labelled "Total immersion" and triggers the real immersive fullscreen (see
+§ 5) — it is the primary trigger. The dedicated immersion toggle
+(`interaction.shortcuts.pedestrian.immersion`) stays a secondary hook: with no default key
+(`false`), assigning one arms the same immersion (the `keydown` being a user gesture, it
+engages the real fullscreen + Pointer Lock):
 
 ```tsx
 <Map config={{ interaction: { shortcuts: { pedestrian: { immersion: 'v' } } } }} />
