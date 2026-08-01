@@ -42,7 +42,10 @@ export default defineConfig({
         banner: (chunk) => (chunk.isEntry ? "'use client';" : ''),
       },
     },
-    sourcemap: true,
+    // Pas de source maps dans le paquet publié : elles pesaient ~40 Mo (plus que tout le
+    // reste), pour un gain nul en dev — l'exemple consomme les SOURCES via l'alias vite, pas
+    // `dist/`. Un consommateur qui veut déboguer dans la lib construit depuis la source.
+    sourcemap: false,
     target: 'es2020',
     minify: false,
   },
