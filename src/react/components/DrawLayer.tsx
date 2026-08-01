@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react'
 import { boundsOfLatLngs, centerOfBounds } from '../../core/bounds'
-import type { MapEngine } from '../../core/MapEngine'
 import { type Hit, NO_MATCH, normalizeSearch, proximityRank, rankHits, scoreMatch } from '../../search/match'
 import { DRAW_GROUP, emptyResult } from '../../search/registry'
 import {
@@ -25,7 +24,7 @@ import {
 } from '../../layers/DrawLayer'
 import { DrawSettings, type ToolSettings } from '../../layers/draw/DrawSettings'
 import { makeDistanceFormatter } from '../../labels/measure'
-import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META } from './drawControls'
+import { DEFAULT_DRAW_TOOLS } from './drawControls'
 import {
   type DrawAction,
   DrawingContext,
@@ -36,16 +35,14 @@ import {
   useLabels,
   useMapContext,
 } from '../context'
-import { inTextInput, matchesEdit, plainKey } from './shortcuts'
-import { MILSYM_CATALOG, createMilSymRenderer } from '../../symbols/providers/milSym'
-import type { Bounds, LatLng } from '../../shared'
-import { useMapDropZone } from '../hooks/useMapDropZone'
+import type { Bounds } from '../../shared'
 import { usePedestrian } from '../hooks/usePedestrian'
-import { SYMBOL_DRAG_TYPE } from './SymbolPaletteButton'
 import { SymbolMarkers, type SymbolMarkersProps } from './SymbolMarkers'
 import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
 import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
 import { useMergedByContent } from '../hooks/useMergedByContent'
+import { useDrawKeyboard } from '../hooks/useDrawKeyboard'
+import { useDrawSymbols } from '../hooks/useDrawSymbols'
 
 export type DrawLayerProps = {
   /** Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. */
@@ -127,7 +124,11 @@ export type DrawLayerProps = {
  * piège que la cascade Échap. Elle est ici écrite UNE fois, au lieu d'être recopiée
  * par surface concurrente — la troisième aurait recopié le piège avec.
  */
-function useYieldsTool(taken: boolean, toolRef: RefObject<DrawTool | null>, setTool: (t: DrawTool | null) => void) {
+export function useYieldsTool(
+  taken: boolean,
+  toolRef: RefObject<DrawTool | null>,
+  setTool: (t: DrawTool | null) => void,
+) {
   useEffect(() => {
     if (taken && toolRef.current !== null) setTool(null)
   }, [taken, setTool, toolRef])
@@ -392,141 +393,23 @@ export function DrawLayer(props: DrawLayerProps) {
   useEffect(() => engine.on('buildingpickmode', setPickingBuilding), [engine])
   useYieldsTool(lensActive || pickingBuilding || pedestrianActive, toolRef, setTool)
 
-  // Barre espace = pan caméra temporaire (le dessin/geste en cours est gelé, pas
-  // perdu) ; Espace+Maj = rotation caméra. Relâcher = reprise exacte de l'outil.
-  const spaceRef = useRef<{ prevMode: ReturnType<MapEngine['getDragMode']> } | null>(null)
-  useEffect(() => {
-    const releaseSpace = () => {
-      coreRef.current?.setRotateHint(false)
-      const held = spaceRef.current
-      if (!held) return
-      spaceRef.current = null
-      engine.setDrawingSuspended(false)
-      coreRef.current?.setSuspended(false)
-      engine.setDragMode(held.prevMode)
-      overlay.parentElement?.classList.remove('m3d-space-pan')
-    }
-    releaseSpaceRef.current = releaseSpace
-    const onDown = (e: KeyboardEvent) => {
-      if (inTextInput(e)) return
-      if (e.code === 'Space' && !e.repeat && toolRef.current !== null) {
-        e.preventDefault()
-        if (spaceRef.current) return
-        spaceRef.current = { prevMode: engine.getDragMode() }
-        engine.setDrawingSuspended(true)
-        coreRef.current?.setSuspended(true)
-        overlay.parentElement?.classList.add('m3d-space-pan')
-        if (e.shiftKey) engine.setDragMode('rotate')
-      } else if (e.key === 'Shift') {
-        if (spaceRef.current) engine.setDragMode('rotate')
-        coreRef.current?.setRotateHint(true)
-      }
-    }
-    const onUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') releaseSpace()
-      else if (e.key === 'Shift') {
-        if (spaceRef.current) engine.setDragMode(spaceRef.current.prevMode)
-        coreRef.current?.setRotateHint(false)
-      }
-    }
-    // Fenêtre défocalisée pendant le maintien : on relâche proprement.
-    window.addEventListener('keydown', onDown)
-    window.addEventListener('keyup', onUp)
-    window.addEventListener('blur', releaseSpace)
-    return () => {
-      window.removeEventListener('keydown', onDown)
-      window.removeEventListener('keyup', onUp)
-      window.removeEventListener('blur', releaseSpace)
-      releaseSpace()
-    }
-  }, [engine, overlay])
-
-  // Raccourcis clavier (configurables) + Entrée/Échap/Ctrl+Z.
-  useEffect(() => {
-    const table = { ...drawKeys, ...props.shortcuts }
-    const onKey = (e: KeyboardEvent) => {
-      if (inTextInput(e)) return
-      if (e.code === 'Space') return // géré par l'effet barre espace
-      if (editKeys.closePolygon !== false && e.key === editKeys.closePolygon) coreRef.current?.closeCurrent()
-      else if (e.key === 'Escape') {
-        /**
-         * Le mode piéton capte Échap EN PRIORITÉ sur la cascade de dessin (spec §5) : sans
-         * cette garde, `coreRef.escape()` consommerait la touche et l'utilisateur resterait
-         * enfermé au sol. En immersion totale le Pointer Lock aura déjà relâché avant nous —
-         * cf. la phase 2, où la sortie ne vaut que depuis `explore`.
-         */
-        if (pedestrianRef.current.state.mode === 'pedestrian') {
-          pedestrianRef.current.exit()
-          return
-        }
-        // Cascade : marquee en cours → sélection → sortie de l'outil. La garde
-        // `toolRef.current !== null` est CAPITALE : sans outil de dessin actif,
-        // `setTool(null)` reprendrait quand même le slot partagé
-        // `engine.inputInterceptor` (+ `setDrawing(false)`) alors qu'il appartient
-        // à un outil externe (loupe) — celui-ci resterait affiché actif mais mort.
-        if (!coreRef.current?.escape()) {
-          if (toolRef.current !== null) setTool(null)
-          // Aucun outil de tracé : Échap quitte le pick de bâtiment, qui est armé sur le
-          // moteur et non sur cette couche. Les deux étant exclusifs, l'ordre suffit — et
-          // le menu contextuel, lui, capte déjà Échap pour son propre compte avant nous.
-          else engine.setBuildingPickMode(false)
-        }
-      } else if (editKeys.delete.includes(e.key)) {
-        coreRef.current?.deleteSelected()
-      } else if (e.key.startsWith('Arrow') && selectionRef.current.length > 0) {
-        // Nudge, en pixels écran ; Maj prend le pas rapide.
-        e.preventDefault()
-        const step = e.shiftKey ? editKeys.nudgeFastPx : editKeys.nudgePx
-        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-        coreRef.current?.nudgeSelection(dx, dy)
-        // `redo` AVANT `undo` : au défaut les deux portent la même touche et ne se
-        // distinguent que par Maj, donc le plus spécifique doit être testé d'abord.
-      } else if (matchesEdit(e, editKeys.redo) || matchesEdit(e, editKeys.redoAlt)) {
-        e.preventDefault()
-        coreRef.current?.redo()
-      } else if (matchesEdit(e, editKeys.undo)) {
-        e.preventDefault()
-        coreRef.current?.undo()
-      } else if (matchesEdit(e, editKeys.selectAll) && toolRef.current !== null) {
-        // Tout sélectionner — seulement quand un outil de la carte est actif
-        // (sinon on laisse le ⌘A natif de la page).
-        e.preventDefault()
-        coreRef.current?.selectAll()
-        if (toolRef.current !== 'select') setTool('select')
-      } else if (matchesEdit(e, editKeys.duplicate) && selectionRef.current.length > 0) {
-        e.preventDefault()
-        coreRef.current?.duplicateSelected()
-      } else {
-        const k = plainKey(e)
-        if (!k) return
-        const found = (Object.entries(table) as Array<[DrawTool | DrawAction, string | false]>).find(
-          ([, key]) => key === k,
-        )
-        if (!found) return
-        const modeMeta = SELECT_MODE_META.find((m) => m.action === found[0])
-        if (found[0] === 'selectBuilding') {
-          // Ligne « bâtiment » du sélecteur : un outil du MOTEUR, pas du dessin. Le moteur
-          // refuse de lui-même hors volume interne, et `useYieldsTool` retire l'outil de
-          // tracé — comme pour la loupe. Reste la loupe elle-même, qui ne se cède pas.
-          const next = !engine.getBuildingPickMode()
-          if (next) lensRef.current?.deactivate()
-          engine.setBuildingPickMode(next)
-        } else if (modeMeta) {
-          // Raccourci d'un mode de sélection : choisit le mode ET active l'outil.
-          setSelectMode(modeMeta.mode)
-          if (toolRef.current !== 'select') setTool('select')
-        } else {
-          setTool(found[0] as DrawTool)
-        }
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // `drawKeys`/`editKeys` viennent de `config.interaction.shortcuts` : sans eux, seule
-    // la prop `shortcuts` rebranchait le clavier, et remapper les raccourcis par la
-    // config restait sans effet. Identités stables (arbre mergé), donc pas de churn.
-  }, [props.shortcuts, setTool, drawKeys, editKeys, engine])
+  // Gestion clavier (barre-espace pan/rotation temporaire + raccourcis outils/édition)
+  // — cf. `useDrawKeyboard`.
+  useDrawKeyboard(
+    engine,
+    overlay,
+    coreRef,
+    toolRef,
+    selectionRef,
+    pedestrianRef,
+    lensRef,
+    releaseSpaceRef,
+    setTool,
+    setSelectMode,
+    props.shortcuts,
+    drawKeys,
+    editKeys,
+  )
 
   // Hors du memo `api` (qui recompute à chaque `rev`, jusqu'à 1×/frame pendant
   // un restyle) : kind par id ne change qu'avec la sélection elle-même.
@@ -596,106 +479,19 @@ export function DrawLayer(props: DrawLayerProps) {
   }, [engine, rev, namedShapes, drawGroupLabel, theme, searchSource])
   useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
 
-  // ── Symboles ──
-  const symbolsEnabled = props.symbols?.enabled ?? true
-  const symbolCatalog = props.symbols?.catalog ?? MILSYM_CATALOG
-  const providedRenderer = props.symbols?.renderer
-  const lazyRenderer = useRef<SymbolRenderer | null>(null)
-  const [symbolsReady, setSymbolsReady] = useState(false)
-  const [affiliation, setAffiliation] = useState('friendly')
-  // Palette ouverte, publiée par le bouton (cf. `paletteOpen`) : la barre en a
-  // besoin pour son exclusivité visuelle, et c'est l'un des deux déclencheurs du
-  // chargement de la symbologie.
-  const [paletteOpen, setPaletteOpen] = useState(false)
-
-  // Même exclusivité que la loupe : ouvrir la palette abandonne l'outil de tracé.
-  // On ne dessine pas un rectangle en posant un symbole, et deux boutons allumés
-  // dans la barre ne diraient plus lequel des deux reçoit le prochain geste.
-  useYieldsTool(paletteOpen, toolRef, setTool)
-  // Le SDK, une fois chargé, le reste : refermer la palette ne doit pas démonter la
-  // couche de symboles ni relancer un téléchargement à la réouverture.
-  const graphicsWanted = useRef(false)
-  if (paletteOpen) graphicsWanted.current = true
-
-  // Symboles posés. La dépendance est la SIGNATURE des symboles, pas `rev` : ce
-  // dernier bumpe à chaque frame d'un tracé en cours, ce qui reconstruisait la liste
-  // (et re-diffait toute la couche marker) 60 fois par seconde sans qu'aucun symbole
-  // ne bouge.
-  const symbolsVersion = coreRef.current?.symbolsVersion() ?? ''
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const symbolShapes = useMemo(() => coreRef.current?.symbolShapes() ?? [], [symbolsVersion])
-
-  // Callback STABLE : `<SymbolMarkers>` le transmet à `onReposition`, qui est dans les
-  // deps du `useMemo` des portails. En flèche inline, chaque frame d'un tracé en cours
-  // reconstruisait les portails de tous les symboles affichés.
-  const moveSymbol = useCallback((id: string, at: LatLng) => coreRef.current?.moveSymbol(id, at), [])
-
-  /**
-   * Y a-t-il quelque chose à dessiner en symboles ? Le renderer n'est instancié
-   * qu'à cette condition, et c'est tout l'enjeu : `createMilSymRenderer()` lance
-   * l'`import()` du SDK MIL-STD (~9 Mo) dans son constructeur. L'appeler depuis le
-   * corps du composant — ou depuis un effet sans condition — le téléchargerait au
-   * montage de <DrawLayer>, pour toute carte, y compris celles qui n'afficheront
-   * jamais un symbole.
-   *
-   * Les deux déclencheurs légitimes : l'utilisateur ouvre la palette, ou la
-   * collection contient déjà des symboles (import GeoJSON, restauration d'état).
-   */
-  const needsRenderer = symbolsEnabled && (graphicsWanted.current || symbolShapes.length > 0)
-  // Le plafond du cache de vignettes vient de la config : sans l'argument, le
-  // renderer retombait sur `defaultConfig`, donc `providers.symbols.cacheMaxEntries`
-  // n'avait aucun effet sur le chemin par défaut — le seul emprunté en pratique.
-  const renderer = needsRenderer
-    ? (providedRenderer ??
-      (lazyRenderer.current ??= createMilSymRenderer({
-        cacheMaxEntries: config.providers.symbols.cacheMaxEntries,
-      })))
-    : null
-
-  // Disponibilité du graphisme. L'abonnement porte sur le renderer EFFECTIF, celui
-  // fourni compris : `SymbolRenderer.ready` est un contrat public, et un catalogue
-  // custom asynchrone doit obtenir le rendu qui suit sa résolution comme le
-  // catalogue par défaut. Sans lui, ses vignettes resteraient vides indéfiniment.
-  useEffect(() => {
-    if (!renderer) return
-    if (!renderer.ready) {
-      setSymbolsReady(true)
-      return
-    }
-    let alive = true
-    void renderer.ready.then(() => {
-      if (alive) setSymbolsReady(true)
-    })
-    return () => {
-      alive = false
-    }
-  }, [renderer])
-
-  // Le core en a besoin dès qu'une forme `symbol` existe (import GeoJSON compris).
-  useEffect(() => {
-    if (coreRef.current) coreRef.current.symbolRenderer = renderer
-    // `coreReady` couvre la première création du core, postérieure au premier rendu.
-  }, [renderer, coreReady])
-
-  // Dépôt d'une vignette de palette sur la carte → forme `kind: 'symbol'` posée à
-  // la coordonnée visée. Le hook lit ses callbacks par ref : la zone n'est pas
-  // ré-enregistrée à chaque rendu.
-  const placeRef = useRef<(key: string, at: LatLng) => void>(() => {})
-  placeRef.current = (key, at) => {
-    if (symbolsEnabled) coreRef.current?.placeSymbol(key, at, affiliation)
-  }
-  useMapDropZone({
-    accept: (p) => symbolsEnabled && p.type === SYMBOL_DRAG_TYPE,
-    onDrop: (p, latLng) => {
-      const key =
-        typeof (p.data as { key?: unknown } | undefined)?.key === 'string'
-          ? (p.data as { key: string }).key
-          : typeof p.id === 'string'
-            ? p.id
-            : null
-      if (key) placeRef.current(key, latLng)
-    },
-  })
+  // ── Symboles ── (palette, affiliation, dépôt, symboles posés) — cf. `useDrawSymbols`.
+  const {
+    symbolsEnabled,
+    symbolCatalog,
+    renderer,
+    symbolsReady,
+    affiliation,
+    setAffiliation,
+    paletteOpen,
+    setPaletteOpen,
+    symbolShapes,
+    moveSymbol,
+  } = useDrawSymbols(props.symbols, config.providers.symbols.cacheMaxEntries, coreRef, toolRef, setTool, coreReady)
 
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
   // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
