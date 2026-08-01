@@ -84,6 +84,13 @@ export class PedestrianController {
   /** Delta de regard accumulé depuis le dernier `update` — cf. spec §9 (Pointer Lock). */
   private lookDx = 0
   private lookDy = 0
+  /**
+   * Ballant de marche (`headBob`) : phase de l'oscillation verticale de l'œil, et son
+   * ENVELOPPE 0→1. L'enveloppe monte quand on marche, redescend à l'arrêt — sans elle, la
+   * tête se figerait à une hauteur décalée dès qu'on s'immobilise sur une demi-oscillation.
+   */
+  private bobPhase = 0
+  private bobAmount = 0
 
   // ── Scratch (aucune allocation par frame) ──
   private readonly origin = new THREE.Vector3()
@@ -138,6 +145,8 @@ export class PedestrianController {
     this.pitchRad = look ? clampPitch(look.pitch, this.config.pedestrian.pitchMaxDeg) : 0
     this.lookDx = 0
     this.lookDy = 0
+    this.bobPhase = 0
+    this.bobAmount = 0
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, groundHeight)
     this.groundWorld.copy(this.origin)
     if (look) {
@@ -193,7 +202,24 @@ export class PedestrianController {
     this.origin.copy(this.groundWorld)
     const moved = this.applyWalk(dt)
     this.applyGravity(dt, moved)
+    this.advanceHeadBob(c, dt, moved)
     this.applyPose()
+  }
+
+  /**
+   * Avance le ballant de marche : la phase ne tourne QUE lorsqu'on avance (pas de tremblement
+   * immobile), et l'enveloppe suit la marche par un lissage exponentiel indépendant de la
+   * cadence — à l'arrêt elle retombe à zéro, d'où l'œil qui se recale en douceur sur sa
+   * hauteur nominale plutôt que de rester figé sur une demi-oscillation.
+   */
+  private advanceHeadBob(c: MapConfig['pedestrian'], dt: number, moved: boolean): void {
+    if (!c.headBob.enabled) {
+      this.bobAmount = 0
+      return
+    }
+    const target = moved ? 1 : 0
+    this.bobAmount += (target - this.bobAmount) * Math.min(1, dt * 8)
+    if (moved) this.bobPhase = (this.bobPhase + TAU * c.headBob.frequency * dt) % TAU
   }
 
   /**
@@ -326,7 +352,10 @@ export class PedestrianController {
     // Axes seulement : l'œil se pose sur `groundWorld`, jamais sur une origine reconstruite
     // depuis lat/lng (cf. le champ, et le tremblement que cela provoquait).
     this.projection.getENUAxes(this.at, this.origin, this.east, this.north, this.up, this.groundHeight)
-    this.eye.copy(this.groundWorld).addScaledVector(this.up, c.eyeHeightMeters)
+    // Ballant de marche : oscillation verticale de l'œil, mise à l'échelle par son enveloppe
+    // (0 à l'arrêt → aucun décalage). `enabled: false` par défaut, donc coût nul hors usage.
+    const bob = c.headBob.enabled ? c.headBob.amplitudeMeters * this.bobAmount * Math.sin(this.bobPhase) : 0
+    this.eye.copy(this.groundWorld).addScaledVector(this.up, c.eyeHeightMeters + bob)
     // Cap dans le plan tangent, puis tangage autour de l'axe « droite » local.
     bearingFromHeading(this.headingRad, this.east, this.north, this.forward)
     this.right.crossVectors(this.forward, this.up).normalize()

@@ -1556,6 +1556,11 @@ export class MapEngine {
     this.cameraMode = 'orbit'
     this.pedestrianPhase = 'placing'
     this.immersion = 'explore'
+    // Quitter en pleine immersion doit rendre la souris et l'UI : on retire la classe et on
+    // relâche le verrou (sans effet s'il ne l'était pas). Le `pointerlockchange` qui suivra
+    // voit `immersion` déjà à 'explore', donc n'y touche plus.
+    this.canvas.parentElement?.classList.remove('m3d-immersive')
+    document.exitPointerLock()
     this.releasePlacement()
     this.setGroundedView(false)
     this.restoreOrbitView()
@@ -1566,8 +1571,39 @@ export class MapEngine {
   setPedestrianImmersion(level: ImmersionLevel): void {
     if (this.cameraMode !== 'pedestrian' || this.pedestrianPhase !== 'active') return
     if (this.immersion === level) return
+    this.applyImmersion(level)
+    // Le Pointer Lock est ce qui DISTINGUE l'immersion totale : 'full' capture la souris
+    // (regard libre sans bouton, cf. `onPointerMove`), 'explore' la relâche. Le relâchement
+    // NATIF (Échap du navigateur) repasse par `onPointerLockChange`, qui rappelle
+    // `applyImmersion('explore')` sans re-relâcher — d'où la séparation état / verrou.
+    if (level === 'full') void Promise.resolve(this.canvas.requestPointerLock()).catch(() => {})
+    else document.exitPointerLock()
+  }
+
+  /**
+   * Applique le niveau d'immersion À L'ÉTAT (champ, classe racine, événement), sans toucher
+   * au Pointer Lock : appelé aussi bien par `setPedestrianImmersion` que par le relâchement
+   * natif, où le verrou est déjà tombé et où le rappeler bouclerait.
+   *
+   * La classe `m3d-immersive` sur la racine est ce que lisent les règles de masquage de l'UI
+   * et l'affichage du réticule (cf. `injectStyles`) — même mécanique que `m3d-pedestrian-place`.
+   */
+  private applyImmersion(level: ImmersionLevel): void {
     this.immersion = level
+    this.canvas.parentElement?.classList.toggle('m3d-immersive', level === 'full')
     this.syncPedestrian()
+  }
+
+  /**
+   * Souris relâchée alors qu'on était en immersion totale = Échap natif du Pointer Lock :
+   * on retombe en exploration (UI de nouveau visible), sans re-relâcher le verrou (c'est
+   * déjà fait) et sans quitter le piéton. La sortie du mode, elle, reste à Échap depuis
+   * `explore` — cf. `usePedestrianKeys`.
+   */
+  private onPointerLockChange = (): void => {
+    if (this.immersion === 'full' && document.pointerLockElement !== this.canvas) {
+      this.applyImmersion('explore')
+    }
   }
 
   /** Delta de regard (pixels), accumulé et appliqué une fois par frame — cf. spec §9. */
@@ -3066,10 +3102,14 @@ export class MapEngine {
     // Toute interaction annule l'intro (on ne vole jamais la caméra à l'utilisateur).
     this.canvas.addEventListener('pointerdown', this.cancelIntro)
     this.canvas.addEventListener('wheel', this.cancelIntro, { passive: true })
+    // Relâchement du Pointer Lock (Échap natif en immersion totale) : sur `document`, seul
+    // émetteur de cet événement — cf. `onPointerLockChange`.
+    document.addEventListener('pointerlockchange', this.onPointerLockChange)
   }
 
   private unbindInput(): void {
     this.navKeys.unbind()
+    document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     this.canvas.removeEventListener('pointerdown', this.invalidate)
     this.canvas.removeEventListener('pointermove', this.invalidate)
     window.removeEventListener('pointerup', this.invalidate)
@@ -3153,16 +3193,25 @@ export class MapEngine {
   private onPointerMove = (e: PointerEvent): void => {
     if (this.pointerDrag) this.pointerDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
     /**
-     * Mode piéton, niveau exploration : le regard suit le glisser bouton gauche enfoncé.
-     * Exiger le bouton est ce qui garde markers et symboles cliquables — un clic « propre »
-     * (déplacement sous le seuil, cf. `onPointerUp`) reste un clic carte.
+     * Mode piéton, DEUX chemins pour le regard :
+     * - immersion totale (Pointer Lock) : la souris est capturée, le regard suit chaque
+     *   mouvement SANS bouton — c'est le FPS classique ;
+     * - exploration : le regard suit le glisser bouton gauche enfoncé. Exiger le bouton est
+     *   ce qui garde markers et symboles cliquables — un clic « propre » (déplacement sous le
+     *   seuil, cf. `onPointerUp`) reste un clic carte.
      *
      * Le delta est ACCUMULÉ ici et appliqué une seule fois dans le tick : `pointermove` peut
      * tirer plusieurs fois par frame (spec §9).
      */
-    if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active' && this.pointerDrag) {
-      this.pedestrianCtl.addLook(e.movementX, e.movementY)
-      return
+    if (this.cameraMode === 'pedestrian' && this.pedestrianPhase === 'active') {
+      if (document.pointerLockElement === this.canvas) {
+        this.pedestrianCtl.addLook(e.movementX, e.movementY)
+        return
+      }
+      if (this.pointerDrag) {
+        this.pedestrianCtl.addLook(e.movementX, e.movementY)
+        return
+      }
     }
     // Transmet le survol (pointer up) à l'outil aussi : indispensable au mode clic
     // du polygone (élastique + aimant de fermeture entre deux clics).
