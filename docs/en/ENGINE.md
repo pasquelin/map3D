@@ -266,6 +266,7 @@ having to inventory them.
 | `engine.markers` | marker layers | lens tool, relation engine |
 | `engine.selectables` | marker layers, custom layers | the select tool's marquee |
 | `engine.drag` | `useDraggable` / `useDropZone` | the gesture state itself |
+| `engine.counters` | layers and surfaces | diagnostics counters | the `<StatsPanel>` panel |
 
 ### `MarkerRegistry` (`engine.markers`)
 
@@ -317,6 +318,23 @@ type SelectableProvider = {
 
 Plug your own layer in to make it marquee-selectable. `itemsChanged()` signals a change
 (pruning the selection).
+
+### `CounterRegistry` (`engine.counters`)
+
+What the view **actually holds**, for the diagnostics panel (`<StatsPanel>`). A layer registers and declares its elements; the panel aggregates.
+
+```ts
+const off = engine.counters.register({
+  stats: (bounds) => ({ kind: 'shapes', visible: countIn(bounds), total: all.length }),
+})
+// Call `off()` on unmount — a counter outliving its layer shows a frozen number.
+```
+
+⚠️ **Read-only.** A counter decides nothing: removing this registry would leave the panel empty, and that is all. That is the condition for a measuring tool never to become the cause of what it measures.
+
+`stats(bounds)` receives the view bounds and is only called at the panel's refresh rate (`performance.readoutRefreshMs`), **and only while it is open** — that is where the scan is paid for, never in a frame pass.
+
+`engine.viewStats(out)` returns the full snapshot (content, render, tiles), writing into `out` so it can be reused between calls.
 
 ### `DragRegistry` (`engine.drag`)
 

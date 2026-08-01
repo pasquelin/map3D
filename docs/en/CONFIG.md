@@ -102,7 +102,7 @@ compile error.
 | `providers.buildings.positionPrecision` | Format of the positions sent to the GPU: `'int16'` (integers normalised over the tile's extent, ~4 cm resolution, **half the bytes**) or `'float32'` (fallback, for a use case needing better than a centimetre). | `'int16'` |
 | `providers.buildings.zoom` | Zoom of the requested tiles: the data's `maxzoom` (14 in OpenMapTiles). | `14` |
 | `providers.buildings.maxViewAltitude` | Maximum height **above ground** (m) at which buildings stay shown; past it they are faded out, hidden and destroyed. ⚠️ Replaces `minViewZoom`/`showZoomOffset`, which were expressed in view zoom: zoom derives from an m/px resolution, hence from a division by viewport height, so the same setting kept buildings shown up to 15 km on a 700 px window against 31 km on a 1440 px one. An altitude depends on neither window nor latitude. | `1000` |
-| `providers.buildings.requestAltitudeFactor` | Preload band above `maxViewAltitude`, as a multiple of it: tiles are downloaded and mounted there **without being shown**, so the descent does not discover them still to do (~20 ms mount per tile, `mountPerFrame: 1`). `1` removes the band — buildings then appear in fits and starts. | `1.5` |
+| `providers.buildings.requestAltitudeFactor` | Preload band above `maxViewAltitude`, as a multiple of it: tiles are downloaded and mounted there **without being shown**, so the descent does not discover them still to do. ⚠️ What it absorbs has changed in nature: mounting no longer costs ~20 ms but ~1 ms (the collision tree is built in the worker, see `workerPoolSize`) — it is now the **pipeline latency**, download and extrusion included. `1` removes the band — buildings then appear in fits and starts. | `1.5` |
 | `providers.buildings.maxViewDistance` | **Maximum radius (m) of the coverage disc** for the volume, centred under the camera; past it the raster basemap stands alone. ⚠️ A disc, not the view frustum's bbox: the latter depended on **heading** (area ×2 between a north heading and a 45° one, so tiles changed as you turned) and blew up at the horizon in a sawtooth (2.8 → 36.3 km, collapses at 59° and 74°). A disc is invariant and bounded by construction. Cost grows as n²: measured in Paris, 32 z14 tiles at 5 km, 47 at 6 km — beyond that, raise `maxRequest`, `maxTiles` and `maxBytes`. | `5000` |
 | `providers.buildings.margin` | Ring of tiles prefetched around the viewport. | `0` |
 | `providers.buildings.maxTiles` | Cap on the extruded-tile cache (GPU memory). A dense z14 tile weighs ~131,000 triangles: this cap has nothing to do with the raster one. Keep it well above `maxRequest`, otherwise a pan evicts what it just requested. ⚠️ 36 → 80 (follows `maxRequest`). | `80` |
@@ -244,6 +244,22 @@ compile error.
 | `performance.viewportSettleFrames` | Frames of stillness before emitting the `viewport` event. | `4` |
 | `performance.markerRecomputeMs` | Minimum interval between two cluster recomputations during a pan. | `90` |
 | `performance.readoutRefreshMs` | Minimum interval between two writes of the view readout block (`<Map readout>`), in ms. Since the `camera` event fires every frame, copying it straight through would mean four DOM writes per frame for text the eye cannot follow. The latest value is always written. | `120` |
+| `performance.statThresholds` | Comfort bounds for the diagnostics panel, per metric — what decides green, amber or red. A metric ABSENT from this table shows with no colour: that is the default for anything without a universal “good” or “bad” (a latitude, a heading, an altitude are not judged). | see below |
+| `performance.statThresholds.fps` | Comfort bounds for “frames per second” — see the ordering rule below. | `{ ok: 55, warn: 30 }` |
+| `performance.statThresholds.paintedRatio` | Comfort bounds for “share of loop frames actually painted” — see the ordering rule below. | `{ ok: 0.9, warn: 0.6 }` |
+| `performance.statThresholds.markersVisible` | Comfort bounds for “markers actually painted” — see the ordering rule below. | `{ ok: 400, warn: 1200 }` |
+| `performance.statThresholds.triangles` | Comfort bounds for “triangles in the scene” — see the ordering rule below. | `{ ok: 2_000_000, warn: 5_000_000 }` |
+| `performance.statThresholds.drawCalls` | Comfort bounds for “draw calls” — see the ordering rule below. | `{ ok: 300, warn: 800 }` |
+| `performance.statThresholds.textures` | Comfort bounds for “textures in GPU memory” — see the ordering rule below. | `{ ok: 400, warn: 900 }` |
+| `performance.statThresholds.resolutionScale` | Comfort bounds for “applied resolution scale” — see the ordering rule below. | `{ ok: 1, warn: 0.75 }` |
+| `performance.statThresholds.tileBytes` | Comfort bounds for “memory held by tiles” — see the ordering rule below. | `{ ok: 384 Mio, warn: 768 Mio }` |
+
+> **A threshold's direction comes from the ORDER of its two bounds**, there is no flag to keep in sync with the values:
+> — `ok < warn`: the metric **weighs** (triangles, markers) — smaller is better;
+> — `ok > warn`: the metric **carries** (frame rate, painted frames) — larger is better.
+>
+> These values are calibrated for a 16.6 ms budget (60 Hz). A host targeting modest machines tightens them. See [Diagnostics panel](CAMERA.md).
+
 | `performance.cameraMoveEpsilon.deg` | Latitude/longitude difference (degrees) beyond which the camera counts as moved. | `1e-06` |
 | `performance.cameraMoveEpsilon.altitudeRatio` | Altitude difference, as a fraction of the current altitude. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Absolute floor of the previous one (m) — near the ground, a ratio alone never triggers. | `1` |

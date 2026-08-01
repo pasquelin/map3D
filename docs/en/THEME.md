@@ -45,6 +45,7 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `colors.ui.accent` | Accent colour: active state, focus, selection. | `'#2E7CF6'` |
 | `colors.ui.error` | Errors and destructive actions. | `'#d11a01'` |
 | `colors.ui.border` | Borders and separators. | `'rgba(255,255,255,0.10)'` |
+| `colors.ui.stat` | **Optional.** Diagnostics panel verdicts (`ok` / `warn` / `bad`), see [`performance.statThresholds`](CONFIG.md). Distinct from `error`: an excessive value is not an error, it is a budget overrun — conflating them would make a heavy map read as a broken one. When absent the panel falls back to `colors.ui.text`: no colour rather than a verdict the theme did not intend. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }` |
 | `colors.attention.sonar` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ffd60a'` |
 | `colors.attention.target` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ff3b30'` |
 | `colors.path.base` | Colour of a path. | `'#2E7CF6'` |

@@ -74,6 +74,6 @@ export function useStatCounter<T extends StatCounter>(ref: RefObject<T | null>):
   useEffect(() => {
     const counter = ref.current
     if (!counter) return
-    return engine.counters.register({ stats: () => counter.stats() })
+    return engine.counters.register({ stats: (bounds) => counter.stats(bounds) })
   }, [engine, ref])
 }

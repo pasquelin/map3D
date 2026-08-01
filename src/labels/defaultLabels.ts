@@ -228,6 +228,11 @@ export const defaultLabels: MapLabels = {
   },
   actions: {
     panMap: 'Déplacer la carte',
+    navigate: 'Se déplacer (caméra)',
+    boost: 'Accélérer',
+    zoom: 'Zoom avant / arrière',
+    basemap: 'Vue 3D / plan',
+    layers: 'Couches',
     rotateCamera: 'Tourner la caméra',
     rotateShape: 'Tourner la forme',
     undoRedo: 'Annuler / Rétablir',
@@ -254,6 +259,8 @@ export const defaultLabels: MapLabels = {
     altOrCmd: 'Alt / ⌘',
     /** Glyphe Maj seul, pour composer un raccourci affiché (⇧Z). */
     shift: '⇧',
+    /** Nom de la touche Maj, seule (accélération du déplacement). */
+    shiftKey: 'Maj',
   },
   format: {
     shortcut: '{label} ({key})',

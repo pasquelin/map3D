@@ -3,6 +3,7 @@
 // carte, et réutilisable par un hôte qui préfère afficher ces valeurs ailleurs.
 
 import type { StatField } from '../core/viewStats'
+import type { ReadoutField } from './readout'
 import { formatLabel } from './mergeLabels'
 import type { MapLabels } from './types'
 
@@ -86,13 +87,35 @@ export function makeStatFormatter(labels: MapLabels): StatFormatter {
   }
 }
 
-/** Nom affiché d'une grandeur non-caméra. Les champs caméra sont nommés par `labels.readout`. */
+/**
+ * Grandeurs nommées par `readout` et non par `stats` — SOURCE UNIQUE.
+ *
+ * Le panneau ne redit pas la caméra : `readout` la nommait déjà, et deux libellés pour une
+ * même grandeur se traduiraient tôt ou tard différemment. Cette liste est aussi ce qui
+ * répartit les cellules entre les deux couches (cf. `<StatsPanel>`) — la dupliquer là-bas
+ * ferait qu'un champ ajouté d'un côté partirait silencieusement à la mauvaise couche.
+ */
+const CAMERA_FIELDS: ReadonlySet<StatField> = new Set<ReadoutField>([
+  'latitude',
+  'longitude',
+  'altitude',
+  'zoom',
+  'heading',
+  'tilt',
+])
+
+/** Cette grandeur est-elle nommée et calculée par le bloc de lecture ? */
+export function isCameraField(field: StatField): field is ReadoutField {
+  return CAMERA_FIELDS.has(field)
+}
+
+/**
+ * Nom affiché d'une grandeur.
+ *
+ * Aucun cast : le prédicat suffit à départager les deux arbres de libellés, et c'est ce qui
+ * fait qu'une clé renommée casse à la COMPILATION plutôt que de retomber en silence sur
+ * l'identifiant brut.
+ */
 export function statLabel(labels: MapLabels, field: StatField): string {
-  const s = labels.stats as unknown as Record<string, unknown>
-  const own = s[field]
-  if (typeof own === 'string') return own
-  // Champ de caméra : c'est `readout` qui le nomme, et le panneau n'a pas à le redire.
-  const r = labels.readout as unknown as Record<string, unknown>
-  const inherited = r[field]
-  return typeof inherited === 'string' ? inherited : field
+  return isCameraField(field) ? labels.readout[field] : labels.stats[field]
 }

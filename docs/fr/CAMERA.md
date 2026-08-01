@@ -226,6 +226,30 @@ Pour l'afficher **hors** de la carte (bandeau maison, panneau d'exploitation),
 `<CameraReadout>` est exporté — il n'a besoin que du contexte carte — et
 `makeReadoutFormatter(labels)` donne les mêmes formateurs sans aucun DOM.
 
+### Panneau de diagnostic — `<StatsPanel>`
+
+Le menu **« Réglages »** de la barre d'outils porte une ligne **« Infos »** qui ouvre un panneau : ce que la vue contient, ce qu'elle coûte, ce qu'elle retient. Il **absorbe** les grandeurs de `<CameraReadout>` — c'est pourquoi l'exemple éteint le bandeau par défaut.
+
+| Section | Ce qu'elle donne |
+| --- | --- |
+| **Caméra** | lat, lng, altitude, zoom, cap, inclinaison — les mêmes que le bandeau, nommées par `labels.readout` |
+| **Contenu affiché** | markers peints / au total, pastilles, formes, tracés, liens, dessins |
+| **Rendu** | images par seconde, frames peintes, appels de rendu, triangles, textures, géométries, échelle de résolution |
+| **Tuiles et mémoire** | tuiles en cache, en chargement, mémoire retenue, workers d'extrusion |
+
+⚠️ **Tout est compté DANS LA VUE**, pas dans ce que l'hôte a posé. `markers au total` est la seule exception, et elle est là pour être comparée à `markers affichés` : c'est leur écart qui révèle un cull ou un regroupement qui ne fait pas son travail.
+
+Chaque valeur se colore en vert, jaune ou rouge selon [`performance.statThresholds`](CONFIG.md) — une grandeur sans seuil reste incolore, car une latitude n'a pas de bonne valeur. Les teintes viennent de [`theme.colors.ui.stat`](THEME.md).
+
+```tsx
+// Dans sa propre surface, plutôt que dans le menu :
+import { StatsPanel } from 'map3d'
+;<StatsPanel sections={['render', 'tiles']} refreshMs={250} />
+```
+
+Comme `<CameraReadout>`, **il ne re-rend jamais** : il pose son DOM une fois et deux couches du moteur écrivent les cellules. Un panneau de performance rafraîchi par `useState` mesurerait ce qu'il a lui-même causé.
+
+
 ---
 
 ## 6. Carte figée (`interactive`)

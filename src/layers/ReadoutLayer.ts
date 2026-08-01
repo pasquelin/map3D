@@ -3,14 +3,10 @@ import { headingFromForward, projectViewForward, tiltFromNadir } from '../core/e
 import type { FrameContext, Layer } from '../core/Layer'
 import { zoomForAltitude } from '../core/math'
 import type { ReadoutField, ReadoutFormatter } from '../labels/readout'
+import { setText } from './setText'
 
 /** Cellules de valeur du bloc, écrites par cette couche. Absente ou `null` = non affichée. */
 export type ReadoutCells = Partial<Record<ReadoutField, HTMLElement | null>>
-
-/** Écrit une valeur en évitant le reflow d'une écriture identique (le cas le plus fréquent). */
-const setText = (el: HTMLElement, text: string): void => {
-  if (el.textContent !== text) el.textContent = text
-}
 
 /**
  * Couche qui alimente le bloc de lecture de la vue (`<CameraReadout>`).

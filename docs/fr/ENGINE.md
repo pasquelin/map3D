@@ -267,6 +267,7 @@ inventoriables sans que `<Map>` ait à les inventorier.
 | `engine.markers` | couches de markers | outil loupe, moteur de relations |
 | `engine.selectables` | couches de markers, couches custom | marquee de l'outil sélection |
 | `engine.drag` | `useDraggable` / `useDropZone` | l'état du geste lui-même |
+| `engine.counters` | couches et surfaces | compteurs de diagnostic | le panneau `<StatsPanel>` |
 
 ### `MarkerRegistry` (`engine.markers`)
 
@@ -318,6 +319,23 @@ type SelectableProvider = {
 
 Branchez-y votre propre couche pour la rendre sélectionnable au marquee.
 `itemsChanged()` signale une modification (prune de la sélection).
+
+### `CounterRegistry` (`engine.counters`)
+
+Ce que la vue **contient réellement**, pour le panneau de diagnostic (`<StatsPanel>`). Une couche s'y inscrit et déclare ses éléments ; le panneau agrège.
+
+```ts
+const off = engine.counters.register({
+  stats: (bounds) => ({ kind: 'shapes', visible: countIn(bounds), total: all.length }),
+})
+// `off()` au démontage — un compteur qui survit à sa couche affiche un chiffre figé.
+```
+
+⚠️ **Strictement en lecture.** Un compteur ne décide de rien : retirer ce registre rendrait le panneau vide, et c'est tout. C'est la condition pour qu'un outil de mesure ne devienne pas la cause de ce qu'il mesure.
+
+`stats(bounds)` reçoit le cadre de la vue et n'est appelé qu'à la cadence du panneau (`performance.readoutRefreshMs`), **et seulement pendant qu'il est ouvert** — c'est là, jamais dans une passe de frame, que le balayage se paie.
+
+`engine.viewStats(out)` rend l'instantané complet (contenu, rendu, tuiles) en écrivant dans `out`, réutilisable d'un appel à l'autre.
 
 ### `DragRegistry` (`engine.drag`)
 

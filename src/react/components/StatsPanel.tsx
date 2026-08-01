@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useRef } from 'react'
 import type { StatField } from '../../core/viewStats'
-import { makeReadoutFormatter, type ReadoutField } from '../../labels/readout'
-import { makeStatFormatter, statLabel } from '../../labels/stats'
+import { makeReadoutFormatter } from '../../labels/readout'
+import { isCameraField, makeStatFormatter, statLabel } from '../../labels/stats'
 import { type ReadoutCells, ReadoutLayer } from '../../layers/ReadoutLayer'
 import { type StatCells, StatsLayer } from '../../layers/StatsLayer'
 import { useConfig, useLabels, useMapContext } from '../context'
@@ -25,9 +25,6 @@ const SECTIONS: readonly { key: StatsSection; fields: readonly StatField[] }[] =
   },
   { key: 'tiles', fields: ['tilesCached', 'tilesInflight', 'tileBytes', 'workers'] },
 ]
-
-/** Grandeurs que `ReadoutLayer` sait déjà calculer — le panneau ne les recalcule pas. */
-const CAMERA_FIELDS = new Set<string>(['latitude', 'longitude', 'altitude', 'zoom', 'heading', 'tilt'])
 
 export type StatsPanelProps = {
   /** Sections affichées, dans l'ordre du panneau. Défaut : les quatre. */
@@ -81,14 +78,15 @@ export function StatsPanel({ sections, refreshMs }: StatsPanelProps) {
   const stats = useLayer(
     () => new StatsLayer(statCells.current, statFormat, interval, config, (out) => engine.viewStats(out)),
   )
-  useLayerSync(stats, statFormat, (l, f) => l.setCells(statCells.current, f, interval))
+  useLayerSync(stats, statFormat, (l, f) => l.setFormat(f))
+  useLayerSync(stats, interval, (l, ms) => l.setInterval(ms))
   useLayerSync(stats, config, (l, c) => l.setConfig(c))
 
   // Une section ajoutée ou retirée change les cellules à écrire. La signature suffit :
   // les objets, eux, ne changent jamais d'identité.
   const signature = shown.map((s) => s.key).join(',')
   useLayerSync(readout, signature, (l) => l.setCells(cameraCells.current))
-  useLayerSync(stats, signature, (l) => l.setCells(statCells.current, statFormat, interval))
+  useLayerSync(stats, signature, (l) => l.setCells(statCells.current))
 
   return (
     <div className="m3d-shortcuts">
@@ -102,8 +100,10 @@ export function StatsPanel({ sections, refreshMs }: StatsPanelProps) {
               <span
                 className="m3d-stat"
                 ref={(el) => {
-                  // Chaque couche ne reçoit que les cellules qu'elle sait écrire.
-                  if (CAMERA_FIELDS.has(field)) cameraCells.current[field as ReadoutField] = el
+                  // Chaque couche ne reçoit que les cellules qu'elle sait écrire. Le
+                  // prédicat vient de `labels/stats`, seule source de cette répartition :
+                  // une liste recopiée ici enverrait un champ ajouté à la mauvaise couche.
+                  if (isCameraField(field)) cameraCells.current[field] = el
                   else statCells.current[field] = el
                 }}
               />

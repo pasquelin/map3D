@@ -484,7 +484,7 @@ export function App() {
           // l'ordre des rubriques carte. « Lieux » ouvre toujours la liste.
           search={searchProp}
           // ⚠️ ÉTEINT par défaut : ses grandeurs sont passées dans le panneau de
-          // diagnostic (bouton « Infos » de la barre, touche J), avec le contenu affiché,
+          // diagnostic (menu « Réglages » de la barre, ligne « Infos »), avec le contenu affiché,
           // le rendu et les tuiles. L'interrupteur « position de la caméra » (onglet
           // Interface) le rallume — les deux surfaces cohabitent sans se gêner, et un
           // hôte qui préfère le bandeau garde `<CameraReadout>` tel quel.

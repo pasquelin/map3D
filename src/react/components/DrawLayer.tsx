@@ -306,7 +306,7 @@ export function DrawLayer(props: DrawLayerProps) {
     core.formatDistance = (m) => makeDistanceFormatter(labelsRef.current.measure)(m)
     engine.addLayer(core)
     // Compteur du panneau de diagnostic : inscrit avec la couche, retiré avec elle.
-    const unregisterCounter = engine.counters.register({ stats: () => core.stats() })
+    const unregisterCounter = engine.counters.register({ stats: (bounds) => core.stats(bounds) })
     coreRef.current = core
     setCoreReady(true)
     // Pont pour le gestionnaire de templates : lui donne accès au dessin depuis la

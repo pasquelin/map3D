@@ -65,16 +65,33 @@ ctx.onmessage = async (e: MessageEvent<BuildRequest>): Promise<void> => {
   inflight.set(id, abort)
   try {
     const out = await buildTile(url, cfg, frame, shading, abort.signal)
-    // Abandonnée pendant le téléchargement : plus personne n'attend la réponse, et
-    // l'émettre ferait traverser des mégaoctets pour rien.
-    if (abort.signal.aborted) return
+    /**
+     * Abandonnée pendant le pipeline : on n'émet pas la tuile — la faire traverser
+     * coûterait des mégaoctets que plus personne n'attend.
+     *
+     * ⚠️ Mais on RÉPOND quand même, à vide. Le pool suit l'occupation de ses workers sur
+     * leurs réponses (cf. `WorkerPool.settle`) : un worker qui se tait après un abandon
+     * reste marqué occupé À VIE, son slot n'est jamais recyclé, et au bout de
+     * `workerPoolSize` abandons — un seul dézoom sous le seuil du volume suffit, via
+     * `TileQueue.clear()` — le pool entier est figé et plus aucune tuile n'arrive.
+     * Le contrat est donc dur : UNE demande, UNE réponse, toujours.
+     */
+    if (abort.signal.aborted) {
+      ctx.postMessage({ id, ok: true, empty: true })
+      return
+    }
     if (!out) {
       ctx.postMessage({ id, ok: true, empty: true })
       return
     }
     ctx.postMessage({ id, ok: true, empty: false, ...out }, transferablesOf(out))
   } catch (err) {
-    if (abort.signal.aborted) return
+    // Même contrat qu'au-dessus : un abandon se solde par une réponse vide, jamais par un
+    // silence — c'est elle qui rend son slot au pool.
+    if (abort.signal.aborted) {
+      ctx.postMessage({ id, ok: true, empty: true })
+      return
+    }
     ctx.postMessage({ id, ok: false, error: err instanceof Error ? err.message : String(err) })
   } finally {
     inflight.delete(id)

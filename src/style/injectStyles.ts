@@ -694,11 +694,20 @@ const CSS = `
 /* Positionnement et animation viennent de .m3d-dropdown : ce sous-menu passe par la
    MEME surface que tous les autres. Ne restent ici que sa largeur et son gabarit. */
 .m3d-settings-sub{width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
+/* Récap raccourcis : trois colonnes, donc surface plus large que les autres sous-panneaux. */
+.m3d-settings-sub-wide{width:568px}
 .m3d-settings-subtitle{font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
   text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
-.m3d-shortcut-row{display:flex;align-items:center;justify-content:space-between;
+/* column-count équilibre seul les trois colonnes (hauteurs égales à une ligne près) ;
+   break-inside:avoid empêche qu'une ligne soit coupée en bas de colonne. */
+.m3d-shortcut-cols{column-count:3;column-gap:26px}
+.m3d-shortcut-row{display:flex;align-items:center;justify-content:space-between;gap:8px;
   font-size:11.5px;color:var(--m3d-text)}
+.m3d-shortcut-cols .m3d-shortcut-row{break-inside:avoid;margin-bottom:7px}
+.m3d-shortcut-cols .m3d-shortcut-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m3d-shortcut-row .m3d-kbd{flex:none}
+/* Séparateur d'une liste en sections (récap raccourcis d'antan, panneau Stats). */
 .m3d-shortcut-sep{border-top:1px solid var(--m3d-border);margin:5px 0}
 
 /* Panneau « Couches » (filtre par tag) : ancré au groupe du bouton, ouvert du

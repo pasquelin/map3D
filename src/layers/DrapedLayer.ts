@@ -219,32 +219,24 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
     // Recalage en cours : les drapes se reposent sur la surface au fil du streaming, donc
     // l'image change encore sans que rien d'autre ne bouge.
     if (this.sync.active) ctx.invalidate()
-    this.countVisible(ctx.view.bounds)
     this.onUpdate?.(ctx)
   }
 
   /**
-   * Drapes dont l'ancre tombe dans le cadre de la vue — le compte que lit le panneau.
+   * Contribution au panneau de diagnostic (cf. `CounterRegistry`).
    *
-   * Fait ICI, dans la passe qui a déjà le cadre, et non dans `stats()` : un compteur doit
-   * être une lecture, sinon le panneau ajoute un balayage à ce qu'il prétend mesurer.
+   * Le balayage est fait ICI et non dans `update()` : appelé à la cadence du panneau et
+   * seulement pendant qu'il est ouvert, il ne coûte rien le reste du temps.
    *
-   * C'est l'ANCRE qui est testée, pas l'emprise : une forme dont l'ancre sort du cadre
-   * peut encore déborder à l'écran. Le compte est donc un ordre de grandeur de ce qui est
-   * à l'écran — ce qu'on lui demande — et non un verdict de rendu, que seul le frustum du
-   * GPU rend vraiment.
+   * C'est l'ANCRE qui est testée, pas l'emprise : une forme dont l'ancre sort du cadre peut
+   * encore déborder à l'écran. Le compte est donc un ordre de grandeur de ce qui est
+   * affiché — ce qu'on lui demande — et non un verdict de rendu, que seul le frustum du GPU
+   * rend vraiment.
    */
-  private countVisible(bounds: Bounds): void {
-    let n = 0
-    for (const d of this.drapes) if (boundsContains(bounds, d.anchor)) n++
-    this.visibleCount = n
-  }
-
-  private visibleCount = 0
-
-  /** Contribution au panneau de diagnostic (cf. `CounterRegistry`). */
-  stats(): StatContribution {
-    return { kind: this.statKind, visible: this.visibleCount, total: this.drapes.length }
+  stats(bounds: Bounds): StatContribution {
+    let visible = 0
+    for (const d of this.drapes) if (boundsContains(bounds, d.anchor)) visible++
+    return { kind: this.statKind, visible, total: this.drapes.length }
   }
 
   /**

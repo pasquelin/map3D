@@ -14,14 +14,10 @@ import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
 import { type StatField, statLevel, type ViewStats } from '../core/viewStats'
 import type { StatFormatter } from '../labels/stats'
+import { setText } from './setText'
 
 /** Cellules de valeur du panneau. Absente ou `null` = grandeur non affichée. */
 export type StatCells = Partial<Record<StatField, HTMLElement | null>>
-
-/** Écrit une valeur en évitant le reflow d'une écriture identique (le cas le plus fréquent). */
-const setText = (el: HTMLElement, text: string): void => {
-  if (el.textContent !== text) el.textContent = text
-}
 
 /** Classe de verdict posée sur la cellule — le CSS la relie aux teintes du thème. */
 const LEVEL_CLASS = { ok: 'm3d-stat-ok', warn: 'm3d-stat-warn', bad: 'm3d-stat-bad' } as const
@@ -66,11 +62,22 @@ export class StatsLayer implements Layer {
     this.config = config
   }
 
-  /** Réglages vivants du panneau — remplacés à chaud quand les libellés changent. */
-  setCells(cells: StatCells, format: StatFormatter, intervalMs: number): void {
-    this.cells = cells
+  setFormat(format: StatFormatter): void {
     this.format = format
+  }
+
+  setInterval(intervalMs: number): void {
     this.intervalMs = intervalMs
+  }
+
+  /**
+   * Remplace les cellules à écrire. Trois setters distincts plutôt qu'un fourre-tout, comme
+   * `ReadoutLayer` : c'est le mélange des trois qui faisait que `refreshMs` n'atteignait la
+   * couche que si le format ou les sections changeaient AUSSI — la cadence restait donc à
+   * sa valeur de montage.
+   */
+  setCells(cells: StatCells): void {
+    this.cells = cells
     // La prochaine passe doit écrire, même si la cadence n'est pas échue : les cellules
     // viennent d'être remplacées et sont vides.
     this.lastWrite = Number.NEGATIVE_INFINITY

@@ -103,6 +103,20 @@ export type StatContribution = {
   total: number
 }
 
+/**
+ * ⚠️ RÈGLE CENTRALE de ce module, et la raison de sa forme : **un compteur ne coûte rien
+ * quand personne ne regarde**.
+ *
+ * Le panneau interroge à `performance.readoutRefreshMs` (~8 fois par seconde) et
+ * seulement pendant qu'il est ouvert ; une couche qui compterait dans son `update()`
+ * paierait 60 fois par seconde, panneau fermé compris — et sur les frames non peintes,
+ * que le rendu à la demande existe justement pour rendre gratuites. C'est pourquoi le
+ * cadre de la vue descend jusqu'au contributeur (`stats(bounds)`) plutôt que d'être lu
+ * dans `FrameContext` : `ctx.view` est un getter que le moteur réserve aux consommateurs
+ * HORS boucle de frame (cf. `GraticuleLayer`), et le forcer par frame ferait payer 25
+ * raycasts d'ellipsoïde à une fonctionnalité de diagnostic.
+ */
+
 /** Instantané complet, tel que `MapEngine.viewStats()` le rend et que `StatsLayer` l'écrit. */
 export type ViewStats = Partial<Record<StatField, number>>
 

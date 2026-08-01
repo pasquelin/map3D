@@ -278,7 +278,9 @@ button) — a row in the `<Toolbar>`'s **Settings** menu (hidden if no plugin is
 registered), opening a lateral sub-panel: per row, icon + name + on/off toggle,
 and if the plugin has a `config`, a disclosure with **auto-rendered** controls
 from the schema (§ 3) — checkbox, slider+number, `input type=password` if
-`secret`, select.
+`secret`, select. At the bottom, a **“Tout désactiver”** button
+(`labels.plugins.clear`) turns off every active plugin at once — greyed out when
+none is; the counterpart of the catalog settings' “Tout retirer”.
 
 On the host side, `usePlugins()` gives the same programmatic access:
 

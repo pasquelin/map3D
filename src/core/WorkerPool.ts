@@ -36,8 +36,6 @@ export type WorkerPoolOptions<Req extends PoolMessage, Res extends PoolMessage> 
   size(): number
   /** Message d'abandon posté au worker qui détient la tâche. */
   cancelMessage(id: number): unknown
-  /** Tampons cédés avec la demande (zéro copie). */
-  transfer?(req: Req): Transferable[]
   /**
    * Chemin sans worker : environnement qui n'en a pas, ou pool entièrement en panne.
    *
@@ -141,7 +139,12 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
   /** Ajuste le nombre de workers au réglage courant — à la hausse comme à la baisse. */
   private resize(): void {
     if (this.spawnFailed) return
-    const want = Math.max(1, Math.min(Math.trunc(this.opts.size()), MAX_WORKERS, hardwareThreads() - 1))
+    // `Number.isFinite` d'abord : un réglage d'hôte qui arrive à `NaN` rendait `want`
+    // NaN, les deux boucles fausses, et le pool restait vide — donc TOUT sur le thread
+    // principal, plusieurs centaines de ms par tuile, sans que rien ne le signale.
+    const asked = Math.trunc(this.opts.size())
+    const wanted = Number.isFinite(asked) ? asked : 1
+    const want = Math.max(1, Math.min(wanted, MAX_WORKERS, hardwareThreads() - 1))
     while (this.slots.length < want) {
       const worker = this.opts.spawn()
       if (!worker) {
@@ -172,7 +175,7 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
 
   private dispatch(slot: Slot<Req, Res>, task: Task<Req, Res>): void {
     slot.busy = task
-    slot.worker.postMessage({ ...task.req, id: task.id }, this.opts.transfer?.(task.req))
+    slot.worker.postMessage({ ...task.req, id: task.id })
   }
 
   /**

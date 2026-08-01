@@ -265,8 +265,13 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 
 | Key | Description | Default |
 |---|---|---|
-| `actions.panMap` | Drawing editing actions (shortcut summary). | `'Déplacer la carte'` |
-| `actions.rotateCamera` | Drawing editing actions (shortcut summary). | `'Tourner la caméra'` |
+| `actions.panMap` | Shortcut-summary actions (navigation, view, drawing, editing). | `'Déplacer la carte'` |
+| `actions.navigate` | CONTINUOUS keyboard camera movement (ZQSD/WASD + arrows). | `'Se déplacer (caméra)'` |
+| `actions.boost` | Movement acceleration modifier (Shift). | `'Accélérer'` |
+| `actions.zoom` | Zoom in / out (a single row, like `undoRedo`). | `'Zoom avant / arrière'` |
+| `actions.basemap` | Toggle photorealistic 3D basemap ↔ 2D plan. | `'Vue 3D / plan'` |
+| `actions.layers` | Opens the “Layers” panel (tag filter). | `'Couches'` |
+| `actions.rotateCamera` | Shortcut-summary actions (navigation, view, drawing, editing). | `'Tourner la caméra'` |
 | `actions.rotateShape` | Drawing editing actions (shortcut summary). | `'Tourner la forme'` |
 | `actions.undoRedo` | Drawing editing actions (shortcut summary). | `'Annuler / Rétablir'` |
 | `actions.selectAll` | Drawing editing actions (shortcut summary). | `'Tout sélectionner'` |
@@ -308,6 +313,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `keys.shiftClick` | Displayed key names (tooltips, shortcut summary). | `'Maj + clic'` |
 | `keys.altOrCmd` | Displayed key names (tooltips, shortcut summary). | `'Alt / ⌘'` |
 | `keys.shift` | Shift glyph on its own, to compose a displayed shortcut (⇧Z). | `'⇧'` |
+| `keys.shiftKey` | Name of the Shift key, on its own (movement acceleration). | `'Maj'` |
 
 ## `format` — Composition templates
 
@@ -338,6 +344,42 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `duration.minutes` | Travel duration — `{value}`, or `{h}`/`{m}` beyond an hour. | `'{value} min'` |
 | `duration.hours` | Whole hours (zero minutes) — `{h}`. | `'{h} h'` |
 | `duration.hoursMinutes` | Hours and minutes — `{h}`, `{m}`. | `'{h} h {m}'` |
+
+## `stats` — 📊 Diagnostics panel
+
+Labels for the panel opened by the “Infos” row of the “Settings” menu. **Camera** metrics are not listed here: they are named by [`readout`](#readout--🌍-view-readout-block) below, and the panel reuses them as-is — restating them would create two labels for one metric, which a host could translate differently.
+
+> **Note.** Defaults are the real French strings of the library — they are data, not text to translate in this reference.
+
+| Key | Role | Default |
+| --- | --- | --- |
+| `stats.title` | Panel title, and its row in the menu. | `'Infos'` |
+| `stats.sections.camera` | Camera section heading. | `'Caméra'` |
+| `stats.sections.content` | Content section heading. | `'Contenu affiché'` |
+| `stats.sections.render` | Render section heading. | `'Rendu'` |
+| `stats.sections.tiles` | Tiles section heading. | `'Tuiles et mémoire'` |
+| `stats.markersVisible` | Markers actually painted. | `'markers affichés'` |
+| `stats.markersTotal` | Markers handled, in view or not. | `'markers au total'` |
+| `stats.clusters` | Cluster badges on screen. | `'pastilles de regroupement'` |
+| `stats.shapes` | Draped shapes in view. | `'formes'` |
+| `stats.paths` | Paths in view. | `'tracés'` |
+| `stats.links` | Relation links in view. | `'liens'` |
+| `stats.drawings` | Objects of the drawing layer. | `'dessins'` |
+| `stats.fps` | Achieved frame rate, sliding window. | `'images par seconde'` |
+| `stats.paintedRatio` | Share of loop frames actually painted. | `'frames peintes'` |
+| `stats.drawCalls` | Draw calls of the frame. | `'appels de rendu'` |
+| `stats.triangles` | Triangles rendered. | `'triangles'` |
+| `stats.textures` | Textures in GPU memory. | `'textures'` |
+| `stats.geometries` | Geometries in GPU memory. | `'géométries'` |
+| `stats.resolutionScale` | Applied resolution scale. | `'échelle de résolution'` |
+| `stats.tilesCached` | Cached tiles, all providers. | `'tuiles en cache'` |
+| `stats.tilesInflight` | Tiles loading or awaiting mount. | `'tuiles en chargement'` |
+| `stats.tileBytes` | Memory held by tiles. | `'mémoire des tuiles'` |
+| `stats.workers` | Live extrusion workers. | `'workers d’extrusion'` |
+| `stats.percentFormat` | Percentage template — `{value}`. The only way to glue the unit to the number. | `'{value} %'` |
+| `stats.byteUnits` | Byte suffixes, smallest first. A shorter list shows thousands of the last unit, never an invented one. | `['o', 'Ko', 'Mo', 'Go']` |
+
+⚠️ These labels are **not abbreviated**, unlike `readout`: the panel is read calmly, one row per metric, where the block is read at a glance while navigating.
 
 ## `readout` — 🌍 View readout block
 
@@ -486,3 +528,18 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |
 | `catalog.settings.fitOnAdd` | Framing switch. | `'Cadrer à l’ajout'` |
 | `catalog.settings.clear` | Purge button. | `'Tout retirer'` |
+
+## `plugins` — Plugin hub
+
+“Plugins” entry of the gear menu: registered plugins, toggling, expandable config and bulk disable — see the [PLUGINS.md](PLUGINS.md) guide. The entry is hidden when no plugin is registered.
+
+Defaults below are the library's real French strings — they are data, not prose to translate.
+
+| Key | Description | Default |
+|---|---|---|
+| `plugins.button` | Hub button tooltip/aria. | `'Plugins'` |
+| `plugins.title` | Panel title. | `'Plugins'` |
+| `plugins.empty` | No plugin registered. | `'Aucun plugin disponible'` |
+| `plugins.toggle` | Plugin enable toggle aria-label — `{name}`. | `'Activer {name}'` |
+| `plugins.reset` | Reset a plugin to its defaults. | `'Réinitialiser'` |
+| `plugins.clear` | Footer button: disables all active plugins (counterpart of the catalog's “Tout retirer”). | `'Tout désactiver'` |

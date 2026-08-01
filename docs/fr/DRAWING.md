@@ -51,7 +51,7 @@ Montage manuel :
 | Polygone | `P` | clics successifs + `Entrée` pour fermer |
 | Rectangle | `R` | angles arrondis réglables |
 | Cercle | `C` | centre + rayon |
-| Main levée | `D` | tracé continu |
+| Main levée | `H` | tracé continu |
 | Flèche | `A` | polyligne + tête |
 | Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance — **parent d'un sous-menu** (cf. ci-dessous) |
 | Gomme | `E` | supprime au clic |
@@ -90,6 +90,7 @@ Trois marquees, sous le même bouton `V` (flyout au survol) :
 | `rect` | `1` | rectangle |
 | `poly` | `2` | polygone (clics + `Entrée`) |
 | `lasso` | `3` | tracé libre |
+| `bâtiment` | `4` | désigne un bâtiment du volume 3D interne (outil du moteur, cf. [BUILDINGS.md](BUILDINGS.md)) — quitte le dessin |
 
 Sémantique **« touche = sélectionné »** : il suffit qu'un marquee effleure une forme.
 Clic simple pour sélectionner une forme, `Maj+clic` pour ajouter/retirer.

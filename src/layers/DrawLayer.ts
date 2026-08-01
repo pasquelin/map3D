@@ -292,32 +292,27 @@ export class DrawLayer implements Layer {
   private drawings: Drawing[] = []
 
   /**
-   * Dessins dont un sommet tombe dans le cadre de la vue — le compte que lit le panneau.
+   * Contribution au panneau de diagnostic (cf. `CounterRegistry`).
    *
-   * Fait dans la passe qui a déjà le cadre, jamais dans `stats()` : un compteur doit être
-   * une lecture, sinon le panneau ajoute un balayage à ce qu'il prétend mesurer.
+   * Le balayage est fait ICI et non dans `update()` : appelé à la cadence du panneau et
+   * seulement pendant qu'il est ouvert, il ne coûte rien le reste du temps. C'était la
+   * différence entre 8 balayages par seconde et 60, panneau fermé compris.
    *
-   * Sort au PREMIER sommet trouvé : un tracé de mille points n'a pas à être parcouru
-   * entièrement pour qu'on sache qu'il est à l'écran.
+   * Sort au PREMIER sommet trouvé. ⚠️ Le pire cas est donc le dessin HORS cadre, parcouru
+   * entièrement — c'est acceptable à cette cadence, mais ce serait le point à reprendre
+   * (bbox mémoïsée par dessin) si un hôte portait des milliers de tracés denses.
    */
-  private countVisible(bounds: Bounds): void {
-    let n = 0
+  stats(bounds: Bounds): StatContribution {
+    let visible = 0
     for (const d of this.drawings) {
       for (const p of d.points) {
         if (boundsContains(bounds, p)) {
-          n++
+          visible++
           break
         }
       }
     }
-    this.visibleCount = n
-  }
-
-  private visibleCount = 0
-
-  /** Contribution au panneau de diagnostic (cf. `CounterRegistry`). */
-  stats(): StatContribution {
-    return { kind: 'drawings', visible: this.visibleCount, total: this.drawings.length }
+    return { kind: 'drawings', visible, total: this.drawings.length }
   }
   private readonly history = new History()
   private overlaySel: SelectionOverlay | null = null
@@ -1747,7 +1742,6 @@ export class DrawLayer implements Layer {
   update(ctx: FrameContext): void {
     this.lastCamera = ctx.camera
     this.viewH = ctx.size.height
-    this.countVisible(ctx.view.bounds)
     this.hoverChecked = false
     this.overlayRect = null
     this.flushEmit()

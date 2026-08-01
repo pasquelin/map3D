@@ -2351,7 +2351,10 @@ export class MapEngine {
    */
   viewStats(out: ViewStats = {}): ViewStats {
     const info = this.renderer.info
-    this.counters.collect(out)
+    // Le cadre est lu ICI, une seule fois et à la cadence du panneau : `computeView` est
+    // mémoïsé, et le forcer depuis une passe de frame ferait payer ses 25 raycasts
+    // d'ellipsoïde soixante fois par seconde (cf. la règle centrale de `viewStats`).
+    this.counters.collect(out, this.computeView(this.camera.getState()).bounds)
     out.drawCalls = info.render.calls
     out.triangles = info.render.triangles
     out.geometries = info.memory.geometries

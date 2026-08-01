@@ -99,7 +99,7 @@ partiel est une erreur de compilation.
 | `providers.buildings.positionPrecision` | Format des positions envoyées au GPU : `'int16'` (entiers normalisés sur l'étendue de la tuile, ~4 cm de résolution, **deux fois moins d'octets**) ou `'float32'` (repli, pour un cas d'usage exigeant mieux que le centimètre). | `'int16'` |
 | `providers.buildings.zoom` | Zoom des tuiles demandées : le `maxzoom` des données (14 en OpenMapTiles). | `14` |
 | `providers.buildings.maxViewAltitude` | Hauteur maximale **au-dessus du sol** (m) à laquelle les bâtiments restent affichés ; au-delà ils sont fondus, masqués et détruits. ⚠️ Remplace `minViewZoom`/`showZoomOffset`, exprimés en zoom de vue : le zoom se déduit d'une résolution m/px, donc d'une division par la hauteur du viewport, et le même réglage laissait les bâtiments affichés jusqu'à 15 km sur une fenêtre de 700 px contre 31 km sur 1 440 px. Une altitude ne dépend ni de la fenêtre ni de la latitude. | `1000` |
-| `providers.buildings.requestAltitudeFactor` | Bande de préchargement au-dessus de `maxViewAltitude`, en multiple de celle-ci : les tuiles y sont téléchargées et montées **sans être montrées**, pour que la descente ne les découvre pas à faire (~20 ms de montage par tuile, `mountPerFrame: 1`). `1` supprime la bande — l'affichage arrive alors par à-coups. | `1.5` |
+| `providers.buildings.requestAltitudeFactor` | Bande de préchargement au-dessus de `maxViewAltitude`, en multiple de celle-ci : les tuiles y sont téléchargées et montées **sans être montrées**, pour que la descente ne les découvre pas à faire. ⚠️ Ce qu'elle absorbe a changé de nature : le montage ne coûte plus ~20 ms mais ~1 ms (l'arbre de collision est construit côté worker, cf. `workerPoolSize`) — c'est désormais la **latence du pipeline**, téléchargement et extrusion compris. `1` supprime la bande — l'affichage arrive alors par à-coups. | `1.5` |
 | `providers.buildings.maxViewDistance` | **Rayon maximal (m) du disque** de couverture du volume, centré sous la caméra ; au-delà, le fond raster reste seul. ⚠️ Un disque, et non la bbox du trapèze de vue : celle-ci dépendait du **cap** (aire ×2 entre un cap nord et un cap à 45°, donc les tuiles changeaient quand on tournait) et explosait à l'horizon en dents de scie (2,8 → 36,3 km, effondrements à 59° et 74°). Un disque est invariant et borné par construction. Le coût est en n² : mesuré à Paris, 32 tuiles z14 à 5 km, 47 à 6 km — au-delà il faut relever `maxRequest`, `maxTiles` et `maxBytes`. | `5000` |
 | `providers.buildings.margin` | Anneau de tuiles préchargées autour du viewport. | `0` |
 | `providers.buildings.maxTiles` | Plafond du cache de tuiles extrudées (mémoire GPU). Une tuile z14 dense pèse ~131 000 triangles : ce plafond n'a rien à voir avec celui du fond raster. À garder nettement au-dessus de `maxRequest`, sinon un pan évince ce qu'il vient de demander. ⚠️ 36 → 80 (suit `maxRequest`). | `80` |
@@ -241,6 +241,22 @@ partiel est une erreur de compilation.
 | `performance.viewportSettleFrames` | Frames d'immobilité avant d'émettre l'événement `viewport`. | `4` |
 | `performance.markerRecomputeMs` | Intervalle minimal entre deux recalculs de clusters pendant un pan. | `90` |
 | `performance.readoutRefreshMs` | Intervalle minimal entre deux écritures du bloc de lecture de la vue (`<Map readout>`), en ms. L'événement `camera` étant émis à la frame, le recopier tel quel ferait quatre écritures DOM par frame pour un texte que l'œil ne peut pas suivre. La dernière valeur est toujours écrite. | `120` |
+| `performance.statThresholds` | Bornes de confort du panneau de diagnostic, par grandeur — ce qui décide du vert, du jaune ou du rouge. Une grandeur ABSENTE de cette table s'affiche sans couleur : c'est le défaut pour tout ce qui n'a pas de « bon » ou de « mauvais » universel (une latitude, un cap, une altitude ne se jugent pas). | voir ci-dessous |
+| `performance.statThresholds.fps` | Bornes de confort de « images par seconde » — cf. la règle de l'ordre ci-dessous. | `{ ok: 55, warn: 30 }` |
+| `performance.statThresholds.paintedRatio` | Bornes de confort de « part des frames de la boucle réellement peintes » — cf. la règle de l'ordre ci-dessous. | `{ ok: 0.9, warn: 0.6 }` |
+| `performance.statThresholds.markersVisible` | Bornes de confort de « markers réellement peints » — cf. la règle de l'ordre ci-dessous. | `{ ok: 400, warn: 1200 }` |
+| `performance.statThresholds.triangles` | Bornes de confort de « triangles de la scène » — cf. la règle de l'ordre ci-dessous. | `{ ok: 2_000_000, warn: 5_000_000 }` |
+| `performance.statThresholds.drawCalls` | Bornes de confort de « appels de rendu » — cf. la règle de l'ordre ci-dessous. | `{ ok: 300, warn: 800 }` |
+| `performance.statThresholds.textures` | Bornes de confort de « textures en mémoire GPU » — cf. la règle de l'ordre ci-dessous. | `{ ok: 400, warn: 900 }` |
+| `performance.statThresholds.resolutionScale` | Bornes de confort de « échelle de résolution appliquée » — cf. la règle de l'ordre ci-dessous. | `{ ok: 1, warn: 0.75 }` |
+| `performance.statThresholds.tileBytes` | Bornes de confort de « mémoire retenue par les tuiles » — cf. la règle de l'ordre ci-dessous. | `{ ok: 384 Mio, warn: 768 Mio }` |
+
+> **Le sens d'un seuil se déduit de l'ORDRE de ses deux bornes**, il n'y a pas de drapeau à tenir en accord avec les valeurs :
+> — `ok < warn` : la grandeur **pèse** (triangles, markers) — petit = bon ;
+> — `ok > warn` : la grandeur **porte** (cadence, frames peintes) — grand = bon.
+>
+> Ces valeurs sont calibrées sur un budget de 16,6 ms (60 Hz). Un hôte qui vise des postes modestes les resserre. Cf. [Panneau de diagnostic](CAMERA.md).
+
 | `performance.cameraMoveEpsilon.deg` | Écart de latitude/longitude (degrés) au-delà duquel la caméra a bougé. | `1e-06` |
 | `performance.cameraMoveEpsilon.altitudeRatio` | Écart d'altitude, en fraction de l'altitude courante. | `0.001` |
 | `performance.cameraMoveEpsilon.altitudeMinMeters` | Plancher absolu du précédent (m) — près du sol, un ratio seul ne déclenche jamais. | `1` |

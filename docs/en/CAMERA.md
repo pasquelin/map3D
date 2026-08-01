@@ -223,6 +223,30 @@ To show it **outside** the map (your own status bar, an operations panel),
 `<CameraReadout>` is exported — it only needs the map context — and
 `makeReadoutFormatter(labels)` gives the same formatters with no DOM at all.
 
+### Diagnostics panel — `<StatsPanel>`
+
+The toolbar's **“Settings”** menu carries an **“Infos”** row that opens a panel: what the view holds, what it costs, what it retains. It **absorbs** the `<CameraReadout>` metrics — which is why the example turns the strip off by default.
+
+| Section | What it gives |
+| --- | --- |
+| **Camera** | lat, lng, altitude, zoom, heading, tilt — the same as the strip, named by `labels.readout` |
+| **Content** | markers painted / total, cluster badges, shapes, paths, links, drawings |
+| **Render** | frames per second, painted frames, draw calls, triangles, textures, geometries, resolution scale |
+| **Tiles and memory** | cached tiles, loading tiles, memory held, extrusion workers |
+
+⚠️ **Everything is counted IN VIEW**, not in what the host has posted. `markers total` is the only exception, and it exists to be compared with `markers painted`: their gap is what reveals a cull or a clustering that is not doing its job.
+
+Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md).
+
+```tsx
+// In your own surface rather than in the menu:
+import { StatsPanel } from 'map3d'
+;<StatsPanel sections={['render', 'tiles']} refreshMs={250} />
+```
+
+Like `<CameraReadout>`, **it never re-renders**: it lays out its DOM once and two engine layers write the cells. A performance panel refreshed through `useState` would measure what it caused itself.
+
+
 ---
 
 ## 6. Frozen map (`interactive`)

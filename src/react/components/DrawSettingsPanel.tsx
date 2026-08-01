@@ -174,7 +174,9 @@ export function DrawSettingsButton({
               anchor={subRow}
               position={position}
               maxHeight={theme.sizing.panelMaxHeight.settingsSub}
-              panelClassName="m3d-settings-sub"
+              // Récap raccourcis sur deux colonnes : la surface s'élargit pour eux seuls,
+              // les autres sous-panneaux (style d'outil, plugins…) restent étroits.
+              panelClassName={`m3d-settings-sub${openSub === 'shortcuts' ? ' m3d-settings-sub-wide' : ''}`}
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >
@@ -261,33 +263,82 @@ function ToolPreview({ tool, s }: { tool: DrawTool; s: ToolSettings }) {
 }
 
 /**
- * Liste complète des raccourcis, **une ligne par entrée** (actions d'édition puis
- * une ligne par outil) — contenu du sous-panneau « Raccourcis clavier ».
+ * Récapitulatif EXHAUSTIF des raccourcis, **une ligne par entrée**, réparti en
+ * **trois colonnes** (`column-count`, cf. `.m3d-shortcut-cols`) : la liste couvre
+ * navigation, vue, panneaux, outils, sélection et édition — elle devenait trop haute
+ * pour une seule colonne.
+ *
+ * Chaque touche est LUE dans `config.interaction.shortcuts` et non écrite en dur : une
+ * aide en ligne qui annonce les touches d'origine après remappage ment (cf. `formatEdit`).
+ * Une entrée désactivée (`false`) ne s'affiche pas — elle n'a plus de touche à montrer.
  */
 function ShortcutsList() {
   const { shortcuts } = useDrawing()
   const labels = useLabels()
-  const edit = useConfig().interaction.shortcuts.edit
+  const sc = useConfig().interaction.shortcuts
+  const edit = sc.edit
+  // La touche « Catalogue » est morte sans source déclarée (cf. `useToggleShortcut` de
+  // `<CatalogControl>`) : ne pas l'annoncer alors.
+  const hasCatalog = useCatalogSources().length > 0
   const fmt = (s: EditShortcut) => formatEdit(s, labels.modKey, labels.keys.shift)
-  const rows: Array<[string, string]> = [
+  const one = (k: string | false) => (k ? formatKey(k) : undefined)
+  // Deux touches séparées par « / » sur une seule ligne (zoom, annuler/rétablir).
+  const pair = (a?: string, b?: string) => (a || b ? `${a ?? ''} / ${b ?? ''}` : undefined)
+
+  // Déplacement continu : le sous-ensemble LETTRES (ZQSD/WASD), plus « Flèches » si liées.
+  const nav = sc.navigate
+  const navLetters = [nav.forward, nav.left, nav.backward, nav.right]
+    .map((d) => d.find((k) => !k.startsWith('arrow'))?.toUpperCase())
+    .filter(Boolean)
+    .join(' ')
+  const navArrows = [nav.forward, nav.left, nav.backward, nav.right].some((d) => d.some((k) => k.startsWith('arrow')))
+  const navKeys = [navLetters, navArrows ? labels.keys.arrows : ''].filter(Boolean).join(' / ') || undefined
+  const boostKeys =
+    nav.boost.length > 0
+      ? nav.boost.map((k) => (k === 'shift' ? labels.keys.shiftKey : formatKey(k))).join(' ')
+      : undefined
+
+  // Ordre : navigation → vue/panneaux → outils → sélection → édition. `column-count`
+  // équilibre l'ensemble, donc pas de séparateur (il tomberait au hasard d'une colonne).
+  const rows: Array<[string, string | undefined]> = [
+    // Navigation caméra
     [labels.actions.panMap, labels.keys.space],
+    [labels.actions.navigate, navKeys],
+    [labels.actions.boost, boostKeys],
     [labels.actions.rotateCamera, labels.keys.spaceShift],
-    [labels.actions.rotateShape, labels.keys.shiftDrag],
-    // Composés à partir des raccourcis EFFECTIFS : ces trois lignes annonçaient les
-    // touches d'origine même après remappage.
-    [labels.actions.undoRedo, `${fmt(edit.undo)} / ${fmt(edit.redo)}`],
-    [labels.actions.selectAll, fmt(edit.selectAll) ?? ''],
+    [labels.controls.north, one(sc.controls.north)],
+    [labels.controls.tilt, one(sc.controls.tilt)],
+    [labels.controls.globe, one(sc.controls.globe)],
+    [labels.actions.zoom, pair(one(sc.controls.zoomIn), one(sc.controls.zoomOut))],
+    // Vue / panneaux
+    [labels.actions.basemap, one(sc.controls.basemap)],
+    [labels.controls.graticule, one(sc.controls.graticule)],
+    [labels.actions.layers, one(sc.controls.layers)],
+    [labels.catalog.button, hasCatalog ? one(sc.controls.catalog) : undefined],
+    [labels.controls.fullscreen, one(sc.controls.fullscreen)],
+    [labels.controls.pedestrian, one(sc.controls.pedestrian)],
+    [labels.lens.tool, one(sc.lens.toggle)],
+    // Outils de dessin : dérivés des raccourcis effectifs, filtrés aux vrais outils.
+    ...(Object.entries(shortcuts) as Array<[string, string | false]>)
+      .filter(([k, v]) => v && k in TOOL_ICONS)
+      .map(([k, v]): [string, string] => [labels.tools[k as DrawTool], formatKey(String(v))]),
+    // Sélection : modes + gestes
+    [labels.selectModes.rect.label, one(shortcuts.selectRect)],
+    [labels.selectModes.poly.label, one(shortcuts.selectPoly)],
+    [labels.selectModes.lasso.label, one(shortcuts.selectLasso)],
+    [labels.buildingPick.label, one(shortcuts.selectBuilding)],
     [labels.actions.addToSelection, labels.keys.shiftClick],
     [labels.actions.markersOnly, labels.keys.altOrCmd],
-    [labels.actions.duplicate, fmt(edit.duplicate) ?? ''],
+    [labels.actions.rotateShape, labels.keys.shiftDrag],
+    // Édition
+    [labels.actions.undoRedo, pair(fmt(edit.undo), fmt(edit.redo))],
+    [labels.actions.selectAll, fmt(edit.selectAll)],
+    [labels.actions.duplicate, fmt(edit.duplicate)],
     [labels.actions.delete, labels.keys.backspace],
     [labels.actions.moveSelection, labels.keys.arrows],
     [labels.actions.closePolygon, labels.keys.enter],
     [labels.actions.cancel, labels.keys.escape],
   ]
-  const toolRows: Array<[string, string]> = (Object.entries(shortcuts) as Array<[string, string | false]>)
-    .filter(([k, v]) => v && k in TOOL_ICONS)
-    .map(([k, v]) => [labels.tools[k as DrawTool], formatKey(String(v))])
   const shortcutRow = ([label, key]: [string, string]) => (
     <div key={label} className="m3d-shortcut-row">
       <span>{label}</span>
@@ -297,9 +348,7 @@ function ShortcutsList() {
   return (
     <div className="m3d-shortcuts">
       <div className="m3d-settings-subtitle">{labels.settings.shortcutsTitle}</div>
-      {rows.map(shortcutRow)}
-      <div className="m3d-shortcut-sep" />
-      {toolRows.map(shortcutRow)}
+      <div className="m3d-shortcut-cols">{rows.filter((r): r is [string, string] => !!r[1]).map(shortcutRow)}</div>
     </div>
   )
 }

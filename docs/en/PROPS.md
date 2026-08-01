@@ -363,3 +363,12 @@ three.js and no GPU.
 |---|---|---|
 | `draw` **(required)** | GeoJSON FeatureCollection of the drawing to preview. | — |
 | `size` | Side of the render square (px). | `40` |
+
+## `<StatsPanel>`
+
+Diagnostics panel, already mounted as the “Infos” row of the “Settings” menu. Render it yourself to place it in another surface — see [CAMERA.md](CAMERA.md).
+
+| Prop | Type | Default | Role |
+| --- | --- | --- | --- |
+| `sections` | `readonly StatsSection[]` | all four | Sections shown, in panel order: `'camera'`, `'content'`, `'render'`, `'tiles'`. |
+| `refreshMs` | `number` | `config.performance.readoutRefreshMs` | Maximum write rate. It is also the rate at which layer counters are queried — the panel costs nothing while closed. |

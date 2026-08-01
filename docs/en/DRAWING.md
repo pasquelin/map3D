@@ -51,7 +51,7 @@ Manual mounting:
 | Polygon | `P` | successive clicks + `Enter` to close |
 | Rectangle | `R` | adjustable corner radius |
 | Circle | `C` | centre + radius |
-| Freehand | `D` | continuous stroke |
+| Freehand | `H` | continuous stroke |
 | Arrow | `A` | polyline + head |
 | Measure | `M` | thin dashed dimension ⊢––⊣ with a distance label — **parent of a submenu** (see below) |
 | Eraser | `E` | deletes on click |
@@ -90,6 +90,7 @@ Three marquees, under the same `V` button (flyout on hover):
 | `rect` | `1` | rectangle |
 | `poly` | `2` | polygon (clicks + `Enter`) |
 | `lasso` | `3` | freehand |
+| `building` | `4` | picks a building from the internal 3D volume (engine tool, see [BUILDINGS.md](BUILDINGS.md)) — leaves drawing |
 
 **“Touch = selected”** semantics: it is enough for a marquee to graze a shape. Single
 click to select a shape, `Shift+click` to add/remove.

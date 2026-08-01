@@ -168,8 +168,10 @@ export const defaultConfig: MapConfig = {
       // divisait par la hauteur du viewport, donc le même réglage laissait les bâtiments
       // affichés jusqu'à 15 km sur une fenêtre de 700 px et 31 km sur 1 440 px.
       maxViewAltitude: 1000,
-      // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour tenir
-      // le montage (~20 ms/tuile, `mountPerFrame: 1`) sans à-coup à l'arrivée.
+      // Téléchargement dès 1,5 km pour un affichage à 1 km : ~500 m de descente pour que la
+      // tuile ait le temps d'arriver. ⚠️ Ce que cette bande absorbe a changé de nature : le
+      // montage ne coûte plus ~20 ms (l'arbre est construit côté worker) mais ~1 ms — c'est
+      // désormais la LATENCE du pipeline, téléchargement et extrusion compris.
       requestAltitudeFactor: 1.5,
       // RAYON du disque de couverture (cf. `MapEngine.volumeBounds`), et non plus portée d'un
       // trapèze : le volume ne bouge donc plus du tout quand on tourne la caméra.
@@ -419,7 +421,10 @@ export const defaultConfig: MapConfig = {
       // La résolution adaptative descend sous 1 quand le GPU ne suit plus : c'est un
       // symptôme, pas un réglage — d'où un seuil qui le signale.
       resolutionScale: { ok: 1, warn: 0.75 },
-      // 512 Mio : deux fois le filet `maxBytes` du fond seul, tuiles de volume comprises.
+      // ⚠️ Seuil ABSOLU, volontairement décorrélé des `maxBytes` : ceux-ci sont des filets
+      // (256 Mio pour le fond, 448 pour le volume) qu'un hôte relève sans que sa machine
+      // suive. 384 Mio est ce qu'une machine modeste encaisse sans évincer en boucle. Un
+      // hôte qui abaisse ses budgets de cache doit resserrer ces bornes avec.
       tileBytes: { ok: 384 * 1024 * 1024, warn: 768 * 1024 * 1024 },
     },
     // Unifié sur la valeur des COUCHES (1e-6 / 1e-3), pas sur celle du moteur

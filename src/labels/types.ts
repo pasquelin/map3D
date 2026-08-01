@@ -363,9 +363,19 @@ export type MapLabels = {
     resetTool: string
     shortcutsTitle: string
   }
-  /** Actions d'édition du dessin (récapitulatif des raccourcis). */
+  /** Actions du récapitulatif des raccourcis (navigation, vue, dessin, édition). */
   actions: {
     panMap: string
+    /** Déplacement CONTINU de la caméra au clavier (ZQSD/WASD + flèches). */
+    navigate: string
+    /** Modificateur d'accélération du déplacement (Maj). */
+    boost: string
+    /** Zoom avant / arrière (une seule ligne, comme `undoRedo`). */
+    zoom: string
+    /** Bascule fond 3D photoréaliste ↔ plan 2D. */
+    basemap: string
+    /** Ouvre le panneau « Couches » (filtre par tag). */
+    layers: string
     rotateCamera: string
     rotateShape: string
     undoRedo: string
@@ -413,6 +423,8 @@ export type MapLabels = {
     altOrCmd: string
     /** Glyphe Maj seul, pour composer un raccourci affiché (⇧Z). */
     shift: string
+    /** Nom de la touche Maj, seule (accélération du déplacement). */
+    shiftKey: string
   }
   /** Gabarits de composition des textes affichés. */
   format: {
@@ -482,7 +494,7 @@ export type MapLabels = {
    * sans avoir à le redire ici.
    */
   /**
-   * Panneau de diagnostic (bouton « Infos » de la barre d'outils).
+   * Panneau de diagnostic — ligne « Infos » du menu « Réglages » de la barre d'outils.
    *
    * Les grandeurs de CAMÉRA n'y sont pas redites : elles viennent de `readout`, qui les
    * nommait déjà. Le panneau les affiche avec les autres — c'est ce qui lui permet

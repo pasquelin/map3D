@@ -83,7 +83,14 @@ export class BuildingsSource {
         spawn,
         size: this.poolSize,
         cancelMessage: (id) => ({ id, cancel: true }) satisfies BuildRequest,
-        fallback: runOnMainThread,
+        // ⚠️ Enveloppé pour que le repli reste ANNONCÉ. Le worker unique prévenait quand il
+        // mourait ; avec le pool, une bascule (pas de `Worker`, CSP, ou dernier worker mort)
+        // se serait faite en silence — plusieurs centaines de ms par tuile, indiscernables
+        // d'une machine lente. La garde `warned` rend l'avertissement unique.
+        fallback: (req, signal) => {
+          warnMainThreadFallback('aucun worker disponible')
+          return runOnMainThread(req, signal)
+        },
       })
       this.live = pool
       return pool

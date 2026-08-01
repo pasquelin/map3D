@@ -601,6 +601,8 @@ export class MarkerLayer implements Layer {
    * que la carte n'a pas.
    */
   stats(kind: StatContribution['kind'] = 'markers'): StatContribution {
+    // Aucun balayage ici, contrairement aux couches drapées : le verdict de cull est déjà
+    // posé par `project()`, on ne fait que lire son compte. C'est le modèle à suivre.
     return { kind, visible: this.visibleCount, total: this.nodes.size }
   }
 
