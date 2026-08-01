@@ -251,13 +251,13 @@ export function SelectionBadges(props: SelectionBadgesProps) {
               }
 
               // Une SEULE forme : inutile de la nicher dans un groupe dépliable — on la montre
-              // DIRECTEMENT (son nom réel + corbeille), avec une gouttière pour rester alignée.
+              // DIRECTEMENT (son nom réel + corbeille). Sans chevron : pas de gouttière réservée
+              // (elle laissait un gros vide à gauche pour une ligne qui n'a rien à déplier).
               if (ids.length === 1) {
                 const id = ids[0]!
                 const clabel = childLabel(id, kind, 0)
                 return (
                   <div key={`shape:${kind}`} className="m3d-tagrow">
-                    <span className="m3d-selrow-chevron-spacer" />
                     <UiIcon path={TOOL_ICONS[kind]} />
                     {deletableLabel(id, clabel)}
                     <button
