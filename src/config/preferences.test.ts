@@ -35,7 +35,10 @@ describe('preferencesToPartialConfig', () => {
   })
 
   it('mappe la vitesse et laisse la config complète cohérente', () => {
-    const merged = mergeConfig(defaultConfig, preferencesToPartialConfig(prefs({ moveSpeed: 'fast', damping: false }), caps))
+    const merged = mergeConfig(
+      defaultConfig,
+      preferencesToPartialConfig(prefs({ moveSpeed: 'fast', damping: false }), caps),
+    )
     expect(merged.camera.keyPan.speed).toBe(1.5)
     expect(merged.interaction.damping).toBe(false)
     // La navigation reste complète après merge (boost inclus).
