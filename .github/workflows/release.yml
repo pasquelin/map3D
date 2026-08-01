@@ -6,8 +6,9 @@
 #   npm version minor          # bump package.json + commit + tag vX.Y.Z
 #   git push --follow-tags     # pousse main + le tag  → ce workflow publie
 #
-# Prérequis (une fois) : secret repo `NPM_TOKEN` = jeton npm « Automation » (write)
-# du scope @pasquelin. Settings → Secrets and variables → Actions.
+# Authentification : **npm Trusted Publishing (OIDC)** — aucun token. npm échange le
+# jeton OIDC de GitHub (permission `id-token: write`) contre un jeton de publication
+# éphémère. Le trusted publisher est configuré côté npm : pasquelin/map3D → release.yml.
 name: Release
 
 on:
@@ -38,7 +39,11 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org' # écrit le .npmrc qui lit NODE_AUTH_TOKEN
+          registry-url: 'https://registry.npmjs.org'
+
+      # OIDC trusted publishing exige npm >= 11.5.1 ; Node 22 embarque npm 10.
+      - name: Mettre npm à jour (requis pour l'OIDC)
+        run: npm install -g npm@latest
 
       - name: Installer les dépendances
         run: pnpm install --frozen-lockfile
@@ -60,7 +65,6 @@ jobs:
       - name: Build (dist/ ESM + CJS + types)
         run: pnpm build
 
-      - name: Publier sur npm
+      # Sans token : l'OIDC trusted publisher (configuré côté npm) authentifie la publication.
+      - name: Publier sur npm (OIDC, sans token)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
