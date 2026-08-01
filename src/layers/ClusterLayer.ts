@@ -32,23 +32,6 @@ export type ClusterEntry =
  *  du format (la multi-sélection traduit id marker ↔ id nœud avec). */
 export const markerEntryKey = (id: string | number): string => `pt:${id}`
 
-/** Étalement géo (mètres) d'un ensemble de points — diagonale du bbox. Sert à
- *  détecter les points (quasi) confondus, jamais séparables par le zoom. */
-export function geoSpreadMeters(points: ReadonlyArray<{ position: LatLng }>): number {
-  let minLat = Infinity
-  let maxLat = -Infinity
-  let minLng = Infinity
-  let maxLng = -Infinity
-  for (const p of points) {
-    if (p.position.lat < minLat) minLat = p.position.lat
-    if (p.position.lat > maxLat) maxLat = p.position.lat
-    if (p.position.lng < minLng) minLng = p.position.lng
-    if (p.position.lng > maxLng) maxLng = p.position.lng
-  }
-  const midLat = (minLat + maxLat) / 2
-  return Math.hypot((maxLat - minLat) * M_PER_DEG, (maxLng - minLng) * M_PER_DEG * Math.cos(midLat * DEG2RAD))
-}
-
 export type SpiderfySlot = { position: LatLng; angleDeg: number; radiusPx: number }
 
 /**

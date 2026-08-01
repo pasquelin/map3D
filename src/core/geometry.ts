@@ -148,7 +148,7 @@ export function ribbon(
  * Découpe une polyligne en tronçons « tiret » selon un motif tiret/espace (mètres
  * locaux). Un tiret peut traverser un sommet (le motif est continu le long du tracé).
  */
-export function dashPattern(points: readonly Pt[], dash: number, gap: number, closed: boolean): Pt[][] {
+function dashPattern(points: readonly Pt[], dash: number, gap: number, closed: boolean): Pt[][] {
   // Tests écrits en positif (`!(dash > 0)` et non `dash <= 0`) : la forme négative
   // laisserait passer NaN, et le motif ne progresserait alors jamais.
   if (points.length < 2 || !(dash > 0) || !(gap >= 0) || !allFinite(points)) {

@@ -84,7 +84,7 @@ export type RelationVisualContext = {
 type ArcPerf = Pick<PerformanceConfig['relations'], 'stepMeters' | 'maxSteps'>
 
 /** Opacité d'un lien selon son rang. Un lien sans rang (temps indisponible) reste discret. */
-export function opacityForRank(rank: number | null, total: number, min: number): number {
+function opacityForRank(rank: number | null, total: number, min: number): number {
   if (rank === null) return min
   if (total <= 1) return OPACITY_TOP
   const t = (rank - 1) / (total - 1)
