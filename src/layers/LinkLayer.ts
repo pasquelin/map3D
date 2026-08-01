@@ -1,16 +1,13 @@
 import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
+import { circlePoints, disposeObject3D, fillGeo, ribbon } from '../core/geometry'
 import {
-  circlePoints,
   type DashedMaterial,
   dashedStrokeMaterial,
-  disposeObject3D,
-  fillGeo,
   fillMaterial,
-  ribbon,
   setDashColors,
   strokeMaterial,
-} from '../core/geometry'
+} from '../core/geometryMaterials'
 import { boundsOfLatLngs } from '../core/bounds'
 import type { FrameContext } from '../core/Layer'
 import type { Projection, ScreenPoint } from '../core/Projection'

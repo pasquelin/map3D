@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
-import { clearGroup, disposeObject3D, edgeMaterial } from '../core/geometry'
+import { clearGroup, disposeObject3D } from '../core/geometry'
+import { edgeMaterial } from '../core/geometryMaterials'
 import {
   bandFor,
   type GraticuleBand,

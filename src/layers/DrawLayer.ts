@@ -23,8 +23,6 @@ import { type SelectMode, SelectionManager } from './draw/SelectionManager'
 import { type OverlayShape, SelectionOverlay } from './draw/SelectionOverlay'
 import {
   type Pt,
-  DEFAULT_STROKE_OPACITY,
-  MEASURE_STROKE_OPACITY,
   arrowHead,
   circlePoints,
   dashedRibbon,
@@ -32,12 +30,11 @@ import {
   disposeObject3D,
   endTicks,
   fillGeo,
-  fillMaterial,
   filletPolygon,
   ribbon,
-  strokeMaterial,
   strokePolylines,
 } from '../core/geometry'
+import { DEFAULT_STROKE_OPACITY, MEASURE_STROKE_OPACITY, fillMaterial, strokeMaterial } from '../core/geometryMaterials'
 import type { Bounds, LatLng } from '../shared'
 import { defaultLabels } from '../labels/defaultLabels'
 import { makeDistanceFormatter } from '../labels/measure'

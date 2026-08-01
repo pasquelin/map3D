@@ -1,5 +1,5 @@
 import { defaultConfig } from '../../config/defaultConfig'
-import { MEASURE_STROKE_OPACITY } from '../../core/geometry'
+import { MEASURE_STROKE_OPACITY } from '../../core/geometryMaterials'
 import type { DrawTool, StrokeStyle } from '../DrawLayer'
 
 /** Réglages complets d'un outil de dessin (défauts des prochaines formes). */

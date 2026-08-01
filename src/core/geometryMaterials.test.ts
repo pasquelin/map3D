@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dashedStrokeMaterial, edgeMaterial, fillMaterial, strokeMaterial, volumeMaterial } from './geometry'
+import { dashedStrokeMaterial, edgeMaterial, fillMaterial, strokeMaterial, volumeMaterial } from './geometryMaterials'
 
 /**
  * Le test de profondeur des matériaux PLATS est une politique de vue, décidée par le

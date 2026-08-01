@@ -205,7 +205,7 @@ export { usePreferences } from './react/preferences/context'
 export { fetchWithPolicy, HttpError } from './core/fetchPolicy'
 /** Constantes à source unique — cf. l'audit des valeurs dupliquées. */
 export { CAMERA_FOV, TILE_SIZE } from './core/math'
-export { DEFAULT_STROKE_OPACITY, MEASURE_STROKE_OPACITY } from './core/geometry'
+export { DEFAULT_STROKE_OPACITY, MEASURE_STROKE_OPACITY } from './core/geometryMaterials'
 export { PREDICATE_CIRCLE_SEGMENTS, predicateSegments } from './core/geodesy'
 export { DEFAULT_DRAW_PRESETS, type DrawPresets, maxRadiusOf } from './react/components/drawPresets'
 export type { RelationMenuPresets } from './relations/relationMenu'

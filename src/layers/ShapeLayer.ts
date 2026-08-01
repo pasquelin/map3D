@@ -3,18 +3,8 @@ import { EnuFrame } from '../core/enu'
 import type { Projection } from '../core/Projection'
 import { boundsOfCircle, boundsOfLatLngs, unionBounds } from '../core/bounds'
 import { circleRing, PREDICATE_CIRCLE_SEGMENTS } from '../core/geodesy'
-import {
-  type Pt,
-  circlePoints,
-  edgeMaterial,
-  fillGeo,
-  fillMaterial,
-  prismEdges,
-  prismWalls,
-  ribbon,
-  strokeMaterial,
-  volumeMaterial,
-} from '../core/geometry'
+import { type Pt, circlePoints, fillGeo, prismEdges, prismWalls, ribbon } from '../core/geometry'
+import { edgeMaterial, fillMaterial, strokeMaterial, volumeMaterial } from '../core/geometryMaterials'
 import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
 
