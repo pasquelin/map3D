@@ -77,8 +77,11 @@ not in a separate block: a single key list, no duplicate). Each rebindable key s
 - **Conflict detection** — a key is **rejected** (red kbd) if it is already taken by **any
   command**: not just movement/view, but also drawing tools, the basemap toggle, the lens,
   `Space` (pan)… Reassigning "North" to `b` (which toggles the basemap) is blocked.
+- **Reset keys only** — below the recap, the "Reset keys" button returns ALL reassigned
+  shortcuts to their original layout, without touching quality, speed or damping. Inert until
+  a key has actually been rebound.
 - **Reset all** — the "Reset preferences" button (Preferences panel) also clears reassigned
-  keys.
+  keys, on top of everything else.
 
 ## 5. For the application
 
