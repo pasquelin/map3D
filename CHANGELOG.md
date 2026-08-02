@@ -6,6 +6,8 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+## [0.3.0] — 2026-08-02
+
 ### feat : contrainte de dessin « non-chevauchement » (`noOverlap`)
 
 Nouvelle contrainte métier `DrawConstraints.noOverlap` : une forme **fermée** est refusée
