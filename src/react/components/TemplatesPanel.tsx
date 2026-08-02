@@ -15,6 +15,7 @@ import type { ApplyMode, TemplateCategory } from '../../core/templates/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels, useMapContext } from '../context'
 import { type UseTemplatesOptions, useTemplates, type TemplatesView } from '../hooks/useTemplates'
+import { useToggleSet } from '../hooks/useToggleSet'
 import { Confirm } from './Confirm'
 import { MapTooltip } from './MapTooltip'
 import { Dropdown, useToggleShortcut } from './Dropdown'
@@ -83,7 +84,8 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
   // Ces lignes n'ont pas de raccourci : `tipProps` (convention partagée) réduit alors au libellé seul.
   const tipOf = (label: string): Record<string, string> => tipProps(tid, label, undefined, labels.format.shortcut)
   const [name, setName] = useState('')
-  const [cats, setCats] = useState<Set<TemplateCategory>>(() => new Set(view.defaultCategories))
+  // Set de catégories cochées avec bascule — mécanique partagée (`useToggleSet`).
+  const [cats, toggleCat] = useToggleSet<TemplateCategory>(() => new Set(view.defaultCategories))
   /**
    * « Mémoriser aussi la vue ». Volontairement HORS de `cats` : une vue n'est pas une
    * catégorie de dessin (`TemplateCategory` se dérive d'un `DrawTool`), et les mélanger
@@ -98,14 +100,6 @@ function TemplatesBody({ view }: { view: TemplatesView }) {
   /** Action destructive (suppression) ou d'écrasement (mise à jour) en attente de confirmation. */
   const [pending, setPending] = useState<{ kind: 'delete' | 'update'; id: string; name: string } | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
-
-  const toggleCat = (c: TemplateCategory) =>
-    setCats((prev) => {
-      const next = new Set(prev)
-      if (next.has(c)) next.delete(c)
-      else next.add(c)
-      return next
-    })
 
   // Un template de VUE SEULE est légitime (« Vernon », « Nice ») : sans la case cochée il
   // faut au moins une catégorie, avec elle il y a déjà quelque chose à enregistrer.

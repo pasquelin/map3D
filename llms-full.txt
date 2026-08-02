@@ -808,8 +808,10 @@ live** as the map scrolls underneath. `Escape` removes the area, then leaves the
 The lens and the drawing tools are **mutually exclusive** — they share the same pointer
 interceptor.
 
-The panel reuses the selection panel's `<MarkerList>`: one row per marker, fixed header
-with the per-type count, scrollable body, per-row cross, extensible actions menu.
+The panel reuses the selection panel's building blocks (`SelectionScroll`, `SelectionGroup`,
+`MarkerList`, `ClusterPie`) with no duplication. Inventoried markers are grouped by cluster
+(current visual cluster, via `engine.markers.visualNodeOf`), groups open by default; standalone
+markers stay flat. Scrollable body, per-row cross, extensible actions menu.
 
 ## Translating labels (`labels`)
 
@@ -2861,10 +2863,15 @@ layer registers with the `engine.selectables` registry. The populations are read
 const { selection, markerSelection, pathSelection, clusterGroups, selectionDetails } = useDrawing()
 ```
 
-A **path** gets a halo (`theme.colors.path.selected`) when selected. A **cluster**, when
-selected (click while the selection tool is active, or a marquee over its badge), selects
-**all its child markers** — shown as a collapsible row — and survives pan/zoom (held by its
-members, not the ephemeral badge). Outside the selection tool, clicking a badge **zooms**.
+A **path** gets the **same dashed marching-ants outline** as shapes when selected (via
+`SelectionOverlay` — no 3D halo of its own). A **cluster**, when selected (click while the
+selection tool is active, or a marquee over its badge), selects **all its child markers** —
+shown as a collapsible row. On zoom the clustering recomputes: as long as the same members
+still form a cluster its row and ring follow it, otherwise the row dissolves and its members
+stay selected, listed flat. Outside the selection tool, clicking a badge **zooms**. A
+`static` decor marker that drops **below its zoom threshold** leaves the map **and the
+selection** — what is no longer shown is no longer selected (the panel counter drops), and
+zooming back in brings it back **not re-selected**.
 
 Which types are selectable is governed by `config.selection.selectable` (one boolean per
 `SelectableKind`: `marker` / `path` / `cluster`, all `true` by default), honoured by every
@@ -2873,11 +2880,13 @@ tool: `<Map config={{ selection: { selectable: { cluster: false } } }} />`.
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 
-The **selection badges** (`draw.selectionBadges`) list what is selected: **markers** as
-rows with their menu; **shapes** grouped by `kind`; **paths** under a "Paths" group; and
-**clusters** as one "Cluster (N)" row each, expandable to their child markers. A group's
-cross **deselects** (it does not delete). Mounted by default; `selectionBadges: false`
-removes them.
+The **selection badges** (`draw.selectionBadges`) list what is selected through two single
+building blocks — `SelectionGroup` (collapsible header) and `SelectionRow` (the row, via
+`SelectionList`; `MarkerList` is an adapter over it). Every row shares the same structure
+`[icon] title/subtitle · "…" menu · cross ✕`, only the content varies. Shapes grouped by
+`kind`, paths under "Paths", clusters as an expandable "Cluster (N)". A row's cross
+**deselects** it (a group header's cross deselects the whole group). Mounted by default;
+`selectionBadges: false` removes them.
 
 `onSelectionChange(ids, markerIds, pathIds)` reports the flat selection: `markerIds` = the
 selected markers **including cluster children** (raw ids), `pathIds` = the selected paths
@@ -4208,13 +4217,24 @@ the lens therefore knows nothing about drawing, and works on a map that has none
 
 ## 3. The inventory
 
-The panel reuses the `<MarkerList>` of the selection panel: one row per marker, a fixed
-header with the **per-type count**, a scrollable body, a cross per row, an extensible
-actions menu.
+The panel reuses **the same building blocks** as the selection panel — `SelectionScroll`
+(single scroll), `SelectionGroup` (collapsible headers), `MarkerList` (one row per marker),
+`ClusterPie` — with no duplication. The inventoried markers are **grouped by cluster** (the
+current visual cluster, via `engine.markers.visualNodeOf`), **groups open by default**;
+standalone markers stay flat. Scrollable body, a cross per row (removes the marker from the
+inventory; a group's cross removes all its members), an extensible actions menu.
 
 What it sees, precisely: **every** marker whose position falls inside the box, read from
 the **source data** through the `engine.markers` registry — clusters included, and after
 the “Layers” filter.
+
+A `static` marker **below its zoom threshold** (`minZoom`) is removed from the map but
+**stays listed** in the lens (as in search: a threshold says what is legible, not what you
+are allowed to find). To resolve the “listed yet invisible” ambiguity, its row carries a
+**crossed-out eye** whose tooltip (`labels.lens.hidden`) explains it. This is a **view**
+marker, recomputed as you zoom — the inventory itself does not change. It is authoritative:
+the registry reports as hidden exactly what the layer does not lay down
+(`engine.markers.hiddenByZoom`), per-layer threshold and hysteresis included.
 
 The screen → geo conversion happens in two steps: the rectangle's corners are picked to
 obtain a coarse geographic box (falling back to the whole world if the view looks at the
@@ -8517,6 +8537,7 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 |---|---|---|
 | `markers.size` | Sprite diameter (px). | `44` |
 | `markers.ringWidth` | Ring thickness (px). | `3` |
+| `markers.selectedGapPx` | Gap (px, each side) between the marker and its selection ring. | `4` |
 | `markers.gradient` | Gradient on the marker body. | `true` |
 | `markers.gloss` | Gloss highlight on the chip. | `true` |
 | `markers.icon` | Default content of a marker: nothing, the type icon, its rank, or a node. | `'type'` |
@@ -8532,6 +8553,7 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 | `clusters.strokeWidth` | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5` |
 | `clusters.segmentGap` | Angular gap between two slices (rad); `0` makes them contiguous. | `0.045` |
 | `clusters.startAngle` | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom. | `3.141592653589793` |
+| `clusters.selectedGapPx` | Gap (px) between the badge and its marching-ants selection ring. | `4` |
 
 ## `animations` — Animation and camera-flight rhythm
 
@@ -8859,6 +8881,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.expandGroup` | aria-label of the chevron expanding a shape group — `{label}` = the group's label. | `'Déplier / replier {label}'` |
 | `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
+| `selection.delete` | "Delete" menu item of a shape row (short label, no parameter). | `'Supprimer'` |
 
 ## `clusters` — Marker grouping
 
@@ -8886,6 +8909,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `lens.remove` | aria-label of the button removing the lens area. | `'Retirer la loupe'` |
 | `lens.movePanel` | aria-label of the panel's move grip. | `'Déplacer le panneau'` |
 | `lens.snapBack` | aria-label/tooltip of the button snapping the panel back to the area (after moving it). | `'Rattacher le panneau à la zone'` |
+| `lens.hidden` | Tooltip/aria of a row's crossed-out eye: the marker is listed in the lens but REMOVED from the map by the zoom gate (`static` below its `minZoom` threshold). | `'Masqué au zoom actuel'` |
 
 ## `settings` — Settings panel
 

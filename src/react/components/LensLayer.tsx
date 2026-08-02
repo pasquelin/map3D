@@ -95,6 +95,12 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   /** Glissé en cours : on n'affiche que le marquee pointillé (pas encore le panneau). */
   const [drafting, setDrafting] = useState(false)
   const [inventory, setInventory] = useState<MarkerData<T>[]>([])
+  /**
+   * Ids de l'inventaire actuellement RETIRÉS de la carte par le gate de zoom des
+   * `static` : la loupe reste complète (ils y restent listés), leur ligne porte juste
+   * un œil barré. Recalculé à chaque passe — donc suit le zoom courant.
+   */
+  const [hidden, setHidden] = useState<ReadonlySet<string | number>>(() => new Set())
   /** Markers retirés de la liste par leur croix (réinitialisé à chaque nouvelle zone). */
   const [dismissed, setDismissed] = useState<Set<string | number>>(() => new Set())
 
@@ -141,6 +147,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       if (invSigRef.current !== '') {
         invSigRef.current = ''
         setInventory([])
+        setHidden(new Set())
       }
       return
     }
@@ -200,10 +207,22 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     }
     // Adopte le cache de la passe : les markers sortis de la zone en tombent.
     cache.endPass()
-    const sig = found.map((m) => latest.current.getId(m)).join('|')
+    // Repère « masqué au zoom » de CHAQUE marker trouvé (état de vue, pas de donnée) :
+    // interrogé sur le registre autoritaire (`renderedIdsRef` de la couche). Intégré à
+    // la signature — sinon un franchissement de seuil qui ne bouge aucun id laisserait
+    // la liste figée, œil barré compris.
+    const nextHidden = new Set<string | number>()
+    let sig = ''
+    for (const m of found) {
+      const id = latest.current.getId(m)
+      const h = engine.markers.hiddenByZoom(id)
+      if (h) nextHidden.add(id)
+      sig += `${id}${h ? '!' : ''}|`
+    }
     if (sig === invSigRef.current) return
     invSigRef.current = sig
     setInventory(found)
+    setHidden(nextHidden)
   }, [engine, scratch, screenScratch])
 
   const schedule = useCallback(() => {
@@ -445,6 +464,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
           <LensZone rect={rect} onChange={setRect} onClose={clearZone} closeLabel={labels.lens.remove} />
           <LensPanel<T>
             markers={displayed}
+            hidden={hidden}
             getId={getId}
             anchor={anchor}
             onRemove={onRemoveRow}

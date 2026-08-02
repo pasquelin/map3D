@@ -150,7 +150,7 @@ const { selection, markerSelection, pathSelection, clusterGroups, selectionDetai
 |---|---|---|---|
 | Marker (and placed symbol) | yes | `marker` | — |
 | Drawn shape (`line`/`polygon`/`rect`/`circle`/`freehand`/`arrow`/`measure`) | yes | — | governed by `locked`/"Layers" filter |
-| **Path** (`PathLayer`) | yes | `path` | halo `theme.colors.path.selected` |
+| **Path** (`PathLayer`) | yes | `path` | same **dashed outline** (marching-ants) as shapes |
 | **Cluster** (badge) | yes → collapsible group of children | `cluster` | click = **zoom** outside the selection tool |
 | Zone (`ShapeLayer`) | no | *(reserved)* | — |
 | Link / relation (`LinkLayer`) | no | *(reserved)* | click = trace a route |
@@ -159,8 +159,15 @@ const { selection, markerSelection, pathSelection, clusterGroups, selectionDetai
 
 **Cluster**: selecting it (click while the selection tool is active, or a marquee over the
 badge) selects **all its child markers**, shown as a **collapsible row**. Outside the
-selection tool, clicking a badge **zooms** (unchanged). A cluster selection **survives
-pan/zoom**: it is held by its members, not by the ephemeral badge.
+selection tool, clicking a badge **zooms** (unchanged). On zoom the clustering recomputes:
+as long as **the same cluster** (same members) still exists on screen, its row and ring
+follow it; as soon as it no longer exists as such (split or merged), the row **disappears**
+and its members stay selected, **listed flat**.
+
+**`static` marker hidden by zoom**: a decor marker (`MarkerData.static`, cf.
+[MARKERS.md](MARKERS.md)) that drops **below its threshold** leaves the map **and the
+selection** — what is no longer shown is no longer selected (the panel counter drops
+accordingly). Zooming back in brings it back, **not re-selected**.
 
 ### Restricting selection (`config.selection.selectable`)
 
@@ -176,11 +183,14 @@ One boolean per type (all `true` by default), honoured by **every** tool:
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 
-The **selection badges** (`draw.selectionBadges`) list what is selected: **markers** as
-rows with their menu; **shapes** grouped by `kind`; **paths** under a "Paths" group; and
-**clusters** as one "Cluster (N)" row each. Every group is **expandable** (chevron, like the
-catalogue) — an expanded cluster lists its **child markers**. A group's cross **deselects**
-(it does not delete). Mounted by default; `selectionBadges: false` removes them.
+The **selection badges** (`draw.selectionBadges`) list what is selected through **two single
+building blocks**: `SelectionGroup` (collapsible header) and `SelectionRow` (the row). Every
+row shares the **same structure** — `[icon] title/subtitle · "…" menu · cross ✕` — whether a
+marker, a path, a shape or a cluster child; only the content varies (the icon, and the menu:
+"Target" everywhere, "Delete" on a shape). A row's **cross ✕** **deselects** it; a group
+header's cross deselects the whole group. Shapes grouped by `kind`, paths under "Paths",
+clusters as an expandable "Cluster (N)" listing its children. Mounted by default;
+`selectionBadges: false` removes them.
 
 ---
 
@@ -518,7 +528,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Group | Members |
 |---|---|
 | Tool | `tool`, `setTool`, `tools`, `shortcuts` |
-| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
+| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
 | History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |

@@ -151,7 +151,7 @@ const { selection, markerSelection, pathSelection, clusterGroups, selectionDetai
 |---|---|---|---|
 | Marker (et symbole posé) | oui | `marker` | — |
 | Forme dessinée (`line`/`polygon`/`rect`/`circle`/`freehand`/`arrow`/`measure`) | oui | — | gérée par `locked`/filtre « Couches » |
-| **Tracé** (`PathLayer`) | oui | `path` | halo `theme.colors.path.selected` |
+| **Tracé** (`PathLayer`) | oui | `path` | même **contour pointillé** (marching-ants) que les formes |
 | **Cluster** (pastille) | oui → groupe pliable des enfants | `cluster` | clic = **zoom** hors outil sélection |
 | Zone (`ShapeLayer`) | non | *(réservé)* | — |
 | Lien / relation (`LinkLayer`) | non | *(réservé)* | clic = tracer un itinéraire |
@@ -160,8 +160,15 @@ const { selection, markerSelection, pathSelection, clusterGroups, selectionDetai
 
 **Cluster** : le sélectionner (clic quand l'outil sélection est actif, ou marquee sur la
 pastille) sélectionne **tous ses markers enfants**, affichés dans une **rangée pliable**.
-Hors outil sélection, un clic sur pastille **zoome** (comportement inchangé). La sélection
-d'un cluster **survit au pan/zoom** : elle est retenue par ses membres, pas par la pastille.
+Hors outil sélection, un clic sur pastille **zoome** (comportement inchangé). Au zoom, le
+clustering se recompose : tant que **le même cluster** (mêmes membres) existe à l'écran, sa
+rangée et son anneau suivent ; dès qu'il n'existe plus tel quel (splitté ou fusionné), la
+rangée **disparaît** et ses membres restent sélectionnés, **listés à plat**.
+
+**Marker `static` masqué par le zoom** : un marker de décor (`MarkerData.static`, cf.
+[MARKERS.md](MARKERS.md)) qui passe **sous son seuil** disparaît de la carte **et de la
+sélection** — ce qui n'est plus affiché n'est plus sélectionné (le compteur du panneau
+retombe en conséquence). Re-zoomer le fait réapparaître, **non re-sélectionné**.
 
 ### Limiter la sélection (`config.selection.selectable`)
 
@@ -177,12 +184,14 @@ Un booléen par type (tout `true` par défaut), respecté par **tous** les outil
 Contours en **marching-ants** noir/blanc (lisibles sur tout fond, y compris satellite
 et neige — cf. `theme.colors.marquee`), bbox englobante en multi-sélection.
 
-Les **vignettes de sélection** (`draw.selectionBadges`) listent ce qui est
-sélectionné : **markers** en lignes avec leur menu ; **formes** groupées par `kind` ;
-**tracés** dans un groupe « Tracés » ; **clusters** en une rangée « Cluster (N) » par
-cluster. Chaque groupe est **dépliable** (chevron, comme le catalogue) — un cluster
-déplié liste ses **markers enfants**. La croix d'un groupe **désélectionne** (elle ne
-supprime pas). Montées d'office ; `selectionBadges: false` les retire.
+Les **vignettes de sélection** (`draw.selectionBadges`) listent ce qui est sélectionné via
+**deux briques uniques** : `SelectionGroup` (en-tête pliable) et `SelectionRow` (la ligne).
+Une ligne a partout la **même structure** — `[icône] titre/sous-titre · menu « … » · croix ✕` —
+que ce soit un marker, un tracé, une forme ou un enfant de cluster ; seul le contenu varie
+(l'icône, et le menu : « Cibler » partout, « Supprimer » sur une forme). La **croix ✕**
+d'une ligne la **désélectionne** ; celle d'un en-tête de groupe désélectionne le groupe
+entier. Formes groupées par `kind`, tracés sous « Tracés », clusters en « Cluster (N) »
+dépliable listant ses enfants. Montées d'office ; `selectionBadges: false` les retire.
 
 ---
 
@@ -521,7 +530,7 @@ Obtenue par `useDrawing()` (lève hors d'un `<DrawLayer>`) ou par
 | Groupe | Membres |
 |---|---|
 | Outil | `tool`, `setTool`, `tools`, `shortcuts` |
-| Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
+| Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Verrou | `lock`, `unlock` |
 | Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |

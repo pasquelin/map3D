@@ -34,9 +34,14 @@ export const CSS_PANELS = `
 .m3d-selgrip:active{cursor:grabbing}
 /* Panneau liste : mêmes classes que le panneau « Couches » (m3d-taglist/-tagrow/
    -taglabel/-tagdot/-tagcount/-tagclear) — seuls les deltas sont scopés ici. */
-/* Rangées non cliquables (seule la croix agit) + liste bornée. */
-.m3d-selpanel .m3d-taglist{max-height:44vh}
+/* Rangées non cliquables (seule la croix agit). */
 .m3d-selpanel .m3d-tagrow{cursor:default}
+/* Scroll UNIQUE du panneau de sélection : les blocs internes (taglist/mllist) ne scrollent
+   plus chacun pour soi — c'est .m3d-selscroll qui borne et scrolle TOUT en un seul bloc.
+   flex:none : chaque bloc prend sa hauteur de contenu au lieu de se disputer la place. */
+.m3d-selpanel .m3d-taglist,.m3d-selpanel .m3d-mllist,.m3d-lenspanel .m3d-mllist{max-height:none;overflow:visible;flex:none}
+.m3d-selscroll{display:flex;flex-direction:column;gap:7px;min-height:0;padding-right:4px;
+  max-height:min(66vh,520px);overflow-y:auto;overflow-x:hidden}
 .m3d-selrow-x{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
   border:none;border-radius:50%;background:transparent;padding:0;cursor:pointer;
   color:var(--m3d-muted);transition:background .14s,color .14s;flex:none}
@@ -54,12 +59,11 @@ export const CSS_PANELS = `
    parts, à la place de l'icône générique — la ligne ressemble au cluster sur la carte. */
 .m3d-clusterpie{width:16px;height:16px;border-radius:50%;flex:none;
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--m3d-text) 30%,transparent)}
-/* Formes individuelles d'un groupe déplié : indentées sous la ligne du groupe, chacune
-   avec sa corbeille. Un clic sur l'étiquette ne fait rien (pas de fiche par forme ici). */
-.m3d-selchildren{display:flex;flex-direction:column;gap:1px}
-.m3d-selchild{display:flex;align-items:center;gap:8px;padding:5px 8px 5px 30px;border-radius:8px;
-  font-size:var(--m3d-size-sm)}
-.m3d-selchild:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
+/* Corps d'un groupe déplié : une SelectionList/MarkerList (mêmes lignes que partout).
+   Un FILET VERTICAL discret (comme un arbre de fichiers) matérialise l'appartenance mieux
+   qu'un simple retrait — aligné sous le chevron, teinte très douce dérivée du texte. */
+.m3d-selchildren{margin-left:12px;padding-left:7px;
+  border-left:1px solid color-mix(in srgb,var(--m3d-text) 14%,transparent)}
 /* Pied du panneau : rappel des modificateurs — vit et meurt avec la liste. */
 .m3d-selfoot{border-top:1px solid var(--m3d-border);padding-top:6px;
   display:flex;flex-direction:column;gap:3px}
@@ -96,7 +100,7 @@ export const CSS_PANELS = `
 
 /* Scrollbar du thème, pour toutes les zones scrollables des surfaces flottantes —
    déclarée une fois : les cinq listes doivent rester visuellement identiques. */
-.m3d-stylepanel,.m3d-settings-list,.m3d-settings-sub,.m3d-taglist,.m3d-search-results{
+.m3d-stylepanel,.m3d-settings-list,.m3d-settings-sub,.m3d-taglist,.m3d-selscroll,.m3d-search-results{
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb,var(--m3d-text) 25%,transparent) transparent}
 `

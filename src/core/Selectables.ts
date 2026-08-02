@@ -1,3 +1,4 @@
+import type { Bounds } from '../shared'
 import { ProviderRegistry } from './ProviderRegistry'
 
 /**
@@ -46,7 +47,7 @@ export type SelectableGroup = { label: string; memberIds: (string | number)[]; c
  * Métadonnées d'un sélectionnable, pour la politique (`kind`), les badges
  * (`type`) et le regroupement pliable (`group`, présent pour un cluster).
  */
-export type SelectableInfo = { kind: SelectableKind; type: string; group?: SelectableGroup }
+export type SelectableInfo = { kind: SelectableKind; type: string; group?: SelectableGroup; color?: string }
 
 /**
  * Contrat rempli par une couche qui expose des éléments sélectionnables au
@@ -62,6 +63,16 @@ export type SelectableProvider = {
   info(id: string | number): SelectableInfo | null
   /** Clic générique sur un objet drapé (tracé) : id touché sous le curseur, ou null. */
   hitTest?(x: number, y: number, tolPx: number): string | number | null
+  /** Emprise géographique d'un id (tracé…) — de quoi le CADRER (« Cibler » d'un badge). */
+  boundsOf?(id: string | number): Bounds | null
+  /**
+   * Contours écran des éléments SÉLECTIONNÉS de ce provider (tracés) — pour le pointillé
+   * de l'overlay de sélection. Reprojette seulement les sélectionnés ; peut être appelé
+   * par frame (contrairement à `screenItems`, réservé au finalize/clic).
+   */
+  selectedContours?(): SelectableGeometry[]
+  /** Ce provider a-t-il des éléments sélectionnés à contourer ? — garde bon marché (sans reprojeter). */
+  hasSelectedContours?(): boolean
 }
 
 /** État des modificateurs d'un clic (satisfait par MouseEvent/PointerEvent). */
@@ -124,6 +135,31 @@ export class SelectableRegistry extends ProviderRegistry<SelectableProvider> {
       if (info) return info
     }
     return null
+  }
+
+  /** Emprise géographique d'un id — premier provider qui la connaît, sinon null. */
+  boundsOf(id: string | number): Bounds | null {
+    for (const p of this.providers) {
+      const b = p.boundsOf?.(id)
+      if (b) return b
+    }
+    return null
+  }
+
+  /** Contours écran des sélectionnables étendus SÉLECTIONNÉS (tracés) — pointillé de l'overlay. */
+  selectedContours(): SelectableGeometry[] {
+    const out: SelectableGeometry[] = []
+    for (const p of this.providers) {
+      const cs = p.selectedContours?.()
+      if (cs) for (const c of cs) out.push(c)
+    }
+    return out
+  }
+
+  /** Un provider quelconque a-t-il des contours de sélection à dessiner ? — garde bon marché. */
+  hasSelectedContours(): boolean {
+    for (const p of this.providers) if (p.hasSelectedContours?.()) return true
+    return false
   }
 
   has(id: string | number): boolean {

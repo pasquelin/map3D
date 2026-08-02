@@ -98,8 +98,6 @@ export type MapTheme = {
       base: string
       /** Contour du tracé (lisibilité sur imagerie satellite). */
       casing: string
-      /** Halo d'un tracé sélectionné (outil sélection). */
-      selected: string
     }
     zone: {
       /** Remplissage d'une zone. */
@@ -154,6 +152,10 @@ export type MapTheme = {
     size: number
     /** Épaisseur de l'anneau (px). */
     ringWidth: number
+    /** Écart (px, de chaque côté) entre le bord du marker et son anneau de sélection —
+     *  pendant marker de `clusters.selectedGapPx`. Le diamètre de l'anneau d'un avatar
+     *  s'en déduit (`size + 2 × selectedGapPx`), aucune valeur en dur. */
+    selectedGapPx: number
     /** Dégradé du corps du marker. */
     gradient: boolean
     /** Reflet sur la pastille. */

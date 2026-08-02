@@ -1,16 +1,13 @@
-import { mdiClose, mdiCrosshairsGps, mdiDotsHorizontal } from '@mdi/js'
-import { UiIcon } from './UiIcon'
-import { memo, type ReactNode, useCallback, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { memo, type ReactNode, useMemo } from 'react'
 import { altitudeForZoom } from '../../core/MapEngine'
 import type { MarkerData } from '../../data/types'
 import { formatLabel } from '../../labels/mergeLabels'
-import { useConfig, useLabels, useMapContext } from '../context'
-import { ContextMenu, type MenuItem, prependMenuAction } from './ContextMenu'
-import { useMergedRefs, useNudgeInside } from './panelFit'
-import { Swatch } from './Swatch'
-import { useDismiss } from './useDismiss'
 import { markerColorOf } from '../../theme/colors'
+import { useConfig, useLabels, useMapContext } from '../context'
+import { type MenuItem, prependMenuAction } from './ContextMenu'
+import { SelectionList, type SelectionRowModel, targetMenuItem } from './SelectionRow'
+import { Swatch } from './Swatch'
+import { UiIcon } from './UiIcon'
 
 /** Action du menu déroulant d'une ligne (extensible). */
 export type MarkerListAction<T = unknown> = {
@@ -48,30 +45,26 @@ export type MarkerListProps<T = unknown> = {
    * « Cibler » reste ajouté en tête par la liste — ne le remettez pas ici.
    */
   menu?: (m: MarkerData<T>) => MenuItem[]
+  /**
+   * Ids des markers listés mais RETIRÉS de la carte par le gate de zoom (`static`
+   * passé sous son seuil). Leur ligne porte un œil barré (`hiddenLabel`) — l'inventaire
+   * ne change pas, il s'explique. Fourni par la loupe seule ; la sélection élague ses masqués.
+   */
+  hidden?: ReadonlySet<string | number>
 }
 
 /**
- * Liste de markers **partagée** par le panneau de sélection et la loupe :
- * 1 ligne par marker, langage visuel commun. Chaque ligne — pastille/avatar +
- * titre/sous-titre, menu d'actions déroulant (« Cibler » + extensions), croix
- * (option). Clic sur la ligne = cibler (vol caméra par défaut). Le menu est rendu
- * en PORTAL dans `.m3d-root` pour ne pas être rogné par le scroll de la liste.
+ * Liste de markers **partagée** par le panneau de sélection et la loupe. Ce n'est
+ * qu'un ADAPTATEUR : elle mappe chaque `MarkerData` sur le modèle de ligne commun
+ * (`SelectionRowModel`) et délègue tout le rendu à `SelectionList` — l'unique
+ * brique de ligne. Aucun markup de ligne ne vit plus ici : pastille/titre/sous-titre,
+ * menu « Cibler » (+ extensions), croix de retrait sont ceux de `SelectionList`.
  */
 function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
   const { markers, getId, onRemove } = props
-  const { engine, theme, overlay } = useMapContext()
+  const { engine, theme } = useMapContext()
   const config = useConfig()
   const labels = useLabels()
-  const root = overlay.parentElement
-  const [menu, setMenu] = useState<{ id: string | number; left: number; top: number } | null>(null)
-  const closeMenu = useCallback(() => setMenu(null), [])
-  // Le nœud du menu sert à DEUX choses : le rabattre dans le conteneur (nudge) et
-  // décider si un clic tombe dedans (dismiss). D'où les deux refs fusionnées.
-  const menuRef = useRef<HTMLDivElement | null>(null)
-  const [, setNudge] = useNudgeInside()
-  const setMenuEl = useMergedRefs(setNudge, (el) => {
-    menuRef.current = el as HTMLDivElement | null
-  })
 
   const target = (m: MarkerData<T>) => {
     if (props.onTarget) {
@@ -88,32 +81,13 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
     )
   }
 
-  // Clic ailleurs / molette / Échap : ferme le menu ouvert — mécanique partagée avec
-  // les flyouts de barres. `wheel` parce que le menu est ancré à une ligne au-dessus
-  // de la carte, `captureEscape` pour que la touche ne file pas aux raccourcis
-  // globaux alors que l'utilisateur ne visait que ce menu.
-  useDismiss(menuRef, menu !== null, closeMenu, { wheel: true, captureEscape: true })
-
   /**
-   * Items du menu d'une ligne, pour `<ContextMenu>` — qui porte déjà le clavier
-   * complet (roving tabindex, flèches, Entrée/Espace), l'ARIA et les sous-menus.
-   *
-   * « Cibler » est TOUJOURS en tête : c'est l'action propre à la liste (sur la carte,
-   * le marker est déjà sous les yeux — pas besoin d'y voler). Le reste vient soit de
-   * `menu`, soit d'`actions`.
-   *
-   * Les deux sources coexistent volontairement. `menu` rend exactement ce que rend le
-   * menu du marker (sous-menus, séparateurs, `hint`, `swatch`) : c'est ce qu'il faut
-   * pour que les deux surfaces proposent la MÊME chose. `MarkerListAction` reste pour
-   * un menu plat, où un chemin @mdi est plus simple à fournir qu'un nœud ; il ne peut
-   * pas, lui, exprimer « Assigner un agent › ».
+   * « Cibler » est TOUJOURS en tête : c'est l'action propre à la liste. Le reste vient
+   * de `menu` (forme riche du menu marker : sous-menus, séparateurs) ou d'`actions`
+   * (menu plat, chemin @mdi). Les deux sources coexistent volontairement.
    */
   const menuItemsFor = (m: MarkerData<T>): MenuItem[] => {
-    const targetItem: MenuItem = {
-      label: labels.markerList.target,
-      icon: <UiIcon path={mdiCrosshairsGps} />,
-      onSelect: () => target(m),
-    }
+    const targetItem = targetMenuItem(labels.markerList.target, () => target(m))
     const provided = props.menu?.(m)
     if (provided) return prependMenuAction(targetItem, provided)
     return [
@@ -126,106 +100,58 @@ function MarkerListInner<T = unknown>(props: MarkerListProps<T>) {
     ]
   }
 
-  // Ouvert sous le bouton ; `useNudgeInside` le rabat DANS le conteneur après
-  // rendu, sur sa hauteur RÉELLE mesurée — pas sur une estimation calée sur le CSS
-  // des items, qui dériverait au moindre changement de padding ou de police.
-  const openMenu = (id: string | number, btn: HTMLElement) => {
-    const rr = root?.getBoundingClientRect()
-    if (!rr) return
-    const r = btn.getBoundingClientRect()
-    const width = 180
-    const left = Math.min(r.right - rr.left - width, rr.width - width - 8)
-    setMenu({ id, left: Math.max(8, left), top: r.bottom - rr.top + 2 })
-  }
-
-  return (
-    <div className="m3d-mllist">
-      {markers.map((m) => {
+  // Mémoïsé : `SelectionList` re-rend N lignes × icônes ; ne reconstruire les rows que
+  // quand l'inventaire ou une render-prop change (identités stables attendues des appelants).
+  const rows = useMemo<SelectionRowModel[]>(
+    () =>
+      markers.map((m) => {
         const id = getId(m)
         const idStr = String(id)
-        return (
-          // La ligne n'est plus elle-même un bouton : elle en CONTIENT (actions,
-          // suppression), et un contrôle focusable dans un contrôle focusable est une
-          // imbrication invalide — les lecteurs d'écran l'aplatissent, et la ligne
-          // coûtait trois arrêts de tabulation dont un sans sémantique propre. Le geste
-          // « viser ce marker » vit maintenant sur un vrai `<button>` frère des deux
-          // autres, ce qui rend chaque action indépendante.
-          <div key={id} className="m3d-mlrow">
-            <button type="button" className="m3d-mlmain" onClick={() => target(m)}>
-              <Swatch avatar={m.avatar} icon={m.icon} color={markerColorOf(theme, m.type).base} />
-              <div className="m3d-mltext">
-                {/* `renderItem` décide de TOUT le titre, teinte comprise : la même règle
-                    de précédence que `tooltip` face à `title`/`titleColor` sur la donnée
-                    — la render-prop l'emporte, elle ne se fait pas colorer par surprise. */}
-                <span
-                  className="m3d-mltitle"
-                  style={!props.renderItem && m.titleColor ? { color: m.titleColor } : undefined}
-                >
-                  {props.renderItem ? props.renderItem(m) : (m.title ?? idStr)}
-                </span>
-                {(() => {
-                  const sub = props.renderSubtitle
-                    ? props.renderSubtitle(m)
-                    : (props.markerTypeLabel?.(m.type) ?? m.type)
-                  return sub != null && sub !== '' ? <span className="m3d-mlsub">{sub}</span> : null
-                })()}
-              </div>
-            </button>
-            <button
-              type="button"
-              className="m3d-mlact"
-              aria-haspopup="menu"
-              aria-label={formatLabel(labels.markerList.actions, { label: idStr })}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (menu?.id === id) closeMenu()
-                else openMenu(id, e.currentTarget)
-              }}
-            >
-              <UiIcon path={mdiDotsHorizontal} />
-            </button>
-            {onRemove && (
-              <button
-                type="button"
-                className="m3d-mlremove"
-                aria-label={formatLabel(labels.markerList.remove, { label: idStr })}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRemove(id)
-                }}
-              >
-                <UiIcon path={mdiClose} />
-              </button>
-            )}
-            {menu?.id === id &&
-              root &&
-              createPortal(
-                <ContextMenu
-                  items={menuItemsFor(m)}
-                  onClose={closeMenu}
-                  className="m3d-mlmenu"
-                  style={{ left: menu.left, top: menu.top }}
-                  panelRef={setMenuEl}
-                />,
-                root,
-              )}
-          </div>
-        )
-      })}
-    </div>
+        const sub = props.renderSubtitle ? props.renderSubtitle(m) : (props.markerTypeLabel?.(m.type) ?? m.type)
+        return {
+          key: id,
+          icon: <Swatch avatar={m.avatar} icon={m.icon} color={markerColorOf(theme, m.type).base} />,
+          // `renderItem` décide de TOUT le titre, teinte comprise (même précédence que
+          // `tooltip` face à `title`/`titleColor` sur la donnée) — la render-prop l'emporte.
+          title: props.renderItem ? props.renderItem(m) : (m.title ?? idStr),
+          titleColor: !props.renderItem ? m.titleColor : undefined,
+          subtitle: sub,
+          onActivate: () => target(m),
+          menu: menuItemsFor(m),
+          menuLabel: formatLabel(labels.markerList.actions, { label: idStr }),
+          onDeselect: onRemove ? () => onRemove(id) : undefined,
+          deselectLabel: formatLabel(labels.markerList.remove, { label: idStr }),
+          // Repère « masqué au zoom » : porté par la ligne, jamais par la donnée — c'est
+          // un état de VUE (le zoom courant), pas une propriété du marker.
+          hidden: props.hidden?.has(id) ?? false,
+          hiddenLabel: labels.lens.hidden,
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      markers,
+      getId,
+      onRemove,
+      props.renderItem,
+      props.renderSubtitle,
+      props.markerTypeLabel,
+      props.actions,
+      props.menu,
+      props.hidden,
+      labels.lens.hidden,
+      theme,
+    ],
   )
+
+  return <SelectionList rows={rows} />
 }
 
 /**
- * Mémoïsée : la zone de la loupe se déplace/redimensionne à la cadence du pointeur
- * et re-rend son panneau à chaque frame, alors que la liste (N lignes × icônes) ne
- * change que quand l'inventaire change. Le `as typeof MarkerListInner` préserve le
- * paramètre de type, que `memo()` effacerait.
+ * Mémoïsée : la loupe re-rend son panneau à chaque frame alors que la liste ne change
+ * que quand l'inventaire change. Le `as typeof MarkerListInner` préserve le paramètre
+ * de type, que `memo()` effacerait.
  *
  * Corollaire pour les appelants : passer des props d'identité STABLE
- * (`markers` mémoïsé, `getId`/`onRemove`/`actions` hissés ou en `useCallback`),
- * sinon le memo ne retient rien.
+ * (`markers` mémoïsé, `getId`/`onRemove`/`actions` hissés ou en `useCallback`).
  */
 export const MarkerList = memo(MarkerListInner) as typeof MarkerListInner

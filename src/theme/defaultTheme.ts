@@ -52,7 +52,7 @@ export const defaultTheme: MapTheme = {
       label: '#ffffff',
       labelBackground: 'rgba(0,0,0,0.55)',
     },
-    path: { base: '#2E7CF6', casing: '#ffffff', selected: '#ffd54a' },
+    path: { base: '#2E7CF6', casing: '#ffffff' },
     zone: { fill: '#079A7D', stroke: '#079A7D' },
     // Reprend à l'identique les replis qui vivaient dans la feuille de styles
     // (`.m3d-marquee*`). Sans défaut ici, ces trois couleurs n'existaient QUE côté
@@ -74,6 +74,7 @@ export const defaultTheme: MapTheme = {
   markers: {
     size: 44,
     ringWidth: 3,
+    selectedGapPx: 4,
     gradient: true,
     gloss: true,
     icon: 'type',
@@ -87,7 +88,7 @@ export const defaultTheme: MapTheme = {
     strokeWidth: 2.5,
     segmentGap: 0.045,
     startAngle: Math.PI,
-    selectedGapPx: 2,
+    selectedGapPx: 4,
   },
   animations: {
     enabled: true,

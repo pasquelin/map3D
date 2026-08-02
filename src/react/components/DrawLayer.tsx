@@ -556,6 +556,8 @@ export function DrawLayer(props: DrawLayerProps) {
       deselectMarkers: (ids) => coreRef.current?.deselectExternal(ids),
       deselectPaths: (ids) => coreRef.current?.deselectExternal(ids),
       deselectClusterGroup: (id) => coreRef.current?.deselectSelectionGroup(id),
+      deselectClusterMember: (key: string | number, memberId: string | number) =>
+        coreRef.current?.deselectSelectionGroupMember(key, memberId),
       clearSelection: () => coreRef.current?.clearSelection(),
       deleteSelection: () => coreRef.current?.deleteSelected(),
       selectAll: () => {

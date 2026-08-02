@@ -25,8 +25,6 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
           width: 6,
           casingWidth: 3,
           renderOrder: 1,
-          selectedColor: theme.colors.path.selected,
-          selectedWidth: 6,
         },
         animateHead,
       ),
@@ -37,7 +35,6 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
     layer.setDefaults({
       color: t.colors.path.base,
       casingColor: t.colors.path.casing,
-      selectedColor: t.colors.path.selected,
     }),
   )
   useLayerSync(ref, paths, (layer, p) => layer.setPaths(p))
@@ -49,8 +46,13 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
     return engine.selectables.register({
       screenItems: () => ref.current?.selectableItems(engine.threeCamera) ?? [],
       setSelected: (ids) => ref.current?.setSelected(ids),
-      info: (id) => (ref.current?.hasSelectable(id) ? { kind: 'path', type: 'path' } : null),
+      info: (id) =>
+        ref.current?.hasSelectable(id) ? { kind: 'path', type: 'path', color: ref.current.colorOf(id) } : null,
       hitTest: (x, y, tol) => ref.current?.hitTest(x, y, tol) ?? null,
+      boundsOf: (id) => ref.current?.boundsOfId(id) ?? null,
+      // Contours des tracés sélectionnés → pointillé de l'overlay (langage de sélection commun).
+      selectedContours: () => ref.current?.selectedContours() ?? [],
+      hasSelectedContours: () => ref.current?.hasSelectedContours() ?? false,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])

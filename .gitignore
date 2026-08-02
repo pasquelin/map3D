@@ -27,5 +27,4 @@ docs/superpowers/
 __pycache__/
 
 # Instructions locales de l'assistant IA (contexte de travail, pas du code livré).
-# L'architecture et les conventions durables vivent dans docs/ARCHITECTURE.md.
 CLAUDE.md

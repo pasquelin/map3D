@@ -21,7 +21,7 @@ export const CSS_LAYERS = `
 /* Seule la liste scrolle : recherche (au-dessus) et « Tout afficher » (en dessous)
    restent visibles quand le panneau atteint sa hauteur max. */
 .m3d-taglist{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:0;overflow-y:auto}
-.m3d-tagrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
+.m3d-tagrow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px;
   cursor:pointer;font-size:var(--m3d-size-sm);user-select:none}
 .m3d-tagrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 /* Checkbox custom au style du thème (case arrondie + coche dessinée en CSS). Réutilisée

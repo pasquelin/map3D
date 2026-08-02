@@ -77,13 +77,24 @@ n'en a pas.
 
 ## 3. L'inventaire
 
-Le panneau réutilise la `<MarkerList>` du panneau de sélection : une ligne par marker,
-en-tête fixe avec le **décompte par type**, corps scrollable, croix par ligne, menu
-d'actions extensible.
+Le panneau réutilise **les mêmes briques** que le panneau de sélection — `SelectionScroll`
+(scroll unique), `SelectionGroup` (en-têtes pliables), `MarkerList` (une ligne par marker),
+`ClusterPie` — sans duplication. Les markers de l'inventaire sont **regroupés par cluster**
+(le cluster visuel courant, via `engine.markers.visualNodeOf`), **groupes ouverts par
+défaut** ; les markers isolés restent à plat. Corps scrollable, croix par ligne (retire le
+marker de l'inventaire ; la croix d'un groupe retire tous ses membres), menu d'actions extensible.
 
 Ce qu'il voit, exactement : **tous** les markers dont la position tombe dans le cadre,
 lus depuis les **données sources** via le registre `engine.markers` — clusters compris,
 et post-filtre « Couches ».
+
+Un marker `static` **passé sous son seuil de zoom** (`minZoom`) est retiré de la carte
+mais **reste listé** dans la loupe (comme dans la recherche : un seuil dit ce qui est
+lisible, pas ce qu'on a le droit de trouver). Pour lever l'ambiguïté « listé mais
+invisible », sa ligne porte un **œil barré** dont le tooltip (`labels.lens.hidden`)
+l'explique. C'est un repère de **vue**, recalculé au fil du zoom — l'inventaire, lui, ne
+change pas. Le comportement est autoritaire : le registre déclare masqué exactement ce que
+la couche ne pose pas (`engine.markers.hiddenByZoom`), seuil par couche et hystérésis compris.
 
 La conversion écran → géo est faite en deux temps : les coins du rectangle sont pickés
 pour obtenir un cadre géo grossier (repli sur le monde entier si la vue regarde le

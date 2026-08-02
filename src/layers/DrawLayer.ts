@@ -271,6 +271,15 @@ function defaultTags(kind: DrawTool, symbol?: ShapeSymbol): string[] {
 let seq = 0
 
 /**
+ * Bond de `renderOrder` appliqué à une forme SÉLECTIONNÉE : elle passe DEVANT toutes les
+ * autres formes (remplissage ET trait), pour que son empilement 3D corresponde à son
+ * contour de sélection — qui, lui, vit dans l'overlay SVG toujours au-dessus. Assez grand
+ * pour dépasser tout empilement raisonnable de formes (rang × 2), pas au point de sauter
+ * par-dessus des couches à profondeur testée.
+ */
+const DRAW_SELECTED_LIFT = 100000
+
+/**
  * Outils de dessin sur le globe : formes stockées en lat/lng et drapées en plan
  * tangent (ENU). Le picking renvoie directement des lat/lng (intersection
  * ellipsoïde). Ligne, polygone (clics + Entrée), rectangle, cercle, main levée,
@@ -367,6 +376,9 @@ export class DrawLayer implements Layer {
         for (const g of this.selection.groups) for (const m of g.memberIds) flatMarkers.add(m)
         this.onSelectionChange(this.selection.ids, [...flatMarkers], paths)
       }
+      // Une forme sélectionnée passe DEVANT les autres (remplissage + trait) : son
+      // empilement 3D suit alors son contour de sélection (overlay, toujours au-dessus).
+      this.restack()
       this.overlayDirty = true
       this.syncSelectionOverlay()
     },
@@ -503,6 +515,7 @@ export class DrawLayer implements Layer {
     // Reconstruction plutôt que retouche : `rebuildOne` reste le seul endroit qui décide
     // de la profondeur (cf. `DrapedLayer.setGrounded`). Deux fois par session piétonne.
     for (const d of this.drawings) this.rebuildOne(d, false)
+    this.restack()
   }
 
   constructor(
@@ -945,7 +958,13 @@ export class DrawLayer implements Layer {
     if (this.externalSelectables) this.externalSelectables.consumer = null
     this.externalSelectables = registry
     this.offSelectables = registry
-      ? registry.onItemsChanged(() => this.selection.pruneExternal((id) => registry.has(id)))
+      ? registry.onItemsChanged(() => {
+          // Le jeu de sélectionnables a changé (données, filtre, OU recompute du clustering
+          // au zoom) : purger les disparus PUIS réconcilier les groupes cluster (re-clé sur
+          // la pastille courante, ou dissolution en sélection plate si le cluster n'existe plus).
+          this.selection.pruneExternal((id) => registry.has(id))
+          this.selection.reconcileGroups()
+        })
       : null
     this.syncSelectableConsumer()
   }
@@ -965,6 +984,11 @@ export class DrawLayer implements Layer {
   /** Désélectionne un groupe entier (cluster) — croix de sa rangée pliable. */
   deselectSelectionGroup(id: string | number): void {
     this.selection.deselectGroup(id)
+  }
+
+  /** Désélectionne UN membre d'un groupe (cluster) — croix d'une ligne enfant. */
+  deselectSelectionGroupMember(key: string | number, memberId: string | number): void {
+    this.selection.deselectGroupMember(key, memberId)
   }
 
   /** Groupes (clusters) sélectionnés — pour la rangée pliable des badges. */
@@ -1202,9 +1226,11 @@ export class DrawLayer implements Layer {
   private syncSelectionOverlay(): void {
     if (!this.overlaySel) return
     const marquee = this.selection.marquee()
-    // Feature au repos (aucune sélection, aucun marquee) : zéro travail par frame —
-    // un dernier sync vide efface l'overlay, puis on dort jusqu'au prochain contenu.
-    if (this.selection.size === 0 && !marquee) {
+    // Feature au repos (aucune forme, aucun contour externe — tracé — sélectionné, aucun
+    // marquee) : zéro travail par frame — un dernier sync vide efface l'overlay, puis on dort.
+    // Les contours externes comptent ici, sinon une sélection de tracés seuls n'afficherait
+    // jamais son pointillé. Garde bon marché (booléen par provider, sans reprojeter).
+    if (this.selection.size === 0 && !this.externalSelectables?.hasSelectedContours() && !marquee) {
       if (this.overlayActive) {
         this.overlaySel.sync([], null, null, [])
         this.overlayActive = false
@@ -1225,8 +1251,17 @@ export class DrawLayer implements Layer {
       shapes.push(c)
       for (const p of c.pts) all.push(p)
     }
-    const handles = this.tool === 'select' && shapes.length > 0 ? this.editCtl.layout() : []
-    this.overlaySel.sync(shapes, shapes.length > 0 ? screenBBox(all) : null, marquee, handles)
+    // Contours des tracés sélectionnés : MÊME pointillé que les formes (langage unique).
+    // Garde bon marché `hasSelectedContours()` (sans alloc) AVANT `selectedContours()` (qui
+    // alloue un tableau) : une FORME sélectionnée sans tracé atteint cette passe à chaque frame
+    // de pan. Chaque contour est une polyligne ouverte. Volontairement ABSENT de `all` : la bbox
+    // englobante n'englobe que les FORMES — un tracé n'a ni poignée ni redimensionnement (il est
+    // lié à sa route), donc pas de rectangle d'emprise autour de lui.
+    if (this.externalSelectables?.hasSelectedContours())
+      for (const c of this.externalSelectables.selectedContours()) shapes.push(c)
+    // Poignées d'édition et bbox : sur les FORMES sélectionnées seulement (un tracé ne s'édite pas ici).
+    const handles = this.tool === 'select' && this.selection.size > 0 ? this.editCtl.layout() : []
+    this.overlaySel.sync(shapes, all.length > 0 ? screenBBox(all) : null, marquee, handles)
   }
 
   setDefaults(d: Partial<DrawDefaults>): void {
@@ -1850,6 +1885,26 @@ export class DrawLayer implements Layer {
     return this.projection.metersPerPixel(d.points[0]!, this.lastCamera, this.viewH, this.heightFor(d))
   }
 
+  /**
+   * (Re)pose le `renderOrder` de toutes les formes SANS reconstruire la géométrie : rang
+   * stable par ordre de création (`i`), remplissage sous son propre trait (`userData.ro`
+   * 0 vs 1), et une forme sélectionnée bondit devant les autres (`DRAW_SELECTED_LIFT`).
+   * Résout l'empilement « arbitraire » entre formes qui se chevauchent ET aligne la
+   * profondeur d'une forme sur son contour de sélection. Cheap (pose de nombres) — appelé
+   * aux mutations (flush), au changement de sélection et à la bascule drapage.
+   */
+  private restack(): void {
+    for (let i = 0; i < this.drawings.length; i++) {
+      const d = this.drawings[i]!
+      const g = this.meshes.get(d.id)
+      if (!g) continue
+      const base = this.renderOrder + (this.selection.has(d.id) ? DRAW_SELECTED_LIFT : 0) + i * 2
+      for (const child of g.children) {
+        child.renderOrder = base + (typeof child.userData.ro === 'number' ? child.userData.ro : 0)
+      }
+    }
+  }
+
   private rebuildOne(d: Drawing, preview: boolean): void {
     this.removeMeshes(d.id)
     const height = this.heightFor(d)
@@ -1888,6 +1943,7 @@ export class DrawLayer implements Layer {
           fg,
           fillMaterial(d.fillColor ?? d.color, this.flatDepthTest, d.fillOpacity * (preview ? 0.6 : 1)),
         )
+        m.userData.ro = 0
         m.renderOrder = this.renderOrder
         enu.add(m)
       }
@@ -1901,6 +1957,7 @@ export class DrawLayer implements Layer {
         const tg = strokePolylines(endTicks(points, 10 * mpp), widthMeters)
         if (tg) {
           const m = new THREE.Mesh(tg, strokeMaterial(d.color, this.flatDepthTest, strokeOpacity))
+          m.userData.ro = 1
           m.renderOrder = this.renderOrder + 1
           enu.add(m)
         }
@@ -1913,6 +1970,7 @@ export class DrawLayer implements Layer {
       }
       if (rg) {
         const m = new THREE.Mesh(rg, strokeMaterial(d.color, this.flatDepthTest, strokeOpacity))
+        m.userData.ro = 1
         m.renderOrder = this.renderOrder + 1
         enu.add(m)
       }
@@ -1921,6 +1979,7 @@ export class DrawLayer implements Layer {
       const ah = arrowHead(points, widthMeters)
       if (ah) {
         const m = new THREE.Mesh(ah, strokeMaterial(d.color, this.flatDepthTest, strokeOpacity))
+        m.userData.ro = 1
         m.renderOrder = this.renderOrder + 1
         enu.add(m)
       }
@@ -2247,6 +2306,9 @@ export class DrawLayer implements Layer {
   private flushEmit(): void {
     if (!this.pendingEmit) return
     this.pendingEmit = false
+    // Une mutation (ajout/suppression/édition) a pu changer l'ordre de création ou la
+    // géométrie : réaligne l'empilement des formes en une passe (pose de `renderOrder`).
+    this.restack()
     this.onChange?.(this.toGeoJSON())
   }
 

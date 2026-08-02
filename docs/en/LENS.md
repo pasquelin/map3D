@@ -74,13 +74,24 @@ the lens therefore knows nothing about drawing, and works on a map that has none
 
 ## 3. The inventory
 
-The panel reuses the `<MarkerList>` of the selection panel: one row per marker, a fixed
-header with the **per-type count**, a scrollable body, a cross per row, an extensible
-actions menu.
+The panel reuses **the same building blocks** as the selection panel — `SelectionScroll`
+(single scroll), `SelectionGroup` (collapsible headers), `MarkerList` (one row per marker),
+`ClusterPie` — with no duplication. The inventoried markers are **grouped by cluster** (the
+current visual cluster, via `engine.markers.visualNodeOf`), **groups open by default**;
+standalone markers stay flat. Scrollable body, a cross per row (removes the marker from the
+inventory; a group's cross removes all its members), an extensible actions menu.
 
 What it sees, precisely: **every** marker whose position falls inside the box, read from
 the **source data** through the `engine.markers` registry — clusters included, and after
 the “Layers” filter.
+
+A `static` marker **below its zoom threshold** (`minZoom`) is removed from the map but
+**stays listed** in the lens (as in search: a threshold says what is legible, not what you
+are allowed to find). To resolve the “listed yet invisible” ambiguity, its row carries a
+**crossed-out eye** whose tooltip (`labels.lens.hidden`) explains it. This is a **view**
+marker, recomputed as you zoom — the inventory itself does not change. It is authoritative:
+the registry reports as hidden exactly what the layer does not lay down
+(`engine.markers.hiddenByZoom`), per-layer threshold and hysteresis included.
 
 The screen → geo conversion happens in two steps: the rectangle's corners are picked to
 obtain a coarse geographic box (falling back to the whole world if the view looks at the

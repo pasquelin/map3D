@@ -222,6 +222,57 @@ export class SelectionManager {
   }
 
   /**
+   * Retire UN membre d'un groupe (croix d'une ligne enfant de cluster) : le groupe
+   * vidé de son dernier membre disparaît, sinon ses membres restants sont conservés.
+   */
+  deselectGroupMember(key: string | number, memberId: string | number): void {
+    const k = String(key)
+    const g = this.groupSel.get(k)
+    if (!g) return
+    const rest = g.memberIds.filter((m) => m !== memberId)
+    if (rest.length === g.memberIds.length) return
+    if (rest.length === 0) this.groupSel.delete(k)
+    else this.groupSel.set(k, { ...g, memberIds: rest })
+    this.host.selectionChanged()
+  }
+
+  /**
+   * Réconcilie les groupes (clusters) sélectionnés avec le clustering COURANT — appelé
+   * à chaque recompute (zoom). Un cluster live ayant EXACTEMENT les mêmes membres fait
+   * survivre le groupe, re-clé sur son nouvel id d'agrégat pour que l'anneau se ré-attache
+   * à la bonne pastille. Sinon (cluster splitté/fusionné → il n'existe plus tel quel) le
+   * groupe se DISSOUT en sélection plate : ses membres restent sélectionnés (chacun garde
+   * son anneau via `effectiveMarkerSet`) et sont listés à plat, la ligne cluster disparaît.
+   */
+  reconcileGroups(): void {
+    if (this.groupSel.size === 0) return
+    // Set des membres précalculé UNE fois par cluster courant (pas à chaque comparaison).
+    const current: { key: string; group: SelectableGroup; members: Set<string | number> }[] = []
+    for (const it of this.host.externalItems?.() ?? []) {
+      if (it.kind !== 'cluster') continue
+      const info = this.host.externalInfo?.(it.id)
+      if (info?.group) current.push({ key: String(it.id), group: info.group, members: new Set(info.group.memberIds) })
+    }
+    let changed = false
+    for (const [key, g] of [...this.groupSel]) {
+      const wanted = new Set(g.memberIds)
+      const match = current.find((c) => sameSet(c.members, wanted))
+      if (match) {
+        if (match.key !== key) {
+          this.groupSel.delete(key)
+          this.groupSel.set(match.key, match.group)
+          changed = true
+        }
+      } else {
+        this.groupSel.delete(key)
+        for (const m of g.memberIds) this.extSel.add(m)
+        changed = true
+      }
+    }
+    if (changed) this.host.selectionChanged()
+  }
+
+  /**
    * Retire les sélectionnables externes disparus (données, filtre tags…). Un
    * GROUPE (cluster) survit tant qu'au moins un membre vit — jamais pruné sur
    * l'existence de sa pastille, qui est recalculée en continu.

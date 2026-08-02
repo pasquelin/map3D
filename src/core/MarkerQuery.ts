@@ -42,6 +42,18 @@ export type MarkerProvider = {
    * jamais éclater le cluster ni toucher au zoom.
    */
   visualNodeOf?(id: string | number): VisualNode | null
+  /**
+   * Ce marker EXISTE dans les données de cette couche mais est actuellement RETIRÉ
+   * de l'affichage par le gate de zoom des `static` (passé sous son seuil) —
+   * autrement dit : présent dans l'inventaire (loupe, recherche), absent de la carte.
+   *
+   * `true` = connu mais masqué ; `false` = connu et rendu ; `null` = inconnu de cette
+   * couche. Optionnel : une couche sans décor `static` n'a jamais rien à masquer.
+   *
+   * Sert à EXPLIQUER un marker listé mais invisible, sans changer le comportement :
+   * l'inventaire reste complet, seule la ligne porte un repère.
+   */
+  hiddenByZoom?(id: string | number): boolean | null
 }
 
 /** Nœud visuel (marker isolé ou cluster) tel qu'il est affiché à l'instant t. */
@@ -113,5 +125,17 @@ export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
       if (node) return node
     }
     return null
+  }
+
+  /**
+   * Le marker est-il connu d'une couche mais masqué par le gate de zoom ? `true` dès
+   * qu'un fournisseur le déclare masqué ; sinon `false` (rendu, ou inconnu partout —
+   * on ne signale que ce qu'on sait vraiment masqué, jamais par défaut).
+   */
+  hiddenByZoom(id: string | number): boolean {
+    for (const p of this.providers) {
+      if (p.hiddenByZoom?.(id) === true) return true
+    }
+    return false
   }
 }

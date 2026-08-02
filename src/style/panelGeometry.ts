@@ -26,9 +26,9 @@ export const BAR_INSET = 16
  * ancrer son panneau (« tient-il à droite ? »). Le nombre était écrit aux deux
  * endroits, avec un commentaire pour tenir la synchro — c'est-à-dire rien.
  */
-export const LENS_PANEL_W = 252
+export const LENS_PANEL_W = 260
 /** Largeur du panneau de sélection (px). */
-export const SELECTION_PANEL_W = 236
+export const SELECTION_PANEL_W = 260
 /**
  * Largeur du panneau de templates (px).
  *

@@ -234,6 +234,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `selection.expandGroup` | aria-label du chevron dépliant un groupe de formes — `{label}` = libellé du groupe. | `'Déplier / replier {label}'` |
 | `selection.shapeItem` | Libellé d'une forme dépliée sans nom propre — `{type}` (kind traduit), `{n}` (rang). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. | `'Supprimer {label}'` |
+| `selection.delete` | Item de menu « Supprimer » d'une ligne de forme (libellé court, sans paramètre). | `'Supprimer'` |
 | `selection.pathsGroup` | Nom de la catégorie tracés dans une rangée. | `'Tracés'` |
 | `selection.pathItem` | Libellé d'un tracé déplié — `{n}` (rang dans le groupe). | `'Tracé {n}'` |
 
@@ -263,6 +264,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `lens.remove` | aria-label du bouton qui retire la zone loupe. | `'Retirer la loupe'` |
 | `lens.movePanel` | aria-label de la poignée de déplacement du panneau. | `'Déplacer le panneau'` |
 | `lens.snapBack` | aria-label/tooltip du bouton qui ré-aimante le panneau à la zone (après déplacement). | `'Rattacher le panneau à la zone'` |
+| `lens.hidden` | Tooltip/aria de l'œil barré d'une ligne : le marker est listé dans la loupe mais RETIRÉ de la carte par le gate de zoom (`static` passé sous son seuil `minZoom`). | `'Masqué au zoom actuel'` |
 
 ## `settings` — Panneau Réglages
 

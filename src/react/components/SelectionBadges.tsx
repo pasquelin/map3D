@@ -1,17 +1,24 @@
-import { mdiChevronRight, mdiClose, mdiGroup, mdiSelectionOff, mdiTrashCanOutline, mdiVectorPolyline } from '@mdi/js'
-import { UiIcon } from './UiIcon'
-import { type CSSProperties, type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { mdiSelectionOff, mdiTrashCanOutline, mdiVectorPolyline } from '@mdi/js'
+import { type ReactNode, useCallback, useMemo, useRef, useSyncExternalStore } from 'react'
+import { boundsOfLatLngs } from '../../core/bounds'
+import type { MarkerSnapshot } from '../../core/MarkerQuery'
 import type { MarkerData } from '../../data/types'
-import type { DrawTool } from '../../layers/DrawLayer'
+import type { DrawnShape, DrawTool } from '../../layers/DrawLayer'
 import { formatLabel, symbolText } from '../../labels/mergeLabels'
-import { markerColorOf } from '../../theme/colors'
-import { useLabels, useMapContext, useTheme } from '../context'
+import { useLabels, useMapContext } from '../context'
+import { ClusterPie } from './ClusterPie'
 import { useDrawing } from '../hooks/useDrawing'
 import { useDraggablePanel } from '../hooks/useDraggablePanel'
+import { useToggleSet } from '../hooks/useToggleSet'
+import type { MenuItem } from './ContextMenu'
 import { TOOL_ICONS } from './drawControls'
 import { FloatingPanel } from './FloatingPanel'
-import type { MenuItem } from './ContextMenu'
 import { MarkerList, type MarkerListAction } from './MarkerList'
+import { SelectionGroup } from './SelectionGroup'
+import { type SelectionRowModel, targetMenuItem } from './SelectionRow'
+import { SelectionScroll } from './SelectionScroll'
+import { SelectionSection } from './SelectionSection'
+import { UiIcon } from './UiIcon'
 
 export type SelectionBadgesProps = {
   /** Libellé lisible d'un type de marker (défaut : le type brut). */
@@ -27,83 +34,32 @@ export type SelectionBadgesProps = {
 }
 
 /**
- * Panneau de sélection (haut-droite par défaut, monté dans `<DrawLayer>`). Les
- * **markers** sont listés **1 ligne par marker** via `MarkerList` — le composant
- * de liste **partagé avec la loupe** (pastille + titre/sous-titre, menu « Cibler »,
- * croix). Les **formes** dessinées restent regroupées par kind (compteur + croix).
- * Déplaçable par sa poignée. La croix d'une ligne de marker la désélectionne.
+ * Résout les données complètes de markers depuis le snapshot, en MÉMORISANT l'id d'origine
+ * (celui du `getId` de `MarkerLayer`) : le re-dériver casserait la désélection dès qu'une app
+ * fournit un `getId` custom. Les disparus de l'inventaire sont ignorés.
  */
-/**
- * Mini-camembert d'un groupe de cluster : mêmes couleurs de parts que la pastille sur la
- * carte (parts ÉGALES par type, comme `<DefaultCluster>`), en `conic-gradient`. Remplace
- * l'icône générique du groupe pour que la ligne « ressemble » au cluster qu'elle représente.
- */
-function ClusterPie({ counts }: { counts: Record<string, number> }) {
-  const theme = useTheme()
-  const types = Object.keys(counts)
-  if (types.length === 0) return <UiIcon path={mdiGroup} />
-  const stops =
-    types.length === 1
-      ? markerColorOf(theme, types[0]!).base
-      : types
-          .map(
-            (t, i) =>
-              `${markerColorOf(theme, t).base} ${(i / types.length) * 360}deg ${((i + 1) / types.length) * 360}deg`,
-          )
-          .join(', ')
-  return (
-    <span
-      aria-hidden
-      className="m3d-clusterpie"
-      style={{ background: types.length === 1 ? stops : `conic-gradient(${stops})` } as CSSProperties}
-    />
-  )
+function resolveMembers(
+  ids: Iterable<string | number>,
+  snapshot: MarkerSnapshot,
+): { items: MarkerData[]; idOf: Map<MarkerData, string | number> } {
+  const items: MarkerData[] = []
+  const idOf = new Map<MarkerData, string | number>()
+  for (const id of ids) {
+    const m = snapshot.markerById(id)
+    if (!m) continue
+    items.push(m)
+    idOf.set(m, id)
+  }
+  return { items, idOf }
 }
 
 /**
- * En-tête d'un groupe pliable des badges (chevron + icône + libellé + compteur +
- * croix de désélection) — factorisé pour les formes, les tracés et les clusters.
+ * Panneau de sélection (haut-droite par défaut, monté dans `<DrawLayer>`). TOUT le
+ * contenu — formes, tracés, clusters, markers — est rendu par DEUX briques partagées :
+ * `SelectionGroup` (en-tête pliable) et `SelectionRow` (via `SelectionList` / `MarkerList`).
+ * Une ligne a partout la MÊME structure `[icône] titre/sous-titre · « … » · ✕` ; seul le
+ * contenu (icône, menu) varie par type. Déplaçable par sa poignée.
  */
-function CollapsibleGroupHeader(props: {
-  /** Icône du groupe — chemin mdi (formes/tracés) OU nœud custom (mini-camembert d'un cluster). */
-  iconPath?: string
-  icon?: ReactNode
-  label: string
-  count: number
-  open: boolean
-  onToggle: () => void
-  onDeselect: () => void
-}) {
-  const labels = useLabels()
-  const { iconPath, icon, label, count, open, onToggle, onDeselect } = props
-  return (
-    <div className="m3d-tagrow">
-      {/* Chevron : déplie le groupe pour lister ses éléments, comme le catalogue. */}
-      <button
-        type="button"
-        className={open ? 'm3d-selrow-chevron m3d-on' : 'm3d-selrow-chevron'}
-        aria-expanded={open}
-        aria-label={formatLabel(labels.selection.expandGroup, { label })}
-        onClick={onToggle}
-      >
-        <UiIcon path={mdiChevronRight} />
-      </button>
-      {icon ?? (iconPath ? <UiIcon path={iconPath} /> : null)}
-      <span className="m3d-taglabel">{label}</span>
-      <span className="m3d-tagcount">{count}</span>
-      {/* La croix DÉSÉLECTIONNE le groupe (ne supprime pas). */}
-      <button
-        type="button"
-        className="m3d-selrow-x"
-        onClick={onDeselect}
-        aria-label={formatLabel(labels.selection.deselectGroup, { label })}
-      >
-        <UiIcon path={mdiClose} />
-      </button>
-    </div>
-  )
-}
-
 export function SelectionBadges(props: SelectionBadgesProps) {
   const { engine } = useMapContext()
   const labels = useLabels()
@@ -118,6 +74,7 @@ export function SelectionBadges(props: SelectionBadgesProps) {
     deselectMarkers,
     deselectPaths,
     deselectClusterGroup,
+    deselectClusterMember,
     clearSelection,
     removeShape,
     getShape,
@@ -131,55 +88,25 @@ export function SelectionBadges(props: SelectionBadgesProps) {
   const panel = useDraggablePanel()
 
   // Instantané de l'inventaire markers : la liste doit refléter un flux temps réel
-  // (position, avatar) même à sélection CONSTANTE. Un compteur de révision aurait suffi
-  // à déclencher le recalcul, mais il n'aurait été nommé nulle part dans le corps du
-  // memo — donc invisible pour qui relit, et retirable par mégarde sans que rien ne
-  // proteste. L'instantané EST l'objet interrogé : la dépendance se voit.
+  // (position, avatar) même à sélection CONSTANTE. L'instantané EST l'objet interrogé :
+  // la dépendance des memos se voit.
   const snapshot = useSyncExternalStore(engine.markers.onItemsChanged, () => engine.markers.snapshot)
 
-  // Markers sélectionnés → donnée complète (position, avatar…) pour la liste
-  // partagée. On MÉMORISE l'id d'origine : c'est celui du `getId` de `MarkerLayer`
-  // (la sélection et le registre sont clés dessus), pas forcément `m.id`. Le
-  // re-dériver en `m.id` casserait la désélection dès qu'une app fournit un `getId`
-  // custom — et collisionnerait les clés React sur des `m.id` non uniques.
-  //
-  // Mémoïsé : `MarkerList` est `memo()` et ne retient RIEN si `markers`/`getId`/
-  // `onRemove` changent d'identité à chaque render (cf. son corollaire d'appel) —
-  // toute la liste (N lignes × icônes) se re-rendait alors à chaque mutation.
-  const { markers, idOf } = useMemo(() => {
-    const markers: MarkerData[] = []
-    const idOf = new Map<MarkerData, string | number>()
-    for (const id of markerSelection) {
-      const m = snapshot.markerById(id)
-      if (!m) continue
-      markers.push(m)
-      idOf.set(m, id)
-    }
-    return { markers, idOf }
-  }, [markerSelection, snapshot])
+  // Markers sélectionnés → donnée complète pour la liste partagée (cf. `resolveMembers`).
+  const { items: markers, idOf } = useMemo(() => resolveMembers(markerSelection, snapshot), [markerSelection, snapshot])
   const getId = useCallback((m: MarkerData) => idOf.get(m) ?? m.id, [idOf])
-  // `deselectMarkers` est recréé à chaque révision de l'API de dessin : passer par
-  // un ref donne au callback une identité DÉFINITIVE, seule façon de ne pas
-  // invalider le memo à chaque mutation du core.
+  // `deselectMarkers` est recréé à chaque révision de l'API de dessin : passer par un ref
+  // donne au callback une identité DÉFINITIVE, seule façon de ne pas invalider le memo.
   const deselectRef = useRef(deselectMarkers)
   deselectRef.current = deselectMarkers
   const onRemoveMarker = useCallback((id: string | number) => deselectRef.current([id]), [])
 
-  // Groupes de formes DÉPLIÉS (par kind), comme le catalogue : un groupe ouvert liste ses
-  // formes individuelles, chacune supprimable. État local — l'ouverture est une préférence
-  // d'affichage, pas de la sélection.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
-  const toggleExpand = useCallback((key: string) => {
-    setExpanded((cur) => {
-      const next = new Set(cur)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }, [])
+  // Groupes DÉPLIÉS (par kind / tracés / cluster) — état local : l'ouverture est une
+  // préférence d'affichage, pas de la sélection. Le sélecteur démarre groupes FERMÉS
+  // (panneau compact), un clic sur le chevron déplie.
+  const [expanded, toggleExpand] = useToggleSet<string>()
   // Index clé→entrée du catalogue : le libellé d'un symbole déplié le résout sinon par un
-  // scan O(catalogue) par forme (le catalogue MIL-STD compte des milliers d'entrées). Même
-  // mémoïsation que `SymbolMarkers.byKey`.
+  // scan O(catalogue) par forme. Même mémoïsation que `SymbolMarkers.byKey`.
   const symbolByKey = useMemo(() => new Map(symbols.catalog.entries.map((e) => [e.key, e])), [symbols.catalog])
 
   // La sélection n'existe que pendant l'outil sélection (vidée à la sortie).
@@ -196,39 +123,81 @@ export function SelectionBadges(props: SelectionBadgesProps) {
     else shapeGroups.set(d.kind, [d.id])
   }
 
+  const shapeKindLabel = (kind: DrawTool) => props.shapeKindLabel?.(kind) ?? labels.tools[kind]
   const rowLabel = (group: string, type: string): string => formatLabel(labels.selection.group, { group, type })
 
-  // Libellé d'une forme individuelle : le vrai libellé du catalogue pour un symbole, son
-  // nom propre s'il en a un, sinon « {Type} {rang} » (numéroté dans le groupe). Résolu
-  // seulement pour les groupes DÉPLIÉS (appelé dans le rendu conditionnel).
-  const childLabel = (id: string, kind: DrawTool, index: number): string => {
+  // Cadre la forme/le tracé (mêmes gestes de caméra que « Cibler » d'un marker).
+  const focusShape = (id: string) => {
     const shape = getShape(id)
+    const b = shape ? boundsOfLatLngs(shape.points) : null
+    if (b) engine.camera.fitBounds(b)
+  }
+  const focusPath = (id: string | number) => {
+    const b = engine.selectables.boundsOf(id)
+    if (b) engine.camera.fitBounds(b)
+  }
+
+  // Libellé d'une forme individuelle : vrai libellé du catalogue (symbole), nom propre,
+  // sinon « {Type} {rang} ». Prend la forme déjà résolue (une seule lecture par ligne).
+  const shapeLabel = (shape: DrawnShape | null, kind: DrawTool, index: number): string => {
     if (shape?.symbol) {
       const entry = symbolByKey.get(shape.symbol.key)
       if (entry) return symbolText(labels, entry).label
     }
     if (shape?.title) return shape.title
-    return formatLabel(labels.selection.shapeItem, {
-      type: props.shapeKindLabel?.(kind) ?? labels.tools[kind],
-      n: String(index + 1),
+    return formatLabel(labels.selection.shapeItem, { type: shapeKindLabel(kind), n: String(index + 1) })
+  }
+
+  // Ligne à partir d'un libellé : titre ET aria-labels (menu « … », croix ✕) dérivés du MÊME
+  // `clabel`. Seuls l'icône, le menu et les handlers varient d'un type à l'autre.
+  const rowFrom = (
+    key: string | number,
+    icon: ReactNode,
+    clabel: string,
+    parts: { onActivate: () => void; menu: MenuItem[]; onDeselect: () => void },
+  ): SelectionRowModel => ({
+    key,
+    icon,
+    title: clabel,
+    onActivate: parts.onActivate,
+    menu: parts.menu,
+    menuLabel: formatLabel(labels.markerList.actions, { label: clabel }),
+    onDeselect: parts.onDeselect,
+    deselectLabel: formatLabel(labels.selection.deselectGroup, { label: clabel }),
+  })
+
+  // Ligne d'une FORME : glyphe d'outil TEINTÉ de la couleur de la forme (comme le tracé porte
+  // sa couleur), « Cibler » + « Supprimer » (destructif) dans le menu, ✕ = retire de la sélection.
+  const shapeRow = (id: string, kind: DrawTool, index: number): SelectionRowModel => {
+    const shape = getShape(id)
+    return rowFrom(id, <UiIcon path={TOOL_ICONS[kind]} color={shape?.style.color} />, shapeLabel(shape, kind, index), {
+      onActivate: () => focusShape(id),
+      menu: [
+        targetMenuItem(labels.markerList.target, () => focusShape(id)),
+        {
+          label: labels.selection.delete,
+          icon: <UiIcon path={mdiTrashCanOutline} />,
+          danger: true,
+          onSelect: () => removeShape(id),
+        },
+      ],
+      onDeselect: () => select(selection.filter((x) => x !== id)),
     })
   }
 
-  // Nom d'une forme + sa corbeille rouge — commun à la ligne d'une forme SEULE et à une
-  // ligne enfant d'un groupe déplié (mêmes deux éléments, seul l'entourage diffère).
-  const deletableLabel = (id: string, clabel: string) => (
-    <>
-      <span className="m3d-taglabel">{clabel}</span>
-      <button
-        type="button"
-        className="m3d-selrow-x m3d-danger"
-        onClick={() => removeShape(id)}
-        aria-label={formatLabel(labels.selection.deleteShape, { label: clabel })}
-      >
-        <UiIcon path={mdiTrashCanOutline} />
-      </button>
-    </>
-  )
+  // Ligne d'un TRACÉ : glyphe polyligne (plus parlant qu'un trait) TEINTÉ de la couleur du
+  // tracé, « Cibler » dans le menu, ✕ = désélectionne.
+  const pathRow = (id: string | number, index: number): SelectionRowModel =>
+    rowFrom(
+      id,
+      <UiIcon path={mdiVectorPolyline} color={engine.selectables.info(id)?.color} />,
+      formatLabel(labels.selection.pathItem, { n: String(index + 1) }),
+      {
+        onActivate: () => focusPath(id),
+        menu: [targetMenuItem(labels.markerList.target, () => focusPath(id))],
+        onDeselect: () => deselectPaths([id]),
+      },
+    )
 
   return (
     <FloatingPanel
@@ -239,155 +208,88 @@ export function SelectionBadges(props: SelectionBadgesProps) {
       panelClassName="m3d-selpanel"
     >
       <>
-        {shapeGroups.size > 0 && (
-          <div className="m3d-taglist">
-            {[...shapeGroups].map(([kind, ids]) => {
-              const text = rowLabel(labels.selection.shapesGroup, props.shapeKindLabel?.(kind) ?? labels.tools[kind])
-              const isOpen = expanded.has(kind)
-              // Calculé AU CLIC seulement (pas à chaque render, O(S×groupe) sinon).
-              const deselectGroup = () => {
-                const drop = new Set(ids)
-                select(selection.filter((id) => !drop.has(id)))
-              }
+        {/* Conteneur de scroll UNIQUE, PARTAGÉ avec la loupe (`SelectionScroll`) : une seule
+            zone scrollable, pas de scroll par bloc ni horizontal. Le bouton « Tout désélectionner »
+            et le pied restent FIXES sous ce conteneur (toujours atteignables). */}
+        <SelectionScroll>
+          {shapeGroups.size > 0 && (
+            <div className="m3d-taglist">
+              {[...shapeGroups].map(([kind, ids]) => (
+                <SelectionSection
+                  key={`shape:${kind}`}
+                  ids={ids}
+                  rowOf={(id, i) => shapeRow(id, kind, i)}
+                  groupIcon={<UiIcon path={TOOL_ICONS[kind]} />}
+                  groupLabel={rowLabel(labels.selection.shapesGroup, shapeKindLabel(kind))}
+                  open={expanded.has(kind)}
+                  onToggle={() => toggleExpand(kind)}
+                  // Calculé AU CLIC seulement (pas à chaque render, O(S×groupe) sinon).
+                  onDeselectGroup={() => {
+                    const drop = new Set(ids)
+                    select(selection.filter((id) => !drop.has(id)))
+                  }}
+                />
+              ))}
+            </div>
+          )}
 
-              // Une SEULE forme : inutile de la nicher dans un groupe dépliable — on la montre
-              // DIRECTEMENT (son nom réel + corbeille). Sans chevron : pas de gouttière réservée
-              // (elle laissait un gros vide à gauche pour une ligne qui n'a rien à déplier).
-              if (ids.length === 1) {
-                const id = ids[0]!
-                const clabel = childLabel(id, kind, 0)
-                return (
-                  <div key={`shape:${kind}`} className="m3d-tagrow">
-                    <UiIcon path={TOOL_ICONS[kind]} />
-                    {deletableLabel(id, clabel)}
-                    <button
-                      type="button"
-                      className="m3d-selrow-x"
-                      onClick={deselectGroup}
-                      aria-label={formatLabel(labels.selection.deselectGroup, { label: clabel })}
-                    >
-                      <UiIcon path={mdiClose} />
-                    </button>
-                  </div>
-                )
-              }
-
-              return (
-                <div key={`shape:${kind}`}>
-                  {/* La suppression reste PAR forme (corbeille sous le chevron) ; la croix du header désélectionne. */}
-                  <CollapsibleGroupHeader
-                    iconPath={TOOL_ICONS[kind]}
-                    label={text}
-                    count={ids.length}
-                    open={isOpen}
-                    onToggle={() => toggleExpand(kind)}
-                    onDeselect={deselectGroup}
-                  />
-                  {isOpen && (
-                    <div className="m3d-selchildren">
-                      {ids.map((id, i) => (
-                        <div key={id} className="m3d-selchild">
-                          {deletableLabel(id, childLabel(id, kind, i))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {pathSelection.length > 0 && (
-          <div className="m3d-taglist">
-            <div>
-              {/* Groupe pliable « Tracés », même pattern que les formes/catalogue. */}
-              <CollapsibleGroupHeader
-                iconPath={mdiVectorPolyline}
-                label={labels.selection.pathsGroup}
-                count={pathSelection.length}
+          {pathSelection.length > 0 && (
+            <div className="m3d-taglist">
+              <SelectionSection
+                ids={pathSelection}
+                rowOf={(id, i) => pathRow(id, i)}
+                groupIcon={<UiIcon path={mdiVectorPolyline} />}
+                groupLabel={labels.selection.pathsGroup}
                 open={pathsOpen}
                 onToggle={() => toggleExpand('m3d:paths')}
-                onDeselect={() => deselectPaths(pathSelection)}
+                onDeselectGroup={() => deselectPaths(pathSelection)}
               />
-              {pathsOpen && (
-                <div className="m3d-selchildren">
-                  {pathSelection.map((id, i) => {
-                    const clabel = formatLabel(labels.selection.pathItem, { n: String(i + 1) })
-                    return (
-                      <div key={id} className="m3d-selchild">
-                        <span className="m3d-taglabel">{clabel}</span>
-                        <button
-                          type="button"
-                          className="m3d-selrow-x"
-                          onClick={() => deselectPaths([id])}
-                          aria-label={formatLabel(labels.selection.deselectGroup, { label: clabel })}
-                        >
-                          <UiIcon path={mdiClose} />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {clusterGroups.length > 0 && (
-          <div className="m3d-taglist">
-            {clusterGroups.map((g) => {
-              const open = expanded.has(`m3d:cluster:${g.id}`)
-              // Membres résolus depuis l'inventaire temps réel — l'id d'origine mémorisé
-              // pour `getId` (cf. la liste markers principale).
-              const members: MarkerData[] = []
-              const memberIdOf = new Map<MarkerData, string | number>()
-              for (const mid of g.memberIds) {
-                const m = snapshot.markerById(mid)
-                if (!m) continue
-                members.push(m)
-                memberIdOf.set(m, mid)
-              }
-              return (
-                <div key={g.id}>
-                  {/* La croix désélectionne le cluster ENTIER (tous ses enfants). */}
-                  <CollapsibleGroupHeader
+          {clusterGroups.length > 0 && (
+            <div className="m3d-taglist">
+              {clusterGroups.map((g) => {
+                // Membres résolus depuis l'inventaire temps réel — id d'origine mémorisé pour `getId`.
+                const { items: members, idOf: memberIdOf } = resolveMembers(g.memberIds, snapshot)
+                return (
+                  <SelectionGroup
+                    key={g.id}
                     icon={<ClusterPie counts={g.counts ?? {}} />}
                     label={g.label}
                     count={g.memberIds.length}
-                    open={open}
+                    open={expanded.has(`m3d:cluster:${g.id}`)}
                     onToggle={() => toggleExpand(`m3d:cluster:${g.id}`)}
                     onDeselect={() => deselectClusterGroup(g.id)}
-                  />
-                  {open && members.length > 0 && (
-                    <div className="m3d-selchildren">
-                      <MarkerList
-                        markers={members}
-                        getId={(m) => memberIdOf.get(m) ?? m.id}
-                        renderItem={props.renderMarker}
-                        markerTypeLabel={props.markerTypeLabel}
-                        actions={props.markerActions}
-                        menu={props.markerMenu}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+                  >
+                    {/* Enfants de cluster = markers : même liste partagée, ✕ retire UN membre. */}
+                    <MarkerList
+                      markers={members}
+                      getId={(m) => memberIdOf.get(m) ?? m.id}
+                      renderItem={props.renderMarker}
+                      markerTypeLabel={props.markerTypeLabel}
+                      onRemove={(id) => deselectClusterMember(g.id, id)}
+                      actions={props.markerActions}
+                      menu={props.markerMenu}
+                    />
+                  </SelectionGroup>
+                )
+              })}
+            </div>
+          )}
 
-        {markers.length > 0 && (
-          <MarkerList
-            markers={markers}
-            getId={getId}
-            renderItem={props.renderMarker}
-            markerTypeLabel={props.markerTypeLabel}
-            onRemove={onRemoveMarker}
-            actions={props.markerActions}
-            menu={props.markerMenu}
-          />
-        )}
+          {markers.length > 0 && (
+            <MarkerList
+              markers={markers}
+              getId={getId}
+              renderItem={props.renderMarker}
+              markerTypeLabel={props.markerTypeLabel}
+              onRemove={onRemoveMarker}
+              actions={props.markerActions}
+              menu={props.markerMenu}
+            />
+          )}
+        </SelectionScroll>
 
         <button type="button" className="m3d-tagclear" onClick={clearSelection}>
           <UiIcon path={mdiSelectionOff} />

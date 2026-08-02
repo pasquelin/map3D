@@ -136,6 +136,8 @@ export type DrawingApi = {
   deselectPaths: (ids: ReadonlyArray<string | number>) => void
   /** Désélectionne un cluster entier (croix de sa rangée pliable). */
   deselectClusterGroup: (id: string | number) => void
+  /** Retire UN membre d'un cluster de la sélection (croix d'une ligne enfant). */
+  deselectClusterMember: (key: string | number, memberId: string | number) => void
   /** Vide TOUTE la sélection (formes + markers). */
   clearSelection: () => void
   /** Sélectionne toutes les formes visibles non verrouillées (active l'outil sélection). */

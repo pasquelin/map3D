@@ -215,8 +215,16 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   /** Ce que la surface de clusters a décidé pour cette couche — cf. `ClusterPlacement`. */
   const placementRef = useRef<ClusterPlacement>(NO_PLACEMENT)
   const entriesRef = useRef(new Map<string | number, MarkerData<T>>())
-  /** Points visibles (filtre tags appliqué) par id — `info()` du registre + prune. */
+  /** Points visibles (filtre tags appliqué) par id — inventaire loupe/recherche (`markerById`). */
   const pointsByIdRef = useRef(new Map<string | number, MarkerData<T>>())
+  /**
+   * Ids réellement RENDUS (gate de zoom des statiques appliqué) — base du prune de
+   * sélection : un statique passé sous son seuil n'est plus rendu, donc `info()` du
+   * provider de sélection le déclare disparu et l'outil sélection le retire. Distinct
+   * de `pointsByIdRef` (complet, que la loupe ne doit pas amputer) : ici, ce qui n'est
+   * plus sur la carte n'est plus sélectionnable.
+   */
+  const renderedIdsRef = useRef(new Set<string | number>())
 
   const [openMenu, setOpenMenu] = useState<string | number | null>(null)
   const closeMenu = useCallback(() => setOpenMenu(null), [])
@@ -234,9 +242,10 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const markerSize = props.size ?? theme.markers.size
 
   const ringSize = props.selectionRing ?? markerSize + 4
-  // Un avatar remplit tout le gabarit : son anneau part de la taille du marker, sans
-  // le facteur de pastille que `selectionRing` porte pour les sprites.
-  const avatarRing = markerSize + 12
+  // Un avatar remplit tout le gabarit : son anneau part de la taille du marker (sans le
+  // facteur de pastille de `selectionRing`), écarté d'un gap THÉMÉ de chaque côté — jamais
+  // une valeur en dur, la taille de l'avatar étant elle-même configurable (`markers.size`).
+  const avatarRing = markerSize + 2 * theme.markers.selectedGapPx
 
   // Instantané du rendu courant, écrit UNE fois : les deux littéraux jumeaux d'avant
   // devaient être édités symétriquement à chaque champ ajouté, et un oubli laissait
@@ -352,9 +361,10 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     return engine.clusters.register(contributor)
   }, [engine, clusterSource, props.cluster?.enabled, recompute])
 
-  // Les DONNÉES ont changé. L'index par id porte les points COMPLETS : il répond à
-  // `markerById` (loupe) et à `info()` du registre de sélection, que le gate de zoom
-  // ne doit pas amputer.
+  // Les DONNÉES ont changé. L'index par id porte les points COMPLETS pour `markerById`
+  // (loupe/recherche : voler sur un marker à tout zoom). Le provider de SÉLECTION, lui,
+  // se restreint aux ids rendus (cf. `renderedIdsRef`) — data et gate de zoom sont deux
+  // amputations distinctes de ce que l'on peut sélectionner.
   useEffect(() => {
     const map = new Map<string | number, MarkerData<T>>()
     for (const p of points) map.set(latest.current.getId(p), p)
@@ -368,10 +378,23 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
 
   // Ce qui est POSÉ a changé — nouveaux points, ou gate de zoom des statiques qui
   // s'ouvre/se ferme. La surface de clusters, elle, se resynchronise sur le registre.
-  // Effet distinct du précédent : un franchissement de seuil ne touche ni la sélection
-  // ni l'inventaire de la loupe, qui lisent les points complets.
+  // Effet distinct du précédent : un franchissement de seuil ne touche pas l'inventaire
+  // de la loupe (qui lit les points complets), mais il touche la SÉLECTION — un statique
+  // qui vient de quitter la carte doit en sortir (cf. `renderedIdsRef` / prune).
   useEffect(() => {
+    // Set des ids rendus, reconstruit AVANT de notifier : le prune (`info()` du provider
+    // de sélection) le lit pour décider ce qui vit encore.
+    const ids = new Set<string | number>()
+    for (const m of rendered) ids.add(latest.current.getId(m))
+    renderedIdsRef.current = ids
     engine.clusters.itemsChanged()
+    // Purge la multi-sélection des statiques passés sous leur seuil (comportement choisi :
+    // ce qui se masque au zoom sort de la sélection). Rare : ne part qu'au franchissement.
+    engine.selectables.itemsChanged()
+    // Rafraîchit l'inventaire de la loupe : il reste COMPLET (les masqués y restent
+    // listés), mais son repère « masqué au zoom » (`hiddenByZoom`) vient de changer.
+    // Notifié EN DERNIER, `renderedIdsRef` déjà à jour : l'abonné relit un état frais.
+    engine.markers.itemsChanged()
     recompute()
   }, [rendered, recompute, engine])
 
@@ -383,6 +406,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     coreRef,
     entriesRef,
     pointsByIdRef,
+    renderedIdsRef,
     latest,
     searchSource,
     points,

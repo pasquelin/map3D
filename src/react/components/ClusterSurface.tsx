@@ -482,6 +482,16 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     })
   }, [engine, leavesOf])
 
+  // Relève la pastille survolée au-dessus des voisins (le CSS2DRenderer trie le
+  // z-index inline par renderOrder) — sinon son infobulle, enfant de l'ancre de la
+  // pastille, passe SOUS une pastille/marker voisin plus proche de la caméra, et
+  // devient illisible. Même levier que `<MarkerLayer>` : renderOrder est le seul
+  // respecté par le tri z. `els` en dep : un recompute recrée les nœuds DOM, il faut
+  // ré-affirmer le relèvement sur le nœud reconstruit.
+  useEffect(() => {
+    coreRef.current?.setRaised(hoverId)
+  }, [coreRef, hoverId, els])
+
   /** Markers d'une pastille, résolus à la demande (infobulle). */
   const membersOf = useCallback(
     (key: string | number): MarkerData[] => leavesOf(nodesRef.current.get(key)?.members ?? []).map((p) => p.marker),

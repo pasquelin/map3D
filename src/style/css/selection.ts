@@ -69,12 +69,21 @@ export const CSS_SELECTION = `
    tourne lentement — même langage N/B que les formes. */
 .m3d-marker-node.m3d-multisel::before,
 .m3d-marker-node.m3d-multisel::after{--ring-d:var(--m3d-selring,52px)}
+/* Marker à AVATAR en multi-sélection : le ring doit ceinturer la PHOTO (comme la
+   sélection simple, ligne ~66), pas rester au diamètre du sprite — sinon le pointillé
+   passe DANS l'avatar. Même correctif de diamètre que le ring simple avatar. */
+.m3d-marker-node.m3d-multisel:has(.m3d-marker-avatar)::before,
+.m3d-marker-node.m3d-multisel:has(.m3d-marker-avatar)::after{
+  --ring-d:var(--m3d-avatarring,var(--m3d-selring,52px))}
 /* .m3d-ants-ring : le MÊME anneau marching-ants, réutilisable par un nœud non-marker
-   (pastille de cluster) — son diamètre vient de --ring-d posé en style inline. */
+   (pastille de cluster) — son diamètre vient de --ring-d posé en style inline. Trait
+   épaissi (2.4px) : à 1.6px les tirets étaient trop fins pour distinguer un élément
+   sélectionné, surtout plusieurs voisins dans un cluster. Marker et cluster partagent
+   ce trait → aucune différence visuelle possible entre eux. */
 .m3d-marker-node.m3d-multisel::before,
-.m3d-ants-ring::before{border:1.6px solid #fff}
+.m3d-ants-ring::before{border:2.4px solid #fff}
 .m3d-marker-node.m3d-multisel::after,
-.m3d-ants-ring::after{border:1.6px dashed #000;
+.m3d-ants-ring::after{border:2.4px dashed #000;
   animation:m3d-selring-spin 7s linear infinite}
 @keyframes m3d-selring-spin{to{transform:rotate(360deg)}}
 

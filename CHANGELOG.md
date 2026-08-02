@@ -6,6 +6,71 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Loupe : un marker masqué par le zoom est signalé (œil barré), pas retiré
+
+Un marker de décor (`MarkerData.static`) passé **sous son seuil `minZoom`** disparaît de la
+carte mais **reste listé** dans la loupe (comme dans la recherche : voler dessus à tout
+zoom). Il était alors présent dans l'inventaire **sans explication** de son invisibilité.
+
+- La ligne d'un marker masqué porte désormais un **œil barré** (infobulle `labels.lens.hidden`,
+  « Masqué au zoom actuel ») et son texte s'**atténue légèrement**. **Aucun changement de
+  comportement** : l'inventaire reste complet, il s'explique.
+- Nouvelle requête autoritaire `engine.markers.hiddenByZoom(id)` (registre `MarkerRegistry`),
+  alimentée par la couche marker — seuil **par couche** et hystérésis compris.
+- Nouveau libellé `labels.lens.hidden`.
+
+### Sélection : un marker `static` masqué par le zoom sort de la sélection
+
+Un marker de décor (`MarkerData.static`) sélectionné puis masqué au **dézoom** (passage
+sous son seuil `minZoom`) restait compté dans la multi-sélection alors qu'il avait disparu
+de la carte — d'où un panneau « 3 marqueurs » face à un cluster n'en affichant que 2.
+
+- Le provider de sélection (`engine.selectables`) ne déclare désormais vivants que les
+  markers **réellement rendus** : un statique passé sous son seuil est **purgé** de la
+  sélection (le compteur du panneau suit). La loupe/recherche gardent, elles, les points
+  complets (voler sur un marker à tout zoom, inchangé).
+- Comportement **choisi** : ce qui se masque au zoom sort de la sélection ; re-zoomer le
+  fait réapparaître **non re-sélectionné**.
+
+### Empilement des formes cohérent (sélection au premier plan)
+
+Deux formes qui se chevauchaient s'empilaient de façon **arbitraire** (toutes au même
+`renderOrder`), alors que leur **contour de sélection** (overlay SVG) reste toujours au-dessus —
+d'où un mismatch (« la forme passe sous une autre mais pas son pointillé »).
+
+- **Empilement stable** : chaque forme reçoit un `renderOrder` par **ordre de création** (les
+  plus récentes devant), posé en une passe `restack()` **sans reconstruire la géométrie**
+  (remplissage sous son propre trait via `userData.ro`).
+- **Sélection au premier plan** : une forme sélectionnée bondit **devant toutes les autres**
+  (remplissage + trait), si bien que sa profondeur 3D suit enfin son contour de sélection.
+  Appliqué aux mutations, au changement de sélection et à la bascule de drapage.
+
+### Panneau de sélection : mise en page HOMOGÈNE, deux briques uniques
+
+Le panneau de sélection mélangeait du markup custom (formes, tracés) et `MarkerList`
+(markers, clusters) → **trois** rendus de ligne différents. Il repose désormais sur **deux
+composants uniques**, réutilisés partout :
+
+- **`SelectionRow`** (via **`SelectionList`**) : la ligne, structure invariante
+  `[icône] titre/sous-titre · menu « … » · croix ✕`. `MarkerList` (export public, loupe
+  comprise) en devient un **adaptateur** — aucun markup de ligne ne vit plus ailleurs.
+- **`SelectionGroup`** : l'en-tête pliable (chevron + icône + libellé + compteur + croix),
+  corps = `SelectionList` / `MarkerList`. Remplace tout le markup de groupe custom.
+- Conséquence : **même mise en page** pour marker, tracé, forme et enfant de cluster ; le
+  « … » (avec « Cibler » partout, « Supprimer » sur une forme) et la croix ✕ (désélection,
+  par membre pour un enfant de cluster) sont présents **de façon cohérente**.
+- **Icônes de ligne** : chaque forme et chaque tracé affiche son **glyphe teinté de SA couleur**
+  (glyphe d'outil pour une forme, polyligne pour un tracé) — repère visuel homogène. Les enfants
+  d'un groupe déplié sont reliés par un **filet vertical discret** (style arbre) plutôt qu'un simple retrait.
+- **Loupe et sélecteur : mêmes briques, zéro duplication** : le conteneur de défilement unique
+  (`SelectionScroll`), les en-têtes pliables (`SelectionGroup`), les lignes (`MarkerList` →
+  `SelectionRow`) et le mini-camembert (`ClusterPie`, extrait) sont **partagés**. La **loupe groupe
+  désormais son inventaire par CLUSTER** (`engine.markers.visualNodeOf`) — même notion de groupe que
+  le sélecteur — avec les groupes **OUVERTS par défaut** ; les markers isolés restent à plat. Seules
+  différences assumées : le sélecteur flotte (groupes **fermés** par défaut, panneau compact), la
+  loupe reste **magnétique** à sa zone. Scroll unique des deux côtés (pas de scroll par bloc ni
+  horizontal), menu « … » borné en hauteur.
+
 ### Sélection : langage visuel homogène (cluster) + mini-camembert dans les badges
 
 - **Cluster sélectionné** : même **anneau marching-ants** N/B que les markers (`.m3d-ants-ring`,
@@ -16,6 +81,11 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   couleurs des parts (`conic-gradient`, parts égales par type comme la pastille) au lieu d'une icône
   générique. `SelectableGroup` porte désormais `counts` (répartition par type) ; `useDrawing().clusterGroups`
   aussi.
+- **Anneau de sélection à l'écran (marker / cluster) homogénéisé** : trait de l'anneau marching-ants
+  **épaissi** (1.6 → 2.4 px, partagé marker-multisélection ET cluster — aucune différence possible ; le
+  contour des formes/tracés reste à 1.6 px) ; un marker à **avatar** en multi-sélection ceinture désormais
+  la PHOTO (`--m3d-avatarring`) au lieu de passer dedans. Le diamètre de l'anneau d'un avatar est
+  **calculé** depuis un écart thémé **`theme.markers.selectedGapPx`** (défaut 4) — plus de valeur en dur.
 
 ### Sélection des tracés et des clusters (outil sélection généralisé)
 
@@ -25,10 +95,13 @@ polygone). Un cluster sélectionné apparaît dans le panneau comme un **groupe 
 ses **markers enfants** (réutilise le pattern catalogue).
 
 - **Tracés** : `PathLayer` s'enregistre comme `SelectableProvider` (contour écran projeté au
-  finalize/clic — chemin froid). Un tracé sélectionné reçoit un **halo** (`theme.colors.path.selected`).
+  finalize/clic — chemin froid). Un tracé sélectionné reçoit le **même contour pointillé**
+  (marching-ants) que les formes, via `SelectionOverlay` — **pas** de halo 3D propre.
 - **Clusters** : `ClusterSurface` s'enregistre comme provider ; **clic sur pastille = zoom**
-  hors outil sélection, **sélection** (de ses enfants) quand l'outil sélection est actif. La
-  sélection d'un cluster **persiste par ses markers enfants** (la pastille est éphémère).
+  hors outil sélection, **sélection** (de ses enfants) quand l'outil sélection est actif. Au
+  **recompute du clustering** (zoom), un groupe cluster sélectionné est réconcilié : re-clé sur
+  la pastille courante tant que **les mêmes membres** forment un cluster, sinon **dissous** en
+  sélection plate (ses membres restent sélectionnés, listés à plat ; la rangée disparaît).
 - **Politique de sélectionnabilité** : **`config.selection.selectable`** — un booléen par type
   (`marker` / `path` / `cluster`, tout `true` par défaut), surchargeable par `<Map config>`,
   pour **limiter la sélection selon le cas**. Respectée par tous les outils.
@@ -45,7 +118,14 @@ ses **markers enfants** (réutilise le pattern catalogue).
 - Le callback gagne un 3ᵉ argument : `onSelectionChange(ids, markerIds, pathIds)`. `markerIds` =
   markers à plat (enfants des clusters sélectionnés **inclus**, ids bruts) ; `pathIds` = tracés,
   **population distincte** (jamais mêlée aux markers). Rétrocompatible (arg optionnel).
-- Nouveau `theme.colors.path.selected`. Nouveaux `labels.selection.pathsGroup` / `pathItem`.
+- `SelectableProvider` gagne `boundsOf?` (cadrer un tracé — « Cibler » d'un badge),
+  `selectedContours?` (contours des sélectionnés → pointillé de l'overlay) et `hasSelectedContours?`
+  (garde bon marché) ; `SelectableRegistry` expose `boundsOf` / `selectedContours` /
+  `hasSelectedContours`. `SelectableInfo` porte un `color?` optionnel (teinte du glyphe d'un tracé
+  dans les badges). L'anneau/rectangle d'emprise (bbox) n'englobe QUE les formes, jamais les tracés.
+- `useDrawing()` gagne `deselectClusterMember(key, memberId)` (désélection d'un enfant de cluster).
+- Nouveaux `labels.selection.pathsGroup` / `pathItem` / **`delete`**. Le thème **ne porte plus**
+  `colors.path.selected` (le pointillé remplace le halo — couleur fixe N/B).
 
 ### Gomme (ponctuelle + sélection)
 

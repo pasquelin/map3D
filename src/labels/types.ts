@@ -330,6 +330,8 @@ export type MapLabels = {
     shapeItem: string
     /** aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. */
     deleteShape: string
+    /** Item de menu « Supprimer » d'une ligne de forme (libellé court, sans paramètre). */
+    delete: string
     /** Nom de la catégorie tracés dans une rangée. */
     pathsGroup: string
     /** Libellé d'un tracé déplié — `{n}` (rang dans le groupe). */
@@ -372,6 +374,12 @@ export type MapLabels = {
     movePanel: string
     /** aria-label/tooltip du bouton qui ré-aimante le panneau à la zone (après déplacement). */
     snapBack: string
+    /**
+     * Tooltip/aria de l'œil barré d'une ligne : le marker est listé dans la loupe mais
+     * RETIRÉ de la carte par le gate de zoom (`static` passé sous son seuil `minZoom`).
+     * Explique un marker inventorié mais invisible, sans changer le comportement.
+     */
+    hidden: string
   }
   /** Panneau « Réglages des outils ». */
   settings: {

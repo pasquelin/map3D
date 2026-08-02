@@ -33,6 +33,7 @@ export function useMarkerRegistries<T>({
   coreRef,
   entriesRef,
   pointsByIdRef,
+  renderedIdsRef,
   latest,
   searchSource,
   points,
@@ -44,6 +45,7 @@ export function useMarkerRegistries<T>({
   coreRef: RefObject<CoreMarkerLayer | null>
   entriesRef: RefObject<Map<string | number, MarkerData<T>>>
   pointsByIdRef: RefObject<Map<string | number, MarkerData<T>>>
+  renderedIdsRef: RefObject<Set<string | number>>
   latest: RefObject<MarkerRegistriesSnapshot<T>>
   searchSource: string
   points: MarkerData<T>[]
@@ -68,7 +70,12 @@ export function useMarkerRegistries<T>({
       setSelected: (ids) => {
         coreRef.current?.setMultiSelected(new Set(ids))
       },
+      // `null` dès qu'un id n'est plus RENDU (gate de zoom des statiques) : le registre
+      // le déclare disparu et l'outil sélection le purge — un statique passé sous son
+      // seuil sort de la multi-sélection. La loupe, elle, garde les points complets
+      // (`markerById`), pour voler sur un marker à tout zoom.
       info: (id) => {
+        if (!renderedIdsRef.current.has(id)) return null
         const p = pointsByIdRef.current.get(id)
         return p ? { kind: 'marker', type: p.type } : null
       },
@@ -89,6 +96,11 @@ export function useMarkerRegistries<T>({
         return out
       },
       markerById: (id) => pointsByIdRef.current.get(id) ?? null,
+      // Connu (dans les points complets) mais ABSENT du rendu = masqué par le gate de
+      // zoom des `static`. Même `renderedIdsRef` que le prune de sélection : un seul
+      // point de vérité pour « ce qui est réellement sur la carte », seuil par couche et
+      // hystérésis compris. La loupe l'interroge pour expliquer un marker listé mais invisible.
+      hiddenByZoom: (id) => (pointsByIdRef.current.has(id) ? !renderedIdsRef.current.has(id) : null),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])

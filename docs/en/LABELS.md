@@ -242,6 +242,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.expandGroup` | aria-label of the chevron expanding a shape group — `{label}` = the group's label. | `'Déplier / replier {label}'` |
 | `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
+| `selection.delete` | "Delete" menu item of a shape row (short label, no parameter). | `'Supprimer'` |
 | `selection.pathsGroup` | Name of the paths category in a row. | `'Tracés'` |
 | `selection.pathItem` | Label of an expanded path — `{n}` (rank in the group). | `'Tracé {n}'` |
 
@@ -271,6 +272,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `lens.remove` | aria-label of the button removing the lens area. | `'Retirer la loupe'` |
 | `lens.movePanel` | aria-label of the panel's move grip. | `'Déplacer le panneau'` |
 | `lens.snapBack` | aria-label/tooltip of the button snapping the panel back to the area (after moving it). | `'Rattacher le panneau à la zone'` |
+| `lens.hidden` | Tooltip/aria of a row's crossed-out eye: the marker is listed in the lens but REMOVED from the map by the zoom gate (`static` below its `minZoom` threshold). | `'Masqué au zoom actuel'` |
 
 ## `settings` — Settings panel
 

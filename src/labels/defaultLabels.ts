@@ -209,6 +209,7 @@ export const defaultLabels: MapLabels = {
     expandGroup: 'Déplier / replier {label}',
     shapeItem: '{type} {n}',
     deleteShape: 'Supprimer {label}',
+    delete: 'Supprimer',
     pathsGroup: 'Tracés',
     pathItem: 'Tracé {n}',
   },
@@ -229,6 +230,7 @@ export const defaultLabels: MapLabels = {
     remove: 'Retirer la loupe',
     movePanel: 'Déplacer le panneau',
     snapBack: 'Rattacher le panneau à la zone',
+    hidden: 'Masqué au zoom actuel',
   },
   settings: {
     title: 'Réglages des outils',
