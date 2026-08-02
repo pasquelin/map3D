@@ -241,3 +241,67 @@ describe('MarkerLayer — contrat de la passe de projection', () => {
     expect(worldOf(layer, 'toit').elements[13]).toBe(40)
   })
 })
+
+/**
+ * `selectedContours` cercle chaque marker multi-sélectionné au gabarit AVATAR (photo pleine)
+ * ou SPRITE. Ce gabarit était sondé dans le DOM (`querySelector`) à CHAQUE frame ; il vit
+ * désormais dans un flag de nœud, alimenté par la donnée (`OverlayItem.avatar`) et corrigé à
+ * chaud par `setAvatar` quand l'image échoue. Ce bloc verrouille ces trois chemins.
+ */
+describe('MarkerLayer — gabarit de silhouette avatar (sans sondage DOM)', () => {
+  const camera = new THREE.PerspectiveCamera()
+
+  /** Rayons des cercles rendus, triés — deux markers au même point ne diffèrent que par r. */
+  const radii = (layer: MarkerLayer): number[] =>
+    layer
+      .selectedContours(camera)
+      .map((g) => (g.kind === 'circle' ? g.r : 0))
+      .sort((a, b) => a - b)
+
+  function setupAvatars() {
+    const group = anchorGroup()
+    const layer = new MarkerLayer(
+      group,
+      ellipsoid,
+      fakeProjection(),
+      () => {},
+      () => {},
+    )
+    layer.setItems([
+      { id: 'photo', position: RUE, animateEnter: false, avatar: true },
+      { id: 'sprite', position: RUE, animateEnter: false, avatar: false },
+    ])
+    // Sprite ⌀20 (r 10) vs avatar ⌀40 (r 20) : deux gabarits distinguables par le rayon seul.
+    layer.setSelectionRing(20, 40)
+    layer.setMultiSelected(new Set(['photo', 'sprite']))
+    return { layer }
+  }
+
+  it('prend le gabarit avatar/sprite depuis la donnée, sans lire le DOM', () => {
+    const { layer } = setupAvatars()
+    expect(radii(layer)).toEqual([10, 20])
+  })
+
+  it('une image cassée (setAvatar false) repasse au sprite, et un setItems ne l’écrase pas', () => {
+    const { layer } = setupAvatars()
+    // Avatar 404 → le contenu React retombe sur l'icône et le signale au core.
+    layer.setAvatar('photo', false)
+    expect(radii(layer)).toEqual([10, 10])
+    // Rafraîchissement de données à avatar-ness INCHANGÉE : la correction doit survivre.
+    layer.setItems([
+      { id: 'photo', position: RUE, animateEnter: false, avatar: true },
+      { id: 'sprite', position: RUE, animateEnter: false, avatar: false },
+    ])
+    expect(radii(layer)).toEqual([10, 10])
+  })
+
+  it('un vrai changement de la donnée (avatar retiré puis remis) refixe le gabarit', () => {
+    const { layer } = setupAvatars()
+    layer.setAvatar('photo', false)
+    // La donnée retire puis remet l'avatar : la bascule doit re-synchroniser le flag.
+    layer.setItems([{ id: 'photo', position: RUE, animateEnter: false, avatar: false }])
+    expect(radii(layer)).toEqual([10])
+    layer.setItems([{ id: 'photo', position: RUE, animateEnter: false, avatar: true }])
+    expect(radii(layer)).toEqual([20])
+  })
+})

@@ -20,6 +20,9 @@ export type OverlayItem = {
   zIndex?: number
   /** Couleur de l'anneau quand ce marker est le sélectionné. */
   selectedColor?: string
+  /** Contenu = photo pleine (avatar) plutôt que sprite : fixe le gabarit de l'anneau de
+   *  sélection (`setSelectionRing`). Corrigé à chaud par `setAvatar` si l'image échoue. */
+  avatar?: boolean
 }
 
 export type MoveTween = { durationMs: number; easing: (t: number) => number }
@@ -42,6 +45,12 @@ type Node = {
   zIndex: number
   /** Dernière couleur d'anneau écrite — évite de réécrire le style à l'identique. */
   selColor: string | undefined
+  /** Contenu = avatar (photo pleine) ? Cache lu par `selectedContours` PAR FRAME — évite d'y
+   *  sonder le DOM (`querySelector`) à chaque marker sélectionné. */
+  isAvatar: boolean
+  /** Dernière avatar-ness issue de la DONNÉE : ne resynchronise `isAvatar` que quand elle
+   *  bascule, sinon un `setItems` écraserait la correction `setAvatar` (image 404). */
+  avatarData: boolean
 }
 
 /**
@@ -288,6 +297,8 @@ export class MarkerLayer implements Layer {
           groundHeight: 0,
           zIndex: 0,
           selColor: undefined,
+          isAvatar: false,
+          avatarData: false,
         }
         this.applyItemStyle(node, item)
         // Pose immédiate sur le sol si les tuiles sont déjà là ; sinon hauteur 0
@@ -369,6 +380,17 @@ export class MarkerLayer implements Layer {
   }
 
   /**
+   * Corrige l'état avatar d'un nœud depuis le CONTENU React (chargement/erreur d'image, async) :
+   * l'`<img>` avatar signale son succès (`load`) ou son repli sur l'icône (`error`, 404). Alimente
+   * le cache `node.isAvatar` lu par `selectedContours` — pour ne PAS sonder le DOM par frame.
+   */
+  setAvatar(id: string | number, isAvatar: boolean): void {
+    const node = this.nodes.get(id)
+    if (!node || node.isAvatar === isAvatar) return
+    node.isAvatar = isAvatar
+  }
+
+  /**
    * Applique la multi-sélection de l'outil sélection : maintient le set `multiSel`
    * (source des silhouettes de `selectedContours`) et toggle par diff la classe d'ÉTAT
    * `m3d-multisel` — qui n'est plus un anneau CSS, seulement le marqueur qui éteint
@@ -438,7 +460,7 @@ export class MarkerLayer implements Layer {
       if (this.projection.isBehindCamera(world, camera.position)) continue
       const s = this.projection.worldToScreen(world, camera, this.screen)
       // Rayon = celui de l'anneau CSS d'avant : gabarit AVATAR (photo pleine) ou sprite.
-      const isAvatar = node.el.querySelector('.m3d-marker-avatar') !== null
+      const isAvatar = node.isAvatar
       const d = isAvatar ? (this.avatarRingPx ?? this.ringPx) : this.ringPx
       if (d == null) continue
       // Le badge est RELEVÉ du leader line au-dessus de son ancre au sol : la silhouette
@@ -491,6 +513,14 @@ export class MarkerLayer implements Layer {
     if (z !== node.zIndex) {
       node.zIndex = z
       this.applyOrder(item.id)
+    }
+    // Avatar-ness suivie depuis la donnée : ne réécrit `isAvatar` que si elle BASCULE, sinon
+    // un `setItems` (données à chaud) annulerait une correction `setAvatar` (image 404 → sprite).
+    // Un vrai changement de contenu (avatar ajouté/retiré) re-render le portail côté React.
+    const wantAvatar = !!item.avatar
+    if (wantAvatar !== node.avatarData) {
+      node.avatarData = wantAvatar
+      node.isAvatar = wantAvatar
     }
     // Var CSS plutôt qu'une classe : la couleur est une valeur continue, et le
     // style de l'anneau reste entièrement décrit dans la feuille. Écrite seulement

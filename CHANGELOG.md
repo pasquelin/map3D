@@ -6,6 +6,14 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### perf : silhouette de sélection des markers sans sondage DOM par frame
+
+`MarkerLayer.selectedContours` choisissait le gabarit de l'anneau (avatar plein vs sprite) via
+un `querySelector('.m3d-marker-avatar')` **par marker sélectionné et par frame** — une lecture
+DOM sur le chemin chaud pendant tout pan avec multi-sélection. Le gabarit vit désormais dans un
+flag de nœud (`OverlayItem.avatar`, corrigé à chaud par `MarkerLayer.setAvatar` sur `load`/`error`
+de l'image) : **zéro accès DOM** dans la boucle de frame. Aucun changement de comportement visible.
+
 ## [0.2.0] — 2026-08-02
 
 ### Loupe : un marker masqué par le zoom est signalé (œil barré), pas retiré

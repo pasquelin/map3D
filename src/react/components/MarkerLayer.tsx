@@ -323,6 +323,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
         animateEnter: at ? false : undefined,
         zIndex: m.zIndex,
         selectedColor: m.selectedColor,
+        avatar: !!m.avatar,
       })
       entries.set(id, m)
     }
@@ -549,8 +550,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
           style={{ ...imgStyle, borderColor: markerColorOf(theme, marker.type).base }}
           draggable={false}
           alt=""
+          // Confirme au core le gabarit AVATAR (anneau de sélection) sans qu'il sonde le DOM :
+          // couvre le cas d'un avatar réparé (404 → URL valide) où la donnée ne rebascule pas.
+          onLoad={() => coreRef.current?.setAvatar(id, true)}
           // Avatar introuvable (404, chemin cassé) → repli sur l'icône du type,
-          // jamais une image cassée.
+          // jamais une image cassée. Le core repasse au gabarit SPRITE (`setAvatar`).
           onError={
             props.icon
               ? (e) => {
@@ -558,6 +562,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
                   img.classList.remove('m3d-marker-avatar')
                   img.style.borderColor = ''
                   img.src = markerIconSrc(marker)
+                  coreRef.current?.setAvatar(id, false)
                 }
               : undefined
           }
