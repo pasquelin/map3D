@@ -79,6 +79,10 @@ export function useMarkerRegistries<T>({
         const p = pointsByIdRef.current.get(id)
         return p ? { kind: 'marker', type: p.type } : null
       },
+      // Silhouettes (cercles) des markers multi-sélectionnés → pointillé d'union de
+      // l'overlay, même langage que tracés et clusters. Le core se reprojette lui-même.
+      selectedContours: () => coreRef.current?.selectedContours(engine.threeCamera) ?? [],
+      hasSelectedContours: () => coreRef.current?.hasSelectedContours() ?? false,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coreRef, engine])

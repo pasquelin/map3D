@@ -6,7 +6,8 @@ import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
 import type { StatContribution } from '../core/viewStats'
 import type { Projection, ScreenPoint } from '../core/Projection'
-import type { SelectableScreenItem } from '../core/Selectables'
+import type { SelectableGeometry, SelectableScreenItem } from '../core/Selectables'
+import { LEADER_LIFT_PX } from '../style/css/markers'
 import { clamp, DEG2RAD, shortestLngDelta } from '../core/math'
 import type { LatLng } from '../shared'
 import { isInsideFrame, isWithinViewDistance } from './markerCull'
@@ -405,6 +406,44 @@ export class MarkerLayer implements Layer {
       out.push({ id: node.id, kind: 'marker', x: s.sx, y: s.sy })
     }
     return out
+  }
+
+  /**
+   * Silhouettes écran (cercles, px canvas) des markers MULTI-sélectionnés — alimente le
+   * pointillé d'UNION de `SelectionOverlay`, même langage visuel que tracés et clusters.
+   *
+   * Se reprojette lui-même (comme `PathLayer.selectedContours`) : appelé par frame tant
+   * qu'une multi-sélection est active, sans lire aucune position posée par une autre
+   * couche dans la même passe — donc aucun couplage d'ordre de projection. Chemin réduit
+   * au petit set des sélectionnés.
+   */
+  selectedContours(camera: THREE.Camera): SelectableGeometry[] {
+    if (this.multiSel.size === 0) return []
+    this.projection.setViewDirection(camera)
+    const out: SelectableGeometry[] = []
+    for (const id of this.multiSel) {
+      const node = this.nodes.get(id)
+      // Même verdict d'occlusion/derrière-caméra que `screenPositions` : un marker masqué
+      // par l'horizon ou passé derrière la caméra ne porte pas de silhouette.
+      if (!node || !node.visible) continue
+      const world = node.obj.getWorldPosition(this.worldScratch)
+      if (this.projection.isBehindCamera(world, camera.position)) continue
+      const s = this.projection.worldToScreen(world, camera, this.screen)
+      // Rayon = celui de l'anneau CSS d'avant : gabarit AVATAR (photo pleine) ou sprite.
+      const isAvatar = node.el.querySelector('.m3d-marker-avatar') !== null
+      const d = isAvatar ? (this.avatarRingPx ?? this.ringPx) : this.ringPx
+      if (d == null) continue
+      // Le badge est RELEVÉ du leader line au-dessus de son ancre au sol : la silhouette
+      // doit cercler le badge visible, pas le point projeté (sinon décalage vertical).
+      const cy = s.sy - (this.leaderLine ? LEADER_LIFT_PX : 0)
+      out.push({ kind: 'circle', cx: s.sx, cy, r: d / 2 })
+    }
+    return out
+  }
+
+  /** Des markers sont-ils multi-sélectionnés ? — garde bon marché de l'overlay (sans reprojeter). */
+  hasSelectedContours(): boolean {
+    return this.multiSel.size > 0
   }
 
   setSelected(id: string | number | null): void {

@@ -34,9 +34,7 @@ export const CSS_SELECTION = `
    du marker + marge. Les glows sont en box-shadow (peints avec l'anneau,
    composables avec l'animation transform) — pas de filter:drop-shadow qui
    re-rastérise le sous-arbre à chaque frame d'animation. */
-.m3d-marker-node.m3d-multisel::before,.m3d-marker-node.m3d-multisel::after,
 .m3d-marker-node.m3d-selected:not(.m3d-multisel)::after,
-.m3d-ants-ring::before,.m3d-ants-ring::after,
 .m3d-sonar::before,.m3d-sonar::after,
 .m3d-target::before,.m3d-target::after{content:'';position:absolute;left:0;top:0;
   box-sizing:border-box;width:var(--ring-d);height:var(--ring-d);
@@ -65,26 +63,12 @@ export const CSS_SELECTION = `
 .m3d-marker-node.m3d-selected:has(.m3d-marker-avatar)::after{
   --ring-d:var(--m3d-avatarring,var(--m3d-selring,52px))}
 
-/* Marker multi-sélectionné : anneau blanc plein + anneau noir en tirets qui
-   tourne lentement — même langage N/B que les formes. */
-.m3d-marker-node.m3d-multisel::before,
-.m3d-marker-node.m3d-multisel::after{--ring-d:var(--m3d-selring,52px)}
-/* Marker à AVATAR en multi-sélection : le ring doit ceinturer la PHOTO (comme la
-   sélection simple, ligne ~66), pas rester au diamètre du sprite — sinon le pointillé
-   passe DANS l'avatar. Même correctif de diamètre que le ring simple avatar. */
-.m3d-marker-node.m3d-multisel:has(.m3d-marker-avatar)::before,
-.m3d-marker-node.m3d-multisel:has(.m3d-marker-avatar)::after{
-  --ring-d:var(--m3d-avatarring,var(--m3d-selring,52px))}
-/* .m3d-ants-ring : le MÊME anneau marching-ants, réutilisable par un nœud non-marker
-   (pastille de cluster) — son diamètre vient de --ring-d posé en style inline. Trait
-   épaissi (2.4px) : à 1.6px les tirets étaient trop fins pour distinguer un élément
-   sélectionné, surtout plusieurs voisins dans un cluster. Marker et cluster partagent
-   ce trait → aucune différence visuelle possible entre eux. */
-.m3d-marker-node.m3d-multisel::before,
-.m3d-ants-ring::before{border:2.4px solid #fff}
-.m3d-marker-node.m3d-multisel::after,
-.m3d-ants-ring::after{border:2.4px dashed #000;
-  animation:m3d-selring-spin 7s linear infinite}
+/* Multi-sélection (markers, clusters, tracés) : plus AUCUN anneau CSS par nœud. La
+   silhouette marching-ants est peinte dans le SVG partagé de SelectionOverlay, qui en
+   fait l'UNION quand plusieurs se recouvrent (langage visuel unique, sans croisement).
+   La classe m3d-multisel subsiste sur le nœud du marker au seul titre d'ÉTAT : elle
+   éteint l'anneau plein coloré de la sélection simple (:not(.m3d-multisel) ci-dessus),
+   pour ne pas superposer deux anneaux concentriques. */
 @keyframes m3d-selring-spin{to{transform:rotate(360deg)}}
 
 /* Sonar « nouvel élément » : signal opérationnel À TRAITER — anneaux épais très

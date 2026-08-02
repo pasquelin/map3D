@@ -17,7 +17,7 @@ import type { VisualNode } from '../../core/MarkerQuery'
 import * as THREE from 'three'
 import type { MarkerLayer as CoreMarkerLayer, OverlayItem } from '../../layers/MarkerLayer'
 import type { ScreenPoint } from '../../core/Projection'
-import type { SelectableScreenItem } from '../../core/Selectables'
+import type { SelectableGeometry, SelectableScreenItem } from '../../core/Selectables'
 import { isWithinViewDistance } from '../../layers/markerCull'
 import {
   ClusterEngine,
@@ -28,11 +28,12 @@ import {
 } from '../../layers/ClusterLayer'
 import type { MarkerData } from '../../data/types'
 import { formatCount } from '../../labels/mergeLabels'
-import { type LatLng, sameSet } from '../../shared'
+import type { LatLng } from '../../shared'
 import { useConfig, useLabels, useMapContext } from '../context'
 import { useEntriesSignature } from '../hooks/useEntriesSignature'
 import { useOverlayLayer } from '../hooks/useOverlayLayer'
 import { useGroundedView } from '../hooks/usePedestrian'
+import { LEADER_LIFT_PX } from '../../style/css/markers'
 import { DefaultCluster, defaultClusterRadius } from './DefaultCluster'
 import { hasTipContent, MarkerTip } from './MarkerTip'
 import { svgToDataUri } from './MarkerLayer'
@@ -121,10 +122,18 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
 
   const [hoverId, setHoverId] = useState<string | number | null>(null)
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
-  // Clés (String) des pastilles sélectionnées — pilote l'anneau. Best-effort : une
-  // pastille est éphémère (recompute), donc l'anneau peut disparaître au pan ; la
-  // sélection, elle, persiste par les markers enfants (cf. groupSel côté DrawLayer).
-  const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set())
+  // Clés (String) des pastilles sélectionnées — alimente la silhouette d'union de
+  // l'overlay (`selectedContours` ci-dessous), plus aucun anneau CSS. En REF, pas en
+  // state : le pointillé est peint par la passe projection de `SelectionOverlay`, pas
+  // par un rendu React, donc une sélection ne doit plus re-rendre les portails.
+  // Best-effort : une pastille est éphémère (recompute), donc l'anneau peut disparaître
+  // au pan ; la sélection, elle, persiste par les markers enfants (cf. DrawLayer).
+  const selectedKeysRef = useRef<ReadonlySet<string>>(new Set())
+  // Dernier set de sélection reçu (membres effectifs + clés de groupe) — mémorisé pour
+  // RÉÉVALUER quelles pastilles sont sélectionnées après chaque recompute : le zoom
+  // recrée les pastilles (nouvelles clés) sans repasser par `setSelected`, et une pastille
+  // qui vient d'absorber des markers sélectionnés doit en hériter (union sur la pastille).
+  const appliedIdsRef = useRef<ReadonlySet<string | number>>(new Set())
   const [rev, signature] = useEntriesSignature()
 
   const clusterSize = size ?? Math.round(theme.markers.size * 1.18)
@@ -175,6 +184,33 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     },
     [forEachLeaf],
   )
+
+  // Recalcule les pastilles sélectionnées depuis le dernier set de sélection : une pastille
+  // l'est si sa CLÉ est sélectionnée (cluster cliqué) OU si l'un de ses markers feuilles
+  // l'est (markers absorbés au dézoom → la pastille hérite). Appelé sur changement de
+  // sélection ET après chaque recompute (le regroupement change hors cycle de sélection).
+  const markSelectedClusters = useCallback(() => {
+    const ids = appliedIdsRef.current
+    const next = new Set<string>()
+    if (ids.size > 0) {
+      for (const [key, node] of nodesRef.current) {
+        const k = String(key)
+        if (ids.has(k)) {
+          next.add(k)
+          continue
+        }
+        // Un seul membre feuille sélectionné suffit — visite SANS matérialiser le tableau
+        // des feuilles (`leavesOf` allouerait un tableau par pastille à chaque recompute).
+        let hit = false
+        forEachLeaf(node.members, (p) => {
+          if (!hit && ids.has(p.owner.idOf(p.marker))) hit = true
+        })
+        if (hit) next.add(k)
+      }
+    }
+    // Ref (pas un state) : l'affecter ne re-rend rien, donc pas de garde `sameSet`.
+    selectedKeysRef.current = next
+  }, [forEachLeaf])
 
   const recompute = useCallback(() => {
     const core = coreRef.current
@@ -317,7 +353,11 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     signature.begin(dataRevRef.current)
     for (const [k, n] of nodes) signature.add(k, n.cluster.total)
     signature.end()
-  }, [coreRef, engine, forEachLeaf, leavesOf, signature])
+
+    // Les pastilles viennent d'être recréées (clés neuves) : réappliquer la sélection,
+    // sinon une pastille qui absorbe des markers sélectionnés au dézoom perdrait l'anneau.
+    markSelectedClusters()
+  }, [coreRef, engine, forEachLeaf, leavesOf, markSelectedClusters, signature])
 
   // Index supercluster : reconstruit quand les DONNÉES d'une couche changent.
   useEffect(() => {
@@ -465,10 +505,33 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
         return out
       },
       setSelected: (ids) => {
-        const next = new Set<string>()
-        for (const [key] of nodesRef.current) if (ids.has(String(key))) next.add(String(key))
-        setSelectedKeys((cur) => (sameSet(cur, next) ? cur : next))
+        appliedIdsRef.current = ids
+        markSelectedClusters()
       },
+      // Silhouettes (cercles) des pastilles sélectionnées → pointillé d'UNION de l'overlay.
+      // Reprojection à la demande (chemin par frame tant qu'une pastille est sélectionnée),
+      // scratches partagés — pas d'alloc par pastille. Rayon = celui de l'ex-anneau CSS :
+      // pastille custom (`clusterSize`) ou donut par défaut, plus le gap thémé de chaque côté.
+      selectedContours: () => {
+        const keys = selectedKeysRef.current
+        if (keys.size === 0) return []
+        const { clusterSize: cs, theme: th, chrome: ch } = latest.current
+        const out: SelectableGeometry[] = []
+        // Itère les seuls SÉLECTIONNÉS (petit set) plutôt que toutes les pastilles.
+        for (const key of keys) {
+          const node = nodesRef.current.get(key)
+          if (!node) continue
+          const world = engine.projection.latLngToWorld(node.cluster.position, clusterScratchVec)
+          const s = engine.projection.worldToScreen(world, engine.threeCamera, clusterScratchScreen)
+          if (s.z > 1) continue
+          const ringR = ch.icon ? cs / 2 : defaultClusterRadius(node.cluster.total, th)
+          // La pastille est RELEVÉE du leader line (comme un marker) : cercler le badge
+          // visible, pas l'ancre au sol — sinon décalage vertical.
+          out.push({ kind: 'circle', cx: s.sx, cy: s.sy - LEADER_LIFT_PX, r: ringR + th.clusters.selectedGapPx })
+        }
+        return out
+      },
+      hasSelectedContours: () => selectedKeysRef.current.size > 0,
       // Les clés de nœuds sont des chaînes (`pt:`/`cl:`/`grp:`) : lookup direct O(1).
       info: (id) => {
         const node = nodesRef.current.get(id)
@@ -480,7 +543,7 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
         return { kind: 'cluster', type: 'cluster', group: { label, memberIds, counts: { ...node.cluster.counts } } }
       },
     })
-  }, [engine, leavesOf])
+  }, [engine, leavesOf, markSelectedClusters])
 
   // Relève la pastille survolée au-dessus des voisins (le CSS2DRenderer trie le
   // z-index inline par renderOrder) — sinon son infobulle, enfant de l'ancre de la
@@ -573,10 +636,6 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
       // Ancrage de l'infobulle : au-dessus du VISUEL réel — donut par défaut (rayon
       // dépendant du total) ou pastille custom.
       const tipLift = chrome.icon ? clusterSize / 2 + 10 : defaultClusterRadius(node.cluster.total, theme) + 10
-      // Anneau de sélection : disque absolu centré sur l'ancre (n'affecte pas le flux
-      // de la pastille), couleur du thème. Rayon = pastille custom ou donut par défaut.
-      const isSelected = selectedKeys.has(String(key))
-      const ringSize = chrome.icon ? clusterSize : defaultClusterRadius(node.cluster.total, theme) * 2
       out.push(
         createPortal(
           <>
@@ -610,23 +669,6 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
                   : undefined
               }
             >
-              {isSelected && (
-                // Même anneau marching-ants N/B que les markers (`.m3d-ants-ring`) — langage
-                // visuel de sélection UNIQUE. Diamètre = pastille + `selectedGapPx` de chaque côté,
-                // pour que l'anneau tombe EN DEHORS du donut (sinon il se confond avec son contour).
-                <span
-                  aria-hidden
-                  className="m3d-ants-ring"
-                  style={
-                    {
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      '--ring-d': `${ringSize + 2 * theme.clusters.selectedGapPx}px`,
-                    } as CSSProperties
-                  }
-                />
-              )}
               {content}
             </MarkerContent>
             {hasTipContent(tip) && (
@@ -658,7 +700,6 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
     chrome.tooltip,
     membersOf,
     handleClick,
-    selectedKeys,
   ])
 
   return <>{portals}</>

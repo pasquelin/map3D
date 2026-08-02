@@ -1,3 +1,9 @@
+/** Hauteur (px écran) dont le leader line RELÈVE le badge au-dessus de son ancre au sol.
+ *  Source unique : sert de fallback à la var CSS `--m3d-leader-lift` (ci-dessous) ET de
+ *  décalage vertical aux silhouettes de sélection (cercles) des markers/clusters, qui
+ *  doivent cercler le badge RELEVÉ, pas l'ancre. Les deux ne peuvent donc plus diverger. */
+export const LEADER_LIFT_PX = 44
+
 export const CSS_MARKERS = `/* Sprite d'ancre — PARTAGÉ par le marker et le cluster par défaut : carré centré
    sur son point d'ancrage (marges négatives), dont seule la TAILLE varie. Elle
    arrive par --m3d-sprite, posée en inline par le composant (même convention que
@@ -15,9 +21,9 @@ export const CSS_MARKERS = `/* Sprite d'ancre — PARTAGÉ par le marker et le c
    (badge par-dessus la 3D) tout en montrant sans ambiguïté sa position au sol —
    même en vue rasante où le badge se dessine « en l'air » par-dessus l'avant-plan.
    Transform statique (pas de will-change) → peint dans la même frame que la carte. */
-.m3d-marker-lift{position:absolute;left:0;top:0;transform:translateY(calc(-1 * var(--m3d-leader-lift,44px)))}
-.m3d-marker-leader{position:absolute;left:0;top:calc(-1 * var(--m3d-leader-lift,44px));
-  width:2px;height:var(--m3d-leader-lift,44px);margin-left:-1px;border-radius:1px;
+.m3d-marker-lift{position:absolute;left:0;top:0;transform:translateY(calc(-1 * var(--m3d-leader-lift,${LEADER_LIFT_PX}px)))}
+.m3d-marker-leader{position:absolute;left:0;top:calc(-1 * var(--m3d-leader-lift,${LEADER_LIFT_PX}px));
+  width:2px;height:var(--m3d-leader-lift,${LEADER_LIFT_PX}px);margin-left:-1px;border-radius:1px;
   background:linear-gradient(to top,rgba(17,24,39,.5),rgba(17,24,39,.12));pointer-events:none}
 .m3d-marker-dot{position:absolute;left:0;top:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
   border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(17,24,39,.5);pointer-events:none}

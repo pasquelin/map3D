@@ -10,7 +10,7 @@ import type { StatContribution } from '../core/viewStats'
 import { boundsContains } from '../core/MarkerQuery'
 import type { PointerInterceptor, PointerPhase } from '../core/MapEngine'
 import type { Projection } from '../core/Projection'
-import type { SelectableRegistry } from '../core/Selectables'
+import type { SelectableGeometry, SelectableRegistry } from '../core/Selectables'
 import type { ErasableItem, ErasableRegistry } from '../core/Erasables'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
@@ -28,7 +28,7 @@ import {
   shapeTouchesSelector,
 } from './draw/hitTest'
 import { type SelectMode, SelectionManager } from './draw/SelectionManager'
-import { type OverlayShape, SelectionOverlay } from './draw/SelectionOverlay'
+import { SelectionOverlay } from './draw/SelectionOverlay'
 import {
   type Pt,
   arrowHead,
@@ -1241,14 +1241,14 @@ export class DrawLayer implements Layer {
     if (!this.overlayDirty) return
     this.overlayDirty = false
     this.overlayActive = true
-    const shapes: OverlayShape[] = []
+    const shapes: SelectableGeometry[] = []
     const all: ScreenPt[] = []
     for (const id of this.selection.ids) {
       const d = this.byId.get(id)
       if (!d) continue
       const c = this.screenContour(d)
       if (!c) continue
-      shapes.push(c)
+      shapes.push({ kind: 'poly', pts: c.pts, closed: c.closed })
       for (const p of c.pts) all.push(p)
     }
     // Contours des tracés sélectionnés : MÊME pointillé que les formes (langage unique).

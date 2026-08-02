@@ -259,7 +259,7 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
       // `d.sid` mémorisé : zéro allocation de string dans cette boucle par frame.
       if (!this.selected.has(d.sid)) continue
       const pts = this.projectPath(d, camera, true)
-      if (pts.length > 1) out.push({ pts, closed: false })
+      if (pts.length > 1) out.push({ kind: 'poly', pts, closed: false })
     }
     return out
   }

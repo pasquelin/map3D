@@ -18,8 +18,21 @@ export const SELECTABLE_KINDS: readonly SelectableKind[] = ['marker', 'path', 'c
  */
 export type SelectablePolicy = Partial<Record<SelectableKind, boolean>>
 
-/** Contour écran (px canvas) d'un sélectionnable étendu (tracé) — `pts` compatible `ScreenPt`. */
-export type SelectableGeometry = { pts: { x: number; y: number }[]; closed: boolean }
+/** Polyligne écran (tracé, forme dessinée, contour de hit-test marquee). */
+export type PolyGeometry = { pts: { x: number; y: number }[]; closed: boolean }
+
+/**
+ * Silhouette écran (px canvas) d'un sélectionnable, pour le pointillé « marching-ants »
+ * de l'overlay. Deux formes :
+ *  — `poly` : polyligne d'un tracé ou d'une forme dessinée (`pts` compatible `ScreenPt`) ;
+ *  — `circle` : cercle exact d'un marker ou d'une pastille de cluster.
+ *
+ * L'overlay en fait l'**union** quand plusieurs se recouvrent (silhouette unique, sans
+ * croisement) — d'où le cercle EXACT plutôt qu'un polygone approché : masquage net,
+ * arcs de tirets propres.
+ */
+export type SelectableGeometry =
+  ({ kind: 'poly' } & PolyGeometry) | { kind: 'circle'; cx: number; cy: number; r: number }
 
 /**
  * Position écran (px canvas) d'un élément sélectionnable externe (marker,
@@ -34,8 +47,10 @@ export type SelectableScreenItem = {
   y: number
   /** Tolérance de test au point (rayon d'une pastille de cluster) — défaut : tolérance config. */
   radiusPx?: number
-  /** Contour projeté (tracé) : présent ⇒ testé par `shapeTouchesSelector` plutôt qu'au point. */
-  geometry?: SelectableGeometry
+  /** Contour projeté (tracé) : présent ⇒ testé par `shapeTouchesSelector` plutôt qu'au
+   *  point. Toujours une polyligne (le marquee ne teste pas de cercle) — d'où `PolyGeometry`
+   *  nu, partagé avec l'arm `poly` de `SelectableGeometry` (un seul type source). */
+  geometry?: PolyGeometry
 }
 
 /** Agrégat pliable (cluster) : libellé + membres résolus, exposé à l'outil et aux badges.
