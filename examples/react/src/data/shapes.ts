@@ -204,6 +204,3 @@ export const demoVolumes = (height: number): ShapeData[] => [
     extrudeHeight: Math.round(height / 2),
   },
 ]
-
-/** Surface maximale autorisée pour une forme dessinée (contrainte métier de démo). */
-export const MAX_DRAW_AREA_M2 = 10_000_000

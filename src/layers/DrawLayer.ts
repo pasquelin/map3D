@@ -16,7 +16,6 @@ import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
 import { sameShape } from './draw/shapeEquality'
 import { polygonAreaM2, predicateSegments, ringInsideRing, ringsOverlap } from '../core/geodesy'
-import { boundsIntersect, boundsOfLatLngs } from '../core/bounds'
 import { ringOfShape, type ShapeData } from './ShapeLayer'
 import { EditController, type HandleId } from './draw/EditController'
 import { History } from './draw/History'
@@ -598,16 +597,12 @@ export class DrawLayer implements Layer {
     }
     if (c.maxAreaM2 !== undefined && d.closed && polygonAreaM2(ring) > c.maxAreaM2) return 'maxArea'
     if (c.noOverlap && d.closed) {
-      // Pré-filtre AABB avant le test d'anneaux, coûteux : deux formes dont les boîtes
-      // ne se touchent pas ne peuvent pas se chevaucher. `violation` ne tourne qu'au
-      // commit d'un geste (jamais par frame), donc ce balayage O(n) reste hors budget.
-      const box = boundsOfLatLngs(ring)
+      // Chevauchement avec une AUTRE forme fermée de la couche. `violation` ne tourne qu'au
+      // commit d'un geste (jamais par frame) : le balayage O(n) reste hors budget, et
+      // `ringsOverlap` a sa propre garde bon marché (anneaux < 3 sommets).
       for (const other of this.drawings) {
         if (other.id === d.id || !other.closed) continue
-        const oring = this.ringOf(other)
-        const obox = boundsOfLatLngs(oring)
-        if (box && obox && !boundsIntersect(box, obox)) continue
-        if (ringsOverlap(ring, oring)) return 'overlap'
+        if (ringsOverlap(ring, this.ringOf(other))) return 'overlap'
       }
     }
     return null

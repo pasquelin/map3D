@@ -43,26 +43,21 @@ export function polygonAreaM2(ring: readonly LatLng[]): number {
 }
 
 /**
- * Le point est-il dans l'anneau ? Ray casting sur (lng, lat), longitudes déroulées
- * autour du point testé. Les points exactement sur un bord sont **acceptés** : une
- * forme dessinée en s'aimantant à la limite ne doit pas être rejetée pour un
- * arrondi flottant.
+ * Cœur du ray-casting « point dans anneau », sur un anneau **déjà déroulé**. `onEdge`
+ * fixe la seule chose qui varie selon l'usage : la **politique de bord** — un point
+ * exactement sur une arête renvoie `onEdge` (inclus pour l'inclusion métier, exclu pour
+ * un chevauchement d'aire).
+ *
+ * Bord = colinéaire à l'arête ET dans sa boîte englobante, sur les DEUX axes. Se contenter
+ * de la longitude déclarerait « dedans » tout point aligné avec le PROLONGEMENT d'une arête
+ * verticale (le produit vectoriel s'y annule quelle que soit la latitude) — or un `rect` a
+ * justement deux arêtes exactement verticales.
  */
-export function pointInRing(p: LatLng, ring: readonly LatLng[]): boolean {
-  if (ring.length < 3) return false
-  const pts = unwrap(ring, p.lng)
-  const x = p.lng
-  const y = p.lat
+function rayCastContains(x: number, y: number, pts: readonly LatLng[], onEdge: boolean): boolean {
   let inside = false
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
     const a = pts[i]!
     const b = pts[j]!
-    // Sur le bord = colinéaire à l'arête ET dans sa boîte englobante, sur les DEUX
-    // axes. Se contenter de la longitude déclarerait « dedans » tout point aligné
-    // avec le PROLONGEMENT d'une arête verticale : le produit vectoriel s'y annule
-    // quelle que soit la latitude. Or un périmètre rectangulaire (`ringOfShape`
-    // d'un `rect`) a justement deux arêtes exactement verticales — un point très
-    // au nord de la limite passait donc la contrainte.
     const colinear = Math.abs((b.lng - a.lng) * (y - a.lat) - (x - a.lng) * (b.lat - a.lat)) < EDGE_EPS
     if (
       colinear &&
@@ -71,7 +66,7 @@ export function pointInRing(p: LatLng, ring: readonly LatLng[]): boolean {
       y >= Math.min(a.lat, b.lat) - EDGE_EPS &&
       y <= Math.max(a.lat, b.lat) + EDGE_EPS
     ) {
-      return true
+      return onEdge
     }
     if (a.lat > y !== b.lat > y) {
       const t = (y - a.lat) / (b.lat - a.lat)
@@ -79,6 +74,17 @@ export function pointInRing(p: LatLng, ring: readonly LatLng[]): boolean {
     }
   }
   return inside
+}
+
+/**
+ * Le point est-il dans l'anneau ? Ray casting sur (lng, lat), longitudes déroulées
+ * autour du point testé. Les points exactement sur un bord sont **acceptés** : une
+ * forme dessinée en s'aimantant à la limite ne doit pas être rejetée pour un
+ * arrondi flottant.
+ */
+export function pointInRing(p: LatLng, ring: readonly LatLng[]): boolean {
+  if (ring.length < 3) return false
+  return rayCastContains(p.lng, p.lat, unwrap(ring, p.lng), true)
 }
 
 /**
@@ -99,35 +105,11 @@ export function ringInsideRing(inner: readonly LatLng[], outer: readonly LatLng[
 /**
  * Le point est-il **strictement** à l'intérieur de l'anneau, bord EXCLU ? Anneau et
  * point sont supposés déjà déroulés sur un même axe de longitude (cf. `ringsOverlap`).
- * Miroir de `pointInRing` avec la garde inversée : un point sur une arête renvoie
- * `false`, pour qu'une zone posée bord à bord d'une autre reste adjacente et non
- * chevauchante.
+ * Même ray-casting que `pointInRing`, politique de bord inversée : un point sur une arête
+ * renvoie `false`, pour qu'une zone posée bord à bord d'une autre reste adjacente.
  */
 function pointStrictlyInside(p: LatLng, ring: readonly LatLng[]): boolean {
-  const x = p.lng
-  const y = p.lat
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i]!
-    const b = ring[j]!
-    // Sur une arête (colinéaire ET dans sa bbox sur les deux axes) = contact, pas
-    // recouvrement : on REJETTE là où `pointInRing` accepterait.
-    const colinear = Math.abs((b.lng - a.lng) * (y - a.lat) - (x - a.lng) * (b.lat - a.lat)) < EDGE_EPS
-    if (
-      colinear &&
-      x >= Math.min(a.lng, b.lng) - EDGE_EPS &&
-      x <= Math.max(a.lng, b.lng) + EDGE_EPS &&
-      y >= Math.min(a.lat, b.lat) - EDGE_EPS &&
-      y <= Math.max(a.lat, b.lat) + EDGE_EPS
-    ) {
-      return false
-    }
-    if (a.lat > y !== b.lat > y) {
-      const t = (y - a.lat) / (b.lat - a.lat)
-      if (x < a.lng + t * (b.lng - a.lng)) inside = !inside
-    }
-  }
-  return inside
+  return rayCastContains(p.lng, p.lat, ring, false)
 }
 
 /**

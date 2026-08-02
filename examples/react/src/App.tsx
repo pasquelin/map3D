@@ -51,7 +51,7 @@ import {
 } from './config/uiSettings'
 import { CITY_LIST, PARIS, TEST_POINT } from './data/cities'
 import { DEMO_PATHS } from './data/paths'
-import { DEMO_DRAW_ZONES, DEMO_SHAPES, MAX_DRAW_AREA_M2 } from './data/shapes'
+import { DEMO_DRAW_ZONES, DEMO_SHAPES } from './data/shapes'
 import type { AnyData } from './data/types'
 import { type DataSettings, defaultDataSettings, useDemoScene } from './hooks/useDemoScene'
 import { useEditablePin } from './hooks/useEditablePin'
@@ -173,7 +173,10 @@ export function App() {
     () => scene.shapes.filter((s) => s.id == null || !erasedHostIds.has(s.id)),
     [scene.shapes, erasedHostIds],
   )
-  const visiblePaths = useMemo(() => DEMO_PATHS.filter((p) => p.id == null || !erasedHostIds.has(p.id)), [erasedHostIds])
+  const visiblePaths = useMemo(
+    () => DEMO_PATHS.filter((p) => p.id == null || !erasedHostIds.has(p.id)),
+    [erasedHostIds],
+  )
   const selectedMarker = useMemo(
     () => (selected === undefined ? undefined : allMarkers.find((m) => String(m.id) === selected)),
     [allMarkers, selected],
@@ -304,7 +307,8 @@ export function App() {
     () => ({
       rasterizeOverlay: (el, o) => toCanvas(el, o),
       onCapture: (blob, meta) => console.log('[capture] trace', meta.format, `${Math.round(blob.size / 1024)} Ko`),
-      onMail: (blob, meta) => console.log('[capture] à envoyer par mail', meta.format, `${Math.round(blob.size / 1024)} Ko`),
+      onMail: (blob, meta) =>
+        console.log('[capture] à envoyer par mail', meta.format, `${Math.round(blob.size / 1024)} Ko`),
     }),
     [],
   )
@@ -429,7 +433,15 @@ export function App() {
         // les retirer de son state, la lib ne mute pas les props. On collecte ces ids et on
         // filtre les couches ci-dessous.
         onErase: (r) => {
-          console.log('[draw] gomme →', r.shapes.length, 'objets lib,', r.paths.length, 'routes,', r.hostShapes.length, 'zones hôte')
+          console.log(
+            '[draw] gomme →',
+            r.shapes.length,
+            'objets lib,',
+            r.paths.length,
+            'routes,',
+            r.hostShapes.length,
+            'zones hôte',
+          )
           if (r.paths.length || r.hostShapes.length)
             setErasedHostIds((prev) => new Set([...prev, ...r.paths, ...r.hostShapes]))
         },
@@ -439,14 +451,8 @@ export function App() {
         // « non-chevauchement » du panneau — décochée par défaut. (`limits`/`maxAreaM2`
         // restent disponibles dans l'API : cf. docs/DRAWING.md.)
         constraints: { noOverlap: ui.drawNoOverlap },
-        onReject: (reason, s) => {
-          const messages: Record<typeof reason, string> = {
-            outOfLimits: `le ${s.kind} sort de la zone autorisée`,
-            maxArea: `le ${s.kind} dépasse ${MAX_DRAW_AREA_M2 / 1e6} km²`,
-            overlap: `le ${s.kind} en chevauche une autre zone`,
-          }
-          console.warn(`[draw] refusé : ${messages[reason]}`)
-        },
+        // Seule contrainte active : `noOverlap` → `reason` ne peut valoir que 'overlap'.
+        onReject: (_reason, s) => console.warn(`[draw] refusé : le ${s.kind} en chevauche une autre zone`),
         // Vignettes de sélection : montées d'office par la lib, on ne fournit que
         // les libellés métier (titre d'un marker, nom d'un type).
         selectionBadges: {
