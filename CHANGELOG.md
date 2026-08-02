@@ -14,9 +14,9 @@ l'édition, via le flux `onReject` existant (motif `'overlap'`, ajouté à `Draw
 L'**adjacence bord à bord** reste permise — deux zones partageant une frontière ou un
 sommet ne sont pas un chevauchement ; les lignes ouvertes (`line`/`arrow`) ne sont pas
 concernées. Le test s'appuie sur un nouveau prédicat géodésique exporté `ringsOverlap(a, b)`
-(sommet strictement intérieur **ou** arêtes qui se croisent franchement, avec un pré-filtre
-AABB) : contrairement à un test aux seuls sommets, il détecte deux formes « en croix » dont
-aucun sommet ne tombe dans l'autre.
+(sommet strictement intérieur **ou** arêtes qui se croisent franchement) : contrairement à un
+test aux seuls sommets, il détecte deux formes « en croix » dont aucun sommet ne tombe dans
+l'autre.
 
 Nouvelle API publique : `DrawConstraints.noOverlap`, `DrawRejectReason` `'overlap'`, export
 `ringsOverlap`.
