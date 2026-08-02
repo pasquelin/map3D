@@ -1,7 +1,7 @@
-import { type LatLng, MapMath, type ShapeData } from '@pasquelin/map3d'
+import { type LatLng, MapMath, type NewShape, type ShapeData } from '@pasquelin/map3d'
 
 import { BUILDING_COLOR, VOLUME_COLORS, ZONE_STROKE } from '../config/colors'
-import { CITY_LIST } from './cities'
+import { CITY_LIST, PARIS } from './cities'
 import { offsetMeters } from './geo'
 
 /* ══════════════════ ZONES ET BÂTIMENTS ══════════════════ */
@@ -29,6 +29,38 @@ export const DEMO_SHAPES: ShapeData[] = CITY_LIST.map((c) => ({
   // Les bâtiments/volumes ci-dessous restent NON effaçables (pas d'`erasable`) : structurels.
   erasable: true,
 }))
+
+/** Carré géodésique (ring de 4 coins) de demi-côté `halfM`, centré sur `center`. */
+const squareRing = (center: LatLng, halfM: number): LatLng[] => [
+  offsetMeters(center, -halfM, halfM), // NO
+  offsetMeters(center, halfM, halfM), // NE
+  offsetMeters(center, halfM, -halfM), // SE
+  offsetMeters(center, -halfM, -halfM), // SO
+]
+
+/**
+ * Deux zones de dessin DÉPLAÇABLES (non verrouillées), semées au montage via
+ * `drawing.addShape` pour démontrer la contrainte `noOverlap` à l'ÉDITION : glisser
+ * l'une sur l'autre déclenche `onReject('overlap', …)`. Posées à l'intérieur du
+ * périmètre de Paris (et bien en deçà de `maxAreaM2`) pour que leur déplacement reste
+ * « dans les limites » — sinon `outOfLimits` masquerait le chevauchement.
+ */
+export const DEMO_DRAW_ZONES: NewShape[] = [
+  {
+    kind: 'polygon',
+    closed: true,
+    title: 'Zone A (déplaçable)',
+    points: squareRing(offsetMeters(PARIS, -500, 0), 300),
+    style: { color: '#22d3ee', fillColor: '#22d3ee', fillOpacity: 0.18, width: 2 },
+  },
+  {
+    kind: 'polygon',
+    closed: true,
+    title: 'Zone B (déplaçable)',
+    points: squareRing(offsetMeters(PARIS, 500, 0), 300),
+    style: { color: '#f472b6', fillColor: '#f472b6', fillOpacity: 0.18, width: 2 },
+  },
+]
 
 /* ── Emprises de bâtiments ─────────────────────────────────────────────────────
    Un bâtiment se décrit par son centre, ses dimensions au sol et son ORIENTATION

@@ -224,6 +224,7 @@ dessin.
 ringOfShape(shape, segments?)      // toute forme → un anneau de LatLng (cercle polygonisé, rect développé)
 pointInRing(p, ring)               // ray casting ; un point sur le bord est ACCEPTÉ
 ringInsideRing(inner, outer)       // inclusion (test sur les sommets de `inner`)
+ringsOverlap(a, b)                 // chevauchement d'aire (sommet strict + arêtes croisées) ; adjacence permise
 polygonAreaM2(ring)                // aire par excès sphérique
 circleRing(center, meters, segs?)  // disque → anneau
 predicateSegments(renderSegments)  // densité de prédicat sûre face à une densité de rendu

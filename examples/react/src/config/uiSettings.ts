@@ -121,6 +121,8 @@ export type UiSettings = {
   relations: boolean
   /** Sonde `DrawDebug` : logs console + `window.drawApi`. */
   drawDebug: boolean
+  /** Contrainte `noOverlap` : refuse une zone qui en chevauche une autre. */
+  drawNoOverlap: boolean
   /** Moniteur `StatsOverlay` : FPS/RAM (stats.js) + compteurs `renderer.info`, en haut à droite. */
   stats: boolean
 }
@@ -156,6 +158,7 @@ export const defaultUiSettings: UiSettings = {
   cluster: true,
   relations: true,
   drawDebug: true,
+  drawNoOverlap: false,
   // Outil de mesure : éteint par défaut, on l'allume pour profiler.
   stats: false,
 }

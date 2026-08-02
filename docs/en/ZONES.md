@@ -221,6 +221,7 @@ screen-space test. This is what the library itself uses for drawing constraints.
 ringOfShape(shape, segments?)      // any shape → a LatLng ring (circle polygonised, rect expanded)
 pointInRing(p, ring)               // ray casting; a point on the edge is ACCEPTED
 ringInsideRing(inner, outer)       // containment (tested on `inner`'s vertices)
+ringsOverlap(a, b)                 // area overlap (strict vertex + crossing edges); adjacency allowed
 polygonAreaM2(ring)                // area by spherical excess
 circleRing(center, meters, segs?)  // disc → ring
 predicateSegments(renderSegments)  // safe predicate density given a render density

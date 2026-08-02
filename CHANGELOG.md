@@ -6,6 +6,21 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### feat : contrainte de dessin « non-chevauchement » (`noOverlap`)
+
+Nouvelle contrainte métier `DrawConstraints.noOverlap` : une forme **fermée** est refusée
+si elle en chevauche une autre (fermée) de la couche de dessin, à la création comme à
+l'édition, via le flux `onReject` existant (motif `'overlap'`, ajouté à `DrawRejectReason`).
+L'**adjacence bord à bord** reste permise — deux zones partageant une frontière ou un
+sommet ne sont pas un chevauchement ; les lignes ouvertes (`line`/`arrow`) ne sont pas
+concernées. Le test s'appuie sur un nouveau prédicat géodésique exporté `ringsOverlap(a, b)`
+(sommet strictement intérieur **ou** arêtes qui se croisent franchement, avec un pré-filtre
+AABB) : contrairement à un test aux seuls sommets, il détecte deux formes « en croix » dont
+aucun sommet ne tombe dans l'autre.
+
+Nouvelle API publique : `DrawConstraints.noOverlap`, `DrawRejectReason` `'overlap'`, export
+`ringsOverlap`.
+
 ### perf : silhouette de sélection des markers sans sondage DOM par frame
 
 `MarkerLayer.selectedContours` choisissait le gabarit de l'anneau (avatar plein vs sprite) via

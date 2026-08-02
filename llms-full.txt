@@ -106,7 +106,7 @@ Engine · Plugins · Preferences.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
 - **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
 - **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
 - **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`.
@@ -568,8 +568,8 @@ events too, derived by difference.
   onShapeDelete={(s) => deleteZone(s.meta?.uuid)}
   onShapeEdit={(s) => openSheet(s.meta?.uuid)} // double-click
   // Business rules for USER drawing (programmatic mutations are exempt).
-  constraints={{ limits: allowedPerimeters, maxAreaM2: 10_000_000 }}
-  onReject={(reason, s) => toast(reason === 'outOfLimits' ? 'Outside the area' : 'Too large')}
+  constraints={{ limits: allowedPerimeters, maxAreaM2: 10_000_000, noOverlap: true }}
+  onReject={(reason, s) => toast({ outOfLimits: 'Outside the area', maxArea: 'Too large', overlap: 'Overlap not allowed' }[reason])}
   settingsStorage="local"                      // or "none"
   shortcuts={{ selectLasso: 'q', rect: false }} // remap/disable tools and selection modes
 >
@@ -589,19 +589,21 @@ The `useDrawing()` API exposes everything: `tool/setTool`,
 `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Business constraints** — `constraints.limits` (`ShapeData`, as in `<ShapeLayer>`)
-requires every drawn shape to fit inside **at least one** perimeter, and
-`constraints.maxAreaM2` caps its area. A refused creation leaves no trace (no mesh, no
+requires every drawn shape to fit inside **at least one** perimeter,
+`constraints.maxAreaM2` caps its area, and `constraints.noOverlap` rejects a **closed**
+shape that overlaps another (closed) shape of the layer (edge-to-edge adjacency stays
+allowed; open lines are not affected). A refused creation leaves no trace (no mesh, no
 history, no `onChange`); a refused **edit** restores the shape to its pre-gesture state
 rather than losing it — and therefore does not emit `onShapeUpdate`.
-`onReject(reason, shape)` lets you display your own message: the library displays
-nothing itself. `limits` draws nothing either — display your perimeters with
-`<ShapeLayer>` or as locked shapes. Only **user gestures** are constrained:
-`addShape`/`updateShape`/`fromGeoJSON` inject without checks.
+`onReject(reason, shape)` lets you display your own message (`reason` is `'outOfLimits'`,
+`'maxArea'` or `'overlap'`): the library displays nothing itself. `limits` draws nothing
+either — display your perimeters with `<ShapeLayer>` or as locked shapes. Only **user
+gestures** are constrained: `addShape`/`updateShape`/`fromGeoJSON` inject without checks.
 
 The predicates are exported and **geodesic** (therefore stable under camera rotation,
 unlike a screen-space test): `polygonAreaM2` (spherical excess, the same method as
 `google.maps.geometry.spherical.computeArea`), `pointInRing`, `ringInsideRing`,
-`circleRing`, `ringOfShape`.
+`ringsOverlap`, `circleRing`, `ringOfShape`.
 
 **CRUD by identity** — to drive shapes one by one from your code: `getShapes()`,
 `getShape(id)`, `getLastShape()`, `addShape(shape, opts?)` (returns the id),
@@ -2210,6 +2212,7 @@ screen-space test. This is what the library itself uses for drawing constraints.
 ringOfShape(shape, segments?)      // any shape → a LatLng ring (circle polygonised, rect expanded)
 pointInRing(p, ring)               // ray casting; a point on the edge is ACCEPTED
 ringInsideRing(inner, outer)       // containment (tested on `inner`'s vertices)
+ringsOverlap(a, b)                 // area overlap (strict vertex + crossing edges); adjacency allowed
 polygonAreaM2(ring)                // area by spherical excess
 circleRing(center, meters, segs?)  // disc → ring
 predicateSegments(renderSegments)  // safe predicate density given a render density
@@ -3120,8 +3123,9 @@ for host code.
 ```tsx
 <Map
   draw={{
-    constraints: { limits: allowedPerimeters, maxAreaM2: 10_000_000 },
-    onReject: (reason, shape) => toast(reason === 'outOfLimits' ? 'Outside the area' : 'Too large'),
+    constraints: { limits: allowedPerimeters, maxAreaM2: 10_000_000, noOverlap: true },
+    onReject: (reason, shape) =>
+      toast({ outOfLimits: 'Outside the area', maxArea: 'Too large', overlap: 'Overlap not allowed' }[reason]),
   }}
 />
 ```
@@ -3130,6 +3134,10 @@ for host code.
 |---|---|
 | `limits: ShapeData[]` | the shape must fit entirely within **at least one** perimeter |
 | `maxAreaM2` | maximum area of a **closed** shape (open lines are not affected) |
+| `noOverlap` | rejects a **closed** shape that overlaps another (closed) shape of the layer; edge-to-edge adjacency stays allowed (open lines are not affected) |
+
+The reason passed to `onReject` (`DrawRejectReason`) is `'outOfLimits'`, `'maxArea'` or
+`'overlap'` depending on which constraint was violated.
 
 - A refused **creation** leaves no trace: no mesh, no history entry, no `onChange`.
 - A refused **edit** restores the shape to its pre-gesture state rather than losing it —

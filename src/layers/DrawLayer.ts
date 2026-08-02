@@ -15,7 +15,8 @@ import type { ErasableItem, ErasableRegistry } from '../core/Erasables'
 import { clamp } from '../core/math'
 import { countTags } from '../core/TagFilter'
 import { sameShape } from './draw/shapeEquality'
-import { polygonAreaM2, predicateSegments, ringInsideRing } from '../core/geodesy'
+import { polygonAreaM2, predicateSegments, ringInsideRing, ringsOverlap } from '../core/geodesy'
+import { boundsIntersect, boundsOfLatLngs } from '../core/bounds'
 import { ringOfShape, type ShapeData } from './ShapeLayer'
 import { EditController, type HandleId } from './draw/EditController'
 import { History } from './draw/History'
@@ -209,7 +210,7 @@ export type ShapePatch = {
 export type MutateOptions = { silent?: boolean }
 
 /** Motif de refus d'une forme (cf. `DrawConstraints`). */
-export type DrawRejectReason = 'outOfLimits' | 'maxArea'
+export type DrawRejectReason = 'outOfLimits' | 'maxArea' | 'overlap'
 
 /**
  * Règles métier imposées au **dessin utilisateur**. Une forme qui les viole est
@@ -229,6 +230,12 @@ export type DrawConstraints = {
   limits?: ShapeData[]
   /** Aire maximale (m²) d'une forme fermée. Les lignes ouvertes ne sont pas concernées. */
   maxAreaM2?: number
+  /**
+   * Interdit qu'une forme **fermée** en chevauche une autre (fermée) de la couche.
+   * L'adjacence reste permise : deux zones partageant une frontière ou un sommet ne
+   * sont pas un chevauchement. Sans effet sur les lignes ouvertes (`line`/`arrow`).
+   */
+  noOverlap?: boolean
 }
 
 type GeoJSONFeature = {
@@ -590,6 +597,19 @@ export class DrawLayer implements Layer {
       if (!inside) return 'outOfLimits'
     }
     if (c.maxAreaM2 !== undefined && d.closed && polygonAreaM2(ring) > c.maxAreaM2) return 'maxArea'
+    if (c.noOverlap && d.closed) {
+      // Pré-filtre AABB avant le test d'anneaux, coûteux : deux formes dont les boîtes
+      // ne se touchent pas ne peuvent pas se chevaucher. `violation` ne tourne qu'au
+      // commit d'un geste (jamais par frame), donc ce balayage O(n) reste hors budget.
+      const box = boundsOfLatLngs(ring)
+      for (const other of this.drawings) {
+        if (other.id === d.id || !other.closed) continue
+        const oring = this.ringOf(other)
+        const obox = boundsOfLatLngs(oring)
+        if (box && obox && !boundsIntersect(box, obox)) continue
+        if (ringsOverlap(ring, oring)) return 'overlap'
+      }
+    }
     return null
   }
 

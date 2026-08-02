@@ -51,7 +51,7 @@ import {
 } from './config/uiSettings'
 import { CITY_LIST, PARIS, TEST_POINT } from './data/cities'
 import { DEMO_PATHS } from './data/paths'
-import { DEMO_SHAPES, MAX_DRAW_AREA_M2 } from './data/shapes'
+import { DEMO_DRAW_ZONES, DEMO_SHAPES, MAX_DRAW_AREA_M2 } from './data/shapes'
 import type { AnyData } from './data/types'
 import { type DataSettings, defaultDataSettings, useDemoScene } from './hooks/useDemoScene'
 import { useEditablePin } from './hooks/useEditablePin'
@@ -434,16 +434,19 @@ export function App() {
             setErasedHostIds((prev) => new Set([...prev, ...r.paths, ...r.hostShapes]))
         },
         onShapeEdit: (s) => console.log('[draw] ✎ double-clic → ouvrir la fiche de', s.meta ?? s.id),
-        // Contraintes métier : toute forme doit tenir dans la zone d'une ville et ne
-        // pas dépasser le plafond d'aire. Le périmètre lui-même est affiché par la
-        // couche de formes — `limits` ne sert qu'à contraindre, pas à dessiner.
-        constraints: { limits: DEMO_SHAPES, maxAreaM2: MAX_DRAW_AREA_M2 },
-        onReject: (reason, s) =>
-          console.warn(
-            reason === 'outOfLimits'
-              ? `[draw] refusé : le ${s.kind} sort de la zone autorisée`
-              : `[draw] refusé : le ${s.kind} dépasse ${MAX_DRAW_AREA_M2 / 1e6} km²`,
-          ),
+        // Contraintes de dessin : par défaut AUCUNE (dessin libre partout). La seule
+        // pilotée par le banc d'essai est l'anti-chevauchement (`noOverlap`), via la case
+        // « non-chevauchement » du panneau — décochée par défaut. (`limits`/`maxAreaM2`
+        // restent disponibles dans l'API : cf. docs/DRAWING.md.)
+        constraints: { noOverlap: ui.drawNoOverlap },
+        onReject: (reason, s) => {
+          const messages: Record<typeof reason, string> = {
+            outOfLimits: `le ${s.kind} sort de la zone autorisée`,
+            maxArea: `le ${s.kind} dépasse ${MAX_DRAW_AREA_M2 / 1e6} km²`,
+            overlap: `le ${s.kind} en chevauche une autre zone`,
+          }
+          console.warn(`[draw] refusé : ${messages[reason]}`)
+        },
         // Vignettes de sélection : montées d'office par la lib, on ne fournit que
         // les libellés métier (titre d'un marker, nom d'un type).
         selectionBadges: {
@@ -452,8 +455,34 @@ export function App() {
           // Comme la loupe : le menu commun suffit.
         },
       },
-    [ui.draw],
+    [ui.draw, ui.drawNoOverlap],
   )
+
+  // Sème deux zones DÉPLAÇABLES dès que la couche de dessin est prête : de quoi
+  // éprouver `noOverlap` à l'ÉDITION (glisser l'une sur l'autre → `onReject('overlap')`),
+  // pas seulement au tracé. `addShape` n'est pas soumis aux contraintes, d'où le seed
+  // possible. L'API de dessin n'existe qu'après le montage de la couche → on réessaie à
+  // la frame suivante tant qu'elle manque. Re-semé si l'on rallume la couche.
+  const zonesSeeded = useRef(false)
+  useEffect(() => {
+    if (!ui.draw) {
+      zonesSeeded.current = false
+      return
+    }
+    let raf = 0
+    const seed = () => {
+      if (zonesSeeded.current) return
+      const api = map.current?.drawing
+      if (!api) {
+        raf = requestAnimationFrame(seed)
+        return
+      }
+      zonesSeeded.current = true
+      for (const zone of DEMO_DRAW_ZONES) api.addShape(zone, { silent: true })
+    }
+    seed()
+    return () => cancelAnimationFrame(raf)
+  }, [ui.draw])
 
   return (
     // Carte et banc de réglages côte à côte : la carte prend ce qui reste, le panneau

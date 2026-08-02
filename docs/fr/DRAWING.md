@@ -420,8 +420,9 @@ déverrouillage est réservé au code hôte.
 ```tsx
 <Map
   draw={{
-    constraints: { limits: perimetresAutorises, maxAreaM2: 10_000_000 },
-    onReject: (reason, shape) => toast(reason === 'outOfLimits' ? 'Hors zone' : 'Trop grande'),
+    constraints: { limits: perimetresAutorises, maxAreaM2: 10_000_000, noOverlap: true },
+    onReject: (reason, shape) =>
+      toast({ outOfLimits: 'Hors zone', maxArea: 'Trop grande', overlap: 'Chevauchement interdit' }[reason]),
   }}
 />
 ```
@@ -430,6 +431,10 @@ déverrouillage est réservé au code hôte.
 |---|---|
 | `limits: ShapeData[]` | la forme doit tenir entièrement dans **au moins un** périmètre |
 | `maxAreaM2` | aire maximale d'une forme **fermée** (les lignes ouvertes ne sont pas concernées) |
+| `noOverlap` | refuse une forme **fermée** qui en chevauche une autre (fermée) de la couche ; l'adjacence bord à bord reste permise (les lignes ouvertes ne sont pas concernées) |
+
+Le motif transmis à `onReject` (`DrawRejectReason`) vaut `'outOfLimits'`, `'maxArea'` ou
+`'overlap'` selon la contrainte enfreinte.
 
 - Une **création** refusée ne laisse aucune trace : ni mesh, ni historique, ni `onChange`.
 - Une **édition** refusée remet la forme dans son état d'avant le geste plutôt que de

@@ -55,9 +55,12 @@ export function buildUiTab(page: TabPageApi, ctxRef: UiContextRef, refresh: () =
   // jette. Sa case est donc grisée avec elle plutôt que de rester cochable pour rien.
   // Déclaré AVANT les surfaces : la bascule « couche de dessin » l'appelle, et un
   // `const` défini plus bas ne serait qu'une TDZ en attente d'un déplacement d'appel.
+  // Idem pour la contrainte `noOverlap` : sans couche de dessin, elle ne s'applique à rien.
   let debugToggle: { disabled: boolean } | null = null
+  let overlapToggle: { disabled: boolean } | null = null
   const syncDebugToggle = () => {
     if (debugToggle) debugToggle.disabled = !draft.draw
+    if (overlapToggle) overlapToggle.disabled = !draft.draw
   }
 
   // ── ① Surfaces : présence, le grain le plus gros ───────────────────────────
@@ -89,6 +92,9 @@ export function buildUiTab(page: TabPageApi, ctxRef: UiContextRef, refresh: () =
     syncDebugToggle()
     emit()
   })
+  const overlapBinding = surfaces.addBinding(draft, 'drawNoOverlap', { label: '↳ non-chevauchement (anti-collision)' })
+  overlapBinding.on('change', emit)
+  overlapToggle = overlapBinding
   surfaces.addBinding(draft, 'cluster', { label: 'regroupement' }).on('change', emit)
   surfaces.addBinding(draft, 'relations', { label: 'moteur de relations' }).on('change', emit)
   surfaces.addBlade({ view: 'separator' })

@@ -97,6 +97,90 @@ export function ringInsideRing(inner: readonly LatLng[], outer: readonly LatLng[
 }
 
 /**
+ * Le point est-il **strictement** à l'intérieur de l'anneau, bord EXCLU ? Anneau et
+ * point sont supposés déjà déroulés sur un même axe de longitude (cf. `ringsOverlap`).
+ * Miroir de `pointInRing` avec la garde inversée : un point sur une arête renvoie
+ * `false`, pour qu'une zone posée bord à bord d'une autre reste adjacente et non
+ * chevauchante.
+ */
+function pointStrictlyInside(p: LatLng, ring: readonly LatLng[]): boolean {
+  const x = p.lng
+  const y = p.lat
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i]!
+    const b = ring[j]!
+    // Sur une arête (colinéaire ET dans sa bbox sur les deux axes) = contact, pas
+    // recouvrement : on REJETTE là où `pointInRing` accepterait.
+    const colinear = Math.abs((b.lng - a.lng) * (y - a.lat) - (x - a.lng) * (b.lat - a.lat)) < EDGE_EPS
+    if (
+      colinear &&
+      x >= Math.min(a.lng, b.lng) - EDGE_EPS &&
+      x <= Math.max(a.lng, b.lng) + EDGE_EPS &&
+      y >= Math.min(a.lat, b.lat) - EDGE_EPS &&
+      y <= Math.max(a.lat, b.lat) + EDGE_EPS
+    ) {
+      return false
+    }
+    if (a.lat > y !== b.lat > y) {
+      const t = (y - a.lat) / (b.lat - a.lat)
+      if (x < a.lng + t * (b.lng - a.lng)) inside = !inside
+    }
+  }
+  return inside
+}
+
+/**
+ * Les segments [a1,a2] et [b1,b2] se croisent-ils **franchement** (chaque segment a
+ * les extrémités de l'autre de part et d'autre) ? Colinéaires et simples contacts
+ * exclus. Pendant géodésique du test écran `segmentsIntersect` (`draw/hitTest.ts`) :
+ * sur des points déjà déroulés le verdict est stable, indépendant de la caméra.
+ */
+function segCross(a1: LatLng, a2: LatLng, b1: LatLng, b2: LatLng): boolean {
+  const o = (p: LatLng, q: LatLng, r: LatLng) => (q.lng - p.lng) * (r.lat - p.lat) - (q.lat - p.lat) * (r.lng - p.lng)
+  const o1 = o(a1, a2, b1)
+  const o2 = o(a1, a2, b2)
+  const o3 = o(b1, b2, a1)
+  const o4 = o(b1, b2, a2)
+  return o1 * o2 < 0 && o3 * o4 < 0
+}
+
+/**
+ * Deux anneaux **fermés** se chevauchent-ils en AIRE (et pas seulement au contact) ?
+ *
+ * Vrai si un sommet de l'un est **strictement** intérieur à l'autre, OU si une arête
+ * de l'un croise franchement une arête de l'autre. Ce second cas capture la « croix »
+ * (deux rectangles perpendiculaires dont aucun sommet ne tombe dans l'autre) — que
+ * rate un test limité aux sommets.
+ *
+ * L'adjacence est **permise** : deux zones partageant une frontière ou un sommet ne
+ * se chevauchent pas (contact au bord exclu, ici comme dans `segCross`). Les deux
+ * anneaux sont déroulés autour d'une réf commune avant tout test planaire, pour ne
+ * pas être faussés par le saut de longitude à ±180°.
+ *
+ * Limite connue : deux contours **exactement identiques** (ou partageant une arête
+ * entière sans qu'aucun sommet ne tombe strictement dans l'autre) renvoient `false`.
+ * Cas dégénéré, inatteignable par un geste manuel, laissé de côté pour ne pas
+ * requalifier l'adjacence légitime en chevauchement.
+ */
+export function ringsOverlap(a: readonly LatLng[], b: readonly LatLng[]): boolean {
+  if (a.length < 3 || b.length < 3) return false
+  const ref = a[0]!.lng
+  const au = unwrap(a, ref)
+  const bu = unwrap(b, ref)
+  for (const p of au) if (pointStrictlyInside(p, bu)) return true
+  for (const p of bu) if (pointStrictlyInside(p, au)) return true
+  for (let i = 0; i < au.length; i++) {
+    const a1 = au[i]!
+    const a2 = au[(i + 1) % au.length]!
+    for (let j = 0; j < bu.length; j++) {
+      if (segCross(a1, a2, bu[j]!, bu[(j + 1) % bu.length]!)) return true
+    }
+  }
+  return false
+}
+
+/**
  * Densité d'approximation d'un disque pour les **prédicats géométriques** (aire,
  * inclusion, intersection).
  *

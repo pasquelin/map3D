@@ -418,8 +418,9 @@ for host code.
 ```tsx
 <Map
   draw={{
-    constraints: { limits: allowedPerimeters, maxAreaM2: 10_000_000 },
-    onReject: (reason, shape) => toast(reason === 'outOfLimits' ? 'Outside the area' : 'Too large'),
+    constraints: { limits: allowedPerimeters, maxAreaM2: 10_000_000, noOverlap: true },
+    onReject: (reason, shape) =>
+      toast({ outOfLimits: 'Outside the area', maxArea: 'Too large', overlap: 'Overlap not allowed' }[reason]),
   }}
 />
 ```
@@ -428,6 +429,10 @@ for host code.
 |---|---|
 | `limits: ShapeData[]` | the shape must fit entirely within **at least one** perimeter |
 | `maxAreaM2` | maximum area of a **closed** shape (open lines are not affected) |
+| `noOverlap` | rejects a **closed** shape that overlaps another (closed) shape of the layer; edge-to-edge adjacency stays allowed (open lines are not affected) |
+
+The reason passed to `onReject` (`DrawRejectReason`) is `'outOfLimits'`, `'maxArea'` or
+`'overlap'` depending on which constraint was violated.
 
 - A refused **creation** leaves no trace: no mesh, no history entry, no `onChange`.
 - A refused **edit** restores the shape to its pre-gesture state rather than losing it —

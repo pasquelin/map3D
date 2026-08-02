@@ -121,7 +121,7 @@ export type { DrawnShape, NewShape, ShapePatch, ShapeMeta, ShapeSymbol, MutateOp
 // Contraintes métier du dessin utilisateur (périmètres autorisés, aire max).
 export type { DrawConstraints, DrawRejectReason } from './layers/DrawLayer'
 // Prédicats GÉODÉSIQUES (lat/lng, m²) — verdict stable, indépendant de la caméra.
-export { circleRing, pointInRing, polygonAreaM2, ringInsideRing } from './core/geodesy'
+export { circleRing, pointInRing, polygonAreaM2, ringInsideRing, ringsOverlap } from './core/geodesy'
 export { ringOfShape } from './layers/ShapeLayer'
 // ── Symboles (catalogue d'icônes posées au glisser-déposer) ──
 // Le graphisme est INJECTÉ (`SymbolRenderer`), comme les providers de recherche et

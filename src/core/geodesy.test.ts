@@ -9,6 +9,7 @@ import {
   polygonAreaM2,
   predicateSegments,
   ringInsideRing,
+  ringsOverlap,
 } from './geodesy'
 
 // Prédicats géodésiques : ils tranchent des contraintes MÉTIER (une zone est-elle dans son
@@ -173,5 +174,85 @@ describe('offsetLatLng', () => {
     const east = 111.32 // 1e-3° * M_PER_DEG, pour un delta lisible
     const p = offsetLatLng({ lat: 90, lng: 0 }, 0, east)
     expect(p.lng).toBeCloseTo(east / (M_PER_DEG * OFFSET_COS_EPS), 6)
+  })
+})
+
+// La contrainte « non-chevauchement » du dessin s'appuie dessus : un faux NÉGATIF laisse
+// passer deux zones superposées (le sens dangereux), un faux positif refuse une adjacence
+// légitime. Le cas « croix » fige la correction du bug operator (test aux seuls sommets).
+describe('ringsOverlap', () => {
+  it('retourne false en deçà de 3 sommets de part ou d’autre', () => {
+    const seg = [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+    ]
+    expect(ringsOverlap(seg, SQUARE)).toBe(false)
+    expect(ringsOverlap(SQUARE, seg)).toBe(false)
+  })
+
+  it('deux carrés disjoints ne se chevauchent pas', () => {
+    const far = SQUARE.map((p) => ({ lat: p.lat, lng: p.lng + 5 }))
+    expect(ringsOverlap(SQUARE, far)).toBe(false)
+  })
+
+  it('un carré strictement imbriqué dans un autre se chevauche', () => {
+    const inner = [
+      { lat: 0.25, lng: 0.25 },
+      { lat: 0.75, lng: 0.25 },
+      { lat: 0.75, lng: 0.75 },
+      { lat: 0.25, lng: 0.75 },
+    ]
+    expect(ringsOverlap(inner, SQUARE)).toBe(true)
+    expect(ringsOverlap(SQUARE, inner)).toBe(true)
+  })
+
+  it('recouvrement partiel (sommet de l’un dans l’autre) se chevauche', () => {
+    const shifted = SQUARE.map((p) => ({ lat: p.lat + 0.5, lng: p.lng + 0.5 }))
+    expect(ringsOverlap(SQUARE, shifted)).toBe(true)
+  })
+
+  // Le cas que rate operator : deux rectangles en croix, AUCUN sommet de l'un dans l'autre,
+  // seules leurs arêtes se croisent. Un test limité aux sommets répond (à tort) « pas de collision ».
+  it('deux rectangles en croix sans sommet intérieur se chevauchent (bug operator)', () => {
+    const horizontal = [
+      { lat: 0.4, lng: -1 },
+      { lat: 0.6, lng: -1 },
+      { lat: 0.6, lng: 2 },
+      { lat: 0.4, lng: 2 },
+    ]
+    const vertical = [
+      { lat: -1, lng: 0.4 },
+      { lat: 2, lng: 0.4 },
+      { lat: 2, lng: 0.6 },
+      { lat: -1, lng: 0.6 },
+    ]
+    expect(ringsOverlap(horizontal, vertical)).toBe(true)
+    // Contre-preuve : le test aux seuls sommets (ringInsideRing) le manque bien.
+    expect(ringInsideRing(horizontal, vertical) || ringInsideRing(vertical, horizontal)).toBe(false)
+  })
+
+  it('adjacence bord à bord : frontière partagée, PAS de chevauchement', () => {
+    const east = SQUARE.map((p) => ({ lat: p.lat, lng: p.lng + 1 })) // colle l'arête lng=1
+    expect(ringsOverlap(SQUARE, east)).toBe(false)
+  })
+
+  it('adjacence par un seul sommet commun n’est pas un chevauchement', () => {
+    const corner = SQUARE.map((p) => ({ lat: p.lat + 1, lng: p.lng + 1 })) // touche au coin (1,1)
+    expect(ringsOverlap(SQUARE, corner)).toBe(false)
+  })
+
+  it('gère le franchissement de l’antiméridien (unwrap commun)', () => {
+    // Deux carrés qui se recouvrent à cheval sur ±180° : sans déroulage, le saut de longitude
+    // fausserait le verdict.
+    const west = [
+      { lat: 0, lng: 179 },
+      { lat: 1, lng: 179 },
+      { lat: 1, lng: -179 },
+      { lat: 0, lng: -179 },
+    ]
+    // Décalé en lat ET lng : un sommet de `east` tombe strictement dans `west`, de part
+    // et d'autre de la couture — sans unwrap commun, sa longitude sauterait hors zone.
+    const east = west.map((p) => ({ lat: p.lat + 0.5, lng: p.lng + 1 }))
+    expect(ringsOverlap(west, east)).toBe(true)
   })
 })
