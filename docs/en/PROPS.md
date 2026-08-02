@@ -144,7 +144,7 @@ Drawing tools and symbols.
 | `settingsStorageKey` | localStorage key of the per-tool settings. Default `m3d:draw-settings`. Make it distinct as soon as TWO maps coexist on the same origin: without their own key they write to the same place and the last one to change a setting imposes it on the other. Same precaution… | — |
 | `value` | **Controlled** collection (GeoJSON): when provided, it is authoritative over the drawing. | — |
 | `onChange` | The whole collection after every mutation, coalesced to 1×/frame. | — |
-| `onSelectionChange` | Notified on every selection change (shape ids, marker ids). | — |
+| `onSelectionChange` | Notified on every selection change: `(shape ids, flat marker ids, path ids)` — paths are a **distinct population**, never mixed with markers. | — |
 | `onShapeAdd` | **Per-shape** events — for an app doing CRUD by identity (one mutation per zone). Emitted at the moment of the change, without the coalescing of `onChange` which serialises the whole collection 1×/frame. Both can coexist. | — |
 | `onShapeUpdate` | Shape modified (move, resize, style). | — |
 | `onShapeDelete` | Shape deleted. | — |

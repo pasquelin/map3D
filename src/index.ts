@@ -59,6 +59,7 @@ export type {
   SelectableInfo,
   SelectableScreenItem,
   SelectableGeometry,
+  PolyGeometry,
   SelectableGroup,
   SelectableKind,
   SelectablePolicy,
@@ -195,6 +196,7 @@ export type {
   PedestrianShortcuts,
   WatermarkConfig,
   EraseConfig,
+  SelectionConfig,
   HostLayerKind,
 } from './config/types'
 /**

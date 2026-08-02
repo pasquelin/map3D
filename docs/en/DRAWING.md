@@ -182,6 +182,8 @@ One boolean per type (all `true` by default), honoured by **every** tool:
 
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
+Markers, clusters and paths share this **same** dashed outline; overlapping selected
+items merge into a single **union silhouette** (the inner dashes never cross).
 
 The **selection badges** (`draw.selectionBadges`) list what is selected through **two single
 building blocks**: `SelectionGroup` (collapsible header) and `SelectionRow` (the row). Every
@@ -330,7 +332,7 @@ rendered. That is where your model lives (database uuid, groups, active flag…)
 | `onChange` | after every mutation, **coalesced to 1×/frame** | the whole collection as GeoJSON |
 | `onShapeAdd` / `onShapeUpdate` / `onShapeDelete` | **at the moment** of the change | one `DrawnShape` |
 | `onShapeEdit` | **double-click** on a shape | one `DrawnShape` — *nothing changed* |
-| `onSelectionChange` | selection change | `(ids, markerIds)` |
+| `onSelectionChange` | selection change | `(ids, markerIds, pathIds)` |
 | `onReject` | shape refused by the constraints | `(reason, shape)` |
 
 `onChange` serves a **controlled global state**; `onShape*` serves **CRUD by identity**

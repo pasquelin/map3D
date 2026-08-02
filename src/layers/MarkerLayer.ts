@@ -300,8 +300,9 @@ export class MarkerLayer implements Layer {
         // recréé (marker → cluster → marker avec menu ouvert) repart à renderOrder 0,
         // sinon son menu repasse DERRIÈRE le cluster voisin.
         this.applyOrder(item.id)
-        // Même restauration pour la multi-sélection : un marker absorbé par un
-        // cluster puis ré-éclaté ressort avec son anneau.
+        // Même restauration pour la multi-sélection : un marker absorbé par un cluster
+        // puis ré-éclaté doit re-porter la classe d'ÉTAT (elle éteint l'anneau plein de la
+        // sélection simple ; sa silhouette ants est peinte par `SelectionOverlay`).
         if (this.multiSel.has(item.id)) el.classList.add('m3d-multisel')
         this.applyRingVars(el)
         this.onMount(item.id, el)
@@ -368,8 +369,10 @@ export class MarkerLayer implements Layer {
   }
 
   /**
-   * Applique la multi-sélection de l'outil sélection : toggle la classe
-   * `m3d-multisel` (anneau CSS) par diff — indépendant de `setSelected` mono-id.
+   * Applique la multi-sélection de l'outil sélection : maintient le set `multiSel`
+   * (source des silhouettes de `selectedContours`) et toggle par diff la classe d'ÉTAT
+   * `m3d-multisel` — qui n'est plus un anneau CSS, seulement le marqueur qui éteint
+   * l'anneau plein de la sélection simple. Indépendant de `setSelected` mono-id.
    */
   setMultiSelected(ids: ReadonlySet<string | number>): void {
     for (const id of [...this.multiSel]) {
@@ -426,7 +429,12 @@ export class MarkerLayer implements Layer {
       // Même verdict d'occlusion/derrière-caméra que `screenPositions` : un marker masqué
       // par l'horizon ou passé derrière la caméra ne porte pas de silhouette.
       if (!node || !node.visible) continue
-      const world = node.obj.getWorldPosition(this.worldScratch)
+      // Lecture DIRECTE de la matrice monde (comme `project`, cf. plus bas) et non
+      // `getWorldPosition` : ce chemin est appelé PAR FRAME dans la passe projection, où les
+      // matrices sont déjà descendues — remonter la chaîne par marker serait la régression que
+      // `project` a supprimée. L'appel synchrone froid (selectionChanged) peut lire une matrice
+      // d'1 frame de retard, rattrapée par `overlayDirty` à la frame suivante.
+      const world = this.worldScratch.setFromMatrixPosition(node.obj.matrixWorld)
       if (this.projection.isBehindCamera(world, camera.position)) continue
       const s = this.projection.worldToScreen(world, camera, this.screen)
       // Rayon = celui de l'anneau CSS d'avant : gabarit AVATAR (photo pleine) ou sprite.

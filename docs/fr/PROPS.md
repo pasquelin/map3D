@@ -141,7 +141,7 @@ Outils de dessin et symboles.
 | `settingsStorageKey` | Clé localStorage des réglages par outil. Défaut `m3d:draw-settings`. À distinguer dès que DEUX cartes cohabitent sur le même origin : sans clé propre, elles écrivent au même endroit et la dernière à changer un réglage l'impose à l'autre. Même précaution… | — |
 | `value` | Collection **contrôlée** (GeoJSON) : fournie, elle fait autorité sur le dessin. | — |
 | `onChange` | Collection entière après chaque mutation, coalescée à 1×/frame. | — |
-| `onSelectionChange` | Notifiée à chaque changement de sélection (ids des formes, ids des markers). | — |
+| `onSelectionChange` | Notifiée à chaque changement de sélection : `(ids des formes, ids des markers à plat, ids des tracés)` — les tracés forment une **population distincte**, jamais mêlée aux markers. | — |
 | `onShapeAdd` | Events **par forme** — pour une app qui fait du CRUD par identité (une mutation par zone). Émis au moment du changement, sans la coalescence de `onChange` qui sérialise toute la collection 1×/frame. Les deux peuvent cohabiter. | — |
 | `onShapeUpdate` | Forme modifiée (déplacement, redimensionnement, style). | — |
 | `onShapeDelete` | Forme supprimée. | — |

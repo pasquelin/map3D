@@ -71,21 +71,28 @@ composants uniques**, réutilisés partout :
   loupe reste **magnétique** à sa zone. Scroll unique des deux côtés (pas de scroll par bloc ni
   horizontal), menu « … » borné en hauteur.
 
-### Sélection : langage visuel homogène (cluster) + mini-camembert dans les badges
+### Sélection : silhouette d'union UNIQUE (markers/clusters/tracés) + mini-camembert dans les badges
 
-- **Cluster sélectionné** : même **anneau marching-ants** N/B que les markers (`.m3d-ants-ring`,
-  réutilisé), au lieu d'un anneau plein — langage visuel de sélection UNIQUE. Les clés de thème
-  `clusters.selectedColor` / `clusters.selectedWidth` (anneau plein) sont **retirées** (rupture 0.x,
-  non publiée) : la couleur des marching-ants est fixe N/B, comme pour les markers.
+- **Un seul langage de pointillé.** Markers (multi-sélection), clusters et tracés partagent
+  désormais **une seule silhouette marching-ants** peinte dans le SVG de `SelectionOverlay` (via
+  `engine.selectables.selectedContours()`), au lieu de trois mécanismes distincts (anneaux CSS
+  par nœud + contour SVG). Quand plusieurs sélectionnés se **recouvrent**, leurs contours
+  **fusionnent en une silhouette d'union** (les arcs internes qui se croisaient disparaissent),
+  par **masquage SVG** — sans géométrie booléenne. Marker/pastille = **cercle exact** (décalé du
+  leader line), tracé/forme = polyligne. Les anneaux CSS par nœud (`.m3d-ants-ring`,
+  `.m3d-multisel::before/::after`) sont **retirés** ; la classe `m3d-multisel` ne sert plus qu'à
+  **éteindre** l'anneau plein de la sélection simple.
+- Clés de thème `clusters.selectedColor` / `clusters.selectedWidth` (ancien anneau plein)
+  **retirées** (rupture 0.x, non publiée) : le pointillé de sélection est N/B fixe. Le diamètre du
+  cercle est **calculé** depuis l'écart thémé **`theme.markers.selectedGapPx`** /
+  **`theme.clusters.selectedGapPx`** (défaut 4) et le décalage du leader line depuis la source unique
+  `LEADER_LIFT_PX` — aucune valeur en dur.
+- Une **pastille hérite** de la sélection de ses **membres** : les markers sélectionnés **absorbés
+  dans un cluster** au dézoom restent visiblement sélectionnés (silhouette portée par la pastille).
 - **Badges de sélection** : la rangée d'un groupe **cluster** affiche un **mini-camembert** aux
   couleurs des parts (`conic-gradient`, parts égales par type comme la pastille) au lieu d'une icône
   générique. `SelectableGroup` porte désormais `counts` (répartition par type) ; `useDrawing().clusterGroups`
   aussi.
-- **Anneau de sélection à l'écran (marker / cluster) homogénéisé** : trait de l'anneau marching-ants
-  **épaissi** (1.6 → 2.4 px, partagé marker-multisélection ET cluster — aucune différence possible ; le
-  contour des formes/tracés reste à 1.6 px) ; un marker à **avatar** en multi-sélection ceinture désormais
-  la PHOTO (`--m3d-avatarring`) au lieu de passer dedans. Le diamètre de l'anneau d'un avatar est
-  **calculé** depuis un écart thémé **`theme.markers.selectedGapPx`** (défaut 4) — plus de valeur en dur.
 
 ### Sélection des tracés et des clusters (outil sélection généralisé)
 
@@ -114,7 +121,13 @@ ses **markers enfants** (réutilise le pattern catalogue).
   hôte custom doit ajouter `kind`.
 - `SelectableRegistry.items(policy?)` et le nouveau `SelectableRegistry.hitTest(x,y,tol,policy?)`
   filtrent par politique. Nouveaux exports : `SelectableKind`, `SelectablePolicy`,
-  `SelectableGeometry`, `SelectableGroup`, `SELECTABLE_KINDS`, `kindAllowed`.
+  `SelectableGeometry`, `PolyGeometry`, `SelectableGroup`, `SelectionConfig`, `SELECTABLE_KINDS`,
+  `kindAllowed`.
+- **`SelectableGeometry` change de forme** (rupture 0.x, non publiée) : d'un `{ pts, closed }` nu
+  vers une **union discriminée** `{ kind: 'poly'; pts; closed } | { kind: 'circle'; cx; cy; r }` — le
+  cercle est la silhouette **exacte** (non approchée) d'un marker/pastille, que l'overlay masque pour
+  l'union. Nouveau type public **`PolyGeometry`** (`{ pts, closed }`), forme de l'arm `poly` et de
+  `SelectableScreenItem.geometry`. `selectedContours()` renvoie donc cercles **et** polylignes.
 - Le callback gagne un 3ᵉ argument : `onSelectionChange(ids, markerIds, pathIds)`. `markerIds` =
   markers à plat (enfants des clusters sélectionnés **inclus**, ids bruts) ; `pathIds` = tracés,
   **population distincte** (jamais mêlée aux markers). Rétrocompatible (arg optionnel).

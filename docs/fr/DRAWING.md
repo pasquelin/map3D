@@ -182,7 +182,10 @@ Un booléen par type (tout `true` par défaut), respecté par **tous** les outil
 `SELECTABLE_KINDS` (export public) énumère les types pour construire sa propre UI.
 
 Contours en **marching-ants** noir/blanc (lisibles sur tout fond, y compris satellite
-et neige — cf. `theme.colors.marquee`), bbox englobante en multi-sélection.
+et neige — cf. `theme.colors.marquee`), bbox englobante en multi-sélection. Markers,
+clusters et tracés partagent ce **même** pointillé ; plusieurs sélectionnés qui se
+**recouvrent** fusionnent en une **silhouette d'union** unique (les pointillés internes
+ne se croisent pas).
 
 Les **vignettes de sélection** (`draw.selectionBadges`) listent ce qui est sélectionné via
 **deux briques uniques** : `SelectionGroup` (en-tête pliable) et `SelectionRow` (la ligne).
@@ -331,7 +334,7 @@ interprétée ni rendue. C'est là que vit votre modèle (uuid de base, groupes,
 | `onChange` | après chaque mutation, **coalescé à 1×/frame** | la collection entière en GeoJSON |
 | `onShapeAdd` / `onShapeUpdate` / `onShapeDelete` | **au moment** du changement | une `DrawnShape` |
 | `onShapeEdit` | **double-clic** sur une forme | une `DrawnShape` — *rien n'a changé* |
-| `onSelectionChange` | changement de sélection | `(ids, markerIds)` |
+| `onSelectionChange` | changement de sélection | `(ids, markerIds, pathIds)` |
 | `onReject` | forme refusée par les contraintes | `(reason, shape)` |
 
 `onChange` sert un état **global contrôlé** ; `onShape*` sert du **CRUD par identité**
