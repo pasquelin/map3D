@@ -324,6 +324,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `settings.capture.download` | Button: download the image. | `'Télécharger'` |
 | `settings.capture.mail` | Button: send the image by email (via the host callback). | `'Envoyer par mail'` |
 | `settings.capture.share` | Button: share the image (Web Share API). | `'Partager'` |
+| `settings.capture.filename` | Base name of the downloaded file (without extension: it follows the format). | `'carte'` |
 
 ## `actions` — Gesture cheat sheet
 

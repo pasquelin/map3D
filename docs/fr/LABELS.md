@@ -316,6 +316,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `settings.capture.download` | Bouton : télécharger l'image. | `'Télécharger'` |
 | `settings.capture.mail` | Bouton : envoyer l'image par mail (via le callback hôte). | `'Envoyer par mail'` |
 | `settings.capture.share` | Bouton : partager l'image (API Web Share). | `'Partager'` |
+| `settings.capture.filename` | Nom de base du fichier téléchargé (sans extension : elle suit le format). | `'carte'` |
 
 ## `actions` — Aide-mémoire des gestes
 

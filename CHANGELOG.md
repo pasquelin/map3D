@@ -6,6 +6,8 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+## [0.2.0] — 2026-08-02
+
 ### Loupe : un marker masqué par le zoom est signalé (œil barré), pas retiré
 
 Un marker de décor (`MarkerData.static`) passé **sous son seuil `minZoom`** disparaît de la
@@ -203,7 +205,8 @@ sur opaque (le renderer est créé sans canal alpha).
 - Prop `<Map capture>` (`CaptureProps` : `rasterizeOverlay`, `onCapture`, `onMail`).
 - Bloc `config.capture` (`CaptureConfig` : `format`, `quality`, `scale`, `background`).
 - Types publics `CaptureOptions`, `CaptureFormat`, `CaptureBackground`, `OverlayRasterizer`.
-- Libellés `settings.capture.*` (titre, format, qualité, échelle, fond, télécharger, mail, partager).
+- Libellés `settings.capture.*` (titre, format, qualité, échelle, fond, télécharger, mail, partager,
+  et `filename` — nom de base du fichier téléchargé, pour ne plus figer « carte » en dur).
 - Ligne « Prendre une photo » dans le menu ⚙ (`DrawSettingsButton`), présente dès que la prop
   `capture` est fournie.
 

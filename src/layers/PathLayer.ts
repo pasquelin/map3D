@@ -212,7 +212,7 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
       const pts = this.projectPath(d, camera, true)
       const first = pts[0]
       if (!first) continue
-      out.push({ id: this.sidOf(d.item), kind: 'path', x: first.x, y: first.y, geometry: { pts, closed: false } })
+      out.push({ id: d.sid, kind: 'path', x: first.x, y: first.y, geometry: { pts, closed: false } })
     }
     return out
   }
@@ -280,7 +280,7 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
         const dist = segDistPx(screenX, screenY, a.x, a.y, b.x, b.y)
         if (dist < bestDistance) {
           bestDistance = dist
-          bestId = this.sidOf(d.item)
+          bestId = d.sid
         }
       }
     }

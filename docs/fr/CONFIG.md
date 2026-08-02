@@ -531,9 +531,23 @@ Défauts de la capture (« Prendre une photo » et `engine.capture()`). Ne conti
 | `capture.quality` | Qualité 0..1 pour les formats compressés (jpeg/webp) ; ignorée en png. | `0.92` |
 | `capture.scale` | Suréchantillonnage par défaut (`1 | 2`) : ×2 rend plus net que l'affichage, au prix d'une frame lourde. | `1` |
 | `capture.background` | Fond par défaut (`'opaque' | 'transparent'`). `'transparent'` retombe sur opaque aujourd'hui : le renderer est créé sans canal alpha. | `'opaque'` |
+
+## `selection` — Types sélectionnables par l'outil sélection
+
+Politique par type : quels objets l'outil sélection (clic/rect/lasso/polygone) peut retenir.
+
+| Clé | Description | Défaut |
+|---|---|---|
 | `selection.selectable.marker` | Les markers sont-ils sélectionnables par l'outil sélection. | `true` |
 | `selection.selectable.path` | Les tracés sont-ils sélectionnables par l'outil sélection. | `true` |
 | `selection.selectable.cluster` | Les clusters sont-ils sélectionnables (→ sélectionne leurs markers enfants). | `true` |
+
+## `erase` — Cibles de la gomme
+
+Politique par cible : ce que la gomme (ponctuelle ou par sélection) est autorisée à effacer.
+
+| Clé | Description | Défaut |
+|---|---|---|
 | `erase.targets.drawing` | La gomme peut-elle effacer les dessins (line/polygon/rect/circle/freehand/arrow). | `true` |
 | `erase.targets.measure` | La gomme peut-elle effacer les mesures. | `true` |
 | `erase.targets.symbol` | La gomme peut-elle effacer les symboles. | `true` |

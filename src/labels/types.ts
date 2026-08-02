@@ -464,6 +464,8 @@ export type MapLabels = {
       mail: string
       /** Bouton : partager l'image (API Web Share). */
       share: string
+      /** Nom de base du fichier téléchargé (sans extension : elle suit le format). */
+      filename: string
     }
   }
   /** Actions du récapitulatif des raccourcis (navigation, vue, dessin, édition). */

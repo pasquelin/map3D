@@ -19,7 +19,8 @@ couches**. Utilisable seul, hors React (retombe sur `defaultConfig`).
   font en une passe `project()` **après** les `update()`, pour éviter les reflows entrelacés.
   Viser le **zéro-alloc** en boucle de frame (scratch pré-alloués, pas de `new` par frame).
 - **Registres portés par le moteur** (branchables par une couche custom) : `engine.selectables`
-  (marquee), `engine.drag` (drag-and-drop typé), `engine.markers` (inventaire loupe),
+  (marquee), `engine.erasables` (cibles de la gomme, jumeau séparé de `selectables`),
+  `engine.drag` (drag-and-drop typé), `engine.markers` (inventaire loupe),
   `engine.tags` (filtre « Couches »), `SearchRegistry` (recherche unifiée). Les **réutiliser**
   plutôt que les recâbler.
 - **Drapage au sol** : hauteur d'ancre raycastée et mémoïsée (`AnchorHeightCache`), traits en

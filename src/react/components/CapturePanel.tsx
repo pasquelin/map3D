@@ -38,7 +38,7 @@ export function CapturePanel() {
   // `share` mais refuse les fichiers). Sans support, la ligne « Partager » est désactivée.
   const canShare = typeof navigator !== 'undefined' && typeof navigator.canShare === 'function'
 
-  const filename = `carte.${extOf(format)}`
+  const filename = `${c.filename}.${extOf(format)}`
 
   const produce = (): Promise<Blob> => {
     const background: CaptureBackground = transparent ? 'transparent' : 'opaque'

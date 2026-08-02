@@ -106,13 +106,15 @@ Engine · Plugins · Preferences.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`; `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`.
+- **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
 - **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
 - **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`.
 - **Relations / routing**: `RelationEngine`, `selectTargets`, `createGoogleRoutesProvider`, `haversineMeters`, `decodePolyline`, `RouteCache`.
 - **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
 - **Tiles**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities`, `canEnterMode`.
 - **Capture**: `engine.capture(opts)` / `MapHandle.capture` / `useCapture()` → `Promise<Blob>` (synchronous WebGL render + optional DOM-overlay compositing via an injected `rasterizeOverlay`); `<Map capture>` (`CaptureProps`), `config.capture` (`CaptureConfig`), types `CaptureOptions` / `CaptureFormat` / `CaptureBackground` / `OverlayRasterizer`. UI: "Take a photo" row in the ⚙ menu (download / mail / Web Share).
+- **Watermark**: "map3D" signature painted into the canvas + licence link, `config.watermark` (`WatermarkConfig`, `enabled` default `true`). Disabling requires a commercial licence — removing attribution under the default PolyForm-Noncommercial licence violates it.
 
 ## Codebase conventions (when contributing)
 
@@ -8433,6 +8435,28 @@ Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **seria
 | `capture.scale` | Default supersampling (`1 | 2`): ×2 is sharper than the display, at the cost of one heavy frame. | `1` |
 | `capture.background` | Default background (`'opaque' | 'transparent'`). `'transparent'` falls back to opaque today: the renderer is created without an alpha channel. | `'opaque'` |
 
+## `selection` — Kinds selectable by the selection tool
+
+Per-kind policy: which objects the selection tool (click/rect/lasso/polygon) may retain.
+
+| Key | Description | Default |
+|---|---|---|
+| `selection.selectable.marker` | Whether markers are selectable by the selection tool. | `true` |
+| `selection.selectable.path` | Whether paths are selectable by the selection tool. | `true` |
+| `selection.selectable.cluster` | Whether clusters are selectable (→ selects their child markers). | `true` |
+
+## `erase` — Eraser targets
+
+Per-target policy: what the eraser (point or selection mode) is allowed to delete.
+
+| Key | Description | Default |
+|---|---|---|
+| `erase.targets.drawing` | Whether the eraser can delete drawings (line/polygon/rect/circle/freehand/arrow). | `true` |
+| `erase.targets.measure` | Whether the eraser can delete measurements. | `true` |
+| `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
+| `erase.targets.path` | Whether the eraser can delete host paths marked `erasable` (`PathLayer`). | `true` |
+| `erase.targets.shape` | Whether the eraser can delete host shapes marked `erasable` (`ShapeLayer`). | `true` |
+
 
 
 <!-- ============================================================ -->
@@ -8963,6 +8987,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `settings.capture.download` | Button: download the image. | `'Télécharger'` |
 | `settings.capture.mail` | Button: send the image by email (via the host callback). | `'Envoyer par mail'` |
 | `settings.capture.share` | Button: share the image (Web Share API). | `'Partager'` |
+| `settings.capture.filename` | Base name of the downloaded file (without extension: it follows the format). | `'carte'` |
 
 ## `actions` — Gesture cheat sheet
 

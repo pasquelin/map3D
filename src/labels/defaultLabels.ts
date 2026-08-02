@@ -288,6 +288,7 @@ export const defaultLabels: MapLabels = {
       download: 'Télécharger',
       mail: 'Envoyer par mail',
       share: 'Partager',
+      filename: 'carte',
     },
   },
   actions: {

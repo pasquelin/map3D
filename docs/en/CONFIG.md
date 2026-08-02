@@ -532,9 +532,23 @@ Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **seria
 | `capture.quality` | Quality 0..1 for compressed formats (jpeg/webp); ignored for png. | `0.92` |
 | `capture.scale` | Default supersampling (`1 | 2`): ×2 is sharper than the display, at the cost of one heavy frame. | `1` |
 | `capture.background` | Default background (`'opaque' | 'transparent'`). `'transparent'` falls back to opaque today: the renderer is created without an alpha channel. | `'opaque'` |
+
+## `selection` — Kinds selectable by the selection tool
+
+Per-kind policy: which objects the selection tool (click/rect/lasso/polygon) may retain.
+
+| Key | Description | Default |
+|---|---|---|
 | `selection.selectable.marker` | Whether markers are selectable by the selection tool. | `true` |
 | `selection.selectable.path` | Whether paths are selectable by the selection tool. | `true` |
 | `selection.selectable.cluster` | Whether clusters are selectable (→ selects their child markers). | `true` |
+
+## `erase` — Eraser targets
+
+Per-target policy: what the eraser (point or selection mode) is allowed to delete.
+
+| Key | Description | Default |
+|---|---|---|
 | `erase.targets.drawing` | Whether the eraser can delete drawings (line/polygon/rect/circle/freehand/arrow). | `true` |
 | `erase.targets.measure` | Whether the eraser can delete measurements. | `true` |
 | `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
