@@ -319,7 +319,10 @@ export { useMapDropZone } from './react/hooks/useMapDropZone'
 export type { UseMapDropZoneOptions } from './react/hooks/useMapDropZone'
 
 export { MarkerLayer } from './react/components/MarkerLayer'
-export type { MarkerLayerProps } from './react/components/MarkerLayer'
+// `MarkerLayerDecl` : réglages de rendu d'une couche marker montée PAR LA LIB — voie
+// déclarative d'un plugin (`Plugin.markerLayer`) et jeu de catalogue à bascule
+// (`CatalogToggleSource.markerLayer`).
+export type { MarkerLayerProps, MarkerLayerDecl } from './react/components/MarkerLayer'
 export { PinnedDock } from './react/components/PinnedDock'
 export type { PinnedDockProps, PinnedItem } from './react/components/PinnedDock'
 export { PathLayer } from './react/components/PathLayer'

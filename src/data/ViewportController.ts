@@ -67,11 +67,21 @@ export class ViewportController<T> {
     }
   }
 
+  /**
+   * Coupe le timer et la requête en vol.
+   *
+   * Retombe le drapeau de chargement : `run` ne le rend à `false` que dans son `finally`,
+   * et pour la requête qui est ENCORE la courante — abandonnée d'ici, elle ne l'est plus,
+   * si bien que le drapeau restait à `true` pour toujours. Un indicateur de chargement
+   * branché dessus tournait alors indéfiniment sur une source retirée.
+   */
   private cancel(): void {
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
+    const had = this.inFlight !== null
     this.inFlight?.abort()
     this.inFlight = null
+    if (had) this.onLoadingChange?.(false)
   }
 
   dispose(): void {

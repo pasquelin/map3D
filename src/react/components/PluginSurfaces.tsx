@@ -112,19 +112,9 @@ function PluginDataHost({
     [engine, dataDef, policy, refetchSig, tick, intervalTick],
   )
 
-  // `plugin` est stable (identité portée par l'hôte) : plugin.markerLayer?.xxx l'est donc aussi,
-  // pas besoin de useMemo dédié — passé directement à <MarkerLayer>.
-  return (
-    <MarkerLayer<unknown>
-      source={source}
-      cluster={plugin.markerLayer?.cluster}
-      icon={plugin.markerLayer?.icon}
-      tooltip={plugin.markerLayer?.tooltip}
-      menu={plugin.markerLayer?.menu}
-      typeLabel={plugin.markerLayer?.typeLabel}
-      size={plugin.markerLayer?.size}
-    />
-  )
+  // `plugin` est stable (identité portée par l'hôte) : sa déclaration l'est donc aussi,
+  // pas besoin de useMemo dédié — étalée directement en props de <MarkerLayer>.
+  return <MarkerLayer<unknown> source={source} {...(plugin.markerLayer ?? {})} />
 }
 
 /**
