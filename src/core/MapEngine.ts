@@ -1087,6 +1087,11 @@ export class MapEngine {
     const caps = deriveBasemapCapabilities(this.mapMode, this.basemapSupport(), this.basemap2d.trafficOn)
     if (!canEnterMode(caps, this.mapMode)) this.setMapMode(this.mapMode === '3d' ? 'plan' : '3d')
     this.applyModeVisibility()
+    // Le trafic est REVALIDÉ, jamais laissé pour compte : retirer l'emprunt
+    // (`trafficViaExternal: false`) ou changer de fournisseur sous un calque allumé le
+    // laissait vrai dans la couche — éteint à l'écran, mais prêt à ramener le fond Google
+    // au premier changement de mode. L'appel est inerte quand rien ne bouge.
+    this.setTrafficVisible(this.basemap2d.trafficOn)
     this.syncBasemap()
     this.viewDirty = true
   }
@@ -1226,6 +1231,7 @@ export class MapEngine {
     {
       hasBasemap2d: false,
       sourceSupportsTraffic: false,
+      canBorrowTraffic: false,
       provider3d: 'external',
       has3dTileset: false,
       hasRelief: false,
@@ -1255,6 +1261,7 @@ export class MapEngine {
     return {
       hasBasemap2d: this.basemap2d.hasSource,
       sourceSupportsTraffic: this.basemap2d.supportsTraffic,
+      canBorrowTraffic: this.canBorrowTraffic,
       provider3d: this.provider3d,
       has3dTileset: this.has3dTileset,
       // Le relief terrain-RGB est la phase suivante de la feature.
@@ -1345,10 +1352,13 @@ export class MapEngine {
       if (this.camera.isControlling()) this.cancelIntro()
       else this.introFlight.startFlight()
     }
-    this.applyModeVisibility()
     // Le trafic est un calque du fond 2D : repasser en 3D l'éteint. La règle est
-    // celle de `setTrafficVisible`, appelée plutôt que recopiée ici.
+    // celle de `setTrafficVisible`, appelée plutôt que recopiée ici. AVANT
+    // `applyModeVisibility` : le trafic décide du fournisseur du fond quand celui-ci est
+    // emprunté (cf. `effectiveTilesConfig`), et l'éteindre après aurait fait poser la
+    // source Google pour la remplacer dans la foulée — deux caches vidés pour rien.
     if (!in2d) this.setTrafficVisible(false)
+    this.applyModeVisibility()
     this.syncBasemap()
   }
 
@@ -1844,10 +1854,31 @@ export class MapEngine {
    * même si l'hôte a choisi Google pour la 2D : deux fournisseurs, ce sont deux
    * millésimes et deux généralisations de la même ville — les emprises extrudées ne
    * tombent alors pas sur les bâtiments dessinés dans le raster.
+   *
+   * En fond plat interne avec le trafic ALLUMÉ, c'est l'inverse : le calque est gravé dans
+   * la tuile Google, donc le fond passe chez Google le temps qu'il dure (cf.
+   * `canBorrowTraffic`). Les deux règles ne peuvent pas se contredire — le trafic est
+   * éteint hors mode plan, où le volume interne, lui, n'existe pas.
    */
   private effectiveTilesConfig(): TilesConfig {
     const tiles = this.config.providers.tiles
-    return this.internalVolume ? { ...tiles, provider: 'internal' } : tiles
+    if (this.internalVolume) return { ...tiles, provider: 'internal' }
+    if (this.basemap2d.trafficOn && this.canBorrowTraffic) return { ...tiles, provider: 'external' }
+    return tiles
+  }
+
+  /**
+   * Le fond interne peut-il EMPRUNTER Google le temps du calque trafic ?
+   *
+   * Trois conditions, et la clé n'en est qu'une : le fournisseur 2D choisi est l'interne
+   * (en externe il n'y a rien à emprunter), une clé Google est fournie, et l'hôte n'a pas
+   * refusé l'emprunt (`providers.tiles.trafficViaExternal`). Le mode n'entre pas ici — le
+   * trafic est déjà éteint hors plan, par `deriveBasemapCapabilities` comme par
+   * `setMapMode`.
+   */
+  private get canBorrowTraffic(): boolean {
+    const tiles = this.config.providers.tiles
+    return tiles.provider === 'internal' && tiles.trafficViaExternal && !!this.googleMapsApiKey
   }
 
   /**
@@ -2076,13 +2107,20 @@ export class MapEngine {
    * Affiche/masque le calque trafic (mode plan uniquement).
    *
    * Le trafic est une propriété de la tuile Google — `layerTypes` demandé à la session —
-   * pas une surcouche transparente : un fournisseur qui ne le sert pas (serveur interne)
-   * n'a rien à allumer, et l'accepter donnerait un bouton allumé sans rien à l'écran.
-   * Même règle qu'en 3D. `setTraffic` est par ailleurs déjà idempotent.
+   * pas une surcouche transparente : un fournisseur qui ne le sert pas n'a rien à allumer,
+   * et l'accepter donnerait un bouton allumé sans rien à l'écran. Même règle qu'en 3D.
+   * `setTraffic` est par ailleurs déjà idempotent.
+   *
+   * Fond interne + clé Google : le fond **change de fournisseur** au lieu de refuser (cf.
+   * `canBorrowTraffic`). D'où le `setConfig` du calque juste après — c'est lui qui remplace
+   * la source et vide le cache, ces tuiles n'étant pas celles de l'autre serveur. La
+   * disponibilité est relue dans la table de vérité commune, jamais rejugée ici : deux
+   * règles du trafic finiraient par diverger.
    */
   setTrafficVisible(visible: boolean): void {
-    const supported = this.basemap2d.supportsTraffic && this.mapMode !== '3d'
-    this.basemap2d.setTraffic(visible && supported)
+    const caps = deriveBasemapCapabilities(this.mapMode, this.basemapSupport(), visible)
+    this.basemap2d.setTraffic(visible && caps.trafficAvailable)
+    this.basemap2d.setConfig(this.effectiveTilesConfig(), this.config.providers.internal)
     this.syncBasemap()
   }
 

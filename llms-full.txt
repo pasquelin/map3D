@@ -5078,6 +5078,8 @@ The toolbar's **“Settings”** menu carries an **“Infos”** row that opens 
 
 Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md).
 
+Sections flow into **columns derived from the width received** (an ideal column ≈ 188 px), each section staying in one piece: two columns with no scrolling inside the menu, a single one if you mount the panel in a narrow surface.
+
 ```tsx
 // In your own surface rather than in the menu:
 import { StatsPanel } from '@pasquelin/map3d'
@@ -5678,7 +5680,7 @@ no quota. A complete 2D map without an API key becomes possible.
 | Source                | Google Map Tiles                      | your server (XYZ scheme)       |
 | Authentication        | API key + signed session              | none                           |
 | Minimum setting       | `<Map googleMapsApiKey>`              | `providers.internal.origin`       |
-| Traffic layer         | yes                                   | **no** (see § 4)               |
+| Traffic layer         | yes                                   | borrowed, with a key (see § 4) |
 | Volume (`'3d'` mode)  | photorealistic 3D tiles (Cesium Ion)  | extruded buildings (see § 5)   |
 | Quota                 | billed per tile                       | yours                          |
 
@@ -5800,7 +5802,8 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 | `external` + Google key, no Ion token            | shown       | **hidden**  | shown in plan  |
 | `external` without key (Ion token only)          | hidden      | shown       | hidden         |
 | neither key nor token                            | hidden      | hidden      | hidden         |
-| `internal` (origin set)                          | shown       | shown       | hidden         |
+| `internal` (origin set), no Google key           | shown       | shown       | hidden         |
+| `internal` (origin set) + Google key             | shown       | shown       | shown in plan  |
 | `internal` for 2D, `external` without token in 3D | shown      | **hidden**  | hidden         |
 
 Three rules behind that table:
@@ -5814,9 +5817,32 @@ Three rules behind that table:
   switching would empty the screen. One exception: if NO mode is servable, the map keeps
   its own and its fallback globe; it has to be somewhere.
 - **Traffic is a property of the Google tile** (`layerTypes` requested from the session),
-  not a transparent overlay. An internal server has nothing to switch on:
-  `setTrafficVisible(true)` is a no-op there, and the button is not offered — even when a
-  Google key is otherwise configured.
+  not a transparent overlay. An internal server therefore has nothing to switch on *on its
+  own tiles*: turning it on **changes provider** for as long as the layer lasts (see below).
+  Without a Google key there is nothing to borrow — `setTrafficVisible(true)` stays a no-op
+  and the button is not offered.
+
+### Traffic with the internal provider — borrowing
+
+`internal` 2D basemap **and** a `<Map googleMapsApiKey>`: the traffic button is offered, and
+turning it on **moves the basemap over to Google** for as long as the layer is on. Turning
+it off returns to the internal server. The tile cache is cleared both ways: these are two
+sets of tiles, not two versions of the same one.
+
+```tsx
+// The default behaviour — nothing to write to get it.
+<Map
+  googleMapsApiKey={KEY}
+  config={{ providers: { tiles: { provider: 'internal', trafficViaExternal: true } } }}
+/>
+```
+
+⚠️ **What borrowing commits to**: the basemap changes appearance (Google's style, not
+yours) and its tiles are billed again while traffic is on. `trafficViaExternal: false`
+restores the original refusal — no traffic outside the external provider, button hidden.
+
+3D mode turns traffic off as before, and borrowing with it: the basemap returns to the
+internal server with nothing for the host to do.
 
 A host building its own toolbar reads the same flags, or calls the pure function that
 settles them:
@@ -7232,7 +7258,7 @@ have nothing to switch on.
 | `traffic` | traffic layer on |
 | `canPlan` | a flat map is servable: Google key with `external`, `origin` with `internal`. Without it the basemap button group has nothing to offer |
 | `can3d` | volume is servable: photorealistic tileset with `external`, terrain/buildings with `internal`. **Informational** — hides no button |
-| `trafficAvailable` | traffic offerable: **external** provider, 2D basemap present, not in 3D mode |
+| `trafficAvailable` | traffic offerable: 2D basemap present, not in 3D mode, served by Google — or an internal basemap that can **borrow** it (Google key + `providers.tiles.trafficViaExternal`) |
 | `canPickBuildings` | a building is **pickable**: internal volume (extruded MVT footprints, each with its own identity) — the external photorealistic mesh is out of reach by nature, a single fused mesh with nothing to tell buildings apart |
 
 `engine.supportsBasemap2d` is still available: it is the historical alias of `canPlan`.
@@ -8250,7 +8276,7 @@ compile error.
 |---|---|---|
 | `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ The default is THE PROJECT's production server, not a public service: a third-party host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `'https://map.gosecure.site'` |
 | `providers.internal.elevationEpsilon` | Ground-elevation change (m) below which the raster basemap and the volumes are NOT rebuilt. Elevation is baked into both layers' geometry: tracking it to the centimetre would replay the whole cache every frame. Shared setting — both must use the exact same reference. ⚠️ Was a literal copied into both layers. | `1` |
-| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota, **no traffic**). See [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota; traffic only by borrowing, see `trafficViaExternal`). See [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | URL template for an internal raster tile — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` and `{r}` are substituted. No query string is appended: the internal server signs nothing. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
 | `providers.tiles.style` | Name of the style rendered by the internal server, substituted for `{style}`. | `'liberty'` |
 | `providers.tiles.retina` | Request internal tiles at double density (`{r}` → `@2x`). Defaults to `false`: the canvas follows `performance.pixelRatio` (1 by default), where an @2x tile quadruples the bytes without adding anything on screen. | `false` |
@@ -8261,6 +8287,7 @@ compile error.
 | `providers.tiles.language` | Language of the labels baked into the tiles. `'auto'` follows the browser. ⚠️ Hard-coded to `'fr-FR'` until now: the map displayed French names whatever the application's locale. | `'auto'` |
 | `providers.tiles.region` | Regional bias (disputed border rendering, toponymy). `'auto'` lets the provider infer it. ⚠️ Hard-coded to `'FR'` until now. | `'auto'` |
 | `providers.tiles.mapType` | 2D basemap requested from the provider. | `'roadmap'` |
+| `providers.tiles.trafficViaExternal` | With the `'internal'` provider, **borrow** the Google basemap for as long as the traffic layer is on (no effect with `'external'`). The button stays offered as soon as a `<Map googleMapsApiKey>` is there; turning it on switches the basemap to Google, turning it off returns to the internal server. ⚠️ The basemap changes appearance and tiles are billed again while the layer is on. `false` = original behaviour (no traffic outside `'external'`). | `true` |
 | `providers.tiles.layerTypes` | Additional layers requested from the tile session. | `["layerTraffic"]` |
 | `providers.tiles.sessionUrl` | Tile session creation endpoint. | `'https://tile.googleapis.com/v1/createSession'` |
 | `providers.tiles.tileUrl` | Tile URL template — `{z}`, `{x}`, `{y}` and `{session}` are substituted. | `'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'` |

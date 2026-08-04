@@ -121,7 +121,7 @@ le bouton trafic là où il n'aurait rien à allumer.
 | `traffic` | calque trafic allumé |
 | `canPlan` | une carte plate est servable : clé Google en `external`, `origin` en `internal`. Sans elle, le groupe de boutons du fond n'a rien à proposer |
 | `can3d` | du volume est servable : tileset photoréaliste en `external`, relief/bâtiments en `internal`. **Informatif** — ne masque aucun bouton |
-| `trafficAvailable` | trafic proposable : fournisseur **externe**, fond 2D présent, hors mode 3D |
+| `trafficAvailable` | trafic proposable : fond 2D présent, hors mode 3D, servi par Google — ou fond interne pouvant l'**emprunter** (clé Google + `providers.tiles.trafficViaExternal`) |
 | `canPickBuildings` | un bâtiment est **désignable** : volume interne (emprises MVT extrudées, chacune avec son identité) — le photoréaliste externe, maillage fusionné, est hors de portée par nature |
 
 `engine.supportsBasemap2d` reste disponible : c'est l'alias historique de `canPlan`.

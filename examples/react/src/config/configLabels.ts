@@ -127,6 +127,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.language': 'langue des libellés',
   'providers.tiles.region': 'biais régional',
   'providers.tiles.mapType': 'fond de carte',
+  'providers.tiles.trafficViaExternal': 'trafic en empruntant Google',
   'providers.tiles.layerTypes': 'calques demandés',
   'providers.tiles.sessionUrl': 'URL de session',
   'providers.tiles.tileUrl': 'gabarit d’URL de tuile',

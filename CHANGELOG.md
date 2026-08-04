@@ -6,6 +6,35 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### feat : le trafic en fournisseur interne — le fond emprunte Google le temps du calque
+
+Le calque trafic était refusé **dès que le fond 2D venait du serveur interne**, clé Google
+présente ou non : le bouton n'apparaissait pas, le raccourci était mort et
+`setTrafficVisible(true)` sans effet. La raison tient (le trafic est gravé DANS la tuile
+Google, ce n'est pas une surcouche), mais la conclusion était trop courte — avec une clé, il
+y a de quoi le servir, il suffit de changer de fournisseur.
+
+Désormais, fond `internal` + `<Map googleMapsApiKey>` : le bouton est offert, l'allumer
+bascule le fond sur Google, l'éteindre revient au serveur interne (cache vidé de part et
+d'autre — ce sont deux jeux de tuiles). Repasser en 3D éteint le trafic **et** rend le fond
+à l'interne, comme avant. Réglé par `providers.tiles.trafficViaExternal` (défaut `true`) :
+`false` rétablit le refus d'origine, pour qui a choisi l'interne précisément pour ne plus
+rien demander à Google. ⚠️ L'emprunt change l'aspect du fond (style Google) et refacture ses
+tuiles tant que le calque est allumé.
+
+La règle vit dans la table de vérité commune (`BasemapSupport.canBorrowTraffic`), et
+`setTrafficVisible` la relit au lieu de rejuger : deux règles du trafic auraient divergé —
+c'est déjà ce qui s'était produit entre le moteur et la barre.
+
+### ui : le panneau « Infos » se répartit en colonnes — plus de défilement
+
+Ses quatre sections empilées (24 grandeurs) dépassaient la hauteur du sous-panneau : on
+ouvrait pour lire une valeur d'un coup d'œil, et il fallait faire défiler. Elles se
+répartissent désormais en **colonnes déduites de la largeur reçue** (`columns`, pas un
+compte figé), chaque section restant d'un seul tenant — deux colonnes dans le menu, une
+seule si l'hôte monte `<StatsPanel>` dans une surface étroite. Les filets entre sections
+disparaissent : entre deux colonnes, un trait horizontal ne sépare plus rien.
+
 ### fix : `<MarkerLayer onLoadingChange>` retombe au démontage
 
 La prop n'avait **aucun contrat de démontage**, et le commentaire de `CatalogSurface`

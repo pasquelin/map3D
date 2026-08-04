@@ -5,6 +5,7 @@ import { type BasemapSupport, canEnterMode, deriveBasemapCapabilities } from './
 const withKey: BasemapSupport = {
   hasBasemap2d: true,
   sourceSupportsTraffic: true,
+  canBorrowTraffic: false,
   provider3d: 'external',
   has3dTileset: true,
   hasRelief: false,
@@ -15,11 +16,18 @@ const withKey: BasemapSupport = {
 const internalRaster: BasemapSupport = {
   hasBasemap2d: true,
   sourceSupportsTraffic: false,
+  canBorrowTraffic: false,
   provider3d: 'internal',
   has3dTileset: false,
   hasRelief: false,
   hasBuildings: false,
 }
+
+/**
+ * Fournisseur interne AVEC une clé Google et l'emprunt autorisé : le fond peut passer chez
+ * Google le temps du calque trafic (cf. `MapEngine.canBorrowTraffic`).
+ */
+const internalBorrowing: BasemapSupport = { ...internalRaster, canBorrowTraffic: true }
 
 describe('deriveBasemapCapabilities', () => {
   it('externe avec clé : les deux destinations et le trafic (comportement historique)', () => {
@@ -52,8 +60,37 @@ describe('deriveBasemapCapabilities', () => {
     expect(s.can3d).toBe(false)
   })
 
-  it("interne : jamais de trafic, c'est une propriété de la tuile Google", () => {
+  it("interne sans clé : pas de trafic, c'est une propriété de la tuile Google", () => {
     expect(deriveBasemapCapabilities('plan', internalRaster, false).trafficAvailable).toBe(false)
+  })
+
+  it('interne avec clé Google : le trafic redevient proposable — le fond empruntera Google', () => {
+    const s = deriveBasemapCapabilities('plan', internalBorrowing, false)
+    expect(s.trafficAvailable).toBe(true)
+    expect(s.traffic).toBe(false)
+  })
+
+  it('un emprunt possible ne survit pas au mode 3D, où le calque n’a rien à quoi s’accrocher', () => {
+    expect(deriveBasemapCapabilities('3d', internalBorrowing, true).trafficAvailable).toBe(false)
+    expect(deriveBasemapCapabilities('3d', internalBorrowing, true).traffic).toBe(false)
+  })
+
+  it('un emprunt possible sans fond plat servable ne donne rien à emprunter', () => {
+    const s = deriveBasemapCapabilities('plan', { ...internalBorrowing, hasBasemap2d: false }, true)
+    expect(s.trafficAvailable).toBe(false)
+    expect(s.traffic).toBe(false)
+  })
+
+  /**
+   * ⚠️ Le cas du RETOUR : la source Google est encore montée (elle sert le trafic) alors que
+   * le fournisseur configuré reste l'interne. Les deux drapeaux sont vrais, et le bouton
+   * doit rester offert — sinon il disparaîtrait au milieu de la bascule.
+   */
+  it('reste proposable pendant que la source empruntée est montée', () => {
+    const borrowed: BasemapSupport = { ...internalBorrowing, sourceSupportsTraffic: true }
+    const s = deriveBasemapCapabilities('plan', borrowed, true)
+    expect(s.trafficAvailable).toBe(true)
+    expect(s.traffic).toBe(true)
   })
 
   it('interne avec relief : le volume redevient possible', () => {

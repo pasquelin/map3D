@@ -5,8 +5,8 @@
 // (`providers.tiles.provider`) et celui du volume (`providers.tiles3d.provider`). Un fond
 // 2D auto-hébergé peut cohabiter avec un volume photoréaliste, et l'inverse.
 //
-// Les deux fournisseurs de tuiles n'offrent pas les mêmes options (pas de trafic en
-// interne, pas de volume tant que ni relief ni bâtiments ne sont activés). Ces règles
+// Les deux fournisseurs de tuiles n'offrent pas les mêmes options (trafic seulement par
+// emprunt en interne, pas de volume tant que ni relief ni bâtiments ne sont activés). Ces règles
 // sont réunies ici, en une fonction pure : dispersées dans les composants, elles
 // divergeaient — un bouton restait affiché sans rien derrière.
 
@@ -36,9 +36,10 @@ export type BasemapState = {
   can3d: boolean
   /**
    * Le trafic est un calque de la tuile Google (`layerTypes` demandé à la session), pas
-   * une surcouche transparente : il n'existe donc qu'en fournisseur externe, fond 2D
-   * présent, et hors mode 3D. Diffusé plutôt que redérivé par chaque consommateur —
-   * l'UI n'a pas à connaître la règle.
+   * une surcouche transparente : il exige donc un fond 2D présent, hors mode 3D, servi par
+   * Google — ou un fournisseur interne qui peut EMPRUNTER Google le temps du calque (cf.
+   * `BasemapSupport.canBorrowTraffic`). Diffusé plutôt que redérivé par chaque
+   * consommateur — l'UI n'a pas à connaître la règle.
    */
   trafficAvailable: boolean
   /**
@@ -57,6 +58,16 @@ export type BasemapSupport = {
   hasBasemap2d: boolean
   /** Cette source sait servir le calque trafic. */
   sourceSupportsTraffic: boolean
+  /**
+   * La source COURANTE ne sert pas le trafic, mais le fond peut passer chez celui qui le
+   * sert le temps du calque : fournisseur 2D interne, clé Google fournie, et
+   * `providers.tiles.trafficViaExternal` laissé à `true`.
+   *
+   * Distinct de `sourceSupportsTraffic` parce que ce n'est PAS la même chose : l'un décrit
+   * ce que la source montée sait faire, l'autre ce que le moteur peut monter à la place.
+   * Les confondre ferait annoncer un fond Google là où il n'y en a pas encore.
+   */
+  canBorrowTraffic: boolean
   /** D'où doit venir le volume — `providers.tiles3d.provider`. */
   provider3d: TileProvider
   /** Un tileset 3D photoréaliste est monté (token Cesium Ion ou clé Google). */
@@ -81,7 +92,10 @@ export function deriveBasemapCapabilities(mode: MapMode, support: BasemapSupport
   // qui a choisi le volume interne, et un relief interne n'en donne pas à qui attend les
   // tuiles photoréalistes. Les deux axes (2D / 3D) restent indépendants.
   const can3d = support.provider3d === 'external' ? support.has3dTileset : support.hasRelief || support.hasBuildings
-  const trafficAvailable = support.sourceSupportsTraffic && canPlan && mode !== '3d'
+  // Servi par la source montée, OU par celle que le moteur mettra à sa place le temps du
+  // calque : le bouton doit rester offert PENDANT la bascule, sinon il disparaîtrait à
+  // l'aller (source interne encore là) puis au retour (source Google déjà partie).
+  const trafficAvailable = (support.sourceSupportsTraffic || support.canBorrowTraffic) && canPlan && mode !== '3d'
   const canPickBuildings = mode === '3d' && support.provider3d === 'internal' && support.hasBuildings
   return {
     mode,

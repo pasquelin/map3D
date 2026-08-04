@@ -121,7 +121,7 @@ have nothing to switch on.
 | `traffic` | traffic layer on |
 | `canPlan` | a flat map is servable: Google key with `external`, `origin` with `internal`. Without it the basemap button group has nothing to offer |
 | `can3d` | volume is servable: photorealistic tileset with `external`, terrain/buildings with `internal`. **Informational** — hides no button |
-| `trafficAvailable` | traffic offerable: **external** provider, 2D basemap present, not in 3D mode |
+| `trafficAvailable` | traffic offerable: 2D basemap present, not in 3D mode, served by Google — or an internal basemap that can **borrow** it (Google key + `providers.tiles.trafficViaExternal`) |
 | `canPickBuildings` | a building is **pickable**: internal volume (extruded MVT footprints, each with its own identity) — the external photorealistic mesh is out of reach by nature, a single fused mesh with nothing to tell buildings apart |
 
 `engine.supportsBasemap2d` is still available: it is the historical alias of `canPlan`.
