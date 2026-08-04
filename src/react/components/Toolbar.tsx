@@ -89,29 +89,19 @@ export type ToolbarApi = {
   /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
   claim: () => void
   /**
-   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre.
-   *
-   * Le panneau de style n'a pas de bouton déclencheur (il suit l'outil actif) : sans
-   * ancre il se centrait verticalement, donc il ne se posait jamais au niveau de la
-   * barre comme les autres surfaces. Il lui faut la même référence qu'à elles.
+   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre. Une surface sans ancre se
+   * centre verticalement : elle ne se pose jamais au niveau de la barre comme les autres.
    */
   el: HTMLElement | null
   /**
-   * Le bouton de l'outil ACTIF — l'ancre du panneau de style, qui règle précisément
-   * cet outil-là. S'ancrer sur la barre le collait en haut quel que soit l'outil : la
-   * surface doit s'ouvrir à la hauteur de l'item auquel elle se rapporte.
-   * `null` quand aucun outil n'est actif (le panneau ouvert par une sélection retombe
-   * alors sur la barre).
+   * Le bouton de l'outil ACTIF, pour une surface qui se rapporte à CET outil-là : elle
+   * s'ouvre à sa hauteur plutôt qu'en haut de la barre. `null` si aucun outil n'est actif.
    */
   activeToolEl: HTMLElement | null
   /**
    * Publier son bouton comme ancre de l'outil actif — à passer en `ref` d'un `ToolButton`
-   * quand il porte l'outil courant, `null` sinon.
-   *
-   * Indispensable aux items qui vivent HORS de la boucle `tools.map` (les sous-menus) :
-   * celle-ci publie l'ancre pour ses boutons simples, mais un outil déplacé dans un flyout
-   * en sortait, et son panneau de style se recollait en haut de la barre au lieu de longer
-   * l'item qu'il règle.
+   * quand il porte l'outil courant, `null` sinon. Indispensable aux items qui vivent HORS
+   * de la boucle `tools.map` (les sous-menus), qu'elle ne peut pas publier pour eux.
    */
   publishActiveTool: (el: HTMLElement | null) => void
 }
@@ -202,6 +192,7 @@ export function Toolbar({
   // court-circuiterait dès qu'une prop est fournie — même piège que `ToolButton`.
   const config = useConfig()
   const minZoom = minZoomProp ?? config.toolbar.minZoom
+  const hideHistory = config.toolbar.autoHide.history
   // Un outil externe actif (loupe, pick de bâtiment) doit "éteindre" la main : sinon
   // `tool === null` surligne Naviguer alors qu'un autre outil est actif (deux items
   // actifs à la fois — exactement ce que la barre ne doit jamais montrer).
@@ -221,8 +212,7 @@ export function Toolbar({
   // d'intercepter les gestes (`engine.inputInterceptor`), si bien qu'en dézoomant on
   // se retrouve à tracer des formes sur une carte où plus aucun bouton ne permet d'en
   // sortir. Même chose pour la loupe. Les flyouts, eux, rouvriraient tels quels au
-  // retour. C'est la règle déjà appliquée au panneau de style plus bas, étendue à
-  // tout ce que la barre possède.
+  // retour.
   // Sur la TRANSITION seulement : `hidden` démarre à `true`, donc agir sur la valeur
   // relâcherait l'outil et la loupe au montage de toute carte — y compris une carte
   // montée déjà zoomée, ou un outil pré-armé par l'hôte.
@@ -262,10 +252,6 @@ export function Toolbar({
 
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
-  // `widthVar` retiré avec le CSS du panneau de style : il publiait la largeur de la
-  // barre pour que le panneau s'en décale par un `calc()`. Le panneau s'ancre désormais
-  // sur le RECT de la barre, qui tient déjà compte des deux colonnes — la variable
-  // n'avait plus aucun lecteur.
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
   const dropdownOuvert = useYieldsToDropdown()
   const tip = useTip(TIP_ID)
@@ -276,6 +262,16 @@ export function Toolbar({
   const redoKey = formatEdit(edit.redo, labels.modKey, labels.keys.shift)
   // Sections configurables : convention partagée avec `MapControls` (cf. `slots.ts`).
   const { slot } = resolveSlots<DrawToolbarSection>(components)
+
+  /**
+   * Une flèche d'historique — RETIRÉE plutôt que grisée quand elle n'a rien à faire
+   * (`config.toolbar.autoHide.history`). Chacune pour son compte : rien à défaire
+   * n'empêche pas de refaire.
+   */
+  const historyBtn = (p: { icon: string; label: string; shortcut?: string; onClick: () => void; can: boolean }) =>
+    hideHistory && !p.can ? null : (
+      <ToolButton icon={p.icon} label={p.label} tip={tip} shortcut={p.shortcut} onClick={p.onClick} disabled={!p.can} />
+    )
 
   return (
     <ToolbarContext.Provider value={bar}>
@@ -354,29 +350,18 @@ export function Toolbar({
         {extraTools}
         {slot(
           'undo',
-          <ToolButton
-            icon={mdiUndo}
-            label={labels.toolbar.undo}
-            tip={tip}
-            shortcut={undoKey}
-            onClick={undo}
-            disabled={!canUndo}
-          />,
+          historyBtn({ icon: mdiUndo, label: labels.toolbar.undo, shortcut: undoKey, onClick: undo, can: canUndo }),
         )}
         {slot(
           'redo',
-          <ToolButton
-            icon={mdiRedo}
-            label={labels.toolbar.redo}
-            tip={tip}
-            shortcut={redoKey}
-            onClick={redo}
-            disabled={!canRedo}
-          />,
+          historyBtn({ icon: mdiRedo, label: labels.toolbar.redo, shortcut: redoKey, onClick: redo, can: canRedo }),
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
+        {/* En DERNIER, et dans la barre : c'est un bouton comme les autres depuis qu'il
+            porte l'aperçu des couleurs. Il était rendu hors du groupe, en surface
+            flottante que personne n'ouvrait — d'où sa manie d'apparaître seule. */}
+        {slot('stylePanel', <DrawStylePanel position={position} tip={tip} />)}
       </div>
-      {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
       {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé

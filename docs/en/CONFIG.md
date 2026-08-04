@@ -563,13 +563,16 @@ What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays i
 domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
 those act with no bar mounted.
 
-`autoHide` removes from the bar a tool that has **nothing to act on**, rather than greying it
-out: an eraser without a target is not an unavailable tool but a tool with no purpose. An
-auto-hidden tool cannot be armed from the keyboard either, and if it was armed when its last
-target disappeared, it is released. The “Clear all” row lives in the eraser's submenu and
+`autoHide` removes from the bar whatever has **nothing to act on**, rather than greying it
+out: an eraser without a target is not an unavailable tool but a tool with no purpose, and
+two inert history arrows take up a bar that is already compacted for height. An
+auto-hidden *tool* cannot be armed from the keyboard either, and if it was armed when its
+last target disappeared, it is released — unlike the history commands, which keep their
+shortcut: history does not need the bar to exist. The “Clear all” row lives in the eraser's submenu and
 shares its scope: it appears and disappears with it, with no key of its own.
 
 | Key | Description | Default |
 |---|---|---|
 | `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
 | `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
+| `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |

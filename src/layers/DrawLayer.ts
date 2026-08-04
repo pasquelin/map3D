@@ -1028,8 +1028,8 @@ export class DrawLayer implements Layer {
   }
 
   /**
-   * Emprise écran de la sélection, comme élément — l'ancre du panneau de style quand
-   * c'est une forme qui l'ouvre. `null` tant que l'overlay n'est pas monté.
+   * Emprise écran de la sélection, comme élément d'ancrage (cf. `SelectionOverlay.boxEl`).
+   * `null` tant que l'overlay n'est pas monté.
    */
   selectionBoxEl(): SVGRectElement | null {
     return this.overlaySel?.boxEl ?? null

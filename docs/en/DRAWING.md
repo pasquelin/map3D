@@ -234,17 +234,21 @@ rectangle resizes along its **own axes**.
 
 ## 5. Style
 
-The style panel appears with an active tool or a selection.
+The **last button of the bar is the colour block**: the two fill/stroke squares, like
+Photoshop's colour well. The current style reads there at all times, and a click opens the
+panel — which opens ONLY that way. Drawing or selecting no longer pops a surface over the
+map.
 
-- **Separate fill and stroke colours** (stacked Photoshop-style swatches with a ⇄
-  swap), theme palette (`theme.colors.draw.palette`) + native picker.
+- **Separate fill and stroke colours** (stacked Photoshop-style swatches, with the ⇄
+  swap inside the panel), theme palette (`theme.colors.draw.palette`) + native picker.
 - Stroke width **including 0** (fill only).
 - Stroke style: `solid` / `dashed` / `dotted`.
 - Stroke **and** fill opacity.
 - Rectangle corner radius (% of the short side, 0–50).
 
-**Without a selection**, the panel sets the active tool's defaults; **with a
-selection**, it restyles the shapes.
+**Without a selection**, the panel sets the defaults for the next shapes; **with a
+selection**, it restyles the selected ones (its title counts them). What it shows follows
+the shape type: the corner radius only appears for rectangles.
 
 ```ts
 const { setStyle, currentStyle, selectionHasRect } = useDrawing()
@@ -518,18 +522,20 @@ A remap is immediately reflected in the tooltips.
 
 Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
 `plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
-`ReactNode` replaces. ⚠️ `clear` is no longer a bar button but the **“Clear all” row of the
-eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
+`ReactNode` replaces. ⚠️ `stylePanel` is the **colour block, the last button of the bar**
+(no longer a floating surface beside it): replacing it puts your own node there. ⚠️ `clear`
+is no longer a bar button but the **“Clear all” row of the eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
 `erase` tool from `tools` takes the command with it.
 
-**The bar only shows what is useful.** By default (`config.toolbar.autoHide.erase`), the
-eraser — and with it its “Clear all” row — appears only when one of its allowed targets is
-on screen. It is not a greyed-out command like Undo (which waits for an action to undo): a
-map with nothing erasable simply shows no eraser. Explicit hiding through `components`
-still wins.
+**The bar only shows what is useful.** By default the eraser — and with it its “Clear all”
+row — appears only when one of its allowed targets is on screen
+(`config.toolbar.autoHide.erase`); **“Undo” and “Redo” likewise withdraw while there is
+nothing to undo or redo** (`autoHide.history`), instead of staying greyed out. A map with
+nothing erasable shows no eraser, and a blank map shows no two inert arrows. The keyboard
+shortcut never depends on the bar, and explicit hiding through `components` still wins.
 
 ```tsx
-<Map config={{ toolbar: { autoHide: { erase: false } } }} />   // eraser always visible
+<Map config={{ toolbar: { autoHide: { erase: false, history: false } } }} />   // all visible
 ```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
@@ -554,7 +560,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
 
 Without this, two buttons stay lit and the bar no longer tells you where you are.
 `ToolbarApi` carries `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
-the last three anchor a panel that follows the active tool, beyond the minimum shown here.
+the last three act as **anchors** for a host surface: the bar itself, or the active tool's
+button for a surface that relates to that tool.
 
 ---
 

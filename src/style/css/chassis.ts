@@ -52,7 +52,10 @@ export const CSS_CHASSIS = `
 .m3d-controls-group{display:flex;flex-direction:column;gap:2px;
   padding:calc(5px * var(--m3d-bar-scale,1));
   }
-.m3d-btn{width:calc(38px * var(--m3d-bar-scale,1));height:calc(38px * var(--m3d-bar-scale,1));
+/* La taille est PUBLIÉE en variable : un contenu qui doit s'accorder au bouton (l'aperçu
+   des couleurs de la drawbar) s'en déduit, au lieu de recopier le nombre et le facteur de
+   compactage — deux fichiers qui auraient dérivé l'un de l'autre. */
+.m3d-btn{--m3d-btn-size:calc(38px * var(--m3d-bar-scale,1));width:var(--m3d-btn-size);height:var(--m3d-btn-size);
   border:none;background:transparent;border-radius:9px;outline:none;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--m3d-text);
   transition:background .14s}
@@ -87,7 +90,7 @@ export const CSS_CHASSIS = `
 .m3d-drawbar.m3d-hidden{opacity:0;pointer-events:none}
 .m3d-drawbar.m3d-left.m3d-hidden{transform:translateY(-50%) translateX(calc(-100% - 24px))}
 .m3d-drawbar.m3d-right.m3d-hidden{transform:translateY(-50%) translateX(calc(100% + 24px))}
-.m3d-drawbar .m3d-btn{width:calc(40px * var(--m3d-bar-scale,1));height:calc(40px * var(--m3d-bar-scale,1))}
+.m3d-drawbar .m3d-btn{--m3d-btn-size:calc(40px * var(--m3d-bar-scale,1))}
 /* Bouton à flyout (sélection) : flèche en coin = « il y a des sous-outils ». */
 .m3d-selectwrap{position:relative}
 .m3d-btn-flyout{position:relative}

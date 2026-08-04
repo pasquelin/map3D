@@ -6,6 +6,51 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### ui : « Annuler » et « Rétablir » se retirent de la barre au lieu de rester grisés
+
+Deux boutons inertes occupaient en permanence une barre qu'on **compacte déjà faute de
+hauteur** (cf. `useFitColumns`) — et sur une carte vierge, ils n'ont rien à faire. Ils
+suivent désormais la règle des autres outils : `config.toolbar.autoHide.history` (défaut
+`true`), chacun se retirant pour son propre compte. Le raccourci clavier, lui, ne dépend
+pas de la barre — l'historique reste pilotable sans elle. `false` rétablit les deux flèches
+en permanence.
+
+### ⚠️ Rupture — le panneau de style ne s'ouvre plus tout seul : la barre porte un bloc de couleurs
+
+Il s'affichait dès qu'un outil de forme devenait actif, et se ré-ancrait sur la forme
+sélectionnée : dessiner ou sélectionner faisait surgir 212 px de surface sur la carte, au
+moment précis où l'on regardait ce qu'on traçait. Il n'ouvrait donc jamais que ce qu'on ne
+lui demandait pas.
+
+Le **dernier bouton de la barre à dessin est désormais le bloc de couleurs** — les deux
+carrés fond/bordure, façon case couleur de Photoshop. Le style courant se lit en permanence
+sans rien ouvrir, et le panneau est un menu comme les autres : il s'ouvre au clic, se ferme
+au clic dehors. Plus de chevron de repli ni d'état réduit — le bouton fait les deux. Ce que
+le panneau règle continue de suivre le contexte (défauts des prochaines formes, ou restyle
+de la sélection ; rayon d'angle sur les rectangles seulement).
+
+**Ce qui casse** : `labels.style.collapse` n'existe plus (le panneau ne se replie plus).
+Un hôte qui remplaçait la section `stylePanel` de la barre la voit maintenant rendue DANS
+la barre, en dernier — et non plus en surface flottante à côté d'elle.
+
+`<ToolButton icon>` devient **optionnel** en conséquence : un bouton dont l'aperçu est la
+valeur qu'il règle n'a pas de glyphe à montrer. Rien à changer pour les appels existants.
+
+### fix : l'infobulle d'un marker se rabat dans la carte au lieu d'être coupée
+
+Centrée sur son ancre par un `transform`, elle était **amputée** dès que le marker
+approchait un bord — un titre dont les premiers caractères manquaient, sans aucun moyen de
+les lire. Les menus contextuels, ancrés au même overlay, savaient déjà se rabattre
+(`useNudgeInside`) : c'est ce mécanisme qui est réutilisé, suivi de l'ancre frame par frame
+compris. Vaut pour l'infobulle de marker, celle d'une pastille de regroupement et celle du
+dock d'épinglés — les trois passent par le même composant.
+
+Le hook mesurait la boîte de LAYOUT, insensible au `transform` propre — juste pour un menu,
+posé par ses coordonnées ; faux pour une infobulle, que le `transform` place, et dont la
+boîte de layout n'est qu'un point sur l'ancre. D'où une mesure `'visual'` en option, et une
+animation d'entrée réduite à l'opacité : une position animée aurait fait mesurer la première
+image, donc rabattre de travers — et durablement, la carte pouvant ne plus bouger ensuite.
+
 ### fix : plus de barre de défilement horizontale dans le menu du catalogue
 
 La ligne d'un jeu à **bascule** est un `div` (la case et le nom sont deux contrôles), là où

@@ -106,7 +106,7 @@ Engine · Plugins · Preferences.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` — the eraser and its “Clear all” row withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` / `.history` — the eraser and its “Clear all” row, and the undo/redo arrows, withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
 - **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
 - **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
 - **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`, `isBrowseSource` / `isToggleSource`.
@@ -513,11 +513,13 @@ midpoints (1 axis), individual vertices (polygon/line/arrow/measure), body drag 
 **Shift while dragging = rotate** (dedicated cursor). Multi-selection: grouped
 transformations in a common frame. A rotated rectangle resizes along its own axes.
 
-**Style panel** (shown with an active tool or a selection): **separate fill and stroke**
-colours (stacked Photoshop-style swatches with a ⇄ swap), theme palette + native picker,
-stroke width **including 0** (no stroke), stroke style (solid/dashed/dotted), stroke AND
-fill opacity, rectangle corner radius. Without a selection it sets the active tool's
-defaults; with a selection it restyles the shapes.
+**Style panel**, opened by the **colour block — the last button of the bar** (the two
+fill/stroke squares, like Photoshop's colour well: the current style reads there at all
+times). It opens on click, never on its own. **Separate fill and stroke** colours (with the
+⇄ swap inside the panel), theme palette + native picker, stroke width **including 0** (no
+stroke), stroke style (solid/dashed/dotted), stroke AND fill opacity, rectangle corner
+radius. Without a selection it sets the defaults for the next shapes; with a selection it
+restyles the selected ones.
 
 **Per-tool settings** (gear): each tool keeps its own defaults (colours, width, stroke,
 opacities, radius…), **persisted in `localStorage`** (`m3d:draw-settings`, disableable
@@ -922,11 +924,11 @@ shortcuts).
 | `<DrawLayer symbols={{ enabled, catalog, renderer }}>` | Catalogue icons placed by **drag-and-drop** (injected artwork), movable, tagged, undo/redo + GeoJSON — see [Symbols](#symbols-a-drag-and-drop-icon-catalogue). |
 | `<SymbolPaletteButton position tipId shortcut categoryLabel variants variant onVariantChange previewSize>` | Button + categorised palette with search, affiliation selector and grabbable thumbnails (→ `<Toolbar extraTools>`). |
 | `<Toolbar position minZoom tools selectModes components>` | Fully configurable drawing bar (hideable/replaceable sections). |
-| `<DrawStylePanel>` `DrawSettingsButton` | Style panel and per-tool settings, usable standalone. |
+| `<DrawStylePanel>` `DrawSettingsButton` | The bar's colour block (last button) and its style panel; per-tool settings. Mount them inside a `<Toolbar>`, whose sizing they take. |
 | `<MapControls>` `<ContextMenu>` | Replaceable controls (**Pan/Rotate** drag buttons — rotate without holding Shift —, **Layers** button = tag filter). |
 | `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize limitPerGroup scope groupOrder>` | **Unified** search: the map's elements (markers, zones, drawings, symbols) AND place geocoding, in one **grouped** list. Map groups are not configured — layers register themselves with the `engine.search` registry as soon as an element carries a `title`; `<MarkerLayer typeLabel>` names them. Chip-based scope selector, headers announcing the total before truncation, picking a marker = camera flight **+ selection** (like a click) with the `<Map markerMenu>` menu under its “…” button, localStorage history re-resolved against the current position, keyboard ↑ ↓ Enter Escape. `search` replaces the geocoder only (**Google Places built in** by default through `<Map googleMapsApiKey>`'s key, or `createGooglePlacesSearch({ apiKey, language, region, limit })`); `false` removes the “Places” group, which otherwise always opens the list. |
 | `<TagFilterControl position tipId>` | Button + tag filter panel, usable standalone outside `<MapControls>`. |
-| `<ToolButton icon label tip shortcut active>` | Toolbar button (icon, state, tooltip + `aria-label` carrying the shortcut) — to populate `extraTools` / `components` with the native buttons' visual language. Pair it with `useToolbar()`: an application tool must close itself when the bar retracts or a native tool takes over (`bar.retracted \|\| bar.nativeActive`, via `useCloseWhenHidden`) and turn the others off when opening (`bar.claim()`). Without that, two buttons stay lit and the bar no longer tells you where you are. |
+| `<ToolButton icon? label tip shortcut active>` | Toolbar button (icon **optional** — without it the button renders only its `children`, for the one whose preview IS the value; state, tooltip + `aria-label` carrying the shortcut) — to populate `extraTools` / `components` with the native buttons' visual language. Pair it with `useToolbar()`: an application tool must close itself when the bar retracts or a native tool takes over (`bar.retracted \|\| bar.nativeActive`, via `useCloseWhenHidden`) and turn the others off when opening (`bar.claim()`). Without that, two buttons stay lit and the bar no longer tells you where you are. |
 | `AnchorHeightCache` | Memoised anchor heights (throttled raycasting, retries for missing tiles, 2D↔3D invalidation) for a custom layer projecting ground-draped elements. |
 | `<RelationLayer rules provider>` `<RelationStatusBar>` | Tag links to neighbouring markers, with real road distances and durations — see [Relations](#relations-real-distances-and-travel-times). |
 | Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useDrawSettings`, `useLens`, `useMapEvents`, `useTags`, `useTagSelection`, `useRelations`, `useToolbar`, `useCloseWhenHidden`, `useDraggablePanel`, `useDraggable`, `useDropZone`, `useMapDropZone`, `useRepositionable`, `useTheme`, `useLabels`, `useConfig`. |
@@ -1496,6 +1498,11 @@ Information lives **on hover**; clicking is reserved for actions (selection, men
 When provided, the `tooltip` prop **decides alone** — including returning `null`.
 Reserve it for titles that plain text cannot express: `titleColor` already covers the
 common case.
+
+The tooltip is centred above its marker, and **nudged back inside the map** when that
+marker approaches an edge: it slides along the edge instead of being clipped, and follows
+its anchor for as long as it is shown. Nothing to configure — the same mechanism as context
+menus. It holds for the cluster tooltip and the pinned dock one.
 
 ### Cluster tooltip
 
@@ -3182,17 +3189,21 @@ rectangle resizes along its **own axes**.
 
 ## 5. Style
 
-The style panel appears with an active tool or a selection.
+The **last button of the bar is the colour block**: the two fill/stroke squares, like
+Photoshop's colour well. The current style reads there at all times, and a click opens the
+panel — which opens ONLY that way. Drawing or selecting no longer pops a surface over the
+map.
 
-- **Separate fill and stroke colours** (stacked Photoshop-style swatches with a ⇄
-  swap), theme palette (`theme.colors.draw.palette`) + native picker.
+- **Separate fill and stroke colours** (stacked Photoshop-style swatches, with the ⇄
+  swap inside the panel), theme palette (`theme.colors.draw.palette`) + native picker.
 - Stroke width **including 0** (fill only).
 - Stroke style: `solid` / `dashed` / `dotted`.
 - Stroke **and** fill opacity.
 - Rectangle corner radius (% of the short side, 0–50).
 
-**Without a selection**, the panel sets the active tool's defaults; **with a
-selection**, it restyles the shapes.
+**Without a selection**, the panel sets the defaults for the next shapes; **with a
+selection**, it restyles the selected ones (its title counts them). What it shows follows
+the shape type: the corner radius only appears for rectangles.
 
 ```ts
 const { setStyle, currentStyle, selectionHasRect } = useDrawing()
@@ -3466,18 +3477,20 @@ A remap is immediately reflected in the tooltips.
 
 Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
 `plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
-`ReactNode` replaces. ⚠️ `clear` is no longer a bar button but the **“Clear all” row of the
-eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
+`ReactNode` replaces. ⚠️ `stylePanel` is the **colour block, the last button of the bar**
+(no longer a floating surface beside it): replacing it puts your own node there. ⚠️ `clear`
+is no longer a bar button but the **“Clear all” row of the eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
 `erase` tool from `tools` takes the command with it.
 
-**The bar only shows what is useful.** By default (`config.toolbar.autoHide.erase`), the
-eraser — and with it its “Clear all” row — appears only when one of its allowed targets is
-on screen. It is not a greyed-out command like Undo (which waits for an action to undo): a
-map with nothing erasable simply shows no eraser. Explicit hiding through `components`
-still wins.
+**The bar only shows what is useful.** By default the eraser — and with it its “Clear all”
+row — appears only when one of its allowed targets is on screen
+(`config.toolbar.autoHide.erase`); **“Undo” and “Redo” likewise withdraw while there is
+nothing to undo or redo** (`autoHide.history`), instead of staying greyed out. A map with
+nothing erasable shows no eraser, and a blank map shows no two inert arrows. The keyboard
+shortcut never depends on the bar, and explicit hiding through `components` still wins.
 
 ```tsx
-<Map config={{ toolbar: { autoHide: { erase: false } } }} />   // eraser always visible
+<Map config={{ toolbar: { autoHide: { erase: false, history: false } } }} />   // all visible
 ```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
@@ -3502,7 +3515,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
 
 Without this, two buttons stay lit and the bar no longer tells you where you are.
 `ToolbarApi` carries `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
-the last three anchor a panel that follows the active tool, beyond the minimum shown here.
+the last three act as **anchors** for a host surface: the bar itself, or the active tool's
+button for a surface that relates to that tool.
 
 ---
 
@@ -8807,16 +8821,19 @@ What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays i
 domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
 those act with no bar mounted.
 
-`autoHide` removes from the bar a tool that has **nothing to act on**, rather than greying it
-out: an eraser without a target is not an unavailable tool but a tool with no purpose. An
-auto-hidden tool cannot be armed from the keyboard either, and if it was armed when its last
-target disappeared, it is released. The “Clear all” row lives in the eraser's submenu and
+`autoHide` removes from the bar whatever has **nothing to act on**, rather than greying it
+out: an eraser without a target is not an unavailable tool but a tool with no purpose, and
+two inert history arrows take up a bar that is already compacted for height. An
+auto-hidden *tool* cannot be armed from the keyboard either, and if it was armed when its
+last target disappeared, it is released — unlike the history commands, which keep their
+shortcut: history does not need the bar to exist. The “Clear all” row lives in the eraser's submenu and
 shares its scope: it appears and disappears with it, with no key of its own.
 
 | Key | Description | Default |
 |---|---|---|
 | `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
 | `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
+| `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |
 
 
 
@@ -9262,8 +9279,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `style.cornerRadius` | Corner radius preset — `{radius}` = % of the short side. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Panel title when 1 shape is selected — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Panel title when several shapes are selected — `{count}`. | `'{count} formes'` |
-| `style.expand` | Button that unfolds the collapsed panel. | `'Modifier le style'` |
-| `style.collapse` | Button that collapses the panel down to its single button. | `'Réduire'` |
+| `style.expand` | Colour block in the draw bar, which opens this panel. | `'Modifier le style'` |
 
 ## `selection` — Selection panel
 
@@ -9922,6 +9938,17 @@ through `config.graticule`, themed through `theme.colors.graticule`, and toggled
 
 It costs nothing while the grid is off. The component stays exported for maps built without
 `<Map>` (full imperative mounting).
+
+## `<DrawStylePanel>`
+
+The draw bar's colour block — its **last button** — and the style panel it opens. Mounted by
+`<Toolbar>`; these exports only serve a manual mount (custom bar), where it takes the sizing of
+a bar button.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Side of the bar carrying the button — the panel opens on the opposite side. | `'left'` |
+| `tip` | Host bar tooltip (`useTip(TIP_ID)`). Absent = no tooltip, the `aria-label` stays in place. | — |
 
 ## `<MeasureToolButton>`
 

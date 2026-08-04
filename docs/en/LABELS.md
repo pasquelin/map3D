@@ -227,8 +227,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `style.cornerRadius` | Corner radius preset — `{radius}` = % of the short side. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Panel title when 1 shape is selected — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Panel title when several shapes are selected — `{count}`. | `'{count} formes'` |
-| `style.expand` | Button that unfolds the collapsed panel. | `'Modifier le style'` |
-| `style.collapse` | Button that collapses the panel down to its single button. | `'Réduire'` |
+| `style.expand` | Colour block in the draw bar, which opens this panel. | `'Modifier le style'` |
 
 ## `selection` — Selection panel
 

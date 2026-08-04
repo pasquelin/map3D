@@ -7,8 +7,12 @@ import { UiIcon } from './UiIcon'
 export type BarTip = (label: string, shortcut?: string | false) => Record<string, string>
 
 export type ToolButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label' | 'children'> & {
-  /** Chemin d'icône @mdi/js. */
-  icon: string
+  /**
+   * Chemin d'icône @mdi/js. Absent, le bouton n'affiche que ses `children` — pour celui
+   * dont l'aperçu EST la valeur qu'il règle (le bloc de couleurs de la barre à dessin),
+   * qu'aucun glyphe ne peut dire.
+   */
+  icon?: string
   /** Libellé accessible — sert d'`aria-label` et de contenu du tooltip. */
   label: string
   /**
@@ -68,7 +72,7 @@ export function ToolButton({
       {...naming}
       {...rest}
     >
-      <UiIcon path={icon} size={iconSize} />
+      {icon !== undefined && <UiIcon path={icon} size={iconSize} />}
       {children}
     </button>
   )

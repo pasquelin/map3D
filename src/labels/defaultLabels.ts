@@ -198,7 +198,6 @@ export const defaultLabels: MapLabels = {
     selectionCount: '{count} forme',
     selectionCountPlural: '{count} formes',
     expand: 'Modifier le style',
-    collapse: 'Réduire',
   },
   selection: {
     title: 'Sélection',

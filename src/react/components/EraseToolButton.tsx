@@ -15,8 +15,8 @@ import { UiIcon } from './UiIcon'
  * SURVOL du côté opposé à la barre — même châssis que `SelectToolButton` (`useHoverFlyout`).
  *
  * Le flyout ne choisit que POINT vs SÉLECTION : le sous-mode du marquee (rect/poly/lasso)
- * reste celui du sélecteur (`selectMode`), pas de 2ᵉ jeu de modes à tenir. La gomme n'a
- * pas de panneau de style (comme `select`), donc rien à publier comme ancre.
+ * reste celui du sélecteur (`selectMode`), pas de 2ᵉ jeu de modes à tenir. La gomme ne
+ * règle aucun style (comme `select`), donc rien à publier comme ancre.
  *
  * Se retire de la barre tant que rien n'est effaçable (`config.toolbar.autoHide.erase`) :
  * une gomme sans cible n'est pas un outil indisponible, c'est un outil sans emploi.

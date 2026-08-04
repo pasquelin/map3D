@@ -381,11 +381,13 @@ midpoints (1 axis), individual vertices (polygon/line/arrow/measure), body drag 
 **Shift while dragging = rotate** (dedicated cursor). Multi-selection: grouped
 transformations in a common frame. A rotated rectangle resizes along its own axes.
 
-**Style panel** (shown with an active tool or a selection): **separate fill and stroke**
-colours (stacked Photoshop-style swatches with a ⇄ swap), theme palette + native picker,
-stroke width **including 0** (no stroke), stroke style (solid/dashed/dotted), stroke AND
-fill opacity, rectangle corner radius. Without a selection it sets the active tool's
-defaults; with a selection it restyles the shapes.
+**Style panel**, opened by the **colour block — the last button of the bar** (the two
+fill/stroke squares, like Photoshop's colour well: the current style reads there at all
+times). It opens on click, never on its own. **Separate fill and stroke** colours (with the
+⇄ swap inside the panel), theme palette + native picker, stroke width **including 0** (no
+stroke), stroke style (solid/dashed/dotted), stroke AND fill opacity, rectangle corner
+radius. Without a selection it sets the defaults for the next shapes; with a selection it
+restyles the selected ones.
 
 **Per-tool settings** (gear): each tool keeps its own defaults (colours, width, stroke,
 opacities, radius…), **persisted in `localStorage`** (`m3d:draw-settings`, disableable
@@ -786,11 +788,11 @@ shortcuts).
 | `<DrawLayer symbols={{ enabled, catalog, renderer }}>` | Catalogue icons placed by **drag-and-drop** (injected artwork), movable, tagged, undo/redo + GeoJSON — see [Symbols](#symbols-a-drag-and-drop-icon-catalogue). |
 | `<SymbolPaletteButton position tipId shortcut categoryLabel variants variant onVariantChange previewSize>` | Button + categorised palette with search, affiliation selector and grabbable thumbnails (→ `<Toolbar extraTools>`). |
 | `<Toolbar position minZoom tools selectModes components>` | Fully configurable drawing bar (hideable/replaceable sections). |
-| `<DrawStylePanel>` `DrawSettingsButton` | Style panel and per-tool settings, usable standalone. |
+| `<DrawStylePanel>` `DrawSettingsButton` | The bar's colour block (last button) and its style panel; per-tool settings. Mount them inside a `<Toolbar>`, whose sizing they take. |
 | `<MapControls>` `<ContextMenu>` | Replaceable controls (**Pan/Rotate** drag buttons — rotate without holding Shift —, **Layers** button = tag filter). |
 | `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize limitPerGroup scope groupOrder>` | **Unified** search: the map's elements (markers, zones, drawings, symbols) AND place geocoding, in one **grouped** list. Map groups are not configured — layers register themselves with the `engine.search` registry as soon as an element carries a `title`; `<MarkerLayer typeLabel>` names them. Chip-based scope selector, headers announcing the total before truncation, picking a marker = camera flight **+ selection** (like a click) with the `<Map markerMenu>` menu under its “…” button, localStorage history re-resolved against the current position, keyboard ↑ ↓ Enter Escape. `search` replaces the geocoder only (**Google Places built in** by default through `<Map googleMapsApiKey>`'s key, or `createGooglePlacesSearch({ apiKey, language, region, limit })`); `false` removes the “Places” group, which otherwise always opens the list. |
 | `<TagFilterControl position tipId>` | Button + tag filter panel, usable standalone outside `<MapControls>`. |
-| `<ToolButton icon label tip shortcut active>` | Toolbar button (icon, state, tooltip + `aria-label` carrying the shortcut) — to populate `extraTools` / `components` with the native buttons' visual language. Pair it with `useToolbar()`: an application tool must close itself when the bar retracts or a native tool takes over (`bar.retracted \|\| bar.nativeActive`, via `useCloseWhenHidden`) and turn the others off when opening (`bar.claim()`). Without that, two buttons stay lit and the bar no longer tells you where you are. |
+| `<ToolButton icon? label tip shortcut active>` | Toolbar button (icon **optional** — without it the button renders only its `children`, for the one whose preview IS the value; state, tooltip + `aria-label` carrying the shortcut) — to populate `extraTools` / `components` with the native buttons' visual language. Pair it with `useToolbar()`: an application tool must close itself when the bar retracts or a native tool takes over (`bar.retracted \|\| bar.nativeActive`, via `useCloseWhenHidden`) and turn the others off when opening (`bar.claim()`). Without that, two buttons stay lit and the bar no longer tells you where you are. |
 | `AnchorHeightCache` | Memoised anchor heights (throttled raycasting, retries for missing tiles, 2D↔3D invalidation) for a custom layer projecting ground-draped elements. |
 | `<RelationLayer rules provider>` `<RelationStatusBar>` | Tag links to neighbouring markers, with real road distances and durations — see [Relations](#relations-real-distances-and-travel-times). |
 | Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useDrawSettings`, `useLens`, `useMapEvents`, `useTags`, `useTagSelection`, `useRelations`, `useToolbar`, `useCloseWhenHidden`, `useDraggablePanel`, `useDraggable`, `useDropZone`, `useMapDropZone`, `useRepositionable`, `useTheme`, `useLabels`, `useConfig`. |

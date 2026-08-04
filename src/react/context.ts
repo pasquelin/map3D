@@ -153,9 +153,9 @@ export type DrawingApi = {
   /** true si la sélection contient au moins un rectangle (affichage du rayon d'angle). */
   selectionHasRect: boolean
   /**
-   * Emprise écran de la sélection, comme élément d'ancrage. Le panneau de style s'ouvre
-   * dessus quand c'est une FORME qui l'ouvre : un panneau qui règle une forme se trouve
-   * près d'elle, pas au niveau d'un bouton de la barre.
+   * Emprise écran de la sélection, comme élément d'ANCRAGE : la seule chose qui sache où
+   * est la sélection à l'écran. Pour une surface de l'hôte qui doit s'ouvrir près de la
+   * forme qu'elle traite, plutôt qu'au niveau d'un bouton de la barre.
    */
   selectionBoxEl: SVGRectElement | null
   /** Réglages par outil (persistés) — s'abonner via `useDrawSettings()`. */

@@ -11,6 +11,13 @@ export type DrawToolbarAutoHide = {
   /** Retirer la gomme — et sa rangée « Tout effacer » — tant qu'aucune cible autorisée
    *  n'est à l'écran. */
   erase: boolean
+  /**
+   * Retirer « Annuler » et « Rétablir » tant qu'il n'y a **rien à défaire ni à refaire**, au
+   * lieu de les laisser grisés : deux boutons inertes sur une barre qu'on compacte déjà
+   * faute de hauteur. Chacun pour son compte, et le raccourci clavier reste actif — il ne
+   * dépend pas de la barre (cf. `interaction.shortcuts.edit`).
+   */
+  history: boolean
 }
 
 /**

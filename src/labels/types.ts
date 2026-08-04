@@ -309,10 +309,8 @@ export type MapLabels = {
     selectionCount: string
     /** Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. */
     selectionCountPlural: string
-    /** Bouton qui déplie le panneau réduit. */
+    /** Bloc de couleurs de la barre à dessin, qui ouvre ce panneau. */
     expand: string
-    /** Bouton qui réduit le panneau à son seul bouton. */
-    collapse: string
   }
   /** Panneau de sélection (liste des éléments sélectionnés, par groupe). */
   selection: {

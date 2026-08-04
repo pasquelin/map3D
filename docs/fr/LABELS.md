@@ -219,8 +219,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `style.cornerRadius` | Preset de rayon d'angle — `{radius}` = % du petit côté. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Titre du panneau quand 1 forme est sélectionnée — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. | `'{count} formes'` |
-| `style.expand` | Bouton qui déplie le panneau réduit. | `'Modifier le style'` |
-| `style.collapse` | Bouton qui réduit le panneau à son seul bouton. | `'Réduire'` |
+| `style.expand` | Bloc de couleurs de la barre à dessin, qui ouvre ce panneau. | `'Modifier le style'` |
 
 ## `selection` — Panneau de sélection
 

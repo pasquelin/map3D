@@ -265,6 +265,17 @@ elle se règle par `config.graticule`, se thème par `theme.colors.graticule`, e
 Elle ne coûte rien tant que la grille est éteinte. Le composant reste exporté pour les cartes
 construites sans `<Map>` (montage impératif complet).
 
+## `<DrawStylePanel>`
+
+Bloc de couleurs de la barre à dessin — son **dernier bouton** — et le panneau de style qu'il
+ouvre. Monté par `<Toolbar>` ; ces exports ne servent qu'à un montage manuel (barre maison),
+où il prend le gabarit d'un bouton de barre.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `position` | Côté de la barre qui porte le bouton — le panneau s'ouvre du côté opposé. | `'left'` |
+| `tip` | Infobulle de la barre hôte (`useTip(TIP_ID)`). Absente = pas d'infobulle, l'`aria-label` reste posé. | — |
+
 ## `<MeasureToolButton>`
 
 Bouton « Mesures » de la barre + son sous-menu. Monté par `<Toolbar>` — ces exports ne servent

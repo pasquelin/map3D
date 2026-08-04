@@ -562,13 +562,16 @@ Ce qui appartient à la **barre** (`<Toolbar>`). Ce qui appartient aux **outils*
 son domaine : `erase.targets` pour la politique de la gomme, `interaction.shortcuts.draw`
 pour les touches — celles-ci agissent sans barre montée.
 
-`autoHide` retire de la barre un outil qui n'a **rien sur quoi agir**, plutôt que de le
-griser : une gomme sans cible n'est pas un outil indisponible mais un outil sans emploi. Un
-outil auto-masqué ne s'arme pas non plus au clavier, et s'il l'était au moment où sa dernière
-cible disparaît, il est relâché. La rangée « Tout effacer » vit dans le sous-menu de la gomme
+`autoHide` retire de la barre ce qui n'a **rien sur quoi agir**, plutôt que de le griser :
+une gomme sans cible n'est pas un outil indisponible mais un outil sans emploi, et deux
+flèches d'historique inertes occupent une barre qu'on compacte déjà faute de hauteur. Un
+*outil* auto-masqué ne s'arme pas non plus au clavier, et s'il l'était au moment où sa
+dernière cible disparaît, il est relâché — à la différence des commandes d'historique, qui
+gardent leur raccourci : l'historique n'a pas besoin de la barre pour exister. La rangée « Tout effacer » vit dans le sous-menu de la gomme
 et partage son périmètre : elle paraît et disparaît avec elle, sans clé propre.
 
 | Clé | Description | Défaut |
 |---|---|---|
 | `toolbar.minZoom` | Zoom sous lequel la barre se replie — dessiner suppose la vue proche. | `11` |
 | `toolbar.autoHide.erase` | Retirer la gomme — et sa rangée « Tout effacer » — tant qu'aucune cible autorisée n'est à l'écran. | `true` |
+| `toolbar.autoHide.history` | Retirer « Annuler » et « Rétablir » tant qu'il n'y a rien à défaire ni à refaire, au lieu de les griser. Chacun se retire pour son propre compte ; le raccourci clavier, lui, ne dépend pas de la barre. | `true` |

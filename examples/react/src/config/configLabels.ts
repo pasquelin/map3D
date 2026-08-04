@@ -563,4 +563,5 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   // ── toolbar ──────────────────────────────────────────────────────────────
   'toolbar.minZoom': 'zoom mini barre de dessin',
   'toolbar.autoHide.erase': 'masquer la gomme sans cible',
+  'toolbar.autoHide.history': 'masquer annuler/rétablir inutiles',
 }

@@ -46,7 +46,8 @@ export function useToggleShortcut(shortcut: string | false | undefined, toggleRe
  * différent » — deux surfaces à 92 % d'opacité empilées, chacune floutant l'autre.
  *
  * Un seul `id` ouvert à la fois. Les surfaces qui ne sont pas des menus mais occupent la
- * même région (le panneau de style, contextuel) s'effacent via `useYieldsToDropdown`.
+ * même région (les sous-menus de survol de la barre, l'infobulle d'un bouton) s'effacent
+ * via `useYieldsToDropdown`.
  */
 type DropdownRegistry = {
   openId: string | null
@@ -100,17 +101,17 @@ export function DropdownProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Vrai dès qu'une surface déroulante est ouverte — pour qu'une surface CONTEXTUELLE
- * (le panneau de style, qui suit l'outil actif et que personne n'ouvre) libère la place
- * au lieu de se faire recouvrir.
+ * Vrai dès qu'une surface déroulante est ouverte — pour que ce qui s'ouvre TOUT SEUL (un
+ * sous-menu au survol, l'infobulle d'un bouton) libère la place au lieu de venir se poser
+ * sur un panneau qu'on est en train de lire.
  */
 export function useYieldsToDropdown(): boolean {
   return useContext(DropdownContext)?.openId != null
 }
 
 export type DropdownProps = {
-  /** Chemin d'icône @mdi/js du déclencheur. */
-  icon: string
+  /** Chemin d'icône @mdi/js du déclencheur. Absent, seul `badge` habille le bouton. */
+  icon?: string
   /** Libellé accessible du déclencheur — `aria-label` et contenu du tooltip. */
   label: string
   /** id du `<Tooltip>` partagé de la barre hôte. Absent = pas d'infobulle. */
@@ -130,7 +131,8 @@ export type DropdownProps = {
   buttonClassName?: string
   /** Classe de variante du panneau (largeur, padding) — le chrome vient de `m3d-panel`. */
   panelClassName?: string
-  /** Contenu DANS le bouton après l'icône (badge de compteur). */
+  /** Contenu DANS le bouton après l'icône (badge de compteur) — ou tout son contenu
+   *  quand `icon` est absent (l'aperçu des couleurs de la barre à dessin). */
   badge?: ReactNode
   /**
    * Rendu SANS sa propre carte `.m3d-controls-group` — pour cohabiter avec un autre

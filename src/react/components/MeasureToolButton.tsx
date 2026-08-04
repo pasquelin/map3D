@@ -17,8 +17,8 @@ import { UiIcon } from './UiIcon'
  * ⚠️ Avec une seule rangée disponible, le sous-menu ne s'ouvre PAS : le bouton agit
  * directement et retrouve son infobulle. C'est l'état courant — la grille de coordonnées y a
  * vécu un temps avant de rejoindre les contrôles de vue, où elle survit au repli de la barre.
- * Le châssis reste monté pour la rangée suivante, et parce qu'il publie déjà l'ancre de
- * l'outil actif (cf. `publishActiveTool`).
+ * Le châssis reste monté pour la rangée suivante, et parce qu'il publie l'ancre de l'outil
+ * actif (cf. `publishActiveTool`).
  */
 export function MeasureToolButton({ position, tools }: { position: 'left' | 'right'; tools?: MeasureTool[] }) {
   const { tool, setTool, shortcuts } = useDrawing()
@@ -36,9 +36,8 @@ export function MeasureToolButton({ position, tools }: { position: 'left' | 'rig
   return (
     <div ref={wrapRef} {...flyout.wrapProps}>
       <ToolButton
-        // Publie son bouton comme ancre de l'outil actif : c'est lui que le panneau de style
-        // doit longer. Sans ça, `measure` ayant quitté la boucle `tools.map` qui s'en
-        // chargeait, le panneau se recollait en haut de la barre.
+        // Publie son bouton comme ancre de l'outil actif : `measure` a quitté la boucle
+        // `tools.map`, qui s'en chargeait pour les boutons simples.
         ref={active ? bar.publishActiveTool : null}
         icon={mdiRuler}
         label={labels.tools.measure}

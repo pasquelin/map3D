@@ -268,6 +268,17 @@ through `config.graticule`, themed through `theme.colors.graticule`, and toggled
 It costs nothing while the grid is off. The component stays exported for maps built without
 `<Map>` (full imperative mounting).
 
+## `<DrawStylePanel>`
+
+The draw bar's colour block — its **last button** — and the style panel it opens. Mounted by
+`<Toolbar>`; these exports only serve a manual mount (custom bar), where it takes the sizing of
+a bar button.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Side of the bar carrying the button — the panel opens on the opposite side. | `'left'` |
+| `tip` | Host bar tooltip (`useTip(TIP_ID)`). Absent = no tooltip, the `aria-label` stays in place. | — |
+
 ## `<MeasureToolButton>`
 
 The bar's “Measure” button and its submenu. Mounted by `<Toolbar>` — these exports only serve a

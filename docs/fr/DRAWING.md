@@ -236,17 +236,21 @@ rectangle tourné se redimensionne le long de ses **axes propres**.
 
 ## 5. Style
 
-Le panneau de style s'affiche avec un outil actif ou une sélection.
+Le **dernier bouton de la barre est le bloc de couleurs** : les deux carrés fond/bordure,
+façon case couleur de Photoshop. Le style courant s'y lit en permanence, et un clic ouvre le
+panneau — qui ne s'ouvre QUE comme ça. Dessiner ou sélectionner ne fait plus surgir de
+surface sur la carte.
 
-- Couleurs **fond et bordure séparées** (swatches superposés façon Photoshop, échange ⇄),
-  palette du thème (`theme.colors.draw.palette`) + sélecteur natif.
+- Couleurs **fond et bordure séparées** (swatches superposés façon Photoshop, échange ⇄
+  dans le panneau), palette du thème (`theme.colors.draw.palette`) + sélecteur natif.
 - Épaisseur de bordure **y compris 0** (remplissage seul).
 - Style de trait : `solid` / `dashed` / `dotted`.
 - Opacité de bordure **et** de fond.
 - Rayon d'angle des rectangles (% du petit côté, 0–50).
 
-**Sans sélection**, le panneau règle les défauts de l'outil actif ; **avec
-sélection**, il restyle les formes.
+**Sans sélection**, le panneau règle les défauts des prochaines formes ; **avec
+sélection**, il restyle celles qui sont sélectionnées (son titre les compte). Ce qu'il
+montre suit le type de forme : le rayon d'angle n'apparaît que pour les rectangles.
 
 ```ts
 const { setStyle, currentStyle, selectionHasRect } = useDrawing()
@@ -520,18 +524,21 @@ Un remapping est immédiatement reflété dans les tooltips.
 
 Sections (`components`) : `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
 `plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` masque, un
-`ReactNode` remplace. ⚠️ `clear` n'est plus un bouton de la barre mais la **rangée « Tout
+`ReactNode` remplace. ⚠️ `stylePanel` est le **bloc de couleurs, dernier bouton de la barre**
+(et non plus une surface flottante à côté d'elle) : le remplacer y pose votre propre nœud. ⚠️ `clear` n'est plus un bouton de la barre mais la **rangée « Tout
 effacer » du sous-menu de la gomme** : `components={{ clear: false }}` retire cette rangée,
 et retirer l'outil `erase` de `tools` emporte la commande avec lui.
 
-**La barre ne montre que ce qui sert.** Par défaut (`config.toolbar.autoHide.erase`), la
-gomme — et avec elle sa rangée « Tout effacer » — n'apparaît que si une de ses cibles
-autorisées est à l'écran. Ce n'est pas une commande grisée comme Annuler (qui attend une
-action à défaire) : une carte sans rien d'effaçable ne montre simplement pas de gomme. Le
+**La barre ne montre que ce qui sert.** Par défaut, la gomme — et avec elle sa rangée
+« Tout effacer » — n'apparaît que si une de ses cibles autorisées est à l'écran
+(`config.toolbar.autoHide.erase`) ; **« Annuler » et « Rétablir » se retirent de même tant
+qu'il n'y a rien à défaire ni à refaire** (`autoHide.history`), au lieu de rester grisés.
+Une carte sans rien d'effaçable ne montre pas de gomme, et une carte vierge ne montre pas
+deux flèches inertes. Le raccourci clavier, lui, ne dépend jamais de la barre, et le
 masquage explicite par `components` reste prioritaire.
 
 ```tsx
-<Map config={{ toolbar: { autoHide: { erase: false } } }} />   // gomme toujours visible
+<Map config={{ toolbar: { autoHide: { erase: false, history: false } } }} />   // tout visible
 ```
 
 **La barre qui se replie relâche tout ce qu'elle pilote** et revient à la main : un
@@ -557,7 +564,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer
 
 Sans ça, deux boutons restent allumés et la barre ne dit plus où on en est.
 `ToolbarApi` porte `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
-les trois derniers ancrent un panneau qui suit l'outil actif, au-delà du minimum montré ici.
+les trois derniers servent d'**ancres** à une surface de l'hôte : la barre elle-même, ou le
+bouton de l'outil actif pour une surface qui se rapporte à cet outil-là.
 
 ---
 

@@ -4,5 +4,7 @@ import type { DrawToolbarConfig } from '../types'
  *  `minZoom` reprend la valeur de l'ancien `interaction.drawToolbarMinZoom`. */
 export const toolbarDefaults: DrawToolbarConfig = {
   minZoom: 11,
-  autoHide: { erase: true },
+  // ⚠️ `history` change le comportement d'origine : les deux flèches étaient GRISÉES tant
+  // qu'il n'y avait rien à défaire (cf. `DrawToolbarAutoHide`).
+  autoHide: { erase: true, history: true },
 }
