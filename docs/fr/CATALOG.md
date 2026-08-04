@@ -123,6 +123,37 @@ l'union des formes ET des points.
 **`actions` n'existe que sur une source de parcours** : une action reçoit le
 `CatalogItem` sur lequel elle porte, et une source à bascule n'a pas d'éléments.
 
+### 2.1 Régime « index » — quand l'hôte peint déjà
+
+`checkable: false` déclare un **référentiel que l'application affiche elle-même**. La liste
+ne sert plus qu'à le parcourir, y chercher, **cadrer** et agir dessus :
+
+```ts
+const zonesDeLEntreprise: CatalogBrowseSource = {
+  id: 'zones',
+  label: 'Zones',
+  icon: mdiShapePolygonPlus,
+  checkable: false, // ← la ligne perd sa case ; le nom CADRE au lieu de poser
+  list: (req) => api.zones(req),
+  geometry: (id) => api.contour(id), // chemin de cadrage des items sans `bounds`
+  actions: [{ id: 'edit', icon: mdiPencil, label: 'Modifier', run: (item) => ouvrirFiche(item.id) }],
+}
+```
+
+Le cas type : des zones **éditables**, montées par l'hôte dans `<DrawLayer>` — la seule
+couche où une forme est sélectionnable et modifiable (cf. [ZONES.md](ZONES.md)). Elles sont
+sur la carte **en permanence** ; une case n'aurait rien à exprimer, et si elle posait
+vraiment, la même zone serait peinte deux fois par deux couches qui ne se connaissent pas.
+
+| Ce qui change | Ce qui ne change pas |
+| --- | --- |
+| Pas de case — et **pas de gouttière réservée**, comme le chevron d'une source qui ne déplie pas | Chevron, enfants et sections : déplier reste utile |
+| Le clic sur le nom **cadre** (`item.bounds` s'il est fourni, sinon `geometry` le temps de mesurer, sans rien poser) | Actions de ligne — c'est le principal intérêt du régime |
+| Rien n'entre en sélection ni en persistance ; le badge du bouton ne compte pas ces lignes, « Tout retirer » ne les concerne pas | `disabled` : une ligne inerte le reste (ni cadrage ni action) |
+
+L'`aria-label` du nom devient `labels.catalog.focus` (« Centrer sur {label} ») et
+`aria-pressed` disparaît : il n'y a plus d'état à deux positions à annoncer.
+
 ---
 
 ## 3. `CatalogItem`, badges et actions

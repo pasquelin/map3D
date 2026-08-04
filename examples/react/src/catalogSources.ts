@@ -16,10 +16,13 @@ import {
   mdiHeartPulse,
   mdiMapMarkerRadiusOutline,
   mdiShapePolygonPlus,
+  mdiVectorPolygon,
   mdiViewGridOutline,
 } from '@mdi/js'
 import { boundsContains, createTitleCache, normalizeSearch } from '@pasquelin/map3d'
 import type {
+  Bounds,
+  CatalogBrowseSource,
   CatalogItem,
   CatalogPage,
   CatalogRequest,
@@ -30,6 +33,7 @@ import type {
 } from '@pasquelin/map3d'
 
 import { DEFIBS } from './data/defibs'
+import { DEMO_DRAW_ZONES } from './data/shapes'
 import { vogel } from './data/geo'
 import { seedToMarker } from './data/toMarkers'
 import type { Defib } from './data/types'
@@ -326,6 +330,72 @@ const zonesSource: CatalogSource = {
   ],
 }
 
+// ── Zones dessinées : le régime INDEX (`checkable: false`) ────────────────────
+//
+// Ces zones-là ne sont PAS posées par le catalogue : l'exemple les monte lui-même dans la
+// couche de dessin (`DEMO_DRAW_ZONES`, cf. `App.tsx`), seule couche où elles restent
+// déplaçables et éditables. Le catalogue ne sert donc qu'à les retrouver et à les cadrer —
+// une case y mentirait : on la coche, l'état visuel change, la carte est identique. Et si
+// elle posait vraiment, la même zone serait peinte deux fois, par deux couches.
+//
+// Les deux éléments exercent les DEUX chemins de cadrage : le premier annonce son
+// `bounds` (aucune requête), le second laisse la lib appeler `geometry` pour le calculer.
+
+/** Emprise d'un anneau de points — les zones de dessin n'en publient pas. */
+const ringBounds = (points: readonly { lat: number; lng: number }[]): Bounds | undefined => {
+  const first = points[0]
+  if (!first) return undefined
+  let north = first.lat
+  let south = first.lat
+  let east = first.lng
+  let west = first.lng
+  for (const p of points) {
+    north = Math.max(north, p.lat)
+    south = Math.min(south, p.lat)
+    east = Math.max(east, p.lng)
+    west = Math.min(west, p.lng)
+  }
+  return { north, south, east, west }
+}
+
+/** Les mêmes anneaux que la couche de dessin, en `ShapeData` — pour le seul cadrage. */
+const drawnShape = (index: number): ShapeData[] => {
+  const zone = DEMO_DRAW_ZONES[index]
+  if (!zone || zone.kind !== 'polygon') return []
+  return [{ kind: 'polygon', id: `drawn-${index}`, title: zone.title, points: zone.points, closed: true }]
+}
+
+const DRAWN_ZONES: readonly CatalogItem[] = DEMO_DRAW_ZONES.map((z, i) => ({
+  id: `drawn-${i}`,
+  title: z.title ?? `Zone ${i + 1}`,
+  color: z.style?.color,
+  // Une seule annonce son emprise : l'autre oblige la lib à passer par `geometry`, et
+  // c'est ce chemin-là qu'on veut voir vivre aussi.
+  bounds: i === 0 && z.kind === 'polygon' ? ringBounds(z.points) : undefined,
+}))
+
+const drawnZonesSource: CatalogBrowseSource = {
+  id: 'drawn-zones',
+  label: 'Zones dessinées',
+  icon: mdiVectorPolygon,
+  family: 'Mes zones',
+  total: DRAWN_ZONES.length,
+  // ⚠️ Le drapeau de la démonstration : pas de case, pas de sélection, le nom CADRE.
+  checkable: false,
+  list: (req) => delay(page(filtered(DRAWN_ZONES, req.query), req)),
+  // Requise par le contrat, et RÉELLE : c'est le chemin de cadrage des éléments qui
+  // n'annoncent pas leur emprise. Rendre `[]` ici ferait mentir la méthode.
+  geometry: (id) => delay(drawnShape(Number(String(id).replace('drawn-', '')))),
+  actions: [
+    {
+      id: 'copy',
+      icon: mdiContentCopy,
+      label: 'Copier l’identifiant',
+      run: (item) => console.log('[catalogue] zone dessinée :', item.id),
+    },
+  ],
+}
+
 const groupsSource: CatalogSource = {
   id: 'zone-groups',
   label: 'Groupes de zones',
@@ -516,6 +586,7 @@ export const hostViewportSource = defibsSource.source
 export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [
   groupsSource,
   zonesSource,
+  drawnZonesSource,
   citiesSource,
   defibsSource,
   flakySource,

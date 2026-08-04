@@ -523,6 +523,7 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.itemError` | Échec du chargement d'une géométrie, en infobulle sur la ligne. | `'Impossible d’afficher cet élément'` |
 | `catalog.add` | Case à cocher, état « pas encore sur la carte » — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Case à cocher, état « affiché » — `{label}`. | `'Retirer {label} de la carte'` |
+| `catalog.focus` | Nom d'une ligne SANS case (`checkable: false`), qui cadre au lieu de poser — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Chevron d'un agrégat. | `'Déplier'` / `'Replier'` |
 | `catalog.numberLocale` | Locale de formatage du total d'une source (`'auto'` suit le navigateur). `36 699` ou `36,699` est une décision d'INTERFACE, pas de navigateur — cf. `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Entrée du panneau engrenage. | `'Catalogue'` |

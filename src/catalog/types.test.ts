@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MarkerData } from '../data/types'
-import { isBrowseSource, isToggleSource, type CatalogSource } from './types'
+import { isBrowseSource, isToggleSource, type CatalogBrowseSource, type CatalogSource } from './types'
 
 const browse = (kind?: 'browse'): CatalogSource => ({
   id: 'zones',
@@ -43,6 +43,22 @@ describe('discrimination des sources', () => {
     for (const s of [browse(), browse('browse'), toggle()]) {
       expect(isBrowseSource(s)).toBe(!isToggleSource(s))
     }
+  })
+
+  // Le régime « index » (`checkable: false`) reste une source de PARCOURS : il n'a ni garde
+  // ni `kind` à lui — c'est la même liste, privée de sa seule capacité à poser.
+  it('`checkable: false` ne change pas le régime de la source', () => {
+    const s: CatalogBrowseSource = { ...(browse() as CatalogBrowseSource), checkable: false }
+    expect(isBrowseSource(s)).toBe(true)
+    expect(isToggleSource(s)).toBe(false)
+  })
+
+  // ⚠️ Le défaut est ce qui rend l'ajout rétrocompatible : toute source écrite avant lui
+  // omet la clé, et une lecture `=== true` les aurait toutes privées de leur case.
+  it('une source qui ne déclare rien reste cochable', () => {
+    const s = browse() as CatalogBrowseSource
+    expect(s.checkable).toBeUndefined()
+    expect(s.checkable !== false).toBe(true)
   })
 
   it('narrowing : la garde donne accès aux membres du régime, et à eux seuls', () => {

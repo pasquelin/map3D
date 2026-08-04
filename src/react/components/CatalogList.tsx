@@ -200,6 +200,9 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    */
   const checkStateOf = useCallback(
     (node: CatalogItemNode, key: string): 'on' | 'off' | 'mixed' => {
+      // Source sans case : ni état à dériver, ni enfants à parcourir pour le dériver. Ce
+      // travail se refait à chaque ligne visible et à chaque frame de défilement.
+      if (source.checkable === false) return 'off'
       const kids = node.item.hasChildren ? children.get(node.item.id) : undefined
       if (!kids || kids.length === 0) return catalog.isShown(key) ? 'on' : 'off'
       let shown = 0
@@ -207,7 +210,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
       if (shown === 0) return 'off'
       return shown === kids.length ? 'on' : 'mixed'
     },
-    [catalog, children, source.id],
+    [catalog, children, source.id, source.checkable],
   )
 
   /**
@@ -222,7 +225,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    * `catalog.toggle` : `exhaustive-deps` ne sait pas voir la stabilité d'un membre et
    * réclamerait l'objet entier, c'est-à-dire exactement ce qu'on évite.
    */
-  const { toggle, setMany } = catalog
+  const { toggle, focus, setMany } = catalog
   const onCheck = useCallback(
     (node: CatalogItemNode, next: boolean) => {
       if (!node.item.hasChildren || !source.children) {
@@ -243,7 +246,12 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
     [setMany, toggle, ensureChildren, source],
   )
 
-  const onActivate = useCallback((item: CatalogItem) => toggle(source, item, { fit: true }), [toggle, source])
+  // Sans case, il n'y a rien à basculer : le nom CADRE (cf. `CatalogBrowseSource.checkable`).
+  // Avec, il bascule ET emmène la caméra du même mouvement.
+  const onActivate = useCallback(
+    (item: CatalogItem) => (source.checkable === false ? focus(source, item) : toggle(source, item, { fit: true })),
+    [focus, toggle, source],
+  )
 
   const groupHeaders = config.catalog.groupHeaders
   const nodes = useMemo(

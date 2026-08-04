@@ -94,6 +94,9 @@ function CatalogRowInner({
   // contrôle qui n'apparaîtra jamais.
   const expandableSource = source.children !== undefined
   const expandable = item.hasChildren === true && expandableSource
+  // Même raisonnement que la colonne du chevron : une source dont l'hôte peint déjà les
+  // éléments n'a pas de case, et n'en réserve donc pas la gouttière (cf. `checkable`).
+  const checkable = source.checkable !== false
 
   return (
     <div className={`m3d-catrow${depth > 0 ? ' m3d-child' : ''}${off ? ' m3d-off' : ''}`}>
@@ -117,22 +120,28 @@ function CatalogRowInner({
       {/* Case à cocher et non bouton : « sur la carte » est un ÉTAT persistant, et c'est
           déjà ainsi que « Couches » l'exprime — jusqu'à sa PLACE, en tête de ligne, pour
           que les deux panneaux de la même barre se lisent pareil. */}
-      <input
-        ref={boxRef}
-        type="checkbox"
-        className="m3d-catcheck"
-        aria-label={formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title })}
-        checked={shown}
-        disabled={off || pending}
-        // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
-        // convention des arbres de cases, et `e.target.checked` la donne déjà.
-        onChange={(e) => onCheck(node, e.target.checked)}
-      />
+      {checkable && (
+        <input
+          ref={boxRef}
+          type="checkbox"
+          className="m3d-catcheck"
+          aria-label={formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title })}
+          checked={shown}
+          disabled={off || pending}
+          // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
+          // convention des arbres de cases, et `e.target.checked` la donne déjà.
+          onChange={(e) => onCheck(node, e.target.checked)}
+        />
+      )}
 
       <button
         type="button"
         className="m3d-catmain"
-        aria-pressed={isShown}
+        // Sans case, le nom ne bascule plus rien : il cadre. `aria-pressed` annoncerait un
+        // état à deux positions là où il n'y en a plus qu'une, et le libellé promettrait
+        // d'afficher ce qui est déjà là.
+        aria-label={checkable ? undefined : formatLabel(labels.catalog.focus, { label: item.title })}
+        aria-pressed={checkable ? isShown : undefined}
         disabled={off || pending}
         onClick={() => onActivate(item)}
       >

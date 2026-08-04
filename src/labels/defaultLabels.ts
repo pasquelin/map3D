@@ -38,6 +38,7 @@ export const defaultLabels: MapLabels = {
     itemError: 'Impossible d’afficher cet élément',
     add: 'Afficher {label} sur la carte',
     remove: 'Retirer {label} de la carte',
+    focus: 'Centrer sur {label}',
     expand: 'Déplier',
     collapse: 'Replier',
     numberLocale: 'auto',

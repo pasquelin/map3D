@@ -6,6 +6,25 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### feat : catalogue — régime « index », pour un référentiel que l'hôte peint déjà
+
+La ligne d'une source de parcours portait une case **inconditionnellement**. Or une
+application qui monte elle-même ses entités — typiquement des zones **éditables**, dans
+`<DrawLayer>`, la seule couche où une forme est sélectionnable — n'a rien à cocher : elles
+sont sur la carte en permanence. La case mentait (on la coche, l'état visuel change, la
+carte est identique), et si elle avait vraiment posé, la même entité aurait été peinte deux
+fois par deux couches qui ne se connaissent pas.
+
+`CatalogBrowseSource.checkable: false` déclare ce régime. La ligne perd sa case — et sa
+gouttière avec, comme le chevron d'une source qui ne déplie pas —, rien n'entre en sélection
+ni en persistance, et le clic sur le nom **cadre** : sur `item.bounds` s'il est annoncé
+(aucune requête), sinon sur la géométrie, chargée le temps de mesurer puis jetée. Chevron,
+enfants, sections et actions de ligne sont inchangés — c'est tout l'intérêt du régime.
+
+Défaut `true` : **aucune source existante ne bouge**. Ajoute `labels.catalog.focus`
+(« Centrer sur {label} »), qui remplace `catalog.add`/`remove` sur ces lignes, où
+`aria-pressed` n'annonce plus rien.
+
 ### ui : « Annuler » et « Rétablir » se retirent de la barre au lieu de rester grisés
 
 Deux boutons inertes occupaient en permanence une barre qu'on **compacte déjà faute de

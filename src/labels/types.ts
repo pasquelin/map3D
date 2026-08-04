@@ -70,6 +70,8 @@ export type MapLabels = {
     add: string
     /** Bouton bascule, état « affiché sur la carte » — `{label}`. */
     remove: string
+    /** Nom d'une ligne SANS case (`checkable: false`), qui cadre au lieu de poser — `{label}`. */
+    focus: string
     expand: string
     collapse: string
     /**

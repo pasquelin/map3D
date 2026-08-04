@@ -121,6 +121,37 @@ marker — and clicking the name frames the union of shapes AND points.
 **`actions` exists only on a browse source**: an action receives the `CatalogItem` it
 acts on, and a toggle source has no items.
 
+### 2.1 "Index" mode — when the host already paints
+
+`checkable: false` declares a **reference set the application displays itself**. The list
+then only serves to browse it, search it, **frame** it and act on it:
+
+```ts
+const companyZones: CatalogBrowseSource = {
+  id: 'zones',
+  label: 'Zones',
+  icon: mdiShapePolygonPlus,
+  checkable: false, // ← the row loses its checkbox; the name FRAMES instead of placing
+  list: (req) => api.zones(req),
+  geometry: (id) => api.outline(id), // framing path for items with no `bounds`
+  actions: [{ id: 'edit', icon: mdiPencil, label: 'Edit', run: (item) => openForm(item.id) }],
+}
+```
+
+The typical case: **editable** zones, mounted by the host in `<DrawLayer>` — the only layer
+where a shape is selectable and editable (see [ZONES.md](ZONES.md)). They are on the map at
+**all times**; a checkbox would have nothing to express, and if it really placed something,
+the same zone would be painted twice by two layers unaware of each other.
+
+| What changes | What does not |
+| --- | --- |
+| No checkbox — and **no gutter reserved** for it, like the chevron of a source that never expands | Chevron, children and sections: expanding stays useful |
+| Clicking the name **frames** (`item.bounds` if provided, otherwise `geometry` just long enough to measure, placing nothing) | Row actions — the whole point of this mode |
+| Nothing enters the selection or persistence; the button badge ignores these rows, "Remove all" does not concern them | `disabled`: an inert row stays inert (neither framing nor action) |
+
+The name's `aria-label` becomes `labels.catalog.focus` ("Centrer sur {label}") and
+`aria-pressed` goes away: there is no two-state toggle left to announce.
+
 ---
 
 ## 3. `CatalogItem`, badges and actions
