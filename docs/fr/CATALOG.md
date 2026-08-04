@@ -137,6 +137,7 @@ type CatalogItem = {
   bounds?: Bounds        // présent ⇒ cadrer sans charger la géométrie
   disabled?: boolean     // ligne inerte : ni cadrage, ni affichage, ni action
   hasChildren?: boolean
+  group?: string         // ouvre une section nommée dans la liste — cf. § 5.1
 }
 
 type CatalogBadge = {
@@ -287,7 +288,42 @@ premier cadre.
 
 ---
 
-## 5. Agrégats et enfants
+## 5. Sections, agrégats et enfants
+
+### 5.1 Sections nommées
+
+`CatalogItem.group` ouvre un **intertitre** dans la liste au changement de valeur :
+
+```ts
+items: [
+  { id: 'z4', title: 'SDF Ext SO',      group: 'Stade de France' },
+  { id: 'z5', title: 'SDF - Ext NE',    group: 'Stade de France' },
+  { id: 'z7', title: 'Centre Westfield', group: 'La Défense' },   // ← ouvre une section
+]
+```
+
+> **⚠️ La lib ne trie pas.** Elle ouvre une section quand `group` change d'un élément au
+> suivant — **c'est à vous de servir vos éléments déjà groupés**. Une source qui les rend
+> en désordre verra le même intitulé revenir plus bas, ce qui est l'affichage fidèle de ce
+> qu'elle a rendu.
+>
+> Ce n'est pas une limitation mais la condition de la **pagination** : trier supposerait de
+> tenir le jeu complet, alors que les pages arrivent au fil du défilement. Une page qui
+> arrive prolonge la section en cours au lieu d'en rouvrir une identique.
+
+Un élément sans `group` n'ouvre aucune section : une source peut n'en grouper qu'une
+partie, le reste sort à plat. L'intertitre est une **ligne du flux virtualisé**, de la même
+hauteur que les autres — c'est ce qui permet de virtualiser sans mesurer.
+
+À ne pas confondre avec un agrégat (§ 5.2) : une section est un simple intertitre, sans
+case ni action ; un agrégat est un élément qu'on coche et qui emporte ses enfants.
+
+Réglage : `config.catalog.groupHeaders` (défaut `true`). À `false`, aucun en-tête n'est
+rendu — et une source qui ne renseigne pas `group` ne paie même pas la comparaison. Un
+réglage plutôt que « il suffit de ne pas renseigner `group` », parce qu'une source peut
+venir d'un **plugin tiers** que vous ne contrôlez pas.
+
+### 5.2 Agrégats et enfants
 
 Un « groupe de zones » n'est pas une notion de la lib : c'est un élément dont
 **`geometry` rend plusieurs formes**. Cocher le groupe les affiche ensemble, décocher les
@@ -384,6 +420,8 @@ config.catalog = {
   overscanRows: 4,         // lignes rendues hors écran de chaque côté de la fenêtre virtuelle
   prefetchMarginPx: 200,   // 💰 distance au bas de liste qui déclenche la page suivante
   persistDebounceMs: 250,  // anti-rebond de l'écriture de la sélection dans le stockage
+  familyHeaders: true,     // nommer les familles du MENU des types (`CatalogSource.family`)
+  groupHeaders: true,      // nommer les sections de la LISTE (`CatalogItem.group`)
 }
 config.data.storageKeys.catalog          // 'm3d:catalog'         — la sélection
 config.data.storageKeys.catalogSettings  // 'm3d:catalog-settings' — les réglages
@@ -451,12 +489,21 @@ list: async ({ query, cursor, limit }) => {
 }
 ```
 
-**Deux familles dans le menu** — `family` les sépare, dans l'ordre d'inscription :
+**Deux familles dans le menu** — `family` les regroupe, dans l'ordre d'inscription (un
+tri alphabétique reprendrait à l'hôte la main sur l'ordre de ses sources) :
 
 ```ts
-{ id: 'zones', family: 'Mes zones', … }
+{ id: 'zones',  family: 'Mes zones',   … }
 { id: 'cities', family: 'Territoires', … }
+{ id: 'defibs', family: 'Territoires', … }   // ← rejoint la même famille
 ```
+
+Chaque famille porte un **en-tête à son nom**, et les familles sont séparées par un filet.
+`config.catalog.familyHeaders = false` retombe sur le filet seul. Une source sans `family`
+tombe dans un groupe sans nom : pas d'en-tête, la lib n'inventant aucun intitulé.
+
+Les deux régimes se mélangent dans une même famille : une bascule (§ 4) s'y range comme
+une source de parcours.
 
 **Piloter la sélection depuis l'application** :
 

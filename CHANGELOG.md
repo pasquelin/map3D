@@ -6,6 +6,36 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### feat : le catalogue nomme ses groupes — familles du menu et sections de la liste
+
+Le menu des types séparait ses familles (`CatalogSource.family`) par un simple filet, et
+la liste d'un type ne savait pas se sectionner du tout. À trois entrées le filet suffisait ;
+à dix, venues de plusieurs plugins, il faut deviner ce que les voisines ont en commun.
+
+- **Menu des types** : chaque famille porte un en-tête à son nom. Une source sans `family`
+  reste dans un groupe sans nom — la lib n'invente aucun intitulé (« Autres » serait du
+  texte en dur). Réglable par `config.catalog.familyHeaders` (défaut `true`).
+- **Liste** : `CatalogItem.group` ouvre un intertitre au CHANGEMENT de valeur. Réglable par
+  `config.catalog.groupHeaders` (défaut `true`).
+
+⚠️ **La lib ne trie pas** : elle ouvre une section quand `group` change d'un élément au
+suivant, et c'est à la source de servir ses éléments déjà groupés. Ce n'est pas une
+limitation mais la condition de la **pagination** — trier supposerait de tenir le jeu
+complet, alors que les pages arrivent au fil du défilement. Une page qui arrive prolonge
+la section en cours au lieu d'en rouvrir une identique.
+
+L'intertitre est une **ligne du flux virtualisé**, de la même hauteur que les autres :
+la fenêtre visible suppose une hauteur constante, et un en-tête qui envelopperait ses
+éléments aurait demandé un virtualiseur à hauteurs variables. `CatalogNode` devient donc
+une union discriminée (`kind: 'item' | 'group'`) plutôt qu'un champ optionnel — un en-tête
+n'a ni case, ni actions, ni état d'affichage.
+
+Coût nul pour qui ne s'en sert pas : réglage coupé, `flattenCatalog` ne fait même pas la
+comparaison par élément ; source sans `group`, aucun en-tête n'est produit.
+
+Deux réglages et non un : une poignée de types d'un côté, des dizaines de milliers
+d'éléments de l'autre — deux surfaces, deux volumes.
+
 ### feat : le catalogue pose des markers, et sait s'allumer d'un interrupteur
 
 Le catalogue ne savait poser que des **formes**, et ne savait fonctionner qu'en **parcours** —

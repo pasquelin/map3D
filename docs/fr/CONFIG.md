@@ -509,6 +509,8 @@ Référentiels parcourables déclarés par l'hôte et par les plugins (`engine.c
 | `catalog.overscanRows` | Lignes rendues hors écran de chaque côté de la fenêtre virtuelle. Curseur entre « pas de vide au défilement rapide » et « travail React par frame » : chaque unité ajoute DEUX lignes rendues à chaque frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance au bas de liste qui déclenche la page suivante (px). Décide du VOLUME d'appels à `CatalogSource.list` : une marge large précharge pendant qu'on défile encore, mais demande des pages qu'on ne regardera peut-être jamais. | `200` |
 | `catalog.persistDebounceMs` | Anti-rebond avant d'écrire la sélection dans le stockage. `localStorage.setItem` est SYNCHRONE : sans amortissement, une rafale de gestes écrit autant de fois qu'elle compte d'éléments, sur une charge qui grossit. `0` écrit immédiatement ; la charge en attente est toujours vidée avant que la page ne disparaisse. | `250` |
+| `catalog.familyHeaders` | Nommer les familles du menu des types (`CatalogSource.family`). `false` ne garde que le filet de séparation. Sans objet pour une source sans `family` : son groupe n'a pas de nom, et un intitulé inventé par la lib y mettrait du texte en dur. | `true` |
+| `catalog.groupHeaders` | Ouvrir une section nommée dans la LISTE au changement de `CatalogItem.group`. Un réglage plutôt que « il suffit de ne pas renseigner `group` » : les sources peuvent venir de plugins TIERS, que l'hôte ne contrôle pas. Sans objet pour une source qui ne renseigne pas `group` — le drapeau épargne alors même la comparaison par élément. | `true` |
 
 ---
 

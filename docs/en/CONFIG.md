@@ -510,6 +510,8 @@ Browsable reference sets declared by the host and by plugins (`engine.catalog`) 
 | `catalog.overscanRows` | Rows rendered off-screen on each side of the virtual window. The dial between "no blank on fast scroll" and "React work per frame": each unit adds TWO rendered rows on every frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance from the list bottom that triggers the next page (px). Decides the VOLUME of calls to `CatalogSource.list`: a wide margin prefetches while you are still scrolling, but requests pages you may never look at. | `200` |
 | `catalog.persistDebounceMs` | Debounce before writing the selection to storage. `localStorage.setItem` is SYNCHRONOUS: without damping, a burst of gestures writes as many times as it has items, on a payload that keeps growing. `0` writes immediately; a pending payload is always flushed before the page goes away. | `250` |
+| `catalog.familyHeaders` | Name the families of the types menu (`CatalogSource.family`). `false` keeps only the separating rule. Not applicable to a source without `family`: its group has no name, and wording invented by the library would hard-code text. | `true` |
+| `catalog.groupHeaders` | Open a named section in the LIST whenever `CatalogItem.group` changes. A setting rather than “just don't set `group`”: sources may come from THIRD-PARTY plugins the host does not control. Not applicable to a source that does not set `group` — the flag then saves even the per-item comparison. | `true` |
 
 ---
 

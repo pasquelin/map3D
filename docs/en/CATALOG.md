@@ -135,6 +135,7 @@ type CatalogItem = {
   bounds?: Bounds        // present ⇒ frame without loading the geometry
   disabled?: boolean     // inert row: no framing, no display, no action
   hasChildren?: boolean
+  group?: string         // opens a named section in the list — see § 5.1
 }
 
 type CatalogBadge = {
@@ -283,7 +284,42 @@ first frame.
 
 ---
 
-## 5. Aggregates and children
+## 5. Sections, aggregates and children
+
+### 5.1 Named sections
+
+`CatalogItem.group` opens a **section heading** in the list whenever the value changes:
+
+```ts
+items: [
+  { id: 'z4', title: 'SDF Ext SO',       group: 'Stade de France' },
+  { id: 'z5', title: 'SDF - Ext NE',     group: 'Stade de France' },
+  { id: 'z7', title: 'Centre Westfield', group: 'La Défense' },   // ← opens a section
+]
+```
+
+> **⚠️ The library does not sort.** It opens a section when `group` changes from one item
+> to the next — **you must serve your items already grouped**. A source returning them out
+> of order will see the same heading come back further down, which is a faithful rendering
+> of what it returned.
+>
+> This is not a limitation but the condition for **pagination**: sorting would require
+> holding the complete set, while pages arrive as you scroll. An incoming page extends the
+> current section instead of reopening an identical one.
+
+An item without `group` opens no section: a source may group only part of its items, the
+rest comes out flat. A heading is a **row of the virtualized flow**, the same height as any
+other — that is what allows virtualizing without measuring.
+
+Not to be confused with an aggregate (§ 5.2): a section is a plain heading, with no
+checkbox and no action; an aggregate is an item you tick that carries its children.
+
+Setting: `config.catalog.groupHeaders` (default `true`). At `false` no heading is rendered
+— and a source that does not set `group` does not even pay the comparison. A setting rather
+than “just don't set `group`”, because a source may come from a **third-party plugin** you
+do not control.
+
+### 5.2 Aggregates and children
 
 A "zone group" is not a library concept: it is an item whose **`geometry` returns several
 shapes**. Ticking the group shows them together, unticking removes them together.
@@ -378,6 +414,8 @@ config.catalog = {
   overscanRows: 4,         // rows rendered off-screen on each side of the virtual window
   prefetchMarginPx: 200,   // 💰 distance from the list bottom that triggers the next page
   persistDebounceMs: 250,  // debounce for writing the selection to storage
+  familyHeaders: true,     // name the families of the types MENU (`CatalogSource.family`)
+  groupHeaders: true,      // name the sections of the LIST (`CatalogItem.group`)
 }
 config.data.storageKeys.catalog          // 'm3d:catalog'          — the selection
 config.data.storageKeys.catalogSettings  // 'm3d:catalog-settings' — the settings
@@ -444,12 +482,20 @@ list: async ({ query, cursor, limit }) => {
 }
 ```
 
-**Two families in the menu** — `family` separates them, in registration order:
+**Two families in the menu** — `family` groups them, in registration order (alphabetical
+sorting would take control of source order away from the host):
 
 ```ts
-{ id: 'zones', family: 'My zones', … }
+{ id: 'zones',  family: 'My zones',    … }
 { id: 'cities', family: 'Territories', … }
+{ id: 'defibs', family: 'Territories', … }   // ← joins the same family
 ```
+
+Each family carries a **heading with its name**, and families are separated by a rule.
+`config.catalog.familyHeaders = false` falls back to the rule alone. A source without
+`family` lands in an unnamed group: no heading, since the library invents no wording.
+
+Both regimes mix within one family: a toggle source (§ 4) sits there like a browse one.
 
 **Driving the selection from the application**:
 
