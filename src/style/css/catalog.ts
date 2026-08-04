@@ -15,13 +15,23 @@ export const CSS_CATALOG = `
 /* Menu des types : familles séparées par un filet, et nommées par un en-tête quand
    config.catalog.familyHeaders est vrai (défaut). Le filet est gardé DANS LES DEUX CAS —
    il sépare aussi la famille anonyme, qui n'a pas de nom à porter. */
-.m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
+/* overflow-x:hidden EXPLICITE : overflow-y:auto seul force le navigateur à passer l'axe
+   horizontal en auto lui aussi, et le moindre pixel de débordement y ouvrait une barre de
+   défilement latérale. Un menu ne se lit pas en le faisant glisser de côté — c'est le NOM
+   qui cède (ellipsis), et lui seul. */
+.m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;overflow-x:hidden;min-height:0}
 .m3d-catfamily+.m3d-catfamily{margin-top:6px;padding-top:6px;border-top:1px solid var(--m3d-border)}
 /* Habillage partagé avec les autres intertitres (cf. CSS_CHASSIS) : il ne reste ici que
    la gouttière, alignée sur celle des lignes de type (8px). */
 .m3d-catfamily-title{margin:0;padding:2px 8px 4px}
 .m3d-cattype-row{position:relative}
+/* ⚠️ box-sizing OBLIGATOIRE, et c'est LE défaut qui ouvrait une barre de défilement
+   horizontale. La classe habille deux éléments : un bouton pour un type parcourable, un
+   div pour un jeu à bascule (case + nom = deux contrôles, donc pas un bouton unique). Le
+   navigateur pose border-box sur les boutons, pas sur les div — la ligne à bascule prenait
+   donc 100 % PLUS ses 14 px de marge interne, et elle seule dépassait du panneau. */
 .m3d-cattype{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;width:100%;
+  box-sizing:border-box;
   border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--m3d-size-sm);
   color:var(--m3d-text);text-align:left}
 .m3d-cattype:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}

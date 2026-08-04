@@ -28,7 +28,11 @@ export const CSS_TOGGLES = `
 .m3d-plugin-number input[type='number']{width:52px;flex:none;padding:3px 5px;
   border:1px solid var(--m3d-border);border-radius:6px;background:transparent;color:var(--m3d-text);
   font:inherit;font-size:11.5px;font-variant-numeric:tabular-nums}
+/* box-sizing : un champ texte est en content-box chez le navigateur (contrairement au
+   select ou au bouton), donc 100 % de large PLUS sa marge interne et sa bordure — il
+   dépassait du sous-panneau, dont le overflow-y ouvrait alors une barre horizontale. */
 .m3d-plugin-input,.m3d-plugin-select{width:100%;padding:5px 7px;border:1px solid var(--m3d-border);
+  box-sizing:border-box;
   border-radius:7px;background:var(--m3d-bg);color:var(--m3d-text);font:inherit;font-size:11.5px}
 .m3d-plugin-select{cursor:pointer}
 .m3d-plugin-input:focus-visible,.m3d-plugin-select:focus-visible,

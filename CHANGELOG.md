@@ -6,6 +6,18 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### fix : plus de barre de défilement horizontale dans le menu du catalogue
+
+La ligne d'un jeu à **bascule** est un `div` (la case et le nom sont deux contrôles), là où
+un type parcourable est un `button`. Or le navigateur ne pose `box-sizing: border-box` que
+sur le second : la ligne à bascule prenait `100%` PLUS ses 14 px de marge interne, dépassait
+seule du panneau, et `overflow-y: auto` ouvrait pour ces 14 px une barre horizontale sous
+tout le menu. `box-sizing` posé sur les deux formes, et l'axe horizontal explicitement
+fermé — un menu ne se lit pas en le faisant glisser de côté, c'est le nom qui cède.
+
+Même défaut corrigé sur les champs texte du panneau **Plugins** (`.m3d-plugin-input`), en
+content-box eux aussi, donc débordant du sous-panneau qui les porte.
+
 ### feat : le trafic en fournisseur interne — le fond emprunte Google le temps du calque
 
 Le calque trafic était refusé **dès que le fond 2D venait du serveur interne**, clé Google
