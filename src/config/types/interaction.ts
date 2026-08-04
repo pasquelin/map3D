@@ -82,8 +82,6 @@ export type InteractionConfig = {
   targetZoom: number
   /** Zoom du vol au clic sur un favori du dock. */
   pinnedFlyZoom: number
-  /** Zoom sous lequel la barre de dessin se replie — dessiner suppose la vue proche. */
-  drawToolbarMinZoom: number
   /** Plancher de compactage d'une barre avant qu'elle ne passe en colonnes. */
   barMinScale: number
   /** Infobulle de cluster, en pixels écran. */

@@ -6,6 +6,47 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### feat : la barre de dessin ne montre plus les outils qui n'ont rien à faire
+
+« Tout effacer » (la corbeille) et la **gomme** se retirent de la barre tant qu'ils n'ont
+**rien sur quoi agir**, plutôt que d'y rester en permanence. Ce ne sont pas des commandes
+grisées comme Annuler — qui attend une action à défaire — mais des commandes sans objet :
+une carte vierge ne montre simplement pas de corbeille.
+
+Chaque outil observe **exactement ce que sa commande retire**, pas une approximation :
+
+- **corbeille** — au moins une forme possédée **visible** (filtre « Couches ») et **non
+  verrouillée**, ou un tracé en cours : le prédicat même de `clear()` ;
+- **gomme** — les formes possédées **plus** les objets hôte effaçables
+  (`<PathLayer>` / `<ShapeLayer>` marqués `erasable`), le tout filtré par
+  `config.erase.targets` : une catégorie interdite à la gomme ne justifie pas son bouton.
+
+Un outil auto-masqué **ne s'arme pas au clavier** (son raccourci reste sans effet), et s'il
+était actif au moment où sa dernière cible disparaît, il est **relâché** — sans quoi la gomme
+restait armée sur l'intercepteur d'entrée sans plus aucun bouton pour en sortir (le piège déjà
+traité au repli de la barre hors zoom). Le masquage explicite par `components` reste prioritaire.
+
+Réglable au cas par cas : `config.toolbar.autoHide.clear` et `config.toolbar.autoHide.erase`
+(défaut `true` pour les deux) — les passer à `false` restitue le comportement précédent.
+
+Nouvelle API publique : `config.toolbar` (`DrawToolbarConfig`, `DrawToolbarAutoHide`),
+`useDrawing().canClear` / `.canErase`, `ErasableRegistry.hasAny()`.
+
+**⚠️ Ruptures**
+
+- `config.interaction.drawToolbarMinZoom` → **`config.toolbar.minZoom`** (même valeur par
+  défaut, `11`). Ce qui appartient à la barre est désormais regroupé sous `config.toolbar` ;
+  ce qui appartient aux outils reste dans son domaine (`config.erase.targets` pour la
+  politique de la gomme, `config.interaction.shortcuts.draw` pour les touches, qui agissent
+  sans barre montée). La prop `<Toolbar minZoom>` est inchangée.
+- `ErasableProvider` gagne une méthode **requise** `has(kind)` : une couche hôte qui
+  implémente son propre provider doit répondre « ai-je au moins un objet effaçable de cette
+  catégorie ? » **sans construire la liste** — un test de présence ne doit pas payer le prix
+  d'une collecte de dizaines de milliers d'objets.
+- L'affichage par défaut de la barre change : sur une carte vierge, corbeille et gomme ne
+  paraissent plus. `config={{ toolbar: { autoHide: { clear: false, erase: false } } }}` les
+  rend permanentes.
+
 ## [0.3.0] — 2026-08-02
 
 ### feat : contrainte de dessin « non-chevauchement » (`noOverlap`)

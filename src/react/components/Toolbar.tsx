@@ -197,11 +197,11 @@ export function Toolbar({
   components = {},
   extraTools,
 }: DrawToolbarProps) {
-  const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts, symbols } = useDrawing()
+  const { tool, setTool, undo, redo, canUndo, canRedo, canClear, clear, shortcuts, symbols } = useDrawing()
   // Hook appelé INCONDITIONNELLEMENT : `minZoomProp ?? useConfig()` le
   // court-circuiterait dès qu'une prop est fournie — même piège que `ToolButton`.
   const config = useConfig()
-  const minZoom = minZoomProp ?? config.interaction.drawToolbarMinZoom
+  const minZoom = minZoomProp ?? config.toolbar.minZoom
   // Un outil externe actif (loupe, pick de bâtiment) doit "éteindre" la main : sinon
   // `tool === null` surligne Naviguer alors qu'un autre outil est actif (deux items
   // actifs à la fois — exactement ce que la barre ne doit jamais montrer).
@@ -364,16 +364,22 @@ export function Toolbar({
           />,
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
-        {slot(
-          'clear',
-          <ToolButton
-            icon={mdiTrashCanOutline}
-            label={labels.toolbar.clearAll}
-            tip={tip}
-            className="m3d-btn-delete"
-            onClick={clear}
-          />,
-        )}
+        {/* « Tout effacer » n'est pas grisé mais RETIRÉ tant qu'il n'a rien à effacer :
+            une commande sans objet n'est pas une commande indisponible (comme Annuler,
+            qui attend une action à défaire), c'est une commande qui n'a pas lieu d'être.
+            Une carte vierge ne montre donc pas de corbeille. Réglable —
+            `config.toolbar.autoHide.clear = false` la rend permanente. */}
+        {(!config.toolbar.autoHide.clear || canClear) &&
+          slot(
+            'clear',
+            <ToolButton
+              icon={mdiTrashCanOutline}
+              label={labels.toolbar.clearAll}
+              tip={tip}
+              className="m3d-btn-delete"
+              onClick={clear}
+            />,
+          )}
       </div>
       {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)

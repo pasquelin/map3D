@@ -44,6 +44,7 @@ export const TOOLBAR_SECTIONS = keysOf<DrawToolbarSection>({
   select: true,
   symbol: true,
   measure: true,
+  erase: true,
   lens: true,
   plugins: true,
   stylePanel: true,

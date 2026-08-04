@@ -25,7 +25,6 @@ export const interactionDefaults: InteractionConfig = {
   freehandMinStepPx: 2,
   targetZoom: 17,
   pinnedFlyZoom: 16,
-  drawToolbarMinZoom: 11,
   barMinScale: 0.85,
   tooltip: { flipBelowPx: 76, clampMarginPx: 78, offsetBelowPx: 18, offsetAbovePx: 14 },
   spiderfy: { pairRadiusRatio: 0.1, minRingRatio: 1.15, gapPx: 8, zoomEpsilon: 0.05 },

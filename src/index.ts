@@ -198,6 +198,8 @@ export type {
   EraseConfig,
   SelectionConfig,
   HostLayerKind,
+  DrawToolbarConfig,
+  DrawToolbarAutoHide,
 } from './config/types'
 /**
  * Sources de tuiles 2D. Exposées pour qu'un hôte puisse brancher son propre

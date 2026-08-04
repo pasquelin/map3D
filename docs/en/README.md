@@ -453,7 +453,7 @@ events too, derived by difference.
 The `useDrawing()` API exposes everything: `tool/setTool`,
 `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`,
 `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`,
-`undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`),
+`undo`/`redo`/`canUndo`/`canRedo`, `clear`/`canClear`/`canErase`, `settings` (+ `useDrawSettings()`),
 `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Business constraints** — `constraints.limits` (`ShapeData`, as in `<ShapeLayer>`)

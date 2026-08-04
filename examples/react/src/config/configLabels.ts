@@ -106,6 +106,8 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'selection.selectable': 'Types sélectionnables',
   erase: 'Gomme',
   'erase.targets': 'Ce que la gomme efface',
+  toolbar: 'Barre de dessin',
+  'toolbar.autoHide': 'Outils masqués faute d’objet',
 }
 
 /** Feuilles — toutes celles de `defaultConfig`, plus les clés optionnelles du type
@@ -252,7 +254,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.freehandMinStepPx': 'pas du main levée (px)',
   'interaction.targetZoom': 'zoom de ciblage',
   'interaction.pinnedFlyZoom': 'zoom vers un favori',
-  'interaction.drawToolbarMinZoom': 'zoom mini barre de dessin',
   'interaction.barMinScale': 'compactage mini des barres',
   'interaction.tooltip.flipBelowPx': 'bascule sous le pointeur (px)',
   'interaction.tooltip.clampMarginPx': 'marge de bord (px)',
@@ -555,4 +556,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'erase.targets.symbol': 'symboles',
   'erase.targets.path': 'tracés hôte (routes)',
   'erase.targets.shape': 'formes hôte',
+
+  // ── toolbar ──────────────────────────────────────────────────────────────
+  'toolbar.minZoom': 'zoom mini barre de dessin',
+  'toolbar.autoHide.clear': 'masquer « Tout effacer » à vide',
+  'toolbar.autoHide.erase': 'masquer la gomme sans cible',
 }

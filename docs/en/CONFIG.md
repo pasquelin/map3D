@@ -164,7 +164,6 @@ compile error.
 | `interaction.freehandMinStepPx` | Decimation of the freehand stroke (floor, in px). Counterpart of `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom of the “Target” flight from an inventory or a list. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom of the flight when clicking a dock favourite. | `16` |
-| `interaction.drawToolbarMinZoom` | Zoom below which the drawing bar retracts — drawing implies a close view. | `11` |
 | `interaction.barMinScale` | Compaction floor of a bar before it switches to columns. | `0.85` |
 | `interaction.tooltip.flipBelowPx` | Below this window height, the tooltip flips below the pointer. | `76` |
 | `interaction.tooltip.clampMarginPx` | Estimated half-width, for horizontal clamping against the edges. | `78` |
@@ -554,3 +553,20 @@ Per-target policy: what the eraser (point or selection mode) is allowed to delet
 | `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
 | `erase.targets.path` | Whether the eraser can delete host paths marked `erasable` (`PathLayer`). | `true` |
 | `erase.targets.shape` | Whether the eraser can delete host shapes marked `erasable` (`ShapeLayer`). | `true` |
+
+## `toolbar` — Drawing bar
+
+What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays in its own
+domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
+those act with no bar mounted.
+
+`autoHide` removes from the bar the commands that have **nothing to act on**, rather than
+greying them out: a blank map shows no trash can, and an eraser without a target is not an
+unavailable tool but a tool with no purpose. An auto-hidden tool cannot be armed from the
+keyboard either, and if it was armed when its last target disappeared, it is released.
+
+| Key | Description | Default |
+|---|---|---|
+| `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
+| `toolbar.autoHide.clear` | Remove “Clear all” while no erasable shape is on screen. | `true` |
+| `toolbar.autoHide.erase` | Remove the eraser while none of its allowed targets is on screen. | `true` |

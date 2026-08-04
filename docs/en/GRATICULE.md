@@ -224,7 +224,7 @@ resettle — a cost out of proportion with what the grid provides.
 ## 8. In the interface
 
 The grid is driven from the **view controls**, not from the toolbar: the latter **retracts below
-zoom 11** (`interaction.drawToolbarMinZoom`), whereas the grid is precisely what you want in globe
+zoom 11** (`toolbar.minZoom`), whereas the grid is precisely what you want in globe
 view. A button that vanishes where the feature becomes useful is not a button.
 
 **The button**, in the `compass` group, next to "Globe":

@@ -231,7 +231,7 @@ resettle LOD — un coût sans rapport avec ce que la grille apporte.
 ## 8. Dans l'interface
 
 La grille se pilote depuis les **contrôles de vue**, et non depuis la barre d'outils : celle-ci
-**se replie sous le zoom 11** (`interaction.drawToolbarMinZoom`), or la grille sert justement en
+**se replie sous le zoom 11** (`toolbar.minZoom`), or la grille sert justement en
 vue globe. Un bouton qui disparaît là où la fonction devient utile n'est pas un bouton.
 
 **Le bouton**, dans le groupe `compass`, à côté de « Globe » :

@@ -1599,6 +1599,17 @@ export class DrawLayer implements Layer {
     }
   }
 
+  /**
+   * `clear()` a-t-il quelque chose à effacer ? Miroir EXACT du prédicat de `clear()`
+   * ci-dessous — c'est ce qui permet à la barre de retirer « Tout effacer » quand il
+   * n'agirait sur rien (`config.toolbar.autoHide.clear`), sans que le bouton et la
+   * commande puissent diverger.
+   */
+  get canClear(): boolean {
+    if (this.live) return true
+    return this.drawings.some((d) => this.isShown(d) && !d.locked)
+  }
+
   /** Efface les dessins **visibles** ; sous filtre actif, les dessins masqués sont
    *  conservés, ainsi que les formes verrouillées (pas de perte silencieuse). */
   clear(): void {
@@ -1695,6 +1706,24 @@ export class DrawLayer implements Layer {
   /** Clé de config d'un dessin possédé (`symbol` traité à part par l'appelant). */
   private ownedTarget(d: Drawing): 'measure' | 'drawing' {
     return d.kind === 'measure' ? 'measure' : 'drawing'
+  }
+
+  /**
+   * La gomme a-t-elle une cible ATTEIGNABLE à l'écran ? Même filtre que les deux modes
+   * (verrou, filtre « Couches », `config.erase.targets`), objets hôte compris — c'est
+   * ce que la barre consulte pour retirer l'outil quand il n'a rien à mordre
+   * (`config.toolbar.autoHide.erase`).
+   *
+   * Aucune géométrie n'est projetée, à la différence des modes eux-mêmes : la question
+   * est « existe-t-il une cible », pas « laquelle est sous le curseur ».
+   */
+  get canErase(): boolean {
+    const targets = this.config.erase.targets
+    for (const d of this.drawings) {
+      if (d.locked || !this.isShown(d)) continue
+      if (targets[d.kind === 'symbol' ? 'symbol' : this.ownedTarget(d)]) return true
+    }
+    return this.erasables?.hasAny(targets) ?? false
   }
 
   /**

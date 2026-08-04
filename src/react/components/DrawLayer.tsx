@@ -131,6 +131,10 @@ export type DrawLayerProps = {
   children?: ReactNode
 }
 
+/** Aucun outil auto-masqué — le cas courant, partagé pour que l'effet de relâchement
+ *  ne se redéclenche pas sur un Set vide fraîchement alloué à chaque rendu. */
+const NO_HIDDEN_TOOLS: ReadonlySet<DrawTool> = new Set()
+
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */
 export function DrawLayer(props: DrawLayerProps) {
   const { engine, overlay, theme } = useMapContext()
@@ -340,11 +344,22 @@ export function DrawLayer(props: DrawLayerProps) {
     // Filtre « Couches » : simple bascule de visibilité des meshes, aucun rebuild.
     // Câblé dans CE même effet : un core recréé (ex. overlay changé) repart
     // toujours avec le filtre courant appliqué.
-    const applyFilter = () => core.setTagVisibility((t) => engine.tags.isVisible(t))
+    // `bump()` en plus de la bascule : masquer la dernière forme visible retire « Tout
+    // effacer » (`canClear` ne compte que le VISIBLE), or le filtre ne mute rien et
+    // n'émettait donc aucun changement — la barre serait restée sur sa réponse d'avant.
+    const applyFilter = () => {
+      core.setTagVisibility((t) => engine.tags.isVisible(t))
+      bump()
+    }
     applyFilter()
     const offSelection = engine.tags.onSelection(applyFilter)
+    // Les objets hôte effaçables (`PathLayer`/`ShapeLayer`) entrent et sortent avec les
+    // données de l'application, sans passer par nos mutations : c'est le registre qui
+    // annonce la bascule, et la gomme paraît ou s'efface avec elle.
+    const offErasables = engine.erasables.onItemsChanged(bump)
     return () => {
       offSelection()
+      offErasables()
       engine.inputInterceptor = null
       engine.setDrawing(false)
       unregisterCounter()
@@ -376,6 +391,13 @@ export function DrawLayer(props: DrawLayerProps) {
     if (props.value && props.value !== lastEmittedRef.current) coreRef.current?.fromGeoJSON(props.value)
   }, [props.value])
 
+  /**
+   * Outils que la barre retire faute d'objet sur quoi agir (`config.toolbar.autoHide`).
+   * Renseigné plus bas, une fois le core interrogé — par ref parce que `setTool` est
+   * mémoïsé sur le moteur et survit donc à ses propres rendus (latest ref).
+   */
+  const hiddenToolsRef = useRef<ReadonlySet<DrawTool>>(NO_HIDDEN_TOOLS)
+
   const setTool = useMemo(
     () => (t: DrawTool | null) => {
       const core = coreRef.current
@@ -383,7 +405,13 @@ export function DrawLayer(props: DrawLayerProps) {
       // Changer d'outil pendant le pan-espace relâche d'abord la suspension —
       // sinon moteur (dé-suspendu par setDrawing) et core divergent : tout gèle.
       releaseSpaceRef.current()
-      const next = t && allowed.includes(t) ? t : null
+      // Un outil AUTO-MASQUÉ ne s'arme pas, quel que soit le chemin. La règle vit ici et
+      // non dans la barre parce que le raccourci clavier (`e`) ne passe pas par elle :
+      // gardée côté bouton seulement, la touche armait une gomme sans bouton pour en
+      // sortir. C'est aussi pourquoi l'auto-masquage n'a pas de prop de barre — une
+      // surcharge locale rouvrirait exactement cet écart.
+      const hidden = t !== null && hiddenToolsRef.current.has(t)
+      const next = t && !hidden && allowed.includes(t) ? t : null
       // Exclusivité avec les outils NON-dessin (loupe) : ils partagent le slot
       // unique `engine.inputInterceptor`. C'est CETTE couche qui porte la règle,
       // parce qu'elle est montée SOUS `<LensLayer>` et voit donc son contexte —
@@ -410,6 +438,48 @@ export function DrawLayer(props: DrawLayerProps) {
   const [pickingBuilding, setPickingBuilding] = useState(() => engine.getBuildingPickMode())
   useEffect(() => engine.on('buildingpickmode', setPickingBuilding), [engine])
   useYieldsTool(lensActive || pickingBuilding || pedestrianActive, toolRef, setTool)
+
+  /**
+   * Ce que les commandes de la barre ont sur quoi agir. Le CORE est la source de vérité :
+   * `canClear`/`canErase` y sont les prédicats MÊMES de `clear()` et des deux modes de
+   * gomme, donc un bouton ne peut pas promettre une action sans objet, ni disparaître
+   * alors qu'il en avait une.
+   *
+   * Mémoïsé sur `rev`, qui monte à chaque mutation du dessin, à chaque changement du
+   * filtre « Couches » et à chaque annonce d'un registre hôte (les trois `bump()`) —
+   * les trois seules choses qui puissent changer la réponse. Sans ça le parcours des
+   * formes serait refait à chaque rendu de la couche.
+   *
+   * `coreReady` en dépendance et pas seulement `rev` : au premier rendu le core n'existe
+   * pas, et une couche hôte montée AVANT nous a déjà annoncé ses objets effaçables à un
+   * registre que personne n'écoutait encore — la gomme serait restée absente jusqu'à la
+   * première mutation, sur une carte qui avait pourtant de quoi effacer.
+   */
+  const eraseTargets = config.erase.targets
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const canClear = useMemo(() => coreRef.current?.canClear ?? false, [rev, coreReady])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const canErase = useMemo(() => coreRef.current?.canErase ?? false, [rev, coreReady, eraseTargets])
+
+  // Un Set plutôt qu'un booléen par outil : `setTool` n'a ainsi qu'UNE question à poser,
+  // quel que soit l'outil qu'on rendra auto-masquable ensuite.
+  const autoHideErase = config.toolbar.autoHide.erase
+  const hiddenTools = useMemo(() => {
+    const hidden = new Set<DrawTool>()
+    if (autoHideErase && !canErase) hidden.add('erase')
+    return hidden.size > 0 ? (hidden as ReadonlySet<DrawTool>) : NO_HIDDEN_TOOLS
+  }, [autoHideErase, canErase])
+  hiddenToolsRef.current = hiddenTools
+
+  // L'outil qui DISPARAÎT sous la main est relâché : effacer le dernier objet retire la
+  // gomme de la barre, et sans ça elle resterait armée sur `engine.inputInterceptor`,
+  // interceptant les gestes sans plus aucun bouton pour en sortir. Même règle qu'au
+  // repli de la barre hors zoom (cf. `Toolbar`), appliquée ici parce que c'est cette
+  // couche qui possède l'outil actif.
+  useEffect(() => {
+    const active = toolRef.current
+    if (active && hiddenTools.has(active)) setTool(null)
+  }, [hiddenTools, setTool])
 
   // Gestion clavier (barre-espace pan/rotation temporaire + raccourcis outils/édition)
   // — cf. `useDrawKeyboard`.
@@ -599,6 +669,8 @@ export function DrawLayer(props: DrawLayerProps) {
       redo: () => coreRef.current?.redo(),
       canUndo: coreRef.current?.canUndo ?? false,
       canRedo: coreRef.current?.canRedo ?? false,
+      canClear,
+      canErase,
       clear: () => coreRef.current?.clear(),
       toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
       fromGeoJSON: (fc) => coreRef.current?.fromGeoJSON(fc),
@@ -643,6 +715,8 @@ export function DrawLayer(props: DrawLayerProps) {
       pathSelection,
       clusterGroups,
       rev,
+      canClear,
+      canErase,
       settings,
       setTool,
       props.shortcuts,

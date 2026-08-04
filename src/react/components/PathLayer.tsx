@@ -69,9 +69,19 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
           pathsRef.current
             .filter((p) => p.erasable && p.id != null)
             .map((p) => ({ id: p.id!, ring: p.points, closed: false, kind: 'path' as const })),
+        // `some` et non `items().length` : un test de présence ne doit pas payer la
+        // projection de toute la liste (cf. `ErasableProvider.has`).
+        has: (kind) => kind === 'path' && pathsRef.current.some((p) => p.erasable && p.id != null),
       }),
     [engine],
   )
+
+  // La gomme se retire quand plus rien n'est effaçable (`toolbar.autoHide.erase`) : le
+  // registre doit donc DIRE que la présence a changé — le provider, lui, lit par ref et
+  // ne notifie rien. Sur le BOOLÉEN et non sur `paths` : un hôte qui repasse un littéral
+  // à chaque rendu réveillerait sinon la barre pour rien, à chaque rendu.
+  const hasErasablePaths = paths.some((p) => p.erasable && p.id != null)
+  useEffect(() => engine.erasables.itemsChanged(), [engine, hasErasablePaths])
 
   return null
 }

@@ -104,6 +104,18 @@ Both modes delete **exactly the same set**: drawings, measures and symbols. **Ma
 
 Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
+**The eraser withdraws when it has nothing to bite.** By default
+(`config.toolbar.autoHide.erase`), the button is not greyed out but **absent** while no
+allowed target is on screen — categories forbidden by `erase.targets` therefore do not
+count. It comes back as soon as an erasable object appears, including from your own data
+(`<PathLayer>` / `<ShapeLayer>` with `erasable: true`). While hidden, its shortcut (`E`)
+does not arm it; and if its last target disappears while it is active, the tool is
+released rather than left armed with no button to escape it.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />  // eraser always visible
+```
+
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // displayed, in this order
 <DrawLayer tools={['select', 'rect']} />                            // ALLOWED (also filters setTool)
@@ -498,8 +510,20 @@ A remap is immediately reflected in the tooltips.
 />
 ```
 
-Sections (`components`): `navigate`, `select`, `symbol`, `lens`, `stylePanel`,
-`settings`, `undo`, `redo`, `clear`. `false` hides, a `ReactNode` replaces.
+Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
+`plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
+`ReactNode` replaces.
+
+**The bar only shows what is useful.** By default (`config.toolbar.autoHide`), “Clear
+all” appears only when it has something to clear — at least one visible, unlocked shape —
+and the eraser only when one of its allowed targets is on screen. These are not greyed-out
+commands like Undo (which waits for an action to undo): a blank map simply shows no trash
+can. Explicit hiding through `components` still wins, and each tool is made permanent
+separately:
+
+```tsx
+<Map config={{ toolbar: { autoHide: { clear: false, erase: false } } }} />
+```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
 left armed would keep intercepting gestures, so that zooming out would leave you
@@ -538,7 +562,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
-| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |
+| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canClear`, `canErase` |
 | Serialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symbols | `symbols` — see [SYMBOLS.md](SYMBOLS.md) |

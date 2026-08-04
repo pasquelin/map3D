@@ -97,9 +97,17 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
               closed: s.kind !== 'line' && s.kind !== 'arrow',
               kind: 'shape' as const,
             })),
+        // `some` et non `items().length` : un test de présence ne construit ni anneaux
+        // ni tableau (cf. `ErasableProvider.has`).
+        has: (kind) => kind === 'shape' && latest.current.some((s) => s.erasable && s.id != null),
       }),
     [engine],
   )
+
+  // Cf. `PathLayer` : la barre retire la gomme quand plus rien n'est effaçable, et le
+  // provider lisant par ref ne notifie rien de lui-même. Sur le BOOLÉEN, pas sur `shapes`.
+  const hasErasableShapes = shapes.some((s) => s.erasable && s.id != null)
+  useEffect(() => engine.erasables.itemsChanged(), [engine, hasErasableShapes])
 
   return null
 }

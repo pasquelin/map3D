@@ -161,7 +161,6 @@ partiel est une erreur de compilation.
 | `interaction.freehandMinStepPx` | Décimation du tracé main levée (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom du vol « Cibler » depuis un inventaire ou une liste. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom du vol au clic sur un favori du dock. | `16` |
-| `interaction.drawToolbarMinZoom` | Zoom sous lequel la barre de dessin se replie — dessiner suppose la vue proche. | `11` |
 | `interaction.barMinScale` | Plancher de compactage d'une barre avant qu'elle ne passe en colonnes. | `0.85` |
 | `interaction.tooltip.flipBelowPx` | Sous cette hauteur de fenêtre, l'infobulle bascule au-dessous du pointeur. | `76` |
 | `interaction.tooltip.clampMarginPx` | Demi-largeur estimée, pour le clamp horizontal aux bords. | `78` |
@@ -553,3 +552,20 @@ Politique par cible : ce que la gomme (ponctuelle ou par sélection) est autoris
 | `erase.targets.symbol` | La gomme peut-elle effacer les symboles. | `true` |
 | `erase.targets.path` | La gomme peut-elle effacer les tracés hôte marqués `erasable` (`PathLayer`). | `true` |
 | `erase.targets.shape` | La gomme peut-elle effacer les formes hôte marquées `erasable` (`ShapeLayer`). | `true` |
+
+## `toolbar` — Barre de dessin
+
+Ce qui appartient à la **barre** (`<Toolbar>`). Ce qui appartient aux **outils** reste dans
+son domaine : `erase.targets` pour la politique de la gomme, `interaction.shortcuts.draw`
+pour les touches — celles-ci agissent sans barre montée.
+
+`autoHide` retire de la barre les commandes qui n'ont **rien sur quoi agir**, plutôt que
+de les griser : une carte vierge ne montre pas de corbeille, et une gomme sans cible n'est
+pas un outil indisponible mais un outil sans emploi. Un outil auto-masqué ne s'arme pas non
+plus au clavier, et s'il l'était au moment où sa dernière cible disparaît, il est relâché.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `toolbar.minZoom` | Zoom sous lequel la barre se replie — dessiner suppose la vue proche. | `11` |
+| `toolbar.autoHide.clear` | Retirer « Tout effacer » tant qu'aucune forme effaçable n'est à l'écran. | `true` |
+| `toolbar.autoHide.erase` | Retirer la gomme tant qu'aucune de ses cibles autorisées n'est à l'écran. | `true` |

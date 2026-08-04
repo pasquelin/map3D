@@ -328,7 +328,7 @@ Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (
 </DrawLayer>
 ```
 
-L'API `useDrawing()` expose tout : `tool/setTool`, `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`, `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`, `undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`), `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
+L'API `useDrawing()` expose tout : `tool/setTool`, `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`, `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`, `undo`/`redo`/`canUndo`/`canRedo`, `clear`/`canClear`/`canErase`, `settings` (+ `useDrawSettings()`), `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Contraintes métier** — `constraints.limits` (des `ShapeData`, comme `<ShapeLayer>`) impose que chaque forme dessinée tienne dans **au moins un** périmètre, et `constraints.maxAreaM2` plafonne son aire. Une création refusée ne laisse aucune trace (ni mesh, ni historique, ni `onChange`) ; une **édition** refusée remet la forme dans son état d'avant le geste plutôt que de la perdre — et n'émet donc pas `onShapeUpdate`. `onReject(reason, shape)` vous laisse afficher votre propre message : la lib n'affiche rien d'elle-même. `limits` ne dessine rien non plus — affichez vos périmètres avec `<ShapeLayer>` ou en formes verrouillées. Seuls les **gestes utilisateur** sont contraints : `addShape`/`updateShape`/`fromGeoJSON` injectent sans contrôle.
 

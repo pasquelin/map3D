@@ -106,7 +106,7 @@ Engine · Plugins · Preferences.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide` — “Clear all” and the eraser withdraw when they have nothing to act on, `useDrawing().canClear` / `canErase`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
 - **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
 - **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
 - **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`.
@@ -585,7 +585,7 @@ events too, derived by difference.
 The `useDrawing()` API exposes everything: `tool/setTool`,
 `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`,
 `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`,
-`undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`),
+`undo`/`redo`/`canUndo`/`canRedo`, `clear`/`canClear`/`canErase`, `settings` (+ `useDrawSettings()`),
 `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Business constraints** — `constraints.limits` (`ShapeData`, as in `<ShapeLayer>`)
@@ -2828,6 +2828,18 @@ Both modes delete **exactly the same set**: drawings, measures and symbols. **Ma
 
 Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
+**The eraser withdraws when it has nothing to bite.** By default
+(`config.toolbar.autoHide.erase`), the button is not greyed out but **absent** while no
+allowed target is on screen — categories forbidden by `erase.targets` therefore do not
+count. It comes back as soon as an erasable object appears, including from your own data
+(`<PathLayer>` / `<ShapeLayer>` with `erasable: true`). While hidden, its shortcut (`E`)
+does not arm it; and if its last target disappears while it is active, the tool is
+released rather than left armed with no button to escape it.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />  // eraser always visible
+```
+
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // displayed, in this order
 <DrawLayer tools={['select', 'rect']} />                            // ALLOWED (also filters setTool)
@@ -3203,8 +3215,20 @@ A remap is immediately reflected in the tooltips.
 />
 ```
 
-Sections (`components`): `navigate`, `select`, `symbol`, `lens`, `stylePanel`,
-`settings`, `undo`, `redo`, `clear`. `false` hides, a `ReactNode` replaces.
+Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
+`plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
+`ReactNode` replaces.
+
+**The bar only shows what is useful.** By default (`config.toolbar.autoHide`), “Clear
+all” appears only when it has something to clear — at least one visible, unlocked shape —
+and the eraser only when one of its allowed targets is on screen. These are not greyed-out
+commands like Undo (which waits for an action to undo): a blank map simply shows no trash
+can. Explicit hiding through `components` still wins, and each tool is made permanent
+separately:
+
+```tsx
+<Map config={{ toolbar: { autoHide: { clear: false, erase: false } } }} />
+```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
 left armed would keep intercepting gestures, so that zooming out would leave you
@@ -3243,7 +3267,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
-| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |
+| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canClear`, `canErase` |
 | Serialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symbols | `symbols` — see [SYMBOLS.md](SYMBOLS.md) |
@@ -6141,7 +6165,7 @@ resettle — a cost out of proportion with what the grid provides.
 ## 8. In the interface
 
 The grid is driven from the **view controls**, not from the toolbar: the latter **retracts below
-zoom 11** (`interaction.drawToolbarMinZoom`), whereas the grid is precisely what you want in globe
+zoom 11** (`toolbar.minZoom`), whereas the grid is precisely what you want in globe
 view. A button that vanishes where the feature becomes useful is not a button.
 
 **The button**, in the `compass` group, next to "Globe":
@@ -8076,7 +8100,6 @@ compile error.
 | `interaction.freehandMinStepPx` | Decimation of the freehand stroke (floor, in px). Counterpart of `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom of the “Target” flight from an inventory or a list. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom of the flight when clicking a dock favourite. | `16` |
-| `interaction.drawToolbarMinZoom` | Zoom below which the drawing bar retracts — drawing implies a close view. | `11` |
 | `interaction.barMinScale` | Compaction floor of a bar before it switches to columns. | `0.85` |
 | `interaction.tooltip.flipBelowPx` | Below this window height, the tooltip flips below the pointer. | `76` |
 | `interaction.tooltip.clampMarginPx` | Estimated half-width, for horizontal clamping against the edges. | `78` |
@@ -8464,6 +8487,23 @@ Per-target policy: what the eraser (point or selection mode) is allowed to delet
 | `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
 | `erase.targets.path` | Whether the eraser can delete host paths marked `erasable` (`PathLayer`). | `true` |
 | `erase.targets.shape` | Whether the eraser can delete host shapes marked `erasable` (`ShapeLayer`). | `true` |
+
+## `toolbar` — Drawing bar
+
+What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays in its own
+domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
+those act with no bar mounted.
+
+`autoHide` removes from the bar the commands that have **nothing to act on**, rather than
+greying them out: a blank map shows no trash can, and an eraser without a target is not an
+unavailable tool but a tool with no purpose. An auto-hidden tool cannot be armed from the
+keyboard either, and if it was armed when its last target disappeared, it is released.
+
+| Key | Description | Default |
+|---|---|---|
+| `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
+| `toolbar.autoHide.clear` | Remove “Clear all” while no erasable shape is on screen. | `true` |
+| `toolbar.autoHide.erase` | Remove the eraser while none of its allowed targets is on screen. | `true` |
 
 
 
@@ -9521,7 +9561,7 @@ Drawing toolbar.
 | Prop | Description | Default |
 |---|---|---|
 | `position` | Anchoring side of the bar. | `'left'` |
-| `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.interaction.drawToolbarMinZoom` |
+| `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.toolbar.minZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
 | `measureTools` | Rows offered by the “Measure” button — only one (`measure`) exists today, so the submenu never opens: the button acts directly. The coordinate grid has moved to the view controls (`<MapControls>`, `config.graticule`); the submenu's chassis stays in place for a future row. | — |

@@ -1,7 +1,7 @@
 import { mdiEraser } from '@mdi/js'
 import { useRef } from 'react'
 import type { EraseMode } from '../../layers/DrawLayer'
-import { useLabels } from '../context'
+import { useConfig, useLabels } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { ERASE_MODE_META } from './drawControls'
 import { DropdownSurface } from './Dropdown'
@@ -17,16 +17,27 @@ import { UiIcon } from './UiIcon'
  * Le flyout ne choisit que POINT vs SÉLECTION : le sous-mode du marquee (rect/poly/lasso)
  * reste celui du sélecteur (`selectMode`), pas de 2ᵉ jeu de modes à tenir. La gomme n'a
  * pas de panneau de style (comme `select`), donc rien à publier comme ancre.
+ *
+ * Se retire de la barre tant que rien n'est effaçable (`config.toolbar.autoHide.erase`) :
+ * une gomme sans cible n'est pas un outil indisponible, c'est un outil sans emploi.
  */
 export function EraseToolButton({ position, modes }: { position: 'left' | 'right'; modes?: EraseMode[] }) {
-  const { tool, setTool, eraseMode, setEraseMode, shortcuts } = useDrawing()
+  const { tool, setTool, eraseMode, setEraseMode, shortcuts, canErase } = useDrawing()
   const labels = useLabels()
   const tip = useTip(TIP_ID)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // Hooks appelés INCONDITIONNELLEMENT, avant tout retour anticipé (même piège que
+  // `ToolButton` et `Toolbar` avec `useConfig`) : la sortie « rien à effacer » est plus bas.
+  const autoHide = useConfig().toolbar.autoHide.erase
 
   const active = tool === 'erase'
   const available = modes ? ERASE_MODE_META.filter((m) => modes.includes(m.mode)) : ERASE_MODE_META
   const flyout = useHoverFlyout(available.length)
+
+  // Le composant reste MONTÉ et rend `null` : le relâchement de l'outil armé et le refus
+  // de le rearmer au clavier vivent dans `<DrawLayer>`, sur la même source de vérité —
+  // un bouton qui se démonte n'aurait pas pu tenir la seconde règle.
+  if (autoHide && !canErase) return null
 
   return (
     <div ref={wrapRef} {...flyout.wrapProps}>
