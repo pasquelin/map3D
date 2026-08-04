@@ -131,10 +131,6 @@ export type DrawLayerProps = {
   children?: ReactNode
 }
 
-/** Aucun outil auto-masqué — le cas courant, partagé pour que l'effet de relâchement
- *  ne se redéclenche pas sur un Set vide fraîchement alloué à chaque rendu. */
-const NO_HIDDEN_TOOLS: ReadonlySet<DrawTool> = new Set()
-
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */
 export function DrawLayer(props: DrawLayerProps) {
   const { engine, overlay, theme } = useMapContext()
@@ -392,11 +388,11 @@ export function DrawLayer(props: DrawLayerProps) {
   }, [props.value])
 
   /**
-   * Outils que la barre retire faute d'objet sur quoi agir (`config.toolbar.autoHide`).
+   * La gomme est-elle retirée de la barre faute de cible (`config.toolbar.autoHide.erase`) ?
    * Renseigné plus bas, une fois le core interrogé — par ref parce que `setTool` est
    * mémoïsé sur le moteur et survit donc à ses propres rendus (latest ref).
    */
-  const hiddenToolsRef = useRef<ReadonlySet<DrawTool>>(NO_HIDDEN_TOOLS)
+  const eraseHiddenRef = useRef(false)
 
   const setTool = useMemo(
     () => (t: DrawTool | null) => {
@@ -410,7 +406,7 @@ export function DrawLayer(props: DrawLayerProps) {
       // gardée côté bouton seulement, la touche armait une gomme sans bouton pour en
       // sortir. C'est aussi pourquoi l'auto-masquage n'a pas de prop de barre — une
       // surcharge locale rouvrirait exactement cet écart.
-      const hidden = t !== null && hiddenToolsRef.current.has(t)
+      const hidden = t === 'erase' && eraseHiddenRef.current
       const next = t && !hidden && allowed.includes(t) ? t : null
       // Exclusivité avec les outils NON-dessin (loupe) : ils partagent le slot
       // unique `engine.inputInterceptor`. C'est CETTE couche qui porte la règle,
@@ -445,31 +441,16 @@ export function DrawLayer(props: DrawLayerProps) {
    * gomme, donc un bouton ne peut pas promettre une action sans objet, ni disparaître
    * alors qu'il en avait une.
    *
-   * Mémoïsé sur `rev`, qui monte à chaque mutation du dessin, à chaque changement du
-   * filtre « Couches » et à chaque annonce d'un registre hôte (les trois `bump()`) —
-   * les trois seules choses qui puissent changer la réponse. Sans ça le parcours des
-   * formes serait refait à chaque rendu de la couche.
-   *
-   * `coreReady` en dépendance et pas seulement `rev` : au premier rendu le core n'existe
-   * pas, et une couche hôte montée AVANT nous a déjà annoncé ses objets effaçables à un
-   * registre que personne n'écoutait encore — la gomme serait restée absente jusqu'à la
-   * première mutation, sur une carte qui avait pourtant de quoi effacer.
+   * Lus à nu comme `canUndo`/`canRedo` juste à côté, et pour la même raison : les deux
+   * getters court-circuitent au premier objet trouvé, et le registre hôte répond en O(1).
+   * `coreReady` suffit à re-lire après le montage — au premier rendu le core n'existe pas,
+   * et une couche hôte montée AVANT nous a déjà annoncé ses objets à un registre que
+   * personne n'écoutait encore.
    */
-  const eraseTargets = config.erase.targets
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const canClear = useMemo(() => coreRef.current?.canClear ?? false, [rev, coreReady])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const canErase = useMemo(() => coreRef.current?.canErase ?? false, [rev, coreReady, eraseTargets])
-
-  // Un Set plutôt qu'un booléen par outil : `setTool` n'a ainsi qu'UNE question à poser,
-  // quel que soit l'outil qu'on rendra auto-masquable ensuite.
-  const autoHideErase = config.toolbar.autoHide.erase
-  const hiddenTools = useMemo(() => {
-    const hidden = new Set<DrawTool>()
-    if (autoHideErase && !canErase) hidden.add('erase')
-    return hidden.size > 0 ? (hidden as ReadonlySet<DrawTool>) : NO_HIDDEN_TOOLS
-  }, [autoHideErase, canErase])
-  hiddenToolsRef.current = hiddenTools
+  const canClear = coreReady && (coreRef.current?.canClear ?? false)
+  const canErase = coreReady && (coreRef.current?.canErase ?? false)
+  const eraseHidden = config.toolbar.autoHide.erase && !canErase
+  eraseHiddenRef.current = eraseHidden
 
   // L'outil qui DISPARAÎT sous la main est relâché : effacer le dernier objet retire la
   // gomme de la barre, et sans ça elle resterait armée sur `engine.inputInterceptor`,
@@ -477,9 +458,8 @@ export function DrawLayer(props: DrawLayerProps) {
   // repli de la barre hors zoom (cf. `Toolbar`), appliquée ici parce que c'est cette
   // couche qui possède l'outil actif.
   useEffect(() => {
-    const active = toolRef.current
-    if (active && hiddenTools.has(active)) setTool(null)
-  }, [hiddenTools, setTool])
+    if (eraseHidden && toolRef.current === 'erase') setTool(null)
+  }, [eraseHidden, setTool])
 
   // Gestion clavier (barre-espace pan/rotation temporaire + raccourcis outils/édition)
   // — cf. `useDrawKeyboard`.

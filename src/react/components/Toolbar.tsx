@@ -197,7 +197,7 @@ export function Toolbar({
   components = {},
   extraTools,
 }: DrawToolbarProps) {
-  const { tool, setTool, undo, redo, canUndo, canRedo, canClear, clear, shortcuts, symbols } = useDrawing()
+  const { tool, setTool, undo, redo, canUndo, canRedo, shortcuts, symbols } = useDrawing()
   // Hook appelé INCONDITIONNELLEMENT : `minZoomProp ?? useConfig()` le
   // court-circuiterait dès qu'une prop est fournie — même piège que `ToolButton`.
   const config = useConfig()
@@ -364,22 +364,7 @@ export function Toolbar({
           />,
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
-        {/* « Tout effacer » n'est pas grisé mais RETIRÉ tant qu'il n'a rien à effacer :
-            une commande sans objet n'est pas une commande indisponible (comme Annuler,
-            qui attend une action à défaire), c'est une commande qui n'a pas lieu d'être.
-            Une carte vierge ne montre donc pas de corbeille. Réglable —
-            `config.toolbar.autoHide.clear = false` la rend permanente. */}
-        {(!config.toolbar.autoHide.clear || canClear) &&
-          slot(
-            'clear',
-            <ToolButton
-              icon={mdiTrashCanOutline}
-              label={labels.toolbar.clearAll}
-              tip={tip}
-              className="m3d-btn-delete"
-              onClick={clear}
-            />,
-          )}
+        {slot('clear', <ClearToolButton />)}
       </div>
       {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)
@@ -388,6 +373,36 @@ export function Toolbar({
           venait se poser SUR le panneau qu'on est en train de lire. */}
       <MapTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
     </ToolbarContext.Provider>
+  )
+}
+
+/**
+ * Bouton « Tout effacer ».
+ *
+ * Il n'est pas grisé mais RETIRÉ tant qu'il n'a rien à effacer : une commande sans objet
+ * n'est pas une commande indisponible (comme Annuler, qui attend une action à défaire),
+ * c'est une commande qui n'a pas lieu d'être — une carte vierge ne montre pas de
+ * corbeille. `config.toolbar.autoHide.clear = false` la rend permanente.
+ *
+ * Composant à part, et non une condition autour de son `slot()` : la règle est celle du
+ * bouton de la LIB. Posée à l'extérieur, elle aurait aussi effacé le bouton qu'une
+ * application substitue par `components={{ clear: … }}` — c'est-à-dire précisément là où
+ * elle reprend la main. Même forme que la gomme (cf. `EraseToolButton`).
+ */
+function ClearToolButton() {
+  const { clear, canClear } = useDrawing()
+  const autoHide = useConfig().toolbar.autoHide.clear
+  const labels = useLabels()
+  const tip = useTip(TIP_ID)
+  if (autoHide && !canClear) return null
+  return (
+    <ToolButton
+      icon={mdiTrashCanOutline}
+      label={labels.toolbar.clearAll}
+      tip={tip}
+      className="m3d-btn-delete"
+      onClick={clear}
+    />
   )
 }
 

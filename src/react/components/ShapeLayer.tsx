@@ -12,6 +12,10 @@ export type ShapeLayerProps = {
   shapes: ShapeData[]
 }
 
+/** Une forme hôte n'est effaçable que sur opt-in ET si elle a une identité à remonter
+ *  dans `onErase` — cf. le pendant de `PathLayer`. */
+const isErasable = (s: ShapeData): boolean => !!s.erasable && s.id != null
+
 /** Zones/formes plaquées au sol (cercle-rayon, polygone, rectangle-bounds). */
 export function ShapeLayer({ shapes }: ShapeLayerProps) {
   const { engine, theme } = useMapContext()
@@ -85,28 +89,29 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
 
   // Expose les formes hôte `erasable` à la gomme (via `engine.erasables`). `items()` lit la
   // liste courante par ref (`latest`) — provider monté une fois, la gomme interroge au besoin.
+  // Présence calculée UNE fois par rendu et lue par ref : `has()` répond en O(1), sans
+  // reconstruire les anneaux ni re-balayer la liste (cf. `PathLayer`).
+  const hasErasableShapes = shapes.some(isErasable)
+  const hasErasableRef = useRef(hasErasableShapes)
+  hasErasableRef.current = hasErasableShapes
   useEffect(
     () =>
       engine.erasables.register({
+        kind: 'shape',
         items: () =>
-          latest.current
-            .filter((s) => s.erasable && s.id != null)
-            .map((s) => ({
-              id: s.id!,
-              ring: ringOfShape(s),
-              closed: s.kind !== 'line' && s.kind !== 'arrow',
-              kind: 'shape' as const,
-            })),
-        // `some` et non `items().length` : un test de présence ne construit ni anneaux
-        // ni tableau (cf. `ErasableProvider.has`).
-        has: (kind) => kind === 'shape' && latest.current.some((s) => s.erasable && s.id != null),
+          latest.current.filter(isErasable).map((s) => ({
+            id: s.id!,
+            ring: ringOfShape(s),
+            closed: s.kind !== 'line' && s.kind !== 'arrow',
+            kind: 'shape' as const,
+          })),
+        has: () => hasErasableRef.current,
       }),
     [engine],
   )
 
   // Cf. `PathLayer` : la barre retire la gomme quand plus rien n'est effaçable, et le
   // provider lisant par ref ne notifie rien de lui-même. Sur le BOOLÉEN, pas sur `shapes`.
-  const hasErasableShapes = shapes.some((s) => s.erasable && s.id != null)
   useEffect(() => engine.erasables.itemsChanged(), [engine, hasErasableShapes])
 
   return null

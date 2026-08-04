@@ -10,6 +10,10 @@ export type PathLayerProps = {
   animateHead?: boolean
 }
 
+/** Un tracé n'est effaçable que sur opt-in ET s'il a une identité à remonter dans
+ *  `onErase` — le prédicat est ici pour que provider et test de présence ne divergent pas. */
+const isErasable = (p: PathData): boolean => !!p.erasable && p.id != null
+
 /** Tracés / parcours (ruban + casing, épaisseur en mètres, tête animée). */
 export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
   const { engine, theme } = useMapContext()
@@ -62,16 +66,20 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
   // pas de ré-inscription à chaque changement de `paths` (la gomme interroge au besoin).
   const pathsRef = useRef(paths)
   pathsRef.current = paths
+  // Présence calculée UNE fois par rendu et lue par ref : `has()` répond alors en O(1),
+  // là où un second `some()` aurait re-balayé la liste à chaque interrogation.
+  const hasErasablePaths = paths.some(isErasable)
+  const hasErasableRef = useRef(hasErasablePaths)
+  hasErasableRef.current = hasErasablePaths
   useEffect(
     () =>
       engine.erasables.register({
+        kind: 'path',
         items: () =>
           pathsRef.current
-            .filter((p) => p.erasable && p.id != null)
+            .filter(isErasable)
             .map((p) => ({ id: p.id!, ring: p.points, closed: false, kind: 'path' as const })),
-        // `some` et non `items().length` : un test de présence ne doit pas payer la
-        // projection de toute la liste (cf. `ErasableProvider.has`).
-        has: (kind) => kind === 'path' && pathsRef.current.some((p) => p.erasable && p.id != null),
+        has: () => hasErasableRef.current,
       }),
     [engine],
   )
@@ -80,7 +88,6 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
   // registre doit donc DIRE que la présence a changé — le provider, lui, lit par ref et
   // ne notifie rien. Sur le BOOLÉEN et non sur `paths` : un hôte qui repasse un littéral
   // à chaque rendu réveillerait sinon la barre pour rien, à chaque rendu.
-  const hasErasablePaths = paths.some((p) => p.erasable && p.id != null)
   useEffect(() => engine.erasables.itemsChanged(), [engine, hasErasablePaths])
 
   return null

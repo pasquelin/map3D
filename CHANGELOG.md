@@ -39,10 +39,10 @@ Nouvelle API publique : `config.toolbar` (`DrawToolbarConfig`, `DrawToolbarAutoH
   ce qui appartient aux outils reste dans son domaine (`config.erase.targets` pour la
   politique de la gomme, `config.interaction.shortcuts.draw` pour les touches, qui agissent
   sans barre montée). La prop `<Toolbar minZoom>` est inchangée.
-- `ErasableProvider` gagne une méthode **requise** `has(kind)` : une couche hôte qui
-  implémente son propre provider doit répondre « ai-je au moins un objet effaçable de cette
-  catégorie ? » **sans construire la liste** — un test de présence ne doit pas payer le prix
-  d'une collecte de dizaines de milliers d'objets.
+- `ErasableProvider` gagne deux membres **requis** : `kind` (la catégorie servie, déclarée
+  une fois à l'inscription plutôt que redemandée à chaque question) et `has()`, qui répond
+  « ai-je au moins un objet effaçable ? » **sans construire la liste** — un test de présence
+  ne doit pas payer le prix d'une collecte de dizaines de milliers d'objets.
 - L'affichage par défaut de la barre change : sur une carte vierge, corbeille et gomme ne
   paraissent plus. `config={{ toolbar: { autoHide: { clear: false, erase: false } } }}` les
   rend permanentes.

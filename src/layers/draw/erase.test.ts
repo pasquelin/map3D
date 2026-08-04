@@ -80,8 +80,9 @@ describe('DrawLayer.eraseSymbol — gomme ponctuelle d’un symbole', () => {
  *  `PathLayer`/`ShapeLayer` (qui, eux, l'évaluent sans construire les anneaux). */
 function hostProvider(kind: 'path' | 'shape', ids: readonly string[]): ErasableProvider {
   return {
+    kind,
     items: () => ids.map((id) => ({ id, ring: [{ lat: 0, lng: 0 }], closed: kind === 'shape', kind })),
-    has: (k) => k === kind && ids.length > 0,
+    has: () => ids.length > 0,
   }
 }
 

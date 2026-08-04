@@ -20,17 +20,24 @@ export type ErasableItem = {
 
 /** Contrat d'une couche hôte qui expose des objets effaçables à la gomme. */
 export type ErasableProvider = {
+  /**
+   * Catégorie servie, DÉCLARÉE une fois — une couche hôte en sert toujours une seule
+   * (`PathLayer` des tracés, `ShapeLayer` des formes). Elle est ici plutôt qu'en
+   * paramètre de `has()` pour que le registre n'ait pas à demander à chaque provider
+   * s'il répond pour des catégories qu'il ne possède pas.
+   */
+  readonly kind: HostLayerKind
   /** Uniquement les objets marqués `erasable` — appelé au finalize marquee / clic, jamais par frame. */
   items(): ErasableItem[]
   /**
-   * Y a-t-il au moins un objet effaçable de cette catégorie ?
+   * Y a-t-il au moins un objet effaçable ?
    *
    * Répond SANS construire la liste : c'est ce qui permet à la barre de décider si la
    * gomme a lieu d'être (`config.toolbar.autoHide.erase`) sans matérialiser les
    * « dizaines de milliers d'objets » que `all()` évoque plus bas — un test de présence
    * n'a pas à payer le prix d'une collecte.
    */
-  has(kind: HostLayerKind): boolean
+  has(): boolean
 }
 
 /**
@@ -58,20 +65,7 @@ export class ErasableRegistry extends ProviderRegistry<ErasableProvider> {
    * un tableau par question posée.
    */
   hasAny(targets: Readonly<Record<HostLayerKind, boolean>>): boolean {
-    for (const p of this.providers) {
-      for (const kind of HOST_LAYER_KINDS) if (targets[kind] && p.has(kind)) return true
-    }
+    for (const p of this.providers) if (targets[p.kind] && p.has()) return true
     return false
   }
 }
-
-/**
- * Les catégories hôte, énumérées depuis un `Record<HostLayerKind, true>` et non depuis
- * un tableau : un tableau accepte sans broncher une liste devenue incomplète, alors
- * qu'une catégorie ajoutée à `HostLayerKind` manque ici à la COMPILATION — et la gomme
- * aurait sinon ignoré en silence toute une famille d'objets.
- */
-const HOST_LAYER_KINDS = Object.keys({
-  path: true,
-  shape: true,
-} satisfies Record<HostLayerKind, true>) as readonly HostLayerKind[]
