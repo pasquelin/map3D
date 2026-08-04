@@ -17,6 +17,19 @@ export class ViewportController<T> {
   private inFlight: AbortController | null = null
   private lastViewport: Viewport | null = null
   private disposed = false
+  /**
+   * Le jeu vide a DÉJÀ été émis sous le seuil de zoom.
+   *
+   * Sans ce drapeau, chaque tick sous le seuil émettait un tableau vide NEUF : la couche
+   * marker en tirait une identité neuve, tous ses mémos de visibilité tombaient, et les
+   * trois registres (`selectables`, `markers`, `clusters`) étaient notifiés — `ChangeNotifier`
+   * n'ayant aucune garde d'égalité, la surface de regroupement replanifiait un `rebuild()`
+   * complet. Soit, à quelques milliers de markers dans les autres couches, une chaîne par
+   * marker et un tri supercluster toutes les 500 ms de déplacement, pour zéro changement.
+   */
+  private emptied = false
+  /** Le MÊME tableau vide à chaque émission — cf. `emptied`. */
+  private readonly noData: T[] = []
 
   constructor(
     private readonly options: ViewportControllerOptions,
@@ -26,6 +39,7 @@ export class ViewportController<T> {
 
   setSource(source: DataSource<T> | null): void {
     this.source = source
+    this.emptied = false
     if (source && this.lastViewport) this.schedule(this.lastViewport)
     else this.cancel()
   }
@@ -47,9 +61,22 @@ export class ViewportController<T> {
     const source = this.source
     if (!source || this.disposed) return
     if (source.minZoom !== undefined && viewport.zoom < source.minZoom) {
-      this.onData([])
+      // Abandonner ce qui est EN VOL : une requête partie au-dessus du seuil se résout
+      // sinon après coup et repeuple la couche sous le seuil que ce gate existe pour
+      // tenir — précisément les milliers de points qu'on refuse d'afficher là.
+      if (this.inFlight) {
+        this.inFlight.abort()
+        this.inFlight = null
+        this.onLoadingChange?.(false)
+      }
+      // Une seule émission par descente sous le seuil, sur un tableau CONSTANT.
+      if (!this.emptied) {
+        this.emptied = true
+        this.onData(this.noData)
+      }
       return
     }
+    this.emptied = false
     this.inFlight?.abort()
     const controller = new AbortController()
     this.inFlight = controller
@@ -81,6 +108,7 @@ export class ViewportController<T> {
     const had = this.inFlight !== null
     this.inFlight?.abort()
     this.inFlight = null
+    this.emptied = false
     if (had) this.onLoadingChange?.(false)
   }
 

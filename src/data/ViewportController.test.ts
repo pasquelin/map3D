@@ -77,6 +77,54 @@ describe('gate de zoom (`minZoom`)', () => {
     expect(load).toHaveBeenCalledTimes(1)
   })
 
+  it('n’émet le jeu vide QU’UNE FOIS, et toujours le même tableau', async () => {
+    const onData = vi.fn()
+    const c = new ViewportController<number>({ debounce: DEBOUNCE }, onData)
+    c.setSource({ minZoom: 13, load: async () => [1] })
+    c.push(view(11))
+    await settle()
+    c.push(view(10))
+    await settle()
+    // Un tableau vide NEUF par tick donnait une identité neuve à la couche marker : tous
+    // ses mémos tombaient et la surface de regroupement replanifiait un rebuild complet,
+    // toutes les 500 ms de déplacement, pour zéro changement visuel.
+    expect(onData).toHaveBeenCalledTimes(1)
+    expect(onData.mock.calls[0]?.[0]).toEqual([])
+  })
+
+  it('ré-émet après être repassé AU-DESSUS du seuil, puis redescendu', async () => {
+    const onData = vi.fn()
+    const c = new ViewportController<number>({ debounce: DEBOUNCE }, onData)
+    c.setSource({ minZoom: 13, load: async () => [1] })
+    c.push(view(11))
+    await settle()
+    c.push(view(14))
+    await settle()
+    c.push(view(11))
+    await settle()
+    expect(onData.mock.calls.map(([d]) => d)).toEqual([[], [1], []])
+  })
+
+  it('ABANDONNE la requête en vol en redescendant sous le seuil', async () => {
+    const onData = vi.fn()
+    const onLoading = vi.fn()
+    let resolve: ((v: number[]) => void) | undefined
+    const c = new ViewportController<number>({ debounce: DEBOUNCE }, onData, onLoading)
+    c.setSource({ minZoom: 13, load: () => new Promise<number[]>((r) => (resolve = r)) })
+    c.push(view(14))
+    await settle()
+    expect(onLoading.mock.calls.map(([v]) => v)).toEqual([true])
+
+    c.push(view(11))
+    await settle()
+    // La réponse partie AU-DESSUS du seuil arrive après coup : sans abandon, elle
+    // repeuplait la couche sous le seuil — les milliers de points que le gate refuse.
+    resolve?.([1, 2, 3])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onData.mock.calls.map(([d]) => d)).toEqual([[]])
+    expect(onLoading.mock.calls.map(([v]) => v)).toEqual([true, false])
+  })
+
   it('sans `minZoom`, aucun seuil ne s’applique', async () => {
     const load = vi.fn(async () => [1])
     const c = new ViewportController<number>({ debounce: DEBOUNCE }, vi.fn())
