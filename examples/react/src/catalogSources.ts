@@ -290,6 +290,29 @@ const zonesSource: CatalogSource = {
   total: ZONES.length,
   list: (req) => delay(page(filtered(ZONES, req.query), req)),
   geometry: (id) => delay([zoneShape(String(id), zoneById(String(id))?.title ?? String(id))]),
+  /**
+   * La voie POINTS d'une source de parcours : cocher une zone pose son contour ET son
+   * point de commandement, du même geste. Les deux repartent ensemble au décochage, et le
+   * cadrage du clic sur le nom porte sur leur union.
+   *
+   * Le point entre dans le regroupement, le filtre « Couches » (via `tags`) et la
+   * recherche (via `title`) comme n'importe quel marker — d'où l'espace de noms propre
+   * (`pc-…`), pour ne rien emprunter à la scène de démo.
+   */
+  markers: (id) => {
+    const key = String(id)
+    const found = zoneById(key)
+    if (!found) return delay([])
+    const shape = zoneShape(key, found.title)
+    return delay([
+      seedToMarker(
+        'zone-pc',
+        shape.kind === 'circle' ? shape.center : { lat: 48.86, lng: 2.34 },
+        { id: `pc-${key}`, title: `PC — ${found.title}` },
+        ['zone-pc', 'catalog'],
+      ),
+    ])
+  },
   actions: [
     {
       id: 'copy',
@@ -478,6 +501,16 @@ const defibsSource: CatalogToggleSource = {
   },
   markerLayer: { cluster: { enabled: true } },
 }
+
+/**
+ * La MÊME `DataSource` que la bascule ci-dessus, exposée pour la couche viewport HÔTE de
+ * l'exemple (`<MarkerLayer source onLoadingChange>`).
+ *
+ * Une source de données n'appartient pas au catalogue : c'est le contrat viewport de la
+ * lib. La partager prouve qu'une application peut brancher la sienne sur une couche
+ * qu'elle monte elle-même, exactement comme le catalogue le fait en interne.
+ */
+export const hostViewportSource = defibsSource.source
 
 /** Les sources du banc d'essai, dans l'ordre où elles apparaissent au sous-menu. */
 export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [

@@ -1,4 +1,11 @@
-import type { ControlGroup, DrawTool, DrawToolbarSection, MapControlButton, ReadoutCorner, SelectMode } from '@pasquelin/map3d'
+import type {
+  ControlGroup,
+  DrawTool,
+  DrawToolbarSection,
+  MapControlButton,
+  ReadoutCorner,
+  SelectMode,
+} from '@pasquelin/map3d'
 
 /* ══════════════════ SURFACES D'INTERFACE, PILOTABLES ══════════════════
    `<Map>` monte son interface à partir de ses props : `toolbar`, `controls`, `search`,
@@ -126,6 +133,14 @@ export type UiSettings = {
   drawNoOverlap: boolean
   /** Moniteur `StatsOverlay` : FPS/RAM (stats.js) + compteurs `renderer.info`, en haut à droite. */
   stats: boolean
+  /**
+   * Couche marker VIEWPORT pilotée par l'hôte : `<MarkerLayer source>` + `onLoadingChange`.
+   *
+   * Éteinte par défaut — elle repose les défibrillateurs que la scène affiche déjà, son
+   * intérêt n'est pas ce qu'elle peint mais de démontrer qu'une couche hôte peut lire son
+   * propre état de chargement sans rebrancher un second `ViewportController`.
+   */
+  liveLayer: boolean
 }
 
 const allOn = <K extends string>(keys: readonly K[]): Record<K, boolean> =>
@@ -162,6 +177,7 @@ export const defaultUiSettings: UiSettings = {
   drawNoOverlap: false,
   // Outil de mesure : éteint par défaut, on l'allume pour profiler.
   stats: false,
+  liveLayer: false,
 }
 
 /** Les clés cochées, dans l'ordre déclaré — la forme qu'attendent `tools`/`selectModes`. */

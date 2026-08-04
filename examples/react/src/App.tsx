@@ -5,6 +5,7 @@ import {
   type LatLng,
   Map,
   type MapEngine,
+  MarkerLayer,
   type MapHandle,
   type MapSurfaces,
   type MarkerData,
@@ -58,7 +59,7 @@ import { useEditablePin } from './hooks/useEditablePin'
 import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
-import { EXAMPLE_CATALOG_SOURCES } from './catalogSources'
+import { EXAMPLE_CATALOG_SOURCES, hostViewportSource } from './catalogSources'
 import { geopfBatiments } from '@map3d/plugin-geopf'
 import { windyWebcams } from '@map3d/plugin-windy'
 import { plan3d } from '@map3d/plugin-plan-3d'
@@ -650,6 +651,11 @@ export function App() {
               `.m3d-root`. Il lit le renderer public (capté à `ready`), donc `engine`
               peut être encore null au premier rendu — le composant l'attend. */}
           {ui.stats && <StatsOverlay engine={engine} />}
+          {/* Couche marker VIEWPORT pilotée par l'HÔTE : `<MarkerLayer source>` charge au
+              cadre (anti-rebond, gate `minZoom`, annulation) et `onLoadingChange` rend à
+              l'application l'état qu'elle seule ne pouvait pas connaître — sans rebrancher
+              un second contrôleur sur la même source. Éteinte par défaut (onglet Interface). */}
+          {ui.liveLayer && <HostViewportLayer />}
           {/* Preuve vivante de l'enrichissement au pick : lit `useBuildingEnrichment()`,
               qui EXIGE le contexte carte — doit rester enfant de `<Map>`. */}
           <BuildingEnrichmentInfo />
@@ -681,4 +687,26 @@ export function App() {
       />
     </div>
   )
+}
+
+/**
+ * Couche marker VIEWPORT pilotée par l'HÔTE — la démonstration de `onLoadingChange`.
+ *
+ * `<MarkerLayer source>` tient le `ViewportController` : anti-rebond, gate `minZoom`,
+ * annulation de la requête précédente, rejet des réponses hors-ordre. L'application, elle,
+ * ne pouvait pas savoir qu'un chargement était en vol — sauf à rebrancher un SECOND
+ * contrôleur sur la même source, donc deux requêtes pour une. `onLoadingChange` le lui rend.
+ *
+ * Elle repose volontairement le même jeu que la source à bascule du catalogue : ce qu'elle
+ * démontre n'est pas ce qu'elle peint, c'est le chemin hôte.
+ */
+function HostViewportLayer() {
+  // Console plutôt qu'un badge : le banc d'essai n'a pas de feuille de style propre, et
+  // injecter du DOM non stylé au-dessus de la carte se verrait plus que ce qu'il démontre.
+  // `useCallback` suffit — la couche lit la prop par latest-ref, elle ne relancera rien.
+  const onLoadingChange = useCallback(
+    (v: boolean) => console.log(`[viewport hôte] chargement ${v ? 'en cours…' : 'terminé'}`),
+    [],
+  )
+  return <MarkerLayer source={hostViewportSource} onLoadingChange={onLoadingChange} cluster={{ enabled: true }} />
 }
