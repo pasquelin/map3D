@@ -154,11 +154,13 @@ function useCatalogStore() {
 /**
  * Ce qui est affiché depuis le catalogue, et les gestes qui le changent.
  *
- * **Sans aucun effet de montage** : ce hook a plusieurs consommateurs simultanés (le
- * panneau, chaque ligne, la surface d'affichage). Les effets qui doivent n'avoir lieu
- * QU'UNE FOIS — configuration du stockage, purge, restauration — vivent dans
- * `useCatalogHost`, que seule `<CatalogSurface>` appelle. Les avoir laissés ici aurait
- * déclenché autant de restaurations concurrentes que de composants montés.
+ * **Aucun effet PARTAGÉ** : ce hook a plusieurs consommateurs simultanés (le panneau,
+ * chaque ligne, la surface d'affichage). Les effets qui doivent n'avoir lieu QU'UNE FOIS —
+ * configuration du stockage, purge, restauration — vivent dans `useCatalogHost`, que seule
+ * `<CatalogSurface>` appelle. Les avoir laissés ici aurait déclenché autant de
+ * restaurations concurrentes que de composants montés. Le seul effet qui subsiste ici
+ * n'abandonne QUE la requête de cadrage de SON appelant (cf. `focus`) : il ne touche à rien
+ * de partagé, et deux consommateurs ne peuvent pas se marcher dessus.
  */
 export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
   const { engine, theme } = useMapContext()
@@ -259,8 +261,52 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     [engine, store],
   )
 
+  /**
+   * Requête de cadrage en vol, abandonnée par la suivante et au démontage : deux clics
+   * rapides ne doivent pas laisser la caméra partir vers la première cible.
+   */
+  const focusLoad = useRef<AbortController | null>(null)
+  useEffect(() => () => focusLoad.current?.abort(), [])
+
+  const focus = useCallback(
+    (source: CatalogBrowseSource, item: CatalogItem) => {
+      focusLoad.current?.abort()
+      // Emprise annoncée par l'hôte : le cadrage part immédiatement, sans réseau. C'est le
+      // chemin nominal d'un référentiel que l'hôte peint — il connaît déjà ses emprises.
+      if (item.bounds) {
+        focusLoad.current = null
+        fit(item.bounds)
+        return
+      }
+      const ctrl = new AbortController()
+      focusLoad.current = ctrl
+      // Rien n'entre dans le store : ni sélection, ni contenu, ni état de chargement. Ce
+      // contenu ne sert qu'à mesurer une emprise, et repart avec la promesse.
+      void loadContent(source, item.id, item.title, ctrl.signal)
+        .then((content) => {
+          if (ctrl.signal.aborted) return
+          const b = boundsOfContent(content)
+          if (b) fit(b)
+        })
+        .catch(() => {
+          // Cadrage impossible : la ligne reste où elle est, sans pastille d'erreur — rien
+          // n'a été promis à l'écran, contrairement à une pose qui aurait échoué.
+        })
+    },
+    [fit],
+  )
+
   const toggle = useCallback(
     (source: CatalogBrowseSource, item: CatalogItem, opts?: { fit?: boolean }) => {
+      // Source qui ne pose pas : la règle vit ICI, pas dans la liste qui l'appelle. Sinon
+      // elle ne tiendrait que pour les gestes de l'UI de la lib, et un hôte — ou un futur
+      // chemin interne — inscrirait quand même ces éléments en sélection et en
+      // persistance, c'est-à-dire le doublon que `checkable: false` existe pour empêcher.
+      // « Afficher » s'y réduit à « montrer » : on cadre.
+      if (source.checkable === false) {
+        focus(source, item)
+        return
+      }
       const key = catalogKey(source.id, item.id)
       const forceFit = opts?.fit === true
       if (store.isShown(key)) {
@@ -279,49 +325,15 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
         if (withFit && b) fit(b)
       })
     },
-    [fit, hide, show, store],
-  )
-
-  /**
-   * Requête de cadrage en vol, abandonnée par la suivante et au démontage : deux clics
-   * rapides ne doivent pas laisser la caméra partir vers la première cible.
-   */
-  const focusLoad = useRef<AbortController | null>(null)
-  useEffect(() => () => focusLoad.current?.abort(), [])
-
-  const focus = useCallback(
-    (source: CatalogBrowseSource, item: CatalogItem) => {
-      focusLoad.current?.abort()
-      focusLoad.current = null
-      // Emprise annoncée par l'hôte : le cadrage part immédiatement, sans réseau. C'est le
-      // chemin nominal d'un référentiel que l'hôte peint — il connaît déjà ses emprises.
-      if (item.bounds) {
-        fit(item.bounds)
-        return
-      }
-      const ctrl = new AbortController()
-      focusLoad.current = ctrl
-      // Rien n'entre dans le store : ni sélection, ni contenu, ni état de chargement. Ce
-      // contenu ne sert qu'à mesurer une emprise, et repart avec la promesse.
-      void loadContent(source, item.id, item.title, ctrl.signal)
-        .then((content) => {
-          if (ctrl.signal.aborted) return
-          const b = boundsOfContent(content)
-          if (b) fit(b)
-        })
-        .catch(() => {
-          // Cadrage impossible : la ligne reste où elle est, sans pastille d'erreur — rien
-          // n'a été promis à l'écran, contrairement à une pose qui aurait échoué.
-        })
-        .finally(() => {
-          if (focusLoad.current === ctrl) focusLoad.current = null
-        })
-    },
-    [fit],
+    [fit, focus, hide, show, store],
   )
 
   const setMany = useCallback(
     (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => {
+      // Même règle qu'à l'unité (cf. `toggle`) : cette source ne pose rien, donc il n'y a
+      // ni lot à poser ni lot à retirer. Pas de cadrage non plus — cadrer une poignée
+      // d'éléments qu'on n'a pas désignés n'est le geste de personne.
+      if (source.checkable === false) return
       if (!shown) {
         // Un seul retrait pour tout le lot : en boucle, chaque `hide` reconstruisait
         // toutes les formes, réécrivait le stockage et relançait un rendu.
@@ -464,11 +476,15 @@ export function useCatalogHost(): CatalogContent {
       // quand le plugin qui la porte arrivera.
       const source = sourcesById.get(parsed.sourceId)
       if (!source) continue
-      // Une source à bascule n'a pas d'éléments : une clé qui prétendrait lui appartenir
-      // ne peut venir que d'une source qui a changé de régime entre deux versions de
-      // l'hôte. On la réclame quand même, sinon elle serait retentée à chaque mutation.
-      if (isToggleSource(source)) {
+      // Deux régimes n'ont RIEN à restaurer, et pour la même raison : ils ne posent pas
+      // d'élément. Une bascule n'a pas d'éléments du tout ; une source `checkable: false`
+      // est peinte par l'hôte lui-même. Dans les deux cas, la clé ne peut venir que d'une
+      // version antérieure de l'hôte, où la source posait encore — la recharger
+      // repeindrait par-dessus ce que l'hôte affiche déjà, et sans case pour l'en
+      // retirer. On la réclame quand même : sinon elle serait retentée à chaque mutation.
+      if (isToggleSource(source) || source.checkable === false) {
         store.claimRestore(key)
+        store.remove(key)
         continue
       }
       store.claimRestore(key)

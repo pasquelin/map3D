@@ -21,6 +21,12 @@ ni en persistance, et le clic sur le nom **cadre** : sur `item.bounds` s'il est 
 (aucune requête), sinon sur la géométrie, chargée le temps de mesurer puis jetée. Chevron,
 enfants, sections et actions de ligne sont inchangés — c'est tout l'intérêt du régime.
 
+La règle vit dans le SOCLE, pas dans la liste qui l'affiche : `toggle` et `setMany` la
+portent, et la restauration écarte ces clés au démarrage. Sans quoi elle n'aurait tenu que
+pour les gestes de l'UI de la lib — un hôte, ou une sélection persistée par une version
+antérieure où la source posait encore, aurait repeint par-dessus ce que l'hôte affiche déjà,
+sans case pour l'en retirer.
+
 Défaut `true` : **aucune source existante ne bouge**. Ajoute `labels.catalog.focus`
 (« Centrer sur {label} »), qui remplace `catalog.add`/`remove` sur ces lignes, où
 `aria-pressed` n'annonce plus rien.

@@ -198,11 +198,13 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    * Enfants inconnus (jamais dépliés) : on retombe sur l'état de l'agrégat lui-même,
    * qui est alors la seule information disponible.
    */
+  // Propriété de la SOURCE : dérivée une fois, pas à chaque ligne rendue.
+  const checkable = source.checkable !== false
+
   const checkStateOf = useCallback(
     (node: CatalogItemNode, key: string): 'on' | 'off' | 'mixed' => {
-      // Source sans case : ni état à dériver, ni enfants à parcourir pour le dériver. Ce
-      // travail se refait à chaque ligne visible et à chaque frame de défilement.
-      if (source.checkable === false) return 'off'
+      // Ni état à dériver, ni enfants à parcourir pour le dériver.
+      if (!checkable) return 'off'
       const kids = node.item.hasChildren ? children.get(node.item.id) : undefined
       if (!kids || kids.length === 0) return catalog.isShown(key) ? 'on' : 'off'
       let shown = 0
@@ -210,7 +212,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
       if (shown === 0) return 'off'
       return shown === kids.length ? 'on' : 'mixed'
     },
-    [catalog, children, source.id, source.checkable],
+    [catalog, checkable, children, source.id],
   )
 
   /**
@@ -225,7 +227,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    * `catalog.toggle` : `exhaustive-deps` ne sait pas voir la stabilité d'un membre et
    * réclamerait l'objet entier, c'est-à-dire exactement ce qu'on évite.
    */
-  const { toggle, focus, setMany } = catalog
+  const { toggle, setMany } = catalog
   const onCheck = useCallback(
     (node: CatalogItemNode, next: boolean) => {
       if (!node.item.hasChildren || !source.children) {
@@ -246,12 +248,9 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
     [setMany, toggle, ensureChildren, source],
   )
 
-  // Sans case, il n'y a rien à basculer : le nom CADRE (cf. `CatalogBrowseSource.checkable`).
-  // Avec, il bascule ET emmène la caméra du même mouvement.
-  const onActivate = useCallback(
-    (item: CatalogItem) => (source.checkable === false ? focus(source, item) : toggle(source, item, { fit: true })),
-    [focus, toggle, source],
-  )
+  // Le nom bascule ET emmène la caméra du même mouvement — ou cadre seulement, sur une
+  // source qui ne pose pas : c'est `toggle` qui le sait (cf. `CatalogBrowseSource.checkable`).
+  const onActivate = useCallback((item: CatalogItem) => toggle(source, item, { fit: true }), [toggle, source])
 
   const groupHeaders = config.catalog.groupHeaders
   const nodes = useMemo(
@@ -314,9 +313,12 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
                     node={node}
                     source={source}
                     actions={actions}
-                    shown={catalog.isShown(key)}
-                    pending={catalog.isPending(key)}
-                    failed={catalog.hasError(key)}
+                    // Rien n'entre jamais dans le store pour une source qui ne pose pas :
+                    // ces trois lectures y sont constantes, et se refaisaient par ligne
+                    // visible à chaque frame de défilement.
+                    shown={checkable && catalog.isShown(key)}
+                    pending={checkable && catalog.isPending(key)}
+                    failed={checkable && catalog.hasError(key)}
                     expanded={expanded.has(node.item.id)}
                     onToggleExpand={toggleExpand}
                     checkState={checkStateOf(node, key)}

@@ -19,9 +19,8 @@ import {
   mdiVectorPolygon,
   mdiViewGridOutline,
 } from '@mdi/js'
-import { boundsContains, createTitleCache, normalizeSearch } from '@pasquelin/map3d'
+import { boundsContains, boundsOfShapes, createTitleCache, normalizeSearch } from '@pasquelin/map3d'
 import type {
-  Bounds,
   CatalogBrowseSource,
   CatalogItem,
   CatalogPage,
@@ -341,37 +340,25 @@ const zonesSource: CatalogSource = {
 // Les deux éléments exercent les DEUX chemins de cadrage : le premier annonce son
 // `bounds` (aucune requête), le second laisse la lib appeler `geometry` pour le calculer.
 
-/** Emprise d'un anneau de points — les zones de dessin n'en publient pas. */
-const ringBounds = (points: readonly { lat: number; lng: number }[]): Bounds | undefined => {
-  const first = points[0]
-  if (!first) return undefined
-  let north = first.lat
-  let south = first.lat
-  let east = first.lng
-  let west = first.lng
-  for (const p of points) {
-    north = Math.max(north, p.lat)
-    south = Math.min(south, p.lat)
-    east = Math.max(east, p.lng)
-    west = Math.min(west, p.lng)
-  }
-  return { north, south, east, west }
-}
+/** Un identifiant de zone dessinée ↔ son rang. Écrit une fois, lu des deux côtés. */
+const drawnId = (index: number) => `drawn-${index}`
+const drawnIndex = (id: string) => Number(id.slice('drawn-'.length))
 
 /** Les mêmes anneaux que la couche de dessin, en `ShapeData` — pour le seul cadrage. */
 const drawnShape = (index: number): ShapeData[] => {
   const zone = DEMO_DRAW_ZONES[index]
   if (!zone || zone.kind !== 'polygon') return []
-  return [{ kind: 'polygon', id: `drawn-${index}`, title: zone.title, points: zone.points, closed: true }]
+  return [{ kind: 'polygon', id: drawnId(index), title: zone.title, points: zone.points, closed: true }]
 }
 
 const DRAWN_ZONES: readonly CatalogItem[] = DEMO_DRAW_ZONES.map((z, i) => ({
-  id: `drawn-${i}`,
+  id: drawnId(i),
   title: z.title ?? `Zone ${i + 1}`,
   color: z.style?.color,
   // Une seule annonce son emprise : l'autre oblige la lib à passer par `geometry`, et
-  // c'est ce chemin-là qu'on veut voir vivre aussi.
-  bounds: i === 0 && z.kind === 'polygon' ? ringBounds(z.points) : undefined,
+  // c'est ce chemin-là qu'on veut voir vivre aussi. `boundsOfShapes` est le helper de la
+  // lib — la même mesure que celle qu'elle fera elle-même, antiméridien compris.
+  bounds: i === 0 ? (boundsOfShapes(drawnShape(i)) ?? undefined) : undefined,
 }))
 
 const drawnZonesSource: CatalogBrowseSource = {
@@ -385,7 +372,7 @@ const drawnZonesSource: CatalogBrowseSource = {
   list: (req) => delay(page(filtered(DRAWN_ZONES, req.query), req)),
   // Requise par le contrat, et RÉELLE : c'est le chemin de cadrage des éléments qui
   // n'annoncent pas leur emprise. Rendre `[]` ici ferait mentir la méthode.
-  geometry: (id) => delay(drawnShape(Number(String(id).replace('drawn-', '')))),
+  geometry: (id) => delay(drawnShape(drawnIndex(String(id)))),
   actions: [
     {
       id: 'copy',
