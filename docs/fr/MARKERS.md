@@ -225,6 +225,11 @@ L'information vit **au survol** ; le clic est réservé aux actions (sélection,
 Fournie, la prop `tooltip` **décide seule** — y compris pour rendre `null`. À réserver
 aux titres que du texte ne peut pas dire : `titleColor` couvre déjà le cas courant.
 
+L'infobulle est centrée au-dessus de son marker, et **rabattue dans la carte** quand
+celui-ci approche d'un bord : elle glisse le long du bord plutôt que d'être coupée, et suit
+son ancre tant qu'elle est affichée. Rien à régler — même mécanisme que les menus
+contextuels. Il vaut pour l'infobulle de cluster et celle du dock d'épinglés.
+
 ### Infobulle de cluster
 
 Le cluster construit la sienne : le décompte par type au survol d'une **part** du
