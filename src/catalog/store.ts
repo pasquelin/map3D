@@ -24,6 +24,9 @@ export type CatalogContent = {
  */
 export const NO_MARKERS: readonly MarkerData[] = []
 
+/** Idem côté formes — cf. `NO_MARKERS`. */
+const NO_SHAPES: readonly ShapeData[] = []
+
 /**
  * Aplatit des lots en une liste, **dédoublonnée par `id`**.
  *
@@ -582,20 +585,11 @@ export class CatalogStore {
 
   // ── Interne ──
 
-  /**
-   * Aplatit les géométries affichées, **dédoublonnées par `ShapeData.id`**.
-   *
-   * Deux entrées de catalogue peuvent légitimement porter la même zone : un groupe et
-   * cette zone prise isolément, ou deux référentiels qui se recouvrent. Peintes deux
-   * fois, elles se superposent — remplissages cumulés, contours plus épais, et une zone
-   * qui reste à l'écran quand on décoche celle qu'on croyait seule.
-   *
-   * La PREMIÈRE occurrence gagne, et le retrait d'une entrée reconstruit tout : une
-   * forme encore référencée ailleurs survit donc d'elle-même. Une forme sans `id` n'est
-   * pas identifiable — on la garde telle quelle plutôt que de deviner.
-   */
+  /** Formes affichées, à plat et dédoublonnées — cf. `dedupeById`. */
   private rebuildShapes(): void {
-    this.shapesCache = dedupeById(this.geometries.values())
+    // Référence CONSTANTE quand rien n'est affiché, comme `rebuildMarkers` : un `[]` neuf
+    // par mutation ferait croire à un changement à qui compare `shapes()` par identité.
+    this.shapesCache = this.geometries.size === 0 ? NO_SHAPES : dedupeById(this.geometries.values())
   }
 
   /** Retient les points d'une clé — rien du tout si elle n'en a pas (cf. `markersByKey`). */
@@ -625,15 +619,7 @@ export class CatalogStore {
     this.rebuildMarkers()
   }
 
-  /**
-   * Aplatit les points affichés, **dédoublonnés par `MarkerData.id`** — même raison que
-   * les formes : deux entrées peuvent légitimement porter le même point, et rendu deux
-   * fois il se superposerait à lui-même, sans jamais partir au décochage de l'une.
-   *
-   * Table vide (le cas de l'immense majorité des sources) : on rend la référence
-   * CONSTANTE plutôt qu'un tableau neuf, sans quoi chaque mutation du store aurait
-   * remonté une nouvelle identité à la couche marker pour zéro point.
-   */
+  /** Points affichés, à plat et dédoublonnés — cf. `dedupeById`. */
   private rebuildMarkers(): void {
     // Référence CONSTANTE quand rien n'a de point — cf. `NO_MARKERS`.
     this.markersCache = this.markersByKey.size === 0 ? NO_MARKERS : dedupeById(this.markersByKey.values())

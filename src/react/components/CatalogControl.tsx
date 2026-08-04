@@ -249,7 +249,9 @@ function ToggleTypeRow({ source, total }: { source: CatalogToggleSource; total: 
           <UiIcon path={source.icon} />
           <span className="m3d-cattype-label">{source.label}</span>
         </button>
-        {loading && <span className="m3d-cattype-busy" aria-label={labels.catalog.loading} />}
+        {/* `role="status"` : sans rôle, un `aria-label` sur un span vide n'est annoncé par
+            presque aucun lecteur d'écran — le libellé existait sans jamais être lu. */}
+        {loading && <span className="m3d-cattype-busy" role="status" aria-label={labels.catalog.loading} />}
         {total}
       </div>
     </div>
