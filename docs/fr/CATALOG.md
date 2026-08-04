@@ -210,10 +210,41 @@ const defibs: CatalogToggleSource = {
 [DATA.md](DATA.md)) : anti-rebond, gate `minZoom`, `AbortSignal` et rejet des réponses
 hors-ordre sont déjà assurés par `ViewportController`. Vous n'écrivez que le `load`.
 
-`markerLayer` reprend le contrat de la voie déclarative des plugins
-([PLUGINS.md § 5](PLUGINS.md#5-rendu-carte)) : les points entrent dans le **même**
-regroupement (`engine.clusters`), le **filtre « Couches »** (via `MarkerData.tags`) et la
-**recherche unifiée** (via `MarkerData.title`) que tout le reste de la carte.
+`markerLayer` est un **`MarkerLayerDecl`** — le MÊME type que `Plugin.markerLayer`
+([PLUGINS.md § 5](PLUGINS.md#5-rendu-carte)), pour qu'une capacité ne se règle pas de deux
+façons selon d'où elle vient :
+
+```ts
+type MarkerLayerDecl = {
+  menu?: (p: MarkerData) => MenuItem[]
+  tooltip?: MarkerLayerProps<unknown>['tooltip']
+  icon?: (p: MarkerData) => string
+  typeLabel?: (type: string) => string
+  cluster?: { enabled: boolean }
+  size?: number
+}
+```
+
+Sous-ensemble volontaire de `MarkerLayerProps` : ce qui décide de l'**apparence**, jamais
+ce qui décide de la donnée (`points`/`source`) ni de la sélection, que la lib pilote. Les
+points entrent dans le **même** regroupement (`engine.clusters`), le **filtre « Couches »**
+(via `MarkerData.tags`) et la **recherche unifiée** (via `MarkerData.title`) que tout le
+reste de la carte.
+
+**Discriminer une liste hétérogène** — `isToggleSource` et `isBrowseSource` sont la paire
+de gardes publiques :
+
+```ts
+import { isBrowseSource, isToggleSource } from '@pasquelin/map3d'
+
+sources.filter(isToggleSource)   // `s.source` y est typé
+sources.filter(isBrowseSource)   // `s.list` / `s.geometry` y sont typés
+```
+
+⚠️ `isBrowseSource` teste `kind !== 'toggle'`, **pas** `=== 'browse'` : `kind` étant
+optionnel côté parcours, tester l'égalité ferait disparaître toute source écrite avant
+l'arrivée des bascules. C'est la NÉGATION qui est correcte, et c'est pourquoi la lib fournit
+la garde plutôt que de vous laisser écrire le test.
 
 ### 4.1 Ce que fait la ligne
 
@@ -234,7 +265,7 @@ décider au contenu de la vue qui le détermine.
 Éteint, un jeu n'a **aucune couche montée** : ni contrôleur, ni écoute de la vue, ni
 requête. Un référentiel à 36 000 points ne coûte rien tant qu'on n'y touche pas.
 
-### 4.2 ⚠️ Le volume chargé n'est pas le volume affiché
+### 4.2 Le volume chargé n'est pas le volume affiché
 
 L'emprise transmise à `load` est **délibérément plus large que l'écran**. `computeBounds`
 élargit la bbox de `config.performance.boundsMargin` (défaut `0.15`, soit **+30 % en

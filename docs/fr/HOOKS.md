@@ -137,9 +137,33 @@ catalog.clear()
 ```
 
 Sélection et gestes du catalogue : `selection`, `isShown`, `isPending`, `hasError`,
-`toggle`, `setMany`, `clear`, `shapes` (formes à passer à `<ShapeLayer>`). `side` réserve la
-marge de cadrage du côté où s'ouvre le panneau. Détail dans
+`toggle`, `setMany`, `clear`, `shapes` (formes à passer à `<ShapeLayer>`), `markers` (points
+posés par les éléments affichés) et `toggleSource(id, on?)` (allume/éteint un jeu à
+bascule). `side` réserve la marge de cadrage du côté où s'ouvre le panneau. Détail dans
 [CATALOG.md § 10](CATALOG.md#10-recettes).
+
+⚠️ Pour **lire** l'état d'un jeu à bascule, c'est `useCatalogToggle` ci-dessous — pas
+`useCatalog()`, qui rend un objet neuf à chaque mutation du catalogue et re-rendrait donc
+l'appelant à chaque géométrie qui arrive.
+
+### `useCatalogToggle(id: string): { on: boolean; loading: boolean; toggle: () => void }`
+
+État d'UN jeu à bascule et le geste qui le retourne. Deux instantanés **scalaires**
+(`useSyncExternalStore`) : React court-circuite le rendu tant que les deux booléens ne
+bougent pas. C'est le hook qu'utilise la lib pour ses propres lignes de menu.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+`loading` dit qu'une requête est **en vol**, jamais un nombre d'éléments chargés — cf.
+[CATALOG.md § 4.2](CATALOG.md#42-le-volume-chargé-nest-pas-le-volume-affiché).
+
+### `useCatalogClear(): () => void`
+
+Vide la carte de tout ce que le catalogue y peint — éléments cochés **et** jeux allumés.
+Un geste seul, **sans abonnement** : un bouton « Tout retirer » n'a pas à se re-rendre à
+chaque géométrie qui arrive. Son état désactivé se lit ailleurs (le compte actif).
 
 ### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 

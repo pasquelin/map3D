@@ -208,10 +208,41 @@ const defibs: CatalogToggleSource = {
 debouncing, the `minZoom` gate, `AbortSignal` and rejection of out-of-order responses are
 already handled by `ViewportController`. You only write `load`.
 
-`markerLayer` reuses the plugin declarative path's contract
-([PLUGINS.md § 5](PLUGINS.md#5-map-rendering)): points join the **same** clustering index
-(`engine.clusters`), the **"Layers" filter** (via `MarkerData.tags`) and **unified search**
-(via `MarkerData.title`) as everything else on the map.
+`markerLayer` is a **`MarkerLayerDecl`** — the SAME type as `Plugin.markerLayer`
+([PLUGINS.md § 5](PLUGINS.md#5-map-rendering)), so that one capability is not configured two
+different ways depending on where it comes from:
+
+```ts
+type MarkerLayerDecl = {
+  menu?: (p: MarkerData) => MenuItem[]
+  tooltip?: MarkerLayerProps<unknown>['tooltip']
+  icon?: (p: MarkerData) => string
+  typeLabel?: (type: string) => string
+  cluster?: { enabled: boolean }
+  size?: number
+}
+```
+
+A deliberate subset of `MarkerLayerProps`: what decides **appearance**, never what decides
+the data (`points`/`source`) nor selection, which the library drives. Points join the
+**same** clustering index (`engine.clusters`), the **"Layers" filter** (via
+`MarkerData.tags`) and **unified search** (via `MarkerData.title`) as everything else on the
+map.
+
+**Discriminating a heterogeneous list** — `isToggleSource` and `isBrowseSource` are the
+public guard pair:
+
+```ts
+import { isBrowseSource, isToggleSource } from '@pasquelin/map3d'
+
+sources.filter(isToggleSource)   // `s.source` is typed here
+sources.filter(isBrowseSource)   // `s.list` / `s.geometry` are typed here
+```
+
+⚠️ `isBrowseSource` tests `kind !== 'toggle'`, **not** `=== 'browse'`: since `kind` is
+optional on the browse side, testing equality would make every source written before
+toggles existed disappear. The NEGATION is the correct one, which is why the library ships
+the guard instead of leaving you to write the test.
 
 ### 4.1 What the row does
 
@@ -232,7 +263,7 @@ view that determines it.
 Turned off, a set has **no layer mounted**: no controller, no view listener, no request. A
 36,000-point reference set costs nothing until you touch it.
 
-### 4.2 ⚠️ Loaded volume is not displayed volume
+### 4.2 Loaded volume is not displayed volume
 
 The bounds handed to `load` are **deliberately wider than the screen**. `computeBounds`
 expands the bbox by `config.performance.boundsMargin` (default `0.15`, i.e. **+30% in

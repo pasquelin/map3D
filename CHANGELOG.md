@@ -6,6 +6,32 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### fix : `<MarkerLayer onLoadingChange>` retombe au démontage
+
+La prop n'avait **aucun contrat de démontage**, et le commentaire de `CatalogSurface`
+affirmait le contraire. `ViewportController.cancel()` émet bien un `false`, mais il
+s'arrête au `setLoading` INTERNE de `useLiveData` : l'effet qui relaie vers l'hôte, lui, ne
+rejoue jamais pendant un démontage. Dans la lib le symptôme était masqué par accident
+(`setSourceOn`/`purge`/`clear` purgent déjà `loadingSources`, plus la garde de lecture) —
+mais un hôte qui branche un indicateur sur cette prop publique le voyait tourner
+indéfiniment dès qu'il démontait une couche en plein vol. Nettoyage d'effet dédié, séparé
+de celui sur `[loading]` pour ne pas tirer un `false` à chaque transition.
+
+### perf : le gate `minZoom` n'émet plus qu'une fois, et abandonne ce qui est en vol
+
+Sous le seuil, `ViewportController` émettait un tableau vide **neuf à chaque tick** : la
+couche marker en tirait une identité neuve, tous ses mémos de visibilité tombaient, et les
+trois registres étaient notifiés — `ChangeNotifier` n'ayant aucune garde d'égalité, la
+surface de regroupement replanifiait un `rebuild()` complet. Soit, à quelques milliers de
+markers, une chaîne par marker et un tri supercluster **toutes les 500 ms de déplacement,
+pour zéro changement visuel**. Désormais une seule émission par descente, sur un tableau
+constant.
+
+Le gate n'abandonnait pas non plus la requête **en vol** : une réponse partie au-dessus du
+seuil se résolvait après coup et repeuplait la couche sous le seuil — précisément les
+milliers de points que le gate existe pour éviter. Trois tests couvrent ces chemins, dont
+la descente sous le seuil requête en vol, que la première série manquait.
+
 ### feat : le catalogue nomme ses groupes — familles du menu et sections de la liste
 
 Le menu des types séparait ses familles (`CatalogSource.family`) par un simple filet, et

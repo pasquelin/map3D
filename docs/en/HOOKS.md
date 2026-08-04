@@ -135,9 +135,33 @@ catalog.clear()
 ```
 
 Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`, `toggle`,
-`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`). `side` reserves the framing
-margin on the side where the panel opens. Details in
+`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`), `markers` (points placed by
+the displayed items) and `toggleSource(id, on?)` (switches a toggle set on/off). `side`
+reserves the framing margin on the side where the panel opens. Details in
 [CATALOG.md § 10](CATALOG.md#10-recipes).
+
+⚠️ To **read** a toggle set's state, use `useCatalogToggle` below — not `useCatalog()`,
+which returns a fresh object on every catalog mutation and would therefore re-render the
+caller on every incoming geometry.
+
+### `useCatalogToggle(id: string): { on: boolean; loading: boolean; toggle: () => void }`
+
+State of ONE toggle set and the gesture that flips it. Two **scalar** snapshots
+(`useSyncExternalStore`): React short-circuits the render as long as both booleans hold.
+This is the hook the library uses for its own menu rows.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+`loading` states that a request is **in flight**, never a count of loaded items — see
+[CATALOG.md § 4.2](CATALOG.md#42-loaded-volume-is-not-displayed-volume).
+
+### `useCatalogClear(): () => void`
+
+Clears everything the catalog paints on the map — ticked items **and** switched-on sets.
+A gesture alone, with **no subscription**: a "Remove all" button need not re-render on
+every incoming geometry. Its disabled state is read elsewhere (the active count).
 
 ### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 

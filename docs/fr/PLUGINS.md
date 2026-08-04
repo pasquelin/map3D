@@ -178,11 +178,13 @@ data: {
 
 ## 5. Rendu carte
 
-`markerLayer?` réutilise l'ergonomie markers existante — la lib rend le résultat de
-`data.fetch` dans un `<MarkerLayer>` interne :
+`markerLayer?: MarkerLayerDecl` réutilise l'ergonomie markers existante — la lib rend le
+résultat de `data.fetch` dans un `<MarkerLayer>` interne. C'est le MÊME type que
+`CatalogToggleSource.markerLayer` ([CATALOG.md § 4](CATALOG.md#4-sources-à-bascule)) : une
+capacité ne se règle pas de deux façons selon d'où elle vient.
 
 ```ts
-markerLayer?: {
+type MarkerLayerDecl = {
   menu?: (p: MarkerData<unknown>) => MenuItem[]
   tooltip?: MarkerLayerProps<unknown>['tooltip']
   icon?: (p: MarkerData<unknown>) => string

@@ -100,9 +100,9 @@ Engine · Plugins · Preferences.
 
 ## Public API — landmarks by domain (all from `'map3d'`)
 
-- **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer`, `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
+- **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
 - **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
-- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
+- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle` / `useCatalogClear`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
@@ -2595,10 +2595,41 @@ const defibs: CatalogToggleSource = {
 debouncing, the `minZoom` gate, `AbortSignal` and rejection of out-of-order responses are
 already handled by `ViewportController`. You only write `load`.
 
-`markerLayer` reuses the plugin declarative path's contract
-([PLUGINS.md § 5](PLUGINS.md#5-map-rendering)): points join the **same** clustering index
-(`engine.clusters`), the **"Layers" filter** (via `MarkerData.tags`) and **unified search**
-(via `MarkerData.title`) as everything else on the map.
+`markerLayer` is a **`MarkerLayerDecl`** — the SAME type as `Plugin.markerLayer`
+([PLUGINS.md § 5](PLUGINS.md#5-map-rendering)), so that one capability is not configured two
+different ways depending on where it comes from:
+
+```ts
+type MarkerLayerDecl = {
+  menu?: (p: MarkerData) => MenuItem[]
+  tooltip?: MarkerLayerProps<unknown>['tooltip']
+  icon?: (p: MarkerData) => string
+  typeLabel?: (type: string) => string
+  cluster?: { enabled: boolean }
+  size?: number
+}
+```
+
+A deliberate subset of `MarkerLayerProps`: what decides **appearance**, never what decides
+the data (`points`/`source`) nor selection, which the library drives. Points join the
+**same** clustering index (`engine.clusters`), the **"Layers" filter** (via
+`MarkerData.tags`) and **unified search** (via `MarkerData.title`) as everything else on the
+map.
+
+**Discriminating a heterogeneous list** — `isToggleSource` and `isBrowseSource` are the
+public guard pair:
+
+```ts
+import { isBrowseSource, isToggleSource } from '@pasquelin/map3d'
+
+sources.filter(isToggleSource)   // `s.source` is typed here
+sources.filter(isBrowseSource)   // `s.list` / `s.geometry` are typed here
+```
+
+⚠️ `isBrowseSource` tests `kind !== 'toggle'`, **not** `=== 'browse'`: since `kind` is
+optional on the browse side, testing equality would make every source written before
+toggles existed disappear. The NEGATION is the correct one, which is why the library ships
+the guard instead of leaving you to write the test.
 
 ### 4.1 What the row does
 
@@ -2619,7 +2650,7 @@ view that determines it.
 Turned off, a set has **no layer mounted**: no controller, no view listener, no request. A
 36,000-point reference set costs nothing until you touch it.
 
-### 4.2 ⚠️ Loaded volume is not displayed volume
+### 4.2 Loaded volume is not displayed volume
 
 The bounds handed to `load` are **deliberately wider than the screen**. `computeBounds`
 expands the bbox by `config.performance.boundsMargin` (default `0.15`, i.e. **+30% in
@@ -6866,9 +6897,33 @@ catalog.clear()
 ```
 
 Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`, `toggle`,
-`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`). `side` reserves the framing
-margin on the side where the panel opens. Details in
+`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`), `markers` (points placed by
+the displayed items) and `toggleSource(id, on?)` (switches a toggle set on/off). `side`
+reserves the framing margin on the side where the panel opens. Details in
 [CATALOG.md § 10](CATALOG.md#10-recipes).
+
+⚠️ To **read** a toggle set's state, use `useCatalogToggle` below — not `useCatalog()`,
+which returns a fresh object on every catalog mutation and would therefore re-render the
+caller on every incoming geometry.
+
+### `useCatalogToggle(id: string): { on: boolean; loading: boolean; toggle: () => void }`
+
+State of ONE toggle set and the gesture that flips it. Two **scalar** snapshots
+(`useSyncExternalStore`): React short-circuits the render as long as both booleans hold.
+This is the hook the library uses for its own menu rows.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+`loading` states that a request is **in flight**, never a count of loaded items — see
+[CATALOG.md § 4.2](CATALOG.md#42-loaded-volume-is-not-displayed-volume).
+
+### `useCatalogClear(): () => void`
+
+Clears everything the catalog paints on the map — ticked items **and** switched-on sets.
+A gesture alone, with **no subscription**: a "Remove all" button need not re-render on
+every incoming geometry. Its disabled state is read elsewhere (the active count).
 
 ### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 
@@ -7681,11 +7736,13 @@ remount on a config change.
 
 ## 5. Map rendering
 
-`markerLayer?` reuses the existing marker ergonomics — the library renders
-`data.fetch`'s result inside an internal `<MarkerLayer>`:
+`markerLayer?: MarkerLayerDecl` reuses the existing marker ergonomics — the library renders
+`data.fetch`'s result inside an internal `<MarkerLayer>`. It is the SAME type as
+`CatalogToggleSource.markerLayer` ([CATALOG.md § 4](CATALOG.md#4-toggle-sources)): one
+capability is not configured two different ways depending on where it comes from.
 
 ```ts
-markerLayer?: {
+type MarkerLayerDecl = {
   menu?: (p: MarkerData<unknown>) => MenuItem[]
   tooltip?: MarkerLayerProps<unknown>['tooltip']
   icon?: (p: MarkerData<unknown>) => string
@@ -9146,6 +9203,15 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selectModes.lasso.label` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Lasso'` |
 | `selectModes.lasso.description` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Sélection au lasso'` |
 
+## `eraseModes` — Eraser modes
+
+| Key | Description | Default |
+|---|---|---|
+| `eraseModes.point.label` | Modes of the eraser flyout (point / marquee): `label` = flyout row, `description` = tooltip (with the shortcut). | `'Gomme'` |
+| `eraseModes.point.description` | Same — point-mode tooltip. | `'Effacer un élément au clic'` |
+| `eraseModes.select.label` | Same — marquee-mode row. | `'Gomme sélection'` |
+| `eraseModes.select.description` | Same — marquee-mode tooltip. | `'Effacer tout ce que la sélection touche'` |
+
 ## `style` — Style panel
 
 | Key | Description | Default |
@@ -9186,6 +9252,8 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
 | `selection.delete` | "Delete" menu item of a shape row (short label, no parameter). | `'Supprimer'` |
+| `selection.pathsGroup` | Name of the paths category in a row. | `'Tracés'` |
+| `selection.pathItem` | Label of an expanded path — `{n}` (rank in the group). | `'Tracé {n}'` |
 
 ## `clusters` — Marker grouping
 

@@ -177,11 +177,13 @@ remount on a config change.
 
 ## 5. Map rendering
 
-`markerLayer?` reuses the existing marker ergonomics — the library renders
-`data.fetch`'s result inside an internal `<MarkerLayer>`:
+`markerLayer?: MarkerLayerDecl` reuses the existing marker ergonomics — the library renders
+`data.fetch`'s result inside an internal `<MarkerLayer>`. It is the SAME type as
+`CatalogToggleSource.markerLayer` ([CATALOG.md § 4](CATALOG.md#4-toggle-sources)): one
+capability is not configured two different ways depending on where it comes from.
 
 ```ts
-markerLayer?: {
+type MarkerLayerDecl = {
   menu?: (p: MarkerData<unknown>) => MenuItem[]
   tooltip?: MarkerLayerProps<unknown>['tooltip']
   icon?: (p: MarkerData<unknown>) => string
