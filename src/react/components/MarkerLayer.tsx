@@ -218,6 +218,12 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   useEffect(() => {
     onLoadingChangeRef.current?.(loading)
   }, [loading])
+  // Démontage : l'effet ci-dessus ne rejoue pas, et le `false` émis par
+  // `ViewportController.cancel()` s'arrête au `setLoading` INTERNE de `useLiveData` — il
+  // n'atteint jamais l'hôte. Sans ce nettoyage, un indicateur branché sur cette prop
+  // tourne indéfiniment dès qu'on démonte la couche en plein vol. Effet SÉPARÉ de
+  // `[loading]`, sinon il tirerait un `false` à chaque transition.
+  useEffect(() => () => onLoadingChangeRef.current?.(false), [])
 
   // Tags garantis (cf. `markerTags`). Identité ET allocation évitées dans le cas
   // courant « tout est taggé » (flux temps réel : un tick de données ne coûte rien ici).

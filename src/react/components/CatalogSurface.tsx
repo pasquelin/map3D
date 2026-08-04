@@ -44,7 +44,9 @@ export function CatalogSurface() {
  *
  * L'état de chargement remonte au store parce que la LIGNE qui l'affiche vit dans un autre
  * arbre (le panneau), et peut très bien être démontée pendant le vol. Le drapeau retombe
- * de lui-même au démontage : `ViewportController.cancel()` l'émet en abandonnant.
+ * au démontage par le nettoyage d'effet de `<MarkerLayer onLoadingChange>` ; côté store,
+ * `setSourceOn(false)`/`purge`/`clear` le purgent aussi, et `isSourceLoading` garde sur
+ * `enabled` — trois ceintures pour un état qu'aucune surface ne peut rendre elle-même.
  *
  * `memo` sur une prop d'identité STABLE (l'objet source vient du registre) : sans lui, la
  * boucle se refermait sur elle-même — publier le chargement mute le store, ce qui re-rend
