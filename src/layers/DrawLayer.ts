@@ -1615,10 +1615,7 @@ export class DrawLayer implements Layer {
   clear(): void {
     const targets = this.config.erase.targets
     const ownedIds = new Set<string>()
-    for (const d of this.drawings) {
-      if (d.locked || !this.isShown(d)) continue
-      if (targets[d.kind === 'symbol' ? 'symbol' : this.ownedTarget(d)]) ownedIds.add(d.id)
-    }
+    for (const d of this.drawings) if (this.isEraseTarget(d, targets)) ownedIds.add(d.id)
     this.cancelLive()
     this.commitErase(ownedIds, this.hostErasablesAll())
   }
@@ -1695,9 +1692,31 @@ export class DrawLayer implements Layer {
 
   // ── Gomme (outil `erase`) : ponctuelle et sélection convergent ici ──
 
-  /** Clé de config d'un dessin possédé (`symbol` traité à part par l'appelant). */
-  private ownedTarget(d: Drawing): 'measure' | 'drawing' {
+  /**
+   * Clé de `config.erase.targets` d'un dessin POSSÉDÉ — les trois catégories, `symbol`
+   * comprise. Elle était laissée à ses appelants, dont deux devaient y penser à la main.
+   * Type restreint volontairement : `EraseTarget` couvre aussi les catégories HÔTE, qu'un
+   * dessin ne peut jamais prendre.
+   */
+  private ownedTarget(d: Drawing): 'drawing' | 'measure' | 'symbol' {
+    if (d.kind === 'symbol') return 'symbol'
     return d.kind === 'measure' ? 'measure' : 'drawing'
+  }
+
+  /**
+   * Ce dessin est-il une cible d'effacement ? Verrou, filtre « Couches » et
+   * `config.erase.targets` — dans cet ordre.
+   *
+   * Le prédicat des TROIS commandes (gomme ponctuelle, gomme sélection, « Tout effacer »),
+   * écrit une fois : il l'était trois fois, et `canErase` promettait déjà « le prédicat
+   * MÊME des deux modes » — promesse tenue par recopie, donc jusqu'au premier ajustement
+   * de `HostLayerKind` (que `config.selection` doit rejoindre).
+   *
+   * Ne projette AUCUNE géométrie : la question est « cette forme est-elle atteignable »,
+   * pas « est-elle sous le curseur ».
+   */
+  private isEraseTarget(d: Drawing, targets: MapConfig['erase']['targets']): boolean {
+    return !d.locked && this.isShown(d) && targets[this.ownedTarget(d)]
   }
 
   /**
@@ -1712,10 +1731,7 @@ export class DrawLayer implements Layer {
    */
   get canErase(): boolean {
     const targets = this.config.erase.targets
-    for (const d of this.drawings) {
-      if (d.locked || !this.isShown(d)) continue
-      if (targets[d.kind === 'symbol' ? 'symbol' : this.ownedTarget(d)]) return true
-    }
+    for (const d of this.drawings) if (this.isEraseTarget(d, targets)) return true
     return this.erasables?.hasAny(targets) ?? false
   }
 
@@ -1826,15 +1842,14 @@ export class DrawLayer implements Layer {
     const targets = this.config.erase.targets
     const ownedIds = new Set<string>()
     for (const d of this.drawings) {
-      if (d.locked || !this.isShown(d)) continue
+      if (!this.isEraseTarget(d, targets)) continue
       if (d.kind === 'symbol') {
         // Symbole = marker DOM (contour null) : testé sur son point projeté.
-        if (!targets.symbol || !d.points[0]) continue
+        if (!d.points[0]) continue
         const sp = this.toScreen(d.points[0], this.heightFor(d))
         if (sp && pointInPolygon(sp, selector)) ownedIds.add(d.id)
         continue
       }
-      if (!targets[this.ownedTarget(d)]) continue
       const c = this.screenContour(d)
       if (c && shapeTouchesSelector(c.pts, c.closed, selector)) ownedIds.add(d.id)
     }

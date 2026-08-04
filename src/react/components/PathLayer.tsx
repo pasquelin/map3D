@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLayer'
 import { useMapContext } from '../context'
+import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
 export type PathLayerProps = {
@@ -9,10 +10,6 @@ export type PathLayerProps = {
   /** Pulsation du point courant, en tête du tracé (défaut `true`). */
   animateHead?: boolean
 }
-
-/** Un tracé n'est effaçable que sur opt-in ET s'il a une identité à remonter dans
- *  `onErase` — le prédicat est ici pour que provider et test de présence ne divergent pas. */
-const isErasable = (p: PathData): boolean => !!p.erasable && p.id != null
 
 /** Tracés / parcours (ruban + casing, épaisseur en mètres, tête animée). */
 export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
@@ -61,34 +58,9 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])
 
-  // Expose les tracés `erasable` à la gomme (via `engine.erasables`, séparé de la
-  // sélection). Provider monté une fois : `items()` lit la liste courante par ref, donc
-  // pas de ré-inscription à chaque changement de `paths` (la gomme interroge au besoin).
-  const pathsRef = useRef(paths)
-  pathsRef.current = paths
-  // Présence calculée UNE fois par rendu et lue par ref : `has()` répond alors en O(1),
-  // là où un second `some()` aurait re-balayé la liste à chaque interrogation.
-  const hasErasablePaths = paths.some(isErasable)
-  const hasErasableRef = useRef(hasErasablePaths)
-  hasErasableRef.current = hasErasablePaths
-  useEffect(
-    () =>
-      engine.erasables.register({
-        kind: 'path',
-        items: () =>
-          pathsRef.current
-            .filter(isErasable)
-            .map((p) => ({ id: p.id!, ring: p.points, closed: false, kind: 'path' as const })),
-        has: () => hasErasableRef.current,
-      }),
-    [engine],
-  )
-
-  // La gomme se retire quand plus rien n'est effaçable (`toolbar.autoHide.erase`) : le
-  // registre doit donc DIRE que la présence a changé — le provider, lui, lit par ref et
-  // ne notifie rien. Sur le BOOLÉEN et non sur `paths` : un hôte qui repasse un littéral
-  // à chaque rendu réveillerait sinon la barre pour rien, à chaque rendu.
-  useEffect(() => engine.erasables.itemsChanged(), [engine, hasErasablePaths])
+  // Expose les tracés `erasable` à la gomme — même mécanique que `ShapeLayer`, d'où le
+  // hook partagé (séparé de la sélection, qui a son propre registre).
+  useErasableProvider('path', paths, (p: PathData) => ({ id: p.id!, ring: p.points, closed: false, kind: 'path' }))
 
   return null
 }

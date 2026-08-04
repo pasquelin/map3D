@@ -5,16 +5,13 @@ import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMat
 import { emptyResult, SHAPE_GROUP } from '../../search/registry'
 import type { Bounds } from '../../shared'
 import { useLabels, useMapContext } from '../context'
+import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
 export type ShapeLayerProps = {
   /** Zones à afficher (cercles, rectangles, polygones), drapées sur le relief. */
   shapes: ShapeData[]
 }
-
-/** Une forme hôte n'est effaçable que sur opt-in ET si elle a une identité à remonter
- *  dans `onErase` — cf. le pendant de `PathLayer`. */
-const isErasable = (s: ShapeData): boolean => !!s.erasable && s.id != null
 
 /** Zones/formes plaquées au sol (cercle-rayon, polygone, rectangle-bounds). */
 export function ShapeLayer({ shapes }: ShapeLayerProps) {
@@ -87,32 +84,14 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
   }, [engine, shapes, groupLabel, theme, searchSource])
   useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
 
-  // Expose les formes hôte `erasable` à la gomme (via `engine.erasables`). `items()` lit la
-  // liste courante par ref (`latest`) — provider monté une fois, la gomme interroge au besoin.
-  // Présence calculée UNE fois par rendu et lue par ref : `has()` répond en O(1), sans
-  // reconstruire les anneaux ni re-balayer la liste (cf. `PathLayer`).
-  const hasErasableShapes = shapes.some(isErasable)
-  const hasErasableRef = useRef(hasErasableShapes)
-  hasErasableRef.current = hasErasableShapes
-  useEffect(
-    () =>
-      engine.erasables.register({
-        kind: 'shape',
-        items: () =>
-          latest.current.filter(isErasable).map((s) => ({
-            id: s.id!,
-            ring: ringOfShape(s),
-            closed: s.kind !== 'line' && s.kind !== 'arrow',
-            kind: 'shape' as const,
-          })),
-        has: () => hasErasableRef.current,
-      }),
-    [engine],
-  )
-
-  // Cf. `PathLayer` : la barre retire la gomme quand plus rien n'est effaçable, et le
-  // provider lisant par ref ne notifie rien de lui-même. Sur le BOOLÉEN, pas sur `shapes`.
-  useEffect(() => engine.erasables.itemsChanged(), [engine, hasErasableShapes])
+  // Expose les formes hôte `erasable` à la gomme — inscription, présence et notification
+  // sont les mêmes que celles de `PathLayer`, elles vivent donc dans le hook partagé.
+  useErasableProvider('shape', shapes, (s) => ({
+    id: s.id!,
+    ring: ringOfShape(s),
+    closed: s.kind !== 'line' && s.kind !== 'arrow',
+    kind: 'shape',
+  }))
 
   return null
 }
