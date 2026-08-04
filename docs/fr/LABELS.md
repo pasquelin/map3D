@@ -159,6 +159,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `toolbar.undo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Annuler'` |
 | `toolbar.redo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Rétablir'` |
 | `toolbar.clearAll` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Tout effacer'` |
+| `toolbar.clearAllDescription` | Tooltip de la rangée « Tout effacer » — distinct du label pour ne pas répéter le texte déjà visible (même convention que les modes de gomme). | `'Effacer tout ce que la gomme peut effacer'` |
 
 ## `tools` — Noms des outils
 

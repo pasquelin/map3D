@@ -8896,6 +8896,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `toolbar.undo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Annuler'` |
 | `toolbar.redo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Rétablir'` |
 | `toolbar.clearAll` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Tout effacer'` |
+| `toolbar.clearAllDescription` | Tooltip of the “Clear all” row — distinct from the label so the visible text is not repeated (same convention as the eraser modes). | `'Effacer tout ce que la gomme peut effacer'` |
 
 ## `tools` — Tool names
 
@@ -9255,7 +9256,10 @@ import { imperialMeasure } from '@pasquelin/map3d'
       button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',
       empty: 'No tag on the map', noMatch: 'No matching tag', showAll: 'Show all',
     },
-    toolbar: { navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all' },
+    toolbar: {
+      navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all',
+      clearAllDescription: 'Erase everything the eraser can erase',
+    },
     tools: {
       select: 'Select', line: 'Line', polygon: 'Polygon', rect: 'Rectangle',
       circle: 'Circle', freehand: 'Freehand', arrow: 'Arrow', measure: 'Measure',
