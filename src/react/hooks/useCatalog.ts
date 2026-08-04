@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { unionBounds } from '../../core/bounds'
+import { boundsOfMarkers, type MarkerData } from '../../data/types'
 import { catalogKey, parseCatalogKey, restoreCatalogId } from '../../catalog/selection'
-import type { CatalogSettings } from '../../catalog/store'
-import type { CatalogItem, CatalogKey, CatalogSource } from '../../catalog/types'
+import { NO_MARKERS, type CatalogContent, type CatalogSettings } from '../../catalog/store'
+import {
+  isToggleSource,
+  type CatalogBrowseSource,
+  type CatalogId,
+  type CatalogItem,
+  type CatalogKey,
+  type CatalogToggleSource,
+} from '../../catalog/types'
 import { boundsOfShapes, type ShapeData } from '../../layers/ShapeLayer'
 import type { Bounds } from '../../shared'
+import type { MapEngine } from '../../core/MapEngine'
+import type { CatalogStore } from '../../catalog/store'
 import { useConfig, useMapContext } from '../context'
 import { useCatalogSources } from './useCatalogSources'
 
@@ -20,7 +31,7 @@ export type CatalogApi = {
    * nom, qui bascule et emmène la caméra du même mouvement. Sans lui, le cadrage suit
    * seulement le réglage « cadrer à l'ajout ».
    */
-  toggle: (source: CatalogSource, item: CatalogItem, opts?: { fit?: boolean }) => void
+  toggle: (source: CatalogBrowseSource, item: CatalogItem, opts?: { fit?: boolean }) => void
   /**
    * Affiche ou retire un LOT d'un coup — les enfants d'un agrégat qu'on coche.
    *
@@ -28,35 +39,95 @@ export type CatalogApi = {
    * arrivé : cadrer élément par élément ferait voler la caméra trois fois pour un seul
    * geste, en s'arrêtant sur le dernier arrivé plutôt que sur l'ensemble.
    */
-  setMany: (source: CatalogSource, items: readonly CatalogItem[], shown: boolean) => void
+  setMany: (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => void
   clear: () => void
   /** Formes à passer à `<ShapeLayer>`. */
   shapes: readonly ShapeData[]
+  /** Points posés par les éléments affichés (cf. `CatalogBrowseSource.markers`). */
+  markers: readonly MarkerData[]
+
+  // ── Sources à bascule ──
+
+  /**
+   * Allume ou éteint un jeu — **sans cadrage, jamais**.
+   *
+   * Cadrer n'aurait pas de sens sur un jeu piloté par la vue : c'est la vue qui décide du
+   * contenu, l'y asservir reviendrait à faire décider au contenu de la vue qui le
+   * détermine. La caméra n'est d'ailleurs pas atteignable d'ici.
+   *
+   * Pour LIRE l'état d'un jeu (allumé, en chargement), c'est `useCatalogToggle(id)` :
+   * il s'abonne aux deux booléens de CE jeu, là où l'API entière re-rendrait l'appelant à
+   * chaque mutation du catalogue.
+   */
+  toggleSource: (id: string, on?: boolean) => void
 }
 
 /**
- * Issue d'un chargement de géométrie, avant qu'elle ne soit posée.
+ * Issue d'un chargement, avant que son contenu ne soit posé.
  *
- * Trois cas et non deux : `shapes: null, failed: false` est l'ABANDON (retiré pendant
+ * Trois cas et non deux : `content: null, failed: false` est l'ABANDON (retiré pendant
  * son chargement, source changée), qui ne doit ni poser de formes ni allumer de pastille
  * d'erreur. Les confondre faisait clignoter une erreur sur un élément qu'on venait de
  * décocher soi-même.
  */
 type LoadOutcome = {
   key: CatalogKey
-  shapes: readonly ShapeData[] | null
+  content: CatalogContent | null
   failed: boolean
 }
 
 /**
- * Prête un titre de repli aux formes ANONYMES : une forme sans nom est invisible pour la
- * recherche (cf. ZONES.md § 5), on lui donne celui de son élément de catalogue. `undefined`
- * (aucun titre connu) rend les formes inchangées. Partagé par la pose et la restauration.
+ * Prête un titre de repli à ce qui est ANONYME : une forme ou un point sans nom est
+ * invisible pour la recherche (cf. ZONES.md § 5), on lui donne celui de son élément de
+ * catalogue. `undefined` (aucun titre connu) rend la liste inchangée.
+ *
+ * Générique sur `{ title? }` plutôt qu'une fonction par type : la règle est la même des
+ * deux côtés, et deux copies auraient divergé au premier ajustement.
  */
-function withFallbackTitle(shapes: readonly ShapeData[], title: string | undefined): readonly ShapeData[] {
-  if (title === undefined) return shapes
-  return shapes.map((s) => (s.title ? s : { ...s, title }))
+function withFallbackTitle<T extends { title?: string }>(items: readonly T[], title: string | undefined): readonly T[] {
+  if (title === undefined) return items
+  return items.map((it) => (it.title ? it : { ...it, title }))
 }
+
+/**
+ * Demande à une source TOUT ce qu'un élément pose — formes et points, de front sur le même
+ * signal : un élément qui porte les deux les affiche d'un bloc, là où un enchaînement
+ * séquentiel aurait fait apparaître les seconds après les premières sur un geste unique.
+ *
+ * Hors des hooks parce que les DEUX chemins l'appellent (la pose et la restauration), avec
+ * pour seule différence la provenance du titre de repli.
+ */
+function loadContent(
+  source: CatalogBrowseSource,
+  id: CatalogId,
+  title: string | undefined,
+  signal: AbortSignal,
+): Promise<CatalogContent> {
+  // `Promise.all` accepte une valeur nue : pas de promesse allouée pour une source sans points.
+  return Promise.all([source.geometry(id, signal), source.markers?.(id, signal) ?? NO_MARKERS]).then(
+    ([shapes, markers]) => ({
+      shapes: withFallbackTitle(shapes, title),
+      markers: withFallbackTitle(markers, title),
+    }),
+  )
+}
+
+/**
+ * Allume ou éteint un jeu. Aucun réseau ici : la couche montée par `<CatalogSurface>`
+ * charge d'elle-même au premier cadre, et se démonte en emportant sa requête en vol.
+ *
+ * Au niveau module : les deux portes d'entrée (`useCatalog().toggleSource` pour piloter un
+ * jeu qu'on nomme, `useCatalogToggle` pour une ligne d'interface) faisaient le même geste
+ * chacune de son côté.
+ */
+function flipSource(engine: MapEngine, store: CatalogStore, id: string, on?: boolean): void {
+  store.setSourceOn(id, on ?? !store.isSourceOn(id))
+  engine.invalidate()
+}
+
+/** Cadre de ce qu'un élément a posé — formes ET points : un élément peut n'avoir que des points. */
+const boundsOfContent = (content: CatalogContent): Bounds | null =>
+  unionBounds([boundsOfShapes(content.shapes), boundsOfMarkers(content.markers)])
 
 /** S'abonne à l'état partagé du catalogue (`engine.catalogState`). */
 function useCatalogStore() {
@@ -115,61 +186,62 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
    * tout de suite, un lot attend d'avoir tout et n'écrit qu'une fois — chaque écriture
    * reconstruit sinon la couche 3D entière.
    */
-  const fetchGeometry = useCallback(
-    (source: CatalogSource, item: CatalogItem, key: CatalogKey): Promise<LoadOutcome> => {
+  const fetchContent = useCallback(
+    (source: CatalogBrowseSource, item: CatalogItem, key: CatalogKey): Promise<LoadOutcome> => {
       const ctrl = store.beginLoad(key)
-      return source
-        .geometry(item.id, ctrl.signal)
-        .then((shapes) => {
+      // Le titre de repli est celui de l'élément cliqué, toujours défini ici.
+      return loadContent(source, item.id, item.title, ctrl.signal)
+        .then((content): LoadOutcome => {
           // Retiré pendant le chargement : ce n'est pas un échec, c'est un abandon.
-          if (ctrl.signal.aborted || !store.isShown(key)) return { key, shapes: null, failed: false }
-          // Le titre de repli est celui de l'élément cliqué, toujours défini ici.
-          return { key, shapes: withFallbackTitle(shapes, item.title), failed: false }
+          if (ctrl.signal.aborted || !store.isShown(key)) return { key, content: null, failed: false }
+          return { key, content, failed: false }
         })
-        .catch(() => ({ key, shapes: null, failed: !ctrl.signal.aborted }))
+        .catch((): LoadOutcome => ({ key, content: null, failed: !ctrl.signal.aborted }))
         .finally(() => store.endLoad(key, ctrl))
     },
     [store],
   )
 
   /**
-   * Pose un lot de résultats en UNE passe : une reconstruction des formes, une écriture
-   * du stockage, une notification, une frame. Rend les formes réellement posées.
+   * Pose un lot de résultats en UNE passe — une reconstruction des formes, une écriture du
+   * stockage, une notification, une frame — et rend le CADRE de ce qui a été posé.
+   *
+   * Le cadre et non le contenu : c'est la seule chose que les appelants en fassent, et
+   * rendre le contenu aplati allouait deux tableaux complets (formes et points de tout le
+   * lot) que le chemin nominal jetait aussitôt.
    */
   const applyOutcomes = useCallback(
-    (outcomes: readonly LoadOutcome[]): readonly ShapeData[] => {
-      const loaded: (readonly [CatalogKey, readonly ShapeData[]])[] = []
+    (outcomes: readonly LoadOutcome[]): Bounds | null => {
+      const loaded: (readonly [CatalogKey, CatalogContent])[] = []
       const failed: CatalogKey[] = []
       for (const o of outcomes) {
-        if (o.shapes !== null) loaded.push([o.key, o.shapes])
+        if (o.content !== null) loaded.push([o.key, o.content])
         else if (o.failed) failed.push(o.key)
       }
-      if (loaded.length > 0) store.setGeometryMany(loaded)
+      if (loaded.length > 0) store.setContentMany(loaded)
       if (failed.length > 0) store.removeMany(failed, true)
       if (loaded.length > 0 || failed.length > 0) engine.invalidate()
-      return loaded.flatMap(([, shapes]) => shapes)
+      return unionBounds(loaded.map(([, c]) => boundsOfContent(c)))
     },
     [engine, store],
   )
 
-  /** Affiche un élément et rend ses formes — `null` si abandonné ou en échec. */
+  /** Affiche un élément et rend le CADRE de ce qu'il a posé — `null` si abandonné ou en échec. */
   const show = useCallback(
-    (source: CatalogSource, item: CatalogItem): Promise<readonly ShapeData[] | null> => {
+    (source: CatalogBrowseSource, item: CatalogItem): Promise<Bounds | null> => {
       const key = catalogKey(source.id, item.id)
-      if (store.isShown(key)) return Promise.resolve(store.getGeometry(key) ?? null)
+      const already = store.getContent(key)
+      if (store.isShown(key)) return Promise.resolve(already && boundsOfContent(already))
       // Le titre est retenu dès la sélection : c'est lui qui rendra la forme anonyme
       // cherchable après une restauration, où l'élément cliqué n'est plus en portée.
       store.markSelected(key, item.title)
-      return fetchGeometry(source, item, key).then((o) => {
-        applyOutcomes([o])
-        return o.shapes
-      })
+      return fetchContent(source, item, key).then((o) => applyOutcomes([o]))
     },
-    [applyOutcomes, fetchGeometry, store],
+    [applyOutcomes, fetchContent, store],
   )
 
   const hide = useCallback(
-    (source: CatalogSource, item: CatalogItem) => {
+    (source: CatalogBrowseSource, item: CatalogItem) => {
       const key = catalogKey(source.id, item.id)
       store.abortLoad(key)
       store.remove(key)
@@ -179,31 +251,30 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
   )
 
   const toggle = useCallback(
-    (source: CatalogSource, item: CatalogItem, opts?: { fit?: boolean }) => {
+    (source: CatalogBrowseSource, item: CatalogItem, opts?: { fit?: boolean }) => {
       const key = catalogKey(source.id, item.id)
       const forceFit = opts?.fit === true
       if (store.isShown(key)) {
-        // Cadrer AVANT de retirer : après, la géométrie a quitté la mémoire et il ne
+        // Cadrer AVANT de retirer : après, le contenu a quitté la mémoire et il ne
         // resterait plus rien à viser.
         if (forceFit) {
-          const b = item.bounds ?? boundsOfShapes(store.getGeometry(key) ?? [])
+          const shown = store.getContent(key)
+          const b = item.bounds ?? (shown && boundsOfContent(shown))
           if (b) fit(b)
         }
         hide(source, item)
         return
       }
       const withFit = forceFit || store.getSettings().fitOnAdd
-      void show(source, item).then((shapes) => {
-        if (!withFit || !shapes) return
-        const b = boundsOfShapes(shapes)
-        if (b) fit(b)
+      void show(source, item).then((b) => {
+        if (withFit && b) fit(b)
       })
     },
     [fit, hide, show, store],
   )
 
   const setMany = useCallback(
-    (source: CatalogSource, items: readonly CatalogItem[], shown: boolean) => {
+    (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => {
       if (!shown) {
         // Un seul retrait pour tout le lot : en boucle, chaque `hide` reconstruisait
         // toutes les formes, réécrivait le stockage et relançait un rendu.
@@ -229,18 +300,16 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
       void Promise.all(
         pairs.map((p) =>
           added.has(p.key)
-            ? fetchGeometry(source, p.item, p.key)
-            : // Déjà affiché : sa géométrie compte pour le cadrage, sans la redemander.
-              Promise.resolve<LoadOutcome>({ key: p.key, shapes: store.getGeometry(p.key) ?? null, failed: false }),
+            ? fetchContent(source, p.item, p.key)
+            : // Déjà affiché : son contenu compte pour le cadrage, sans le redemander.
+              Promise.resolve<LoadOutcome>({ key: p.key, content: store.getContent(p.key), failed: false }),
         ),
       ).then((outcomes) => {
-        const shapes = applyOutcomes(outcomes)
-        if (!withFit) return
-        const b = boundsOfShapes(shapes)
-        if (b) fit(b)
+        const b = applyOutcomes(outcomes)
+        if (withFit && b) fit(b)
       })
     },
-    [applyOutcomes, engine, fetchGeometry, fit, store],
+    [applyOutcomes, engine, fetchContent, fit, store],
   )
 
   const clear = useCallback(() => {
@@ -248,6 +317,8 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     store.clear()
     engine.invalidate()
   }, [engine, store])
+
+  const toggleSource = useCallback((id: string, on?: boolean) => flipSource(engine, store, id, on), [engine, store])
 
   return useMemo(
     () => ({
@@ -259,11 +330,13 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
       setMany,
       clear,
       shapes: store.shapes(),
+      markers: store.markers(),
+      toggleSource,
     }),
     // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
     // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, token, toggle, setMany, clear],
+    [store, token, toggle, setMany, clear, toggleSource],
   )
 }
 
@@ -272,7 +345,7 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
  * disparues, restauration de la session précédente. Appelé par `<CatalogSurface>`, que
  * `<Map>` monte une seule fois.
  */
-export function useCatalogHost(): readonly ShapeData[] {
+export function useCatalogHost(): CatalogContent {
   const { engine } = useMapContext()
   const config = useConfig()
   const sources = useCatalogSources()
@@ -334,7 +407,7 @@ export function useCatalogHost(): readonly ShapeData[] {
     // `pendingRestores()` et NON `selection()` : seules les clés venues du stockage sont
     // à recharger ici. Une clé qu'on vient de cocher a le même profil (sélectionnée,
     // sans géométrie) mais son chargement est déjà en vol, avec le cadrage qui va avec.
-    const jobs: Promise<{ key: CatalogKey; shapes: readonly ShapeData[] | null }>[] = []
+    const jobs: Promise<{ key: CatalogKey; content: CatalogContent | null }>[] = []
     for (const key of store.pendingRestores()) {
       if (store.hasGeometry(key)) continue
       const parsed = parseCatalogKey(key)
@@ -343,20 +416,23 @@ export function useCatalogHost(): readonly ShapeData[] {
       // quand le plugin qui la porte arrivera.
       const source = sourcesById.get(parsed.sourceId)
       if (!source) continue
+      // Une source à bascule n'a pas d'éléments : une clé qui prétendrait lui appartenir
+      // ne peut venir que d'une source qui a changé de régime entre deux versions de
+      // l'hôte. On la réclame quand même, sinon elle serait retentée à chaque mutation.
+      if (isToggleSource(source)) {
+        store.claimRestore(key)
+        continue
+      }
       store.claimRestore(key)
       const ctrl = store.beginLoad(key)
+      // Repli avec le titre PERSISTÉ (l'élément n'est plus en portée), sinon une zone
+      // restaurée sortait introuvable de la recherche.
       jobs.push(
-        source
-          .geometry(restoreCatalogId(parsed.itemId), ctrl.signal)
-          .then((shapes) => {
-            if (ctrl.signal.aborted || !store.isShown(key)) return { key, shapes: null }
-            // Repli avec le titre PERSISTÉ (l'élément n'est plus en portée), sinon une zone
-            // restaurée sortait introuvable de la recherche.
-            return { key, shapes: withFallbackTitle(shapes, store.titleOf(key)) }
-          })
+        loadContent(source, restoreCatalogId(parsed.itemId), store.titleOf(key), ctrl.signal)
+          .then((content) => ({ key, content: ctrl.signal.aborted || !store.isShown(key) ? null : content }))
           // Échec silencieux, volontairement : une zone supprimée côté API n'a pas à
           // ouvrir une erreur au démarrage. On la retire, sans pastille.
-          .catch(() => ({ key, shapes: null }))
+          .catch(() => ({ key, content: null }))
           .finally(() => store.endLoad(key, ctrl)),
       )
     }
@@ -365,13 +441,13 @@ export function useCatalogHost(): readonly ShapeData[] {
     // arrivée reconstruisait TOUTES les formes puis toute la couche 3D — O(N²) au
     // démarrage, là où une passe suffit.
     void Promise.all(jobs).then((results) => {
-      const loaded: (readonly [CatalogKey, readonly ShapeData[]])[] = []
+      const loaded: (readonly [CatalogKey, CatalogContent])[] = []
       const gone: CatalogKey[] = []
       for (const r of results) {
-        if (r.shapes !== null) loaded.push([r.key, r.shapes])
+        if (r.content !== null) loaded.push([r.key, r.content])
         else if (store.isShown(r.key) && !store.hasGeometry(r.key)) gone.push(r.key)
       }
-      if (loaded.length > 0) store.setGeometryMany(loaded)
+      if (loaded.length > 0) store.setContentMany(loaded)
       if (gone.length > 0) store.removeMany(gone)
       if (loaded.length > 0 || gone.length > 0) engine.invalidate()
     })
@@ -382,23 +458,89 @@ export function useCatalogHost(): readonly ShapeData[] {
   // Carte démontée : couper tout ce qui est en vol.
   useEffect(() => () => store.abortAll(), [store])
 
-  return store.shapes()
+  // Les deux tableaux gardent leur identité tant que le store n'a pas changé de contenu :
+  // c'est ce qui permet à la surface de ne recopier que sur un vrai changement.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `token` : cf. `useCatalog`
+  return useMemo(() => ({ shapes: store.shapes(), markers: store.markers() }), [store, token])
 }
 
 /**
- * Nombre d'éléments affichés — le badge du bouton de barre, et rien d'autre.
+ * Ce que le catalogue peint — le badge du bouton de barre, et rien d'autre.
+ *
+ * Éléments cochés PLUS jeux allumés : les deux mettent quelque chose sur la carte, et
+ * n'en compter qu'un laissait le bouton éteint alors qu'un jeu entier était affiché.
  *
  * L'instantané est le COMPTE lui-même, pas le jeton du store : React court-circuite
  * alors le rendu tant qu'il ne bouge pas. Avec `useCatalog`, le contrôle se re-rendait
  * à chaque mutation — donc à chaque géométrie qui arrive — pour afficher le même chiffre.
  */
-export function useCatalogSelectionCount(): number {
+export function useCatalogActiveCount(): number {
   const { engine } = useMapContext()
   const store = engine.catalogState
   return useSyncExternalStore(
     store.onChanged,
-    () => store.selection().length,
-    () => store.selection().length,
+    () => store.activeCount(),
+    () => store.activeCount(),
+  )
+}
+
+/**
+ * Vide la carte de tout ce que le catalogue y peint — éléments cochés ET jeux allumés.
+ *
+ * Un geste seul, sans abonnement : le bouton « Tout retirer » n'a pas à se re-rendre à
+ * chaque géométrie qui arrive (son état désactivé vient de `useCatalogActiveCount`, qui
+ * s'abonne au seul compte).
+ */
+export function useCatalogClear(): () => void {
+  const { engine } = useMapContext()
+  const store = engine.catalogState
+  return useCallback(() => {
+    store.abortAll()
+    store.clear()
+    engine.invalidate()
+  }, [engine, store])
+}
+
+/**
+ * État d'UNE ligne à bascule, et le geste qui la retourne.
+ *
+ * Deux instantanés SCALAIRES plutôt que l'API entière : React court-circuite le rendu tant
+ * que les deux booléens ne bougent pas. Avec `useCatalog`, le menu des types et la liste
+ * virtualisée se re-rendaient à chaque mutation du store — donc à chaque géométrie qui
+ * arrive — pour réafficher exactement la même ligne. Même raison que `useCatalogActiveCount`.
+ */
+export function useCatalogToggle(id: string): { on: boolean; loading: boolean; toggle: () => void } {
+  const { engine } = useMapContext()
+  const store = engine.catalogState
+  const on = useSyncExternalStore(
+    store.onChanged,
+    () => store.isSourceOn(id),
+    () => store.isSourceOn(id),
+  )
+  const loading = useSyncExternalStore(
+    store.onChanged,
+    () => store.isSourceLoading(id),
+    () => store.isSourceLoading(id),
+  )
+  const toggle = useCallback(() => flipSource(engine, store, id), [engine, store, id])
+  // Sans `useMemo` : l'unique consommateur déstructure aussitôt, mémoïser coûterait plus
+  // que le littéral de trois champs qu'on éviterait.
+  return { on, loading, toggle }
+}
+
+/**
+ * Jeux à bascule ALLUMÉS — `<CatalogSurface>` monte une couche par entrée.
+ *
+ * Éteint, un jeu n'a aucune couche montée : ni contrôleur, ni écoute de la vue, ni
+ * requête. C'est ce qui rend une source à 36 000 points gratuite tant qu'on n'y touche pas.
+ */
+export function useEnabledToggleSources(): readonly CatalogToggleSource[] {
+  const sources = useCatalogSources()
+  const { store, token } = useCatalogStore()
+  return useMemo(
+    () => sources.filter((s): s is CatalogToggleSource => isToggleSource(s) && store.isSourceOn(s.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `token` : cf. `useCatalog`
+    [sources, store, token],
   )
 }
 

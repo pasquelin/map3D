@@ -1,6 +1,6 @@
 import { mdiDeleteSweepOutline } from '@mdi/js'
 import { useLabels } from '../context'
-import { useCatalog, useCatalogSettings } from '../hooks/useCatalog'
+import { useCatalogActiveCount, useCatalogClear, useCatalogSettings } from '../hooks/useCatalog'
 import { UiIcon } from './UiIcon'
 
 /**
@@ -18,7 +18,8 @@ import { UiIcon } from './UiIcon'
 export function CatalogSettingsPanel() {
   const labels = useLabels()
   const settings = useCatalogSettings()
-  const catalog = useCatalog()
+  const clear = useCatalogClear()
+  const count = useCatalogActiveCount()
 
   return (
     <div className="m3d-togglelist">
@@ -31,12 +32,9 @@ export function CatalogSettingsPanel() {
         <span className="m3d-togglerow-name">{labels.catalog.settings.fitOnAdd}</span>
         <input type="checkbox" checked={settings.fitOnAdd} onChange={(e) => settings.setFitOnAdd(e.target.checked)} />
       </label>
-      <button
-        type="button"
-        className="m3d-tagclear"
-        disabled={catalog.selection.length === 0}
-        onClick={() => catalog.clear()}
-      >
+      {/* Les jeux à BASCULE comptent aussi : « Tout retirer » vide la carte de ce que le
+          catalogue y peint, et en épargner un laisserait des milliers de points derrière. */}
+      <button type="button" className="m3d-tagclear" disabled={count === 0} onClick={clear}>
         <UiIcon path={mdiDeleteSweepOutline} />
         {labels.catalog.settings.clear}
       </button>

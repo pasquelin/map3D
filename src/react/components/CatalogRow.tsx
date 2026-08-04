@@ -1,7 +1,7 @@
 import { mdiAlertCircleOutline, mdiChevronRight } from '@mdi/js'
 import { memo, useEffect, useRef } from 'react'
 import type { CatalogNode } from '../../catalog/flatten'
-import type { CatalogAction, CatalogId, CatalogItem, CatalogSource } from '../../catalog/types'
+import type { CatalogAction, CatalogBrowseSource, CatalogId, CatalogItem } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels, useMapContext } from '../context'
 import { useTip } from './tooltip'
@@ -9,7 +9,7 @@ import { UiIcon } from './UiIcon'
 
 export type CatalogRowProps = {
   node: CatalogNode
-  source: CatalogSource
+  source: CatalogBrowseSource
   /** Actions de la source, déjà plafonnées — identité stable entre deux renders. */
   actions: readonly CatalogAction[]
   /** Cet élément est-il sur la carte ? Pour un agrégat, `checkState` fait autorité. */

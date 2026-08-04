@@ -24,6 +24,16 @@ export const CSS_CATALOG = `
 .m3d-cattype.m3d-on{background:color-mix(in srgb,var(--m3d-accent) 22%,transparent)}
 .m3d-cattype-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-cattype-total{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
+/* Ligne d'un jeu à BASCULE : même gabarit qu'un type parcourable, mais ce n'est plus un
+   bouton unique — la case et le nom sont deux contrôles focusables côte à côte. */
+.m3d-cattype.m3d-cattoggle{cursor:default;padding-left:6px}
+/* Chargement en vol — un état, JAMAIS un compte d'éléments chargés (cf. CATALOG.md § 4).
+   Les keyframes partent ET reviennent à l'opacité PLEINE : CSS_MOTION réduit déjà toute
+   animation à une durée nulle en mouvement réduit, donc l'élément se fige sur la dernière
+   keyframe — à 100 %, la pastille reste lisible sans media-query à part. */
+@keyframes m3d-catbusy{0%,100%{opacity:1}50%{opacity:.25}}
+.m3d-cattype-busy{width:6px;height:6px;flex:none;border-radius:50%;background:var(--m3d-accent);
+  animation:m3d-catbusy 1s ease-in-out infinite}
 /* Le viewport scrolle, pas le panneau : la recherche reste visible en haut. */
 .m3d-catviewport{flex:1 1 auto;min-height:0;max-height:var(--m3d-catalog-panel-maxh);
   overflow-y:auto;position:relative}
@@ -42,7 +52,9 @@ export const CSS_CATALOG = `
 /* Le NOM : c'est lui qui cède la place, et lui seul — d'où min-width:0. */
 /* Pas de soulignement au survol : la ligne s'éclaire déjà (.m3d-catrow:hover), et
    souligner un nom sur deux au passage de la souris fait clignoter la liste. */
-.m3d-catmain{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:0;border:none;
+/* Même gabarit pour le nom d'un ÉLÉMENT et celui d'un jeu à bascule : deux règles
+   jumelles avaient fini par diverger d'un pixel de gouttière. */
+.m3d-catmain,.m3d-cattype-main{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:0;border:none;
   background:transparent;cursor:pointer;font-family:inherit;font-size:inherit;color:var(--m3d-text);
   text-align:left;overflow:hidden}
 .m3d-cattitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

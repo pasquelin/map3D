@@ -13,12 +13,26 @@ import {
   mdiAlertOctagonOutline,
   mdiCityVariantOutline,
   mdiContentCopy,
+  mdiHeartPulse,
   mdiMapMarkerRadiusOutline,
   mdiShapePolygonPlus,
   mdiViewGridOutline,
 } from '@mdi/js'
-import { createTitleCache, normalizeSearch } from '@pasquelin/map3d'
-import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from '@pasquelin/map3d'
+import { boundsContains, createTitleCache, normalizeSearch } from '@pasquelin/map3d'
+import type {
+  CatalogItem,
+  CatalogPage,
+  CatalogRequest,
+  CatalogSource,
+  CatalogToggleSource,
+  MarkerData,
+  ShapeData,
+} from '@pasquelin/map3d'
+
+import { DEFIBS } from './data/defibs'
+import { vogel } from './data/geo'
+import { seedToMarker } from './data/toMarkers'
+import type { Defib } from './data/types'
 
 /** Générateur congruentiel — semé, donc reproductible d'une exécution à l'autre. */
 const rng = (seed: number) => {
@@ -348,5 +362,115 @@ const flakySource: CatalogSource = {
       : delay([zoneShape(String(id), `Instable ${String(id)}`)]),
 }
 
+// ── Défibrillateurs : le cas de la BASCULE ────────────────────────────────────
+
+/* Un référentiel qu'on ne PARCOURT pas : personne ne cochera six cent trente cases. On
+   l'allume d'un interrupteur, et c'est la vue qui décide de ce qui est chargé.
+
+   ⚠️ Ces points ont leur PROPRE espace d'identifiants (`dae-c…`) et ne réutilisent pas
+   ceux de `DEFIBS`, que la scène de démo pose déjà dans sa propre couche : deux markers
+   de même `id` dans deux couches, c'est une entrée de recherche pour deux points et un
+   regroupement qui compte deux fois le même. Ils en reprennent en revanche la
+   GÉOGRAPHIE — chaque relevé réel sert d'ancre à sa grappe.
+
+   Ils ne portent pas `static` non plus : leur seuil de visibilité, c'est le gate de la
+   source (`minZoom`), pas celui du décor. Deux seuils sur les mêmes points auraient
+   donné une bascule allumée qui n'affiche rien, sans rien pour l'expliquer. */
+
+/** Points par ancre — ~630 au total, assez pour que le cadre visible tranche vraiment. */
+const DEFIBS_PER_ANCHOR = 18
+
+/** Espacement de la spirale (m) : une grappe de quartier, pas un tas sur un point. */
+const DEFIB_SPACING_M = 130
+
+/**
+ * Sous quel zoom la source ne charge RIEN.
+ *
+ * 💰 C'est le levier direct sur le volume : dézoomé sur la région, un référentiel de ce
+ * genre n'a aucun sens à l'écran et coûterait un aller-retour réseau par déplacement.
+ */
+const DEFIBS_MIN_ZOOM = 12
+
+/**
+ * Construits à la PREMIÈRE demande, pas au chargement du module.
+ *
+ * Un jeu à bascule éteint ne doit rien coûter — c'est la promesse de la feature. Six cents
+ * markers fabriqués au démarrage pour un interrupteur que personne n'a touché l'auraient
+ * démentie dans l'exemple même censé la démontrer.
+ */
+let defibCache: MarkerData<Defib>[] | null = null
+
+const defibMarkers = (): MarkerData<Defib>[] => {
+  if (defibCache) return defibCache
+  // Semé, donc reproductible — comme les autres sources de ce fichier.
+  const rand = rng(0x0dae0)
+  const out: MarkerData<Defib>[] = []
+  let n = 0
+  for (const anchor of DEFIBS) {
+    const secteur = anchor.data.title.replace(/^DAE — /, '')
+    for (let i = 0; i < DEFIBS_PER_ANCHOR; i++) {
+      n++
+      out.push(
+        seedToMarker(
+          'defib',
+          vogel(anchor.position, i, DEFIB_SPACING_M),
+          {
+            id: `dae-c${String(n).padStart(4, '0')}`,
+            title: `DAE ${String(n).padStart(4, '0')} — ${secteur}`,
+            address: `Secteur ${secteur}`,
+            access: rand() < 0.62 ? 'public' : 'intérieur',
+            city: anchor.data.city,
+          },
+          // `catalog` est un tag à part : il donne au filtre « Couches » de quoi isoler
+          // ce que le catalogue a posé de ce que la scène de démo peint elle-même.
+          ['defib', 'catalog', anchor.data.city],
+        ),
+      )
+    }
+  }
+  defibCache = out
+  return out
+}
+
+/** Total du jeu de référence — sans construire les points, qui ne le sont qu'à la demande. */
+const DEFIBS_TOTAL = DEFIBS.length * DEFIBS_PER_ANCHOR
+
+const defibsSource: CatalogToggleSource = {
+  id: 'defibs',
+  kind: 'toggle',
+  label: 'Défibrillateurs',
+  icon: mdiHeartPulse,
+  family: 'Territoires',
+  // Le volume du JEU DE RÉFÉRENCE — stable, vérifiable, et sans rapport avec la vue.
+  total: DEFIBS_TOTAL,
+  source: {
+    minZoom: DEFIBS_MIN_ZOOM,
+    /*
+     * `boundsContains` de la lib, et non une comparaison maison : c'est elle qui gère le
+     * franchissement de l'antiméridien, et ce fichier est le modèle que copiera un hôte.
+     *
+     * Le cadre reçu est celui du moteur, VOLONTAIREMENT élargi (`performance.boundsMargin`) :
+     * cette source rend donc PLUS de points qu'il n'y en a à l'écran, et c'est ce qui évite
+     * qu'ils surgissent au moindre déplacement. Aucune interface ne doit présenter ce volume
+     * comme « ce qui est affiché ».
+     *
+     * Latence simulée plus longue que celle des listes : c'est elle qui rend visible
+     * l'indicateur de chargement de la ligne.
+     */
+    load: (viewport) =>
+      delay(
+        defibMarkers().filter((m) => boundsContains(viewport.bounds, m.position)),
+        260,
+      ),
+  },
+  markerLayer: { cluster: { enabled: true } },
+}
+
 /** Les sources du banc d'essai, dans l'ordre où elles apparaissent au sous-menu. */
-export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [groupsSource, zonesSource, citiesSource, flakySource]
+export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [
+  groupsSource,
+  zonesSource,
+  citiesSource,
+  defibsSource,
+  flakySource,
+]

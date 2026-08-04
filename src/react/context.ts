@@ -239,7 +239,7 @@ export type DrawingApi = {
     place: (key: string, at: LatLng, variant?: string) => string | null
     /**
      * Nombre de symboles POSÉS sur la carte — le badge du bouton de barre, et rien d'autre
-     * (même rôle que `useCatalogSelectionCount`). Suit la signature des symboles, pas le
+     * (même rôle que `useCatalogActiveCount`). Suit la signature des symboles, pas le
      * `rev` du tracé : il ne rebondit donc pas à chaque frame d'un dessin en cours.
      */
     count: number

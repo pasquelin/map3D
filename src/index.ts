@@ -434,20 +434,28 @@ export { createTitleCache } from './search/match'
 export type {
   CatalogAction,
   CatalogBadge,
+  CatalogBrowseSource,
   CatalogId,
   CatalogItem,
   CatalogKey,
   CatalogPage,
   CatalogRequest,
   CatalogSource,
+  CatalogSourceBase,
+  CatalogToggleSource,
 } from './catalog/types'
+// Discrimination de l'union, pour un hôte qui manipule une liste de sources hétérogènes.
+export { isBrowseSource, isToggleSource } from './catalog/types'
 export { CatalogRegistry } from './catalog/registry'
 export type { CatalogSettings } from './catalog/store'
 /** Composition/décomposition d'une clé — utile pour relier une sélection à vos données. */
 export { catalogKey, parseCatalogKey } from './catalog/selection'
 export { CatalogControl } from './react/components/CatalogControl'
 export type { CatalogControlProps } from './react/components/CatalogControl'
-export { useCatalog, useCatalogSettings } from './react/hooks/useCatalog'
+// `useCatalogToggle` et non `useCatalog()` pour LIRE l'état d'un jeu à bascule : il
+// s'abonne aux deux booléens de ce jeu, là où l'API entière re-rend l'appelant à chaque
+// mutation du catalogue. C'est le patron que la lib s'applique à ses propres lignes.
+export { useCatalog, useCatalogSettings, useCatalogToggle, useCatalogClear } from './react/hooks/useCatalog'
 export type { CatalogApi, CatalogSettingsApi } from './react/hooks/useCatalog'
 export { useCatalogSources, useCatalogSource } from './react/hooks/useCatalogSources'
 /** SVG (markup) → data-URI, idempotent — utile dès qu'une icône sort de la carte. */

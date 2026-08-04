@@ -1,4 +1,4 @@
-import type { CatalogAction, CatalogSource } from '../../catalog/types'
+import type { CatalogAction, CatalogBrowseSource } from '../../catalog/types'
 
 /** Sources déjà averties d'un débordement d'actions — un avertissement par source, pas par render. */
 const warned = new Set<string>()
@@ -20,7 +20,7 @@ const NO_ACTIONS: readonly CatalogAction[] = []
  * était recalculée autant de fois qu'il y a de lignes visibles, à chaque frame de
  * défilement, pour une valeur identique partout.
  */
-export function inlineActions(source: CatalogSource, max: number): readonly CatalogAction[] {
+export function inlineActions(source: CatalogBrowseSource, max: number): readonly CatalogAction[] {
   const all = source.actions
   if (!all || all.length === 0) return NO_ACTIONS
   if (all.length <= max) return all

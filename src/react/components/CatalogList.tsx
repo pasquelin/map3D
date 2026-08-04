@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flattenCatalog, type CatalogNode } from '../../catalog/flatten'
 import { catalogKey } from '../../catalog/selection'
-import type { CatalogId, CatalogItem, CatalogSource } from '../../catalog/types'
+import type { CatalogBrowseSource, CatalogId, CatalogItem } from '../../catalog/types'
 import { visibleWindow } from '../../catalog/window'
 import { useConfig, useLabels, useMapContext } from '../context'
 import { useCatalog } from '../hooks/useCatalog'
@@ -10,7 +10,8 @@ import { CatalogRow } from './CatalogRow'
 import { inlineActions } from './catalogActions'
 
 export type CatalogListProps = {
-  source: CatalogSource
+  /** Toujours une source de PARCOURS : une bascule n'a pas de liste à ouvrir. */
+  source: CatalogBrowseSource
   query: string
   /** id du `<Tooltip>` de la barre hôte, transmis à chaque ligne. */
   tipId: string

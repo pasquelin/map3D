@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RaceGuard } from '../../catalog/race'
-import type { CatalogItem, CatalogSource } from '../../catalog/types'
+import type { CatalogBrowseSource, CatalogItem } from '../../catalog/types'
 import { normalizeSearch } from '../../search/match'
 import { useConfig } from '../context'
 
@@ -51,7 +51,7 @@ const EMPTY: InternalState = {
  * Le changement de SOURCE, lui, n'est pas amorti : c'est un clic, pas une frappe, et
  * attendre 250 ms après un clic se voit.
  */
-export function useCatalogQuery(source: CatalogSource | undefined, query: string): CatalogQueryState {
+export function useCatalogQuery(source: CatalogBrowseSource | undefined, query: string): CatalogQueryState {
   const config = useConfig()
   const needle = useMemo(() => normalizeSearch(query), [query])
   const sourceId = source?.id ?? null
