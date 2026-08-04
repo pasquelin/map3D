@@ -168,19 +168,18 @@ export type DrawingApi = {
   canUndo: boolean
   canRedo: boolean
   /**
-   * `clear()` a-t-il quelque chose à effacer — au moins une forme VISIBLE et non
-   * verrouillée, ou un tracé en cours ? Prédicat exact de `clear()`, publié pour que la
-   * barre retire « Tout effacer » quand il n'agirait sur rien
-   * (`config.toolbar.autoHide.clear`).
-   */
-  canClear: boolean
-  /**
-   * La gomme a-t-elle une cible à l'écran ? Compte les formes possédées ET les objets
-   * hôte effaçables (`PathLayer`/`ShapeLayer`), filtrés par `config.erase.targets` —
-   * une catégorie interdite à la gomme ne justifie pas son bouton
+   * Y a-t-il une cible à l'écran ? Prédicat COMMUN aux trois commandes d'effacement
+   * (gomme ponctuelle, gomme sélection, `clear()`) : formes possédées ET objets hôte
+   * effaçables (`PathLayer`/`ShapeLayer`), filtrés par `config.erase.targets` — une
+   * catégorie interdite à la gomme ne justifie pas son bouton
    * (`config.toolbar.autoHide.erase`).
    */
   canErase: boolean
+  /**
+   * « Tout effacer » : la gomme sans geste. Même périmètre que ses deux modes — objets
+   * hôte compris (émet `onErase`), `config.erase.targets` respecté, formes verrouillées
+   * et masquées épargnées. Annule aussi le tracé en cours.
+   */
   clear: () => void
   toGeoJSON: () => GeoJSONFeatureCollection
   fromGeoJSON: (fc: GeoJSONFeatureCollection) => void

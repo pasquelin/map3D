@@ -319,8 +319,19 @@ export function Toolbar({
             // l'ordre de `tools`, comme n'importe quel autre outil.
             slot('symbol', <SymbolPaletteButton key={t} position={position} />)
           ) : t === 'erase' ? (
-            // Parent d'un sous-menu (gomme ponctuelle / sélection), comme `select`.
-            slot('erase', <EraseToolButton key={t} position={position} modes={eraseModes} />)
+            // Parent d'un sous-menu (gomme ponctuelle / sélection / tout effacer), comme
+            // `select`. La rangée « Tout effacer » lui est PASSÉE plutôt que rendue par lui :
+            // c'est la barre qui possède les sections (`components`), le bouton ne fait que
+            // la placer dans son menu.
+            slot(
+              'erase',
+              <EraseToolButton
+                key={t}
+                position={position}
+                modes={eraseModes}
+                clearRow={slot('clear', <ClearFlyoutRow />)}
+              />,
+            )
           ) : (
             <ToolButton
               key={t}
@@ -364,7 +375,6 @@ export function Toolbar({
           />,
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
-        {slot('clear', <ClearToolButton />)}
       </div>
       {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)
@@ -377,32 +387,26 @@ export function Toolbar({
 }
 
 /**
- * Bouton « Tout effacer ».
+ * Rangée « Tout effacer » du sous-menu de la gomme.
  *
- * Il n'est pas grisé mais RETIRÉ tant qu'il n'a rien à effacer : une commande sans objet
- * n'est pas une commande indisponible (comme Annuler, qui attend une action à défaire),
- * c'est une commande qui n'a pas lieu d'être — une carte vierge ne montre pas de
- * corbeille. `config.toolbar.autoHide.clear = false` la rend permanente.
+ * Elle y vit — et non plus en bouton de pied de barre — parce qu'elle fait exactement ce
+ * que fait la gomme, sans geste : même périmètre, mêmes filtres, même `onErase`. Deux
+ * commandes voisines aux portées différentes n'étaient pas lisibles ; rangées ensemble,
+ * elles se lisent comme trois façons d'effacer.
  *
- * Composant à part, et non une condition autour de son `slot()` : la règle est celle du
- * bouton de la LIB. Posée à l'extérieur, elle aurait aussi effacé le bouton qu'une
- * application substitue par `components={{ clear: … }}` — c'est-à-dire précisément là où
- * elle reprend la main. Même forme que la gomme (cf. `EraseToolButton`).
+ * Une ACTION parmi des modes : le sous-menu du sélecteur mêle déjà de la même façon des
+ * modes de marquee et l'outil « bâtiment ». `m3d-danger` la distingue de ses voisines
+ * (couleur d'alerte, filet de séparation) : elle n'arme rien, elle efface au clic.
  */
-function ClearToolButton() {
-  const { clear, canClear } = useDrawing()
-  const autoHide = useConfig().toolbar.autoHide.clear
+function ClearFlyoutRow() {
+  const { clear } = useDrawing()
   const labels = useLabels()
   const tip = useTip(TIP_ID)
-  if (autoHide && !canClear) return null
   return (
-    <ToolButton
-      icon={mdiTrashCanOutline}
-      label={labels.toolbar.clearAll}
-      tip={tip}
-      className="m3d-btn-delete"
-      onClick={clear}
-    />
+    <button {...tip(labels.toolbar.clearAllDescription)} className="m3d-flyout-item m3d-danger" onClick={clear}>
+      <UiIcon path={mdiTrashCanOutline} />
+      <span className="m3d-flyout-label">{labels.toolbar.clearAll}</span>
+    </button>
   )
 }
 

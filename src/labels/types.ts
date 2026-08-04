@@ -236,6 +236,9 @@ export type MapLabels = {
     undo: string
     redo: string
     clearAll: string
+    /** Tooltip de la rangée « Tout effacer » — distinct du label pour ne pas répéter
+     *  le texte déjà visible (même convention que les modes de gomme). */
+    clearAllDescription: string
   }
   /** Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). */
   tools: Record<DrawTool, string>

@@ -104,6 +104,12 @@ Les deux modes suppriment **exactement le même ensemble** : dessins, mesures et
 
 Catégories : `drawing`, `measure`, `symbol` (objets de la lib), `path`, `shape` (couches hôte — `path`/`shape` partagent le vocabulaire de `config.selection.selectable`).
 
+**« Tout effacer » a le MÊME périmètre que la gomme.** La rangée « Tout effacer » du
+sous-menu est la gomme sans geste : elle efface les objets hôte comme les formes de la lib,
+respecte `erase.targets`, épargne verrouillées et masquées, et émet `onErase` — c'est à
+votre application d'y retirer ses routes et ses zones, exactement comme après un coup de
+gomme. `useDrawing().clear()` fait la même chose depuis le code.
+
 **La gomme se retire quand elle n'a rien à mordre.** Par défaut
 (`config.toolbar.autoHide.erase`), le bouton n'est pas grisé mais **absent** tant qu'aucune
 cible autorisée n'est à l'écran — les catégories interdites par `erase.targets` ne comptent
@@ -514,17 +520,18 @@ Un remapping est immédiatement reflété dans les tooltips.
 
 Sections (`components`) : `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
 `plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` masque, un
-`ReactNode` remplace.
+`ReactNode` remplace. ⚠️ `clear` n'est plus un bouton de la barre mais la **rangée « Tout
+effacer » du sous-menu de la gomme** : `components={{ clear: false }}` retire cette rangée,
+et retirer l'outil `erase` de `tools` emporte la commande avec lui.
 
-**La barre ne montre que ce qui sert.** Par défaut (`config.toolbar.autoHide`), « Tout
-effacer » n'apparaît que s'il a quelque chose à effacer — au moins une forme visible et
-non verrouillée — et la gomme que si une de ses cibles autorisées est à l'écran. Ce ne
-sont pas des commandes grisées comme Annuler (qui attend une action à défaire) : une
-carte vierge ne montre simplement pas de corbeille. Le masquage explicite par
-`components` reste prioritaire, et chaque outil se rend permanent séparément :
+**La barre ne montre que ce qui sert.** Par défaut (`config.toolbar.autoHide.erase`), la
+gomme — et avec elle sa rangée « Tout effacer » — n'apparaît que si une de ses cibles
+autorisées est à l'écran. Ce n'est pas une commande grisée comme Annuler (qui attend une
+action à défaire) : une carte sans rien d'effaçable ne montre simplement pas de gomme. Le
+masquage explicite par `components` reste prioritaire.
 
 ```tsx
-<Map config={{ toolbar: { autoHide: { clear: false, erase: false } } }} />
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />   // gomme toujours visible
 ```
 
 **La barre qui se replie relâche tout ce qu'elle pilote** et revient à la main : un
@@ -565,7 +572,7 @@ Obtenue par `useDrawing()` (lève hors d'un `<DrawLayer>`) ou par
 | Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Verrou | `lock`, `unlock` |
-| Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canClear`, `canErase` |
+| Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
 | Sérialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symboles | `symbols` — cf. [SYMBOLS.md](SYMBOLS.md) |

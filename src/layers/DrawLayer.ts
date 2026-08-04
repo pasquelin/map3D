@@ -1600,35 +1600,27 @@ export class DrawLayer implements Layer {
   }
 
   /**
-   * `clear()` a-t-il quelque chose à effacer ? Miroir EXACT du prédicat de `clear()`
-   * ci-dessous — c'est ce qui permet à la barre de retirer « Tout effacer » quand il
-   * n'agirait sur rien (`config.toolbar.autoHide.clear`), sans que le bouton et la
-   * commande puissent diverger.
+   * « Tout effacer » — la gomme sans geste : MÊME périmètre que ses deux modes, à ceci
+   * près qu'aucun sélecteur ne restreint la portée.
+   *
+   * Efface donc aussi les objets HÔTE (`onErase`), respecte `config.erase.targets`, et
+   * épargne comme eux les formes verrouillées et celles que le filtre « Couches » masque
+   * (pas de perte silencieuse). Deux commandes voisines aux périmètres différents étaient
+   * incompréhensibles à l'usage : après avoir « tout effacé », la gomme restait allumée
+   * sur ce qu'elle seule pouvait atteindre.
+   *
+   * Le tracé EN COURS est annulé au passage — il n'appartient à aucune des deux listes,
+   * mais laisser une forme à moitié tracée après un « tout effacer » n'aurait aucun sens.
    */
-  get canClear(): boolean {
-    if (this.live) return true
-    return this.drawings.some((d) => this.isShown(d) && !d.locked)
-  }
-
-  /** Efface les dessins **visibles** ; sous filtre actif, les dessins masqués sont
-   *  conservés, ainsi que les formes verrouillées (pas de perte silencieuse). */
   clear(): void {
-    const kept: Drawing[] = []
-    const dropped: Drawing[] = []
+    const targets = this.config.erase.targets
+    const ownedIds = new Set<string>()
     for (const d of this.drawings) {
-      if (this.isShown(d) && !d.locked) dropped.push(d)
-      else kept.push(d)
+      if (d.locked || !this.isShown(d)) continue
+      if (targets[d.kind === 'symbol' ? 'symbol' : this.ownedTarget(d)]) ownedIds.add(d.id)
     }
-    if (dropped.length === 0 && !this.live) return
-    if (dropped.length > 0) this.history.push(this.drawings)
-    const removed = dropped.map((d) => this.toShape(d))
-    for (const d of dropped) this.dropDrawing(d.id)
-    this.drawings = kept
-    this.byId.clear()
-    for (const d of kept) this.byId.set(d.id, d)
     this.cancelLive()
-    for (const s of removed) this.onShapeDelete?.(s)
-    this.emitChange()
+    this.commitErase(ownedIds, this.hostErasablesAll())
   }
 
   /**
@@ -1709,10 +1701,11 @@ export class DrawLayer implements Layer {
   }
 
   /**
-   * La gomme a-t-elle une cible ATTEIGNABLE à l'écran ? Même filtre que les deux modes
-   * (verrou, filtre « Couches », `config.erase.targets`), objets hôte compris — c'est
-   * ce que la barre consulte pour retirer l'outil quand il n'a rien à mordre
-   * (`config.toolbar.autoHide.erase`).
+   * Y a-t-il une cible ATTEIGNABLE à l'écran ? Prédicat COMMUN aux trois commandes
+   * d'effacement — gomme ponctuelle, gomme sélection et « Tout effacer » — puisqu'elles
+   * partagent le même périmètre : mêmes filtres (verrou, filtre « Couches »,
+   * `config.erase.targets`), objets hôte compris. C'est ce que la barre consulte pour
+   * retirer la gomme quand elle n'a rien à mordre (`config.toolbar.autoHide.erase`).
    *
    * Aucune géométrie n'est projetée, à la différence des modes eux-mêmes : la question
    * est « existe-t-il une cible », pas « laquelle est sous le curseur ».
@@ -1772,6 +1765,15 @@ export class DrawLayer implements Layer {
       if (s) buf.push(s)
     }
     return buf
+  }
+
+  /** TOUS les objets hôte effaçables autorisés — la portée de « Tout effacer ». Aucune
+   *  projection : sans sélecteur, la géométrie n'entre pas dans la question. */
+  private hostErasablesAll(): ErasableItem[] {
+    const reg = this.erasables
+    if (!reg) return []
+    const targets = this.config.erase.targets
+    return reg.all().filter((it) => targets[it.kind])
   }
 
   /** Objets hôte effaçables (filtrés par `config.erase.targets`) touchés par le sélecteur. */

@@ -559,13 +559,13 @@ Ce qui appartient à la **barre** (`<Toolbar>`). Ce qui appartient aux **outils*
 son domaine : `erase.targets` pour la politique de la gomme, `interaction.shortcuts.draw`
 pour les touches — celles-ci agissent sans barre montée.
 
-`autoHide` retire de la barre les commandes qui n'ont **rien sur quoi agir**, plutôt que
-de les griser : une carte vierge ne montre pas de corbeille, et une gomme sans cible n'est
-pas un outil indisponible mais un outil sans emploi. Un outil auto-masqué ne s'arme pas non
-plus au clavier, et s'il l'était au moment où sa dernière cible disparaît, il est relâché.
+`autoHide` retire de la barre un outil qui n'a **rien sur quoi agir**, plutôt que de le
+griser : une gomme sans cible n'est pas un outil indisponible mais un outil sans emploi. Un
+outil auto-masqué ne s'arme pas non plus au clavier, et s'il l'était au moment où sa dernière
+cible disparaît, il est relâché. La rangée « Tout effacer » vit dans le sous-menu de la gomme
+et partage son périmètre : elle paraît et disparaît avec elle, sans clé propre.
 
 | Clé | Description | Défaut |
 |---|---|---|
 | `toolbar.minZoom` | Zoom sous lequel la barre se replie — dessiner suppose la vue proche. | `11` |
-| `toolbar.autoHide.clear` | Retirer « Tout effacer » tant qu'aucune forme effaçable n'est à l'écran. | `true` |
-| `toolbar.autoHide.erase` | Retirer la gomme tant qu'aucune de ses cibles autorisées n'est à l'écran. | `true` |
+| `toolbar.autoHide.erase` | Retirer la gomme — et sa rangée « Tout effacer » — tant qu'aucune cible autorisée n'est à l'écran. | `true` |

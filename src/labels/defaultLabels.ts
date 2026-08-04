@@ -135,6 +135,7 @@ export const defaultLabels: MapLabels = {
     undo: 'Annuler',
     redo: 'Rétablir',
     clearAll: 'Tout effacer',
+    clearAllDescription: 'Effacer tout ce que la gomme peut effacer',
   },
   tools: {
     select: 'Sélectionner',

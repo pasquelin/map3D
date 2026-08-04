@@ -560,13 +560,13 @@ What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays i
 domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
 those act with no bar mounted.
 
-`autoHide` removes from the bar the commands that have **nothing to act on**, rather than
-greying them out: a blank map shows no trash can, and an eraser without a target is not an
-unavailable tool but a tool with no purpose. An auto-hidden tool cannot be armed from the
-keyboard either, and if it was armed when its last target disappeared, it is released.
+`autoHide` removes from the bar a tool that has **nothing to act on**, rather than greying it
+out: an eraser without a target is not an unavailable tool but a tool with no purpose. An
+auto-hidden tool cannot be armed from the keyboard either, and if it was armed when its last
+target disappeared, it is released. The “Clear all” row lives in the eraser's submenu and
+shares its scope: it appears and disappears with it, with no key of its own.
 
 | Key | Description | Default |
 |---|---|---|
 | `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
-| `toolbar.autoHide.clear` | Remove “Clear all” while no erasable shape is on screen. | `true` |
-| `toolbar.autoHide.erase` | Remove the eraser while none of its allowed targets is on screen. | `true` |
+| `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |

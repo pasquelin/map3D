@@ -76,7 +76,7 @@ clients sous licence commerciale.
 - **Point d'entrée public unique** : `src/index.ts`. Toute API publique y est ré-exportée.
 - **Tout est config et params.** Aucune valeur ni texte en dur : comportement, couleur, libellé,
   seuil passent par `config` / `theme` / `labels` ou une prop.
-  **Exception assumée** : `config.toolbar.autoHide` (outils de la barre retirés faute d'objet)
+  **Exception assumée** : `config.toolbar.autoHide` (outil de la barre retiré faute d'objet)
   n'a **pas** de prop de surcharge sur `<Toolbar>`. La règle a deux applications — le bouton
   disparaît, et l'outil ne s'arme plus au clavier (`setTool`, dans `<DrawLayer>`) — et le
   clavier ne passe pas par la barre : une surcharge locale ferait diverger les deux, laissant

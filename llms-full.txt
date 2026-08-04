@@ -106,7 +106,7 @@ Engine · Plugins · Preferences.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide` — “Clear all” and the eraser withdraw when they have nothing to act on, `useDrawing().canClear` / `canErase`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` — the eraser and its “Clear all” row withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
 - **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
 - **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
 - **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`.
@@ -585,7 +585,7 @@ events too, derived by difference.
 The `useDrawing()` API exposes everything: `tool/setTool`,
 `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`,
 `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`,
-`undo`/`redo`/`canUndo`/`canRedo`, `clear`/`canClear`/`canErase`, `settings` (+ `useDrawSettings()`),
+`undo`/`redo`/`canUndo`/`canRedo`, `clear`/`canErase`, `settings` (+ `useDrawSettings()`),
 `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Business constraints** — `constraints.limits` (`ShapeData`, as in `<ShapeLayer>`)
@@ -2828,6 +2828,12 @@ Both modes delete **exactly the same set**: drawings, measures and symbols. **Ma
 
 Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
+**“Clear all” has the SAME scope as the eraser.** The “Clear all” row of the submenu is
+the eraser without a gesture: it deletes host objects as well as library shapes, honours
+`erase.targets`, spares locked and hidden shapes, and emits `onErase` — your application
+removes its own paths and zones, exactly as after an eraser stroke. `useDrawing().clear()`
+does the same from code.
+
 **The eraser withdraws when it has nothing to bite.** By default
 (`config.toolbar.autoHide.erase`), the button is not greyed out but **absent** while no
 allowed target is on screen — categories forbidden by `erase.targets` therefore do not
@@ -3217,17 +3223,18 @@ A remap is immediately reflected in the tooltips.
 
 Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
 `plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
-`ReactNode` replaces.
+`ReactNode` replaces. ⚠️ `clear` is no longer a bar button but the **“Clear all” row of the
+eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
+`erase` tool from `tools` takes the command with it.
 
-**The bar only shows what is useful.** By default (`config.toolbar.autoHide`), “Clear
-all” appears only when it has something to clear — at least one visible, unlocked shape —
-and the eraser only when one of its allowed targets is on screen. These are not greyed-out
-commands like Undo (which waits for an action to undo): a blank map simply shows no trash
-can. Explicit hiding through `components` still wins, and each tool is made permanent
-separately:
+**The bar only shows what is useful.** By default (`config.toolbar.autoHide.erase`), the
+eraser — and with it its “Clear all” row — appears only when one of its allowed targets is
+on screen. It is not a greyed-out command like Undo (which waits for an action to undo): a
+map with nothing erasable simply shows no eraser. Explicit hiding through `components`
+still wins.
 
 ```tsx
-<Map config={{ toolbar: { autoHide: { clear: false, erase: false } } }} />
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />   // eraser always visible
 ```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
@@ -3267,7 +3274,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
-| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canClear`, `canErase` |
+| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
 | Serialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symbols | `symbols` — see [SYMBOLS.md](SYMBOLS.md) |
@@ -8494,16 +8501,16 @@ What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays i
 domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
 those act with no bar mounted.
 
-`autoHide` removes from the bar the commands that have **nothing to act on**, rather than
-greying them out: a blank map shows no trash can, and an eraser without a target is not an
-unavailable tool but a tool with no purpose. An auto-hidden tool cannot be armed from the
-keyboard either, and if it was armed when its last target disappeared, it is released.
+`autoHide` removes from the bar a tool that has **nothing to act on**, rather than greying it
+out: an eraser without a target is not an unavailable tool but a tool with no purpose. An
+auto-hidden tool cannot be armed from the keyboard either, and if it was armed when its last
+target disappeared, it is released. The “Clear all” row lives in the eraser's submenu and
+shares its scope: it appears and disappears with it, with no key of its own.
 
 | Key | Description | Default |
 |---|---|---|
 | `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
-| `toolbar.autoHide.clear` | Remove “Clear all” while no erasable shape is on screen. | `true` |
-| `toolbar.autoHide.erase` | Remove the eraser while none of its allowed targets is on screen. | `true` |
+| `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
 
 
 

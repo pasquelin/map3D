@@ -4,5 +4,5 @@ import type { DrawToolbarConfig } from '../types'
  *  `minZoom` reprend la valeur de l'ancien `interaction.drawToolbarMinZoom`. */
 export const toolbarDefaults: DrawToolbarConfig = {
   minZoom: 11,
-  autoHide: { clear: true, erase: true },
+  autoHide: { erase: true },
 }

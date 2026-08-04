@@ -6,34 +6,42 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
-### feat : la barre de dessin ne montre plus les outils qui n'ont rien à faire
+### feat : effacer devient UNE seule chose — « Tout effacer » rejoint la gomme
 
-« Tout effacer » (la corbeille) et la **gomme** se retirent de la barre tant qu'ils n'ont
-**rien sur quoi agir**, plutôt que d'y rester en permanence. Ce ne sont pas des commandes
-grisées comme Annuler — qui attend une action à défaire — mais des commandes sans objet :
-une carte vierge ne montre simplement pas de corbeille.
+Trois commandes effaçaient, deux périmètres différents : après un « Tout effacer », la gomme
+restait allumée sur ce qu'elle seule pouvait atteindre — les routes et zones de l'application.
+Incompréhensible à l'usage. Désormais **`clear()` est la gomme sans geste** : mêmes objets,
+mêmes filtres, même `onErase`.
 
-Chaque outil observe **exactement ce que sa commande retire**, pas une approximation :
+- **Périmètre commun** : formes possédées (dessins, mesures, symboles) **et** objets hôte
+  effaçables (`<PathLayer>` / `<ShapeLayer>` marqués `erasable`), filtrés par
+  `config.erase.targets`, formes verrouillées et masquées par le filtre « Couches » épargnées.
+- **Place commune** : « Tout effacer » quitte le pied de la barre pour devenir la 3ᵉ rangée du
+  sous-menu de la gomme, sous « Gomme » et « Gomme sélection » — trois façons d'effacer, au
+  même endroit. Elle porte la couleur d'alerte et un filet de séparation : seule rangée du
+  menu qui agit au clic au lieu d'armer un mode.
+- **Un seul prédicat** : la gomme — rangée comprise — se **retire** de la barre tant qu'aucune
+  cible autorisée n'est à l'écran, plutôt que d'y rester grisée. Ce n'est pas une commande
+  indisponible comme Annuler (qui attend une action à défaire), c'est un outil sans emploi.
+  Elle **ne s'arme pas au clavier** pendant ce temps, et si sa dernière cible disparaît alors
+  qu'elle est active, l'outil est **relâché** — sans quoi elle restait armée sur l'intercepteur
+  d'entrée sans plus aucun bouton pour en sortir (le piège déjà traité au repli hors zoom).
 
-- **corbeille** — au moins une forme possédée **visible** (filtre « Couches ») et **non
-  verrouillée**, ou un tracé en cours : le prédicat même de `clear()` ;
-- **gomme** — les formes possédées **plus** les objets hôte effaçables
-  (`<PathLayer>` / `<ShapeLayer>` marqués `erasable`), le tout filtré par
-  `config.erase.targets` : une catégorie interdite à la gomme ne justifie pas son bouton.
-
-Un outil auto-masqué **ne s'arme pas au clavier** (son raccourci reste sans effet), et s'il
-était actif au moment où sa dernière cible disparaît, il est **relâché** — sans quoi la gomme
-restait armée sur l'intercepteur d'entrée sans plus aucun bouton pour en sortir (le piège déjà
-traité au repli de la barre hors zoom). Le masquage explicite par `components` reste prioritaire.
-
-Réglable au cas par cas : `config.toolbar.autoHide.clear` et `config.toolbar.autoHide.erase`
-(défaut `true` pour les deux) — les passer à `false` restitue le comportement précédent.
+Réglable : `config.toolbar.autoHide.erase = false` rend la gomme permanente. Le masquage
+explicite par `components` reste prioritaire.
 
 Nouvelle API publique : `config.toolbar` (`DrawToolbarConfig`, `DrawToolbarAutoHide`),
-`useDrawing().canClear` / `.canErase`, `ErasableRegistry.hasAny()`.
+`useDrawing().canErase`, `ErasableRegistry.hasAny()`, libellé `labels.toolbar.clearAllDescription`.
 
 **⚠️ Ruptures**
 
+- **`clear()` change de périmètre** : il efface désormais aussi les objets hôte `erasable` et
+  respecte `config.erase.targets`. Une application qui l'appelle pour vider le dessin verra
+  donc partir ses routes et ses zones — c'est `onErase` qui lui en remonte les ids, à elle de
+  les retirer de son state (la lib ne mute jamais des props).
+- **La section `clear` n'est plus un bouton de barre** mais la rangée du sous-menu de la gomme :
+  `components={{ clear: false }}` retire cette rangée, et retirer l'outil `erase` de `tools`
+  emporte la commande avec lui.
 - `config.interaction.drawToolbarMinZoom` → **`config.toolbar.minZoom`** (même valeur par
   défaut, `11`). Ce qui appartient à la barre est désormais regroupé sous `config.toolbar` ;
   ce qui appartient aux outils reste dans son domaine (`config.erase.targets` pour la
@@ -43,9 +51,8 @@ Nouvelle API publique : `config.toolbar` (`DrawToolbarConfig`, `DrawToolbarAutoH
   une fois à l'inscription plutôt que redemandée à chaque question) et `has()`, qui répond
   « ai-je au moins un objet effaçable ? » **sans construire la liste** — un test de présence
   ne doit pas payer le prix d'une collecte de dizaines de milliers d'objets.
-- L'affichage par défaut de la barre change : sur une carte vierge, corbeille et gomme ne
-  paraissent plus. `config={{ toolbar: { autoHide: { clear: false, erase: false } } }}` les
-  rend permanentes.
+- L'affichage par défaut de la barre change : sur une carte sans rien d'effaçable, la gomme
+  ne paraît plus (et « Tout effacer » avec elle).
 
 ## [0.3.0] — 2026-08-02
 

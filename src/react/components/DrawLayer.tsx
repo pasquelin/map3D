@@ -340,9 +340,9 @@ export function DrawLayer(props: DrawLayerProps) {
     // Filtre « Couches » : simple bascule de visibilité des meshes, aucun rebuild.
     // Câblé dans CE même effet : un core recréé (ex. overlay changé) repart
     // toujours avec le filtre courant appliqué.
-    // `bump()` en plus de la bascule : masquer la dernière forme visible retire « Tout
-    // effacer » (`canClear` ne compte que le VISIBLE), or le filtre ne mute rien et
-    // n'émettait donc aucun changement — la barre serait restée sur sa réponse d'avant.
+    // `bump()` en plus de la bascule : masquer la dernière forme effaçable retire la gomme
+    // (`canErase` ne compte que le VISIBLE), or le filtre ne mute rien et n'émettait donc
+    // aucun changement — la barre serait restée sur sa réponse d'avant.
     const applyFilter = () => {
       core.setTagVisibility((t) => engine.tags.isVisible(t))
       bump()
@@ -436,18 +436,17 @@ export function DrawLayer(props: DrawLayerProps) {
   useYieldsTool(lensActive || pickingBuilding || pedestrianActive, toolRef, setTool)
 
   /**
-   * Ce que les commandes de la barre ont sur quoi agir. Le CORE est la source de vérité :
-   * `canClear`/`canErase` y sont les prédicats MÊMES de `clear()` et des deux modes de
-   * gomme, donc un bouton ne peut pas promettre une action sans objet, ni disparaître
-   * alors qu'il en avait une.
+   * Ce que les commandes d'effacement ont sur quoi agir. Le CORE est la source de vérité :
+   * `canErase` y est le prédicat MÊME des deux modes de gomme et de « Tout effacer », qui
+   * partagent le même périmètre — un bouton ne peut donc pas promettre une action sans
+   * objet, ni disparaître alors qu'il en avait une.
    *
-   * Lus à nu comme `canUndo`/`canRedo` juste à côté, et pour la même raison : les deux
-   * getters court-circuitent au premier objet trouvé, et le registre hôte répond en O(1).
+   * Lu à nu comme `canUndo`/`canRedo` juste à côté, et pour la même raison : le getter
+   * court-circuite au premier objet trouvé, et le registre hôte répond en O(1).
    * `coreReady` suffit à re-lire après le montage — au premier rendu le core n'existe pas,
    * et une couche hôte montée AVANT nous a déjà annoncé ses objets à un registre que
    * personne n'écoutait encore.
    */
-  const canClear = coreReady && (coreRef.current?.canClear ?? false)
   const canErase = coreReady && (coreRef.current?.canErase ?? false)
   const eraseHidden = config.toolbar.autoHide.erase && !canErase
   eraseHiddenRef.current = eraseHidden
@@ -649,7 +648,6 @@ export function DrawLayer(props: DrawLayerProps) {
       redo: () => coreRef.current?.redo(),
       canUndo: coreRef.current?.canUndo ?? false,
       canRedo: coreRef.current?.canRedo ?? false,
-      canClear,
       canErase,
       clear: () => coreRef.current?.clear(),
       toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
@@ -695,7 +693,6 @@ export function DrawLayer(props: DrawLayerProps) {
       pathSelection,
       clusterGroups,
       rev,
-      canClear,
       canErase,
       settings,
       setTool,

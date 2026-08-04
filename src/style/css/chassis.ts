@@ -109,6 +109,11 @@ export const CSS_CHASSIS = `
   color:var(--m3d-text);text-align:left;transition:background .14s}
 .m3d-flyout-item:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-flyout-item.m3d-on{background:var(--m3d-accent);color:#fff}
+/* Rangée DESTRUCTRICE (« Tout effacer ») : couleur d'alerte et filet de séparation —
+   elle n'arme pas un mode comme ses voisines, elle agit au clic. */
+.m3d-flyout-item.m3d-danger{color:var(--m3d-error);margin-top:3px;padding-top:9px;
+  border-top:1px solid color-mix(in srgb,var(--m3d-text) 12%,transparent);border-radius:0 0 8px 8px}
+.m3d-flyout-item.m3d-danger:hover{background:color-mix(in srgb,var(--m3d-error) 12%,transparent)}
 .m3d-flyout-label{flex:1;white-space:nowrap}
 
 .m3d-kbd{font-family:inherit;font-size:10px;font-weight:var(--m3d-weight-bold);padding:1px 5px;border-radius:4px;

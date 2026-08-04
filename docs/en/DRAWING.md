@@ -104,6 +104,12 @@ Both modes delete **exactly the same set**: drawings, measures and symbols. **Ma
 
 Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
+**“Clear all” has the SAME scope as the eraser.** The “Clear all” row of the submenu is
+the eraser without a gesture: it deletes host objects as well as library shapes, honours
+`erase.targets`, spares locked and hidden shapes, and emits `onErase` — your application
+removes its own paths and zones, exactly as after an eraser stroke. `useDrawing().clear()`
+does the same from code.
+
 **The eraser withdraws when it has nothing to bite.** By default
 (`config.toolbar.autoHide.erase`), the button is not greyed out but **absent** while no
 allowed target is on screen — categories forbidden by `erase.targets` therefore do not
@@ -512,17 +518,18 @@ A remap is immediately reflected in the tooltips.
 
 Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
 `plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
-`ReactNode` replaces.
+`ReactNode` replaces. ⚠️ `clear` is no longer a bar button but the **“Clear all” row of the
+eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
+`erase` tool from `tools` takes the command with it.
 
-**The bar only shows what is useful.** By default (`config.toolbar.autoHide`), “Clear
-all” appears only when it has something to clear — at least one visible, unlocked shape —
-and the eraser only when one of its allowed targets is on screen. These are not greyed-out
-commands like Undo (which waits for an action to undo): a blank map simply shows no trash
-can. Explicit hiding through `components` still wins, and each tool is made permanent
-separately:
+**The bar only shows what is useful.** By default (`config.toolbar.autoHide.erase`), the
+eraser — and with it its “Clear all” row — appears only when one of its allowed targets is
+on screen. It is not a greyed-out command like Undo (which waits for an action to undo): a
+map with nothing erasable simply shows no eraser. Explicit hiding through `components`
+still wins.
 
 ```tsx
-<Map config={{ toolbar: { autoHide: { clear: false, erase: false } } }} />
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />   // eraser always visible
 ```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
@@ -562,7 +569,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
-| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canClear`, `canErase` |
+| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
 | Serialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symbols | `symbols` — see [SYMBOLS.md](SYMBOLS.md) |

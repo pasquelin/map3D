@@ -2,22 +2,14 @@
  * Outils que la barre de dessin retire d'elle-même quand ils n'ont **rien sur quoi
  * agir** (`config.toolbar.autoHide`).
  *
- * Un seul principe : ne montrer que ce qui sert. « Tout effacer » sur une carte vierge
- * et une gomme sans rien à effacer ne sont pas des commandes désactivées — ce sont des
- * commandes sans objet, et la barre est plus lisible sans elles.
- *
- * ⚠️ Les deux clés n'observent PAS le même jeu d'objets, parce que les deux commandes
- * n'agissent pas sur le même :
- * — `clear` ne voit que les formes POSSÉDÉES par la lib, visibles et non verrouillées
- *   (c'est exactement ce que `clear()` retire) ;
- * — `erase` voit en plus les objets HÔTE effaçables (`PathLayer`/`ShapeLayer`), et
- *   filtre le tout par `config.erase.targets` — une catégorie interdite à la gomme ne
- *   peut pas justifier son bouton.
+ * Un seul principe : ne montrer que ce qui sert. Une gomme sans rien à effacer n'est pas
+ * un outil indisponible — c'est un outil sans emploi, et la barre est plus lisible sans
+ * lui. « Tout effacer » n'a pas sa propre clé : la rangée vit dans le sous-menu de la
+ * gomme et partage exactement son périmètre, donc elle paraît et disparaît avec elle.
  */
 export type DrawToolbarAutoHide = {
-  /** Retirer « Tout effacer » tant qu'aucune forme effaçable n'est à l'écran. */
-  clear: boolean
-  /** Retirer la gomme tant qu'aucune de ses cibles autorisées n'est à l'écran. */
+  /** Retirer la gomme — et sa rangée « Tout effacer » — tant qu'aucune cible autorisée
+   *  n'est à l'écran. */
   erase: boolean
 }
 

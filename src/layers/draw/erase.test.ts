@@ -119,32 +119,65 @@ describe('ErasableRegistry — inventaire des objets hôte effaçables', () => {
   })
 })
 
-describe('DrawLayer.canClear — ce que « Tout effacer » aurait à effacer', () => {
-  it('faux sur une carte vierge, vrai dès qu’une forme est posée', () => {
+describe('DrawLayer.clear — « Tout effacer » a le périmètre de la gomme', () => {
+  it('remonte les objets HÔTE dans onErase, comme les deux modes de gomme', () => {
     const layer = makeLayer()
-    expect(layer.canClear).toBe(false)
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('path', ['r1']))
+    reg.register(hostProvider('shape', ['z1']))
+    layer.setErasables(reg)
+    const id = layer.addShape({ kind: 'line', points: POINTS, style: {} })!
+    const erased: EraseResult[] = []
+    layer.onErase = (r) => erased.push(r)
 
-    layer.placeSymbol('sugpewrh--------', { lat: 48.85, lng: 2.35 })
-    expect(layer.canClear).toBe(true)
+    layer.clear()
+
+    expect(layer.getShape(id)).toBeNull()
+    expect(erased).toHaveLength(1)
+    expect(erased[0]!.shapes.map((s) => s.id)).toEqual([id])
+    // La lib ne mute pas les props de l'hôte : elle lui rend les ids à retirer.
+    expect(erased[0]!.paths).toEqual(['r1'])
+    expect(erased[0]!.hostShapes).toEqual(['z1'])
   })
 
-  it('faux quand tout est verrouillé — `clear()` épargne ces formes', () => {
+  it('respecte config.erase.targets — une catégorie interdite est épargnée', () => {
     const layer = makeLayer()
-    const id = layer.placeSymbol('sugpewrh--------', { lat: 48.85, lng: 2.35 })
-    layer.setLocked([id], true)
-    expect(layer.canClear).toBe(false)
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('path', ['r1']))
+    layer.setErasables(reg)
+    layer.setConfig(withTarget('path', false))
+    const symbolId = layer.placeSymbol('sugpewrh--------', { lat: 48.85, lng: 2.35 })
+    const erased: EraseResult[] = []
+    layer.onErase = (r) => erased.push(r)
+
+    layer.clear()
+
+    expect(layer.getShape(symbolId)).toBeNull()
+    expect(erased[0]!.paths).toEqual([])
   })
 
-  it('faux quand le filtre « Couches » masque tout — `clear()` ne touche que le visible', () => {
+  it('épargne les formes verrouillées et celles que le filtre masque', () => {
     const layer = makeLayer()
-    layer.addShape({ kind: 'line', points: POINTS, style: {}, tags: ['secteur'] })
-    expect(layer.canClear).toBe(true)
+    const locked = layer.addShape({ kind: 'line', points: POINTS, style: {} })!
+    const hidden = layer.addShape({ kind: 'line', points: POINTS, style: {}, tags: ['secteur'] })!
+    layer.setLocked([locked], true)
+    layer.setTagVisibility((tags) => !tags.includes('secteur'))
 
-    layer.setTagVisibility(() => false)
-    expect(layer.canClear).toBe(false)
+    layer.clear()
 
-    layer.setTagVisibility(() => true)
-    expect(layer.canClear).toBe(true)
+    expect(layer.getShape(locked)).not.toBeNull()
+    expect(layer.getShape(hidden)).not.toBeNull()
+  })
+
+  it('n’émet rien quand il n’y a rien à effacer', () => {
+    const layer = makeLayer()
+    const erased: EraseResult[] = []
+    layer.onErase = (r) => erased.push(r)
+
+    layer.clear()
+
+    expect(erased).toEqual([])
+    expect(layer.canUndo).toBe(false)
   })
 })
 
