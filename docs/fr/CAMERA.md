@@ -246,6 +246,8 @@ Le menu **« Réglages »** de la barre d'outils porte une ligne **« Infos »**
 
 Chaque valeur se colore en vert, jaune ou rouge selon [`performance.statThresholds`](CONFIG.md) — une grandeur sans seuil reste incolore, car une latitude n'a pas de bonne valeur. Les teintes viennent de [`theme.colors.ui.stat`](THEME.md).
 
+Les sections se répartissent en **colonnes déduites de la largeur reçue** (une colonne idéale ≈ 188 px), chacune restant d'un seul tenant : deux colonnes sans défilement dans le menu, une seule si vous montez le panneau dans une surface étroite.
+
 ```tsx
 // Dans sa propre surface, plutôt que dans le menu :
 import { StatsPanel } from '@pasquelin/map3d'

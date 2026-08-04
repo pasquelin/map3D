@@ -243,6 +243,8 @@ The toolbar's **“Settings”** menu carries an **“Infos”** row that opens 
 
 Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md).
 
+Sections flow into **columns derived from the width received** (an ideal column ≈ 188 px), each section staying in one piece: two columns with no scrolling inside the menu, a single one if you mount the panel in a narrow surface.
+
 ```tsx
 // In your own surface rather than in the menu:
 import { StatsPanel } from '@pasquelin/map3d'

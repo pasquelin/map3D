@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import type { StatField } from '../../core/viewStats'
 import { makeReadoutFormatter } from '../../labels/readout'
 import { isCameraField, makeStatFormatter, statLabel } from '../../labels/stats'
@@ -90,27 +90,33 @@ export function StatsPanel({ sections, refreshMs }: StatsPanelProps) {
 
   return (
     <div className="m3d-shortcuts">
-      {shown.map((section, i) => (
-        <Fragment key={section.key}>
-          {i > 0 && <div className="m3d-shortcut-sep" />}
-          <div className="m3d-settings-subtitle">{labels.stats.sections[section.key]}</div>
-          {section.fields.map((field) => (
-            <div key={field} className="m3d-shortcut-row">
-              <span>{statLabel(labels, field)}</span>
-              <span
-                className="m3d-stat"
-                ref={(el) => {
-                  // Chaque couche ne reçoit que les cellules qu'elle sait écrire. Le
-                  // prédicat vient de `labels/stats`, seule source de cette répartition :
-                  // une liste recopiée ici enverrait un champ ajouté à la mauvaise couche.
-                  if (isCameraField(field)) cameraCells.current[field] = el
-                  else statCells.current[field] = el
-                }}
-              />
-            </div>
-          ))}
-        </Fragment>
-      ))}
+      {/* Sections en colonnes (cf. `.m3d-stats-cols`) : empilées, elles dépassaient la
+          hauteur du sous-panneau et il fallait FAIRE DÉFILER un panneau qu'on ouvre pour
+          lire une valeur d'un coup d'œil. Le nombre de colonnes suit la largeur reçue —
+          le panneau reste lisible monté dans une surface étroite de l'hôte. Le séparateur
+          d'antan disparaît : entre deux colonnes, un trait horizontal ne sépare plus rien. */}
+      <div className="m3d-stats-cols">
+        {shown.map((section) => (
+          <div key={section.key} className="m3d-stats-group">
+            <div className="m3d-settings-subtitle">{labels.stats.sections[section.key]}</div>
+            {section.fields.map((field) => (
+              <div key={field} className="m3d-shortcut-row">
+                <span>{statLabel(labels, field)}</span>
+                <span
+                  className="m3d-stat"
+                  ref={(el) => {
+                    // Chaque couche ne reçoit que les cellules qu'elle sait écrire. Le
+                    // prédicat vient de `labels/stats`, seule source de cette répartition :
+                    // une liste recopiée ici enverrait un champ ajouté à la mauvaise couche.
+                    if (isCameraField(field)) cameraCells.current[field] = el
+                    else statCells.current[field] = el
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
