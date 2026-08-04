@@ -211,6 +211,21 @@ export type CatalogItem = {
   disabled?: boolean
   /** Déclare qu'il y a des enfants à aller chercher via `CatalogSource.children`. */
   hasChildren?: boolean
+  /**
+   * Section à laquelle appartient cet élément — un en-tête portant ce nom s'insère dans la
+   * liste au changement de valeur.
+   *
+   * ⚠️ **La lib ne trie pas** : elle ouvre une section quand `group` change d'un élément au
+   * suivant. C'est ce qui rend le regroupement compatible avec la pagination — une page
+   * arrive après coup et prolonge la section en cours. À vous de servir vos éléments
+   * groupés ; sinon le même intitulé réapparaîtra plus bas, ce qui est l'affichage fidèle
+   * de ce que la source a rendu.
+   *
+   * À ne pas confondre avec `hasChildren` : un **agrégat** est un élément qu'on coche et
+   * qui emporte ses enfants ; une **section** n'est qu'un intertitre, sans case ni action.
+   * Absent (ou vide), l'élément n'ouvre aucune section.
+   */
+  group?: string
 }
 
 /**

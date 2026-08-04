@@ -7,8 +7,8 @@ export const CSS_TOGGLES = `
    page interne. Le nom de rangée est un bouton côté plugins (déplie la config), un
    span dans un label côté catalogue : le même style couvre les deux. */
 .m3d-togglelist{display:flex;flex-direction:column;gap:2px}
-.m3d-togglelist-title{margin:0;padding:2px 6px 6px;font-size:11px;font-weight:var(--m3d-weight-semibold);
-  color:var(--m3d-muted);text-transform:uppercase;letter-spacing:.04em}
+/* Habillage partagé avec les autres intertitres (cf. CSS_CHASSIS). */
+.m3d-togglelist-title{margin:0;padding:2px 6px 6px}
 .m3d-togglelist-empty{padding:10px 8px;font-size:12px;color:var(--m3d-muted);text-align:center}
 .m3d-togglerow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
   transition:background .14s}

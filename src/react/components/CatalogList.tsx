@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { flattenCatalog, type CatalogNode } from '../../catalog/flatten'
+import { flattenCatalog, type CatalogItemNode } from '../../catalog/flatten'
 import { catalogKey } from '../../catalog/selection'
 import type { CatalogBrowseSource, CatalogId, CatalogItem } from '../../catalog/types'
 import { visibleWindow } from '../../catalog/window'
 import { useConfig, useLabels, useMapContext } from '../context'
 import { useCatalog } from '../hooks/useCatalog'
 import { useCatalogQuery } from '../hooks/useCatalogQuery'
-import { CatalogRow } from './CatalogRow'
+import { CatalogGroupRow, CatalogRow } from './CatalogRow'
 import { inlineActions } from './catalogActions'
 
 export type CatalogListProps = {
@@ -199,7 +199,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    * qui est alors la seule information disponible.
    */
   const checkStateOf = useCallback(
-    (node: CatalogNode, key: string): 'on' | 'off' | 'mixed' => {
+    (node: CatalogItemNode, key: string): 'on' | 'off' | 'mixed' => {
       const kids = node.item.hasChildren ? children.get(node.item.id) : undefined
       if (!kids || kids.length === 0) return catalog.isShown(key) ? 'on' : 'off'
       let shown = 0
@@ -224,7 +224,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
    */
   const { toggle, setMany } = catalog
   const onCheck = useCallback(
-    (node: CatalogNode, next: boolean) => {
+    (node: CatalogItemNode, next: boolean) => {
       if (!node.item.hasChildren || !source.children) {
         toggle(source, node.item)
         return
@@ -245,7 +245,11 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
 
   const onActivate = useCallback((item: CatalogItem) => toggle(source, item, { fit: true }), [toggle, source])
 
-  const nodes = useMemo(() => flattenCatalog(items, expanded, children), [items, expanded, children])
+  const groupHeaders = config.catalog.groupHeaders
+  const nodes = useMemo(
+    () => flattenCatalog(items, expanded, children, groupHeaders),
+    [items, expanded, children, groupHeaders],
+  )
 
   // Propriété de la SOURCE, pas de la ligne : calculée 19 fois par frame de défilement
   // pour une valeur qui ne change jamais entre deux lignes.
@@ -287,6 +291,10 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
                 recycler, et le décalage est composité par le navigateur. */}
             <div style={{ transform: `translateY(${win.padTop}px)` }}>
               {nodes.slice(win.start, win.end).map((node) => {
+                // La clé d'un en-tête est son RANG, émis par `flattenCatalog` : deux
+                // sections homonymes (source servie en désordre) restent distinctes, et
+                // déplier un agrégat plus haut ne remonte pas celles d'en dessous.
+                if (node.kind === 'group') return <CatalogGroupRow key={`g${node.rank}`} title={node.title} />
                 // La clé n'est construite QUE pour les lignes rendues : portée par
                 // `CatalogNode`, elle l'était pour tous les éléments accumulés, à chaque
                 // page — des dizaines de milliers de chaînes jetées sur le chemin même

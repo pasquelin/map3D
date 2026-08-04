@@ -33,8 +33,8 @@ export const CSS_SETTINGS = `
 /* Préférences : plus large que le sous-panneau par défaut (212) pour que les groupes
    segmentés (Auto/Élevé/Moyen/Léger) et les touches en bout de ligne ne soient pas rognés. */
 .m3d-settings-sub-pref{width:300px}
-.m3d-settings-subtitle{font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
-  text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+/* Habillage partagé avec les autres intertitres (cf. CSS_CHASSIS). */
+.m3d-settings-subtitle{margin-bottom:2px}
 .m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
 /* column-count équilibre seul les trois colonnes (hauteurs égales à une ligne près) ;
    break-inside:avoid empêche qu'une ligne soit coupée en bas de colonne. */

@@ -1,6 +1,6 @@
 import { mdiAlertCircleOutline, mdiChevronRight } from '@mdi/js'
 import { memo, useEffect, useRef } from 'react'
-import type { CatalogNode } from '../../catalog/flatten'
+import type { CatalogItemNode } from '../../catalog/flatten'
 import type { CatalogAction, CatalogBrowseSource, CatalogId, CatalogItem } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels, useMapContext } from '../context'
@@ -8,7 +8,7 @@ import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
 
 export type CatalogRowProps = {
-  node: CatalogNode
+  node: CatalogItemNode
   source: CatalogBrowseSource
   /** Actions de la source, déjà plafonnées — identité stable entre deux renders. */
   actions: readonly CatalogAction[]
@@ -29,7 +29,7 @@ export type CatalogRowProps = {
    * Reçoit le `node` en argument plutôt que d'être fermé dessus : une closure par ligne
    * changeait d'identité à chaque render et défaisait le `memo` de ce composant.
    */
-  onCheck: (node: CatalogNode, next: boolean) => void
+  onCheck: (node: CatalogItemNode, next: boolean) => void
   /** Clic sur le nom : bascule ET cadre. */
   onActivate: (item: CatalogItem) => void
   /** id du `<Tooltip>` de la barre hôte — les infobulles de la lib, pas des `title` natifs. */
@@ -183,3 +183,29 @@ function CatalogRowInner({
 }
 
 export const CatalogRow = memo(CatalogRowInner)
+
+/**
+ * L'intertitre d'une section de la liste (`CatalogItem.group`).
+ *
+ * Une LIGNE du flux virtualisé, pas un conteneur : la fenêtre visible suppose une hauteur
+ * de ligne constante, et un en-tête qui enveloppe ses éléments aurait demandé un
+ * virtualiseur à hauteurs variables — ou un scroll imbriqué. Il occupe donc exactement la
+ * hauteur d'une ligne.
+ *
+ * Un simple texte, et non un `<h3>` : l'annoncer comme en-tête de niveau ferait entrer
+ * dans la table des matières du lecteur d'écran autant d'entrées que la liste compte de
+ * sections — sur un référentiel paginé, des centaines. Il reste lu dans l'ordre du DOM,
+ * juste avant les éléments qu'il coiffe.
+ *
+ * `memo` par COHÉRENCE avec `CatalogRow`, pas par gain mesuré : il n'y a ici ni identité
+ * de fonction ni sous-arbre à sauter.
+ */
+function CatalogGroupRowInner({ title }: { title: string }) {
+  return (
+    <div className="m3d-catgroup">
+      <span className="m3d-catgroup-title">{title}</span>
+    </div>
+  )
+}
+
+export const CatalogGroupRow = memo(CatalogGroupRowInner)

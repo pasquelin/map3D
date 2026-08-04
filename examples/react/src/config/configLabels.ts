@@ -517,6 +517,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'catalog.overscanRows': 'lignes de sur-rendu',
   'catalog.prefetchMarginPx': 'marge de préchargement (px)',
   'catalog.persistDebounceMs': 'anti-rebond d’écriture (ms)',
+  'catalog.familyHeaders': 'nommer les familles du menu',
+  'catalog.groupHeaders': 'nommer les sections de la liste',
   // ── watermark ──────────────────────────────────────────────────────────────
   'watermark.enabled': 'afficher la signature',
   // ── performance.statThresholds ─────────────────────────────────────────────

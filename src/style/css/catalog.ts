@@ -12,10 +12,14 @@ export const CSS_CATALOG = `
 .m3d-catpanel,.m3d-catsub{padding:8px;display:flex;flex-direction:column;gap:7px}
 .m3d-catpanel{width:var(--m3d-catalog-panel-w)}
 .m3d-catsub{width:var(--m3d-catalog-sub-panel-w)}
-/* Menu des types : familles séparées par un filet, pas par un titre — à cinq entrées,
-   un en-tête par famille prend plus de place que ce qu'il classe. */
+/* Menu des types : familles séparées par un filet, et nommées par un en-tête quand
+   config.catalog.familyHeaders est vrai (défaut). Le filet est gardé DANS LES DEUX CAS —
+   il sépare aussi la famille anonyme, qui n'a pas de nom à porter. */
 .m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
 .m3d-catfamily+.m3d-catfamily{margin-top:6px;padding-top:6px;border-top:1px solid var(--m3d-border)}
+/* Habillage partagé avec les autres intertitres (cf. CSS_CHASSIS) : il ne reste ici que
+   la gouttière, alignée sur celle des lignes de type (8px). */
+.m3d-catfamily-title{margin:0;padding:2px 8px 4px}
 .m3d-cattype-row{position:relative}
 .m3d-cattype{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;width:100%;
   border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--m3d-size-sm);
@@ -41,6 +45,13 @@ export const CSS_CATALOG = `
   height:var(--m3d-catalog-row-h);font-size:var(--m3d-size-sm);box-sizing:border-box}
 .m3d-catrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-catrow.m3d-child{padding-left:calc(6px + var(--m3d-catalog-indent))}
+/* Intertitre de section : une LIGNE du flux virtualisé, donc exactement la hauteur d'une
+   ligne — la fenêtre visible ne sait pas mesurer, elle multiplie. L'habillage du texte est
+   partagé avec les autres intertitres (cf. CSS_CHASSIS) ; il ne reste ici que la boîte.
+   Aligné en BAS (flex-end) : collé au premier élément qu'il coiffe plutôt que flottant au
+   milieu de sa ligne, ce qui le rattachait visuellement à la section précédente. */
+.m3d-catgroup{display:flex;align-items:flex-end;padding:0 8px 2px;
+  height:var(--m3d-catalog-row-h);box-sizing:border-box}
 /* Le chevron et sa gouttière de remplacement partagent LA MÊME variable : deux valeurs
    séparées finissaient par diverger, et les noms d'une même liste cessaient de
    s'aligner selon que la ligne portait un chevron ou non. */

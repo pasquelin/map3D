@@ -250,21 +250,34 @@ const zone = (id: string, title: string, extra?: Partial<CatalogItem>): CatalogI
   ...extra,
 })
 
-// Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
-// `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
-// coches vertes qui ne dit rien de plus que « tout va bien ».
+/* Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
+   `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
+   coches vertes qui ne dit rien de plus que « tout va bien ».
+
+   ⚠️ Les zones sont déclarées DÉJÀ GROUPÉES, secteur par secteur : la lib ouvre une
+   section au changement de `group`, elle ne trie pas (cf. `flattenCatalog`). C'est ce qui
+   la rend compatible avec la pagination — mais c'est à la source de servir ses éléments
+   dans l'ordre, sinon le même intitulé réapparaît plus bas. `z2` n'a délibérément aucun
+   `group` : une source peut n'en grouper qu'une partie, et le reste sort sans section. */
 const ZONES: readonly CatalogItem[] = [
-  zone('z1', 'Lycée La Martinière Monplaisir'),
   zone('z2', 'Zone_Démo_Confluence', { disabled: true }),
-  zone('z3', 'Leroy Merlin Nanterre'),
-  // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
-  zone('z4', 'SDF Ext SO', { bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 } }),
-  zone('z5', 'SDF - Ext NE'),
-  zone('z6', 'SDF Approche Est'),
-  zone('z7', 'Centre Westfield'),
-  zone('z8', 'Périmètre Gare du Nord'),
-  zone('z9', 'Secteur La Villette'),
-  zone('z10', 'Parvis de la Défense'),
+
+  zone('z4', 'SDF Ext SO', {
+    group: 'Stade de France',
+    // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
+    bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 },
+  }),
+  zone('z5', 'SDF - Ext NE', { group: 'Stade de France' }),
+  zone('z6', 'SDF Approche Est', { group: 'Stade de France' }),
+
+  zone('z10', 'Parvis de la Défense', { group: 'La Défense' }),
+  zone('z7', 'Centre Westfield', { group: 'La Défense' }),
+  zone('z3', 'Leroy Merlin Nanterre', { group: 'La Défense' }),
+
+  zone('z8', 'Périmètre Gare du Nord', { group: 'Paris Nord-Est' }),
+  zone('z9', 'Secteur La Villette', { group: 'Paris Nord-Est' }),
+
+  zone('z1', 'Lycée La Martinière Monplaisir', { group: 'Lyon' }),
 ]
 
 // ── Les quatre sources ────────────────────────────────────────────────────────

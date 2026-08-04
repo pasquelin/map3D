@@ -41,4 +41,31 @@ export type CatalogConfig = {
    * La charge en attente est toujours vidée avant que la page ne disparaisse.
    */
   persistDebounceMs: number
+  /**
+   * Nommer les familles du menu des types, ou se contenter de les séparer.
+   *
+   * `CatalogSource.family` regroupe les entrées dans les deux cas — le réglage ne décide
+   * que de l'affichage d'un en-tête portant son nom. `false` retombe sur le filet de
+   * séparation seul : à cinq entrées réparties en trois familles, trois en-têtes prennent
+   * plus de hauteur que ce qu'ils classent, et le panneau a une hauteur maximale.
+   *
+   * Sans objet pour les sources SANS `family` : leur groupe n'a pas de nom à afficher, et
+   * un intitulé inventé par la lib (« Autres ») y mettrait du texte en dur.
+   */
+  familyHeaders: boolean
+  /**
+   * Ouvrir une section nommée dans la LISTE au changement de `CatalogItem.group`.
+   *
+   * Un réglage plutôt que « il suffit de ne pas renseigner `group` » : les sources
+   * peuvent venir de **plugins tiers**, que l'hôte ne contrôle pas. Sans lui, une source
+   * installée impose ses sections à un panneau qui n'en veut pas.
+   *
+   * Sans objet pour une source qui ne renseigne pas `group` : il n'y a alors aucune
+   * section à ouvrir, et le drapeau épargne même la comparaison par élément.
+   *
+   * À distinguer de `familyHeaders`, qui nomme les familles du MENU des types : deux
+   * surfaces, deux volumes (une poignée de types contre des dizaines de milliers
+   * d'éléments), donc deux réglages.
+   */
+  groupHeaders: boolean
 }

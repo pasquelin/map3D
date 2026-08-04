@@ -8,7 +8,7 @@ import {
   type CatalogToggleSource,
 } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
-import { useLabels, useMapContext } from '../context'
+import { useConfig, useLabels, useMapContext } from '../context'
 import { useCatalogActiveCount, useCatalogToggle } from '../hooks/useCatalog'
 import { useCatalogSources } from '../hooks/useCatalogSources'
 import { CatalogList } from './CatalogList'
@@ -98,6 +98,7 @@ function CatalogPanel({
 }) {
   const labels = useLabels()
   const { theme } = useMapContext()
+  const showFamilyHeaders = useConfig().catalog.familyHeaders
   const [openId, setOpenId] = useState<string | null>(null)
   /** Ligne ouverte : c'est elle qui ANCRE le second panneau, comme un bouton ancre le sien. */
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
@@ -151,7 +152,25 @@ function CatalogPanel({
     <>
       <div className="m3d-cattypes">
         {families.map(([family, list]) => (
-          <div key={family} className="m3d-catfamily">
+          // `role="group"` + `aria-label` dépendent de la DONNÉE (`family`), jamais du
+          // réglage d'affichage : le filet regroupe visuellement même sans en-tête, et
+          // conditionner la sémantique au titre ferait perdre au lecteur d'écran une
+          // structure que l'œil, lui, garde. Une famille sans nom n'est pas un groupe
+          // nommé — ni `role`, ni titre, plutôt qu'un intitulé que la lib aurait inventé.
+          //
+          // Le titre visible est `aria-hidden` : le nom est déjà porté par le groupe, et
+          // sans cela « Territoires » serait annoncé deux fois.
+          <div
+            key={family}
+            className="m3d-catfamily"
+            role={family ? 'group' : undefined}
+            aria-label={family || undefined}
+          >
+            {family && showFamilyHeaders && (
+              <h3 className="m3d-catfamily-title" aria-hidden="true">
+                {family}
+              </h3>
+            )}
             {list.map((s) =>
               isToggleSource(s) ? (
                 <ToggleTypeRow key={s.id} source={s} total={total(s)} />

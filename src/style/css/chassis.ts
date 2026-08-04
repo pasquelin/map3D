@@ -118,4 +118,18 @@ export const CSS_CHASSIS = `
 
 .m3d-kbd{font-family:inherit;font-size:10px;font-weight:var(--m3d-weight-bold);padding:1px 5px;border-radius:4px;
   border:1px solid color-mix(in srgb,currentColor 35%,transparent);opacity:.75;line-height:1.5}
+
+/* ══ INTERTITRES DE GROUPE ═════════════════════════════════════════════════════
+   Nommer un groupe dans un panneau : le hub des plugins, les réglages, les familles du
+   menu de catalogue, les sections de sa liste. Même objet, donc même habillage — il
+   était recopié quatre fois, et les copies avaient déjà commencé à diverger (11px en
+   dur d'un côté, trois gouttières différentes).
+
+   Seules la gouttière et la hauteur restent locales : elles dépendent de la surface qui
+   porte le titre, pas du titre lui-même — une ligne de liste virtualisée a une hauteur
+   imposée, un en-tête de panneau non. */
+.m3d-togglelist-title,.m3d-settings-subtitle,.m3d-catfamily-title,.m3d-catgroup-title{
+  font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
+  text-transform:uppercase;letter-spacing:.04em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 `

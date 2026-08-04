@@ -122,6 +122,19 @@ describe('catalogue', () => {
     expect(defaultConfig.data.storageKeys.catalog).not.toBe(defaultConfig.data.storageKeys.catalogSettings)
   })
 
+  it('nomme les groupes par défaut, dans les DEUX surfaces', () => {
+    // Les familles du menu et les sections de la liste sont deux réglages distincts :
+    // une poignée de types d'un côté, des dizaines de milliers d'éléments de l'autre.
+    expect(defaultConfig.catalog.familyHeaders).toBe(true)
+    expect(defaultConfig.catalog.groupHeaders).toBe(true)
+  })
+
+  it('couper les en-têtes d’une surface laisse l’autre intacte', () => {
+    const merged = mergeConfig(defaultConfig, { catalog: { groupHeaders: false } })
+    expect(merged.catalog.groupHeaders).toBe(false)
+    expect(merged.catalog.familyHeaders).toBe(true)
+  })
+
   it('amortit la frappe au moins autant que la boîte de recherche', () => {
     // 💰 Une source de catalogue est un appel API par frappe non amortie, exactement
     // comme Places. Descendre sous ce seuil coûterait sans rien améliorer.
