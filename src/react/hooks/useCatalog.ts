@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { unionBounds } from '../../core/bounds'
 import { boundsOfMarkers, type MarkerData } from '../../data/types'
 import { catalogKey, parseCatalogKey, restoreCatalogId } from '../../catalog/selection'
@@ -40,6 +40,15 @@ export type CatalogApi = {
    * geste, en s'arrêtant sur le dernier arrivé plutôt que sur l'ensemble.
    */
   setMany: (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => void
+  /**
+   * Cadre la caméra sur un élément **sans le poser** ni l'inscrire en sélection.
+   *
+   * Le geste des sources `checkable: false`, dont l'hôte peint déjà les éléments : il n'y a
+   * rien à afficher, seulement à retrouver. L'emprise vient de `item.bounds` s'il est
+   * annoncé — aucune requête alors —, sinon de la géométrie, chargée le temps de la
+   * calculer puis jetée.
+   */
+  focus: (source: CatalogBrowseSource, item: CatalogItem) => void
   clear: () => void
   /** Formes à passer à `<ShapeLayer>`. */
   shapes: readonly ShapeData[]
@@ -273,6 +282,44 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     [fit, hide, show, store],
   )
 
+  /**
+   * Requête de cadrage en vol, abandonnée par la suivante et au démontage : deux clics
+   * rapides ne doivent pas laisser la caméra partir vers la première cible.
+   */
+  const focusLoad = useRef<AbortController | null>(null)
+  useEffect(() => () => focusLoad.current?.abort(), [])
+
+  const focus = useCallback(
+    (source: CatalogBrowseSource, item: CatalogItem) => {
+      focusLoad.current?.abort()
+      focusLoad.current = null
+      // Emprise annoncée par l'hôte : le cadrage part immédiatement, sans réseau. C'est le
+      // chemin nominal d'un référentiel que l'hôte peint — il connaît déjà ses emprises.
+      if (item.bounds) {
+        fit(item.bounds)
+        return
+      }
+      const ctrl = new AbortController()
+      focusLoad.current = ctrl
+      // Rien n'entre dans le store : ni sélection, ni contenu, ni état de chargement. Ce
+      // contenu ne sert qu'à mesurer une emprise, et repart avec la promesse.
+      void loadContent(source, item.id, item.title, ctrl.signal)
+        .then((content) => {
+          if (ctrl.signal.aborted) return
+          const b = boundsOfContent(content)
+          if (b) fit(b)
+        })
+        .catch(() => {
+          // Cadrage impossible : la ligne reste où elle est, sans pastille d'erreur — rien
+          // n'a été promis à l'écran, contrairement à une pose qui aurait échoué.
+        })
+        .finally(() => {
+          if (focusLoad.current === ctrl) focusLoad.current = null
+        })
+    },
+    [fit],
+  )
+
   const setMany = useCallback(
     (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => {
       if (!shown) {
@@ -327,6 +374,7 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
       isPending: (k: CatalogKey) => store.isPending(k),
       hasError: (k: CatalogKey) => store.hasError(k),
       toggle,
+      focus,
       setMany,
       clear,
       shapes: store.shapes(),
@@ -336,7 +384,7 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
     // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, token, toggle, setMany, clear, toggleSource],
+    [store, token, toggle, focus, setMany, clear, toggleSource],
   )
 }
 

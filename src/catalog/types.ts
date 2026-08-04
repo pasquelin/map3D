@@ -110,6 +110,25 @@ export type CatalogBrowseSource = CatalogSourceBase & {
    * compilé sans jamais être rendue nulle part.
    */
   actions?: readonly CatalogAction[]
+
+  /**
+   * Cette liste peut-elle POSER ses éléments sur la carte ? Défaut `true`.
+   *
+   * `false` déclare un **référentiel que l'hôte peint déjà lui-même** : la liste ne sert
+   * plus qu'à le parcourir, y chercher, cadrer et agir dessus. La ligne perd sa case — et
+   * sa gouttière avec, comme le chevron d'une source qui ne déplie pas —, rien n'entre en
+   * sélection ni en persistance, et le clic sur le nom **cadre** au lieu de basculer.
+   *
+   * À poser dès que l'hôte monte les mêmes entités dans une couche à lui (typiquement
+   * `<DrawLayer>`, la seule où une forme est sélectionnable et éditable) : sans ça, la même
+   * entité serait peinte deux fois, par deux couches qui ne se connaissent pas. Et la case
+   * mentirait — on la coche, l'état visuel change, la carte ne bouge pas.
+   *
+   * ⚠️ `geometry` reste requise : c'est le chemin de cadrage quand l'élément n'annonce pas
+   * son `bounds`. Une source qui pose `bounds` sur tous ses items ne la verra jamais
+   * appelée dans ce régime.
+   */
+  checkable?: boolean
 }
 
 /**
