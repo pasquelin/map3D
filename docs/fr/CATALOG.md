@@ -59,18 +59,34 @@ Le bouton **Catalogue** apparaît dans la barre de contrôles, aux côtés de «
 
 ## 2. `CatalogSource` — anatomie
 
+Une source relève de l'un de **deux régimes**, et c'est `kind` qui les distingue :
+
 ```ts
-type CatalogSource = {
+type CatalogSource = CatalogBrowseSource | CatalogToggleSource
+
+type CatalogSourceBase = {
   id: string                  // identité stable : préfixe de clé, valeur persistée
   label: string               // libellé du menu — la lib ne traduit aucun nom de type
   icon: string                // chemin @mdi/js
   family?: string             // regroupe les entrées du menu
   total?: number              // compte affiché SANS déclencher de requête
+}
 
+// Le régime de PARCOURS : une liste paginée, une case par élément.
+type CatalogBrowseSource = CatalogSourceBase & {
+  kind?: 'browse'             // DÉFAUT — une source écrite sans `kind` est un parcours
   list(req: CatalogRequest): Promise<CatalogPage>
   geometry(id: CatalogId, signal: AbortSignal): Promise<ShapeData[]>
+  markers?(id: CatalogId, signal: AbortSignal): Promise<MarkerData[]>
   children?(id: CatalogId, req: CatalogRequest): Promise<CatalogPage>
   actions?: readonly CatalogAction[]
+}
+
+// Le régime de BASCULE : un interrupteur, chargé au cadre visible — cf. § 4.
+type CatalogToggleSource = CatalogSourceBase & {
+  kind: 'toggle'
+  source: DataSource<MarkerData>
+  markerLayer?: { icon?; tooltip?; menu?; typeLabel?; cluster?; size? }
 }
 
 type CatalogRequest = {
@@ -97,6 +113,15 @@ si vous ne le fournissez pas, il n'affiche pas de compte, il ne va pas le cherch
 > Un enfant déplié appartient à la même source que son parent, et c'est cette méthode-là
 > qu'on appellera pour lui. Une source qui n'indexerait que ses racines rendrait un
 > tableau vide sur chaque enfant — donc une case qui n'affiche rien, sans erreur.
+
+**`markers` pose des POINTS**, là où `geometry` pose des formes. Les deux sont demandées
+sur le même geste et retirées ensemble ; un élément peut n'avoir que l'une des deux. Les
+points entrent dans le regroupement, le filtre « Couches » (via `tags`) et la recherche
+(via `title`) comme n'importe quel marker — et le cadrage du clic sur le nom porte sur
+l'union des formes ET des points.
+
+**`actions` n'existe que sur une source de parcours** : une action reçoit le
+`CatalogItem` sur lequel elle porte, et une source à bascule n'a pas d'éléments.
 
 ---
 
@@ -148,7 +173,121 @@ actions: [
 
 ---
 
-## 4. Agrégats et enfants
+## 4. Sources à bascule
+
+Certains référentiels ne se parcourent pas. Trente-six mille défibrillateurs ne se cochent
+pas un par un : on les **allume d'un interrupteur**, et c'est la **vue** qui décide de ce
+qui est chargé.
+
+```tsx
+import { mdiHeartPulse } from '@mdi/js'
+import type { CatalogToggleSource } from '@pasquelin/map3d'
+
+const defibs: CatalogToggleSource = {
+  id: 'defibs',
+  kind: 'toggle',                    // ← ce qui change tout
+  label: 'Défibrillateurs',
+  icon: mdiHeartPulse,
+  total: 36699,                      // le jeu de référence, pas la vue
+
+  source: {
+    minZoom: 12,                     // 💰 sous ce zoom, AUCUNE requête
+    load: async ({ bounds }, signal) => {
+      const r = await fetch(`/api/dae?bbox=${bbox(bounds)}`, { signal })
+      const points = await r.json()
+      return points.map((p) => ({
+        id: p.id, position: p.pos, type: 'defib', title: p.nom, tags: ['dae'], data: p,
+      }))
+    },
+  },
+
+  markerLayer: { cluster: { enabled: true } },
+}
+```
+
+`source` est la **`DataSource<MarkerData>` de la lib**, inchangée (cf.
+[DATA.md](DATA.md)) : anti-rebond, gate `minZoom`, `AbortSignal` et rejet des réponses
+hors-ordre sont déjà assurés par `ViewportController`. Vous n'écrivez que le `load`.
+
+`markerLayer` reprend le contrat de la voie déclarative des plugins
+([PLUGINS.md § 5](PLUGINS.md#5-rendu-carte)) : les points entrent dans le **même**
+regroupement (`engine.clusters`), le **filtre « Couches »** (via `MarkerData.tags`) et la
+**recherche unifiée** (via `MarkerData.title`) que tout le reste de la carte.
+
+### 4.1 Ce que fait la ligne
+
+|  | `browse` | `toggle` |
+|---|---|---|
+| Chevron, sous-liste, recherche | oui | **non** |
+| Clic sur le **nom** | bascule **et** cadre la caméra | bascule, **sans cadrage** |
+| Clic sur la **case** | bascule seul | bascule |
+| `total` affiché | oui | oui |
+| État de chargement | — | oui |
+| **Nombre d'éléments chargés** | — | **jamais** — cf. § 4.2 |
+| `children`, `bounds`, `disabled`, `actions` | oui | sans objet |
+
+Pas de cadrage sur une bascule, et ce n'est pas un oubli : sur un jeu piloté par la vue,
+c'est la vue qui décide du contenu. La cadrer sur son propre contenu reviendrait à faire
+décider au contenu de la vue qui le détermine.
+
+Éteint, un jeu n'a **aucune couche montée** : ni contrôleur, ni écoute de la vue, ni
+requête. Un référentiel à 36 000 points ne coûte rien tant qu'on n'y touche pas.
+
+### 4.2 ⚠️ Le volume chargé n'est pas le volume affiché
+
+L'emprise transmise à `load` est **délibérément plus large que l'écran**. `computeBounds`
+élargit la bbox de `config.performance.boundsMargin` (défaut `0.15`, soit **+30 % en
+latitude ET en longitude**, ≈ **+69 % de surface**) et l'échantillonne sur une grille 5×5
+qui capte le sol jusqu'à l'horizon en vue inclinée — pour ne jamais masquer un marker
+réellement visible, et pour que rien ne surgisse au moindre déplacement.
+
+Une source à bascule charge donc **structurellement plus que ce qu'on voit**. C'est voulu.
+
+> **N'affichez jamais le nombre d'éléments chargés.** Posé à côté d'une carte qui en
+> montre trois, un « 142 » se lit « 142 affichés » : on cherche les 139 manquants et on
+> conclut à un bug de rendu. La lib ne l'affiche nulle part, et votre interface ne le doit
+> pas davantage.
+>
+> `total` est en revanche légitime : c'est le volume du **jeu de référence**, stable et
+> vérifiable, sans rapport avec la vue. L'**état de chargement** aussi : il dit quelque
+> chose de vrai.
+
+### 4.3 Bascule ou plugin
+
+Les deux chargent des markers au viewport. Ce qui les sépare n'est pas technique :
+
+| | **Catalog `toggle`** | **Plugin** |
+|---|---|---|
+| Ce que c'est | un **jeu de référence de l'application hôte** | une **capacité tierce** |
+| Qui l'écrit | vous, dans votre app | un auteur, souvent quelqu'un d'autre |
+| Distribution | aucune — c'est du code de l'app | packagé, **versionné**, publié (npm) |
+| Configuration | en dur dans votre code | **schéma déclaratif auto-rendu** (`config`) |
+| Où l'utilisateur l'active | panneau **Catalogue**, avec vos autres jeux | hub **Plugins** |
+| Cycle de vie | monté par `<Map>` | `register` / `setEnabled` / `unregister` |
+
+En une phrase : **un jeu de référence de plus dans votre panneau → `toggle` ; une
+capacité qu'on installe, met à jour et désinstalle → plugin** ([PLUGINS.md](PLUGINS.md)).
+
+### 4.4 Échecs
+
+Un chargement qui échoue laisse le jeu courant **intact** et éteint l'indicateur : rien
+n'est signalé à l'utilisateur. Le régime de parcours, lui, sort l'élément de la sélection et
+allume une pastille d'erreur sur sa ligne — il a un élément sur quoi la poser, une bascule
+n'en a pas. Si votre jeu doit signaler ses pannes, faites-le depuis votre `load`.
+
+### 4.5 Persistance
+
+L'état **allumé/éteint** survit au rechargement, dans un **champ distinct** de la charge
+(`config.data.storageKeys.catalog`) — jamais mêlé aux clés d'éléments, qui porteraient
+sinon un identifiant de source en collision avec un identifiant d'élément. Un jeu dont la
+source n'est plus inscrite est éteint en silence, comme une clé orpheline.
+
+Les markers, eux, ne sont **jamais** sérialisés : ils sont redemandés à la source au
+premier cadre.
+
+---
+
+## 5. Agrégats et enfants
 
 Un « groupe de zones » n'est pas une notion de la lib : c'est un élément dont
 **`geometry` rend plusieurs formes**. Cocher le groupe les affiche ensemble, décocher les
@@ -179,7 +318,7 @@ elle survit au décochage de l'une tant que l'autre la référence.
 
 ---
 
-## 5. Pagination, recherche et volumes
+## 6. Pagination, recherche et volumes
 
 La liste est **virtualisée** : seules les lignes visibles sont rendues, quel que soit le
 nombre d'entrées. Une sentinelle en bas demande la page suivante avant d'atteindre le
@@ -202,7 +341,7 @@ Rien n'est demandé tant que le panneau n'est pas ouvert.
 
 ---
 
-## 6. Affichage, cadrage et persistance
+## 7. Affichage, cadrage et persistance
 
 Ce que vous affichez devient une **forme drapée** ordinaire : elle épouse le relief,
 suit le thème, et **entre dans la recherche** — une zone posée depuis le catalogue est
@@ -228,11 +367,14 @@ persisté avec sa clé : une zone posée depuis le catalogue reste donc trouvabl
 **même après un rechargement**, et pas seulement dans la session où on l'a posée.
 
 L'utilisateur règle tout cela depuis l'engrenage de la barre d'outils : *conserver entre
-les sessions*, *cadrer à l'ajout*, *tout retirer*.
+les sessions*, *cadrer à l'ajout*, *tout retirer*. **« Tout retirer » éteint aussi les
+sources à bascule** — le bouton dit « tout », et en épargner une laisserait des milliers
+de points sur une carte qu'on vient de demander à vider. Le **badge du bouton Catalogue**
+compte de la même façon les éléments cochés et les jeux allumés.
 
 ---
 
-## 7. Config, thème, libellés
+## 8. Config, thème, libellés
 
 ```ts
 config.catalog = {
@@ -258,11 +400,22 @@ config.interaction.shortcuts.controls.catalog  // 'c'
 | `sizing.panelMaxHeight.catalog` | hauteur maximale |
 
 Tous les textes vivent dans `labels.catalog` (cf. [LABELS.md](LABELS.md)). Les **noms des
-types** n'y sont pas : ils viennent de `CatalogSource.label`, que vous fournissez.
+types** n'y sont pas : ils viennent de `CatalogSource.label`, que vous fournissez. Une
+source à bascule réutilise les **mêmes clés** que les lignes d'éléments (`catalog.add`,
+`catalog.remove`, `catalog.loading`), avec le nom de la source en `{label}` : rien de
+nouveau à traduire.
+
+Deux réglages ne concernent **que** les sources à bascule, et ils vivent ailleurs :
+
+| Réglage | Rôle |
+|---|---|
+| `CatalogToggleSource.source.minZoom` | 💰 gate de zoom, porté par la source elle-même |
+| `config.data.viewportDebounceMs` | anti-rebond du rechargement au déplacement |
+| `config.performance.boundsMargin` | 💰 combien on charge autour de l'écran — cf. § 4.2 |
 
 ---
 
-## 8. Déclarer une source depuis un plugin
+## 9. Déclarer une source depuis un plugin
 
 `engine.catalog` est un registre comme `engine.tags` ou `engine.search` : un plugin y
 inscrit ses sources et rend la fonction de retrait.
@@ -279,7 +432,7 @@ aucun panneau ne sait retirer resteraient à l'écran.
 
 ---
 
-## 9. Recettes
+## 10. Recettes
 
 **Un référentiel dont la bbox est connue** — cadrage sans requête :
 
@@ -309,9 +462,27 @@ list: async ({ query, cursor, limit }) => {
 
 ```tsx
 const catalog = useCatalog()
-catalog.toggle(source, item, { fit: true })
+catalog.toggle(source, item, { fit: true })   // source de PARCOURS
 catalog.setMany(source, items, true)
+catalog.toggleSource('defibs')                // allume/éteint un jeu à bascule
+catalog.toggleSource('defibs', false)         // état forcé
 catalog.clear()
+```
+
+**Lire l'état d'un jeu** — `useCatalogToggle(id)`, et non `useCatalog()` : il s'abonne aux
+deux booléens de CE jeu, là où l'API entière re-rendrait votre composant à chaque mutation
+du catalogue.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+**Trier des sources hétérogènes** — les gardes discriminent l'union :
+
+```ts
+import { isToggleSource } from '@pasquelin/map3d'
+
+const jeux = sources.filter(isToggleSource)   // `s.source` y est typé
 ```
 
 **Afficher les métadonnées d'UNE source connue** (icône, libellé, `total`) sans

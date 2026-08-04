@@ -58,18 +58,34 @@ With no source declared, it does not render at all.
 
 ## 2. `CatalogSource` — anatomy
 
+A source belongs to one of **two regimes**, told apart by `kind`:
+
 ```ts
-type CatalogSource = {
+type CatalogSource = CatalogBrowseSource | CatalogToggleSource
+
+type CatalogSourceBase = {
   id: string                  // stable identity: key prefix, persisted value
   label: string               // menu label — the library translates no type name
   icon: string                // @mdi/js path
   family?: string             // groups menu entries
   total?: number              // count shown WITHOUT issuing a request
+}
 
+// The BROWSE regime: a paginated list, one checkbox per item.
+type CatalogBrowseSource = CatalogSourceBase & {
+  kind?: 'browse'             // DEFAULT — a source written without `kind` is a browse one
   list(req: CatalogRequest): Promise<CatalogPage>
   geometry(id: CatalogId, signal: AbortSignal): Promise<ShapeData[]>
+  markers?(id: CatalogId, signal: AbortSignal): Promise<MarkerData[]>
   children?(id: CatalogId, req: CatalogRequest): Promise<CatalogPage>
   actions?: readonly CatalogAction[]
+}
+
+// The TOGGLE regime: one switch, loaded for the visible frame — see § 4.
+type CatalogToggleSource = CatalogSourceBase & {
+  kind: 'toggle'
+  source: DataSource<MarkerData>
+  markerLayer?: { icon?; tooltip?; menu?; typeLabel?; cluster?; size? }
 }
 
 type CatalogRequest = {
@@ -96,6 +112,14 @@ if you don't provide it, no count is shown; it will not go looking for one.
 > child belongs to the same source as its parent, and that is the method that will be
 > called for it. A source indexing only its roots would return an empty array for every
 > child — a checkbox that displays nothing, with no error.
+
+**`markers` places POINTS**, where `geometry` places shapes. Both are requested on the
+same gesture and removed together; an item may have only one of the two. Points join
+clustering, the "Layers" filter (via `tags`) and search (via `title`) like any other
+marker — and clicking the name frames the union of shapes AND points.
+
+**`actions` exists only on a browse source**: an action receives the `CatalogItem` it
+acts on, and a toggle source has no items.
 
 ---
 
@@ -147,7 +171,119 @@ actions: [
 
 ---
 
-## 4. Aggregates and children
+## 4. Toggle sources
+
+Some reference sets are not meant to be browsed. Nobody ticks thirty-six thousand
+defibrillators one by one: you **turn them on with a single switch**, and the **view**
+decides what gets loaded.
+
+```tsx
+import { mdiHeartPulse } from '@mdi/js'
+import type { CatalogToggleSource } from '@pasquelin/map3d'
+
+const defibs: CatalogToggleSource = {
+  id: 'defibs',
+  kind: 'toggle',                    // ← this is what changes everything
+  label: 'Defibrillators',
+  icon: mdiHeartPulse,
+  total: 36699,                      // the reference set, not the view
+
+  source: {
+    minZoom: 12,                     // 💰 below this zoom, NO request at all
+    load: async ({ bounds }, signal) => {
+      const r = await fetch(`/api/aed?bbox=${bbox(bounds)}`, { signal })
+      const points = await r.json()
+      return points.map((p) => ({
+        id: p.id, position: p.pos, type: 'defib', title: p.name, tags: ['aed'], data: p,
+      }))
+    },
+  },
+
+  markerLayer: { cluster: { enabled: true } },
+}
+```
+
+`source` is the library's **`DataSource<MarkerData>`**, unchanged (see [DATA.md](DATA.md)):
+debouncing, the `minZoom` gate, `AbortSignal` and rejection of out-of-order responses are
+already handled by `ViewportController`. You only write `load`.
+
+`markerLayer` reuses the plugin declarative path's contract
+([PLUGINS.md § 5](PLUGINS.md#5-map-rendering)): points join the **same** clustering index
+(`engine.clusters`), the **"Layers" filter** (via `MarkerData.tags`) and **unified search**
+(via `MarkerData.title`) as everything else on the map.
+
+### 4.1 What the row does
+
+|  | `browse` | `toggle` |
+|---|---|---|
+| Chevron, sub-list, search | yes | **no** |
+| Clicking the **name** | toggles **and** frames the camera | toggles, **no framing** |
+| Clicking the **checkbox** | toggles only | toggles |
+| `total` shown | yes | yes |
+| Loading state | — | yes |
+| **Number of loaded items** | — | **never** — see § 4.2 |
+| `children`, `bounds`, `disabled`, `actions` | yes | not applicable |
+
+No framing on a toggle, and that is not an oversight: on a view-driven set, the view
+decides the content. Framing it on its own content would let the content decide the very
+view that determines it.
+
+Turned off, a set has **no layer mounted**: no controller, no view listener, no request. A
+36,000-point reference set costs nothing until you touch it.
+
+### 4.2 ⚠️ Loaded volume is not displayed volume
+
+The bounds handed to `load` are **deliberately wider than the screen**. `computeBounds`
+expands the bbox by `config.performance.boundsMargin` (default `0.15`, i.e. **+30% in
+latitude AND longitude**, ≈ **+69% of area**) and samples it on a 5×5 grid that catches
+ground all the way to the horizon in a tilted view — so a genuinely visible marker is
+never hidden, and nothing pops in as you pan.
+
+A toggle source therefore loads **structurally more than what you see**. That is intended.
+
+> **Never display the number of loaded items.** Next to a map showing three of them, a
+> "142" reads as "142 displayed": you go looking for the missing 139 and conclude the
+> renderer is broken. The library shows it nowhere, and neither should your interface.
+>
+> `total` is legitimate: it is the volume of the **reference set** — stable, verifiable,
+> unrelated to the view. So is the **loading state**: it states something true.
+
+### 4.3 Toggle or plugin
+
+Both load markers from the viewport. What separates them is not technical:
+
+| | **Catalog `toggle`** | **Plugin** |
+|---|---|---|
+| What it is | a **reference set of the host application** | a **third-party capability** |
+| Who writes it | you, in your app | an author, often someone else |
+| Distribution | none — it is your app's code | packaged, **versioned**, published (npm) |
+| Configuration | hard-coded in your code | **declarative auto-rendered schema** (`config`) |
+| Where users enable it | **Catalog** panel, with your other sets | **Plugins** hub |
+| Lifecycle | mounted by `<Map>` | `register` / `setEnabled` / `unregister` |
+
+In one sentence: **one more reference set in your panel → `toggle`; a capability that gets
+installed, updated and uninstalled → plugin** ([PLUGINS.md](PLUGINS.md)).
+
+### 4.4 Failures
+
+A failed load leaves the current set **intact** and turns the indicator off: nothing is
+reported to the user. The browse regime, by contrast, drops the item from the selection and
+lights an error badge on its row — it has an item to put one on, a toggle source does not.
+If your set must surface its failures, do it from your `load`.
+
+### 4.5 Persistence
+
+The **on/off** state survives a reload, in a **distinct field** of the payload
+(`config.data.storageKeys.catalog`) — never mixed into item keys, which would otherwise
+carry a source id colliding with an item id. A set whose source is no longer registered is
+turned off silently, like an orphaned key.
+
+Markers themselves are **never** serialized: they are re-requested from the source on the
+first frame.
+
+---
+
+## 5. Aggregates and children
 
 A "zone group" is not a library concept: it is an item whose **`geometry` returns several
 shapes**. Ticking the group shows them together, unticking removes them together.
@@ -177,7 +313,7 @@ one as long as the other still references it.
 
 ---
 
-## 5. Pagination, search and volume
+## 6. Pagination, search and volume
 
 The list is **virtualized**: only visible rows render, however many entries there are. A
 sentinel at the bottom requests the next page before reaching the edge, and two pages are
@@ -200,7 +336,7 @@ Nothing is requested while the panel is closed.
 
 ---
 
-## 6. Display, framing and persistence
+## 7. Display, framing and persistence
 
 What you display becomes an ordinary **draped shape**: it follows the terrain, follows
 the theme, and **enters search** — a zone placed from the catalog is then findable by
@@ -226,11 +362,13 @@ a zone placed from the catalog therefore stays findable by name **even after a r
 not only in the session where it was placed.
 
 Users control all of this from the toolbar's gear panel: *keep between sessions*, *frame
-on add*, *remove all*.
+on add*, *remove all*. **"Remove all" also turns off toggle sources** — the button says
+"all", and sparing one would leave thousands of points on a map you just asked to clear.
+The **Catalog button's badge** likewise counts ticked items and switched-on sets alike.
 
 ---
 
-## 7. Config, theme, labels
+## 8. Config, theme, labels
 
 ```ts
 config.catalog = {
@@ -256,11 +394,21 @@ config.interaction.shortcuts.controls.catalog  // 'c'
 | `sizing.panelMaxHeight.catalog` | maximum height |
 
 All text lives in `labels.catalog` (see [LABELS.md](LABELS.md)). **Type names** are not
-there: they come from `CatalogSource.label`, which you provide.
+there: they come from `CatalogSource.label`, which you provide. A toggle source reuses the
+**same keys** as item rows (`catalog.add`, `catalog.remove`, `catalog.loading`), with the
+source name as `{label}`: nothing new to translate.
+
+Two settings concern **only** toggle sources, and they live elsewhere:
+
+| Setting | Role |
+|---|---|
+| `CatalogToggleSource.source.minZoom` | 💰 zoom gate, carried by the source itself |
+| `config.data.viewportDebounceMs` | debounce of the reload on camera movement |
+| `config.performance.boundsMargin` | 💰 how much is loaded around the screen — see § 4.2 |
 
 ---
 
-## 8. Declaring a source from a plugin
+## 9. Declaring a source from a plugin
 
 `engine.catalog` is a registry like `engine.tags` or `engine.search`: a plugin registers
 its sources there and returns the removal function.
@@ -277,7 +425,7 @@ can remove any more would stay on screen.
 
 ---
 
-## 9. Recipes
+## 10. Recipes
 
 **A reference set with known bboxes** — framing without a request:
 
@@ -307,9 +455,27 @@ list: async ({ query, cursor, limit }) => {
 
 ```tsx
 const catalog = useCatalog()
-catalog.toggle(source, item, { fit: true })
+catalog.toggle(source, item, { fit: true })   // BROWSE source
 catalog.setMany(source, items, true)
+catalog.toggleSource('defibs')                // switches a toggle set on/off
+catalog.toggleSource('defibs', false)         // forced state
 catalog.clear()
+```
+
+**Reading a set's state** — `useCatalogToggle(id)`, not `useCatalog()`: it subscribes to
+THIS set's two booleans, where the full API would re-render your component on every catalog
+mutation.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+**Sorting heterogeneous sources** — the guards discriminate the union:
+
+```ts
+import { isToggleSource } from '@pasquelin/map3d'
+
+const sets = sources.filter(isToggleSource)   // `s.source` is typed here
 ```
 
 **Showing the metadata of ONE known source** (icon, label, `total`) without

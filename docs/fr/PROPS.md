@@ -108,6 +108,7 @@ Markers, clustering, sélection, drag.
 |---|---|---|
 | `points` | Markers à afficher. Exclusif avec `source`, qui les charge selon la vue. | — |
 | `source` | Source viewport-driven (rechargée au déplacement, gate `minZoom`). | — |
+| `onLoadingChange` | Un chargement de `source` est-il en vol ? Appelé à chaque transition, jamais en boucle de frame. Sans objet avec `points`, que l'hôte charge lui-même. La couche connaît cet état — c'est elle qui tient le `ViewportController` — mais un indicateur de chargement vit dans l'interface de l'hôte, pas sur la carte. | — |
 | `getId` | Clé stable d'un marker (défaut `p.id`) : elle décide de l'identité, donc du tween. | `((p: MarkerData<T>) => p.id)` |
 | `cluster` | `{ enabled: boolean }` — participation de CETTE couche au regroupement de la carte (défaut : elle participe). L'algorithme se règle dans `config.clustering`, l'apparence sur `<Map cluster>` : un cluster est une propriété de la carte, pas d'une couche. | `{ enabled: true }` |
 | `icon` | Icône **SVG** (markup) d'un marker, rendue en `<img>` DOM ancrée à la carte. | — |

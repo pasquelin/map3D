@@ -137,7 +137,7 @@ catalog.clear()
 Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`, `toggle`,
 `setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`). `side` reserves the framing
 margin on the side where the panel opens. Details in
-[CATALOG.md § 9](CATALOG.md#9-recipes).
+[CATALOG.md § 10](CATALOG.md#10-recipes).
 
 ### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 

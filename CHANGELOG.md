@@ -6,6 +6,73 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### feat : le catalogue pose des markers, et sait s'allumer d'un interrupteur
+
+Le catalogue ne savait poser que des **formes**, et ne savait fonctionner qu'en **parcours** —
+liste paginée, une case par élément. Deux manques : un référentiel de points n'avait aucune
+voie, et 36 000 défibrillateurs n'ont pas vocation à être cochés un par un.
+
+`CatalogSource` devient une **union discriminée** par `kind`, avec `'browse'` **par défaut**.
+
+- **`markers?(id, signal)`** sur une source de parcours : un élément pose des points en plus (ou
+  à la place) de ses formes. Chargés sur le même geste, retirés ensemble, jamais persistés, et
+  ils entrent dans le regroupement, le filtre « Couches » et la recherche comme n'importe quel
+  marker. Le cadrage du clic sur le nom porte sur l'union des formes **et** des points.
+- **`kind: 'toggle'`** : un jeu qu'on allume au premier niveau du menu, chargé **au cadre
+  visible**. Sa `source` est la `DataSource<MarkerData>` existante — anti-rebond, gate
+  `minZoom`, `AbortSignal` et rejet des réponses hors-ordre viennent de `ViewportController`,
+  rien n'a été réécrit. `markerLayer` reprend le contrat de la voie déclarative des plugins.
+  Éteint, le jeu n'a **aucune couche montée** : ni contrôleur, ni écoute de la vue, ni requête.
+- **Pas de cadrage sur une bascule**, et ce n'est pas un oubli : sur un jeu piloté par la vue,
+  c'est la vue qui décide du contenu. La caméra n'est pas atteignable depuis ce chemin.
+- **Aucun compteur d'éléments chargés**, nulle part. `computeBounds` élargit délibérément
+  l'emprise (`config.performance.boundsMargin`, défaut `0.15` — +30 % sur les deux axes, ≈ +69 %
+  de surface) : une bascule charge structurellement plus que ce qui est à l'écran, et un « 142 »
+  posé à côté d'une carte qui en montre trois se lit « 142 affichés ». `total` (le jeu de
+  référence) et l'état de chargement restent affichés — eux sont vrais et vérifiables.
+- **Pas de remontée d'erreur** en mode bascule : un chargement qui échoue laisse le jeu de
+  données courant intact et l'indicateur s'éteint, sans pastille rouge — le régime de
+  parcours, lui, garde ses `pending`/`errors` par élément.
+- **Persistance** : l'état allumé/éteint vit dans un **champ distinct** de la charge, jamais
+  mêlé aux clés d'éléments — un id de source y entrerait en collision avec un id d'élément.
+  Une source disparue est éteinte en silence. Les markers ne sont jamais sérialisés.
+- « Tout retirer » éteint aussi les bascules, et le badge du bouton compte éléments cochés
+  **et** jeux allumés : les deux mettent quelque chose sur la carte.
+
+Nouvelle API publique : types `CatalogBrowseSource`, `CatalogToggleSource`, `CatalogSourceBase`,
+gardes `isBrowseSource` / `isToggleSource`, hooks `useCatalogToggle(id)` et `useCatalogClear()`,
+et sur `useCatalog()` : `markers` et `toggleSource`.
+
+**Lire** l'état d'un jeu passe par `useCatalogToggle(id)`, jamais par `useCatalog()` : il
+s'abonne aux deux booléens de CE jeu, là où l'API entière re-rendrait l'appelant à chaque
+mutation du catalogue. C'est le patron que la lib s'applique à elle-même pour ses propres
+lignes ; l'exposer évite de laisser à l'hôte la seule version coûteuse.
+
+Deux ajouts hors catalogue, tirés de la même mécanique :
+
+- **`<MarkerLayer onLoadingChange>`** — la couche tient le `ViewportController`, donc elle sait
+  seule si un chargement est en vol ; elle n'en faisait rien. Le lui faire rendre évite de
+  rebrancher un second contrôleur à côté pour apprendre ce qu'elle sait déjà. Bénéficie aussi à
+  la voie déclarative des plugins.
+- **`MarkerLayerDecl`** — le contrat de rendu était recopié entre `Plugin.markerLayer` et le
+  catalogue ; une prop ajoutée à `MarkerLayer` devait l'être aux deux endroits. Un seul type
+  désormais, de forme identique : **aucune rupture** pour un plugin existant.
+
+Correctif au passage : `ViewportController` retombe son drapeau de chargement quand la requête
+en vol est **abandonnée** (source retirée, `dispose`). Il ne le rendait à `false` que pour la
+requête encore courante — un indicateur branché dessus tournait donc indéfiniment.
+
+**Aucune rupture.** `kind` est optionnel et vaut `'browse'` : toute source existante reste
+valide **sans un caractère à changer**, dans l'exemple comme chez un hôte. `actions` passe de la
+base commune à `CatalogBrowseSource` — sans effet, puisqu'une action reçoit le `CatalogItem`
+sur lequel elle porte et qu'une source à bascule n'a pas d'éléments. **Aucune clé de `labels`
+n'est ajoutée** : la ligne d'une bascule réutilise `catalog.add` / `catalog.remove` /
+`catalog.loading` avec le nom de la source en `{label}` — rien à retraduire côté hôte.
+
+Documentation : [CATALOG.md § 4](docs/fr/CATALOG.md) (FR et EN), avec le tableau de décision
+**bascule vs plugin** et l'avertissement `boundsMargin`. Les sections 4 à 9 sont renumérotées
+5 à 10 dans les deux langues, liens entrants corrigés.
+
 ### feat : effacer devient UNE seule chose — « Tout effacer » rejoint la gomme
 
 Trois commandes effaçaient, deux périmètres différents : après un « Tout effacer », la gomme

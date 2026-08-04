@@ -41,6 +41,13 @@ registre, hub, hooks) ; les plugins officiels vivent hors de la lib (§ 9).
 Un plugin **doit** fournir au moins l'un de `data`, `layer`, `enrichBuilding`,
 `setup` — sinon il n'apporte rien.
 
+> **Plugin ou source de catalogue à bascule ?** Les deux chargent des markers au
+> viewport. Un plugin est une **capacité tierce** packagée, versionnée et distribuée,
+> que l'utilisateur active depuis le hub ; une bascule de catalogue est un **jeu de
+> référence de l'application hôte**, à côté de ses autres jeux, sans packaging ni
+> versioning. Tableau de décision complet :
+> [CATALOG.md § 4.3](CATALOG.md#43-bascule-ou-plugin).
+
 ---
 
 ## 2. Anatomie d'un plugin

@@ -41,6 +41,12 @@ registry, hub, hooks); official plugins live outside the library (§ 9).
 A plugin **must** provide at least one of `data`, `layer`, `enrichBuilding`,
 `setup` — otherwise it does nothing.
 
+> **Plugin or catalog toggle source?** Both load markers from the viewport. A plugin is
+> a packaged, versioned, distributed **third-party capability** that users enable from
+> the hub; a catalog toggle is a **reference set of the host application**, sitting
+> beside its other sets, with no packaging and no versioning. Full decision table:
+> [CATALOG.md § 4.3](CATALOG.md#43-toggle-or-plugin).
+
 ---
 
 ## 2. Anatomy of a plugin

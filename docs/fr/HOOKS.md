@@ -139,7 +139,7 @@ catalog.clear()
 Sélection et gestes du catalogue : `selection`, `isShown`, `isPending`, `hasError`,
 `toggle`, `setMany`, `clear`, `shapes` (formes à passer à `<ShapeLayer>`). `side` réserve la
 marge de cadrage du côté où s'ouvre le panneau. Détail dans
-[CATALOG.md § 9](CATALOG.md#9-recettes).
+[CATALOG.md § 10](CATALOG.md#10-recettes).
 
 ### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 
