@@ -532,7 +532,7 @@ export { useBuildingEnrichment } from './react/hooks/useBuildingEnrichment'
 export type { BuildingEnrichment } from './react/hooks/useBuildingEnrichment'
 // `BuildingHit` / `BuildingInfo` sont déjà exportés (section Core).
 
-// ── Templates (sauvegardes de dessin : formes + main levée + symboles) ──
+// ── Templates (sauvegardes de dessin : formes + crayon + symboles) ──
 export { TemplateRegistry } from './core/templates/TemplateRegistry'
 export type { TemplateMutateOptions, TemplateDrawPort } from './core/templates/TemplateRegistry'
 export type {

@@ -573,7 +573,7 @@ export function App() {
           // La dock reste CONTRÔLÉE : `useFavorites` tient les ids et leur ordre.
           dock={dockProp}
           // Gestionnaire de templates (haut-droite) : sauvegardes de dessin (formes +
-          // main levée + symboles). Le toggle « API démo » de l'onglet Interface branche
+          // crayon + symboles). Le toggle « API démo » de l'onglet Interface branche
           // un provider in-memory dont la liste PRIME sur le localStorage, et dont un
           // template arrive en lecture seule (« partagé » par un autre utilisateur).
           templates={templatesProp}

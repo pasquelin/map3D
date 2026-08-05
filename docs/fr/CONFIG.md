@@ -159,7 +159,7 @@ partiel est une erreur de compilation.
 | `interaction.hubHitTolerancePx` | Tolérance de clic autour du socle d'une relation (le trait, lui, a la sienne). | `12` |
 | `interaction.repositionHitPx` | Cible cliquable du point au sol d'un marker repositionnable. Le point mesure 7 px : sans élargissement, l'attraper relève de l'adresse. La valeur vivait dans la feuille de styles (`::before`), donc hors de ce bloc alors qu'elle en est exactement — une tolérance de pointeur qu'un support tactile… | `22` |
 | `interaction.clickSuppressMs` | Filet temporel après un geste : durée pendant laquelle le `click` synthétique qui suit est avalé. Couplé à `longPressMs` — un contexte tactile qui allonge l'un doit pouvoir allonger l'autre. | `400` |
-| `interaction.freehandMinStepPx` | Décimation du tracé main levée (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
+| `interaction.freehandMinStepPx` | Décimation du tracé au crayon (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom du vol « Cibler » depuis un inventaire ou une liste. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom du vol au clic sur un favori du dock. | `16` |
 | `interaction.barMinScale` | Plancher de compactage d'une barre avant qu'elle ne passe en colonnes. | `0.85` |
@@ -202,7 +202,7 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.draw.polygon` | Polygone. | `'p'` |
 | `interaction.shortcuts.draw.rect` | Rectangle. | `'r'` |
 | `interaction.shortcuts.draw.circle` | Cercle. | `'c'` |
-| `interaction.shortcuts.draw.freehand` | Tracé main levée. ⚠️ Était `'d'`, désormais pris par le déplacement au clavier (ZQSD). | `'h'` |
+| `interaction.shortcuts.draw.freehand` | Crayon (tracé libre). ⚠️ Était `'d'`, désormais pris par le déplacement au clavier (ZQSD). | `'h'` |
 | `interaction.shortcuts.draw.arrow` | Flèche. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Règle de mesure. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Gomme. | `'e'` |

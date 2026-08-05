@@ -51,7 +51,7 @@ Montage manuel :
 | Polygone | `P` | clics successifs + `Entrée` pour fermer |
 | Rectangle | `R` | angles arrondis réglables |
 | Cercle | `C` | centre + rayon |
-| Main levée | `H` | tracé continu |
+| Crayon | `H` | tracé continu à main levée |
 | Flèche | `A` | polyligne + tête |
 | Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance — **parent d'un sous-menu** (cf. ci-dessous) |
 | Gomme | `E` | supprime au clic ou par marquee — **parent d'un sous-menu** (cf. ci-dessous) |
@@ -501,7 +501,7 @@ Défauts (`config.interaction.shortcuts.draw` et `.edit`) :
 | Touches | Action |
 |---|---|
 | `V` `1` `2` `3` | sélection, rectangle, polygone, lasso |
-| `L` `P` `R` `C` `H` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, main levée (`H`), flèche, mesure, gomme, symboles |
+| `L` `P` `R` `C` `H` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, crayon (`H`), flèche, mesure, gomme, symboles |
 | `Entrée` | fermer le polygone (dessin ou marquee) |
 | `Échap` | cascade : annule le geste en cours → marquee → désélectionne → outil navigation |
 

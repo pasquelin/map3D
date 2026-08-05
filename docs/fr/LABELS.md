@@ -107,7 +107,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `templates.defaultName` | Nom de repli d'un template sauvegardé sans nom. | `'template'` |
 | `templates.importedName` | Nom de repli d'un template importé sans nom. | `'Import'` |
 | `templates.category.shapes` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Formes'` |
-| `templates.category.freehand` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Main levée'` |
+| `templates.category.freehand` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Crayon'` |
 | `templates.category.symbols` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Symboles'` |
 | `templates.stats.pair` | Stats compactes : paire « libellé nombre ». | `'{label} {count}'` |
 | `templates.stats.bytes` | Stats compactes : gabarit de poids (`{count}`). | `'{count} o'` |
@@ -170,7 +170,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `tools.polygon` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Polygone'` |
 | `tools.rect` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Rectangle'` |
 | `tools.circle` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Cercle'` |
-| `tools.freehand` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Main levée'` |
+| `tools.freehand` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Crayon'` |
 | `tools.arrow` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Flèche'` |
 | `tools.measure` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Mesurer'` |
 | `tools.erase` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Effacer'` |

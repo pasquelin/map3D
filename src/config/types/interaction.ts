@@ -76,7 +76,7 @@ export type InteractionConfig = {
    * doit pouvoir allonger l'autre.
    */
   clickSuppressMs: number
-  /** Décimation du tracé main levée (plancher, en px). Pendant de `lassoMinStepPx`. */
+  /** Décimation du tracé au crayon (plancher, en px). Pendant de `lassoMinStepPx`. */
   freehandMinStepPx: number
   /** Zoom du vol « Cibler » depuis un inventaire ou une liste. */
   targetZoom: number
@@ -197,7 +197,7 @@ export type DrawToolShortcuts = {
   rect: string | false
   /** Cercle. */
   circle: string | false
-  /** Tracé main levée. */
+  /** Crayon (tracé libre). */
   freehand: string | false
   /** Flèche. */
   arrow: string | false

@@ -279,7 +279,7 @@ Modes de transport : `DRIVE`, `WALK`, `BICYCLE`, `TWO_WHEELER`, `TRANSIT`. Libel
 
 Un éditeur de formes complet façon Figma/Photoshop, drapé sur le terrain 3D (formes ancrées au sol, traits en px écran constants au zoom).
 
-**Dessin** : ligne, polygone (clics + Entrée), rectangle (angles arrondis réglables), cercle, main levée, flèche, règle (cote fine pointillée ⊢––⊣ avec label de distance), gomme.
+**Dessin** : ligne, polygone (clics + Entrée), rectangle (angles arrondis réglables), cercle, crayon (tracé libre), flèche, règle (cote fine pointillée ⊢––⊣ avec label de distance), gomme.
 
 **Sélection** (`V`) : clic simple (Maj+clic = ajout/retrait), ou marquee **rectangle** (`1`), **polygone** (`2`), **lasso** (`3`) — sous-menu au survol du bouton, sémantique « touche = sélectionné ». Contours en marching-ants noir/blanc (lisibles sur tout fond), bbox englobante en multi-sélection.
 
@@ -536,7 +536,7 @@ Remappable si une touche est déjà prise ailleurs dans votre app — même patt
 | Touche | Action |
 |---|---|
 | `V` | Sélectionner — `1` rectangle, `2` polygone, `3` lasso |
-| `L` `P` `R` `C` `H` `A` `M` `E` | Ligne, Polygone, Rectangle, Cercle, main levée (`H`), flèche (Arrow), Mesurer, gomme (Effacer) |
+| `L` `P` `R` `C` `H` `A` `M` `E` | Ligne, Polygone, Rectangle, Cercle, Crayon (`H`), flèche (Arrow), Mesurer, gomme (Effacer) |
 | `Espace` (maintenir) | Pan caméra temporaire (dessin gelé, pas perdu) — `Espace+Maj` = rotation caméra |
 | `Maj` + glisser | Rotation de la forme (corps) / homothétie (poignée de coin) |
 | `⌘Z` / `⌘⇧Z` (`Ctrl` ailleurs) | Annuler / Rétablir (création, édition, style, suppression) |

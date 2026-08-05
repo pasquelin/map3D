@@ -115,7 +115,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `templates.defaultName` | Fallback name of a template saved without a name. | `'template'` |
 | `templates.importedName` | Fallback name of a template imported without a name. | `'Import'` |
 | `templates.category.shapes` | Label of a saveable category (checkbox + stats — count-invariant). | `'Formes'` |
-| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Main levée'` |
+| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Crayon'` |
 | `templates.category.symbols` | Label of a saveable category (checkbox + stats — count-invariant). | `'Symboles'` |
 | `templates.stats.pair` | Compact stats: “label count” pair. | `'{label} {count}'` |
 | `templates.stats.bytes` | Compact stats: weight template (`{count}`). | `'{count} o'` |
@@ -178,7 +178,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `tools.polygon` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Polygone'` |
 | `tools.rect` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Rectangle'` |
 | `tools.circle` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Cercle'` |
-| `tools.freehand` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Main levée'` |
+| `tools.freehand` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Crayon'` |
 | `tools.arrow` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Flèche'` |
 | `tools.measure` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Mesurer'` |
 | `tools.erase` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Effacer'` |

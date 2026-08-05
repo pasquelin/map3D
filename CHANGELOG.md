@@ -6,6 +6,18 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### change : l'outil « Main levée » s'appelle désormais « Crayon »
+
+Le terme « main levée » est déjà pris ailleurs, avec un autre sens, dans les applications
+qui intègrent la lib — deux objets sans rapport portaient le même nom à l'écran. Et en deux
+mots, le libellé passait sur **deux lignes** dans la rangée de catégories du gestionnaire de
+templates, seul de sa rangée. « Crayon » lève l'ambiguïté et tient sur une ligne.
+
+Changement de **libellé par défaut FR uniquement** : `labels.tools.freehand` et
+`labels.templates.category.freehand` valent `'Crayon'` au lieu de `'Main levée'`. **Aucune
+rupture d'API** — la clé reste `freehand`, le raccourci reste `H` (`'c'` est pris par le
+cercle), et un hôte qui redéfinit ces libellés via `labels` n'est pas concerné.
+
 ### fix : un menu de la barre à dessin se referme quand la barre se replie
 
 En dézoomant sous `toolbar.minZoom`, la barre glisse hors écran — mais son menu ouvert

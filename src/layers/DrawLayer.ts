@@ -288,7 +288,7 @@ const DRAW_SELECTED_LIFT = 100000
 /**
  * Outils de dessin sur le globe : formes stockées en lat/lng et drapées en plan
  * tangent (ENU). Le picking renvoie directement des lat/lng (intersection
- * ellipsoïde). Ligne, polygone (clics + Entrée), rectangle, cercle, main levée,
+ * ellipsoïde). Ligne, polygone (clics + Entrée), rectangle, cercle, crayon (tracé libre),
  * flèche, mesure (label ancré), gomme, annuler, tout effacer, GeoJSON in/out.
  */
 export class DrawLayer implements Layer {
