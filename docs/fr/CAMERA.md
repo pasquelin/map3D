@@ -346,7 +346,7 @@ aucune tuile n'est disponible : la carte reste une carte même sans réseau ni t
 
 Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
 `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `catalog`, `fullscreen`.
-Groupes : `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
+Groupes : `drag`, `compass`, `layers`, `target`, `pedestrian`, `zoom`, `fullscreen`.
 
 `catalog` (catalogue d'entités distantes, cf. [CATALOG.md](CATALOG.md)) partage le
 groupe `layers` avec « Couches ».

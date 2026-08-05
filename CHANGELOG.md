@@ -6,6 +6,18 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### change : nouvel ordre des groupes de la barre de navigation
+
+De haut en bas : `drag`, `compass`, **`layers`**, **`target`**, `pedestrian`, **`zoom`**,
+`fullscreen`. Le zoom descend au contact du plein écran — geste le plus répété, donc le plus
+près du bord bas, et les deux seuls groupes qui n'ouvrent aucune surface se retrouvent
+ensemble. Les couches / catalogue / templates remontent juste après le point de vue, suivies
+du retour au point de contrôle : on choisit ce que la carte montre, on y revient, puis on
+descend s'y promener.
+
+Réordonnancement **visuel uniquement**. Les clés de `components` et de `buttons` ne changent
+pas, les raccourcis non plus ; un hôte qui remplace un groupe le retrouve à sa nouvelle place.
+
 ### change : l'outil « Main levée » s'appelle désormais « Crayon »
 
 Le terme « main levée » est déjà pris ailleurs, avec un autre sens, dans les applications

@@ -340,7 +340,7 @@ tile is available: the map stays a map even without network or token.
 
 Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
 `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `catalog`, `fullscreen`.
-Groups: `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
+Groups: `drag`, `compass`, `layers`, `target`, `pedestrian`, `zoom`, `fullscreen`.
 
 `catalog` (remote entity catalog, see [CATALOG.md](CATALOG.md)) shares the `layers`
 group with “Layers”.

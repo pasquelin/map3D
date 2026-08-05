@@ -593,7 +593,7 @@ useMapDropZone<Icone>({
 <MapControls buttons={{ rotate: false, zoomOut: false, globe: false }} />
 ```
 
-Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`, `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`. Le groupe `compass` réunit tout le point de vue (boussole, inclinaison, bascule `mode3d`, trafic, globe, grille) : plus de groupe `view` ni `basemap` séparé. `mode3d` est une bascule — allumé en 3D, l'éteindre repasse au plan 2D, il n'y a plus de bouton « Plan » distinct.
+Boutons : `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`, `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen` — groupes : `drag`, `compass`, `layers`, `target`, `pedestrian`, `zoom`, `fullscreen`. Le groupe `compass` réunit tout le point de vue (boussole, inclinaison, bascule `mode3d`, trafic, globe, grille) : plus de groupe `view` ni `basemap` séparé. `mode3d` est une bascule — allumé en 3D, l'éteindre repasse au plan 2D, il n'y a plus de bouton « Plan » distinct.
 
 #### Bouton « revenir à la cible »
 
