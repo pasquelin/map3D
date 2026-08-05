@@ -399,7 +399,7 @@ export function MapControls({
               />
             )}
             {/* Grille de coordonnées. Présente ICI en plus du sous-menu « Mesures » de la
-                barre d'outils parce que celle-ci se replie sous `toolbar.minZoom` (11) :
+                barre d'outils parce que celle-ci se replie sous `toolbar.minZoom` :
                 sans ce bouton, la grille deviendrait impilotable en vue globe — exactement
                 là où elle sert le plus. Les deux pilotent le même état moteur. */}
             {btn('graticule') && (

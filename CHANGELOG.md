@@ -6,6 +6,34 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### fix : un menu de la barre à dessin se referme quand la barre se replie
+
+En dézoomant sous `toolbar.minZoom`, la barre glisse hors écran — mais son menu ouvert
+restait, **seul au milieu de la carte**, sans le bouton qui l'avait ouvert ni rien pour le
+refermer, et il rouvrait tel quel au retour. Les sous-menus de survol tenaient déjà cette
+règle ; les menus ne l'avaient jamais eue.
+
+`<Dropdown>` s'y raccroche désormais lui-même, donc **tous** en héritent (style, réglages,
+symboles, catalogue, filtre de tags). Un `useCloseAnyDropdown` existait pour ça, sans aucun
+appelant : il fermait la surface ouverte *quelle qu'elle soit*, y compris celle d'une autre
+barre que le repli ne concerne pas. Il est remplacé et retiré.
+
+Au passage, `ToolbarApi` / `useToolbar` rejoignent les autres contextes (`react/context`) :
+`<Dropdown>` doit lire celui de la barre, et la barre importe `<Dropdown>` — c'est ce cycle
+qui avait fait renoncer la première fois. L'API publique ne bouge pas (`<Toolbar>` les
+ré-exporte).
+
+### ⚠️ Défaut changé — la barre de dessin se replie sous le zoom 5, non plus 11
+
+À 11, elle disparaissait dès qu'on quittait l'échelle de la rue — alors qu'on trace aussi
+des emprises régionales, et que le repli est là pour un seul cas : la vue globe, où
+dessiner n'a pas de sens. `config.toolbar.minZoom` (ou la prop `<Toolbar minZoom>`)
+rétablit l'ancien seuil en une ligne.
+
+L'exemple ne fige plus sa propre valeur : il lit `defaultConfig.toolbar.minZoom`. Il
+passait `11` en prop, laquelle prime sur la config — le défaut de la lib pouvait donc
+changer sans que la démo ne bouge d'un pixel.
+
 ### feat : catalogue — régime « index », pour un référentiel que l'hôte peint déjà
 
 La ligne d'une source de parcours portait une case **inconditionnellement**. Or une

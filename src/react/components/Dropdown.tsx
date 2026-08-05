@@ -11,11 +11,11 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useMapContext } from '../context'
+import { useMapContext, useToolbar } from '../context'
 import { useAnchoredPortal } from './panelFit'
 import { plainKey } from './shortcuts'
 import { ToolButton, type BarTip } from './ToolButton'
-import { useDismiss } from './useDismiss'
+import { useCloseWhenHidden, useDismiss } from './useDismiss'
 
 /**
  * Pose un raccourci à lettre seule qui bascule un `Dropdown` via son `toggleRef`.
@@ -53,19 +53,6 @@ type DropdownRegistry = {
   openId: string | null
   /** Ouvre (et referme tout le reste), ou referme si `null`. */
   setOpenId: (id: string | null) => void
-}
-
-/**
- * Referme la surface ouverte, quelle qu'elle soit.
- *
- * Un seul point de fermeture globale : la barre qui se replie relâche déjà l'outil actif
- * et la loupe, elle relâche aussi ce qu'elle a d'ouvert. Le faire ici plutôt que dans
- * chaque surface évite qu'une nouvelle surface oublie de s'y raccrocher — et évite
- * surtout que `Dropdown` importe `useToolbar`, ce qui boucle (la barre le consomme).
- */
-export function useCloseAnyDropdown(): () => void {
-  const registry = useContext(DropdownContext)
-  return useCallback(() => registry?.setOpenId(null), [registry])
 }
 
 const DropdownContext = createContext<DropdownRegistry | null>(null)
@@ -229,6 +216,9 @@ export function Dropdown({
   )
   const also = useCallback(() => [...subs].map((r) => r.current), [subs])
   useDismiss(zones, open, close, { also })
+  // La barre qui se replie emporte ses menus : sans ça, le panneau restait seul au milieu
+  // de la carte, sans le bouton qui l'a ouvert ni rien pour le refermer.
+  useCloseWhenHidden(useToolbar().retracted, close)
   if (toggleRef) toggleRef.current = () => setOpen(!open)
 
   // Publié depuis un EFFET, pas pendant le clic : l'hôte (palette de symboles) réagit à

@@ -3526,7 +3526,9 @@ shortcut never depends on the bar, and explicit hiding through `components` stil
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
 left armed would keep intercepting gestures, so that zooming out would leave you
-drawing shapes on a map where no button lets you stop.
+drawing shapes on a map where no button lets you stop. **Its menus close with it** — a
+panel left alone in the middle of the map, without the button that opened it, would have
+nothing left to close it.
 
 ### Putting your own tool in the bar
 
@@ -3534,7 +3536,7 @@ drawing shapes on a map where no button lets you stop.
 const bar = useToolbar()
 const [open, setOpen] = useState(false)
 
-useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
+useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself (not needed with <Dropdown>)
 
 <ToolButton
   icon={mdiChartBox}
@@ -6486,7 +6488,7 @@ resettle — a cost out of proportion with what the grid provides.
 ## 8. In the interface
 
 The grid is driven from the **view controls**, not from the toolbar: the latter **retracts below
-zoom 11** (`toolbar.minZoom`), whereas the grid is precisely what you want in globe
+zoom 5** (`toolbar.minZoom`), whereas the grid is precisely what you want in globe
 view. A button that vanishes where the feature becomes useful is not a button.
 
 **The button**, in the `compass` group, next to "Globe":
@@ -6542,7 +6544,7 @@ Hard guard rails, to lower only on very weak machines: `maxLines` (64 per axis),
 - **Meridians stop at `latLimitDeg`** (85° by default): beyond it they converge and the
   vertex density explodes for an unreadable result.
 - **No line hovering**: only labels react to the pointer.
-- **Below zoom 11**, the toolbar being retracted, the grid is driven from the view-controls
+- **Below zoom 5**, the toolbar being retracted, the grid is driven from the view-controls
   button, the shortcut or the API (see §8).
 
 ---
@@ -8862,7 +8864,7 @@ shares its scope: it appears and disappears with it, with no key of its own.
 
 | Key | Description | Default |
 |---|---|---|
-| `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
+| `toolbar.minZoom` | Zoom below which the bar retracts — below it, drawing no longer makes sense (globe view). | `5` |
 | `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
 | `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |
 
@@ -9939,7 +9941,7 @@ Drawing toolbar.
 | Prop | Description | Default |
 |---|---|---|
 | `position` | Anchoring side of the bar. | `'left'` |
-| `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.toolbar.minZoom` |
+| `minZoom` | Minimum display zoom; below it the bar slides off screen, taking its menus with it. Rationale and default: [`config.toolbar.minZoom`](CONFIG.md). | `config.toolbar.minZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
 | `eraseModes` | Modes offered by the eraser flyout (default: point + marquee); a single one = no flyout. | — |

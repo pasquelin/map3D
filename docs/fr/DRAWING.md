@@ -544,7 +544,8 @@ masquage explicite par `components` reste prioritaire.
 **La barre qui se replie relâche tout ce qu'elle pilote** et revient à la main : un
 outil resté armé continuerait d'intercepter les gestes, si bien qu'en dézoomant on se
 retrouverait à tracer des formes sur une carte où plus aucun bouton ne permet d'en
-sortir.
+sortir. **Ses menus se referment avec elle** — un panneau resté seul au milieu de la
+carte, sans le bouton qui l'a ouvert, n'aurait plus rien pour le refermer.
 
 ### Poser son propre outil dans la barre
 
@@ -552,7 +553,7 @@ sortir.
 const bar = useToolbar()
 const [open, setOpen] = useState(false)
 
-useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer
+useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer (inutile avec <Dropdown>)
 
 <ToolButton
   icon={mdiChartBox}

@@ -377,7 +377,8 @@ export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar, useToolbar } from './react/components/Toolbar'
 export type { DrawToolbarProps, DrawToolbarSection, ToolbarApi } from './react/components/Toolbar'
-/** Referme la surface d'un outil quand la barre qui le porte se replie (cf. `useToolbarRetracted`). */
+/** Referme la surface d'un outil quand la barre qui le porte se replie (`useToolbar().retracted`).
+ *  Inutile dans un `<Dropdown>` : il s'y raccroche déjà. */
 export { useCloseWhenHidden } from './react/components/useDismiss'
 /** Bouton de barre (icône + état + tooltip) — pour peupler `extraTools` / `components`
  *  avec le même langage visuel que les boutons natifs. */

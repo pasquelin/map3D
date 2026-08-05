@@ -540,7 +540,9 @@ shortcut never depends on the bar, and explicit hiding through `components` stil
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
 left armed would keep intercepting gestures, so that zooming out would leave you
-drawing shapes on a map where no button lets you stop.
+drawing shapes on a map where no button lets you stop. **Its menus close with it** — a
+panel left alone in the middle of the map, without the button that opened it, would have
+nothing left to close it.
 
 ### Putting your own tool in the bar
 
@@ -548,7 +550,7 @@ drawing shapes on a map where no button lets you stop.
 const bar = useToolbar()
 const [open, setOpen] = useState(false)
 
-useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
+useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself (not needed with <Dropdown>)
 
 <ToolButton
   icon={mdiChartBox}

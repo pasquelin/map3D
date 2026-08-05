@@ -7,10 +7,11 @@ import {
   mdiUndo,
 } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, EraseMode, MeasureTool, SelectMode } from '../../layers/DrawLayer'
-import { LensContext, useConfig, useLabels, useMapContext } from '../context'
+import { LensContext, ToolbarContext, useConfig, useLabels, useMapContext, useToolbar } from '../context'
+import type { ToolbarApi } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
 import { DropdownSurface, useYieldsToDropdown } from './Dropdown'
@@ -46,7 +47,7 @@ export type DrawToolbarSection =
 export type DrawToolbarProps = {
   /** Côté d'ancrage de la barre. */
   position?: 'left' | 'right'
-  /** Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. */
+  /** Zoom minimal d'affichage ; en deçà la barre glisse hors écran, en emportant ses menus. */
   minZoom?: number
   /** Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). */
   tools?: DrawTool[]
@@ -74,65 +75,10 @@ export type DrawToolbarProps = {
 /** Id du `<Tooltip>` partagé de la barre — réutilisable par les outils externes. */
 export const TIP_ID = 'm3d-draw-tip'
 
-/**
- * Ce qu'un outil doit savoir de la barre qui le porte. Consommé par les outils natifs
- * ET par ceux que l'application pose dans `extraTools` / `components` : sans ça, un
- * outil applicatif ne peut ni se refermer quand la barre se replie, ni participer à
- * l'exclusivité — d'où deux boutons allumés à la fois, et une barre qui ne dit plus
- * où on en est.
- */
-export type ToolbarApi = {
-  /** La barre est repliée (hors zoom, cf. `minZoom`) : plus rien n'y est atteignable. */
-  retracted: boolean
-  /** Une surface NATIVE tient la main : outil de tracé, loupe ou palette de symboles. */
-  nativeActive: boolean
-  /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
-  claim: () => void
-  /**
-   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre. Une surface sans ancre se
-   * centre verticalement : elle ne se pose jamais au niveau de la barre comme les autres.
-   */
-  el: HTMLElement | null
-  /**
-   * Le bouton de l'outil ACTIF, pour une surface qui se rapporte à CET outil-là : elle
-   * s'ouvre à sa hauteur plutôt qu'en haut de la barre. `null` si aucun outil n'est actif.
-   */
-  activeToolEl: HTMLElement | null
-  /**
-   * Publier son bouton comme ancre de l'outil actif — à passer en `ref` d'un `ToolButton`
-   * quand il porte l'outil courant, `null` sinon. Indispensable aux items qui vivent HORS
-   * de la boucle `tools.map` (les sous-menus), qu'elle ne peut pas publier pour eux.
-   */
-  publishActiveTool: (el: HTMLElement | null) => void
-}
-
-const ToolbarContext = createContext<ToolbarApi>({
-  retracted: false,
-  nativeActive: false,
-  claim: () => {},
-  el: null,
-  activeToolEl: null,
-  publishActiveTool: () => {},
-})
-
-/**
- * État de la barre d'outils, pour un outil qui y vit.
- *
- * Le contrat d'un outil applicatif est celui des outils natifs, en deux lignes :
- *
- * ```tsx
- * const bar = useToolbar()
- * const [open, setOpen] = useState(false)
- * // se refermer quand la barre se replie OU qu'un outil natif prend la main
- * useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
- * // …et éteindre les autres en s'ouvrant
- * <ToolButton active={open} onClick={() => { if (!open) bar.claim(); setOpen(!open) }} />
- * ```
- *
- * Hors d'une `<Toolbar>`, tout est inerte : un bouton monté seul n'a personne à qui
- * céder la main.
- */
-export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
+// Le contexte vit avec les autres (`react/context`) : `Dropdown` doit le lire pour se
+// refermer quand la barre se replie, et la barre importe `Dropdown`. Ré-exporté ici parce
+// que c'est `<Toolbar>` que l'API publique déclare.
+export { useToolbar, type ToolbarApi }
 
 /**
  * Châssis d'un SOUS-MENU DE SURVOL de la barre (sélecteur, mesures).

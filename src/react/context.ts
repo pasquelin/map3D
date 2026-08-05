@@ -270,6 +270,70 @@ export type LensApi = {
 
 export const LensContext = createContext<LensApi | null>(null)
 
+/**
+ * Ce qu'un outil doit savoir de la barre qui le porte. Consommé par les outils natifs
+ * ET par ceux que l'application pose dans `extraTools` / `components` : sans ça, un
+ * outil applicatif ne peut ni se refermer quand la barre se replie, ni participer à
+ * l'exclusivité — d'où deux boutons allumés à la fois, et une barre qui ne dit plus
+ * où on en est.
+ */
+export type ToolbarApi = {
+  /** La barre est repliée (hors zoom, cf. `minZoom`) : plus rien n'y est atteignable. */
+  retracted: boolean
+  /** Une surface NATIVE tient la main : outil de tracé, loupe ou palette de symboles. */
+  nativeActive: boolean
+  /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
+  claim: () => void
+  /**
+   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre. Une surface sans ancre se
+   * centre verticalement : elle ne se pose jamais au niveau de la barre comme les autres.
+   */
+  el: HTMLElement | null
+  /**
+   * Le bouton de l'outil ACTIF, pour une surface qui se rapporte à CET outil-là : elle
+   * s'ouvre à sa hauteur plutôt qu'en haut de la barre. `null` si aucun outil n'est actif.
+   */
+  activeToolEl: HTMLElement | null
+  /**
+   * Publier son bouton comme ancre de l'outil actif — à passer en `ref` d'un `ToolButton`
+   * quand il porte l'outil courant, `null` sinon. Indispensable aux items qui vivent HORS
+   * de la boucle `tools.map` (les sous-menus), qu'elle ne peut pas publier pour eux.
+   */
+  publishActiveTool: (el: HTMLElement | null) => void
+}
+
+/** ⚠️ Défaut INERTE : un bouton monté hors `<Toolbar>` n'a personne à qui céder la main,
+ *  et `retracted: false` garantit qu'aucune surface d'une autre barre ne se referme. */
+export const ToolbarContext = createContext<ToolbarApi>({
+  retracted: false,
+  nativeActive: false,
+  claim: () => {},
+  el: null,
+  activeToolEl: null,
+  publishActiveTool: () => {},
+})
+
+/**
+ * État de la barre d'outils, pour un outil qui y vit.
+ *
+ * Le contrat d'un outil applicatif est celui des outils natifs, en deux lignes :
+ *
+ * ```tsx
+ * const bar = useToolbar()
+ * const [open, setOpen] = useState(false)
+ * // se refermer quand la barre se replie OU qu'un outil natif prend la main
+ * useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
+ * // …et éteindre les autres en s'ouvrant
+ * <ToolButton active={open} onClick={() => { if (!open) bar.claim(); setOpen(!open) }} />
+ * ```
+ *
+ * Un `<Dropdown>` n'a pas la première ligne à écrire — il s'y raccroche déjà.
+ *
+ * Hors d'une `<Toolbar>`, tout est inerte : un bouton monté seul n'a personne à qui
+ * céder la main.
+ */
+export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
+
 /** API du moteur de relations exposée par `<RelationLayer>`. */
 export type RelationApi = {
   /** Règles déclarées par l'application — le seul endroit où vit le métier. */
