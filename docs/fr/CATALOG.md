@@ -403,8 +403,23 @@ children: async (id, { signal }) => {
 La case d'un agrégat est alors **dérivée de ses enfants** : tous affichés → cochée ;
 aucun → décochée ; une partie → **indéterminée**. Cocher l'agrégat coche ses enfants (en
 les chargeant s'il le faut, même replié) ; en décocher un le fait passer en indéterminé.
-L'agrégat lui-même n'entre pas dans la sélection — sinon la même zone serait comptée deux
-fois et un décochage d'enfant ne dirait rien.
+
+**L'agrégat n'entre JAMAIS dans la sélection — il n'est qu'un sélecteur de ses enfants.**
+La règle vaut pour tous les gestes, la case comme le clic sur le nom : ce dernier affiche
+(ou retire) les enfants et cadre leur union. Une clé d'agrégat en sélection peindrait ses
+zones une seconde fois par-dessus celles de ses enfants, compterait double dans le badge,
+et survivrait à un décochage qui ne porte que sur les enfants.
+
+**Ce qui est affiché se voit sans déplier.** Un agrégat dont une partie des éléments est
+sur la carte porte son compte — « 2/3 » (`labels.catalog.groupCount`) —, et chaque ligne du
+menu des types porte le nombre d'éléments qu'elle a d'affichés. On repère donc ce qui est
+actif en balayant une liste repliée, sans ouvrir chaque groupe. L'appartenance est retenue
+dès que les enfants ont été chargés une fois, et **persistée avec la sélection** : rouvrir
+le panneau ne redemande rien à votre source.
+
+> ⚠️ Si vos agrégats annonçaient leur nombre d'enfants par un `badge`, retirez-le : la lib
+> écrit déjà `2/3`, et les deux côte à côte donnent « 3/3 3 ». Un badge reste le bon outil
+> pour ce que la lib ignore — un état métier, une alerte.
 
 **Un seul niveau de descente.** `children` s'applique aux racines ; un petit-enfant n'est
 pas inséré. Le besoin (groupe → zones) est plat, et la récursion exigerait une pagination

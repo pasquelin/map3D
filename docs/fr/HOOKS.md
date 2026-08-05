@@ -137,10 +137,16 @@ catalog.clear()
 ```
 
 Sélection et gestes du catalogue : `selection`, `isShown`, `isPending`, `hasError`,
-`toggle`, `setMany`, `clear`, `shapes` (formes à passer à `<ShapeLayer>`), `markers` (points
-posés par les éléments affichés) et `toggleSource(id, on?)` (allume/éteint un jeu à
-bascule). `side` réserve la marge de cadrage du côté où s'ouvre le panneau. Détail dans
-[CATALOG.md § 10](CATALOG.md#10-recettes).
+`toggle`, `setMany(source, items, shown, { fit })`, `clear`, `shapes` (formes à passer à
+`<ShapeLayer>`), `markers` (points posés par les éléments affichés) et
+`toggleSource(id, on?)` (allume/éteint un jeu à bascule). `side` réserve la marge de cadrage
+du côté où s'ouvre le panneau. Détail dans [CATALOG.md § 10](CATALOG.md#10-recettes).
+
+Pour les **agrégats** (cf. [CATALOG.md § 5.2](CATALOG.md#52-agrégats-et-enfants)) :
+`rememberGroup(source, parentId, children)` retient de quoi un groupe est fait — c'est ce
+qui permet à sa case d'être juste une fois repliée, et après réouverture du panneau —, et
+`groupState(parentKey)` en rend l'état dérivé (`{ state, shown, total }`). Un agrégat
+n'entre jamais dans la sélection.
 
 ⚠️ Pour **lire** l'état d'un jeu à bascule, c'est `useCatalogToggle` ci-dessous — pas
 `useCatalog()`, qui rend un objet neuf à chaque mutation du catalogue et re-rendrait donc
@@ -158,6 +164,19 @@ const { on, loading, toggle } = useCatalogToggle('defibs')
 
 `loading` dit qu'une requête est **en vol**, jamais un nombre d'éléments chargés — cf.
 [CATALOG.md § 4.2](CATALOG.md#42-le-volume-chargé-nest-pas-le-volume-affiché).
+
+### `useCatalogSourceCount(id: string): number`
+
+Combien d'éléments de CETTE source sont sur la carte — le compte que la lib affiche sur
+chaque ligne du menu des types. Instantané **scalaire**, comme `useCatalogToggle` : la ligne
+ne se re-rend que quand son chiffre bouge.
+
+```tsx
+const shown = useCatalogSourceCount('zone-groups')
+```
+
+⚠️ Jamais sur une source à **bascule** : ce qu'elle charge dépasse structurellement ce qui
+est visible (cf. [CATALOG.md § 4.2](CATALOG.md#42-le-volume-chargé-nest-pas-le-volume-affiché)).
 
 ### `useCatalogClear(): () => void`
 

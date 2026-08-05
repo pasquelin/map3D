@@ -1,6 +1,14 @@
 import type { MarkerData } from '../data/types'
 import type { ShapeData } from '../layers/ShapeLayer'
-import { deserializeSnapshot, purgeSources, removeFromSelection, serializeSnapshot } from './selection'
+import {
+  deserializeSnapshot,
+  parseCatalogKey,
+  purgeGroups,
+  purgeSources,
+  removeFromSelection,
+  serializeSnapshot,
+} from './selection'
+import { groupCheck, NO_GROUP_CHECK, type GroupCheck } from './groups'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { CatalogKey } from './types'
 
@@ -145,6 +153,23 @@ export class CatalogStore {
    */
   private enabled = new Set<string>()
   /**
+   * Quels éléments composent quel agrégat — persistée avec la sélection.
+   *
+   * Un agrégat n'entre JAMAIS dans `selectionKeys` : il n'est qu'un sélecteur de ses
+   * enfants. Sa case doit pourtant savoir où ils en sont, y compris replié et y compris à
+   * la réouverture du panneau — d'où cette table, alimentée dès que les enfants sont
+   * chargés (dépliage ou cochage), sans une requête de plus.
+   */
+  private groups = new Map<CatalogKey, readonly CatalogKey[]>()
+  /**
+   * Éléments affichés PAR SOURCE — dérivée de `selectionKeys`, invalidée par `bump`.
+   *
+   * Un seul point d'invalidation, et c'est celui par lequel passe toute mutation : un
+   * compteur incrémental tenu à jour dans les six méthodes d'écriture aurait dérivé au
+   * premier oubli, sans rien casser de visible tout de suite.
+   */
+  private countsBySource: ReadonlyMap<string, number> | null = null
+  /**
    * Bascules dont un chargement est EN VOL — jamais persisté : c'est un état de la
    * seconde qui passe, pas une préférence.
    */
@@ -207,7 +232,12 @@ export class CatalogStore {
     // laissée par une session précédente ressusciterait un réglage qu'on a désactivé.
     // Une seule lecture, un seul parse : les trois champs viennent de la même charge.
     const snap = this.settings.persist ? deserializeSnapshot(readStoredJSON(keys.selection)) : null
-    this.selectionKeys = snap?.keys ?? []
+    this.groups = new Map(snap?.groups)
+    // Une clé d'AGRÉGAT n'a rien à faire en sélection (cf. `rememberGroup`). Une session
+    // enregistrée avant cette règle en porte : la restaurer repeindrait les zones du groupe
+    // par-dessus celles de ses enfants, et laisserait une case que rien ne décoche. On
+    // l'écarte ici dès qu'on sait que c'en est un — le reste de la sélection est intact.
+    this.selectionKeys = (snap?.keys ?? []).filter((k) => !this.groups.has(k))
     this.titles = new Map(snap?.titles)
     // Les bascules sont dans leur propre champ : elles ne passent NI par `shown` (aucune
     // clé d'élément) NI par `toRestore` (rien à redemander — c'est la couche qui
@@ -262,6 +292,48 @@ export class CatalogStore {
 
   isShown(key: CatalogKey): boolean {
     return this.shown.has(key)
+  }
+
+  /**
+   * État de la case d'un agrégat, dérivé de ses enfants — `off` tant qu'on ignore de quoi
+   * il est fait.
+   *
+   * C'est ce qui rend une ligne REPLIÉE lisible : sans elle, la liste retombait sur
+   * l'état de l'agrégat lui-même, lequel n'est jamais sélectionné — donc toujours décoché,
+   * quel que soit le sort de ses zones.
+   */
+  groupState(parentKey: CatalogKey): GroupCheck {
+    const children = this.groups.get(parentKey)
+    return children ? groupCheck(children, (k) => this.shown.has(k)) : NO_GROUP_CHECK
+  }
+
+  /** Enfants connus d'un agrégat, ou `undefined` si son contenu n'a jamais été chargé. */
+  groupChildren(parentKey: CatalogKey): readonly CatalogKey[] | undefined {
+    return this.groups.get(parentKey)
+  }
+
+  /**
+   * Combien d'éléments de cette source sont sur la carte — le compte du MENU des types.
+   *
+   * Sans lui, rien n'indiquait d'un niveau à l'autre où se trouvait ce qui est affiché : il
+   * fallait ouvrir chaque type, puis déplier chaque agrégat, pour retrouver trois zones
+   * cochées. Le total annoncé par la source (`CatalogSource.total`), lui, ne dit rien de
+   * l'état — c'est la taille du jeu de référence.
+   *
+   * Table dérivée EN UNE passe et mémoïsée jusqu'à la prochaine mutation : appelée par
+   * ligne de menu, elle rebalayait sinon toute la sélection autant de fois qu'il y a de
+   * sources.
+   */
+  shownCountOf(sourceId: string): number {
+    if (this.countsBySource === null) {
+      const counts = new Map<string, number>()
+      for (const key of this.selectionKeys) {
+        const parsed = parseCatalogKey(key)
+        if (parsed) counts.set(parsed.sourceId, (counts.get(parsed.sourceId) ?? 0) + 1)
+      }
+      this.countsBySource = counts
+    }
+    return this.countsBySource.get(sourceId) ?? 0
   }
 
   /** Sa géométrie est-elle déjà en mémoire ? Faux pour une clé restaurée non rechargée. */
@@ -413,6 +485,40 @@ export class CatalogStore {
   }
 
   /**
+   * Retient de quoi un agrégat est fait — et le SORT de la sélection s'il y était.
+   *
+   * Le retrait n'est pas un détail de rangement : un agrégat inscrit peignait ses zones une
+   * seconde fois, par-dessus celles de ses enfants, et sa clé survivait au décochage (le
+   * geste ne porte que sur les enfants) — badge faux, carte doublée, case recochée seule à
+   * la réouverture. Plus rien ne l'inscrit désormais ; ce nettoyage rattrape les sessions
+   * enregistrées AVANT, sans jeter le reste de leur sélection. Il a lieu au premier contact
+   * avec l'agrégat, dépliage compris.
+   *
+   * Rend `true` si la sélection a bougé — l'appelant repeint la carte, et lui seul sait
+   * s'il doit.
+   */
+  rememberGroup(parentKey: CatalogKey, childKeys: readonly CatalogKey[]): boolean {
+    const strayed = this.shown.has(parentKey)
+    // Réapprendre à l'identique n'est PAS un changement : un dépliage suffit à repasser
+    // ici, et notifier pour la même réponse re-rendrait tous les abonnés du store.
+    if (!strayed && this.knowsGroup(parentKey, childKeys)) return false
+    this.groups.set(parentKey, childKeys)
+    // `remove` persiste et notifie déjà — l'appeler ici évite une seconde écriture.
+    if (strayed) this.remove(parentKey)
+    else {
+      this.persistSelection()
+      this.bump()
+    }
+    return strayed
+  }
+
+  /** Cet agrégat est-il déjà connu, avec exactement ces enfants dans cet ordre ? */
+  private knowsGroup(parentKey: CatalogKey, childKeys: readonly CatalogKey[]): boolean {
+    const known = this.groups.get(parentKey)
+    return known !== undefined && known.length === childKeys.length && known.every((k, i) => k === childKeys[i])
+  }
+
+  /**
    * Pose le contenu d'un LOT en une passe.
    *
    * `rebuildShapes` est en O(formes totales) et chaque `bump` redescend jusqu'à
@@ -483,6 +589,12 @@ export class CatalogStore {
    *
    * Les bascules partent AVEC les éléments cochés. Les épargner laisserait des milliers
    * de points sur une carte qu'on vient de demander à vider — le bouton dit « tout ».
+   *
+   * `groups` reste, DÉLIBÉRÉMENT, seule table à survivre ici : ce n'est pas de l'état
+   * affiché mais un index de ce que la source a déjà répondu. Vidée, le prochain dépliage
+   * repartirait en requête pour réapprendre ce qu'on savait. Rien n'en fuit à l'écran —
+   * sans enfant affiché, la case est décochée et le compte muet — ni dans le stockage, où
+   * seuls les agrégats ayant un enfant sur la carte sont écrits (cf. `serializeSnapshot`).
    */
   clear(): void {
     if (this.selectionKeys.length === 0 && this.geometries.size === 0 && this.enabled.size === 0) return
@@ -520,9 +632,15 @@ export class CatalogStore {
       touchedSources = true
     }
     const kept = purgeSources(this.selectionKeys, known)
-    // Rien de part ni d'autre : on ressort SANS notifier, pour ne pas rendre une frame à
+    // L'appartenance part avec sa source : gardée, elle ferait afficher un compte « 2/3 »
+    // sur des enfants que plus aucune source ne sait charger, et grossirait la charge
+    // persistée à chaque plugin passé par là.
+    const keptGroups = purgeGroups(this.groups, known)
+    const touchedGroups = keptGroups !== this.groups
+    if (touchedGroups) this.groups = keptGroups
+    // Rien nulle part : on ressort SANS notifier, pour ne pas rendre une frame à
     // chaque inscription de source qui n'a rien retiré.
-    if (kept === this.selectionKeys && !touchedSources) return false
+    if (kept === this.selectionKeys && !touchedSources && !touchedGroups) return false
     if (kept !== this.selectionKeys) {
       const keep = new Set(kept)
       for (const key of [...this.geometries.keys()]) if (!keep.has(key)) this.geometries.delete(key)
@@ -658,7 +776,12 @@ export class CatalogStore {
     if (!this.keys || !this.settings.persist) return
     writeStoredJSON(
       this.keys.selection,
-      serializeSnapshot({ keys: this.selectionKeys, titles: this.titles, sources: this.enabled }),
+      serializeSnapshot({
+        keys: this.selectionKeys,
+        titles: this.titles,
+        sources: this.enabled,
+        groups: this.groups,
+      }),
     )
   }
 
@@ -683,6 +806,7 @@ export class CatalogStore {
   }
 
   private bump(): void {
+    this.countsBySource = null
     this.token = {}
     for (const cb of this.listeners) cb()
   }

@@ -6,6 +6,42 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### fix : un agrégat de catalogue ne s'inscrit plus lui-même en sélection
+
+La règle « un groupe n'est qu'un sélecteur de ses enfants » ne tenait que pour **un geste sur
+deux** : la case n'inscrivait que les enfants, le clic sur le NOM inscrivait le groupe. Trois
+conséquences, toutes visibles :
+
+- le badge comptait **4** pour un groupe de 3 zones (le groupe + ses enfants), et la carte
+  peignait **6 formes pour 3 zones** — `geometry` d'un agrégat rend celles de ses enfants ;
+- décocher le groupe ne retirait que les enfants : sa clé survivait, badge à **1** avec un
+  panneau où plus rien n'était coché ;
+- rouvrir le panneau **recochait le groupe**, seule information encore disponible une fois
+  l'appartenance oubliée.
+
+Les deux gestes passent désormais par le même chemin, et le nom d'un agrégat affiche (ou
+retire) ses enfants en cadrant leur union. Une clé d'agrégat laissée par une session
+antérieure est **retirée au premier contact avec le groupe**, dépliage compris : personne ne
+perd sa sélection.
+
+### feat : le catalogue montre ce qui est affiché, sans rien déplier
+
+Retrouver trois zones cochées demandait d'ouvrir chaque type puis chaque groupe. Deux
+compteurs y répondent : un agrégat dont une partie des éléments est sur la carte porte
+« 2/3 » (`labels.catalog.groupCount`), et chaque ligne du menu des types porte le nombre
+d'éléments qu'elle affiche (`labels.catalog.sourceShown`). Les deux restent muets à zéro.
+
+C'est l'**appartenance retenue par le store** qui le permet — quels éléments composent quel
+agrégat, mémorisé dès qu'ils ont été chargés une fois et persisté avec la sélection. Aucune
+requête de plus : une case repliée est juste sans que la source soit redemandée. Le champ est
+additif, une charge écrite avant se relit intacte.
+
+Nouveaux : `useCatalogSourceCount(id)`, `CatalogApi.rememberGroup` / `.groupState`, et
+`setMany(source, items, shown, { fit })`. Aucune rupture.
+
+> Si vos agrégats annonçaient leur nombre d'enfants par un `badge`, retirez-le : la lib
+> écrit déjà « 2/3 », et les deux côte à côte donnent « 3/3 3 ».
+
 ### change : nouvel ordre des groupes de la barre de navigation
 
 De haut en bas : `drag`, `compass`, **`layers`**, **`target`**, `pedestrian`, **`zoom`**,

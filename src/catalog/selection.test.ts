@@ -3,6 +3,7 @@ import {
   catalogKey,
   deserializeSnapshot,
   parseCatalogKey,
+  purgeGroups,
   purgeSources,
   removeFromSelection,
   restoreCatalogId,
@@ -182,5 +183,58 @@ describe('charge persistée — titres', () => {
     expect(back.get('a:1')).toBe('ok')
     expect(back.has('b:2')).toBe(false)
     expect(back.has('malformee')).toBe(false)
+  })
+})
+
+describe('appartenance des agrégats dans la charge', () => {
+  it('fait l’aller-retour', () => {
+    const groups = new Map([['zg:g1', ['zg:z1', 'zg:z2']]])
+    const back = deserializeSnapshot(serializeSnapshot({ keys: ['zg:z1'], groups }))
+    expect(back.groups.get('zg:g1')).toEqual(['zg:z1', 'zg:z2'])
+  })
+
+  it('une charge écrite avant cette table se relit intacte, sans appartenance', () => {
+    const back = deserializeSnapshot({ v: 2, keys: ['zg:z1'], titles: {}, sources: [] })
+    expect(back.keys).toEqual(['zg:z1'])
+    expect(back.groups.size).toBe(0)
+  })
+
+  it('écarte les entrées malformées SANS faire perdre les autres', () => {
+    const back = deserializeSnapshot({
+      v: 2,
+      keys: [],
+      groups: { 'zg:g1': ['zg:z1', 42, 'sans-separateur'], 'pas-une-cle': ['zg:z2'], 'zg:g2': 'pas-un-tableau' },
+    })
+    expect(back.groups.get('zg:g1')).toEqual(['zg:z1'])
+    expect(back.groups.has('pas-une-cle')).toBe(false)
+    expect(back.groups.has('zg:g2')).toBe(false)
+  })
+})
+
+describe('purge de l’appartenance', () => {
+  it('ne garde que les agrégats dont la source est encore déclarée', () => {
+    const groups = new Map([
+      ['zg:g1', ['zg:z1']],
+      ['autre:g1', ['autre:z1']],
+    ])
+    const kept = purgeGroups(groups, new Set(['autre']))
+    expect([...kept.keys()]).toEqual(['autre:g1'])
+  })
+
+  it('rend la MÊME référence quand rien ne part — aucun re-render inutile', () => {
+    const groups = new Map([['zg:g1', ['zg:z1']]])
+    expect(purgeGroups(groups, new Set(['zg']))).toBe(groups)
+  })
+})
+
+describe('borne de la charge persistée', () => {
+  it('n’écrit que les agrégats dont un enfant est affiché', () => {
+    const groups = new Map([
+      ['zg:actif', ['zg:z1', 'zg:z2']],
+      // Simplement déplié au passage : rien à en retenir, sa case est décochée de toute façon.
+      ['zg:parcouru', ['zg:z8', 'zg:z9']],
+    ])
+    const written = serializeSnapshot({ keys: ['zg:z2'], groups }) as { groups: Record<string, unknown> }
+    expect(Object.keys(written.groups)).toEqual(['zg:actif'])
   })
 })

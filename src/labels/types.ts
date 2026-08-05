@@ -75,6 +75,24 @@ export type MapLabels = {
     expand: string
     collapse: string
     /**
+     * Compte affiché sur un AGRÉGAT dont une partie des éléments est sur la carte —
+     * `{shown}`, `{total}`.
+     *
+     * N'apparaît que lorsqu'au moins un enfant est affiché : c'est ce qui permet de repérer
+     * les groupes actifs en balayant la liste, sans avoir à déplier chacun d'eux. Une ligne
+     * dont rien n'est affiché n'a rien à annoncer — sa case le dit déjà.
+     */
+    groupCount: string
+    /** Nom accessible de ce compte, lu par les lecteurs d'écran — `{shown}`, `{total}`. */
+    groupCountLabel: string
+    /**
+     * Nom accessible du compte porté par une ligne du MENU des types — `{count}`.
+     *
+     * Le chiffre visible est le compte lui-même. Jamais posé sur une source à bascule : ce
+     * qu'elle charge dépasse ce qui est visible (cf. `CatalogToggleSource`).
+     */
+    sourceShown: string
+    /**
      * Locale de formatage du total d'une source (`'auto'` suit le navigateur).
      *
      * `36 699` ou `36,699` : c'est une décision d'INTERFACE, pas de navigateur. Sans

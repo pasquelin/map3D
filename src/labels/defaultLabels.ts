@@ -41,6 +41,9 @@ export const defaultLabels: MapLabels = {
     focus: 'Centrer sur {label}',
     expand: 'Déplier',
     collapse: 'Replier',
+    groupCount: '{shown}/{total}',
+    groupCountLabel: '{shown} élément(s) sur {total} affiché(s)',
+    sourceShown: '{count} élément(s) de cette source sur la carte',
     numberLocale: 'auto',
     settings: {
       title: 'Catalogue',

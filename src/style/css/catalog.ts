@@ -79,9 +79,16 @@ export const CSS_CATALOG = `
   background:transparent;cursor:pointer;font-family:inherit;font-size:inherit;color:var(--m3d-text);
   text-align:left;overflow:hidden}
 .m3d-cattitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m3d-catbadge{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
+/* Deux pastilles de MÊME boîte, voisines sur la même ligne : celle que pose la source (ses
+   « badges ») et le compte d'affichés de la lib. Une seule liste de sélecteurs — leur
+   différence tient à la teinte, écrite juste en dessous, et pas à leur gabarit. */
+.m3d-catbadge,.m3d-catcount{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
   border-radius:8px;font-size:var(--m3d-size-xs);font-variant-numeric:tabular-nums;
   background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
+/* Ce qu'un agrégat a d'affiché (« 2/3 »), en ACCENT : c'est le seul repère qui permette de
+   retrouver les groupes actifs en balayant une liste repliée, il doit donc se détacher des
+   pastilles neutres que la source pose à côté. */
+.m3d-catcount{color:var(--m3d-accent);background:color-mix(in srgb,var(--m3d-accent) 16%,transparent)}
 /* Colonne d'actions à gabarit FIXE : sans elle, un bouton à fond peint (la bascule
    active) paraissait plus large que ses voisins transparents et la colonne semblait
    décalée d'une ligne à l'autre. Tous les boutons ont désormais la même boîte, et

@@ -456,8 +456,17 @@ export type { CatalogControlProps } from './react/components/CatalogControl'
 // `useCatalogToggle` et non `useCatalog()` pour LIRE l'état d'un jeu à bascule : il
 // s'abonne aux deux booléens de ce jeu, là où l'API entière re-rend l'appelant à chaque
 // mutation du catalogue. C'est le patron que la lib s'applique à ses propres lignes.
-export { useCatalog, useCatalogSettings, useCatalogToggle, useCatalogClear } from './react/hooks/useCatalog'
+// Même patron pour `useCatalogSourceCount` : ce qu'UNE source a d'affiché, en un scalaire.
+export {
+  useCatalog,
+  useCatalogSettings,
+  useCatalogToggle,
+  useCatalogClear,
+  useCatalogSourceCount,
+} from './react/hooks/useCatalog'
 export type { CatalogApi, CatalogSettingsApi } from './react/hooks/useCatalog'
+/** État d'un AGRÉGAT, dérivé de ses enfants — cf. `CatalogApi.groupState`. */
+export type { GroupCheck } from './catalog/groups'
 export { useCatalogSources, useCatalogSource } from './react/hooks/useCatalogSources'
 /** SVG (markup) → data-URI, idempotent — utile dès qu'une icône sort de la carte. */
 export { svgToDataUri } from './react/components/MarkerLayer'

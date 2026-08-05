@@ -72,8 +72,11 @@ export type CatalogBrowseSource = CatalogSourceBase & {
   /**
    * La géométrie d'un élément — UNE zone, ou les trois d'un groupe.
    *
-   * Le tableau est ce qui fait qu'un agrégat est un élément ordinaire : la lib n'a
-   * aucune notion de « groupe », elle affiche et retire ce qu'on lui rend, en bloc.
+   * Le tableau est ce qui fait qu'un agrégat est un élément ordinaire : sans `children`,
+   * la lib n'a aucune notion de « groupe », elle affiche et retire ce qu'on lui rend, en
+   * bloc. Déclarer `children` change ce statut — l'élément devient un **sélecteur de ses
+   * enfants** et n'entre plus lui-même en sélection (cf. `hasChildren`) ; c'est alors la
+   * géométrie de chaque enfant qui est demandée, jamais celle de l'agrégat.
    *
    * ⚠️ Doit répondre pour les éléments rendus par `list` **ET** pour ceux rendus par
    * `children` : un enfant déplié appartient à la même source que son parent, et c'est
@@ -228,7 +231,13 @@ export type CatalogItem = {
    * que l'élément n'existe pas, alors qu'il est seulement indisponible.
    */
   disabled?: boolean
-  /** Déclare qu'il y a des enfants à aller chercher via `CatalogSource.children`. */
+  /**
+   * Déclare qu'il y a des enfants à aller chercher via `CatalogSource.children`.
+   *
+   * ⚠️ Avec une source qui fournit `children`, l'élément devient un **sélecteur** : ce sont
+   * ses enfants qui entrent en sélection, jamais lui, et tous les gestes (case, nom, API)
+   * portent sur eux. Sa case et son compte « 2/3 » en sont dérivés.
+   */
   hasChildren?: boolean
   /**
    * Section à laquelle appartient cet élément — un en-tête portant ce nom s'insère dans la

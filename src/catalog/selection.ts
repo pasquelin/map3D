@@ -57,11 +57,34 @@ export const removeFromSelection = (sel: readonly CatalogKey[], key: CatalogKey)
  * restauration de la charge persistée.
  */
 export const purgeSources = (sel: readonly CatalogKey[], known: ReadonlySet<string>): readonly CatalogKey[] => {
-  const kept = sel.filter((k) => {
-    const parsed = parseCatalogKey(k)
-    return parsed !== null && known.has(parsed.sourceId)
-  })
+  const kept = sel.filter((k) => hasKnownSource(k, known))
   return kept.length === sel.length ? sel : kept
+}
+
+/** Clé LISIBLE dont la source est encore déclarée — le critère de survie à une purge. */
+const hasKnownSource = (key: CatalogKey, known: ReadonlySet<string>): boolean => {
+  const parsed = parseCatalogKey(key)
+  return parsed !== null && known.has(parsed.sourceId)
+}
+
+/**
+ * Pendant de `purgeSources` pour l'appartenance des agrégats.
+ *
+ * La source du PARENT suffit à trancher : un enfant appartient toujours à la même source
+ * que son agrégat (c'est `CatalogBrowseSource.children` qui le rend, et `geometry` doit
+ * répondre pour lui). Rend la même référence quand rien ne part — cf. `removeFromSelection`.
+ */
+export const purgeGroups = (
+  groups: Map<CatalogKey, readonly CatalogKey[]>,
+  known: ReadonlySet<string>,
+): Map<CatalogKey, readonly CatalogKey[]> => {
+  let dropped = false
+  const kept = new Map<CatalogKey, readonly CatalogKey[]>()
+  for (const [parent, children] of groups) {
+    if (hasKnownSource(parent, known)) kept.set(parent, children)
+    else dropped = true
+  }
+  return dropped ? kept : groups
 }
 
 /**
@@ -77,9 +100,19 @@ export type CatalogSnapshot = {
   titles: ReadonlyMap<CatalogKey, string>
   /** Sources à BASCULE allumées. */
   sources: readonly string[]
+  /**
+   * Quels éléments composent quel agrégat — la seule chose qui permette à un groupe REPLIÉ
+   * de savoir où en sont ses enfants.
+   *
+   * Sans elle, l'appartenance ne vivait que dans l'état local de la liste : refermer le
+   * panneau l'oubliait, et un groupe dont les zones étaient sur la carte se rouvrait
+   * décoché. On la retient donc dès que les enfants sont chargés — jamais une requête de
+   * plus, c'est un sous-produit du dépliage et du cochage.
+   */
+  groups: ReadonlyMap<CatalogKey, readonly CatalogKey[]>
 }
 
-const EMPTY_SNAPSHOT: CatalogSnapshot = { keys: [], titles: new Map(), sources: [] }
+const EMPTY_SNAPSHOT: CatalogSnapshot = { keys: [], titles: new Map(), sources: [], groups: new Map() }
 
 /**
  * Sérialise la sélection, les titres à restituer aux formes anonymes, et les sources à
@@ -97,6 +130,7 @@ export const serializeSnapshot = (snap: {
   keys: readonly CatalogKey[]
   titles?: ReadonlyMap<CatalogKey, string>
   sources?: Iterable<string>
+  groups?: ReadonlyMap<CatalogKey, readonly CatalogKey[]>
 }): unknown => {
   const kept: Record<string, string> = {}
   if (snap.titles) {
@@ -105,11 +139,24 @@ export const serializeSnapshot = (snap: {
       if (t !== undefined) kept[k] = t
     }
   }
+  // Même règle que les titres, et pour la même raison : seuls les agrégats dont au moins
+  // un enfant est AFFICHÉ sont écrits. Un groupe dont rien n'est sur la carte n'a rien à
+  // faire rouvrir — sa case est décochée et son compte muet, exactement ce qu'on obtient
+  // sans le connaître. Persister tout ce qui a été déplié une fois faisait grossir la
+  // charge à chaque parcours, sans borne, pour des groupes qu'on avait juste ouverts.
+  const shown = new Set(snap.keys)
+  const groups: Record<string, readonly CatalogKey[]> = {}
+  if (snap.groups) {
+    for (const [parent, children] of snap.groups) {
+      if (children.some((c) => shown.has(c))) groups[parent] = children
+    }
+  }
   return {
     v: SELECTION_STORAGE_VERSION,
     keys: snap.keys,
     titles: kept,
     sources: snap.sources ? [...snap.sources] : [],
+    groups,
   }
 }
 
@@ -130,7 +177,13 @@ export const serializeSnapshot = (snap: {
  */
 export const deserializeSnapshot = (raw: unknown): CatalogSnapshot => {
   if (typeof raw !== 'object' || raw === null) return EMPTY_SNAPSHOT
-  const { v, keys, titles, sources } = raw as { v?: unknown; keys?: unknown; titles?: unknown; sources?: unknown }
+  const { v, keys, titles, sources, groups } = raw as {
+    v?: unknown
+    keys?: unknown
+    titles?: unknown
+    sources?: unknown
+    groups?: unknown
+  }
   if (v !== SELECTION_STORAGE_VERSION) return EMPTY_SNAPSHOT
 
   const outKeys = Array.isArray(keys)
@@ -148,5 +201,17 @@ export const deserializeSnapshot = (raw: unknown): CatalogSnapshot => {
     ? sources.filter((id): id is string => typeof id === 'string' && id.length > 0)
     : []
 
-  return { keys: outKeys, titles: outTitles, sources: outSources }
+  // Même tolérance que partout ici : une entrée malformée est écartée seule, sans faire
+  // perdre les autres. Un agrégat dont la liste d'enfants est illisible retombe sur
+  // « appartenance inconnue », c'est-à-dire l'état d'avant cette table.
+  const outGroups = new Map<CatalogKey, readonly CatalogKey[]>()
+  if (typeof groups === 'object' && groups !== null) {
+    for (const [parent, children] of Object.entries(groups as Record<string, unknown>)) {
+      if (parseCatalogKey(parent) === null || !Array.isArray(children)) continue
+      const kept = children.filter((c): c is CatalogKey => typeof c === 'string' && parseCatalogKey(c) !== null)
+      if (kept.length > 0) outGroups.set(parent, kept)
+    }
+  }
+
+  return { keys: outKeys, titles: outTitles, sources: outSources, groups: outGroups }
 }

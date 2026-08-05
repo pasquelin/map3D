@@ -171,28 +171,14 @@ const cityCenter = (id: number) => {
 
 // ── Zones et groupes : le cas MÉTIER ──────────────────────────────────────────
 
+// ⚠️ AUCUN badge de compte sur un agrégat : la lib affiche elle-même « 2/3 » dès qu'un de
+// ses éléments est sur la carte (cf. `labels.catalog.groupCount`), et un badge « 3 » posé à
+// côté donnait « 3/3  3 » — deux fois le même nombre, dont un qui ne dit rien de l'état.
+// Un badge reste le bon outil pour ce que la lib ne sait pas : un état métier, une alerte.
 const GROUPS: readonly CatalogItem[] = [
-  {
-    id: 'g1',
-    title: 'Paris La Défense',
-    icon: mdiViewGridOutline,
-    hasChildren: true,
-    badges: [{ text: '3', label: '3 zones' }],
-  },
-  {
-    id: 'g2',
-    title: 'Groupe de Zones Nord',
-    icon: mdiViewGridOutline,
-    hasChildren: true,
-    badges: [{ text: '1', label: '1 zone' }],
-  },
-  {
-    id: 'g3',
-    title: 'Confluence',
-    icon: mdiViewGridOutline,
-    hasChildren: true,
-    badges: [{ text: '2', label: '2 zones' }],
-  },
+  { id: 'g1', title: 'Paris La Défense', icon: mdiViewGridOutline, hasChildren: true },
+  { id: 'g2', title: 'Groupe de Zones Nord', icon: mdiViewGridOutline, hasChildren: true },
+  { id: 'g3', title: 'Confluence', icon: mdiViewGridOutline, hasChildren: true },
   // Groupes vides : inactifs côté métier, donc lignes inertes — rien à cadrer, rien à
   // afficher. Le badge de compte disparaît avec eux : « 0 » n'apprend rien de plus.
   { id: 'g4', title: 'Groupe de Zones Sud', icon: mdiViewGridOutline, disabled: true },

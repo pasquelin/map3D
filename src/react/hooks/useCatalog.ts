@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'r
 import { unionBounds } from '../../core/bounds'
 import { boundsOfMarkers, type MarkerData } from '../../data/types'
 import { catalogKey, parseCatalogKey, restoreCatalogId } from '../../catalog/selection'
+import { aggregateChildren, type GroupCheck } from '../../catalog/groups'
 import { NO_MARKERS, type CatalogContent, type CatalogSettings } from '../../catalog/store'
 import {
   isToggleSource,
@@ -38,8 +39,31 @@ export type CatalogApi = {
    * Le cadrage porte sur l'UNION de ce qui a été chargé, et n'a lieu qu'une fois tout
    * arrivé : cadrer élément par élément ferait voler la caméra trois fois pour un seul
    * geste, en s'arrêtant sur le dernier arrivé plutôt que sur l'ensemble.
+   *
+   * `fit: true` force le cadrage dans les DEUX sens, comme sur un élément seul (cf.
+   * `toggle`) : c'est le clic sur le NOM d'un agrégat, qui emmène la caméra du même geste.
    */
-  setMany: (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => void
+  setMany: (
+    source: CatalogBrowseSource,
+    items: readonly CatalogItem[],
+    shown: boolean,
+    opts?: { fit?: boolean },
+  ) => void
+  /**
+   * Retient de quoi un AGRÉGAT est fait, dès que ses enfants sont connus.
+   *
+   * Un agrégat n'entre jamais en sélection — il n'est qu'un sélecteur de ses enfants. Sa
+   * case doit pourtant rester juste une fois REPLIÉE, et après réouverture du panneau : ce
+   * n'est possible que si l'appartenance survit à la liste qui l'a chargée. Appeler à
+   * chaque page d'enfants reçue ; le store persiste, dédoublonne et ne notifie que sur
+   * changement réel.
+   */
+  rememberGroup: (source: CatalogBrowseSource, parentId: CatalogId, children: readonly CatalogItem[]) => void
+  /**
+   * État de la case d'un agrégat, dérivé de ses enfants connus — `total: 0` tant qu'on
+   * ignore de quoi il est fait.
+   */
+  groupState: (parentKey: CatalogKey) => GroupCheck
   /**
    * Cadre la caméra sur un élément **sans le poser** ni l'inscrire en sélection.
    *
@@ -137,6 +161,25 @@ function flipSource(engine: MapEngine, store: CatalogStore, id: string, on?: boo
 /** Cadre de ce qu'un élément a posé — formes ET points : un élément peut n'avoir que des points. */
 const boundsOfContent = (content: CatalogContent): Bounds | null =>
   unionBounds([boundsOfShapes(content.shapes), boundsOfMarkers(content.markers)])
+
+/** Clés d'un lot — trois gestes les recalculaient chacun de son côté. */
+const keysOf = (source: CatalogBrowseSource, items: readonly CatalogItem[]): CatalogKey[] =>
+  items.map((item) => catalogKey(source.id, item.id))
+
+/**
+ * Ce qu'il faut viser AVANT de retirer un élément : après, son contenu a quitté la mémoire
+ * et il ne resterait plus rien à cadrer.
+ *
+ * L'emprise ANNONCÉE prime — elle est disponible même quand la géométrie n'est pas encore
+ * arrivée. Une seule définition pour le retrait à l'unité et pour celui d'un lot : écrites
+ * séparément, la seconde avait déjà oublié `item.bounds`, si bien que décocher un agrégat
+ * par son nom ne cadrait pas sur une source qui annonce pourtant ses emprises.
+ */
+const boundsBeforeRemove = (store: CatalogStore, item: CatalogItem, key: CatalogKey): Bounds | null => {
+  if (item.bounds) return item.bounds
+  const content = store.getContent(key)
+  return content && boundsOfContent(content)
+}
 
 /** S'abonne à l'état partagé du catalogue (`engine.catalogState`). */
 function useCatalogStore() {
@@ -296,52 +339,28 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     [fit],
   )
 
-  const toggle = useCallback(
-    (source: CatalogBrowseSource, item: CatalogItem, opts?: { fit?: boolean }) => {
-      // Source qui ne pose pas : la règle vit ICI, pas dans la liste qui l'appelle. Sinon
-      // elle ne tiendrait que pour les gestes de l'UI de la lib, et un hôte — ou un futur
-      // chemin interne — inscrirait quand même ces éléments en sélection et en
-      // persistance, c'est-à-dire le doublon que `checkable: false` existe pour empêcher.
-      // « Afficher » s'y réduit à « montrer » : on cadre.
-      if (source.checkable === false) {
-        focus(source, item)
-        return
-      }
-      const key = catalogKey(source.id, item.id)
-      const forceFit = opts?.fit === true
-      if (store.isShown(key)) {
-        // Cadrer AVANT de retirer : après, le contenu a quitté la mémoire et il ne
-        // resterait plus rien à viser.
-        if (forceFit) {
-          const shown = store.getContent(key)
-          const b = item.bounds ?? (shown && boundsOfContent(shown))
-          if (b) fit(b)
-        }
-        hide(source, item)
-        return
-      }
-      const withFit = forceFit || store.getSettings().fitOnAdd
-      void show(source, item).then((b) => {
-        if (withFit && b) fit(b)
-      })
-    },
-    [fit, focus, hide, show, store],
-  )
-
   const setMany = useCallback(
-    (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean) => {
+    (source: CatalogBrowseSource, items: readonly CatalogItem[], shown: boolean, opts?: { fit?: boolean }) => {
       // Même règle qu'à l'unité (cf. `toggle`) : cette source ne pose rien, donc il n'y a
       // ni lot à poser ni lot à retirer. Pas de cadrage non plus — cadrer une poignée
       // d'éléments qu'on n'a pas désignés n'est le geste de personne.
       if (source.checkable === false) return
+      const forceFit = opts?.fit === true
       if (!shown) {
+        const keys = keysOf(source, items)
+        // Le cadre du LOT, mesuré avant le retrait — exactement la règle de l'unité,
+        // appliquée à chaque membre puis réunie.
+        if (forceFit) {
+          const b = unionBounds(items.map((item) => boundsBeforeRemove(store, item, catalogKey(source.id, item.id))))
+          if (b) fit(b)
+        }
         // Un seul retrait pour tout le lot : en boucle, chaque `hide` reconstruisait
         // toutes les formes, réécrivait le stockage et relançait un rendu.
-        store.removeMany(items.map((item) => catalogKey(source.id, item.id)))
+        store.removeMany(keys)
         engine.invalidate()
         return
       }
-      const withFit = store.getSettings().fitOnAdd
+      const withFit = forceFit || store.getSettings().fitOnAdd
       // Une SEULE entrée en sélection pour tout le lot : en boucle sur `markSelected`,
       // chaque enfant recopiait la sélection entière et réécrivait le stockage —
       // `localStorage.setItem` étant synchrone, cocher un agrégat gelait le thread
@@ -371,6 +390,96 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     [applyOutcomes, engine, fetchContent, fit, store],
   )
 
+  const rememberGroup = useCallback(
+    (source: CatalogBrowseSource, parentId: CatalogId, children: readonly CatalogItem[]) => {
+      const keys = keysOf(source, children)
+      // `true` ⇒ une clé d'agrégat héritée vient d'être retirée de la sélection, donc des
+      // formes ont quitté la carte : c'est le seul cas où il y a quelque chose à repeindre.
+      if (store.rememberGroup(catalogKey(source.id, parentId), keys)) engine.invalidate()
+    },
+    [engine, store],
+  )
+
+  /**
+   * Chargement d'enfants en vol pour un geste d'agrégat, abandonné par le suivant et au
+   * démontage — même patron que `focusLoad` : deux clics rapides ne doivent pas faire
+   * appliquer le lot du premier après celui du second.
+   */
+  const groupLoad = useRef<AbortController | null>(null)
+  useEffect(() => () => groupLoad.current?.abort(), [])
+
+  /**
+   * Le geste d'un AGRÉGAT : ce sont ses enfants qui entrent en sélection, jamais lui.
+   *
+   * Les enfants sont donc nécessaires, y compris replié — d'où ce chargement. L'interface
+   * de la lib passe par son propre cache (`CatalogList`), qui évite la requête quand le
+   * groupe a déjà été ouvert ; ce chemin-ci est celui de `toggle`, c'est-à-dire de l'hôte.
+   */
+  const toggleGroup = useCallback(
+    (
+      source: CatalogBrowseSource,
+      item: CatalogItem,
+      children: NonNullable<CatalogBrowseSource['children']>,
+      opts?: { fit?: boolean },
+    ) => {
+      groupLoad.current?.abort()
+      const ctrl = new AbortController()
+      groupLoad.current = ctrl
+      // Depuis « partiellement affiché », le geste attendu est de TOUT afficher — la
+      // convention des arbres de cases, lue au moment du clic.
+      const next = store.groupState(catalogKey(source.id, item.id)).state !== 'on'
+      void children(item.id, { query: '', limit: config.catalog.pageSize, signal: ctrl.signal })
+        .then((page) => {
+          if (ctrl.signal.aborted) return
+          rememberGroup(source, item.id, page.items)
+          if (page.items.length > 0) setMany(source, page.items, next, opts)
+        })
+        .catch(() => {
+          // Enfants indisponibles : rien à basculer, et l'état reste où il était.
+        })
+    },
+    [config.catalog.pageSize, rememberGroup, setMany, store],
+  )
+
+  const toggle = useCallback(
+    (source: CatalogBrowseSource, item: CatalogItem, opts?: { fit?: boolean }) => {
+      // Source qui ne pose pas : la règle vit ICI, pas dans la liste qui l'appelle. Sinon
+      // elle ne tiendrait que pour les gestes de l'UI de la lib, et un hôte — ou un futur
+      // chemin interne — inscrirait quand même ces éléments en sélection et en
+      // persistance, c'est-à-dire le doublon que `checkable: false` existe pour empêcher.
+      // « Afficher » s'y réduit à « montrer » : on cadre.
+      if (source.checkable === false) {
+        focus(source, item)
+        return
+      }
+      // Agrégat : MÊME raisonnement, même endroit. Un groupe n'est qu'un sélecteur de ses
+      // enfants ; laisser cette règle à la liste seule permettait à quiconque appelle
+      // `toggle` (l'hôte, un futur chemin interne) de réinscrire la clé que tout le reste
+      // s'interdit d'écrire — elle repeignait alors les zones de ses enfants par-dessus les
+      // leurs, et survivait à un décochage qui ne porte que sur eux.
+      const children = aggregateChildren(source, item)
+      if (children) {
+        toggleGroup(source, item, children, opts)
+        return
+      }
+      const key = catalogKey(source.id, item.id)
+      const forceFit = opts?.fit === true
+      if (store.isShown(key)) {
+        if (forceFit) {
+          const b = boundsBeforeRemove(store, item, key)
+          if (b) fit(b)
+        }
+        hide(source, item)
+        return
+      }
+      const withFit = forceFit || store.getSettings().fitOnAdd
+      void show(source, item).then((b) => {
+        if (withFit && b) fit(b)
+      })
+    },
+    [fit, focus, hide, show, store, toggleGroup],
+  )
+
   const clear = useCallback(() => {
     store.abortAll()
     store.clear()
@@ -388,6 +497,8 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
       toggle,
       focus,
       setMany,
+      rememberGroup,
+      groupState: (k: CatalogKey) => store.groupState(k),
       clear,
       shapes: store.shapes(),
       markers: store.markers(),
@@ -396,7 +507,7 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
     // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, token, toggle, focus, setMany, clear, toggleSource],
+    [store, token, toggle, focus, setMany, rememberGroup, clear, toggleSource],
   )
 }
 
@@ -545,6 +656,24 @@ export function useCatalogActiveCount(): number {
     store.onChanged,
     () => store.activeCount(),
     () => store.activeCount(),
+  )
+}
+
+/**
+ * Combien d'éléments de CETTE source sont sur la carte — le compte d'une ligne du menu
+ * des types.
+ *
+ * Instantané SCALAIRE, comme `useCatalogActiveCount` : React court-circuite le rendu de la
+ * ligne tant que le chiffre ne bouge pas, là où l'API entière la re-rendrait à chaque
+ * géométrie qui arrive.
+ */
+export function useCatalogSourceCount(id: string): number {
+  const { engine } = useMapContext()
+  const store = engine.catalogState
+  return useSyncExternalStore(
+    store.onChanged,
+    () => store.shownCountOf(id),
+    () => store.shownCountOf(id),
   )
 }
 

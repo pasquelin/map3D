@@ -9,7 +9,7 @@ import {
 } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useConfig, useLabels, useMapContext } from '../context'
-import { useCatalogActiveCount, useCatalogToggle } from '../hooks/useCatalog'
+import { useCatalogActiveCount, useCatalogSourceCount, useCatalogToggle } from '../hooks/useCatalog'
 import { useCatalogSources } from '../hooks/useCatalogSources'
 import { CatalogList } from './CatalogList'
 import { Dropdown, DropdownSurface, useToggleShortcut } from './Dropdown'
@@ -184,6 +184,7 @@ function CatalogPanel({
                   >
                     <UiIcon path={s.icon} />
                     <span className="m3d-cattype-label">{s.label}</span>
+                    <ShownCount id={s.id} />
                     {total(s)}
                   </button>
                 </div>
@@ -213,6 +214,28 @@ function CatalogPanel({
         </DropdownSurface>
       )}
     </>
+  )
+}
+
+/**
+ * Ce qu'une source a d'affiché, dans le menu des types — muet à zéro.
+ *
+ * Composant et non un rendu inline : l'abonnement est SCALAIRE (cf.
+ * `useCatalogSourceCount`), donc une ligne dont le compte ne bouge pas ne se re-rend pas
+ * quand une autre source change.
+ *
+ * Réservé aux sources de PARCOURS. Une bascule n'affiche jamais de compte d'éléments : ce
+ * qu'elle charge dépasse structurellement ce qui est visible (cf. `CatalogToggleSource`),
+ * et un chiffre posé là se lirait « tant d'affichés » — son état allumé, lui, se voit.
+ */
+function ShownCount({ id }: { id: string }) {
+  const labels = useLabels()
+  const shown = useCatalogSourceCount(id)
+  if (shown === 0) return null
+  return (
+    <span className="m3d-catcount" aria-label={formatLabel(labels.catalog.sourceShown, { count: shown })}>
+      {shown}
+    </span>
   )
 }
 

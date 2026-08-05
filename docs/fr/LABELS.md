@@ -525,6 +525,9 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.remove` | Case à cocher, état « affiché » — `{label}`. | `'Retirer {label} de la carte'` |
 | `catalog.focus` | Nom d'une ligne SANS case (`checkable: false`), qui cadre au lieu de poser — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Chevron d'un agrégat. | `'Déplier'` / `'Replier'` |
+| `catalog.groupCount` | Compte d'un agrégat dont une partie des éléments est sur la carte — `{shown}`, `{total}`. Muet quand rien n'est affiché. | `'{shown}/{total}'` |
+| `catalog.groupCountLabel` | Nom accessible de ce compte — `{shown}`, `{total}`. | `'{shown} élément(s) sur {total} affiché(s)'` |
+| `catalog.sourceShown` | Nom accessible du compte porté par une ligne du menu des types — `{count}`. | `'{count} élément(s) de cette source sur la carte'` |
 | `catalog.numberLocale` | Locale de formatage du total d'une source (`'auto'` suit le navigateur). `36 699` ou `36,699` est une décision d'INTERFACE, pas de navigateur — cf. `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Entrée du panneau engrenage. | `'Catalogue'` |
 | `catalog.settings.persist` | Interrupteur de persistance. | `'Conserver les éléments affichés entre les sessions'` |

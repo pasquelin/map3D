@@ -24,6 +24,14 @@ export type CatalogRowProps = {
    */
   checkState: 'on' | 'off' | 'mixed'
   /**
+   * Enfants d'un agrégat SUR LA CARTE, et enfants connus. `0`/`0` pour tout le reste.
+   *
+   * Deux primitives plutôt que l'objet qui les porte : `memo` compare par identité, et un
+   * objet reconstruit à chaque render aurait défait le court-circuit ligne par ligne.
+   */
+  groupShown: number
+  groupTotal: number
+  /**
    * Coche ou décoche : pour un agrégat, cela porte sur tous ses enfants.
    *
    * Reçoit le `node` en argument plutôt que d'être fermé dessus : une closure par ligne
@@ -73,6 +81,8 @@ function CatalogRowInner({
   expanded,
   onToggleExpand,
   checkState,
+  groupShown,
+  groupTotal,
   onCheck,
   onActivate,
   tipId,
@@ -89,6 +99,9 @@ function CatalogRowInner({
     if (boxRef.current) boxRef.current.indeterminate = checkState === 'mixed'
   }, [checkState])
   const off = item.disabled === true
+  // Table de substitution du compte, construite une fois pour les DEUX libellés qui la
+  // partagent (le visible et le nom accessible).
+  const counts = { shown: groupShown, total: groupTotal }
   // La COLONNE du chevron n'existe que si la source sait déplier : sur un référentiel
   // plat (villes, zones), réserver sa gouttière décalait chaque ligne de 18 px pour un
   // contrôle qui n'apparaîtra jamais.
@@ -156,6 +169,15 @@ function CatalogRowInner({
       {failed && (
         <span className="m3d-caterrdot" aria-label={labels.catalog.itemError}>
           <UiIcon path={mdiAlertCircleOutline} />
+        </span>
+      )}
+
+      {/* Ce qu'un agrégat a d'affiché, SANS le déplier — « 2/3 ». Muet quand rien ne l'est :
+          la case décochée le dit déjà, et un « 0/3 » sur chaque groupe rendrait illisible la
+          seule chose qu'on cherche ici, savoir lesquels sont actifs. */}
+      {groupShown > 0 && (
+        <span className="m3d-catcount" aria-label={formatLabel(labels.catalog.groupCountLabel, counts)}>
+          {formatLabel(labels.catalog.groupCount, counts)}
         </span>
       )}
 

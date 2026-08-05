@@ -102,7 +102,7 @@ Engine · Plugins · Preferences.
 
 - **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
 - **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
-- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle` / `useCatalogClear`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
+- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle` / `useCatalogClear` / `useCatalogSourceCount`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
@@ -2791,9 +2791,24 @@ children: async (id, { signal }) => {
 
 An aggregate's checkbox is then **derived from its children**: all shown → ticked; none →
 unticked; some → **indeterminate**. Ticking the aggregate ticks its children (loading them
-if needed, even collapsed); unticking one turns it indeterminate. The aggregate itself
-never enters the selection — otherwise the same zone would be counted twice and unticking
-a child would say nothing.
+if needed, even collapsed); unticking one turns it indeterminate.
+
+**An aggregate NEVER enters the selection — it is only a selector for its children.** The
+rule holds for every gesture, the checkbox as well as a click on the name: the latter shows
+(or removes) the children and frames their union. An aggregate key in the selection would
+paint its zones a second time on top of its children's, count twice in the badge, and
+survive an unticking that only covers the children.
+
+**What is shown can be seen without expanding.** An aggregate with some of its items on the
+map carries its count — "2/3" (`labels.catalog.groupCount`) — and every row of the type menu
+carries how many of its items are shown. You can therefore spot what is active by scanning a
+collapsed list, without opening each group. Membership is remembered as soon as the children
+have been loaded once, and **persisted along with the selection**: reopening the panel asks
+your source for nothing.
+
+> ⚠️ If your aggregates advertised their child count through a `badge`, drop it: the library
+> already writes `2/3`, and both side by side read "3/3 3". A badge remains the right tool
+> for what the library cannot know — a business state, an alert.
 
 **One level of descent only.** `children` applies to roots; a grandchild is not inserted.
 The need (group → zones) is flat, and recursion would require per-level pagination for a
@@ -6970,10 +6985,16 @@ catalog.clear()
 ```
 
 Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`, `toggle`,
-`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`), `markers` (points placed by
-the displayed items) and `toggleSource(id, on?)` (switches a toggle set on/off). `side`
-reserves the framing margin on the side where the panel opens. Details in
-[CATALOG.md § 10](CATALOG.md#10-recipes).
+`setMany(source, items, shown, { fit })`, `clear`, `shapes` (shapes to pass to
+`<ShapeLayer>`), `markers` (points placed by the displayed items) and
+`toggleSource(id, on?)` (switches a toggle set on/off). `side` reserves the framing margin on
+the side where the panel opens. Details in [CATALOG.md § 10](CATALOG.md#10-recipes).
+
+For **aggregates** (see [CATALOG.md § 5.2](CATALOG.md#52-aggregates-and-children)):
+`rememberGroup(source, parentId, children)` records what a group is made of — which is what
+keeps its checkbox right once collapsed, and after the panel is reopened — and
+`groupState(parentKey)` returns the derived state (`{ state, shown, total }`). An aggregate
+never enters the selection.
 
 ⚠️ To **read** a toggle set's state, use `useCatalogToggle` below — not `useCatalog()`,
 which returns a fresh object on every catalog mutation and would therefore re-render the
@@ -6991,6 +7012,19 @@ const { on, loading, toggle } = useCatalogToggle('defibs')
 
 `loading` states that a request is **in flight**, never a count of loaded items — see
 [CATALOG.md § 4.2](CATALOG.md#42-loaded-volume-is-not-displayed-volume).
+
+### `useCatalogSourceCount(id: string): number`
+
+How many items of THIS source are on the map — the count the library shows on every row of
+the type menu. A **scalar** snapshot, like `useCatalogToggle`: the row only re-renders when
+its number moves.
+
+```tsx
+const shown = useCatalogSourceCount('zone-groups')
+```
+
+⚠️ Never on a **toggle** source: what it loads structurally exceeds what is visible (see
+[CATALOG.md § 4.2](CATALOG.md#42-loaded-volume-is-not-displayed-volume)).
 
 ### `useCatalogClear(): () => void`
 
@@ -9677,6 +9711,9 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
 | `catalog.focus` | Name of a row with NO checkbox (`checkable: false`), which frames instead of placing — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
+| `catalog.groupCount` | Count of an aggregate with some of its items on the map — `{shown}`, `{total}`. Silent when nothing is shown. | `'{shown}/{total}'` |
+| `catalog.groupCountLabel` | Accessible name for that count — `{shown}`, `{total}`. | `'{shown} élément(s) sur {total} affiché(s)'` |
+| `catalog.sourceShown` | Accessible name for the count on a type-menu row — `{count}`. | `'{count} élément(s) de cette source sur la carte'` |
 | `catalog.numberLocale` | Locale used to format a source's total (`'auto'` follows the browser). `36 699` or `36,699` is an INTERFACE decision, not a browser one — see `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |

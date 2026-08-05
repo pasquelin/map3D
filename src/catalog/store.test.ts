@@ -591,3 +591,102 @@ describe('points posés par un élément', () => {
     expect(s.markers()).toEqual([])
   })
 })
+
+describe('agrégats — l’appartenance vit dans le store, pas dans la liste', () => {
+  it('retient de quoi un agrégat est fait, et en dérive l’état de sa case', () => {
+    const s = fresh()
+    s.rememberGroup('zg:g1', ['zg:z1', 'zg:z2', 'zg:z3'])
+    expect(s.groupState('zg:g1')).toEqual({ state: 'off', shown: 0, total: 3 })
+    s.markSelectedMany(['zg:z1', 'zg:z2'])
+    expect(s.groupState('zg:g1')).toEqual({ state: 'mixed', shown: 2, total: 3 })
+    s.markSelected('zg:z3')
+    expect(s.groupState('zg:g1')).toEqual({ state: 'on', shown: 3, total: 3 })
+  })
+
+  it('un agrégat inconnu n’a pas d’état à afficher', () => {
+    const s = fresh()
+    expect(s.groupState('zg:g9')).toEqual({ state: 'off', shown: 0, total: 0 })
+    expect(s.groupChildren('zg:g9')).toBeUndefined()
+  })
+
+  it('SORT l’agrégat de la sélection s’il y était — la session héritée du bug se répare', () => {
+    const s = fresh()
+    // Ce qu'une session enregistrée avant la règle contient : le groupe ET ses enfants.
+    s.markSelectedMany(['zg:g1', 'zg:z1', 'zg:z2'])
+    setShapes(s, 'zg:g1', [shape('z1'), shape('z2')])
+    expect(s.selection()).toHaveLength(3)
+    expect(s.rememberGroup('zg:g1', ['zg:z1', 'zg:z2'])).toBe(true)
+    expect(s.isShown('zg:g1')).toBe(false)
+    // Les enfants, eux, restent : c'est EUX que la carte doit peindre.
+    expect(s.selection()).toEqual(['zg:z1', 'zg:z2'])
+    expect(s.groupState('zg:g1')).toEqual({ state: 'on', shown: 2, total: 2 })
+  })
+
+  it('ne notifie pas quand rien ne change — l’appartenance est réapprise à chaque dépliage', () => {
+    const s = fresh()
+    s.rememberGroup('zg:g1', ['zg:z1'])
+    const seen = vi.fn()
+    s.onChanged(seen)
+    expect(s.rememberGroup('zg:g1', ['zg:z1'])).toBe(false)
+    expect(seen).not.toHaveBeenCalled()
+  })
+
+  it('persiste l’appartenance : rouvrir le panneau ne redemande rien à la source', () => {
+    const a = fresh()
+    a.rememberGroup('zg:g1', ['zg:z1', 'zg:z2'])
+    a.markSelected('zg:z1')
+    const b = fresh()
+    expect(b.groupChildren('zg:g1')).toEqual(['zg:z1', 'zg:z2'])
+    expect(b.groupState('zg:g1')).toEqual({ state: 'mixed', shown: 1, total: 2 })
+  })
+
+  it('à la relecture, une clé d’agrégat héritée est écartée de la sélection', () => {
+    const a = fresh()
+    a.rememberGroup('zg:g1', ['zg:z1', 'zg:z2'])
+    // Écrite à la main : c'est l'état qu'une version antérieure laissait dans le stockage.
+    localStorage.setItem(
+      KEYS.selection,
+      JSON.stringify({
+        v: 2,
+        keys: ['zg:g1', 'zg:z1', 'zg:z2'],
+        titles: {},
+        sources: [],
+        groups: { 'zg:g1': ['zg:z1', 'zg:z2'] },
+      }),
+    )
+    const b = fresh()
+    expect(b.selection()).toEqual(['zg:z1', 'zg:z2'])
+    expect(b.isShown('zg:g1')).toBe(false)
+  })
+
+  it('une source disparue emporte l’appartenance de ses agrégats', () => {
+    const s = fresh()
+    s.rememberGroup('zg:g1', ['zg:z1'])
+    s.rememberGroup('autre:g1', ['autre:z1'])
+    s.purge(new Set(['autre']))
+    expect(s.groupChildren('zg:g1')).toBeUndefined()
+    expect(s.groupChildren('autre:g1')).toEqual(['autre:z1'])
+  })
+})
+
+describe('ce qu’une source a d’affiché — le compte du menu des types', () => {
+  it('compte par source, et retombe à zéro quand tout est retiré', () => {
+    const s = fresh()
+    s.markSelectedMany(['zg:z1', 'zg:z2', 'villes:7'])
+    expect(s.shownCountOf('zg')).toBe(2)
+    expect(s.shownCountOf('villes')).toBe(1)
+    expect(s.shownCountOf('inconnue')).toBe(0)
+    s.removeMany(['zg:z1', 'zg:z2'])
+    expect(s.shownCountOf('zg')).toBe(0)
+  })
+
+  it('suit la mutation suivante — la table dérivée n’est jamais servie périmée', () => {
+    const s = fresh()
+    s.markSelected('zg:z1')
+    expect(s.shownCountOf('zg')).toBe(1)
+    s.markSelected('zg:z2')
+    expect(s.shownCountOf('zg')).toBe(2)
+    s.clear()
+    expect(s.shownCountOf('zg')).toBe(0)
+  })
+})

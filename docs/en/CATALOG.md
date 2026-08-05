@@ -397,9 +397,24 @@ children: async (id, { signal }) => {
 
 An aggregate's checkbox is then **derived from its children**: all shown → ticked; none →
 unticked; some → **indeterminate**. Ticking the aggregate ticks its children (loading them
-if needed, even collapsed); unticking one turns it indeterminate. The aggregate itself
-never enters the selection — otherwise the same zone would be counted twice and unticking
-a child would say nothing.
+if needed, even collapsed); unticking one turns it indeterminate.
+
+**An aggregate NEVER enters the selection — it is only a selector for its children.** The
+rule holds for every gesture, the checkbox as well as a click on the name: the latter shows
+(or removes) the children and frames their union. An aggregate key in the selection would
+paint its zones a second time on top of its children's, count twice in the badge, and
+survive an unticking that only covers the children.
+
+**What is shown can be seen without expanding.** An aggregate with some of its items on the
+map carries its count — "2/3" (`labels.catalog.groupCount`) — and every row of the type menu
+carries how many of its items are shown. You can therefore spot what is active by scanning a
+collapsed list, without opening each group. Membership is remembered as soon as the children
+have been loaded once, and **persisted along with the selection**: reopening the panel asks
+your source for nothing.
+
+> ⚠️ If your aggregates advertised their child count through a `badge`, drop it: the library
+> already writes `2/3`, and both side by side read "3/3 3". A badge remains the right tool
+> for what the library cannot know — a business state, an alert.
 
 **One level of descent only.** `children` applies to roots; a grandchild is not inserted.
 The need (group → zones) is flat, and recursion would require per-level pagination for a

@@ -592,6 +592,9 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
 | `catalog.focus` | Name of a row with NO checkbox (`checkable: false`), which frames instead of placing — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
+| `catalog.groupCount` | Count of an aggregate with some of its items on the map — `{shown}`, `{total}`. Silent when nothing is shown. | `'{shown}/{total}'` |
+| `catalog.groupCountLabel` | Accessible name for that count — `{shown}`, `{total}`. | `'{shown} élément(s) sur {total} affiché(s)'` |
+| `catalog.sourceShown` | Accessible name for the count on a type-menu row — `{count}`. | `'{count} élément(s) de cette source sur la carte'` |
 | `catalog.numberLocale` | Locale used to format a source's total (`'auto'` follows the browser). `36 699` or `36,699` is an INTERFACE decision, not a browser one — see `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |
