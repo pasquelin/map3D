@@ -233,7 +233,7 @@ Barre d'outils de dessin.
 | Prop | Description | Défaut |
 |---|---|---|
 | `position` | Côté d'ancrage de la barre. | `'left'` |
-| `minZoom` | Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. | `config.toolbar.minZoom` |
+| `minZoom` | Zoom minimal d'affichage ; en deçà la barre glisse hors écran, en emportant ses menus. Motivation et défaut : [`config.toolbar.minZoom`](CONFIG.md). | `config.toolbar.minZoom` |
 | `tools` | Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. | — |
 | `eraseModes` | Modes proposés par le flyout de la gomme (défaut : ponctuelle + sélection) ; un seul = pas de flyout. | — |

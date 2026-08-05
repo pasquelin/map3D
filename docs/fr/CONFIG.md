@@ -572,6 +572,6 @@ et partage son périmètre : elle paraît et disparaît avec elle, sans clé pro
 
 | Clé | Description | Défaut |
 |---|---|---|
-| `toolbar.minZoom` | Zoom sous lequel la barre se replie — dessiner suppose la vue proche. | `11` |
+| `toolbar.minZoom` | Zoom sous lequel la barre se replie — au-dessous, tracer n'a plus de sens (vue globe). | `5` |
 | `toolbar.autoHide.erase` | Retirer la gomme — et sa rangée « Tout effacer » — tant qu'aucune cible autorisée n'est à l'écran. | `true` |
 | `toolbar.autoHide.history` | Retirer « Annuler » et « Rétablir » tant qu'il n'y a rien à défaire ni à refaire, au lieu de les griser. Chacun se retire pour son propre compte ; le raccourci clavier, lui, ne dépend pas de la barre. | `true` |

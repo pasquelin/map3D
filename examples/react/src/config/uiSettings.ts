@@ -1,3 +1,4 @@
+import { defaultConfig } from '@pasquelin/map3d'
 import type {
   ControlGroup,
   DrawTool,
@@ -151,7 +152,10 @@ export const defaultUiSettings: UiSettings = {
   toolbar: {
     enabled: true,
     position: 'left',
-    minZoom: 11,
+    // Le défaut de la LIB, pas une copie : l'exemple est censé la montrer telle qu'elle est,
+    // et une valeur figée ici masquait tout changement du défaut — la prop prime sur
+    // `config.toolbar.minZoom`. Le curseur de l'onglet Interface reste libre.
+    minZoom: defaultConfig.toolbar.minZoom,
     lens: true,
     tools: allOn(DRAW_TOOLS),
     selectModes: allOn(SELECT_MODES),

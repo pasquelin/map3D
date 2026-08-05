@@ -573,6 +573,6 @@ shares its scope: it appears and disappears with it, with no key of its own.
 
 | Key | Description | Default |
 |---|---|---|
-| `toolbar.minZoom` | Zoom below which the bar retracts — drawing implies a close view. | `11` |
+| `toolbar.minZoom` | Zoom below which the bar retracts — below it, drawing no longer makes sense (globe view). | `5` |
 | `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
 | `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |

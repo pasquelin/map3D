@@ -236,7 +236,7 @@ Drawing toolbar.
 | Prop | Description | Default |
 |---|---|---|
 | `position` | Anchoring side of the bar. | `'left'` |
-| `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.toolbar.minZoom` |
+| `minZoom` | Minimum display zoom; below it the bar slides off screen, taking its menus with it. Rationale and default: [`config.toolbar.minZoom`](CONFIG.md). | `config.toolbar.minZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
 | `eraseModes` | Modes offered by the eraser flyout (default: point + marquee); a single one = no flyout. | — |

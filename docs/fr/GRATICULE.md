@@ -231,7 +231,7 @@ resettle LOD — un coût sans rapport avec ce que la grille apporte.
 ## 8. Dans l'interface
 
 La grille se pilote depuis les **contrôles de vue**, et non depuis la barre d'outils : celle-ci
-**se replie sous le zoom 11** (`toolbar.minZoom`), or la grille sert justement en
+**se replie sous le zoom 5** (`toolbar.minZoom`), or la grille sert justement en
 vue globe. Un bouton qui disparaît là où la fonction devient utile n'est pas un bouton.
 
 **Le bouton**, dans le groupe `compass`, à côté de « Globe » :
@@ -289,7 +289,7 @@ Les garde-fous durs, à ne baisser que sur machine très faible : `maxLines` (64
 - **Les méridiens s'arrêtent à `latLimitDeg`** (85° par défaut) : au-delà ils se
   rejoignent et la densité de sommets explose pour un rendu illisible.
 - **Pas de survol des lignes** : seules les étiquettes réagissent au pointeur.
-- **Sous le zoom 11**, la barre d'outils étant repliée, la grille se pilote par le bouton
+- **Sous le zoom 5**, la barre d'outils étant repliée, la grille se pilote par le bouton
   des contrôles de vue, le raccourci ou l'API (cf. §8).
 
 ---
