@@ -6,6 +6,8 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+## [0.5.0] — 2026-08-31
+
 ### change! : `toolbar.selectModes` / `toolbar.eraseModes` bornent aussi le clavier
 
 Suite directe du changement de la 0.4.0 sur `toolbar.tools`, dont les deux props sœurs avaient

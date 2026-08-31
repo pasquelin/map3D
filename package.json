@@ -1,7 +1,7 @@
 {
   "name": "@pasquelin/map3d",
-  "version": "0.4.0",
-  "description": "Bibliothèque React de cartographie 3D (Three.js + Google Photorealistic 3D Tiles) : globe, markers, clusters, tracés, dessin, entièrement thémable.",
+  "version": "0.5.0",
+  "description": "Biblioth\u00e8que React de cartographie 3D (Three.js + Google Photorealistic 3D Tiles) : globe, markers, clusters, trac\u00e9s, dessin, enti\u00e8rement th\u00e9mable.",
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Alban Pasquelin <alban.pasquelin@gmail.com>",
