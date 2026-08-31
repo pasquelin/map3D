@@ -632,7 +632,8 @@ export class MapEngine {
     this.navKeys = new NavKeys(this.config.interaction.shortcuts.navigate)
     this.googleMapsApiKey = opts.googleMapsApiKey
     if (opts.hazeColor) this.hazeColor = opts.hazeColor
-    this.tags = new TagFilter(opts.tagStorageKey)
+    const tagKey = opts.tagStorageKey === undefined ? this.config.data.storageKeys.tagFilter : opts.tagStorageKey
+    this.tags = new TagFilter(tagKey)
     /**
      * Le filtre « Couches » bascule la visibilité de meshes WebGL (`DrawLayer`, formes,
      * tracés) depuis une case à cocher d'un panneau — sans geste sur le canvas, sans

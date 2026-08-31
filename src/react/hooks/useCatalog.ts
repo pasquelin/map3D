@@ -488,17 +488,26 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
 
   const toggleSource = useCallback((id: string, on?: boolean) => flipSource(engine, store, id, on), [engine, store])
 
+  // Stables comme leurs sœurs : le store mute en place, ces lectures n'ont donc pas
+  // besoin de `token`. `groupState` surtout — `CatalogList` le met en dépendance de
+  // `onActivate`, passé à `CatalogRow` qui est `memo()` : une identité neuve à chaque
+  // mutation re-rendrait toutes les lignes visibles pour une géométrie arrivée ailleurs.
+  const isShown = useCallback((k: CatalogKey) => store.isShown(k), [store])
+  const isPending = useCallback((k: CatalogKey) => store.isPending(k), [store])
+  const hasError = useCallback((k: CatalogKey) => store.hasError(k), [store])
+  const groupState = useCallback((k: CatalogKey) => store.groupState(k), [store])
+
   return useMemo(
     () => ({
       selection: store.selection(),
-      isShown: (k: CatalogKey) => store.isShown(k),
-      isPending: (k: CatalogKey) => store.isPending(k),
-      hasError: (k: CatalogKey) => store.hasError(k),
+      isShown,
+      isPending,
+      hasError,
       toggle,
       focus,
       setMany,
       rememberGroup,
-      groupState: (k: CatalogKey) => store.groupState(k),
+      groupState,
       clear,
       shapes: store.shapes(),
       markers: store.markers(),
@@ -507,7 +516,20 @@ export function useCatalog(side: 'left' | 'right' = 'right'): CatalogApi {
     // `token` est la dépendance réelle : le store mute en place, donc aucune de ses
     // lectures ne peut servir de dépendance — c'est le jeton qui dit « ça a changé ».
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, token, toggle, focus, setMany, rememberGroup, clear, toggleSource],
+    [
+      store,
+      token,
+      toggle,
+      focus,
+      setMany,
+      rememberGroup,
+      clear,
+      toggleSource,
+      isShown,
+      isPending,
+      hasError,
+      groupState,
+    ],
   )
 }
 

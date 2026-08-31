@@ -31,7 +31,8 @@ import {
   type RelationApi,
 } from './context'
 import { DrawLayer } from './components/DrawLayer'
-import type { DrawTool } from '../layers/DrawLayer'
+import type { DrawTool, EraseMode } from '../layers/DrawLayer'
+import type { SelectMode } from '../layers/draw/SelectionManager'
 import type { MenuItem } from './components/ContextMenu'
 import { CameraReadout } from './components/CameraReadout'
 import { WatermarkLink } from './components/WatermarkLink'
@@ -263,6 +264,7 @@ export function MapSurfaces<T, TPin>({
   const { selectionBadges, ...drawProps } = draw === false ? { selectionBadges: undefined } : (draw ?? {})
   const toolbarProps = toolbarConfig(toolbar)
   const drawTools = drawToolsOf(draw, toolbar)
+  const drawModes = drawModesOf(draw, toolbar)
   // Menu commun DÉJÀ lié aux relations, comme pour le panneau de sélection et la loupe :
   // `<DrawLayer>` le reçoit tel quel pour l'offrir aux symboles posés (parité markers),
   // sans refaire la liaison de son côté.
@@ -288,7 +290,13 @@ export function MapSurfaces<T, TPin>({
       {drawEnabled ? (
         // `boundMarkerMenu` propage aux SYMBOLES posés le même menu (déjà lié aux
         // relations) qu'aux markers — parité ; `<DrawLayer>` n'y ajoute que « Supprimer ».
-        <DrawLayer {...drawProps} tools={drawTools} markerMenu={boundMarkerMenu}>
+        <DrawLayer
+          {...drawProps}
+          tools={drawTools}
+          selectModes={drawModes.select}
+          eraseModes={drawModes.erase}
+          markerMenu={boundMarkerMenu}
+        >
           {inner}
         </DrawLayer>
       ) : (
@@ -352,6 +360,25 @@ function toolbarConfig<T>(toolbar: Surfaces<T>['toolbar']): DrawToolbarProps {
 export function drawToolsOf<T>(draw: Surfaces<T>['draw'], toolbar: Surfaces<T>['toolbar']): DrawTool[] | undefined {
   if (draw === false) return undefined
   return draw?.tools ?? toolbarConfig(toolbar).tools
+}
+
+/**
+ * Modes de sélection et de gomme autorisés à la couche de dessin.
+ *
+ * Même règle que `drawToolsOf` : ce que la barre n'affiche pas ne doit pas rester
+ * armable au clavier. Sans cela, `toolbar={{ eraseModes: ['point'] }}` laissait le
+ * raccourci armer la gomme-sélection, sans rangée pour en sortir.
+ */
+export function drawModesOf<T>(
+  draw: Surfaces<T>['draw'],
+  toolbar: Surfaces<T>['toolbar'],
+): { select?: SelectMode[]; erase?: EraseMode[] } {
+  if (draw === false) return {}
+  const bar = toolbarConfig(toolbar)
+  return {
+    select: draw?.selectModes ?? bar.selectModes,
+    erase: draw?.eraseModes ?? bar.eraseModes,
+  }
 }
 
 /**

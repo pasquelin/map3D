@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { drawToolsOf } from './MapSurfaces'
+import { drawModesOf, drawToolsOf } from './MapSurfaces'
 
 describe('drawToolsOf', () => {
   it('sans rien fourni, laisse la couche appliquer son défaut', () => {
@@ -25,5 +25,26 @@ describe('drawToolsOf', () => {
 
   it('sans dessin, ne rend aucun outil', () => {
     expect(drawToolsOf(false, { tools: ['polygon'] })).toBeUndefined()
+  })
+})
+
+describe('drawModesOf', () => {
+  it('retombe sur la barre quand le dessin ne borne pas les modes', () => {
+    expect(drawModesOf({}, { selectModes: ['rect'], eraseModes: ['point'] })).toEqual({
+      select: ['rect'],
+      erase: ['point'],
+    })
+  })
+
+  it('laisse dissocier quand les deux sont fournis', () => {
+    expect(drawModesOf({ eraseModes: ['select'] }, { eraseModes: ['point'] }).erase).toEqual(['select'])
+  })
+
+  it('ne contraint rien sans barre ni réglage', () => {
+    expect(drawModesOf({}, undefined)).toEqual({ select: undefined, erase: undefined })
+  })
+
+  it('sans dessin, ne rend aucun mode', () => {
+    expect(drawModesOf(false, { selectModes: ['rect'] })).toEqual({})
   })
 })

@@ -6,6 +6,41 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### change! : `toolbar.selectModes` / `toolbar.eraseModes` bornent aussi le clavier
+
+Suite directe du changement de la 0.4.0 sur `toolbar.tools`, dont les deux props sœurs avaient
+été oubliées. `selectModes` et `eraseModes` ne filtraient que les rangées du sous-menu : un hôte
+qui écrivait `toolbar={{ eraseModes: ['point'] }}` voyait le raccourci clavier armer quand même
+la gomme-sélection, sans aucune rangée pour en sortir.
+
+`setSelectMode` et `setEraseMode` refusent désormais un mode hors liste, comme `setTool` le fait
+depuis toujours pour les outils. `draw.selectModes` / `draw.eraseModes` retombent sur les valeurs
+de la barre quand ils ne sont pas fournis, et les dissocier reste possible en renseignant les deux.
+
+### fix : la config `data.storageKeys` est honorée pour `tagFilter` et `drawSettings`
+
+Six clés sur huit étaient lues depuis la config de l'hôte, ces deux-là retombaient toujours sur
+les constantes globales. Deux cartes du même domaine partageaient donc silencieusement leur filtre
+« Couches » et leurs réglages de style d'outil, malgré des clés distinctes en config.
+
+### perf : la barre de dessin ne se re-rend plus à chaque rendu de l'hôte
+
+Depuis que `toolbar.tools` alimente `draw.tools` (0.4.0), un hôte écrivant sa barre en littéral
+inline faisait changer `allowed` d'identité à chaque rendu, donc `DrawingApi`, donc la barre
+entière et ses panneaux. La liste est désormais mémoïsée sur son CONTENU, comme `presets`.
+
+### perf : les lignes du catalogue ne se re-rendent plus à chaque mutation
+
+`groupState` était une flèche inline recréée à chaque jeton de mutation ; `CatalogList` la met en
+dépendance du gestionnaire passé à `CatalogRow`, qui est `memo()`. Toutes les lignes visibles se
+re-rendaient donc à l'arrivée d'une géométrie ailleurs. `isShown`, `isPending` et `hasError` sont
+stabilisées au passage.
+
+### refactor : `TagFilter` persiste via `core/storage`
+
+Il refaisait à la main les `try/catch` du socle, avec une garde plus faible : Safari en navigation
+privée lève à la LECTURE DE LA PROPRIÉTÉ `localStorage`, avant tout appel.
+
 ## [0.4.0] — 2026-08-31
 
 ### change! : `toolbar.tools` fait autorité sur `draw.tools` quand ce dernier est absent
