@@ -134,7 +134,7 @@ Outils de dessin et symboles.
 
 | Prop | Description | Défaut |
 |---|---|---|
-| `tools` | Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. | — |
+| `tools` | Outils autorisés. Filtre aussi ce que `setTool` accepte. Non fourni sur `<Map>`, retombe sur `toolbar.tools` ; à défaut, tous. | `toolbar.tools` |
 | `shortcuts` | Raccourci par outil/action — `false` pour en désactiver un, autre touche pour remapper. | — |
 | `defaults` | Style d'une forme nouvellement tracée, avant tout réglage utilisateur. | — |
 | `presets` | Paliers proposés par les palettes de style (épaisseurs, opacités, rayons d'angle). Fusionnés sur les défauts : ne fournir que ce qu'on change. | — |

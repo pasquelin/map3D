@@ -31,6 +31,7 @@ import {
   type RelationApi,
 } from './context'
 import { DrawLayer } from './components/DrawLayer'
+import type { DrawTool } from '../layers/DrawLayer'
 import type { MenuItem } from './components/ContextMenu'
 import { CameraReadout } from './components/CameraReadout'
 import { WatermarkLink } from './components/WatermarkLink'
@@ -260,13 +261,15 @@ export function MapSurfaces<T, TPin>({
   const drawEnabled = draw !== false
   // `selectionBadges` est rendu PAR nous, pas par la couche : on l'extrait de sa config.
   const { selectionBadges, ...drawProps } = draw === false ? { selectionBadges: undefined } : (draw ?? {})
+  const toolbarProps = toolbarConfig(toolbar)
+  const drawTools = drawToolsOf(draw, toolbar)
   // Menu commun DÉJÀ lié aux relations, comme pour le panneau de sélection et la loupe :
   // `<DrawLayer>` le reçoit tel quel pour l'offrir aux symboles posés (parité markers),
   // sans refaire la liaison de son côté.
   const boundMarkerMenu = useMenuWithRelations(markerMenu as MarkerMenu | undefined)
   const inner = (
     <>
-      {drawEnabled && toolbar !== false && <Toolbar {...toolbarConfig(toolbar)} />}
+      {drawEnabled && toolbar !== false && <Toolbar {...toolbarProps} />}
       <Layers specs={layers ?? []} markerMenu={markerMenu as MarkerMenu | undefined}>
         {children}
         {/* SOUS les trois couches (relations montée par `<Map>`, loupe, dessin) :
@@ -285,7 +288,7 @@ export function MapSurfaces<T, TPin>({
       {drawEnabled ? (
         // `boundMarkerMenu` propage aux SYMBOLES posés le même menu (déjà lié aux
         // relations) qu'aux markers — parité ; `<DrawLayer>` n'y ajoute que « Supprimer ».
-        <DrawLayer {...drawProps} markerMenu={boundMarkerMenu}>
+        <DrawLayer {...drawProps} tools={drawTools} markerMenu={boundMarkerMenu}>
           {inner}
         </DrawLayer>
       ) : (
@@ -336,6 +339,19 @@ function toolbarConfig<T>(toolbar: Surfaces<T>['toolbar']): DrawToolbarProps {
   const { lens, ...rest } = toolbar
   void lens
   return rest
+}
+
+/**
+ * Outils autorisés à la couche de dessin.
+ *
+ * `draw.tools` (ce qui est permis) et `toolbar.tools` (ce qui est montré) restent
+ * deux réglages distincts, mais n'en fournir qu'un ne doit pas les désaccorder :
+ * sans `draw.tools`, la barre fait autorité. Sinon un outil retiré de l'affichage
+ * resterait armable au clavier, sans bouton pour en sortir.
+ */
+export function drawToolsOf<T>(draw: Surfaces<T>['draw'], toolbar: Surfaces<T>['toolbar']): DrawTool[] | undefined {
+  if (draw === false) return undefined
+  return draw?.tools ?? toolbarConfig(toolbar).tools
 }
 
 /**

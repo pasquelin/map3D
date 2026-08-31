@@ -131,6 +131,16 @@ l'outil est relâché plutôt que de rester armé sans bouton pour en sortir.
 **affiché**. Le panneau « Réglages » liste les outils réellement activés — retirer un
 outil de la barre ne le laisse pas réglable dans un panneau qui l'ignore.
 
+Sur `<Map>`, **`toolbar.tools` fait autorité quand `draw.tools` est absent** : n'en
+renseigner qu'un ne désaccorde plus l'affichage et l'autorisation. Sans cette règle, un
+outil retiré de la barre restait armable à son raccourci clavier, sans bouton pour en
+sortir. Fournir les deux reste la façon de les dissocier volontairement :
+
+```tsx
+<Map toolbar={{ tools: ['select', 'polygon'] }} />                       // dessin borné aux deux
+<Map toolbar={{ tools: ['select', 'polygon'] }} draw={{ tools: DRAW }} /> // dissociés, assumé
+```
+
 **Barre espace** : maintenir `Espace` pendant un tracé ou une édition = **pan caméra
 temporaire** (le tracé en cours est gelé, pas perdu) ; `Espace+Maj` = rotation
 caméra ; relâcher = reprise exacte.

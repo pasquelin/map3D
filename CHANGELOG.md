@@ -6,6 +6,33 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### change! : `toolbar.tools` fait autorité sur `draw.tools` quand ce dernier est absent
+
+**Rupture de comportement.** Sur `<Map>`, `draw.tools` non fourni retombe désormais sur
+`toolbar.tools`. Auparavant, ne renseigner que `toolbar.tools` laissait **tous** les outils
+autorisés : un outil retiré de la barre restait armable à son raccourci clavier, sans bouton
+pour en sortir — un mode dont l'utilisateur ne pouvait plus sortir à la souris.
+
+L'invariant était jusqu'ici tenu par la vigilance de l'appelant, qui devait recopier sa liste
+sur les deux props. Il est maintenant garanti par construction.
+
+Les deux réglages restent distincts — `toolbar.tools` ce qui est **affiché**, `draw.tools` ce
+qui est **autorisé** — et les dissocier volontairement reste possible en renseignant les deux.
+
+**Qui est concerné** : une application qui fournit `toolbar.tools` sans `draw.tools` **et**
+qui comptait sur les raccourcis clavier des outils masqués. Le dessin y sera désormais borné
+aux outils affichés. Pour rétablir l'ancien comportement, fournir explicitement
+`draw={{ tools: […] }}` avec la liste complète voulue.
+
+Sans barre (`toolbar: false`) ou sans dessin (`draw: false`), rien ne change.
+
+### fix : `VERSION` reflète la version réellement publiée
+
+`VERSION` était figée à `'0.1.0'` depuis deux versions, la constante ayant été recopiée à la
+main. Elle est désormais dérivée du `package.json`, seule source de vérité — la désynchronisation
+ne peut plus se reproduire. Le manifeste n'est pas embarqué dans le bundle (seul le champ
+`version` survit au tree-shaking).
+
 ### fix : un agrégat de catalogue ne s'inscrit plus lui-même en sélection
 
 La règle « un groupe n'est qu'un sélecteur de ses enfants » ne tenait que pour **un geste sur
