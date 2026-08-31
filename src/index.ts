@@ -1,6 +1,10 @@
 // Point d'entrée public de map3d.
 
-export const VERSION = '0.1.0'
+import { version } from '../package.json'
+
+// Dérivée du manifeste : recopiée à la main, elle finit par mentir (restée à 0.1.0
+// pendant deux versions publiées).
+export const VERSION: string = version
 
 // ── Primitives partagées ──
 export type { LatLng, Bounds, SearchResult } from './shared'
