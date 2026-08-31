@@ -6,6 +6,8 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+## [0.4.0] — 2026-08-31
+
 ### change! : `toolbar.tools` fait autorité sur `draw.tools` quand ce dernier est absent
 
 **Rupture de comportement.** Sur `<Map>`, `draw.tools` non fourni retombe désormais sur

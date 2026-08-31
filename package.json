@@ -1,6 +1,6 @@
 {
   "name": "@pasquelin/map3d",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Bibliothèque React de cartographie 3D (Three.js + Google Photorealistic 3D Tiles) : globe, markers, clusters, tracés, dessin, entièrement thémable.",
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
