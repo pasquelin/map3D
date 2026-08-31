@@ -100,16 +100,16 @@ Engine · Plugins · Preferences.
 
 ## Public API — landmarks by domain (all from `'map3d'`)
 
-- **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer`, `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
+- **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
 - **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
-- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
+- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle` / `useCatalogClear` / `useCatalogSourceCount`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
 - **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` / `.history` — the eraser and its “Clear all” row, and the undo/redo arrows, withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
 - **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
 - **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
-- **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`.
+- **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`, `isBrowseSource` / `isToggleSource`, `CatalogBrowseSource.checkable` (`false` = index mode: no checkbox, the name frames — for a reference set the host paints itself).
 - **Relations / routing**: `RelationEngine`, `selectTargets`, `createGoogleRoutesProvider`, `haversineMeters`, `decodePolyline`, `RouteCache`.
 - **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
 - **Tiles**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities`, `canEnterMode`.
@@ -513,11 +513,13 @@ midpoints (1 axis), individual vertices (polygon/line/arrow/measure), body drag 
 **Shift while dragging = rotate** (dedicated cursor). Multi-selection: grouped
 transformations in a common frame. A rotated rectangle resizes along its own axes.
 
-**Style panel** (shown with an active tool or a selection): **separate fill and stroke**
-colours (stacked Photoshop-style swatches with a ⇄ swap), theme palette + native picker,
-stroke width **including 0** (no stroke), stroke style (solid/dashed/dotted), stroke AND
-fill opacity, rectangle corner radius. Without a selection it sets the active tool's
-defaults; with a selection it restyles the shapes.
+**Style panel**, opened by the **colour block — the last button of the bar** (the two
+fill/stroke squares, like Photoshop's colour well: the current style reads there at all
+times). It opens on click, never on its own. **Separate fill and stroke** colours (with the
+⇄ swap inside the panel), theme palette + native picker, stroke width **including 0** (no
+stroke), stroke style (solid/dashed/dotted), stroke AND fill opacity, rectangle corner
+radius. Without a selection it sets the defaults for the next shapes; with a selection it
+restyles the selected ones.
 
 **Per-tool settings** (gear): each tool keeps its own defaults (colours, width, stroke,
 opacities, radius…), **persisted in `localStorage`** (`m3d:draw-settings`, disableable
@@ -585,7 +587,7 @@ events too, derived by difference.
 The `useDrawing()` API exposes everything: `tool/setTool`,
 `selectMode/setSelectMode`, `selection`, `select`, `selectAll`, `clearSelection`,
 `deleteSelection`, `duplicateSelection`, `setStyle`/`currentStyle`, `lock`/`unlock`,
-`undo`/`redo`/`canUndo`/`canRedo`, `settings` (+ `useDrawSettings()`),
+`undo`/`redo`/`canUndo`/`canRedo`, `clear`/`canErase`, `settings` (+ `useDrawSettings()`),
 `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Business constraints** — `constraints.limits` (`ShapeData`, as in `<ShapeLayer>`)
@@ -922,11 +924,11 @@ shortcuts).
 | `<DrawLayer symbols={{ enabled, catalog, renderer }}>` | Catalogue icons placed by **drag-and-drop** (injected artwork), movable, tagged, undo/redo + GeoJSON — see [Symbols](#symbols-a-drag-and-drop-icon-catalogue). |
 | `<SymbolPaletteButton position tipId shortcut categoryLabel variants variant onVariantChange previewSize>` | Button + categorised palette with search, affiliation selector and grabbable thumbnails (→ `<Toolbar extraTools>`). |
 | `<Toolbar position minZoom tools selectModes components>` | Fully configurable drawing bar (hideable/replaceable sections). |
-| `<DrawStylePanel>` `DrawSettingsButton` | Style panel and per-tool settings, usable standalone. |
+| `<DrawStylePanel>` `DrawSettingsButton` | The bar's colour block (last button) and its style panel; per-tool settings. Mount them inside a `<Toolbar>`, whose sizing they take. |
 | `<MapControls>` `<ContextMenu>` | Replaceable controls (**Pan/Rotate** drag buttons — rotate without holding Shift —, **Layers** button = tag filter). |
 | `<SearchBox onSelect search placeholder flyAltitude historyStorageKey historySize limitPerGroup scope groupOrder>` | **Unified** search: the map's elements (markers, zones, drawings, symbols) AND place geocoding, in one **grouped** list. Map groups are not configured — layers register themselves with the `engine.search` registry as soon as an element carries a `title`; `<MarkerLayer typeLabel>` names them. Chip-based scope selector, headers announcing the total before truncation, picking a marker = camera flight **+ selection** (like a click) with the `<Map markerMenu>` menu under its “…” button, localStorage history re-resolved against the current position, keyboard ↑ ↓ Enter Escape. `search` replaces the geocoder only (**Google Places built in** by default through `<Map googleMapsApiKey>`'s key, or `createGooglePlacesSearch({ apiKey, language, region, limit })`); `false` removes the “Places” group, which otherwise always opens the list. |
 | `<TagFilterControl position tipId>` | Button + tag filter panel, usable standalone outside `<MapControls>`. |
-| `<ToolButton icon label tip shortcut active>` | Toolbar button (icon, state, tooltip + `aria-label` carrying the shortcut) — to populate `extraTools` / `components` with the native buttons' visual language. Pair it with `useToolbar()`: an application tool must close itself when the bar retracts or a native tool takes over (`bar.retracted \|\| bar.nativeActive`, via `useCloseWhenHidden`) and turn the others off when opening (`bar.claim()`). Without that, two buttons stay lit and the bar no longer tells you where you are. |
+| `<ToolButton icon? label tip shortcut active>` | Toolbar button (icon **optional** — without it the button renders only its `children`, for the one whose preview IS the value; state, tooltip + `aria-label` carrying the shortcut) — to populate `extraTools` / `components` with the native buttons' visual language. Pair it with `useToolbar()`: an application tool must close itself when the bar retracts or a native tool takes over (`bar.retracted \|\| bar.nativeActive`, via `useCloseWhenHidden`) and turn the others off when opening (`bar.claim()`). Without that, two buttons stay lit and the bar no longer tells you where you are. |
 | `AnchorHeightCache` | Memoised anchor heights (throttled raycasting, retries for missing tiles, 2D↔3D invalidation) for a custom layer projecting ground-draped elements. |
 | `<RelationLayer rules provider>` `<RelationStatusBar>` | Tag links to neighbouring markers, with real road distances and durations — see [Relations](#relations-real-distances-and-travel-times). |
 | Hooks | `useMap`, `useCamera`, `useViewport`, `useLiveData`, `useDrawing`, `useDrawSettings`, `useLens`, `useMapEvents`, `useTags`, `useTagSelection`, `useRelations`, `useToolbar`, `useCloseWhenHidden`, `useDraggablePanel`, `useDraggable`, `useDropZone`, `useMapDropZone`, `useRepositionable`, `useTheme`, `useLabels`, `useConfig`. |
@@ -959,7 +961,7 @@ useMapDropZone<Icon>({
 
 Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
 `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `fullscreen` — groups: `drag`,
-`compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`. The `compass` group gathers the whole point of view
+`compass`, `layers`, `target`, `pedestrian`, `zoom`, `fullscreen`. The `compass` group gathers the whole point of view
 (compass, tilt, the `mode3d` toggle, traffic, globe, grid): no separate `view` or `basemap`
 group. `mode3d` is a toggle — lit while in 3D, turning it off returns to the 2D plan, there is
 no separate “Plan” button.
@@ -1496,6 +1498,11 @@ Information lives **on hover**; clicking is reserved for actions (selection, men
 When provided, the `tooltip` prop **decides alone** — including returning `null`.
 Reserve it for titles that plain text cannot express: `titleColor` already covers the
 common case.
+
+The tooltip is centred above its marker, and **nudged back inside the map** when that
+marker approaches an edge: it slides along the edge instead of being clipped, and follows
+its anchor for as long as it is shown. Nothing to configure — the same mechanism as context
+menus. It holds for the cluster tooltip and the pinned dock one.
 
 ### Cluster tooltip
 
@@ -2445,18 +2452,34 @@ With no source declared, it does not render at all.
 
 ## 2. `CatalogSource` — anatomy
 
+A source belongs to one of **two regimes**, told apart by `kind`:
+
 ```ts
-type CatalogSource = {
+type CatalogSource = CatalogBrowseSource | CatalogToggleSource
+
+type CatalogSourceBase = {
   id: string                  // stable identity: key prefix, persisted value
   label: string               // menu label — the library translates no type name
   icon: string                // @mdi/js path
   family?: string             // groups menu entries
   total?: number              // count shown WITHOUT issuing a request
+}
 
+// The BROWSE regime: a paginated list, one checkbox per item.
+type CatalogBrowseSource = CatalogSourceBase & {
+  kind?: 'browse'             // DEFAULT — a source written without `kind` is a browse one
   list(req: CatalogRequest): Promise<CatalogPage>
   geometry(id: CatalogId, signal: AbortSignal): Promise<ShapeData[]>
+  markers?(id: CatalogId, signal: AbortSignal): Promise<MarkerData[]>
   children?(id: CatalogId, req: CatalogRequest): Promise<CatalogPage>
   actions?: readonly CatalogAction[]
+}
+
+// The TOGGLE regime: one switch, loaded for the visible frame — see § 4.
+type CatalogToggleSource = CatalogSourceBase & {
+  kind: 'toggle'
+  source: DataSource<MarkerData>
+  markerLayer?: { icon?; tooltip?; menu?; typeLabel?; cluster?; size? }
 }
 
 type CatalogRequest = {
@@ -2484,6 +2507,45 @@ if you don't provide it, no count is shown; it will not go looking for one.
 > called for it. A source indexing only its roots would return an empty array for every
 > child — a checkbox that displays nothing, with no error.
 
+**`markers` places POINTS**, where `geometry` places shapes. Both are requested on the
+same gesture and removed together; an item may have only one of the two. Points join
+clustering, the "Layers" filter (via `tags`) and search (via `title`) like any other
+marker — and clicking the name frames the union of shapes AND points.
+
+**`actions` exists only on a browse source**: an action receives the `CatalogItem` it
+acts on, and a toggle source has no items.
+
+### 2.1 "Index" mode — when the host already paints
+
+`checkable: false` declares a **reference set the application displays itself**. The list
+then only serves to browse it, search it, **frame** it and act on it:
+
+```ts
+const companyZones: CatalogBrowseSource = {
+  id: 'zones',
+  label: 'Zones',
+  icon: mdiShapePolygonPlus,
+  checkable: false, // ← the row loses its checkbox; the name FRAMES instead of placing
+  list: (req) => api.zones(req),
+  geometry: (id) => api.outline(id), // framing path for items with no `bounds`
+  actions: [{ id: 'edit', icon: mdiPencil, label: 'Edit', run: (item) => openForm(item.id) }],
+}
+```
+
+The typical case: **editable** zones, mounted by the host in `<DrawLayer>` — the only layer
+where a shape is selectable and editable (see [ZONES.md](ZONES.md)). They are on the map at
+**all times**; a checkbox would have nothing to express, and if it really placed something,
+the same zone would be painted twice by two layers unaware of each other.
+
+| What changes | What does not |
+| --- | --- |
+| No checkbox — and **no gutter reserved** for it, like the chevron of a source that never expands | Chevron, children and sections: expanding stays useful |
+| Clicking the name **frames** (`item.bounds` if provided, otherwise `geometry` just long enough to measure, placing nothing) | Row actions — the whole point of this mode |
+| Nothing enters the selection or persistence; the button badge ignores these rows, "Remove all" does not concern them | `disabled`: an inert row stays inert (neither framing nor action) |
+
+The name's `aria-label` becomes `labels.catalog.focus` ("Centrer sur {label}") and
+`aria-pressed` goes away: there is no two-state toggle left to announce.
+
 ---
 
 ## 3. `CatalogItem`, badges and actions
@@ -2498,6 +2560,7 @@ type CatalogItem = {
   bounds?: Bounds        // present ⇒ frame without loading the geometry
   disabled?: boolean     // inert row: no framing, no display, no action
   hasChildren?: boolean
+  group?: string         // opens a named section in the list — see § 5.1
 }
 
 type CatalogBadge = {
@@ -2534,7 +2597,185 @@ actions: [
 
 ---
 
-## 4. Aggregates and children
+## 4. Toggle sources
+
+Some reference sets are not meant to be browsed. Nobody ticks thirty-six thousand
+defibrillators one by one: you **turn them on with a single switch**, and the **view**
+decides what gets loaded.
+
+```tsx
+import { mdiHeartPulse } from '@mdi/js'
+import type { CatalogToggleSource } from '@pasquelin/map3d'
+
+const defibs: CatalogToggleSource = {
+  id: 'defibs',
+  kind: 'toggle',                    // ← this is what changes everything
+  label: 'Defibrillators',
+  icon: mdiHeartPulse,
+  total: 36699,                      // the reference set, not the view
+
+  source: {
+    minZoom: 12,                     // 💰 below this zoom, NO request at all
+    load: async ({ bounds }, signal) => {
+      const r = await fetch(`/api/aed?bbox=${bbox(bounds)}`, { signal })
+      const points = await r.json()
+      return points.map((p) => ({
+        id: p.id, position: p.pos, type: 'defib', title: p.name, tags: ['aed'], data: p,
+      }))
+    },
+  },
+
+  markerLayer: { cluster: { enabled: true } },
+}
+```
+
+`source` is the library's **`DataSource<MarkerData>`**, unchanged (see [DATA.md](DATA.md)):
+debouncing, the `minZoom` gate, `AbortSignal` and rejection of out-of-order responses are
+already handled by `ViewportController`. You only write `load`.
+
+`markerLayer` is a **`MarkerLayerDecl`** — the SAME type as `Plugin.markerLayer`
+([PLUGINS.md § 5](PLUGINS.md#5-map-rendering)), so that one capability is not configured two
+different ways depending on where it comes from:
+
+```ts
+type MarkerLayerDecl = {
+  menu?: (p: MarkerData) => MenuItem[]
+  tooltip?: MarkerLayerProps<unknown>['tooltip']
+  icon?: (p: MarkerData) => string
+  typeLabel?: (type: string) => string
+  cluster?: { enabled: boolean }
+  size?: number
+}
+```
+
+A deliberate subset of `MarkerLayerProps`: what decides **appearance**, never what decides
+the data (`points`/`source`) nor selection, which the library drives. Points join the
+**same** clustering index (`engine.clusters`), the **"Layers" filter** (via
+`MarkerData.tags`) and **unified search** (via `MarkerData.title`) as everything else on the
+map.
+
+**Discriminating a heterogeneous list** — `isToggleSource` and `isBrowseSource` are the
+public guard pair:
+
+```ts
+import { isBrowseSource, isToggleSource } from '@pasquelin/map3d'
+
+sources.filter(isToggleSource)   // `s.source` is typed here
+sources.filter(isBrowseSource)   // `s.list` / `s.geometry` are typed here
+```
+
+⚠️ `isBrowseSource` tests `kind !== 'toggle'`, **not** `=== 'browse'`: since `kind` is
+optional on the browse side, testing equality would make every source written before
+toggles existed disappear. The NEGATION is the correct one, which is why the library ships
+the guard instead of leaving you to write the test.
+
+### 4.1 What the row does
+
+|  | `browse` | `toggle` |
+|---|---|---|
+| Chevron, sub-list, search | yes | **no** |
+| Clicking the **name** | toggles **and** frames the camera | toggles, **no framing** |
+| Clicking the **checkbox** | toggles only | toggles |
+| `total` shown | yes | yes |
+| Loading state | — | yes |
+| **Number of loaded items** | — | **never** — see § 4.2 |
+| `children`, `bounds`, `disabled`, `actions` | yes | not applicable |
+
+No framing on a toggle, and that is not an oversight: on a view-driven set, the view
+decides the content. Framing it on its own content would let the content decide the very
+view that determines it.
+
+Turned off, a set has **no layer mounted**: no controller, no view listener, no request. A
+36,000-point reference set costs nothing until you touch it.
+
+### 4.2 Loaded volume is not displayed volume
+
+The bounds handed to `load` are **deliberately wider than the screen**. `computeBounds`
+expands the bbox by `config.performance.boundsMargin` (default `0.15`, i.e. **+30% in
+latitude AND longitude**, ≈ **+69% of area**) and samples it on a 5×5 grid that catches
+ground all the way to the horizon in a tilted view — so a genuinely visible marker is
+never hidden, and nothing pops in as you pan.
+
+A toggle source therefore loads **structurally more than what you see**. That is intended.
+
+> **Never display the number of loaded items.** Next to a map showing three of them, a
+> "142" reads as "142 displayed": you go looking for the missing 139 and conclude the
+> renderer is broken. The library shows it nowhere, and neither should your interface.
+>
+> `total` is legitimate: it is the volume of the **reference set** — stable, verifiable,
+> unrelated to the view. So is the **loading state**: it states something true.
+
+### 4.3 Toggle or plugin
+
+Both load markers from the viewport. What separates them is not technical:
+
+| | **Catalog `toggle`** | **Plugin** |
+|---|---|---|
+| What it is | a **reference set of the host application** | a **third-party capability** |
+| Who writes it | you, in your app | an author, often someone else |
+| Distribution | none — it is your app's code | packaged, **versioned**, published (npm) |
+| Configuration | hard-coded in your code | **declarative auto-rendered schema** (`config`) |
+| Where users enable it | **Catalog** panel, with your other sets | **Plugins** hub |
+| Lifecycle | mounted by `<Map>` | `register` / `setEnabled` / `unregister` |
+
+In one sentence: **one more reference set in your panel → `toggle`; a capability that gets
+installed, updated and uninstalled → plugin** ([PLUGINS.md](PLUGINS.md)).
+
+### 4.4 Failures
+
+A failed load leaves the current set **intact** and turns the indicator off: nothing is
+reported to the user. The browse regime, by contrast, drops the item from the selection and
+lights an error badge on its row — it has an item to put one on, a toggle source does not.
+If your set must surface its failures, do it from your `load`.
+
+### 4.5 Persistence
+
+The **on/off** state survives a reload, in a **distinct field** of the payload
+(`config.data.storageKeys.catalog`) — never mixed into item keys, which would otherwise
+carry a source id colliding with an item id. A set whose source is no longer registered is
+turned off silently, like an orphaned key.
+
+Markers themselves are **never** serialized: they are re-requested from the source on the
+first frame.
+
+---
+
+## 5. Sections, aggregates and children
+
+### 5.1 Named sections
+
+`CatalogItem.group` opens a **section heading** in the list whenever the value changes:
+
+```ts
+items: [
+  { id: 'z4', title: 'SDF Ext SO',       group: 'Stade de France' },
+  { id: 'z5', title: 'SDF - Ext NE',     group: 'Stade de France' },
+  { id: 'z7', title: 'Centre Westfield', group: 'La Défense' },   // ← opens a section
+]
+```
+
+> **⚠️ The library does not sort.** It opens a section when `group` changes from one item
+> to the next — **you must serve your items already grouped**. A source returning them out
+> of order will see the same heading come back further down, which is a faithful rendering
+> of what it returned.
+>
+> This is not a limitation but the condition for **pagination**: sorting would require
+> holding the complete set, while pages arrive as you scroll. An incoming page extends the
+> current section instead of reopening an identical one.
+
+An item without `group` opens no section: a source may group only part of its items, the
+rest comes out flat. A heading is a **row of the virtualized flow**, the same height as any
+other — that is what allows virtualizing without measuring.
+
+Not to be confused with an aggregate (§ 5.2): a section is a plain heading, with no
+checkbox and no action; an aggregate is an item you tick that carries its children.
+
+Setting: `config.catalog.groupHeaders` (default `true`). At `false` no heading is rendered
+— and a source that does not set `group` does not even pay the comparison. A setting rather
+than “just don't set `group`”, because a source may come from a **third-party plugin** you
+do not control.
+
+### 5.2 Aggregates and children
 
 A "zone group" is not a library concept: it is an item whose **`geometry` returns several
 shapes**. Ticking the group shows them together, unticking removes them together.
@@ -2550,9 +2791,24 @@ children: async (id, { signal }) => {
 
 An aggregate's checkbox is then **derived from its children**: all shown → ticked; none →
 unticked; some → **indeterminate**. Ticking the aggregate ticks its children (loading them
-if needed, even collapsed); unticking one turns it indeterminate. The aggregate itself
-never enters the selection — otherwise the same zone would be counted twice and unticking
-a child would say nothing.
+if needed, even collapsed); unticking one turns it indeterminate.
+
+**An aggregate NEVER enters the selection — it is only a selector for its children.** The
+rule holds for every gesture, the checkbox as well as a click on the name: the latter shows
+(or removes) the children and frames their union. An aggregate key in the selection would
+paint its zones a second time on top of its children's, count twice in the badge, and
+survive an unticking that only covers the children.
+
+**What is shown can be seen without expanding.** An aggregate with some of its items on the
+map carries its count — "2/3" (`labels.catalog.groupCount`) — and every row of the type menu
+carries how many of its items are shown. You can therefore spot what is active by scanning a
+collapsed list, without opening each group. Membership is remembered as soon as the children
+have been loaded once, and **persisted along with the selection**: reopening the panel asks
+your source for nothing.
+
+> ⚠️ If your aggregates advertised their child count through a `badge`, drop it: the library
+> already writes `2/3`, and both side by side read "3/3 3". A badge remains the right tool
+> for what the library cannot know — a business state, an alert.
 
 **One level of descent only.** `children` applies to roots; a grandchild is not inserted.
 The need (group → zones) is flat, and recursion would require per-level pagination for a
@@ -2564,7 +2820,7 @@ one as long as the other still references it.
 
 ---
 
-## 5. Pagination, search and volume
+## 6. Pagination, search and volume
 
 The list is **virtualized**: only visible rows render, however many entries there are. A
 sentinel at the bottom requests the next page before reaching the edge, and two pages are
@@ -2587,7 +2843,7 @@ Nothing is requested while the panel is closed.
 
 ---
 
-## 6. Display, framing and persistence
+## 7. Display, framing and persistence
 
 What you display becomes an ordinary **draped shape**: it follows the terrain, follows
 the theme, and **enters search** — a zone placed from the catalog is then findable by
@@ -2613,11 +2869,13 @@ a zone placed from the catalog therefore stays findable by name **even after a r
 not only in the session where it was placed.
 
 Users control all of this from the toolbar's gear panel: *keep between sessions*, *frame
-on add*, *remove all*.
+on add*, *remove all*. **"Remove all" also turns off toggle sources** — the button says
+"all", and sparing one would leave thousands of points on a map you just asked to clear.
+The **Catalog button's badge** likewise counts ticked items and switched-on sets alike.
 
 ---
 
-## 7. Config, theme, labels
+## 8. Config, theme, labels
 
 ```ts
 config.catalog = {
@@ -2627,6 +2885,8 @@ config.catalog = {
   overscanRows: 4,         // rows rendered off-screen on each side of the virtual window
   prefetchMarginPx: 200,   // 💰 distance from the list bottom that triggers the next page
   persistDebounceMs: 250,  // debounce for writing the selection to storage
+  familyHeaders: true,     // name the families of the types MENU (`CatalogSource.family`)
+  groupHeaders: true,      // name the sections of the LIST (`CatalogItem.group`)
 }
 config.data.storageKeys.catalog          // 'm3d:catalog'          — the selection
 config.data.storageKeys.catalogSettings  // 'm3d:catalog-settings' — the settings
@@ -2643,11 +2903,21 @@ config.interaction.shortcuts.controls.catalog  // 'c'
 | `sizing.panelMaxHeight.catalog` | maximum height |
 
 All text lives in `labels.catalog` (see [LABELS.md](LABELS.md)). **Type names** are not
-there: they come from `CatalogSource.label`, which you provide.
+there: they come from `CatalogSource.label`, which you provide. A toggle source reuses the
+**same keys** as item rows (`catalog.add`, `catalog.remove`, `catalog.loading`), with the
+source name as `{label}`: nothing new to translate.
+
+Two settings concern **only** toggle sources, and they live elsewhere:
+
+| Setting | Role |
+|---|---|
+| `CatalogToggleSource.source.minZoom` | 💰 zoom gate, carried by the source itself |
+| `config.data.viewportDebounceMs` | debounce of the reload on camera movement |
+| `config.performance.boundsMargin` | 💰 how much is loaded around the screen — see § 4.2 |
 
 ---
 
-## 8. Declaring a source from a plugin
+## 9. Declaring a source from a plugin
 
 `engine.catalog` is a registry like `engine.tags` or `engine.search`: a plugin registers
 its sources there and returns the removal function.
@@ -2664,7 +2934,7 @@ can remove any more would stay on screen.
 
 ---
 
-## 9. Recipes
+## 10. Recipes
 
 **A reference set with known bboxes** — framing without a request:
 
@@ -2683,20 +2953,46 @@ list: async ({ query, cursor, limit }) => {
 }
 ```
 
-**Two families in the menu** — `family` separates them, in registration order:
+**Two families in the menu** — `family` groups them, in registration order (alphabetical
+sorting would take control of source order away from the host):
 
 ```ts
-{ id: 'zones', family: 'My zones', … }
+{ id: 'zones',  family: 'My zones',    … }
 { id: 'cities', family: 'Territories', … }
+{ id: 'defibs', family: 'Territories', … }   // ← joins the same family
 ```
+
+Each family carries a **heading with its name**, and families are separated by a rule.
+`config.catalog.familyHeaders = false` falls back to the rule alone. A source without
+`family` lands in an unnamed group: no heading, since the library invents no wording.
+
+Both regimes mix within one family: a toggle source (§ 4) sits there like a browse one.
 
 **Driving the selection from the application**:
 
 ```tsx
 const catalog = useCatalog()
-catalog.toggle(source, item, { fit: true })
+catalog.toggle(source, item, { fit: true })   // BROWSE source
 catalog.setMany(source, items, true)
+catalog.toggleSource('defibs')                // switches a toggle set on/off
+catalog.toggleSource('defibs', false)         // forced state
 catalog.clear()
+```
+
+**Reading a set's state** — `useCatalogToggle(id)`, not `useCatalog()`: it subscribes to
+THIS set's two booleans, where the full API would re-render your component on every catalog
+mutation.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+**Sorting heterogeneous sources** — the guards discriminate the union:
+
+```ts
+import { isToggleSource } from '@pasquelin/map3d'
+
+const sets = sources.filter(isToggleSource)   // `s.source` is typed here
 ```
 
 **Showing the metadata of ONE known source** (icon, label, `total`) without
@@ -2828,6 +3124,24 @@ Both modes delete **exactly the same set**: drawings, measures and symbols. **Ma
 
 Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
+**“Clear all” has the SAME scope as the eraser.** The “Clear all” row of the submenu is
+the eraser without a gesture: it deletes host objects as well as library shapes, honours
+`erase.targets`, spares locked and hidden shapes, and emits `onErase` — your application
+removes its own paths and zones, exactly as after an eraser stroke. `useDrawing().clear()`
+does the same from code.
+
+**The eraser withdraws when it has nothing to bite.** By default
+(`config.toolbar.autoHide.erase`), the button is not greyed out but **absent** while no
+allowed target is on screen — categories forbidden by `erase.targets` therefore do not
+count. It comes back as soon as an erasable object appears, including from your own data
+(`<PathLayer>` / `<ShapeLayer>` with `erasable: true`). While hidden, its shortcut (`E`)
+does not arm it; and if its last target disappears while it is active, the tool is
+released rather than left armed with no button to escape it.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />  // eraser always visible
+```
+
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // displayed, in this order
 <DrawLayer tools={['select', 'rect']} />                            // ALLOWED (also filters setTool)
@@ -2921,17 +3235,21 @@ rectangle resizes along its **own axes**.
 
 ## 5. Style
 
-The style panel appears with an active tool or a selection.
+The **last button of the bar is the colour block**: the two fill/stroke squares, like
+Photoshop's colour well. The current style reads there at all times, and a click opens the
+panel — which opens ONLY that way. Drawing or selecting no longer pops a surface over the
+map.
 
-- **Separate fill and stroke colours** (stacked Photoshop-style swatches with a ⇄
-  swap), theme palette (`theme.colors.draw.palette`) + native picker.
+- **Separate fill and stroke colours** (stacked Photoshop-style swatches, with the ⇄
+  swap inside the panel), theme palette (`theme.colors.draw.palette`) + native picker.
 - Stroke width **including 0** (fill only).
 - Stroke style: `solid` / `dashed` / `dotted`.
 - Stroke **and** fill opacity.
 - Rectangle corner radius (% of the short side, 0–50).
 
-**Without a selection**, the panel sets the active tool's defaults; **with a
-selection**, it restyles the shapes.
+**Without a selection**, the panel sets the defaults for the next shapes; **with a
+selection**, it restyles the selected ones (its title counts them). What it shows follows
+the shape type: the corner radius only appears for rectangles.
 
 ```ts
 const { setStyle, currentStyle, selectionHasRect } = useDrawing()
@@ -3203,12 +3521,29 @@ A remap is immediately reflected in the tooltips.
 />
 ```
 
-Sections (`components`): `navigate`, `select`, `symbol`, `lens`, `stylePanel`,
-`settings`, `undo`, `redo`, `clear`. `false` hides, a `ReactNode` replaces.
+Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
+`plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
+`ReactNode` replaces. ⚠️ `stylePanel` is the **colour block, the last button of the bar**
+(no longer a floating surface beside it): replacing it puts your own node there. ⚠️ `clear`
+is no longer a bar button but the **“Clear all” row of the eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
+`erase` tool from `tools` takes the command with it.
+
+**The bar only shows what is useful.** By default the eraser — and with it its “Clear all”
+row — appears only when one of its allowed targets is on screen
+(`config.toolbar.autoHide.erase`); **“Undo” and “Redo” likewise withdraw while there is
+nothing to undo or redo** (`autoHide.history`), instead of staying greyed out. A map with
+nothing erasable shows no eraser, and a blank map shows no two inert arrows. The keyboard
+shortcut never depends on the bar, and explicit hiding through `components` still wins.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false, history: false } } }} />   // all visible
+```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
 left armed would keep intercepting gestures, so that zooming out would leave you
-drawing shapes on a map where no button lets you stop.
+drawing shapes on a map where no button lets you stop. **Its menus close with it** — a
+panel left alone in the middle of the map, without the button that opened it, would have
+nothing left to close it.
 
 ### Putting your own tool in the bar
 
@@ -3216,7 +3551,7 @@ drawing shapes on a map where no button lets you stop.
 const bar = useToolbar()
 const [open, setOpen] = useState(false)
 
-useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
+useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself (not needed with <Dropdown>)
 
 <ToolButton
   icon={mdiChartBox}
@@ -3228,7 +3563,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
 
 Without this, two buttons stay lit and the bar no longer tells you where you are.
 `ToolbarApi` carries `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
-the last three anchor a panel that follows the active tool, beyond the minimum shown here.
+the last three act as **anchors** for a host surface: the bar itself, or the active tool's
+button for a surface that relates to that tool.
 
 ---
 
@@ -3243,7 +3579,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
-| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |
+| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
 | Serialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symbols | `symbols` — see [SYMBOLS.md](SYMBOLS.md) |
@@ -4804,6 +5140,8 @@ The toolbar's **“Settings”** menu carries an **“Infos”** row that opens 
 
 Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md).
 
+Sections flow into **columns derived from the width received** (an ideal column ≈ 188 px), each section staying in one piece: two columns with no scrolling inside the menu, a single one if you mount the panel in a narrow surface.
+
 ```tsx
 // In your own surface rather than in the menu:
 import { StatsPanel } from '@pasquelin/map3d'
@@ -4899,7 +5237,7 @@ tile is available: the map stays a map even without network or token.
 
 Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
 `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `catalog`, `fullscreen`.
-Groups: `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
+Groups: `drag`, `compass`, `layers`, `target`, `pedestrian`, `zoom`, `fullscreen`.
 
 `catalog` (remote entity catalog, see [CATALOG.md](CATALOG.md)) shares the `layers`
 group with “Layers”.
@@ -5404,7 +5742,7 @@ no quota. A complete 2D map without an API key becomes possible.
 | Source                | Google Map Tiles                      | your server (XYZ scheme)       |
 | Authentication        | API key + signed session              | none                           |
 | Minimum setting       | `<Map googleMapsApiKey>`              | `providers.internal.origin`       |
-| Traffic layer         | yes                                   | **no** (see § 4)               |
+| Traffic layer         | yes                                   | borrowed, with a key (see § 4) |
 | Volume (`'3d'` mode)  | photorealistic 3D tiles (Cesium Ion)  | extruded buildings (see § 5)   |
 | Quota                 | billed per tile                       | yours                          |
 
@@ -5526,7 +5864,8 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 | `external` + Google key, no Ion token            | shown       | **hidden**  | shown in plan  |
 | `external` without key (Ion token only)          | hidden      | shown       | hidden         |
 | neither key nor token                            | hidden      | hidden      | hidden         |
-| `internal` (origin set)                          | shown       | shown       | hidden         |
+| `internal` (origin set), no Google key           | shown       | shown       | hidden         |
+| `internal` (origin set) + Google key             | shown       | shown       | shown in plan  |
 | `internal` for 2D, `external` without token in 3D | shown      | **hidden**  | hidden         |
 
 Three rules behind that table:
@@ -5540,9 +5879,32 @@ Three rules behind that table:
   switching would empty the screen. One exception: if NO mode is servable, the map keeps
   its own and its fallback globe; it has to be somewhere.
 - **Traffic is a property of the Google tile** (`layerTypes` requested from the session),
-  not a transparent overlay. An internal server has nothing to switch on:
-  `setTrafficVisible(true)` is a no-op there, and the button is not offered — even when a
-  Google key is otherwise configured.
+  not a transparent overlay. An internal server therefore has nothing to switch on *on its
+  own tiles*: turning it on **changes provider** for as long as the layer lasts (see below).
+  Without a Google key there is nothing to borrow — `setTrafficVisible(true)` stays a no-op
+  and the button is not offered.
+
+### Traffic with the internal provider — borrowing
+
+`internal` 2D basemap **and** a `<Map googleMapsApiKey>`: the traffic button is offered, and
+turning it on **moves the basemap over to Google** for as long as the layer is on. Turning
+it off returns to the internal server. The tile cache is cleared both ways: these are two
+sets of tiles, not two versions of the same one.
+
+```tsx
+// The default behaviour — nothing to write to get it.
+<Map
+  googleMapsApiKey={KEY}
+  config={{ providers: { tiles: { provider: 'internal', trafficViaExternal: true } } }}
+/>
+```
+
+⚠️ **What borrowing commits to**: the basemap changes appearance (Google's style, not
+yours) and its tiles are billed again while traffic is on. `trafficViaExternal: false`
+restores the original refusal — no traffic outside the external provider, button hidden.
+
+3D mode turns traffic off as before, and borrowing with it: the basemap returns to the
+internal server with nothing for the host to do.
 
 A host building its own toolbar reads the same flags, or calls the pure function that
 settles them:
@@ -6141,7 +6503,7 @@ resettle — a cost out of proportion with what the grid provides.
 ## 8. In the interface
 
 The grid is driven from the **view controls**, not from the toolbar: the latter **retracts below
-zoom 11** (`interaction.drawToolbarMinZoom`), whereas the grid is precisely what you want in globe
+zoom 5** (`toolbar.minZoom`), whereas the grid is precisely what you want in globe
 view. A button that vanishes where the feature becomes useful is not a button.
 
 **The button**, in the `compass` group, next to "Globe":
@@ -6197,7 +6559,7 @@ Hard guard rails, to lower only on very weak machines: `maxLines` (64 per axis),
 - **Meridians stop at `latLimitDeg`** (85° by default): beyond it they converge and the
   vertex density explodes for an unreadable result.
 - **No line hovering**: only labels react to the pointer.
-- **Below zoom 11**, the toolbar being retracted, the grid is driven from the view-controls
+- **Below zoom 5**, the toolbar being retracted, the grid is driven from the view-controls
   button, the shortcut or the API (see §8).
 
 ---
@@ -6623,9 +6985,52 @@ catalog.clear()
 ```
 
 Catalog selection and gestures: `selection`, `isShown`, `isPending`, `hasError`, `toggle`,
-`setMany`, `clear`, `shapes` (shapes to pass to `<ShapeLayer>`). `side` reserves the framing
-margin on the side where the panel opens. Details in
-[CATALOG.md § 9](CATALOG.md#9-recipes).
+`setMany(source, items, shown, { fit })`, `clear`, `shapes` (shapes to pass to
+`<ShapeLayer>`), `markers` (points placed by the displayed items) and
+`toggleSource(id, on?)` (switches a toggle set on/off). `side` reserves the framing margin on
+the side where the panel opens. Details in [CATALOG.md § 10](CATALOG.md#10-recipes).
+
+For **aggregates** (see [CATALOG.md § 5.2](CATALOG.md#52-aggregates-and-children)):
+`rememberGroup(source, parentId, children)` records what a group is made of — which is what
+keeps its checkbox right once collapsed, and after the panel is reopened — and
+`groupState(parentKey)` returns the derived state (`{ state, shown, total }`). An aggregate
+never enters the selection.
+
+⚠️ To **read** a toggle set's state, use `useCatalogToggle` below — not `useCatalog()`,
+which returns a fresh object on every catalog mutation and would therefore re-render the
+caller on every incoming geometry.
+
+### `useCatalogToggle(id: string): { on: boolean; loading: boolean; toggle: () => void }`
+
+State of ONE toggle set and the gesture that flips it. Two **scalar** snapshots
+(`useSyncExternalStore`): React short-circuits the render as long as both booleans hold.
+This is the hook the library uses for its own menu rows.
+
+```tsx
+const { on, loading, toggle } = useCatalogToggle('defibs')
+```
+
+`loading` states that a request is **in flight**, never a count of loaded items — see
+[CATALOG.md § 4.2](CATALOG.md#42-loaded-volume-is-not-displayed-volume).
+
+### `useCatalogSourceCount(id: string): number`
+
+How many items of THIS source are on the map — the count the library shows on every row of
+the type menu. A **scalar** snapshot, like `useCatalogToggle`: the row only re-renders when
+its number moves.
+
+```tsx
+const shown = useCatalogSourceCount('zone-groups')
+```
+
+⚠️ Never on a **toggle** source: what it loads structurally exceeds what is visible (see
+[CATALOG.md § 4.2](CATALOG.md#42-loaded-volume-is-not-displayed-volume)).
+
+### `useCatalogClear(): () => void`
+
+Clears everything the catalog paints on the map — ticked items **and** switched-on sets.
+A gesture alone, with **no subscription**: a "Remove all" button need not re-render on
+every incoming geometry. Its disabled state is read elsewhere (the active count).
 
 ### `useCatalogSources(): readonly CatalogSource[]` / `useCatalogSource(id: string | null): CatalogSource | undefined`
 
@@ -6934,7 +7339,7 @@ have nothing to switch on.
 | `traffic` | traffic layer on |
 | `canPlan` | a flat map is servable: Google key with `external`, `origin` with `internal`. Without it the basemap button group has nothing to offer |
 | `can3d` | volume is servable: photorealistic tileset with `external`, terrain/buildings with `internal`. **Informational** — hides no button |
-| `trafficAvailable` | traffic offerable: **external** provider, 2D basemap present, not in 3D mode |
+| `trafficAvailable` | traffic offerable: 2D basemap present, not in 3D mode, served by Google — or an internal basemap that can **borrow** it (Google key + `providers.tiles.trafficViaExternal`) |
 | `canPickBuildings` | a building is **pickable**: internal volume (extruded MVT footprints, each with its own identity) — the external photorealistic mesh is out of reach by nature, a single fused mesh with nothing to tell buildings apart |
 
 `engine.supportsBasemap2d` is still available: it is the historical alias of `canPlan`.
@@ -7302,6 +7707,12 @@ registry, hub, hooks); official plugins live outside the library (§ 9).
 A plugin **must** provide at least one of `data`, `layer`, `enrichBuilding`,
 `setup` — otherwise it does nothing.
 
+> **Plugin or catalog toggle source?** Both load markers from the viewport. A plugin is
+> a packaged, versioned, distributed **third-party capability** that users enable from
+> the hub; a catalog toggle is a **reference set of the host application**, sitting
+> beside its other sets, with no packaging and no versioning. Full decision table:
+> [CATALOG.md § 4.3](CATALOG.md#43-toggle-or-plugin).
+
 ---
 
 ## 2. Anatomy of a plugin
@@ -7432,11 +7843,13 @@ remount on a config change.
 
 ## 5. Map rendering
 
-`markerLayer?` reuses the existing marker ergonomics — the library renders
-`data.fetch`'s result inside an internal `<MarkerLayer>`:
+`markerLayer?: MarkerLayerDecl` reuses the existing marker ergonomics — the library renders
+`data.fetch`'s result inside an internal `<MarkerLayer>`. It is the SAME type as
+`CatalogToggleSource.markerLayer` ([CATALOG.md § 4](CATALOG.md#4-toggle-sources)): one
+capability is not configured two different ways depending on where it comes from.
 
 ```ts
-markerLayer?: {
+type MarkerLayerDecl = {
   menu?: (p: MarkerData<unknown>) => MenuItem[]
   tooltip?: MarkerLayerProps<unknown>['tooltip']
   icon?: (p: MarkerData<unknown>) => string
@@ -7944,7 +8357,7 @@ compile error.
 |---|---|---|
 | `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ The default is THE PROJECT's production server, not a public service: a third-party host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `'https://map.gosecure.site'` |
 | `providers.internal.elevationEpsilon` | Ground-elevation change (m) below which the raster basemap and the volumes are NOT rebuilt. Elevation is baked into both layers' geometry: tracking it to the centimetre would replay the whole cache every frame. Shared setting — both must use the exact same reference. ⚠️ Was a literal copied into both layers. | `1` |
-| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota, **no traffic**). See [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota; traffic only by borrowing, see `trafficViaExternal`). See [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | URL template for an internal raster tile — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` and `{r}` are substituted. No query string is appended: the internal server signs nothing. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
 | `providers.tiles.style` | Name of the style rendered by the internal server, substituted for `{style}`. | `'liberty'` |
 | `providers.tiles.retina` | Request internal tiles at double density (`{r}` → `@2x`). Defaults to `false`: the canvas follows `performance.pixelRatio` (1 by default), where an @2x tile quadruples the bytes without adding anything on screen. | `false` |
@@ -7955,6 +8368,7 @@ compile error.
 | `providers.tiles.language` | Language of the labels baked into the tiles. `'auto'` follows the browser. ⚠️ Hard-coded to `'fr-FR'` until now: the map displayed French names whatever the application's locale. | `'auto'` |
 | `providers.tiles.region` | Regional bias (disputed border rendering, toponymy). `'auto'` lets the provider infer it. ⚠️ Hard-coded to `'FR'` until now. | `'auto'` |
 | `providers.tiles.mapType` | 2D basemap requested from the provider. | `'roadmap'` |
+| `providers.tiles.trafficViaExternal` | With the `'internal'` provider, **borrow** the Google basemap for as long as the traffic layer is on (no effect with `'external'`). The button stays offered as soon as a `<Map googleMapsApiKey>` is there; turning it on switches the basemap to Google, turning it off returns to the internal server. ⚠️ The basemap changes appearance and tiles are billed again while the layer is on. `false` = original behaviour (no traffic outside `'external'`). | `true` |
 | `providers.tiles.layerTypes` | Additional layers requested from the tile session. | `["layerTraffic"]` |
 | `providers.tiles.sessionUrl` | Tile session creation endpoint. | `'https://tile.googleapis.com/v1/createSession'` |
 | `providers.tiles.tileUrl` | Tile URL template — `{z}`, `{x}`, `{y}` and `{session}` are substituted. | `'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'` |
@@ -8076,7 +8490,6 @@ compile error.
 | `interaction.freehandMinStepPx` | Decimation of the freehand stroke (floor, in px). Counterpart of `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom of the “Target” flight from an inventory or a list. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom of the flight when clicking a dock favourite. | `16` |
-| `interaction.drawToolbarMinZoom` | Zoom below which the drawing bar retracts — drawing implies a close view. | `11` |
 | `interaction.barMinScale` | Compaction floor of a bar before it switches to columns. | `0.85` |
 | `interaction.tooltip.flipBelowPx` | Below this window height, the tooltip flips below the pointer. | `76` |
 | `interaction.tooltip.clampMarginPx` | Estimated half-width, for horizontal clamping against the edges. | `78` |
@@ -8121,6 +8534,8 @@ compile error.
 | `interaction.shortcuts.draw.arrow` | Arrow. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Measuring tool. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Eraser. | `'e'` |
+| `interaction.shortcuts.draw.erasePoint` | Point eraser (sub-mode). No default key. | `false` |
+| `interaction.shortcuts.draw.eraseSelect` | Marquee eraser (sub-mode). No default key. | `false` |
 | `interaction.shortcuts.draw.symbol` | Tactical symbols palette. | `'y'` |
 | `interaction.shortcuts.edit.undo.key` | Undo. | `'z'` |
 | `interaction.shortcuts.edit.undo.mod` | Undo. | `'mod'` |
@@ -8421,6 +8836,8 @@ Browsable reference sets declared by the host and by plugins (`engine.catalog`) 
 | `catalog.overscanRows` | Rows rendered off-screen on each side of the virtual window. The dial between "no blank on fast scroll" and "React work per frame": each unit adds TWO rendered rows on every frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance from the list bottom that triggers the next page (px). Decides the VOLUME of calls to `CatalogSource.list`: a wide margin prefetches while you are still scrolling, but requests pages you may never look at. | `200` |
 | `catalog.persistDebounceMs` | Debounce before writing the selection to storage. `localStorage.setItem` is SYNCHRONOUS: without damping, a burst of gestures writes as many times as it has items, on a payload that keeps growing. `0` writes immediately; a pending payload is always flushed before the page goes away. | `250` |
+| `catalog.familyHeaders` | Name the families of the types menu (`CatalogSource.family`). `false` keeps only the separating rule. Not applicable to a source without `family`: its group has no name, and wording invented by the library would hard-code text. | `true` |
+| `catalog.groupHeaders` | Open a named section in the LIST whenever `CatalogItem.group` changes. A setting rather than “just don't set `group`”: sources may come from THIRD-PARTY plugins the host does not control. Not applicable to a source that does not set `group` — the flag then saves even the per-item comparison. | `true` |
 
 ---
 
@@ -8434,7 +8851,7 @@ Signature shown at the bottom right: a mark **painted into the WebGL canvas** (i
 
 ## `capture` — Map image capture
 
-Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **serialisable** values: the overlay rasteriser and the mail/trace callbacks are functions, passed via the `<Map capture>` prop.
+Defaults for capture ("Take a photo" and `engine.capture()`). Holds only **serialisable** values: the overlay rasteriser and the mail/trace callbacks are functions, passed via the `<Map capture>` prop — see [PROPS.md](PROPS.md).
 
 | Key | Description | Default |
 |---|---|---|
@@ -8464,6 +8881,26 @@ Per-target policy: what the eraser (point or selection mode) is allowed to delet
 | `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
 | `erase.targets.path` | Whether the eraser can delete host paths marked `erasable` (`PathLayer`). | `true` |
 | `erase.targets.shape` | Whether the eraser can delete host shapes marked `erasable` (`ShapeLayer`). | `true` |
+
+## `toolbar` — Drawing bar
+
+What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays in its own
+domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
+those act with no bar mounted.
+
+`autoHide` removes from the bar whatever has **nothing to act on**, rather than greying it
+out: an eraser without a target is not an unavailable tool but a tool with no purpose, and
+two inert history arrows take up a bar that is already compacted for height. An
+auto-hidden *tool* cannot be armed from the keyboard either, and if it was armed when its
+last target disappeared, it is released — unlike the history commands, which keep their
+shortcut: history does not need the bar to exist. The “Clear all” row lives in the eraser's submenu and
+shares its scope: it appears and disappears with it, with no key of its own.
+
+| Key | Description | Default |
+|---|---|---|
+| `toolbar.minZoom` | Zoom below which the bar retracts — below it, drawing no longer makes sense (globe view). | `5` |
+| `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
+| `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |
 
 
 
@@ -8797,7 +9234,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `templates.defaultName` | Fallback name of a template saved without a name. | `'template'` |
 | `templates.importedName` | Fallback name of a template imported without a name. | `'Import'` |
 | `templates.category.shapes` | Label of a saveable category (checkbox + stats — count-invariant). | `'Formes'` |
-| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Main levée'` |
+| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Crayon'` |
 | `templates.category.symbols` | Label of a saveable category (checkbox + stats — count-invariant). | `'Symboles'` |
 | `templates.stats.pair` | Compact stats: “label count” pair. | `'{label} {count}'` |
 | `templates.stats.bytes` | Compact stats: weight template (`{count}`). | `'{count} o'` |
@@ -8849,6 +9286,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `toolbar.undo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Annuler'` |
 | `toolbar.redo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Rétablir'` |
 | `toolbar.clearAll` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Tout effacer'` |
+| `toolbar.clearAllDescription` | Tooltip of the “Clear all” row — distinct from the label so the visible text is not repeated (same convention as the eraser modes). | `'Effacer tout ce que la gomme peut effacer'` |
 
 ## `tools` — Tool names
 
@@ -8859,7 +9297,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `tools.polygon` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Polygone'` |
 | `tools.rect` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Rectangle'` |
 | `tools.circle` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Cercle'` |
-| `tools.freehand` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Main levée'` |
+| `tools.freehand` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Crayon'` |
 | `tools.arrow` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Flèche'` |
 | `tools.measure` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Mesurer'` |
 | `tools.erase` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Effacer'` |
@@ -8875,6 +9313,15 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selectModes.poly.description` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Sélection par polygone'` |
 | `selectModes.lasso.label` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Lasso'` |
 | `selectModes.lasso.description` | Modes of the selection flyout (rectangle / polygon / lasso marquee): `label` = flyout row, `description` = tooltip (with the shortcut) — distinct from the label so as not to repeat text already visible. | `'Sélection au lasso'` |
+
+## `eraseModes` — Eraser modes
+
+| Key | Description | Default |
+|---|---|---|
+| `eraseModes.point.label` | Modes of the eraser flyout (point / marquee): `label` = flyout row, `description` = tooltip (with the shortcut). | `'Gomme'` |
+| `eraseModes.point.description` | Same — point-mode tooltip. | `'Effacer un élément au clic'` |
+| `eraseModes.select.label` | Same — marquee-mode row. | `'Gomme sélection'` |
+| `eraseModes.select.description` | Same — marquee-mode tooltip. | `'Effacer tout ce que la sélection touche'` |
 
 ## `style` — Style panel
 
@@ -8899,8 +9346,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `style.cornerRadius` | Corner radius preset — `{radius}` = % of the short side. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Panel title when 1 shape is selected — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Panel title when several shapes are selected — `{count}`. | `'{count} formes'` |
-| `style.expand` | Button that unfolds the collapsed panel. | `'Modifier le style'` |
-| `style.collapse` | Button that collapses the panel down to its single button. | `'Réduire'` |
+| `style.expand` | Colour block in the draw bar, which opens this panel. | `'Modifier le style'` |
 
 ## `selection` — Selection panel
 
@@ -8916,6 +9362,8 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
 | `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
 | `selection.delete` | "Delete" menu item of a shape row (short label, no parameter). | `'Supprimer'` |
+| `selection.pathsGroup` | Name of the paths category in a row. | `'Tracés'` |
+| `selection.pathItem` | Label of an expanded path — `{n}` (rank in the group). | `'Tracé {n}'` |
 
 ## `clusters` — Marker grouping
 
@@ -9208,7 +9656,10 @@ import { imperialMeasure } from '@pasquelin/map3d'
       button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',
       empty: 'No tag on the map', noMatch: 'No matching tag', showAll: 'Show all',
     },
-    toolbar: { navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all' },
+    toolbar: {
+      navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all',
+      clearAllDescription: 'Erase everything the eraser can erase',
+    },
     tools: {
       select: 'Select', line: 'Line', polygon: 'Polygon', rect: 'Rectangle',
       circle: 'Circle', freehand: 'Freehand', arrow: 'Arrow', measure: 'Measure',
@@ -9258,7 +9709,11 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.itemError` | Geometry loading failure, as a row tooltip. | `'Impossible d’afficher cet élément'` |
 | `catalog.add` | Checkbox, "not on the map yet" state — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
+| `catalog.focus` | Name of a row with NO checkbox (`checkable: false`), which frames instead of placing — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
+| `catalog.groupCount` | Count of an aggregate with some of its items on the map — `{shown}`, `{total}`. Silent when nothing is shown. | `'{shown}/{total}'` |
+| `catalog.groupCountLabel` | Accessible name for that count — `{shown}`, `{total}`. | `'{shown} élément(s) sur {total} affiché(s)'` |
+| `catalog.sourceShown` | Accessible name for the count on a type-menu row — `{count}`. | `'{count} élément(s) de cette source sur la carte'` |
 | `catalog.numberLocale` | Locale used to format a source's total (`'auto'` follows the browser). `36 699` or `36,699` is an INTERFACE decision, not a browser one — see `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |
@@ -9398,6 +9853,7 @@ Markers, clustering, selection, dragging.
 |---|---|---|
 | `points` | Markers to display. Mutually exclusive with `source`, which loads them per view. | — |
 | `source` | Viewport-driven source (refetched on move, `minZoom` gate). | — |
+| `onLoadingChange` | Is a `source` load in flight? Called on every transition, never in the frame loop. Not applicable with `points`, which the host loads itself. The layer knows this state — it owns the `ViewportController` — but a loading indicator belongs in the host's interface, not on the map. | — |
 | `getId` | Stable key of a marker (default `p.id`): it decides identity, hence tweening. | `((p: MarkerData<T>) => p.id)` |
 | `cluster` | `{ enabled: boolean }` — whether THIS layer takes part in the map's grouping (default: it does). The algorithm is set in `config.clustering`, the appearance on `<Map cluster>`: a cluster is a property of the map, not of a layer. | `{ enabled: true }` |
 | `icon` | **SVG** icon (markup) of a marker, rendered as a DOM `<img>` anchored to the map. | — |
@@ -9435,6 +9891,7 @@ Drawing tools and symbols.
 | `onShapeAdd` | **Per-shape** events — for an app doing CRUD by identity (one mutation per zone). Emitted at the moment of the change, without the coalescing of `onChange` which serialises the whole collection 1×/frame. Both can coexist. | — |
 | `onShapeUpdate` | Shape modified (move, resize, style). | — |
 | `onShapeDelete` | Shape deleted. | — |
+| `onErase` | The eraser removed objects (`EraseResult`: removed lib `shapes` + host `paths`/`hostShapes` ids to remove from your state). | — |
 | `onShapeEdit` | Double-click on a shape: intent to open a sheet — nothing has changed. | — |
 | `constraints` | Business rules for **user** drawing: allowed perimeters, maximum area. Programmatic mutations are not subject to them. | — |
 | `onReject` | Shape refused — wire it to your toast (the library displays nothing itself). | — |
@@ -9521,9 +9978,10 @@ Drawing toolbar.
 | Prop | Description | Default |
 |---|---|---|
 | `position` | Anchoring side of the bar. | `'left'` |
-| `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.interaction.drawToolbarMinZoom` |
+| `minZoom` | Minimum display zoom; below it the bar slides off screen, taking its menus with it. Rationale and default: [`config.toolbar.minZoom`](CONFIG.md). | `config.toolbar.minZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
+| `eraseModes` | Modes offered by the eraser flyout (default: point + marquee); a single one = no flyout. | — |
 | `measureTools` | Rows offered by the “Measure” button — only one (`measure`) exists today, so the submenu never opens: the button acts directly. The coordinate grid has moved to the view controls (`<MapControls>`, `config.graticule`); the submenu's chassis stays in place for a future row. | — |
 | `components` | Hides (`false`) or replaces (ReactNode) each section — default: everything displayed. | `{}` |
 | `extraTools` | **Application** tools rendered as primary items of the bar, after the native tools (drawing, symbols, lens): they take on the bar's visual language instead of floating in a corner of the map. They drive their own state, the bar does not… | — |
@@ -9551,6 +10009,17 @@ through `config.graticule`, themed through `theme.colors.graticule`, and toggled
 
 It costs nothing while the grid is off. The component stays exported for maps built without
 `<Map>` (full imperative mounting).
+
+## `<DrawStylePanel>`
+
+The draw bar's colour block — its **last button** — and the style panel it opens. Mounted by
+`<Toolbar>`; these exports only serve a manual mount (custom bar), where it takes the sizing of
+a bar button.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Side of the bar carrying the button — the panel opens on the opposite side. | `'left'` |
+| `tip` | Host bar tooltip (`useTip(TIP_ID)`). Absent = no tooltip, the `aria-label` stays in place. | — |
 
 ## `<MeasureToolButton>`
 

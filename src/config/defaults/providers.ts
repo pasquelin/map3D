@@ -35,6 +35,10 @@ export const providersDefaults: ProvidersConfig = {
     language: 'auto',
     region: 'auto',
     mapType: 'roadmap',
+    // ⚠️ Nouveau. En interne, le trafic n'était pas proposé DU TOUT, clé Google ou non :
+    // le calque est gravé dans la tuile Google, donc l'offrir suppose de changer de
+    // fournisseur le temps qu'il est allumé. `false` rétablit ce refus.
+    trafficViaExternal: true,
     layerTypes: ['layerTraffic'],
     sessionUrl: 'https://tile.googleapis.com/v1/createSession',
     tileUrl: 'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}',

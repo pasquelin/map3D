@@ -108,6 +108,7 @@ Markers, clustering, sélection, drag.
 |---|---|---|
 | `points` | Markers à afficher. Exclusif avec `source`, qui les charge selon la vue. | — |
 | `source` | Source viewport-driven (rechargée au déplacement, gate `minZoom`). | — |
+| `onLoadingChange` | Un chargement de `source` est-il en vol ? Appelé à chaque transition, jamais en boucle de frame. Sans objet avec `points`, que l'hôte charge lui-même. La couche connaît cet état — c'est elle qui tient le `ViewportController` — mais un indicateur de chargement vit dans l'interface de l'hôte, pas sur la carte. | — |
 | `getId` | Clé stable d'un marker (défaut `p.id`) : elle décide de l'identité, donc du tween. | `((p: MarkerData<T>) => p.id)` |
 | `cluster` | `{ enabled: boolean }` — participation de CETTE couche au regroupement de la carte (défaut : elle participe). L'algorithme se règle dans `config.clustering`, l'apparence sur `<Map cluster>` : un cluster est une propriété de la carte, pas d'une couche. | `{ enabled: true }` |
 | `icon` | Icône **SVG** (markup) d'un marker, rendue en `<img>` DOM ancrée à la carte. | — |
@@ -133,7 +134,7 @@ Outils de dessin et symboles.
 
 | Prop | Description | Défaut |
 |---|---|---|
-| `tools` | Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. | — |
+| `tools` | Outils autorisés. Filtre aussi ce que `setTool` accepte. Non fourni sur `<Map>`, retombe sur `toolbar.tools` ; à défaut, tous. | `toolbar.tools` |
 | `shortcuts` | Raccourci par outil/action — `false` pour en désactiver un, autre touche pour remapper. | — |
 | `defaults` | Style d'une forme nouvellement tracée, avant tout réglage utilisateur. | — |
 | `presets` | Paliers proposés par les palettes de style (épaisseurs, opacités, rayons d'angle). Fusionnés sur les défauts : ne fournir que ce qu'on change. | — |
@@ -232,7 +233,7 @@ Barre d'outils de dessin.
 | Prop | Description | Défaut |
 |---|---|---|
 | `position` | Côté d'ancrage de la barre. | `'left'` |
-| `minZoom` | Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. | `config.interaction.drawToolbarMinZoom` |
+| `minZoom` | Zoom minimal d'affichage ; en deçà la barre glisse hors écran, en emportant ses menus. Motivation et défaut : [`config.toolbar.minZoom`](CONFIG.md). | `config.toolbar.minZoom` |
 | `tools` | Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes proposés par le flyout de sélection (défaut : les 3) ; un seul = pas de flyout. | — |
 | `eraseModes` | Modes proposés par le flyout de la gomme (défaut : ponctuelle + sélection) ; un seul = pas de flyout. | — |
@@ -263,6 +264,17 @@ elle se règle par `config.graticule`, se thème par `theme.colors.graticule`, e
 
 Elle ne coûte rien tant que la grille est éteinte. Le composant reste exporté pour les cartes
 construites sans `<Map>` (montage impératif complet).
+
+## `<DrawStylePanel>`
+
+Bloc de couleurs de la barre à dessin — son **dernier bouton** — et le panneau de style qu'il
+ouvre. Monté par `<Toolbar>` ; ces exports ne servent qu'à un montage manuel (barre maison),
+où il prend le gabarit d'un bouton de barre.
+
+| Prop | Description | Défaut |
+|---|---|---|
+| `position` | Côté de la barre qui porte le bouton — le panneau s'ouvre du côté opposé. | `'left'` |
+| `tip` | Infobulle de la barre hôte (`useTip(TIP_ID)`). Absente = pas d'infobulle, l'`aria-label` reste posé. | — |
 
 ## `<MeasureToolButton>`
 

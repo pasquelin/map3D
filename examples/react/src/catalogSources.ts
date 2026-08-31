@@ -13,12 +13,29 @@ import {
   mdiAlertOctagonOutline,
   mdiCityVariantOutline,
   mdiContentCopy,
+  mdiHeartPulse,
   mdiMapMarkerRadiusOutline,
   mdiShapePolygonPlus,
+  mdiVectorPolygon,
   mdiViewGridOutline,
 } from '@mdi/js'
-import { createTitleCache, normalizeSearch } from '@pasquelin/map3d'
-import type { CatalogItem, CatalogPage, CatalogRequest, CatalogSource, ShapeData } from '@pasquelin/map3d'
+import { boundsContains, boundsOfShapes, createTitleCache, normalizeSearch } from '@pasquelin/map3d'
+import type {
+  CatalogBrowseSource,
+  CatalogItem,
+  CatalogPage,
+  CatalogRequest,
+  CatalogSource,
+  CatalogToggleSource,
+  MarkerData,
+  ShapeData,
+} from '@pasquelin/map3d'
+
+import { DEFIBS } from './data/defibs'
+import { DEMO_DRAW_ZONES } from './data/shapes'
+import { vogel } from './data/geo'
+import { seedToMarker } from './data/toMarkers'
+import type { Defib } from './data/types'
 
 /** Générateur congruentiel — semé, donc reproductible d'une exécution à l'autre. */
 const rng = (seed: number) => {
@@ -154,28 +171,14 @@ const cityCenter = (id: number) => {
 
 // ── Zones et groupes : le cas MÉTIER ──────────────────────────────────────────
 
+// ⚠️ AUCUN badge de compte sur un agrégat : la lib affiche elle-même « 2/3 » dès qu'un de
+// ses éléments est sur la carte (cf. `labels.catalog.groupCount`), et un badge « 3 » posé à
+// côté donnait « 3/3  3 » — deux fois le même nombre, dont un qui ne dit rien de l'état.
+// Un badge reste le bon outil pour ce que la lib ne sait pas : un état métier, une alerte.
 const GROUPS: readonly CatalogItem[] = [
-  {
-    id: 'g1',
-    title: 'Paris La Défense',
-    icon: mdiViewGridOutline,
-    hasChildren: true,
-    badges: [{ text: '3', label: '3 zones' }],
-  },
-  {
-    id: 'g2',
-    title: 'Groupe de Zones Nord',
-    icon: mdiViewGridOutline,
-    hasChildren: true,
-    badges: [{ text: '1', label: '1 zone' }],
-  },
-  {
-    id: 'g3',
-    title: 'Confluence',
-    icon: mdiViewGridOutline,
-    hasChildren: true,
-    badges: [{ text: '2', label: '2 zones' }],
-  },
+  { id: 'g1', title: 'Paris La Défense', icon: mdiViewGridOutline, hasChildren: true },
+  { id: 'g2', title: 'Groupe de Zones Nord', icon: mdiViewGridOutline, hasChildren: true },
+  { id: 'g3', title: 'Confluence', icon: mdiViewGridOutline, hasChildren: true },
   // Groupes vides : inactifs côté métier, donc lignes inertes — rien à cadrer, rien à
   // afficher. Le badge de compte disparaît avec eux : « 0 » n'apprend rien de plus.
   { id: 'g4', title: 'Groupe de Zones Sud', icon: mdiViewGridOutline, disabled: true },
@@ -236,21 +239,34 @@ const zone = (id: string, title: string, extra?: Partial<CatalogItem>): CatalogI
   ...extra,
 })
 
-// Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
-// `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
-// coches vertes qui ne dit rien de plus que « tout va bien ».
+/* Un statut métier ne se rend PAS en pastille : un élément inactif est une ligne
+   `disabled`, ce qui se voit sans rien ajouter à la largeur — et évite une colonne de
+   coches vertes qui ne dit rien de plus que « tout va bien ».
+
+   ⚠️ Les zones sont déclarées DÉJÀ GROUPÉES, secteur par secteur : la lib ouvre une
+   section au changement de `group`, elle ne trie pas (cf. `flattenCatalog`). C'est ce qui
+   la rend compatible avec la pagination — mais c'est à la source de servir ses éléments
+   dans l'ordre, sinon le même intitulé réapparaît plus bas. `z2` n'a délibérément aucun
+   `group` : une source peut n'en grouper qu'une partie, et le reste sort sans section. */
 const ZONES: readonly CatalogItem[] = [
-  zone('z1', 'Lycée La Martinière Monplaisir'),
   zone('z2', 'Zone_Démo_Confluence', { disabled: true }),
-  zone('z3', 'Leroy Merlin Nanterre'),
-  // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
-  zone('z4', 'SDF Ext SO', { bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 } }),
-  zone('z5', 'SDF - Ext NE'),
-  zone('z6', 'SDF Approche Est'),
-  zone('z7', 'Centre Westfield'),
-  zone('z8', 'Périmètre Gare du Nord'),
-  zone('z9', 'Secteur La Villette'),
-  zone('z10', 'Parvis de la Défense'),
+
+  zone('z4', 'SDF Ext SO', {
+    group: 'Stade de France',
+    // Emprise connue : le clic sur le nom cadre SANS aucune requête préalable.
+    bounds: { north: 48.9, south: 48.86, east: 2.26, west: 2.2 },
+  }),
+  zone('z5', 'SDF - Ext NE', { group: 'Stade de France' }),
+  zone('z6', 'SDF Approche Est', { group: 'Stade de France' }),
+
+  zone('z10', 'Parvis de la Défense', { group: 'La Défense' }),
+  zone('z7', 'Centre Westfield', { group: 'La Défense' }),
+  zone('z3', 'Leroy Merlin Nanterre', { group: 'La Défense' }),
+
+  zone('z8', 'Périmètre Gare du Nord', { group: 'Paris Nord-Est' }),
+  zone('z9', 'Secteur La Villette', { group: 'Paris Nord-Est' }),
+
+  zone('z1', 'Lycée La Martinière Monplaisir', { group: 'Lyon' }),
 ]
 
 // ── Les quatre sources ────────────────────────────────────────────────────────
@@ -263,6 +279,29 @@ const zonesSource: CatalogSource = {
   total: ZONES.length,
   list: (req) => delay(page(filtered(ZONES, req.query), req)),
   geometry: (id) => delay([zoneShape(String(id), zoneById(String(id))?.title ?? String(id))]),
+  /**
+   * La voie POINTS d'une source de parcours : cocher une zone pose son contour ET son
+   * point de commandement, du même geste. Les deux repartent ensemble au décochage, et le
+   * cadrage du clic sur le nom porte sur leur union.
+   *
+   * Le point entre dans le regroupement, le filtre « Couches » (via `tags`) et la
+   * recherche (via `title`) comme n'importe quel marker — d'où l'espace de noms propre
+   * (`pc-…`), pour ne rien emprunter à la scène de démo.
+   */
+  markers: (id) => {
+    const key = String(id)
+    const found = zoneById(key)
+    if (!found) return delay([])
+    const shape = zoneShape(key, found.title)
+    return delay([
+      seedToMarker(
+        'zone-pc',
+        shape.kind === 'circle' ? shape.center : { lat: 48.86, lng: 2.34 },
+        { id: `pc-${key}`, title: `PC — ${found.title}` },
+        ['zone-pc', 'catalog'],
+      ),
+    ])
+  },
   actions: [
     {
       id: 'copy',
@@ -272,6 +311,60 @@ const zonesSource: CatalogSource = {
         void navigator.clipboard?.writeText(String(item.id))
         console.log('[catalogue] identifiant copié :', item.id)
       },
+    },
+  ],
+}
+
+// ── Zones dessinées : le régime INDEX (`checkable: false`) ────────────────────
+//
+// Ces zones-là ne sont PAS posées par le catalogue : l'exemple les monte lui-même dans la
+// couche de dessin (`DEMO_DRAW_ZONES`, cf. `App.tsx`), seule couche où elles restent
+// déplaçables et éditables. Le catalogue ne sert donc qu'à les retrouver et à les cadrer —
+// une case y mentirait : on la coche, l'état visuel change, la carte est identique. Et si
+// elle posait vraiment, la même zone serait peinte deux fois, par deux couches.
+//
+// Les deux éléments exercent les DEUX chemins de cadrage : le premier annonce son
+// `bounds` (aucune requête), le second laisse la lib appeler `geometry` pour le calculer.
+
+/** Un identifiant de zone dessinée ↔ son rang. Écrit une fois, lu des deux côtés. */
+const drawnId = (index: number) => `drawn-${index}`
+const drawnIndex = (id: string) => Number(id.slice('drawn-'.length))
+
+/** Les mêmes anneaux que la couche de dessin, en `ShapeData` — pour le seul cadrage. */
+const drawnShape = (index: number): ShapeData[] => {
+  const zone = DEMO_DRAW_ZONES[index]
+  if (!zone || zone.kind !== 'polygon') return []
+  return [{ kind: 'polygon', id: drawnId(index), title: zone.title, points: zone.points, closed: true }]
+}
+
+const DRAWN_ZONES: readonly CatalogItem[] = DEMO_DRAW_ZONES.map((z, i) => ({
+  id: drawnId(i),
+  title: z.title ?? `Zone ${i + 1}`,
+  color: z.style?.color,
+  // Une seule annonce son emprise : l'autre oblige la lib à passer par `geometry`, et
+  // c'est ce chemin-là qu'on veut voir vivre aussi. `boundsOfShapes` est le helper de la
+  // lib — la même mesure que celle qu'elle fera elle-même, antiméridien compris.
+  bounds: i === 0 ? (boundsOfShapes(drawnShape(i)) ?? undefined) : undefined,
+}))
+
+const drawnZonesSource: CatalogBrowseSource = {
+  id: 'drawn-zones',
+  label: 'Zones dessinées',
+  icon: mdiVectorPolygon,
+  family: 'Mes zones',
+  total: DRAWN_ZONES.length,
+  // ⚠️ Le drapeau de la démonstration : pas de case, pas de sélection, le nom CADRE.
+  checkable: false,
+  list: (req) => delay(page(filtered(DRAWN_ZONES, req.query), req)),
+  // Requise par le contrat, et RÉELLE : c'est le chemin de cadrage des éléments qui
+  // n'annoncent pas leur emprise. Rendre `[]` ici ferait mentir la méthode.
+  geometry: (id) => delay(drawnShape(drawnIndex(String(id)))),
+  actions: [
+    {
+      id: 'copy',
+      icon: mdiContentCopy,
+      label: 'Copier l’identifiant',
+      run: (item) => console.log('[catalogue] zone dessinée :', item.id),
     },
   ],
 }
@@ -348,5 +441,126 @@ const flakySource: CatalogSource = {
       : delay([zoneShape(String(id), `Instable ${String(id)}`)]),
 }
 
+// ── Défibrillateurs : le cas de la BASCULE ────────────────────────────────────
+
+/* Un référentiel qu'on ne PARCOURT pas : personne ne cochera six cent trente cases. On
+   l'allume d'un interrupteur, et c'est la vue qui décide de ce qui est chargé.
+
+   ⚠️ Ces points ont leur PROPRE espace d'identifiants (`dae-c…`) et ne réutilisent pas
+   ceux de `DEFIBS`, que la scène de démo pose déjà dans sa propre couche : deux markers
+   de même `id` dans deux couches, c'est une entrée de recherche pour deux points et un
+   regroupement qui compte deux fois le même. Ils en reprennent en revanche la
+   GÉOGRAPHIE — chaque relevé réel sert d'ancre à sa grappe.
+
+   Ils ne portent pas `static` non plus : leur seuil de visibilité, c'est le gate de la
+   source (`minZoom`), pas celui du décor. Deux seuils sur les mêmes points auraient
+   donné une bascule allumée qui n'affiche rien, sans rien pour l'expliquer. */
+
+/** Points par ancre — ~630 au total, assez pour que le cadre visible tranche vraiment. */
+const DEFIBS_PER_ANCHOR = 18
+
+/** Espacement de la spirale (m) : une grappe de quartier, pas un tas sur un point. */
+const DEFIB_SPACING_M = 130
+
+/**
+ * Sous quel zoom la source ne charge RIEN.
+ *
+ * 💰 C'est le levier direct sur le volume : dézoomé sur la région, un référentiel de ce
+ * genre n'a aucun sens à l'écran et coûterait un aller-retour réseau par déplacement.
+ */
+const DEFIBS_MIN_ZOOM = 12
+
+/**
+ * Construits à la PREMIÈRE demande, pas au chargement du module.
+ *
+ * Un jeu à bascule éteint ne doit rien coûter — c'est la promesse de la feature. Six cents
+ * markers fabriqués au démarrage pour un interrupteur que personne n'a touché l'auraient
+ * démentie dans l'exemple même censé la démontrer.
+ */
+let defibCache: MarkerData<Defib>[] | null = null
+
+const defibMarkers = (): MarkerData<Defib>[] => {
+  if (defibCache) return defibCache
+  // Semé, donc reproductible — comme les autres sources de ce fichier.
+  const rand = rng(0x0dae0)
+  const out: MarkerData<Defib>[] = []
+  let n = 0
+  for (const anchor of DEFIBS) {
+    const secteur = anchor.data.title.replace(/^DAE — /, '')
+    for (let i = 0; i < DEFIBS_PER_ANCHOR; i++) {
+      n++
+      out.push(
+        seedToMarker(
+          'defib',
+          vogel(anchor.position, i, DEFIB_SPACING_M),
+          {
+            id: `dae-c${String(n).padStart(4, '0')}`,
+            title: `DAE ${String(n).padStart(4, '0')} — ${secteur}`,
+            address: `Secteur ${secteur}`,
+            access: rand() < 0.62 ? 'public' : 'intérieur',
+            city: anchor.data.city,
+          },
+          // `catalog` est un tag à part : il donne au filtre « Couches » de quoi isoler
+          // ce que le catalogue a posé de ce que la scène de démo peint elle-même.
+          ['defib', 'catalog', anchor.data.city],
+        ),
+      )
+    }
+  }
+  defibCache = out
+  return out
+}
+
+/** Total du jeu de référence — sans construire les points, qui ne le sont qu'à la demande. */
+const DEFIBS_TOTAL = DEFIBS.length * DEFIBS_PER_ANCHOR
+
+const defibsSource: CatalogToggleSource = {
+  id: 'defibs',
+  kind: 'toggle',
+  label: 'Défibrillateurs',
+  icon: mdiHeartPulse,
+  family: 'Territoires',
+  // Le volume du JEU DE RÉFÉRENCE — stable, vérifiable, et sans rapport avec la vue.
+  total: DEFIBS_TOTAL,
+  source: {
+    minZoom: DEFIBS_MIN_ZOOM,
+    /*
+     * `boundsContains` de la lib, et non une comparaison maison : c'est elle qui gère le
+     * franchissement de l'antiméridien, et ce fichier est le modèle que copiera un hôte.
+     *
+     * Le cadre reçu est celui du moteur, VOLONTAIREMENT élargi (`performance.boundsMargin`) :
+     * cette source rend donc PLUS de points qu'il n'y en a à l'écran, et c'est ce qui évite
+     * qu'ils surgissent au moindre déplacement. Aucune interface ne doit présenter ce volume
+     * comme « ce qui est affiché ».
+     *
+     * Latence simulée plus longue que celle des listes : c'est elle qui rend visible
+     * l'indicateur de chargement de la ligne.
+     */
+    load: (viewport) =>
+      delay(
+        defibMarkers().filter((m) => boundsContains(viewport.bounds, m.position)),
+        260,
+      ),
+  },
+  markerLayer: { cluster: { enabled: true } },
+}
+
+/**
+ * La MÊME `DataSource` que la bascule ci-dessus, exposée pour la couche viewport HÔTE de
+ * l'exemple (`<MarkerLayer source onLoadingChange>`).
+ *
+ * Une source de données n'appartient pas au catalogue : c'est le contrat viewport de la
+ * lib. La partager prouve qu'une application peut brancher la sienne sur une couche
+ * qu'elle monte elle-même, exactement comme le catalogue le fait en interne.
+ */
+export const hostViewportSource = defibsSource.source
+
 /** Les sources du banc d'essai, dans l'ordre où elles apparaissent au sous-menu. */
-export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [groupsSource, zonesSource, citiesSource, flakySource]
+export const EXAMPLE_CATALOG_SOURCES: readonly CatalogSource[] = [
+  groupsSource,
+  zonesSource,
+  drawnZonesSource,
+  citiesSource,
+  defibsSource,
+  flakySource,
+]

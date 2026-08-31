@@ -362,12 +362,6 @@ export type ColumnsOptions = {
    * l'autre — et re-résolue à chaque passe, l'obstacle pouvant être monté après.
    */
   avoid?: string
-  /**
-   * Variable CSS où publier la largeur mesurée, sur le conteneur. Le passage en
-   * colonnes élargit la barre : les surfaces positionnées à côté d'elle (panneau
-   * de style) doivent suivre plutôt que se faire recouvrir.
-   */
-  widthVar?: string
 }
 
 /**
@@ -384,7 +378,7 @@ export type ColumnsOptions = {
  *
  * @returns la callback ref à poser sur la surface
  */
-export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOptions = {}): PanelRef {
+export function useFitColumns({ recenter = false, avoid }: ColumnsOptions = {}): PanelRef {
   const edgeGap = useTheme().spacing.edge
   // Plancher de compactage d'une barre. Volontairement haut : les icônes ne sont pas
   // mises à l'échelle, un bouton beaucoup plus petit les rend illisibles. Le
@@ -456,28 +450,40 @@ export function useFitColumns({ recenter = false, avoid, widthVar }: ColumnsOpti
           // Le CSS pose `translateY(-50%)` : cette valeur est un CENTRE, pas un bord.
           if (el.style.top !== wanted) el.style.top = wanted
         }
-        // Largeur publiée après placement : les colonnes l'ont peut-être doublée.
-        if (widthVar) root?.style.setProperty(widthVar, `${Math.round(el.offsetWidth)}px`)
       }
       // L'obstacle présent au montage est observé : la liste de résultats qui s'ouvre
       // agrandit la boîte de recherche, la barre doit se recaler.
       return { run: fit, targets: [avoid !== undefined ? scope.querySelector(avoid) : null] }
     },
-    [recenter, avoid, widthVar, edgeGap, barMinScale],
+    [recenter, avoid, edgeGap, barMinScale],
   )
 }
 
 /**
+ * Où lire la boîte de la surface à rabattre.
+ *
+ * - `'layout'` (défaut) — `offset*`, donc **hors transform propre** : la surface est posée
+ *   par ses coordonnées, et son `transform` n'est que l'animation d'ouverture, dont la
+ *   géométrie transitoire fausserait la mesure.
+ * - `'visual'` — le rect réel, transform compris : pour une surface que le `transform`
+ *   PLACE (l'infobulle, centrée sur son ancre), dont la boîte de layout n'est qu'un point
+ *   sur cette ancre. ⚠️ Impose une animation d'entrée qui ne touche PAS à la position :
+ *   une surface immobile n'est mesurée qu'une fois, et garderait ce décalage à vie.
+ */
+export type NudgeMeasure = 'layout' | 'visual'
+
+/**
  * Rabat une surface ancrée à un point libre (menu contextuel ouvert au curseur,
- * sous-menu) dans le conteneur, par marges correctives — pas de `transform`, qui
- * appartient à l'animation d'ouverture, ni de `max-height`, qui exigerait un
- * `overflow` clippant les sous-menus.
+ * sous-menu, infobulle d'un marker) dans le conteneur, par marges correctives — pas de
+ * `transform`, qui appartient à l'animation d'ouverture, ni de `max-height`, qui
+ * exigerait un `overflow` clippant les sous-menus.
  *
  * @param flipX bascule la surface de l'autre côté de son parent (classe renvoyée)
  *   au lieu de la faire glisser par-dessus lui — comportement des sous-menus.
+ * @param measure d'où lire la boîte de la surface — cf. `NudgeMeasure`.
  * @returns `[surface à ouvrir du côté opposé (classe `m3d-flip`), callback ref]`
  */
-export function useNudgeInside(flipX = false): [boolean, PanelRef] {
+export function useNudgeInside(flipX = false, measure: NudgeMeasure = 'layout'): [boolean, PanelRef] {
   const [flipped, setFlipped] = useState(false)
   const edgeGap = useTheme().spacing.edge
 
@@ -490,9 +496,17 @@ export function useNudgeInside(flipX = false): [boolean, PanelRef] {
         // TOUTES les lectures d'abord, écritures ensuite : intercaler l'une force un
         // reflux, et cette fonction tourne à chaque frame de mouvement de la carte.
         const b = boundsOf(root)
-        const box = layoutBox(el)
-        const p = el.offsetParent as HTMLElement | null
-        const pr = flipX ? p?.getBoundingClientRect() : undefined
+        // Un `DOMRect` satisfait `Box` — comme celui que rend `boundsOf`, rien à recopier.
+        const box = measure === 'visual' ? el.getBoundingClientRect() : layoutBox(el)
+        // Surface momentanément hors flux — l'ancre d'un marker culled passe en
+        // `display:none` sans que l'infobulle soit démontée. Son rect est alors tout à zéro,
+        // et le rabattre reviendrait à lui poser une marge calculée sur du vide, qu'elle
+        // garderait en réapparaissant.
+        if (box.width === 0 && box.height === 0) return
+        // Lu SEULEMENT pour la bascule, qui est la seule à s'en servir : c'est une lecture
+        // dépendante du layout, et elle tombait à chaque frame sans consommateur.
+        const p = flipX ? (el.offsetParent as HTMLElement | null) : null
+        const pr = p?.getBoundingClientRect()
         const refTop = box.top - applied.y
         const refBottom = box.bottom - applied.y
 
@@ -533,20 +547,36 @@ export function useNudgeInside(flipX = false): [boolean, PanelRef] {
       // à une mesure de rect, qui en coûterait un par frame même carte immobile.
       const movers: HTMLElement[] = []
       for (let n = el.parentElement; n && n !== root; n = n.parentElement) movers.push(n)
+      // Aucun ancêtre entre la surface et le conteneur : elle est PORTÉE à la racine (dock,
+      // panneau de sélection), donc rien ne peut la déplacer sans la remonter. La boucle
+      // n'aurait eu que du vide à comparer, soixante fois par seconde de survol.
+      if (movers.length === 0) return { run: nudge }
+      // Comparaison sur un tableau PRÉALLOUÉ, initialisé à l'état COURANT : `map().join()`
+      // allouait un tableau et une chaîne par frame et par surface montée, pour une
+      // comparaison qui n'a besoin ni de l'un ni de l'autre — et la surface la plus
+      // fréquente est maintenant l'infobulle, montée à chaque survol de marker. Le remplir
+      // de chaînes vides ferait voir « bougé » à la première image, donc une mesure de plus
+      // juste après celle que `run()` vient de faire.
+      const last = movers.map((m) => m.style.transform)
       let frame = 0
-      let last = ''
       const follow = () => {
-        const key = movers.map((m) => m.style.transform).join('|')
-        if (key !== last) {
-          last = key
-          nudge()
+        let moved = false
+        let i = 0
+        for (const m of movers) {
+          const t = m.style.transform
+          if (t !== last[i]) {
+            last[i] = t
+            moved = true
+          }
+          i++
         }
+        if (moved) nudge()
         frame = requestAnimationFrame(follow)
       }
       frame = requestAnimationFrame(follow)
       return { run: nudge, cleanup: () => cancelAnimationFrame(frame) }
     },
-    [flipX, edgeGap],
+    [flipX, measure, edgeGap],
   )
 
   return [flipped, ref]

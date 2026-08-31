@@ -1,28 +1,37 @@
 export const CSS_DRAW_STYLE = `
-/* Panneau de style : à côté de la drawbar (défauts de l'outil actif OU restyle de
-   la sélection). Swatches fond/bordure superposés façon Photoshop + palette +
+/* Panneau de style, ouvert par le BLOC DE COULEURS de la drawbar (son dernier bouton,
+   dont l'aperçu est le style courant). Il règle les défauts des prochaines formes, ou
+   restyle la sélection : swatches fond/bordure superposés façon Photoshop + palette +
    presets visuels (épaisseur, style de trait, opacité, angles). */
 /* Positionnement, empilement et animation viennent de .m3d-dropdown, comme pour toute
    autre surface : ce panneau avait les siens — centrage vertical, offset calculé sur la
    largeur de la barre, paire de keyframes propre — et c'est ce qui en faisait le seul à
    ne pas se poser au niveau de la barre. Ne restent ici que sa largeur et son gabarit. */
 .m3d-stylepanel{width:212px;padding:11px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
-/* État RÉDUIT : la surface se resserre sur son seul bouton. C'est le défaut quand une
-   forme est sélectionnée — sélectionner n'est pas restyler, et le panneau déplié monte
-   une palette entière de vignettes pour une intention qui n'est pas encore là. */
-.m3d-stylemini{padding:4px;display:flex}
-/* Bouton de repli, aligné à droite du panneau au-dessus de l'éditeur. */
-.m3d-stylefold{align-self:flex-end;width:26px;height:26px;margin:-3px -3px -6px 0;color:var(--m3d-muted)}
-.m3d-stylefold:hover{color:var(--m3d-text)}
+/* Bouton porteur de l'aperçu : il n'a pas d'icône à centrer mais une paire de carrés,
+   qu'on veut voir aussi grande que le bouton le permet — d'où la marge interne nulle. */
+.m3d-stylebtn{padding:0}
 .m3d-style-head{display:flex;align-items:center;gap:12px}
 .m3d-style-title{font-size:11.5px;color:var(--m3d-muted)}
-.m3d-swatches{position:relative;width:46px;height:46px;flex:none}
-.m3d-swatch{position:absolute;width:28px;height:28px;border-radius:7px;padding:0;cursor:pointer;
+/* Rayon et épaisseur du cadre DÉRIVENT du côté du carré : en dur, l'aperçu réduit de la
+   barre héritait d'un cadre de 5 px sur un carré de 16 — presque plein, la couleur de
+   bordure ne s'y lisait plus. */
+.m3d-swatches{--m3d-swatch:28px;--m3d-swatch-box:46px;
+  position:relative;display:block;width:var(--m3d-swatch-box);height:var(--m3d-swatch-box);flex:none}
+.m3d-swatch{position:absolute;width:var(--m3d-swatch);height:var(--m3d-swatch);padding:0;cursor:pointer;
+  border-radius:calc(var(--m3d-swatch) * .25);
   border:2px solid var(--m3d-panel);box-shadow:0 0 0 1px var(--m3d-border)}
 .m3d-swatch-fill{left:0;top:0;z-index:2}
 .m3d-swatch-stroke{right:0;bottom:0;z-index:1;background:transparent}
-.m3d-swatch-stroke span{position:absolute;inset:1px;border:5px solid;border-radius:5px;display:block}
+.m3d-swatch-stroke span{position:absolute;inset:1px;display:block;
+  border:calc(var(--m3d-swatch) * .18) solid;border-radius:calc(var(--m3d-swatch) * .18)}
 .m3d-swatch.m3d-active{outline:2px solid var(--m3d-accent);outline-offset:1px;z-index:3}
+/* Aperçu de la barre : MÊME dessin, en fractions de la taille du bouton qui le porte
+   (--m3d-btn-size, cf. CSS_CHASSIS). Il suit donc le compactage de la barre sans réécrire
+   ni le gabarit ni le facteur — sans quoi il la ferait déborder dès qu'elle se resserre. */
+.m3d-swatches-mini{--m3d-swatch:calc(var(--m3d-btn-size, 25px) * .4);
+  --m3d-swatch-box:calc(var(--m3d-btn-size, 25px) * .63)}
+.m3d-swatches-mini .m3d-swatch{cursor:inherit}
 .m3d-swap{position:absolute;right:-3px;top:-5px;z-index:4;width:18px;height:18px;padding:0;
   display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;
   background:var(--m3d-panel);color:var(--m3d-muted);cursor:pointer;box-shadow:0 0 0 1px var(--m3d-border)}

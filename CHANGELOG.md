@@ -6,6 +6,403 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### change! : `toolbar.tools` fait autorité sur `draw.tools` quand ce dernier est absent
+
+**Rupture de comportement.** Sur `<Map>`, `draw.tools` non fourni retombe désormais sur
+`toolbar.tools`. Auparavant, ne renseigner que `toolbar.tools` laissait **tous** les outils
+autorisés : un outil retiré de la barre restait armable à son raccourci clavier, sans bouton
+pour en sortir — un mode dont l'utilisateur ne pouvait plus sortir à la souris.
+
+L'invariant était jusqu'ici tenu par la vigilance de l'appelant, qui devait recopier sa liste
+sur les deux props. Il est maintenant garanti par construction.
+
+Les deux réglages restent distincts — `toolbar.tools` ce qui est **affiché**, `draw.tools` ce
+qui est **autorisé** — et les dissocier volontairement reste possible en renseignant les deux.
+
+**Qui est concerné** : une application qui fournit `toolbar.tools` sans `draw.tools` **et**
+qui comptait sur les raccourcis clavier des outils masqués. Le dessin y sera désormais borné
+aux outils affichés. Pour rétablir l'ancien comportement, fournir explicitement
+`draw={{ tools: […] }}` avec la liste complète voulue.
+
+Sans barre (`toolbar: false`) ou sans dessin (`draw: false`), rien ne change.
+
+### fix : `VERSION` reflète la version réellement publiée
+
+`VERSION` était figée à `'0.1.0'` depuis deux versions, la constante ayant été recopiée à la
+main. Elle est désormais dérivée du `package.json`, seule source de vérité — la désynchronisation
+ne peut plus se reproduire. Le manifeste n'est pas embarqué dans le bundle (seul le champ
+`version` survit au tree-shaking).
+
+### fix : un agrégat de catalogue ne s'inscrit plus lui-même en sélection
+
+La règle « un groupe n'est qu'un sélecteur de ses enfants » ne tenait que pour **un geste sur
+deux** : la case n'inscrivait que les enfants, le clic sur le NOM inscrivait le groupe. Trois
+conséquences, toutes visibles :
+
+- le badge comptait **4** pour un groupe de 3 zones (le groupe + ses enfants), et la carte
+  peignait **6 formes pour 3 zones** — `geometry` d'un agrégat rend celles de ses enfants ;
+- décocher le groupe ne retirait que les enfants : sa clé survivait, badge à **1** avec un
+  panneau où plus rien n'était coché ;
+- rouvrir le panneau **recochait le groupe**, seule information encore disponible une fois
+  l'appartenance oubliée.
+
+Les deux gestes passent désormais par le même chemin, et le nom d'un agrégat affiche (ou
+retire) ses enfants en cadrant leur union. Une clé d'agrégat laissée par une session
+antérieure est **retirée au premier contact avec le groupe**, dépliage compris : personne ne
+perd sa sélection.
+
+### feat : le catalogue montre ce qui est affiché, sans rien déplier
+
+Retrouver trois zones cochées demandait d'ouvrir chaque type puis chaque groupe. Deux
+compteurs y répondent : un agrégat dont une partie des éléments est sur la carte porte
+« 2/3 » (`labels.catalog.groupCount`), et chaque ligne du menu des types porte le nombre
+d'éléments qu'elle affiche (`labels.catalog.sourceShown`). Les deux restent muets à zéro.
+
+C'est l'**appartenance retenue par le store** qui le permet — quels éléments composent quel
+agrégat, mémorisé dès qu'ils ont été chargés une fois et persisté avec la sélection. Aucune
+requête de plus : une case repliée est juste sans que la source soit redemandée. Le champ est
+additif, une charge écrite avant se relit intacte.
+
+Nouveaux : `useCatalogSourceCount(id)`, `CatalogApi.rememberGroup` / `.groupState`, et
+`setMany(source, items, shown, { fit })`. Aucune rupture.
+
+> Si vos agrégats annonçaient leur nombre d'enfants par un `badge`, retirez-le : la lib
+> écrit déjà « 2/3 », et les deux côte à côte donnent « 3/3 3 ».
+
+### change : nouvel ordre des groupes de la barre de navigation
+
+De haut en bas : `drag`, `compass`, **`layers`**, **`target`**, `pedestrian`, **`zoom`**,
+`fullscreen`. Le zoom descend au contact du plein écran — geste le plus répété, donc le plus
+près du bord bas, et les deux seuls groupes qui n'ouvrent aucune surface se retrouvent
+ensemble. Les couches / catalogue / templates remontent juste après le point de vue, suivies
+du retour au point de contrôle : on choisit ce que la carte montre, on y revient, puis on
+descend s'y promener.
+
+Réordonnancement **visuel uniquement**. Les clés de `components` et de `buttons` ne changent
+pas, les raccourcis non plus ; un hôte qui remplace un groupe le retrouve à sa nouvelle place.
+
+### change : l'outil « Main levée » s'appelle désormais « Crayon »
+
+Le terme « main levée » est déjà pris ailleurs, avec un autre sens, dans les applications
+qui intègrent la lib — deux objets sans rapport portaient le même nom à l'écran. Et en deux
+mots, le libellé passait sur **deux lignes** dans la rangée de catégories du gestionnaire de
+templates, seul de sa rangée. « Crayon » lève l'ambiguïté et tient sur une ligne.
+
+Changement de **libellé par défaut FR uniquement** : `labels.tools.freehand` et
+`labels.templates.category.freehand` valent `'Crayon'` au lieu de `'Main levée'`. **Aucune
+rupture d'API** — la clé reste `freehand`, le raccourci reste `H` (`'c'` est pris par le
+cercle), et un hôte qui redéfinit ces libellés via `labels` n'est pas concerné.
+
+### fix : un menu de la barre à dessin se referme quand la barre se replie
+
+En dézoomant sous `toolbar.minZoom`, la barre glisse hors écran — mais son menu ouvert
+restait, **seul au milieu de la carte**, sans le bouton qui l'avait ouvert ni rien pour le
+refermer, et il rouvrait tel quel au retour. Les sous-menus de survol tenaient déjà cette
+règle ; les menus ne l'avaient jamais eue.
+
+`<Dropdown>` s'y raccroche désormais lui-même, donc **tous** en héritent (style, réglages,
+symboles, catalogue, filtre de tags). Un `useCloseAnyDropdown` existait pour ça, sans aucun
+appelant : il fermait la surface ouverte *quelle qu'elle soit*, y compris celle d'une autre
+barre que le repli ne concerne pas. Il est remplacé et retiré.
+
+Au passage, `ToolbarApi` / `useToolbar` rejoignent les autres contextes (`react/context`) :
+`<Dropdown>` doit lire celui de la barre, et la barre importe `<Dropdown>` — c'est ce cycle
+qui avait fait renoncer la première fois. L'API publique ne bouge pas (`<Toolbar>` les
+ré-exporte).
+
+### ⚠️ Défaut changé — la barre de dessin se replie sous le zoom 5, non plus 11
+
+À 11, elle disparaissait dès qu'on quittait l'échelle de la rue — alors qu'on trace aussi
+des emprises régionales, et que le repli est là pour un seul cas : la vue globe, où
+dessiner n'a pas de sens. `config.toolbar.minZoom` (ou la prop `<Toolbar minZoom>`)
+rétablit l'ancien seuil en une ligne.
+
+L'exemple ne fige plus sa propre valeur : il lit `defaultConfig.toolbar.minZoom`. Il
+passait `11` en prop, laquelle prime sur la config — le défaut de la lib pouvait donc
+changer sans que la démo ne bouge d'un pixel.
+
+### feat : catalogue — régime « index », pour un référentiel que l'hôte peint déjà
+
+La ligne d'une source de parcours portait une case **inconditionnellement**. Or une
+application qui monte elle-même ses entités — typiquement des zones **éditables**, dans
+`<DrawLayer>`, la seule couche où une forme est sélectionnable — n'a rien à cocher : elles
+sont sur la carte en permanence. La case mentait (on la coche, l'état visuel change, la
+carte est identique), et si elle avait vraiment posé, la même entité aurait été peinte deux
+fois par deux couches qui ne se connaissent pas.
+
+`CatalogBrowseSource.checkable: false` déclare ce régime. La ligne perd sa case — et sa
+gouttière avec, comme le chevron d'une source qui ne déplie pas —, rien n'entre en sélection
+ni en persistance, et le clic sur le nom **cadre** : sur `item.bounds` s'il est annoncé
+(aucune requête), sinon sur la géométrie, chargée le temps de mesurer puis jetée. Chevron,
+enfants, sections et actions de ligne sont inchangés — c'est tout l'intérêt du régime.
+
+La règle vit dans le SOCLE, pas dans la liste qui l'affiche : `toggle` et `setMany` la
+portent, et la restauration écarte ces clés au démarrage. Sans quoi elle n'aurait tenu que
+pour les gestes de l'UI de la lib — un hôte, ou une sélection persistée par une version
+antérieure où la source posait encore, aurait repeint par-dessus ce que l'hôte affiche déjà,
+sans case pour l'en retirer.
+
+Défaut `true` : **aucune source existante ne bouge**. Ajoute `labels.catalog.focus`
+(« Centrer sur {label} »), qui remplace `catalog.add`/`remove` sur ces lignes, où
+`aria-pressed` n'annonce plus rien.
+
+### ui : « Annuler » et « Rétablir » se retirent de la barre au lieu de rester grisés
+
+Deux boutons inertes occupaient en permanence une barre qu'on **compacte déjà faute de
+hauteur** (cf. `useFitColumns`) — et sur une carte vierge, ils n'ont rien à faire. Ils
+suivent désormais la règle des autres outils : `config.toolbar.autoHide.history` (défaut
+`true`), chacun se retirant pour son propre compte. Le raccourci clavier, lui, ne dépend
+pas de la barre — l'historique reste pilotable sans elle. `false` rétablit les deux flèches
+en permanence.
+
+### ⚠️ Rupture — le panneau de style ne s'ouvre plus tout seul : la barre porte un bloc de couleurs
+
+Il s'affichait dès qu'un outil de forme devenait actif, et se ré-ancrait sur la forme
+sélectionnée : dessiner ou sélectionner faisait surgir 212 px de surface sur la carte, au
+moment précis où l'on regardait ce qu'on traçait. Il n'ouvrait donc jamais que ce qu'on ne
+lui demandait pas.
+
+Le **dernier bouton de la barre à dessin est désormais le bloc de couleurs** — les deux
+carrés fond/bordure, façon case couleur de Photoshop. Le style courant se lit en permanence
+sans rien ouvrir, et le panneau est un menu comme les autres : il s'ouvre au clic, se ferme
+au clic dehors. Plus de chevron de repli ni d'état réduit — le bouton fait les deux. Ce que
+le panneau règle continue de suivre le contexte (défauts des prochaines formes, ou restyle
+de la sélection ; rayon d'angle sur les rectangles seulement).
+
+**Ce qui casse** : `labels.style.collapse` n'existe plus (le panneau ne se replie plus).
+Un hôte qui remplaçait la section `stylePanel` de la barre la voit maintenant rendue DANS
+la barre, en dernier — et non plus en surface flottante à côté d'elle.
+
+`<ToolButton icon>` devient **optionnel** en conséquence : un bouton dont l'aperçu est la
+valeur qu'il règle n'a pas de glyphe à montrer. Rien à changer pour les appels existants.
+
+### fix : l'infobulle d'un marker se rabat dans la carte au lieu d'être coupée
+
+Centrée sur son ancre par un `transform`, elle était **amputée** dès que le marker
+approchait un bord — un titre dont les premiers caractères manquaient, sans aucun moyen de
+les lire. Les menus contextuels, ancrés au même overlay, savaient déjà se rabattre
+(`useNudgeInside`) : c'est ce mécanisme qui est réutilisé, suivi de l'ancre frame par frame
+compris. Vaut pour l'infobulle de marker, celle d'une pastille de regroupement et celle du
+dock d'épinglés — les trois passent par le même composant.
+
+Le hook mesurait la boîte de LAYOUT, insensible au `transform` propre — juste pour un menu,
+posé par ses coordonnées ; faux pour une infobulle, que le `transform` place, et dont la
+boîte de layout n'est qu'un point sur l'ancre. D'où une mesure `'visual'` en option, et une
+animation d'entrée réduite à l'opacité : une position animée aurait fait mesurer la première
+image, donc rabattre de travers — et durablement, la carte pouvant ne plus bouger ensuite.
+
+### fix : plus de barre de défilement horizontale dans le menu du catalogue
+
+La ligne d'un jeu à **bascule** est un `div` (la case et le nom sont deux contrôles), là où
+un type parcourable est un `button`. Or le navigateur ne pose `box-sizing: border-box` que
+sur le second : la ligne à bascule prenait `100%` PLUS ses 14 px de marge interne, dépassait
+seule du panneau, et `overflow-y: auto` ouvrait pour ces 14 px une barre horizontale sous
+tout le menu. `box-sizing` posé sur les deux formes, et l'axe horizontal explicitement
+fermé — un menu ne se lit pas en le faisant glisser de côté, c'est le nom qui cède.
+
+Même défaut corrigé sur les champs texte du panneau **Plugins** (`.m3d-plugin-input`), en
+content-box eux aussi, donc débordant du sous-panneau qui les porte.
+
+### feat : le trafic en fournisseur interne — le fond emprunte Google le temps du calque
+
+Le calque trafic était refusé **dès que le fond 2D venait du serveur interne**, clé Google
+présente ou non : le bouton n'apparaissait pas, le raccourci était mort et
+`setTrafficVisible(true)` sans effet. La raison tient (le trafic est gravé DANS la tuile
+Google, ce n'est pas une surcouche), mais la conclusion était trop courte — avec une clé, il
+y a de quoi le servir, il suffit de changer de fournisseur.
+
+Désormais, fond `internal` + `<Map googleMapsApiKey>` : le bouton est offert, l'allumer
+bascule le fond sur Google, l'éteindre revient au serveur interne (cache vidé de part et
+d'autre — ce sont deux jeux de tuiles). Repasser en 3D éteint le trafic **et** rend le fond
+à l'interne, comme avant. Réglé par `providers.tiles.trafficViaExternal` (défaut `true`) :
+`false` rétablit le refus d'origine, pour qui a choisi l'interne précisément pour ne plus
+rien demander à Google. ⚠️ L'emprunt change l'aspect du fond (style Google) et refacture ses
+tuiles tant que le calque est allumé.
+
+La règle vit dans la table de vérité commune (`BasemapSupport.canBorrowTraffic`), et
+`setTrafficVisible` la relit au lieu de rejuger : deux règles du trafic auraient divergé —
+c'est déjà ce qui s'était produit entre le moteur et la barre.
+
+### ui : le panneau « Infos » se répartit en colonnes — plus de défilement
+
+Ses quatre sections empilées (24 grandeurs) dépassaient la hauteur du sous-panneau : on
+ouvrait pour lire une valeur d'un coup d'œil, et il fallait faire défiler. Elles se
+répartissent désormais en **colonnes déduites de la largeur reçue** (`columns`, pas un
+compte figé), chaque section restant d'un seul tenant — deux colonnes dans le menu, une
+seule si l'hôte monte `<StatsPanel>` dans une surface étroite. Les filets entre sections
+disparaissent : entre deux colonnes, un trait horizontal ne sépare plus rien.
+
+### fix : `<MarkerLayer onLoadingChange>` retombe au démontage
+
+La prop n'avait **aucun contrat de démontage**, et le commentaire de `CatalogSurface`
+affirmait le contraire. `ViewportController.cancel()` émet bien un `false`, mais il
+s'arrête au `setLoading` INTERNE de `useLiveData` : l'effet qui relaie vers l'hôte, lui, ne
+rejoue jamais pendant un démontage. Dans la lib le symptôme était masqué par accident
+(`setSourceOn`/`purge`/`clear` purgent déjà `loadingSources`, plus la garde de lecture) —
+mais un hôte qui branche un indicateur sur cette prop publique le voyait tourner
+indéfiniment dès qu'il démontait une couche en plein vol. Nettoyage d'effet dédié, séparé
+de celui sur `[loading]` pour ne pas tirer un `false` à chaque transition.
+
+### perf : le gate `minZoom` n'émet plus qu'une fois, et abandonne ce qui est en vol
+
+Sous le seuil, `ViewportController` émettait un tableau vide **neuf à chaque tick** : la
+couche marker en tirait une identité neuve, tous ses mémos de visibilité tombaient, et les
+trois registres étaient notifiés — `ChangeNotifier` n'ayant aucune garde d'égalité, la
+surface de regroupement replanifiait un `rebuild()` complet. Soit, à quelques milliers de
+markers, une chaîne par marker et un tri supercluster **toutes les 500 ms de déplacement,
+pour zéro changement visuel**. Désormais une seule émission par descente, sur un tableau
+constant.
+
+Le gate n'abandonnait pas non plus la requête **en vol** : une réponse partie au-dessus du
+seuil se résolvait après coup et repeuplait la couche sous le seuil — précisément les
+milliers de points que le gate existe pour éviter. Trois tests couvrent ces chemins, dont
+la descente sous le seuil requête en vol, que la première série manquait.
+
+### feat : le catalogue nomme ses groupes — familles du menu et sections de la liste
+
+Le menu des types séparait ses familles (`CatalogSource.family`) par un simple filet, et
+la liste d'un type ne savait pas se sectionner du tout. À trois entrées le filet suffisait ;
+à dix, venues de plusieurs plugins, il faut deviner ce que les voisines ont en commun.
+
+- **Menu des types** : chaque famille porte un en-tête à son nom. Une source sans `family`
+  reste dans un groupe sans nom — la lib n'invente aucun intitulé (« Autres » serait du
+  texte en dur). Réglable par `config.catalog.familyHeaders` (défaut `true`).
+- **Liste** : `CatalogItem.group` ouvre un intertitre au CHANGEMENT de valeur. Réglable par
+  `config.catalog.groupHeaders` (défaut `true`).
+
+⚠️ **La lib ne trie pas** : elle ouvre une section quand `group` change d'un élément au
+suivant, et c'est à la source de servir ses éléments déjà groupés. Ce n'est pas une
+limitation mais la condition de la **pagination** — trier supposerait de tenir le jeu
+complet, alors que les pages arrivent au fil du défilement. Une page qui arrive prolonge
+la section en cours au lieu d'en rouvrir une identique.
+
+L'intertitre est une **ligne du flux virtualisé**, de la même hauteur que les autres :
+la fenêtre visible suppose une hauteur constante, et un en-tête qui envelopperait ses
+éléments aurait demandé un virtualiseur à hauteurs variables. `CatalogNode` devient donc
+une union discriminée (`kind: 'item' | 'group'`) plutôt qu'un champ optionnel — un en-tête
+n'a ni case, ni actions, ni état d'affichage.
+
+Coût nul pour qui ne s'en sert pas : réglage coupé, `flattenCatalog` ne fait même pas la
+comparaison par élément ; source sans `group`, aucun en-tête n'est produit.
+
+Deux réglages et non un : une poignée de types d'un côté, des dizaines de milliers
+d'éléments de l'autre — deux surfaces, deux volumes.
+
+### feat : le catalogue pose des markers, et sait s'allumer d'un interrupteur
+
+Le catalogue ne savait poser que des **formes**, et ne savait fonctionner qu'en **parcours** —
+liste paginée, une case par élément. Deux manques : un référentiel de points n'avait aucune
+voie, et 36 000 défibrillateurs n'ont pas vocation à être cochés un par un.
+
+`CatalogSource` devient une **union discriminée** par `kind`, avec `'browse'` **par défaut**.
+
+- **`markers?(id, signal)`** sur une source de parcours : un élément pose des points en plus (ou
+  à la place) de ses formes. Chargés sur le même geste, retirés ensemble, jamais persistés, et
+  ils entrent dans le regroupement, le filtre « Couches » et la recherche comme n'importe quel
+  marker. Le cadrage du clic sur le nom porte sur l'union des formes **et** des points.
+- **`kind: 'toggle'`** : un jeu qu'on allume au premier niveau du menu, chargé **au cadre
+  visible**. Sa `source` est la `DataSource<MarkerData>` existante — anti-rebond, gate
+  `minZoom`, `AbortSignal` et rejet des réponses hors-ordre viennent de `ViewportController`,
+  rien n'a été réécrit. `markerLayer` reprend le contrat de la voie déclarative des plugins.
+  Éteint, le jeu n'a **aucune couche montée** : ni contrôleur, ni écoute de la vue, ni requête.
+- **Pas de cadrage sur une bascule**, et ce n'est pas un oubli : sur un jeu piloté par la vue,
+  c'est la vue qui décide du contenu. La caméra n'est pas atteignable depuis ce chemin.
+- **Aucun compteur d'éléments chargés**, nulle part. `computeBounds` élargit délibérément
+  l'emprise (`config.performance.boundsMargin`, défaut `0.15` — +30 % sur les deux axes, ≈ +69 %
+  de surface) : une bascule charge structurellement plus que ce qui est à l'écran, et un « 142 »
+  posé à côté d'une carte qui en montre trois se lit « 142 affichés ». `total` (le jeu de
+  référence) et l'état de chargement restent affichés — eux sont vrais et vérifiables.
+- **Pas de remontée d'erreur** en mode bascule : un chargement qui échoue laisse le jeu de
+  données courant intact et l'indicateur s'éteint, sans pastille rouge — le régime de
+  parcours, lui, garde ses `pending`/`errors` par élément.
+- **Persistance** : l'état allumé/éteint vit dans un **champ distinct** de la charge, jamais
+  mêlé aux clés d'éléments — un id de source y entrerait en collision avec un id d'élément.
+  Une source disparue est éteinte en silence. Les markers ne sont jamais sérialisés.
+- « Tout retirer » éteint aussi les bascules, et le badge du bouton compte éléments cochés
+  **et** jeux allumés : les deux mettent quelque chose sur la carte.
+
+Nouvelle API publique : types `CatalogBrowseSource`, `CatalogToggleSource`, `CatalogSourceBase`,
+gardes `isBrowseSource` / `isToggleSource`, hooks `useCatalogToggle(id)` et `useCatalogClear()`,
+et sur `useCatalog()` : `markers` et `toggleSource`.
+
+**Lire** l'état d'un jeu passe par `useCatalogToggle(id)`, jamais par `useCatalog()` : il
+s'abonne aux deux booléens de CE jeu, là où l'API entière re-rendrait l'appelant à chaque
+mutation du catalogue. C'est le patron que la lib s'applique à elle-même pour ses propres
+lignes ; l'exposer évite de laisser à l'hôte la seule version coûteuse.
+
+Deux ajouts hors catalogue, tirés de la même mécanique :
+
+- **`<MarkerLayer onLoadingChange>`** — la couche tient le `ViewportController`, donc elle sait
+  seule si un chargement est en vol ; elle n'en faisait rien. Le lui faire rendre évite de
+  rebrancher un second contrôleur à côté pour apprendre ce qu'elle sait déjà. Bénéficie aussi à
+  la voie déclarative des plugins.
+- **`MarkerLayerDecl`** — le contrat de rendu était recopié entre `Plugin.markerLayer` et le
+  catalogue ; une prop ajoutée à `MarkerLayer` devait l'être aux deux endroits. Un seul type
+  désormais, de forme identique : **aucune rupture** pour un plugin existant.
+
+Correctif au passage : `ViewportController` retombe son drapeau de chargement quand la requête
+en vol est **abandonnée** (source retirée, `dispose`). Il ne le rendait à `false` que pour la
+requête encore courante — un indicateur branché dessus tournait donc indéfiniment.
+
+**Aucune rupture.** `kind` est optionnel et vaut `'browse'` : toute source existante reste
+valide **sans un caractère à changer**, dans l'exemple comme chez un hôte. `actions` passe de la
+base commune à `CatalogBrowseSource` — sans effet, puisqu'une action reçoit le `CatalogItem`
+sur lequel elle porte et qu'une source à bascule n'a pas d'éléments. **Aucune clé de `labels`
+n'est ajoutée** : la ligne d'une bascule réutilise `catalog.add` / `catalog.remove` /
+`catalog.loading` avec le nom de la source en `{label}` — rien à retraduire côté hôte.
+
+Documentation : [CATALOG.md § 4](docs/fr/CATALOG.md) (FR et EN), avec le tableau de décision
+**bascule vs plugin** et l'avertissement `boundsMargin`. Les sections 4 à 9 sont renumérotées
+5 à 10 dans les deux langues, liens entrants corrigés.
+
+### feat : effacer devient UNE seule chose — « Tout effacer » rejoint la gomme
+
+Trois commandes effaçaient, deux périmètres différents : après un « Tout effacer », la gomme
+restait allumée sur ce qu'elle seule pouvait atteindre — les routes et zones de l'application.
+Incompréhensible à l'usage. Désormais **`clear()` est la gomme sans geste** : mêmes objets,
+mêmes filtres, même `onErase`.
+
+- **Périmètre commun** : formes possédées (dessins, mesures, symboles) **et** objets hôte
+  effaçables (`<PathLayer>` / `<ShapeLayer>` marqués `erasable`), filtrés par
+  `config.erase.targets`, formes verrouillées et masquées par le filtre « Couches » épargnées.
+- **Place commune** : « Tout effacer » quitte le pied de la barre pour devenir la 3ᵉ rangée du
+  sous-menu de la gomme, sous « Gomme » et « Gomme sélection » — trois façons d'effacer, au
+  même endroit. Elle porte la couleur d'alerte et un filet de séparation : seule rangée du
+  menu qui agit au clic au lieu d'armer un mode.
+- **Un seul prédicat** : la gomme — rangée comprise — se **retire** de la barre tant qu'aucune
+  cible autorisée n'est à l'écran, plutôt que d'y rester grisée. Ce n'est pas une commande
+  indisponible comme Annuler (qui attend une action à défaire), c'est un outil sans emploi.
+  Elle **ne s'arme pas au clavier** pendant ce temps, et si sa dernière cible disparaît alors
+  qu'elle est active, l'outil est **relâché** — sans quoi elle restait armée sur l'intercepteur
+  d'entrée sans plus aucun bouton pour en sortir (le piège déjà traité au repli hors zoom).
+
+Réglable : `config.toolbar.autoHide.erase = false` rend la gomme permanente. Le masquage
+explicite par `components` reste prioritaire.
+
+Nouvelle API publique : `config.toolbar` (`DrawToolbarConfig`, `DrawToolbarAutoHide`),
+`useDrawing().canErase`, `ErasableRegistry.hasAny()`, libellé `labels.toolbar.clearAllDescription`.
+
+**⚠️ Ruptures**
+
+- **`clear()` change de périmètre** : il efface désormais aussi les objets hôte `erasable` et
+  respecte `config.erase.targets`. Une application qui l'appelle pour vider le dessin verra
+  donc partir ses routes et ses zones — c'est `onErase` qui lui en remonte les ids, à elle de
+  les retirer de son state (la lib ne mute jamais des props).
+- **La section `clear` n'est plus un bouton de barre** mais la rangée du sous-menu de la gomme :
+  `components={{ clear: false }}` retire cette rangée, et retirer l'outil `erase` de `tools`
+  emporte la commande avec lui.
+- `config.interaction.drawToolbarMinZoom` → **`config.toolbar.minZoom`** (même valeur par
+  défaut, `11`). Ce qui appartient à la barre est désormais regroupé sous `config.toolbar` ;
+  ce qui appartient aux outils reste dans son domaine (`config.erase.targets` pour la
+  politique de la gomme, `config.interaction.shortcuts.draw` pour les touches, qui agissent
+  sans barre montée). La prop `<Toolbar minZoom>` est inchangée.
+- `ErasableProvider` gagne deux membres **requis** : `kind` (la catégorie servie, déclarée
+  une fois à l'inscription plutôt que redemandée à chaque question) et `has()`, qui répond
+  « ai-je au moins un objet effaçable ? » **sans construire la liste** — un test de présence
+  ne doit pas payer le prix d'une collecte de dizaines de milliers d'objets.
+- L'affichage par défaut de la barre change : sur une carte sans rien d'effaçable, la gomme
+  ne paraît plus (et « Tout effacer » avec elle).
+
 ## [0.3.0] — 2026-08-02
 
 ### feat : contrainte de dessin « non-chevauchement » (`noOverlap`)

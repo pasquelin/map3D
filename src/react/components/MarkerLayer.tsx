@@ -21,11 +21,41 @@ import { useDismiss } from './useDismiss'
 import { markerColorOf } from '../../theme/colors'
 import { MarkerContent } from './MarkerContent'
 
+/**
+ * Réglages de rendu d'une couche marker montée PAR LA LIB pour le compte d'un tiers —
+ * la voie déclarative d'un plugin, un jeu de catalogue à bascule.
+ *
+ * Un seul type pour les deux : le contrat était recopié de part et d'autre, et une prop
+ * ajoutée ici devait l'être aux deux endroits — sans quoi la même capacité se réglait de
+ * deux façons selon d'où elle venait.
+ *
+ * Sous-ensemble volontaire de `MarkerLayerProps` : ce qui décide de l'APPARENCE, jamais
+ * ce qui décide de la donnée (`points`/`source`) ni de la sélection, que la lib pilote.
+ */
+export type MarkerLayerDecl = {
+  menu?: (p: MarkerData<unknown>) => MenuItem[]
+  tooltip?: MarkerLayerProps<unknown>['tooltip']
+  icon?: (p: MarkerData<unknown>) => string
+  typeLabel?: (type: string) => string
+  cluster?: { enabled: boolean }
+  size?: number
+}
+
 export type MarkerLayerProps<T> = {
   /** Markers à afficher. Exclusif avec `source`, qui les charge selon la vue. */
   points?: MarkerData<T>[]
   /** Source viewport-driven (rechargée au déplacement, gate `minZoom`). */
   source?: DataSource<MarkerData<T>>
+  /**
+   * Un chargement de `source` est-il en vol ? Appelé à chaque transition, jamais en
+   * boucle de frame. Sans objet avec `points`, que l'hôte charge lui-même.
+   *
+   * La couche connaît cet état — c'est elle qui tient le `ViewportController` — mais elle
+   * n'en fait rien : un indicateur de chargement vit dans l'interface de l'hôte (une ligne
+   * de panneau, un bandeau), pas sur la carte. Le lui rendre évite de rebrancher un second
+   * contrôleur à côté pour la seule raison de savoir ce que celui-ci sait déjà.
+   */
+  onLoadingChange?: (loading: boolean) => void
   /** Clé stable d'un marker (défaut `p.id`) : elle décide de l'identité, donc du tween. */
   getId?: (p: MarkerData<T>) => string | number
   /**
@@ -178,8 +208,22 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const config = useConfig()
   const getId = props.getId ?? ((p: MarkerData<T>) => p.id)
 
-  const { data: sourceData } = useLiveData<MarkerData<T>>(props.source)
+  const { data: sourceData, loading } = useLiveData<MarkerData<T>>(props.source)
   const rawPoints = props.points ?? sourceData
+
+  // Latest ref (cf. docs/ARCHITECTURE.md § 3) : une closure recréée par l'hôte à chaque
+  // render relancerait sinon cet effet à chaque render, pour un état qui n'a pas bougé.
+  const onLoadingChangeRef = useRef(props.onLoadingChange)
+  onLoadingChangeRef.current = props.onLoadingChange
+  useEffect(() => {
+    onLoadingChangeRef.current?.(loading)
+  }, [loading])
+  // Démontage : l'effet ci-dessus ne rejoue pas, et le `false` émis par
+  // `ViewportController.cancel()` s'arrête au `setLoading` INTERNE de `useLiveData` — il
+  // n'atteint jamais l'hôte. Sans ce nettoyage, un indicateur branché sur cette prop
+  // tourne indéfiniment dès qu'on démonte la couche en plein vol. Effet SÉPARÉ de
+  // `[loading]`, sinon il tirerait un `false` à chaque transition.
+  useEffect(() => () => onLoadingChangeRef.current?.(false), [])
 
   // Tags garantis (cf. `markerTags`). Identité ET allocation évitées dans le cas
   // courant « tout est taggé » (flux temps réel : un tick de données ne coûte rien ici).

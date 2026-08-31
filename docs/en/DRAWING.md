@@ -104,6 +104,24 @@ Both modes delete **exactly the same set**: drawings, measures and symbols. **Ma
 
 Categories: `drawing`, `measure`, `symbol` (library objects), `path`, `shape` (host layers — `path`/`shape` share the vocabulary of `config.selection.selectable`).
 
+**“Clear all” has the SAME scope as the eraser.** The “Clear all” row of the submenu is
+the eraser without a gesture: it deletes host objects as well as library shapes, honours
+`erase.targets`, spares locked and hidden shapes, and emits `onErase` — your application
+removes its own paths and zones, exactly as after an eraser stroke. `useDrawing().clear()`
+does the same from code.
+
+**The eraser withdraws when it has nothing to bite.** By default
+(`config.toolbar.autoHide.erase`), the button is not greyed out but **absent** while no
+allowed target is on screen — categories forbidden by `erase.targets` therefore do not
+count. It comes back as soon as an erasable object appears, including from your own data
+(`<PathLayer>` / `<ShapeLayer>` with `erasable: true`). While hidden, its shortcut (`E`)
+does not arm it; and if its last target disappears while it is active, the tool is
+released rather than left armed with no button to escape it.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />  // eraser always visible
+```
+
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // displayed, in this order
 <DrawLayer tools={['select', 'rect']} />                            // ALLOWED (also filters setTool)
@@ -216,17 +234,21 @@ rectangle resizes along its **own axes**.
 
 ## 5. Style
 
-The style panel appears with an active tool or a selection.
+The **last button of the bar is the colour block**: the two fill/stroke squares, like
+Photoshop's colour well. The current style reads there at all times, and a click opens the
+panel — which opens ONLY that way. Drawing or selecting no longer pops a surface over the
+map.
 
-- **Separate fill and stroke colours** (stacked Photoshop-style swatches with a ⇄
-  swap), theme palette (`theme.colors.draw.palette`) + native picker.
+- **Separate fill and stroke colours** (stacked Photoshop-style swatches, with the ⇄
+  swap inside the panel), theme palette (`theme.colors.draw.palette`) + native picker.
 - Stroke width **including 0** (fill only).
 - Stroke style: `solid` / `dashed` / `dotted`.
 - Stroke **and** fill opacity.
 - Rectangle corner radius (% of the short side, 0–50).
 
-**Without a selection**, the panel sets the active tool's defaults; **with a
-selection**, it restyles the shapes.
+**Without a selection**, the panel sets the defaults for the next shapes; **with a
+selection**, it restyles the selected ones (its title counts them). What it shows follows
+the shape type: the corner radius only appears for rectangles.
 
 ```ts
 const { setStyle, currentStyle, selectionHasRect } = useDrawing()
@@ -498,12 +520,29 @@ A remap is immediately reflected in the tooltips.
 />
 ```
 
-Sections (`components`): `navigate`, `select`, `symbol`, `lens`, `stylePanel`,
-`settings`, `undo`, `redo`, `clear`. `false` hides, a `ReactNode` replaces.
+Sections (`components`): `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
+`plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` hides, a
+`ReactNode` replaces. ⚠️ `stylePanel` is the **colour block, the last button of the bar**
+(no longer a floating surface beside it): replacing it puts your own node there. ⚠️ `clear`
+is no longer a bar button but the **“Clear all” row of the eraser's submenu**: `components={{ clear: false }}` removes that row, and removing the
+`erase` tool from `tools` takes the command with it.
+
+**The bar only shows what is useful.** By default the eraser — and with it its “Clear all”
+row — appears only when one of its allowed targets is on screen
+(`config.toolbar.autoHide.erase`); **“Undo” and “Redo” likewise withdraw while there is
+nothing to undo or redo** (`autoHide.history`), instead of staying greyed out. A map with
+nothing erasable shows no eraser, and a blank map shows no two inert arrows. The keyboard
+shortcut never depends on the bar, and explicit hiding through `components` still wins.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false, history: false } } }} />   // all visible
+```
 
 **A retracting bar releases everything it drives** and returns to the hand tool: a tool
 left armed would keep intercepting gestures, so that zooming out would leave you
-drawing shapes on a map where no button lets you stop.
+drawing shapes on a map where no button lets you stop. **Its menus close with it** — a
+panel left alone in the middle of the map, without the button that opened it, would have
+nothing left to close it.
 
 ### Putting your own tool in the bar
 
@@ -511,7 +550,7 @@ drawing shapes on a map where no button lets you stop.
 const bar = useToolbar()
 const [open, setOpen] = useState(false)
 
-useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
+useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself (not needed with <Dropdown>)
 
 <ToolButton
   icon={mdiChartBox}
@@ -523,7 +562,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // close itself
 
 Without this, two buttons stay lit and the bar no longer tells you where you are.
 `ToolbarApi` carries `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
-the last three anchor a panel that follows the active tool, beyond the minimum shown here.
+the last three act as **anchors** for a host surface: the bar itself, or the active tool's
+button for a surface that relates to that tool.
 
 ---
 
@@ -538,7 +578,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
-| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |
+| History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
 | Serialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symbols | `symbols` — see [SYMBOLS.md](SYMBOLS.md) |

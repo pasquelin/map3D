@@ -62,8 +62,8 @@ export const DEFAULT_DRAW_TOOLS: DrawTool[] = [
 ]
 
 /**
- * Contrôles de style partagés entre le panneau de style (sélection/outil actif)
- * et le panneau Réglages (défauts par outil) — jamais dupliqués.
+ * Contrôles de style partagés entre le panneau de style de la barre et le panneau
+ * Réglages (défauts par outil) — jamais dupliqués.
  */
 
 export type SwatchTarget = 'stroke' | 'fill'
@@ -152,6 +152,36 @@ export function ColorSwatches({
         <UiIcon path={mdiSwapHorizontal} />
       </button>
     </div>
+  )
+}
+
+/**
+ * Couleurs des deux carrés, replis compris : le fond retombe sur le trait, le trait sur la
+ * couleur par défaut du thème. Un style n'en fixe pas toujours deux, et deux calculs
+ * séparés finiraient par montrer deux couleurs différentes du MÊME style.
+ */
+export function swatchColors(style: DrawStyle, fallback: string): { stroke: string; fill: string } {
+  const stroke = style.color ?? fallback
+  return { stroke, fill: style.fillColor ?? stroke }
+}
+
+/**
+ * Les deux mêmes carrés, en APERÇU : au gabarit d'un bouton de barre, et inertes.
+ *
+ * Des `<span>` et non les `<button>` de `ColorSwatches` — ils habillent le bouton qui ouvre
+ * le panneau (cf. `<DrawStylePanel>`), et un bouton n'en contient pas d'autres. Mêmes
+ * classes de dessin : deux carrés qui divergeraient entre la barre et le panneau se
+ * liraient comme deux réglages différents.
+ */
+export function SwatchPreview({ style, fallback }: { style: DrawStyle; fallback: string }) {
+  const { stroke, fill } = swatchColors(style, fallback)
+  return (
+    <span className="m3d-swatches m3d-swatches-mini" aria-hidden>
+      <span className="m3d-swatch m3d-swatch-fill" style={{ background: fill }} />
+      <span className="m3d-swatch m3d-swatch-stroke">
+        <span style={{ borderColor: stroke }} />
+      </span>
+    </span>
   )
 }
 
@@ -310,8 +340,7 @@ export function StyleEditor({
 }) {
   const labels = useLabels()
   const presets = useDrawPresets()
-  const stroke = style.color ?? fallbackColor
-  const fill = style.fillColor ?? style.color ?? fallbackColor
+  const { stroke, fill } = swatchColors(style, fallbackColor)
   return (
     <>
       <div className="m3d-style-head">

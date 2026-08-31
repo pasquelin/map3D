@@ -153,9 +153,9 @@ export type DrawingApi = {
   /** true si la sélection contient au moins un rectangle (affichage du rayon d'angle). */
   selectionHasRect: boolean
   /**
-   * Emprise écran de la sélection, comme élément d'ancrage. Le panneau de style s'ouvre
-   * dessus quand c'est une FORME qui l'ouvre : un panneau qui règle une forme se trouve
-   * près d'elle, pas au niveau d'un bouton de la barre.
+   * Emprise écran de la sélection, comme élément d'ANCRAGE : la seule chose qui sache où
+   * est la sélection à l'écran. Pour une surface de l'hôte qui doit s'ouvrir près de la
+   * forme qu'elle traite, plutôt qu'au niveau d'un bouton de la barre.
    */
   selectionBoxEl: SVGRectElement | null
   /** Réglages par outil (persistés) — s'abonner via `useDrawSettings()`. */
@@ -167,6 +167,19 @@ export type DrawingApi = {
   redo: () => void
   canUndo: boolean
   canRedo: boolean
+  /**
+   * Y a-t-il une cible à l'écran ? Prédicat COMMUN aux trois commandes d'effacement
+   * (gomme ponctuelle, gomme sélection, `clear()`) : formes possédées ET objets hôte
+   * effaçables (`PathLayer`/`ShapeLayer`), filtrés par `config.erase.targets` — une
+   * catégorie interdite à la gomme ne justifie pas son bouton
+   * (`config.toolbar.autoHide.erase`).
+   */
+  canErase: boolean
+  /**
+   * « Tout effacer » : la gomme sans geste. Même périmètre que ses deux modes — objets
+   * hôte compris (émet `onErase`), `config.erase.targets` respecté, formes verrouillées
+   * et masquées épargnées. Annule aussi le tracé en cours.
+   */
   clear: () => void
   toGeoJSON: () => GeoJSONFeatureCollection
   fromGeoJSON: (fc: GeoJSONFeatureCollection) => void
@@ -226,7 +239,7 @@ export type DrawingApi = {
     place: (key: string, at: LatLng, variant?: string) => string | null
     /**
      * Nombre de symboles POSÉS sur la carte — le badge du bouton de barre, et rien d'autre
-     * (même rôle que `useCatalogSelectionCount`). Suit la signature des symboles, pas le
+     * (même rôle que `useCatalogActiveCount`). Suit la signature des symboles, pas le
      * `rev` du tracé : il ne rebondit donc pas à chaque frame d'un dessin en cours.
      */
     count: number
@@ -256,6 +269,70 @@ export type LensApi = {
 }
 
 export const LensContext = createContext<LensApi | null>(null)
+
+/**
+ * Ce qu'un outil doit savoir de la barre qui le porte. Consommé par les outils natifs
+ * ET par ceux que l'application pose dans `extraTools` / `components` : sans ça, un
+ * outil applicatif ne peut ni se refermer quand la barre se replie, ni participer à
+ * l'exclusivité — d'où deux boutons allumés à la fois, et une barre qui ne dit plus
+ * où on en est.
+ */
+export type ToolbarApi = {
+  /** La barre est repliée (hors zoom, cf. `minZoom`) : plus rien n'y est atteignable. */
+  retracted: boolean
+  /** Une surface NATIVE tient la main : outil de tracé, loupe ou palette de symboles. */
+  nativeActive: boolean
+  /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
+  claim: () => void
+  /**
+   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre. Une surface sans ancre se
+   * centre verticalement : elle ne se pose jamais au niveau de la barre comme les autres.
+   */
+  el: HTMLElement | null
+  /**
+   * Le bouton de l'outil ACTIF, pour une surface qui se rapporte à CET outil-là : elle
+   * s'ouvre à sa hauteur plutôt qu'en haut de la barre. `null` si aucun outil n'est actif.
+   */
+  activeToolEl: HTMLElement | null
+  /**
+   * Publier son bouton comme ancre de l'outil actif — à passer en `ref` d'un `ToolButton`
+   * quand il porte l'outil courant, `null` sinon. Indispensable aux items qui vivent HORS
+   * de la boucle `tools.map` (les sous-menus), qu'elle ne peut pas publier pour eux.
+   */
+  publishActiveTool: (el: HTMLElement | null) => void
+}
+
+/** ⚠️ Défaut INERTE : un bouton monté hors `<Toolbar>` n'a personne à qui céder la main,
+ *  et `retracted: false` garantit qu'aucune surface d'une autre barre ne se referme. */
+export const ToolbarContext = createContext<ToolbarApi>({
+  retracted: false,
+  nativeActive: false,
+  claim: () => {},
+  el: null,
+  activeToolEl: null,
+  publishActiveTool: () => {},
+})
+
+/**
+ * État de la barre d'outils, pour un outil qui y vit.
+ *
+ * Le contrat d'un outil applicatif est celui des outils natifs, en deux lignes :
+ *
+ * ```tsx
+ * const bar = useToolbar()
+ * const [open, setOpen] = useState(false)
+ * // se refermer quand la barre se replie OU qu'un outil natif prend la main
+ * useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
+ * // …et éteindre les autres en s'ouvrant
+ * <ToolButton active={open} onClick={() => { if (!open) bar.claim(); setOpen(!open) }} />
+ * ```
+ *
+ * Un `<Dropdown>` n'a pas la première ligne à écrire — il s'y raccroche déjà.
+ *
+ * Hors d'une `<Toolbar>`, tout est inerte : un bouton monté seul n'a personne à qui
+ * céder la main.
+ */
+export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
 
 /** API du moteur de relations exposée par `<RelationLayer>`. */
 export type RelationApi = {

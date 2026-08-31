@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '../../config/defaultConfig'
 import type { MapConfig } from '../../config/types'
-import { ErasableRegistry } from '../../core/Erasables'
+import { ErasableRegistry, type ErasableProvider } from '../../core/Erasables'
 import { Projection } from '../../core/Projection'
 import { DrawLayer, type DrawDefaults, type EraseResult } from '../DrawLayer'
 
@@ -11,6 +11,12 @@ import { DrawLayer, type DrawDefaults, type EraseResult } from '../DrawLayer'
 // indépendants — ils opèrent par id sur la collection, pas par projection écran.
 
 const DEFAULTS: DrawDefaults = { color: '#3388ff', width: 2, fillOpacity: 0.3 }
+
+/** Deux points suffisent à une ligne — la géométrie n'entre pas dans ces prédicats. */
+const POINTS = [
+  { lat: 48.85, lng: 2.35 },
+  { lat: 48.86, lng: 2.36 },
+]
 
 function makeLayer(): DrawLayer {
   return new DrawLayer(new THREE.Group(), new Projection(), document.createElement('div'), DEFAULTS)
@@ -70,15 +76,21 @@ describe('DrawLayer.eraseSymbol — gomme ponctuelle d’un symbole', () => {
   })
 })
 
+/** Provider hôte minimal : `has` répond depuis la même liste que `items`, comme le font
+ *  `PathLayer`/`ShapeLayer` (qui, eux, l'évaluent sans construire les anneaux). */
+function hostProvider(kind: 'path' | 'shape', ids: readonly string[]): ErasableProvider {
+  return {
+    kind,
+    items: () => ids.map((id) => ({ id, ring: [{ lat: 0, lng: 0 }], closed: kind === 'shape', kind })),
+    has: () => ids.length > 0,
+  }
+}
+
 describe('ErasableRegistry — inventaire des objets hôte effaçables', () => {
   it('all() concatène les items des providers ; la désinscription les retire', () => {
     const reg = new ErasableRegistry()
-    const off = reg.register({
-      items: () => [{ id: 'r1', ring: [{ lat: 0, lng: 0 }], closed: false, kind: 'path' }],
-    })
-    reg.register({
-      items: () => [{ id: 'z1', ring: [{ lat: 1, lng: 1 }], closed: true, kind: 'shape' }],
-    })
+    const off = reg.register(hostProvider('path', ['r1']))
+    reg.register(hostProvider('shape', ['z1']))
 
     expect(
       reg
@@ -89,5 +101,126 @@ describe('ErasableRegistry — inventaire des objets hôte effaçables', () => {
 
     off()
     expect(reg.all().map((i) => i.id)).toEqual(['z1'])
+  })
+
+  it('hasAny() ne répond que pour les catégories AUTORISÉES', () => {
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('path', ['r1']))
+
+    expect(reg.hasAny(defaultConfig.erase.targets)).toBe(true)
+    // Seule catégorie présente interdite → la gomme n'a plus rien à mordre.
+    expect(reg.hasAny(withTarget('path', false).erase.targets)).toBe(false)
+  })
+
+  it('hasAny() est faux sur un provider vide (registre non vide ≠ objets présents)', () => {
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('shape', []))
+    expect(reg.hasAny(defaultConfig.erase.targets)).toBe(false)
+  })
+})
+
+describe('DrawLayer.clear — « Tout effacer » a le périmètre de la gomme', () => {
+  it('remonte les objets HÔTE dans onErase, comme les deux modes de gomme', () => {
+    const layer = makeLayer()
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('path', ['r1']))
+    reg.register(hostProvider('shape', ['z1']))
+    layer.setErasables(reg)
+    const id = layer.addShape({ kind: 'line', points: POINTS, style: {} })!
+    const erased: EraseResult[] = []
+    layer.onErase = (r) => erased.push(r)
+
+    layer.clear()
+
+    expect(layer.getShape(id)).toBeNull()
+    expect(erased).toHaveLength(1)
+    expect(erased[0]!.shapes.map((s) => s.id)).toEqual([id])
+    // La lib ne mute pas les props de l'hôte : elle lui rend les ids à retirer.
+    expect(erased[0]!.paths).toEqual(['r1'])
+    expect(erased[0]!.hostShapes).toEqual(['z1'])
+  })
+
+  it('respecte config.erase.targets — une catégorie interdite est épargnée', () => {
+    const layer = makeLayer()
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('path', ['r1']))
+    layer.setErasables(reg)
+    layer.setConfig(withTarget('path', false))
+    const symbolId = layer.placeSymbol('sugpewrh--------', { lat: 48.85, lng: 2.35 })
+    const erased: EraseResult[] = []
+    layer.onErase = (r) => erased.push(r)
+
+    layer.clear()
+
+    expect(layer.getShape(symbolId)).toBeNull()
+    expect(erased[0]!.paths).toEqual([])
+  })
+
+  it('épargne les formes verrouillées et celles que le filtre masque', () => {
+    const layer = makeLayer()
+    const locked = layer.addShape({ kind: 'line', points: POINTS, style: {} })!
+    const hidden = layer.addShape({ kind: 'line', points: POINTS, style: {}, tags: ['secteur'] })!
+    layer.setLocked([locked], true)
+    layer.setTagVisibility((tags) => !tags.includes('secteur'))
+
+    layer.clear()
+
+    expect(layer.getShape(locked)).not.toBeNull()
+    expect(layer.getShape(hidden)).not.toBeNull()
+  })
+
+  it('n’émet rien quand il n’y a rien à effacer', () => {
+    const layer = makeLayer()
+    const erased: EraseResult[] = []
+    layer.onErase = (r) => erased.push(r)
+
+    layer.clear()
+
+    expect(erased).toEqual([])
+    expect(layer.canUndo).toBe(false)
+  })
+})
+
+describe('DrawLayer.canErase — ce que la gomme aurait à mordre', () => {
+  it('faux sur une carte vierge, vrai dès qu’une forme est posée', () => {
+    const layer = makeLayer()
+    expect(layer.canErase).toBe(false)
+
+    layer.addShape({ kind: 'line', points: POINTS, style: {} })
+    expect(layer.canErase).toBe(true)
+  })
+
+  it('suit config.erase.targets catégorie par catégorie', () => {
+    const layer = makeLayer()
+    layer.placeSymbol('sugpewrh--------', { lat: 48.85, lng: 2.35 })
+    expect(layer.canErase).toBe(true)
+
+    // Seuls des symboles à l'écran, et les symboles sont interdits à la gomme.
+    layer.setConfig(withTarget('symbol', false))
+    expect(layer.canErase).toBe(false)
+  })
+
+  it('épargne les formes verrouillées et masquées, comme les deux modes de gomme', () => {
+    const layer = makeLayer()
+    const id = layer.addShape({ kind: 'line', points: POINTS, style: {}, tags: ['secteur'] })!
+    layer.setLocked([id], true)
+    expect(layer.canErase).toBe(false)
+
+    layer.setLocked([id], false)
+    layer.setTagVisibility(() => false)
+    expect(layer.canErase).toBe(false)
+  })
+
+  it('compte les objets HÔTE, eux aussi filtrés par les cibles', () => {
+    const layer = makeLayer()
+    const reg = new ErasableRegistry()
+    reg.register(hostProvider('path', ['r1']))
+    layer.setErasables(reg)
+
+    // Aucune forme possédée : la gomme n'existe que pour le tracé hôte.
+    expect(layer.canErase).toBe(true)
+
+    layer.setConfig(withTarget('path', false))
+    expect(layer.canErase).toBe(false)
   })
 })

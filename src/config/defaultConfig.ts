@@ -26,6 +26,7 @@ import { watermarkDefaults } from './defaults/watermark'
 import { captureDefaults } from './defaults/capture'
 import { selectionDefaults } from './defaults/selection'
 import { eraseDefaults } from './defaults/erase'
+import { toolbarDefaults } from './defaults/toolbar'
 
 export const defaultConfig: MapConfig = {
   providers: providersDefaults,
@@ -45,4 +46,5 @@ export const defaultConfig: MapConfig = {
   capture: captureDefaults,
   selection: selectionDefaults,
   erase: eraseDefaults,
+  toolbar: toolbarDefaults,
 }

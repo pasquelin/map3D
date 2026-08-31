@@ -45,6 +45,7 @@ export const SECTION_LABELS: Record<DrawToolbarSection, string> = {
   select: defaultLabels.tools.select,
   symbol: defaultLabels.symbols.button,
   measure: defaultLabels.tools.measure,
+  erase: defaultLabels.tools.erase,
   lens: defaultLabels.lens.tool,
   plugins: defaultLabels.plugins.title,
   stylePanel: 'Style de tracé',

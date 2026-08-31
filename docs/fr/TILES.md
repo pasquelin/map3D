@@ -28,7 +28,7 @@ Avec `internal`, **aucune requête ne part chez Google** pour le fond : ni
 | Source                 | Google Map Tiles                          | votre serveur (schéma XYZ)          |
 | Authentification       | clé d'API + session signée                | aucune                              |
 | Réglage minimal        | `<Map googleMapsApiKey>`                  | `providers.internal.origin`            |
-| Calque trafic          | oui                                       | **non** (cf. § 4)                   |
+| Calque trafic          | oui                                       | par emprunt, avec une clé (cf. § 4) |
 | Volume (mode `'3d'`)   | tuiles 3D photoréalistes (Cesium Ion)     | bâtiments extrudés (cf. § 5)        |
 | Quota                  | facturé à la tuile                        | le vôtre                            |
 
@@ -152,7 +152,8 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 | `external` + clé Google, sans token Ion            | affiché     | **masqué**  | affiché en plan |
 | `external` sans clé (token Ion seul)               | masqué      | affiché     | masqué          |
 | ni clé ni token                                    | masqué      | masqué      | masqué          |
-| `internal` (origine renseignée)                    | affiché     | affiché     | masqué          |
+| `internal` (origine renseignée), sans clé Google   | affiché     | affiché     | masqué          |
+| `internal` (origine renseignée) + clé Google       | affiché     | affiché     | affiché en plan |
 | `internal` pour la 2D, `external` sans token en 3D | affiché     | **masqué**  | masqué          |
 
 Trois règles derrière ce tableau :
@@ -166,9 +167,32 @@ Trois règles derrière ce tableau :
   Basculer viderait l'écran. Seule exception : si AUCUN mode n'est servable, la carte garde
   le sien et son globe de repli — il faut bien être quelque part.
 - **Le trafic est une propriété de la tuile Google** (`layerTypes` demandé à la session),
-  pas une surcouche transparente. Un serveur interne n'a rien à allumer :
-  `setTrafficVisible(true)` y est sans effet, et le bouton n'est pas proposé — même avec
-  une clé Google par ailleurs configurée.
+  pas une surcouche transparente. Un serveur interne n'a donc rien à allumer *sur ses
+  propres tuiles* : l'allumer **change de fournisseur** le temps du calque (cf. ci-dessous).
+  Sans clé Google, il n'y a rien à emprunter — `setTrafficVisible(true)` reste sans effet et
+  le bouton n'est pas proposé.
+
+### Le trafic en fournisseur interne — l'emprunt
+
+Fond 2D `internal` **et** clé `<Map googleMapsApiKey>` : le bouton trafic est proposé, et
+l'allumer fait **passer le fond chez Google** le temps du calque. L'éteindre revient au
+serveur interne. Le cache de tuiles est vidé de part et d'autre : ce sont deux jeux de
+tuiles, pas deux versions du même.
+
+```tsx
+// Le comportement par défaut — rien à écrire pour l'obtenir.
+<Map
+  googleMapsApiKey={KEY}
+  config={{ providers: { tiles: { provider: 'internal', trafficViaExternal: true } } }}
+/>
+```
+
+⚠️ **Ce que l'emprunt engage** : le fond change d'aspect (style Google, pas le vôtre) et
+ses tuiles redeviennent facturées tant que le trafic est allumé. `trafficViaExternal:
+false` rétablit le refus d'origine — pas de trafic hors fournisseur externe, bouton masqué.
+
+Le mode 3D éteint le trafic comme avant, et l'emprunt avec lui : le fond revient à
+l'interne sans que l'hôte ait à s'en occuper.
 
 Un hôte qui compose sa propre barre lit ces mêmes drapeaux, ou appelle la fonction pure qui
 les tranche :

@@ -63,6 +63,7 @@ const isToolSub = (k: SubKey): k is DrawTool => !NON_TOOL_SUBS.has(k)
 const SUB_WIDTH: Partial<Record<SubKey, string>> = {
   shortcuts: ' m3d-settings-sub-wide', // récap raccourcis sur trois colonnes
   preferences: ' m3d-settings-sub-pref',
+  stats: ' m3d-settings-sub-stats', // panneau Infos sur deux colonnes, sinon il défile
 }
 
 /**

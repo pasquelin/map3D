@@ -1,4 +1,12 @@
-import type { ControlGroup, DrawTool, DrawToolbarSection, MapControlButton, ReadoutCorner, SelectMode } from '@pasquelin/map3d'
+import { defaultConfig } from '@pasquelin/map3d'
+import type {
+  ControlGroup,
+  DrawTool,
+  DrawToolbarSection,
+  MapControlButton,
+  ReadoutCorner,
+  SelectMode,
+} from '@pasquelin/map3d'
 
 /* ══════════════════ SURFACES D'INTERFACE, PILOTABLES ══════════════════
    `<Map>` monte son interface à partir de ses props : `toolbar`, `controls`, `search`,
@@ -44,6 +52,7 @@ export const TOOLBAR_SECTIONS = keysOf<DrawToolbarSection>({
   select: true,
   symbol: true,
   measure: true,
+  erase: true,
   lens: true,
   plugins: true,
   stylePanel: true,
@@ -125,6 +134,14 @@ export type UiSettings = {
   drawNoOverlap: boolean
   /** Moniteur `StatsOverlay` : FPS/RAM (stats.js) + compteurs `renderer.info`, en haut à droite. */
   stats: boolean
+  /**
+   * Couche marker VIEWPORT pilotée par l'hôte : `<MarkerLayer source>` + `onLoadingChange`.
+   *
+   * Éteinte par défaut — elle repose les défibrillateurs que la scène affiche déjà, son
+   * intérêt n'est pas ce qu'elle peint mais de démontrer qu'une couche hôte peut lire son
+   * propre état de chargement sans rebrancher un second `ViewportController`.
+   */
+  liveLayer: boolean
 }
 
 const allOn = <K extends string>(keys: readonly K[]): Record<K, boolean> =>
@@ -135,7 +152,10 @@ export const defaultUiSettings: UiSettings = {
   toolbar: {
     enabled: true,
     position: 'left',
-    minZoom: 11,
+    // Le défaut de la LIB, pas une copie : l'exemple est censé la montrer telle qu'elle est,
+    // et une valeur figée ici masquait tout changement du défaut — la prop prime sur
+    // `config.toolbar.minZoom`. Le curseur de l'onglet Interface reste libre.
+    minZoom: defaultConfig.toolbar.minZoom,
     lens: true,
     tools: allOn(DRAW_TOOLS),
     selectModes: allOn(SELECT_MODES),
@@ -161,6 +181,7 @@ export const defaultUiSettings: UiSettings = {
   drawNoOverlap: false,
   // Outil de mesure : éteint par défaut, on l'allume pour profiler.
   stats: false,
+  liveLayer: false,
 }
 
 /** Les clés cochées, dans l'ordre déclaré — la forme qu'attendent `tools`/`selectModes`. */

@@ -5,6 +5,7 @@ import { createTitleCache, type Hit, NO_MATCH, proximityRank, rankHits, scoreMat
 import { emptyResult, SHAPE_GROUP } from '../../search/registry'
 import type { Bounds } from '../../shared'
 import { useLabels, useMapContext } from '../context'
+import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
 export type ShapeLayerProps = {
@@ -83,23 +84,14 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
   }, [engine, shapes, groupLabel, theme, searchSource])
   useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
 
-  // Expose les formes hôte `erasable` à la gomme (via `engine.erasables`). `items()` lit la
-  // liste courante par ref (`latest`) — provider monté une fois, la gomme interroge au besoin.
-  useEffect(
-    () =>
-      engine.erasables.register({
-        items: () =>
-          latest.current
-            .filter((s) => s.erasable && s.id != null)
-            .map((s) => ({
-              id: s.id!,
-              ring: ringOfShape(s),
-              closed: s.kind !== 'line' && s.kind !== 'arrow',
-              kind: 'shape' as const,
-            })),
-      }),
-    [engine],
-  )
+  // Expose les formes hôte `erasable` à la gomme — inscription, présence et notification
+  // sont les mêmes que celles de `PathLayer`, elles vivent donc dans le hook partagé.
+  useErasableProvider('shape', shapes, (s) => ({
+    id: s.id!,
+    ring: ringOfShape(s),
+    closed: s.kind !== 'line' && s.kind !== 'arrow',
+    kind: 'shape',
+  }))
 
   return null
 }

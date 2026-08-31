@@ -32,7 +32,7 @@ compile error.
 |---|---|---|
 | `providers.internal.origin` | Origin of the self-hosted server (scheme + host + port, no trailing `/`), substituted for `{origin}` in ALL internal templates — 2D basemap **and** volume, which come from the same server. ⚠️ The default is THE PROJECT's production server, not a public service: a third-party host **must** set its own, or pick the `'external'` providers. Empty, the `'internal'` providers stay inert. | `'https://map.gosecure.site'` |
 | `providers.internal.elevationEpsilon` | Ground-elevation change (m) below which the raster basemap and the volumes are NOT rebuilt. Elevation is baked into both layers' geometry: tracking it to the centimetre would replay the whole cache every frame. Shared setting — both must use the exact same reference. ⚠️ Was a literal copied into both layers. | `1` |
-| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota, **no traffic**). See [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles.provider` | Basemap tile provider: `'external'` (Google Map Tiles, session + key, traffic available) or `'internal'` (self-hosted server, plain XYZ URLs, no key, no quota; traffic only by borrowing, see `trafficViaExternal`). See [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | URL template for an internal raster tile — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` and `{r}` are substituted. No query string is appended: the internal server signs nothing. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
 | `providers.tiles.style` | Name of the style rendered by the internal server, substituted for `{style}`. | `'liberty'` |
 | `providers.tiles.retina` | Request internal tiles at double density (`{r}` → `@2x`). Defaults to `false`: the canvas follows `performance.pixelRatio` (1 by default), where an @2x tile quadruples the bytes without adding anything on screen. | `false` |
@@ -43,6 +43,7 @@ compile error.
 | `providers.tiles.language` | Language of the labels baked into the tiles. `'auto'` follows the browser. ⚠️ Hard-coded to `'fr-FR'` until now: the map displayed French names whatever the application's locale. | `'auto'` |
 | `providers.tiles.region` | Regional bias (disputed border rendering, toponymy). `'auto'` lets the provider infer it. ⚠️ Hard-coded to `'FR'` until now. | `'auto'` |
 | `providers.tiles.mapType` | 2D basemap requested from the provider. | `'roadmap'` |
+| `providers.tiles.trafficViaExternal` | With the `'internal'` provider, **borrow** the Google basemap for as long as the traffic layer is on (no effect with `'external'`). The button stays offered as soon as a `<Map googleMapsApiKey>` is there; turning it on switches the basemap to Google, turning it off returns to the internal server. ⚠️ The basemap changes appearance and tiles are billed again while the layer is on. `false` = original behaviour (no traffic outside `'external'`). | `true` |
 | `providers.tiles.layerTypes` | Additional layers requested from the tile session. | `["layerTraffic"]` |
 | `providers.tiles.sessionUrl` | Tile session creation endpoint. | `'https://tile.googleapis.com/v1/createSession'` |
 | `providers.tiles.tileUrl` | Tile URL template — `{z}`, `{x}`, `{y}` and `{session}` are substituted. | `'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'` |
@@ -164,7 +165,6 @@ compile error.
 | `interaction.freehandMinStepPx` | Decimation of the freehand stroke (floor, in px). Counterpart of `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom of the “Target” flight from an inventory or a list. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom of the flight when clicking a dock favourite. | `16` |
-| `interaction.drawToolbarMinZoom` | Zoom below which the drawing bar retracts — drawing implies a close view. | `11` |
 | `interaction.barMinScale` | Compaction floor of a bar before it switches to columns. | `0.85` |
 | `interaction.tooltip.flipBelowPx` | Below this window height, the tooltip flips below the pointer. | `76` |
 | `interaction.tooltip.clampMarginPx` | Estimated half-width, for horizontal clamping against the edges. | `78` |
@@ -511,6 +511,8 @@ Browsable reference sets declared by the host and by plugins (`engine.catalog`) 
 | `catalog.overscanRows` | Rows rendered off-screen on each side of the virtual window. The dial between "no blank on fast scroll" and "React work per frame": each unit adds TWO rendered rows on every frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance from the list bottom that triggers the next page (px). Decides the VOLUME of calls to `CatalogSource.list`: a wide margin prefetches while you are still scrolling, but requests pages you may never look at. | `200` |
 | `catalog.persistDebounceMs` | Debounce before writing the selection to storage. `localStorage.setItem` is SYNCHRONOUS: without damping, a burst of gestures writes as many times as it has items, on a payload that keeps growing. `0` writes immediately; a pending payload is always flushed before the page goes away. | `250` |
+| `catalog.familyHeaders` | Name the families of the types menu (`CatalogSource.family`). `false` keeps only the separating rule. Not applicable to a source without `family`: its group has no name, and wording invented by the library would hard-code text. | `true` |
+| `catalog.groupHeaders` | Open a named section in the LIST whenever `CatalogItem.group` changes. A setting rather than “just don't set `group`”: sources may come from THIRD-PARTY plugins the host does not control. Not applicable to a source that does not set `group` — the flag then saves even the per-item comparison. | `true` |
 
 ---
 
@@ -554,3 +556,23 @@ Per-target policy: what the eraser (point or selection mode) is allowed to delet
 | `erase.targets.symbol` | Whether the eraser can delete symbols. | `true` |
 | `erase.targets.path` | Whether the eraser can delete host paths marked `erasable` (`PathLayer`). | `true` |
 | `erase.targets.shape` | Whether the eraser can delete host shapes marked `erasable` (`ShapeLayer`). | `true` |
+
+## `toolbar` — Drawing bar
+
+What belongs to the **bar** (`<Toolbar>`). What belongs to the **tools** stays in its own
+domain: `erase.targets` for the eraser policy, `interaction.shortcuts.draw` for the keys —
+those act with no bar mounted.
+
+`autoHide` removes from the bar whatever has **nothing to act on**, rather than greying it
+out: an eraser without a target is not an unavailable tool but a tool with no purpose, and
+two inert history arrows take up a bar that is already compacted for height. An
+auto-hidden *tool* cannot be armed from the keyboard either, and if it was armed when its
+last target disappeared, it is released — unlike the history commands, which keep their
+shortcut: history does not need the bar to exist. The “Clear all” row lives in the eraser's submenu and
+shares its scope: it appears and disappears with it, with no key of its own.
+
+| Key | Description | Default |
+|---|---|---|
+| `toolbar.minZoom` | Zoom below which the bar retracts — below it, drawing no longer makes sense (globe view). | `5` |
+| `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
+| `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |

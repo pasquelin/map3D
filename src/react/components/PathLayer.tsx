@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLayer'
 import { useMapContext } from '../context'
+import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
 export type PathLayerProps = {
@@ -57,21 +58,9 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine])
 
-  // Expose les tracés `erasable` à la gomme (via `engine.erasables`, séparé de la
-  // sélection). Provider monté une fois : `items()` lit la liste courante par ref, donc
-  // pas de ré-inscription à chaque changement de `paths` (la gomme interroge au besoin).
-  const pathsRef = useRef(paths)
-  pathsRef.current = paths
-  useEffect(
-    () =>
-      engine.erasables.register({
-        items: () =>
-          pathsRef.current
-            .filter((p) => p.erasable && p.id != null)
-            .map((p) => ({ id: p.id!, ring: p.points, closed: false, kind: 'path' as const })),
-      }),
-    [engine],
-  )
+  // Expose les tracés `erasable` à la gomme — même mécanique que `ShapeLayer`, d'où le
+  // hook partagé (séparé de la sélection, qui a son propre registre).
+  useErasableProvider('path', paths, (p: PathData) => ({ id: p.id!, ring: p.points, closed: false, kind: 'path' }))
 
   return null
 }

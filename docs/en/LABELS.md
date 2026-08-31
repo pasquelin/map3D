@@ -115,7 +115,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `templates.defaultName` | Fallback name of a template saved without a name. | `'template'` |
 | `templates.importedName` | Fallback name of a template imported without a name. | `'Import'` |
 | `templates.category.shapes` | Label of a saveable category (checkbox + stats — count-invariant). | `'Formes'` |
-| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Main levée'` |
+| `templates.category.freehand` | Label of a saveable category (checkbox + stats — count-invariant). | `'Crayon'` |
 | `templates.category.symbols` | Label of a saveable category (checkbox + stats — count-invariant). | `'Symboles'` |
 | `templates.stats.pair` | Compact stats: “label count” pair. | `'{label} {count}'` |
 | `templates.stats.bytes` | Compact stats: weight template (`{count}`). | `'{count} o'` |
@@ -167,6 +167,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `toolbar.undo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Annuler'` |
 | `toolbar.redo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Rétablir'` |
 | `toolbar.clearAll` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Tout effacer'` |
+| `toolbar.clearAllDescription` | Tooltip of the “Clear all” row — distinct from the label so the visible text is not repeated (same convention as the eraser modes). | `'Effacer tout ce que la gomme peut effacer'` |
 
 ## `tools` — Tool names
 
@@ -177,7 +178,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `tools.polygon` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Polygone'` |
 | `tools.rect` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Rectangle'` |
 | `tools.circle` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Cercle'` |
-| `tools.freehand` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Main levée'` |
+| `tools.freehand` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Crayon'` |
 | `tools.arrow` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Flèche'` |
 | `tools.measure` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Mesurer'` |
 | `tools.erase` | Label of each drawing tool (toolbar, Settings panel, shortcut summary). | `'Effacer'` |
@@ -226,8 +227,7 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `style.cornerRadius` | Corner radius preset — `{radius}` = % of the short side. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Panel title when 1 shape is selected — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Panel title when several shapes are selected — `{count}`. | `'{count} formes'` |
-| `style.expand` | Button that unfolds the collapsed panel. | `'Modifier le style'` |
-| `style.collapse` | Button that collapses the panel down to its single button. | `'Réduire'` |
+| `style.expand` | Colour block in the draw bar, which opens this panel. | `'Modifier le style'` |
 
 ## `selection` — Selection panel
 
@@ -537,7 +537,10 @@ import { imperialMeasure } from '@pasquelin/map3d'
       button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',
       empty: 'No tag on the map', noMatch: 'No matching tag', showAll: 'Show all',
     },
-    toolbar: { navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all' },
+    toolbar: {
+      navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all',
+      clearAllDescription: 'Erase everything the eraser can erase',
+    },
     tools: {
       select: 'Select', line: 'Line', polygon: 'Polygon', rect: 'Rectangle',
       circle: 'Circle', freehand: 'Freehand', arrow: 'Arrow', measure: 'Measure',
@@ -587,7 +590,11 @@ Defaults below are the library's real French strings — they are data, not pros
 | `catalog.itemError` | Geometry loading failure, as a row tooltip. | `'Impossible d’afficher cet élément'` |
 | `catalog.add` | Checkbox, "not on the map yet" state — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Checkbox, "displayed" state — `{label}`. | `'Retirer {label} de la carte'` |
+| `catalog.focus` | Name of a row with NO checkbox (`checkable: false`), which frames instead of placing — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Aggregate chevron. | `'Déplier'` / `'Replier'` |
+| `catalog.groupCount` | Count of an aggregate with some of its items on the map — `{shown}`, `{total}`. Silent when nothing is shown. | `'{shown}/{total}'` |
+| `catalog.groupCountLabel` | Accessible name for that count — `{shown}`, `{total}`. | `'{shown} élément(s) sur {total} affiché(s)'` |
+| `catalog.sourceShown` | Accessible name for the count on a type-menu row — `{count}`. | `'{count} élément(s) de cette source sur la carte'` |
 | `catalog.numberLocale` | Locale used to format a source's total (`'auto'` follows the browser). `36 699` or `36,699` is an INTERFACE decision, not a browser one — see `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Gear panel entry. | `'Catalogue'` |
 | `catalog.settings.persist` | Persistence switch. | `'Conserver les éléments affichés entre les sessions'` |

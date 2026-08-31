@@ -41,6 +41,12 @@ registry, hub, hooks); official plugins live outside the library (§ 9).
 A plugin **must** provide at least one of `data`, `layer`, `enrichBuilding`,
 `setup` — otherwise it does nothing.
 
+> **Plugin or catalog toggle source?** Both load markers from the viewport. A plugin is
+> a packaged, versioned, distributed **third-party capability** that users enable from
+> the hub; a catalog toggle is a **reference set of the host application**, sitting
+> beside its other sets, with no packaging and no versioning. Full decision table:
+> [CATALOG.md § 4.3](CATALOG.md#43-toggle-or-plugin).
+
 ---
 
 ## 2. Anatomy of a plugin
@@ -171,11 +177,13 @@ remount on a config change.
 
 ## 5. Map rendering
 
-`markerLayer?` reuses the existing marker ergonomics — the library renders
-`data.fetch`'s result inside an internal `<MarkerLayer>`:
+`markerLayer?: MarkerLayerDecl` reuses the existing marker ergonomics — the library renders
+`data.fetch`'s result inside an internal `<MarkerLayer>`. It is the SAME type as
+`CatalogToggleSource.markerLayer` ([CATALOG.md § 4](CATALOG.md#4-toggle-sources)): one
+capability is not configured two different ways depending on where it comes from.
 
 ```ts
-markerLayer?: {
+type MarkerLayerDecl = {
   menu?: (p: MarkerData<unknown>) => MenuItem[]
   tooltip?: MarkerLayerProps<unknown>['tooltip']
   icon?: (p: MarkerData<unknown>) => string

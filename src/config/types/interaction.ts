@@ -76,14 +76,12 @@ export type InteractionConfig = {
    * doit pouvoir allonger l'autre.
    */
   clickSuppressMs: number
-  /** Décimation du tracé main levée (plancher, en px). Pendant de `lassoMinStepPx`. */
+  /** Décimation du tracé au crayon (plancher, en px). Pendant de `lassoMinStepPx`. */
   freehandMinStepPx: number
   /** Zoom du vol « Cibler » depuis un inventaire ou une liste. */
   targetZoom: number
   /** Zoom du vol au clic sur un favori du dock. */
   pinnedFlyZoom: number
-  /** Zoom sous lequel la barre de dessin se replie — dessiner suppose la vue proche. */
-  drawToolbarMinZoom: number
   /** Plancher de compactage d'une barre avant qu'elle ne passe en colonnes. */
   barMinScale: number
   /** Infobulle de cluster, en pixels écran. */
@@ -199,7 +197,7 @@ export type DrawToolShortcuts = {
   rect: string | false
   /** Cercle. */
   circle: string | false
-  /** Tracé main levée. */
+  /** Crayon (tracé libre). */
   freehand: string | false
   /** Flèche. */
   arrow: string | false

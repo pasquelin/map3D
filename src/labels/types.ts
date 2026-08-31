@@ -70,8 +70,28 @@ export type MapLabels = {
     add: string
     /** Bouton bascule, état « affiché sur la carte » — `{label}`. */
     remove: string
+    /** Nom d'une ligne SANS case (`checkable: false`), qui cadre au lieu de poser — `{label}`. */
+    focus: string
     expand: string
     collapse: string
+    /**
+     * Compte affiché sur un AGRÉGAT dont une partie des éléments est sur la carte —
+     * `{shown}`, `{total}`.
+     *
+     * N'apparaît que lorsqu'au moins un enfant est affiché : c'est ce qui permet de repérer
+     * les groupes actifs en balayant la liste, sans avoir à déplier chacun d'eux. Une ligne
+     * dont rien n'est affiché n'a rien à annoncer — sa case le dit déjà.
+     */
+    groupCount: string
+    /** Nom accessible de ce compte, lu par les lecteurs d'écran — `{shown}`, `{total}`. */
+    groupCountLabel: string
+    /**
+     * Nom accessible du compte porté par une ligne du MENU des types — `{count}`.
+     *
+     * Le chiffre visible est le compte lui-même. Jamais posé sur une source à bascule : ce
+     * qu'elle charge dépasse ce qui est visible (cf. `CatalogToggleSource`).
+     */
+    sourceShown: string
     /**
      * Locale de formatage du total d'une source (`'auto'` suit le navigateur).
      *
@@ -236,6 +256,9 @@ export type MapLabels = {
     undo: string
     redo: string
     clearAll: string
+    /** Tooltip de la rangée « Tout effacer » — distinct du label pour ne pas répéter
+     *  le texte déjà visible (même convention que les modes de gomme). */
+    clearAllDescription: string
   }
   /** Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). */
   tools: Record<DrawTool, string>
@@ -306,10 +329,8 @@ export type MapLabels = {
     selectionCount: string
     /** Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. */
     selectionCountPlural: string
-    /** Bouton qui déplie le panneau réduit. */
+    /** Bloc de couleurs de la barre à dessin, qui ouvre ce panneau. */
     expand: string
-    /** Bouton qui réduit le panneau à son seul bouton. */
-    collapse: string
   }
   /** Panneau de sélection (liste des éléments sélectionnés, par groupe). */
   selection: {

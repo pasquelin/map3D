@@ -52,7 +52,10 @@ export const CSS_CHASSIS = `
 .m3d-controls-group{display:flex;flex-direction:column;gap:2px;
   padding:calc(5px * var(--m3d-bar-scale,1));
   }
-.m3d-btn{width:calc(38px * var(--m3d-bar-scale,1));height:calc(38px * var(--m3d-bar-scale,1));
+/* La taille est PUBLIÉE en variable : un contenu qui doit s'accorder au bouton (l'aperçu
+   des couleurs de la drawbar) s'en déduit, au lieu de recopier le nombre et le facteur de
+   compactage — deux fichiers qui auraient dérivé l'un de l'autre. */
+.m3d-btn{--m3d-btn-size:calc(38px * var(--m3d-bar-scale,1));width:var(--m3d-btn-size);height:var(--m3d-btn-size);
   border:none;background:transparent;border-radius:9px;outline:none;
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--m3d-text);
   transition:background .14s}
@@ -87,7 +90,7 @@ export const CSS_CHASSIS = `
 .m3d-drawbar.m3d-hidden{opacity:0;pointer-events:none}
 .m3d-drawbar.m3d-left.m3d-hidden{transform:translateY(-50%) translateX(calc(-100% - 24px))}
 .m3d-drawbar.m3d-right.m3d-hidden{transform:translateY(-50%) translateX(calc(100% + 24px))}
-.m3d-drawbar .m3d-btn{width:calc(40px * var(--m3d-bar-scale,1));height:calc(40px * var(--m3d-bar-scale,1))}
+.m3d-drawbar .m3d-btn{--m3d-btn-size:calc(40px * var(--m3d-bar-scale,1))}
 /* Bouton à flyout (sélection) : flèche en coin = « il y a des sous-outils ». */
 .m3d-selectwrap{position:relative}
 .m3d-btn-flyout{position:relative}
@@ -109,8 +112,27 @@ export const CSS_CHASSIS = `
   color:var(--m3d-text);text-align:left;transition:background .14s}
 .m3d-flyout-item:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-flyout-item.m3d-on{background:var(--m3d-accent);color:#fff}
+/* Rangée DESTRUCTRICE (« Tout effacer ») : couleur d'alerte et filet de séparation —
+   elle n'arme pas un mode comme ses voisines, elle agit au clic. */
+.m3d-flyout-item.m3d-danger{color:var(--m3d-error);margin-top:3px;padding-top:9px;
+  border-top:1px solid color-mix(in srgb,var(--m3d-text) 12%,transparent);border-radius:0 0 8px 8px}
+.m3d-flyout-item.m3d-danger:hover{background:color-mix(in srgb,var(--m3d-error) 12%,transparent)}
 .m3d-flyout-label{flex:1;white-space:nowrap}
 
 .m3d-kbd{font-family:inherit;font-size:10px;font-weight:var(--m3d-weight-bold);padding:1px 5px;border-radius:4px;
   border:1px solid color-mix(in srgb,currentColor 35%,transparent);opacity:.75;line-height:1.5}
+
+/* ══ INTERTITRES DE GROUPE ═════════════════════════════════════════════════════
+   Nommer un groupe dans un panneau : le hub des plugins, les réglages, les familles du
+   menu de catalogue, les sections de sa liste. Même objet, donc même habillage — il
+   était recopié quatre fois, et les copies avaient déjà commencé à diverger (11px en
+   dur d'un côté, trois gouttières différentes).
+
+   Seules la gouttière et la hauteur restent locales : elles dépendent de la surface qui
+   porte le titre, pas du titre lui-même — une ligne de liste virtualisée a une hauteur
+   imposée, un en-tête de panneau non. */
+.m3d-togglelist-title,.m3d-settings-subtitle,.m3d-catfamily-title,.m3d-catgroup-title{
+  font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
+  text-transform:uppercase;letter-spacing:.04em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 `

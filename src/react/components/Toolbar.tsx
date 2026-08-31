@@ -7,10 +7,11 @@ import {
   mdiUndo,
 } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, EraseMode, MeasureTool, SelectMode } from '../../layers/DrawLayer'
-import { LensContext, useConfig, useLabels, useMapContext } from '../context'
+import { LensContext, ToolbarContext, useConfig, useLabels, useMapContext, useToolbar } from '../context'
+import type { ToolbarApi } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
 import { DropdownSurface, useYieldsToDropdown } from './Dropdown'
@@ -46,7 +47,7 @@ export type DrawToolbarSection =
 export type DrawToolbarProps = {
   /** Côté d'ancrage de la barre. */
   position?: 'left' | 'right'
-  /** Zoom minimal d'affichage — dessiner n'a de sens qu'en vue rapprochée ; en deçà la barre glisse hors écran. */
+  /** Zoom minimal d'affichage ; en deçà la barre glisse hors écran, en emportant ses menus. */
   minZoom?: number
   /** Outils affichés, dans l'ordre (`'select'` inclus — défaut : tous). */
   tools?: DrawTool[]
@@ -74,75 +75,10 @@ export type DrawToolbarProps = {
 /** Id du `<Tooltip>` partagé de la barre — réutilisable par les outils externes. */
 export const TIP_ID = 'm3d-draw-tip'
 
-/**
- * Ce qu'un outil doit savoir de la barre qui le porte. Consommé par les outils natifs
- * ET par ceux que l'application pose dans `extraTools` / `components` : sans ça, un
- * outil applicatif ne peut ni se refermer quand la barre se replie, ni participer à
- * l'exclusivité — d'où deux boutons allumés à la fois, et une barre qui ne dit plus
- * où on en est.
- */
-export type ToolbarApi = {
-  /** La barre est repliée (hors zoom, cf. `minZoom`) : plus rien n'y est atteignable. */
-  retracted: boolean
-  /** Une surface NATIVE tient la main : outil de tracé, loupe ou palette de symboles. */
-  nativeActive: boolean
-  /** Prendre la main — éteint l'outil de tracé et la loupe. À appeler à l'ouverture. */
-  claim: () => void
-  /**
-   * L'élément de la barre — l'ANCRE des surfaces qu'elle ouvre.
-   *
-   * Le panneau de style n'a pas de bouton déclencheur (il suit l'outil actif) : sans
-   * ancre il se centrait verticalement, donc il ne se posait jamais au niveau de la
-   * barre comme les autres surfaces. Il lui faut la même référence qu'à elles.
-   */
-  el: HTMLElement | null
-  /**
-   * Le bouton de l'outil ACTIF — l'ancre du panneau de style, qui règle précisément
-   * cet outil-là. S'ancrer sur la barre le collait en haut quel que soit l'outil : la
-   * surface doit s'ouvrir à la hauteur de l'item auquel elle se rapporte.
-   * `null` quand aucun outil n'est actif (le panneau ouvert par une sélection retombe
-   * alors sur la barre).
-   */
-  activeToolEl: HTMLElement | null
-  /**
-   * Publier son bouton comme ancre de l'outil actif — à passer en `ref` d'un `ToolButton`
-   * quand il porte l'outil courant, `null` sinon.
-   *
-   * Indispensable aux items qui vivent HORS de la boucle `tools.map` (les sous-menus) :
-   * celle-ci publie l'ancre pour ses boutons simples, mais un outil déplacé dans un flyout
-   * en sortait, et son panneau de style se recollait en haut de la barre au lieu de longer
-   * l'item qu'il règle.
-   */
-  publishActiveTool: (el: HTMLElement | null) => void
-}
-
-const ToolbarContext = createContext<ToolbarApi>({
-  retracted: false,
-  nativeActive: false,
-  claim: () => {},
-  el: null,
-  activeToolEl: null,
-  publishActiveTool: () => {},
-})
-
-/**
- * État de la barre d'outils, pour un outil qui y vit.
- *
- * Le contrat d'un outil applicatif est celui des outils natifs, en deux lignes :
- *
- * ```tsx
- * const bar = useToolbar()
- * const [open, setOpen] = useState(false)
- * // se refermer quand la barre se replie OU qu'un outil natif prend la main
- * useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)
- * // …et éteindre les autres en s'ouvrant
- * <ToolButton active={open} onClick={() => { if (!open) bar.claim(); setOpen(!open) }} />
- * ```
- *
- * Hors d'une `<Toolbar>`, tout est inerte : un bouton monté seul n'a personne à qui
- * céder la main.
- */
-export const useToolbar = (): ToolbarApi => useContext(ToolbarContext)
+// Le contexte vit avec les autres (`react/context`) : `Dropdown` doit le lire pour se
+// refermer quand la barre se replie, et la barre importe `Dropdown`. Ré-exporté ici parce
+// que c'est `<Toolbar>` que l'API publique déclare.
+export { useToolbar, type ToolbarApi }
 
 /**
  * Châssis d'un SOUS-MENU DE SURVOL de la barre (sélecteur, mesures).
@@ -197,11 +133,12 @@ export function Toolbar({
   components = {},
   extraTools,
 }: DrawToolbarProps) {
-  const { tool, setTool, undo, redo, canUndo, canRedo, clear, shortcuts, symbols } = useDrawing()
+  const { tool, setTool, undo, redo, canUndo, canRedo, shortcuts, symbols } = useDrawing()
   // Hook appelé INCONDITIONNELLEMENT : `minZoomProp ?? useConfig()` le
   // court-circuiterait dès qu'une prop est fournie — même piège que `ToolButton`.
   const config = useConfig()
-  const minZoom = minZoomProp ?? config.interaction.drawToolbarMinZoom
+  const minZoom = minZoomProp ?? config.toolbar.minZoom
+  const hideHistory = config.toolbar.autoHide.history
   // Un outil externe actif (loupe, pick de bâtiment) doit "éteindre" la main : sinon
   // `tool === null` surligne Naviguer alors qu'un autre outil est actif (deux items
   // actifs à la fois — exactement ce que la barre ne doit jamais montrer).
@@ -221,8 +158,7 @@ export function Toolbar({
   // d'intercepter les gestes (`engine.inputInterceptor`), si bien qu'en dézoomant on
   // se retrouve à tracer des formes sur une carte où plus aucun bouton ne permet d'en
   // sortir. Même chose pour la loupe. Les flyouts, eux, rouvriraient tels quels au
-  // retour. C'est la règle déjà appliquée au panneau de style plus bas, étendue à
-  // tout ce que la barre possède.
+  // retour.
   // Sur la TRANSITION seulement : `hidden` démarre à `true`, donc agir sur la valeur
   // relâcherait l'outil et la loupe au montage de toute carte — y compris une carte
   // montée déjà zoomée, ou un outil pré-armé par l'hôte.
@@ -262,10 +198,6 @@ export function Toolbar({
 
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
-  // `widthVar` retiré avec le CSS du panneau de style : il publiait la largeur de la
-  // barre pour que le panneau s'en décale par un `calc()`. Le panneau s'ancre désormais
-  // sur le RECT de la barre, qui tient déjà compte des deux colonnes — la variable
-  // n'avait plus aucun lecteur.
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
   const dropdownOuvert = useYieldsToDropdown()
   const tip = useTip(TIP_ID)
@@ -276,6 +208,16 @@ export function Toolbar({
   const redoKey = formatEdit(edit.redo, labels.modKey, labels.keys.shift)
   // Sections configurables : convention partagée avec `MapControls` (cf. `slots.ts`).
   const { slot } = resolveSlots<DrawToolbarSection>(components)
+
+  /**
+   * Une flèche d'historique — RETIRÉE plutôt que grisée quand elle n'a rien à faire
+   * (`config.toolbar.autoHide.history`). Chacune pour son compte : rien à défaire
+   * n'empêche pas de refaire.
+   */
+  const historyBtn = (p: { icon: string; label: string; shortcut?: string; onClick: () => void; can: boolean }) =>
+    hideHistory && !p.can ? null : (
+      <ToolButton icon={p.icon} label={p.label} tip={tip} shortcut={p.shortcut} onClick={p.onClick} disabled={!p.can} />
+    )
 
   return (
     <ToolbarContext.Provider value={bar}>
@@ -319,8 +261,19 @@ export function Toolbar({
             // l'ordre de `tools`, comme n'importe quel autre outil.
             slot('symbol', <SymbolPaletteButton key={t} position={position} />)
           ) : t === 'erase' ? (
-            // Parent d'un sous-menu (gomme ponctuelle / sélection), comme `select`.
-            slot('erase', <EraseToolButton key={t} position={position} modes={eraseModes} />)
+            // Parent d'un sous-menu (gomme ponctuelle / sélection / tout effacer), comme
+            // `select`. La rangée « Tout effacer » lui est PASSÉE plutôt que rendue par lui :
+            // c'est la barre qui possède les sections (`components`), le bouton ne fait que
+            // la placer dans son menu.
+            slot(
+              'erase',
+              <EraseToolButton
+                key={t}
+                position={position}
+                modes={eraseModes}
+                clearRow={slot('clear', <ClearFlyoutRow />)}
+              />,
+            )
           ) : (
             <ToolButton
               key={t}
@@ -343,45 +296,48 @@ export function Toolbar({
         {extraTools}
         {slot(
           'undo',
-          <ToolButton
-            icon={mdiUndo}
-            label={labels.toolbar.undo}
-            tip={tip}
-            shortcut={undoKey}
-            onClick={undo}
-            disabled={!canUndo}
-          />,
+          historyBtn({ icon: mdiUndo, label: labels.toolbar.undo, shortcut: undoKey, onClick: undo, can: canUndo }),
         )}
         {slot(
           'redo',
-          <ToolButton
-            icon={mdiRedo}
-            label={labels.toolbar.redo}
-            tip={tip}
-            shortcut={redoKey}
-            onClick={redo}
-            disabled={!canRedo}
-          />,
+          historyBtn({ icon: mdiRedo, label: labels.toolbar.redo, shortcut: redoKey, onClick: redo, can: canRedo }),
         )}
         {slot('settings', <DrawSettingsButton position={position} tip={tip} />)}
-        {slot(
-          'clear',
-          <ToolButton
-            icon={mdiTrashCanOutline}
-            label={labels.toolbar.clearAll}
-            tip={tip}
-            className="m3d-btn-delete"
-            onClick={clear}
-          />,
-        )}
+        {/* En DERNIER, et dans la barre : c'est un bouton comme les autres depuis qu'il
+            porte l'aperçu des couleurs. Il était rendu hors du groupe, en surface
+            flottante que personne n'ouvrait — d'où sa manie d'apparaître seule. */}
+        {slot('stylePanel', <DrawStylePanel position={position} tip={tip} />)}
       </div>
-      {!hidden && slot('stylePanel', <DrawStylePanel position={position} />)}
       {/* `disableStyleInjection` coupe le style « base » du paquet (couleurs/radius)
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
       {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé
           venait se poser SUR le panneau qu'on est en train de lire. */}
       <MapTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
     </ToolbarContext.Provider>
+  )
+}
+
+/**
+ * Rangée « Tout effacer » du sous-menu de la gomme.
+ *
+ * Elle y vit — et non plus en bouton de pied de barre — parce qu'elle fait exactement ce
+ * que fait la gomme, sans geste : même périmètre, mêmes filtres, même `onErase`. Deux
+ * commandes voisines aux portées différentes n'étaient pas lisibles ; rangées ensemble,
+ * elles se lisent comme trois façons d'effacer.
+ *
+ * Une ACTION parmi des modes : le sous-menu du sélecteur mêle déjà de la même façon des
+ * modes de marquee et l'outil « bâtiment ». `m3d-danger` la distingue de ses voisines
+ * (couleur d'alerte, filet de séparation) : elle n'arme rien, elle efface au clic.
+ */
+function ClearFlyoutRow() {
+  const { clear } = useDrawing()
+  const labels = useLabels()
+  const tip = useTip(TIP_ID)
+  return (
+    <button {...tip(labels.toolbar.clearAllDescription)} className="m3d-flyout-item m3d-danger" onClick={clear}>
+      <UiIcon path={mdiTrashCanOutline} />
+      <span className="m3d-flyout-label">{labels.toolbar.clearAll}</span>
+    </button>
   )
 }
 

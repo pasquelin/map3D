@@ -135,6 +135,8 @@ img.m3d-pin-media{object-fit:cover}
    → elle hérite du fond/bordure/min-max-width des infobulles de markers (et donc
    de tout override hôte). Ici on ne surcharge QUE le positionnement (left/top
    inline via le portail + lift) et l'animation. */
+/* ⚠️ Fondu SANS déplacement : comme celle des markers, cette infobulle est mesurée pour
+   être rabattue dans le conteneur (cf. MarkerTip). Une position animée serait mesurée. */
 .m3d-pin-tip{z-index:var(--m3d-z-menu,9999);transform:translate(-50%,calc(-100% - 12px));
   animation:m3d-fade-in .16s ease-out}
 @keyframes m3d-fade-in{from{opacity:0}}

@@ -107,7 +107,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `templates.defaultName` | Nom de repli d'un template sauvegardé sans nom. | `'template'` |
 | `templates.importedName` | Nom de repli d'un template importé sans nom. | `'Import'` |
 | `templates.category.shapes` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Formes'` |
-| `templates.category.freehand` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Main levée'` |
+| `templates.category.freehand` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Crayon'` |
 | `templates.category.symbols` | Libellé d'une catégorie sauvegardable (checkbox + stats — invariant au nombre). | `'Symboles'` |
 | `templates.stats.pair` | Stats compactes : paire « libellé nombre ». | `'{label} {count}'` |
 | `templates.stats.bytes` | Stats compactes : gabarit de poids (`{count}`). | `'{count} o'` |
@@ -159,6 +159,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `toolbar.undo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Annuler'` |
 | `toolbar.redo` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Rétablir'` |
 | `toolbar.clearAll` | Boutons de `<Toolbar>` hors outils (navigation, historique, effacement). | `'Tout effacer'` |
+| `toolbar.clearAllDescription` | Tooltip de la rangée « Tout effacer » — distinct du label pour ne pas répéter le texte déjà visible (même convention que les modes de gomme). | `'Effacer tout ce que la gomme peut effacer'` |
 
 ## `tools` — Noms des outils
 
@@ -169,7 +170,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `tools.polygon` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Polygone'` |
 | `tools.rect` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Rectangle'` |
 | `tools.circle` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Cercle'` |
-| `tools.freehand` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Main levée'` |
+| `tools.freehand` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Crayon'` |
 | `tools.arrow` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Flèche'` |
 | `tools.measure` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Mesurer'` |
 | `tools.erase` | Libellé de chaque outil de dessin (toolbar, panneau Réglages, récap raccourcis). | `'Effacer'` |
@@ -218,8 +219,7 @@ Panneau haut-droite : liste, sauvegarde, partage. Cf. [TEMPLATES.md](TEMPLATES.m
 | `style.cornerRadius` | Preset de rayon d'angle — `{radius}` = % du petit côté. | `'Angles arrondis {radius} %'` |
 | `style.selectionCount` | Titre du panneau quand 1 forme est sélectionnée — `{count}`. | `'{count} forme'` |
 | `style.selectionCountPlural` | Titre du panneau quand plusieurs formes sont sélectionnées — `{count}`. | `'{count} formes'` |
-| `style.expand` | Bouton qui déplie le panneau réduit. | `'Modifier le style'` |
-| `style.collapse` | Bouton qui réduit le panneau à son seul bouton. | `'Réduire'` |
+| `style.expand` | Bloc de couleurs de la barre à dessin, qui ouvre ce panneau. | `'Modifier le style'` |
 
 ## `selection` — Panneau de sélection
 
@@ -523,7 +523,11 @@ Bouton de barre, menu des types, liste et réglages — cf. le guide [CATALOG.md
 | `catalog.itemError` | Échec du chargement d'une géométrie, en infobulle sur la ligne. | `'Impossible d’afficher cet élément'` |
 | `catalog.add` | Case à cocher, état « pas encore sur la carte » — `{label}`. | `'Afficher {label} sur la carte'` |
 | `catalog.remove` | Case à cocher, état « affiché » — `{label}`. | `'Retirer {label} de la carte'` |
+| `catalog.focus` | Nom d'une ligne SANS case (`checkable: false`), qui cadre au lieu de poser — `{label}`. | `'Centrer sur {label}'` |
 | `catalog.expand` / `catalog.collapse` | Chevron d'un agrégat. | `'Déplier'` / `'Replier'` |
+| `catalog.groupCount` | Compte d'un agrégat dont une partie des éléments est sur la carte — `{shown}`, `{total}`. Muet quand rien n'est affiché. | `'{shown}/{total}'` |
+| `catalog.groupCountLabel` | Nom accessible de ce compte — `{shown}`, `{total}`. | `'{shown} élément(s) sur {total} affiché(s)'` |
+| `catalog.sourceShown` | Nom accessible du compte porté par une ligne du menu des types — `{count}`. | `'{count} élément(s) de cette source sur la carte'` |
 | `catalog.numberLocale` | Locale de formatage du total d'une source (`'auto'` suit le navigateur). `36 699` ou `36,699` est une décision d'INTERFACE, pas de navigateur — cf. `measure.numberLocale`. | `'auto'` |
 | `catalog.settings.title` | Entrée du panneau engrenage. | `'Catalogue'` |
 | `catalog.settings.persist` | Interrupteur de persistance. | `'Conserver les éléments affichés entre les sessions'` |

@@ -224,7 +224,7 @@ resettle — a cost out of proportion with what the grid provides.
 ## 8. In the interface
 
 The grid is driven from the **view controls**, not from the toolbar: the latter **retracts below
-zoom 11** (`interaction.drawToolbarMinZoom`), whereas the grid is precisely what you want in globe
+zoom 5** (`toolbar.minZoom`), whereas the grid is precisely what you want in globe
 view. A button that vanishes where the feature becomes useful is not a button.
 
 **The button**, in the `compass` group, next to "Globe":
@@ -280,7 +280,7 @@ Hard guard rails, to lower only on very weak machines: `maxLines` (64 per axis),
 - **Meridians stop at `latLimitDeg`** (85° by default): beyond it they converge and the
   vertex density explodes for an unreadable result.
 - **No line hovering**: only labels react to the pointer.
-- **Below zoom 11**, the toolbar being retracted, the grid is driven from the view-controls
+- **Below zoom 5**, the toolbar being retracted, the grid is driven from the view-controls
   button, the shortcut or the API (see §8).
 
 ---

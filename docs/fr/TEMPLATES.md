@@ -2,7 +2,7 @@
 
 **Français** · [English](../en/TEMPLATES.md) · [↑ Index](README.md)
 
-Un **template** est une **sauvegarde nommée du dessin** : formes, dessin à main levée
+Un **template** est une **sauvegarde nommée du dessin** : formes, tracés au crayon
 et symboles MIL-STD-2525D. Il ne contient **ni zones, ni markers, ni tracés, ni
 liens** — seulement ce que l'utilisateur a dessiné. Le contenu est le
 `GeoJSONFeatureCollection` de la couche de dessin (cf. [DRAWING.md](DRAWING.md)),
@@ -38,7 +38,7 @@ Le contenu est découpé par **catégorie**, déduite du `kind` de chaque forme 
 | Catégorie | `kind` | Inclus |
 |-----------|--------|--------|
 | `shapes` (Formes) | `line`, `polygon`, `rect`, `circle`, `arrow`, `measure` | ✅ |
-| `freehand` (Main levée) | `freehand` | ✅ |
+| `freehand` (Crayon) | `freehand` | ✅ |
 | `symbols` (Symboles) | `symbol` | ✅ |
 | Zones (`ShapeLayer`), markers, tracés, liens | — | ❌ |
 

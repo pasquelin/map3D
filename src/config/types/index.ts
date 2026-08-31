@@ -34,6 +34,7 @@ import type { WatermarkConfig } from './watermark'
 import type { CaptureConfig } from './capture'
 import type { SelectionConfig } from './selection'
 import type { EraseConfig } from './erase'
+import type { DrawToolbarConfig } from './toolbar'
 
 export * from './common'
 export * from './providers'
@@ -53,6 +54,7 @@ export * from './watermark'
 export * from './capture'
 export * from './selection'
 export * from './erase'
+export * from './toolbar'
 
 export type MapConfig = {
   providers: ProvidersConfig
@@ -81,6 +83,8 @@ export type MapConfig = {
   selection: SelectionConfig
   /** Politique de la gomme : ce qu'elle est autorisée à effacer — cf. `EraseConfig`. */
   erase: EraseConfig
+  /** Barre d'outils de dessin (repli, outils auto-masqués) — cf. `DrawToolbarConfig`. */
+  toolbar: DrawToolbarConfig
 }
 
 /** Ce que fournit l'application : n'importe quel sous-arbre de `MapConfig`. */

@@ -19,4 +19,11 @@ export const catalogDefaults: CatalogConfig = {
   // Aligné sur `data.search.debounceMs` : une rafale de coches est le même genre de
   // geste qu'une frappe, et la charge est vidée avant que la page ne disparaisse.
   persistDebounceMs: 250,
+  // Nommées : une famille sans nom ne se lit qu'en devinant ce que ses entrées ont en
+  // commun. Le filet seul suffisait à trois entrées, plus à un menu qui en mélange dix
+  // venues de plusieurs plugins.
+  familyHeaders: true,
+  // Vrai : une source qui prend la peine de renseigner `group` veut ses sections. Celle
+  // qui ne le renseigne pas ne paie rien.
+  groupHeaders: true,
 }

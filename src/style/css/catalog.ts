@@ -12,18 +12,42 @@ export const CSS_CATALOG = `
 .m3d-catpanel,.m3d-catsub{padding:8px;display:flex;flex-direction:column;gap:7px}
 .m3d-catpanel{width:var(--m3d-catalog-panel-w)}
 .m3d-catsub{width:var(--m3d-catalog-sub-panel-w)}
-/* Menu des types : familles séparées par un filet, pas par un titre — à cinq entrées,
-   un en-tête par famille prend plus de place que ce qu'il classe. */
-.m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0}
+/* Menu des types : familles séparées par un filet, et nommées par un en-tête quand
+   config.catalog.familyHeaders est vrai (défaut). Le filet est gardé DANS LES DEUX CAS —
+   il sépare aussi la famille anonyme, qui n'a pas de nom à porter. */
+/* overflow-x:hidden EXPLICITE : overflow-y:auto seul force le navigateur à passer l'axe
+   horizontal en auto lui aussi, et le moindre pixel de débordement y ouvrait une barre de
+   défilement latérale. Un menu ne se lit pas en le faisant glisser de côté — c'est le NOM
+   qui cède (ellipsis), et lui seul. */
+.m3d-cattypes{display:flex;flex-direction:column;gap:1px;overflow-y:auto;overflow-x:hidden;min-height:0}
 .m3d-catfamily+.m3d-catfamily{margin-top:6px;padding-top:6px;border-top:1px solid var(--m3d-border)}
+/* Habillage partagé avec les autres intertitres (cf. CSS_CHASSIS) : il ne reste ici que
+   la gouttière, alignée sur celle des lignes de type (8px). */
+.m3d-catfamily-title{margin:0;padding:2px 8px 4px}
 .m3d-cattype-row{position:relative}
+/* ⚠️ box-sizing OBLIGATOIRE, et c'est LE défaut qui ouvrait une barre de défilement
+   horizontale. La classe habille deux éléments : un bouton pour un type parcourable, un
+   div pour un jeu à bascule (case + nom = deux contrôles, donc pas un bouton unique). Le
+   navigateur pose border-box sur les boutons, pas sur les div — la ligne à bascule prenait
+   donc 100 % PLUS ses 14 px de marge interne, et elle seule dépassait du panneau. */
 .m3d-cattype{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;width:100%;
+  box-sizing:border-box;
   border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--m3d-size-sm);
   color:var(--m3d-text);text-align:left}
 .m3d-cattype:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-cattype.m3d-on{background:color-mix(in srgb,var(--m3d-accent) 22%,transparent)}
 .m3d-cattype-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-cattype-total{font-size:var(--m3d-size-xs);color:var(--m3d-muted);font-variant-numeric:tabular-nums}
+/* Ligne d'un jeu à BASCULE : même gabarit qu'un type parcourable, mais ce n'est plus un
+   bouton unique — la case et le nom sont deux contrôles focusables côte à côte. */
+.m3d-cattype.m3d-cattoggle{cursor:default;padding-left:6px}
+/* Chargement en vol — un état, JAMAIS un compte d'éléments chargés (cf. CATALOG.md § 4).
+   Les keyframes partent ET reviennent à l'opacité PLEINE : CSS_MOTION réduit déjà toute
+   animation à une durée nulle en mouvement réduit, donc l'élément se fige sur la dernière
+   keyframe — à 100 %, la pastille reste lisible sans media-query à part. */
+@keyframes m3d-catbusy{0%,100%{opacity:1}50%{opacity:.25}}
+.m3d-cattype-busy{width:6px;height:6px;flex:none;border-radius:50%;background:var(--m3d-accent);
+  animation:m3d-catbusy 1s ease-in-out infinite}
 /* Le viewport scrolle, pas le panneau : la recherche reste visible en haut. */
 .m3d-catviewport{flex:1 1 auto;min-height:0;max-height:var(--m3d-catalog-panel-maxh);
   overflow-y:auto;position:relative}
@@ -31,6 +55,13 @@ export const CSS_CATALOG = `
   height:var(--m3d-catalog-row-h);font-size:var(--m3d-size-sm);box-sizing:border-box}
 .m3d-catrow:hover{background:color-mix(in srgb,var(--m3d-text) 8%,transparent)}
 .m3d-catrow.m3d-child{padding-left:calc(6px + var(--m3d-catalog-indent))}
+/* Intertitre de section : une LIGNE du flux virtualisé, donc exactement la hauteur d'une
+   ligne — la fenêtre visible ne sait pas mesurer, elle multiplie. L'habillage du texte est
+   partagé avec les autres intertitres (cf. CSS_CHASSIS) ; il ne reste ici que la boîte.
+   Aligné en BAS (flex-end) : collé au premier élément qu'il coiffe plutôt que flottant au
+   milieu de sa ligne, ce qui le rattachait visuellement à la section précédente. */
+.m3d-catgroup{display:flex;align-items:flex-end;padding:0 8px 2px;
+  height:var(--m3d-catalog-row-h);box-sizing:border-box}
 /* Le chevron et sa gouttière de remplacement partagent LA MÊME variable : deux valeurs
    séparées finissaient par diverger, et les noms d'une même liste cessaient de
    s'aligner selon que la ligne portait un chevron ou non. */
@@ -42,13 +73,22 @@ export const CSS_CATALOG = `
 /* Le NOM : c'est lui qui cède la place, et lui seul — d'où min-width:0. */
 /* Pas de soulignement au survol : la ligne s'éclaire déjà (.m3d-catrow:hover), et
    souligner un nom sur deux au passage de la souris fait clignoter la liste. */
-.m3d-catmain{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:0;border:none;
+/* Même gabarit pour le nom d'un ÉLÉMENT et celui d'un jeu à bascule : deux règles
+   jumelles avaient fini par diverger d'un pixel de gouttière. */
+.m3d-catmain,.m3d-cattype-main{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:0;border:none;
   background:transparent;cursor:pointer;font-family:inherit;font-size:inherit;color:var(--m3d-text);
   text-align:left;overflow:hidden}
 .m3d-cattitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m3d-catbadge{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
+/* Deux pastilles de MÊME boîte, voisines sur la même ligne : celle que pose la source (ses
+   « badges ») et le compte d'affichés de la lib. Une seule liste de sélecteurs — leur
+   différence tient à la teinte, écrite juste en dessous, et pas à leur gabarit. */
+.m3d-catbadge,.m3d-catcount{display:inline-flex;align-items:center;gap:3px;flex:none;padding:0 5px;height:16px;
   border-radius:8px;font-size:var(--m3d-size-xs);font-variant-numeric:tabular-nums;
   background:color-mix(in srgb,var(--m3d-text) 10%,transparent)}
+/* Ce qu'un agrégat a d'affiché (« 2/3 »), en ACCENT : c'est le seul repère qui permette de
+   retrouver les groupes actifs en balayant une liste repliée, il doit donc se détacher des
+   pastilles neutres que la source pose à côté. */
+.m3d-catcount{color:var(--m3d-accent);background:color-mix(in srgb,var(--m3d-accent) 16%,transparent)}
 /* Colonne d'actions à gabarit FIXE : sans elle, un bouton à fond peint (la bascule
    active) paraissait plus large que ses voisins transparents et la colonne semblait
    décalée d'une ligne à l'autre. Tous les boutons ont désormais la même boîte, et

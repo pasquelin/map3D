@@ -1,15 +1,15 @@
 import { mdiAlertCircleOutline, mdiChevronRight } from '@mdi/js'
 import { memo, useEffect, useRef } from 'react'
-import type { CatalogNode } from '../../catalog/flatten'
-import type { CatalogAction, CatalogId, CatalogItem, CatalogSource } from '../../catalog/types'
+import type { CatalogItemNode } from '../../catalog/flatten'
+import type { CatalogAction, CatalogBrowseSource, CatalogId, CatalogItem } from '../../catalog/types'
 import { formatLabel } from '../../labels/mergeLabels'
 import { useLabels, useMapContext } from '../context'
 import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
 
 export type CatalogRowProps = {
-  node: CatalogNode
-  source: CatalogSource
+  node: CatalogItemNode
+  source: CatalogBrowseSource
   /** Actions de la source, déjà plafonnées — identité stable entre deux renders. */
   actions: readonly CatalogAction[]
   /** Cet élément est-il sur la carte ? Pour un agrégat, `checkState` fait autorité. */
@@ -24,12 +24,20 @@ export type CatalogRowProps = {
    */
   checkState: 'on' | 'off' | 'mixed'
   /**
+   * Enfants d'un agrégat SUR LA CARTE, et enfants connus. `0`/`0` pour tout le reste.
+   *
+   * Deux primitives plutôt que l'objet qui les porte : `memo` compare par identité, et un
+   * objet reconstruit à chaque render aurait défait le court-circuit ligne par ligne.
+   */
+  groupShown: number
+  groupTotal: number
+  /**
    * Coche ou décoche : pour un agrégat, cela porte sur tous ses enfants.
    *
    * Reçoit le `node` en argument plutôt que d'être fermé dessus : une closure par ligne
    * changeait d'identité à chaque render et défaisait le `memo` de ce composant.
    */
-  onCheck: (node: CatalogNode, next: boolean) => void
+  onCheck: (node: CatalogItemNode, next: boolean) => void
   /** Clic sur le nom : bascule ET cadre. */
   onActivate: (item: CatalogItem) => void
   /** id du `<Tooltip>` de la barre hôte — les infobulles de la lib, pas des `title` natifs. */
@@ -73,6 +81,8 @@ function CatalogRowInner({
   expanded,
   onToggleExpand,
   checkState,
+  groupShown,
+  groupTotal,
   onCheck,
   onActivate,
   tipId,
@@ -89,11 +99,17 @@ function CatalogRowInner({
     if (boxRef.current) boxRef.current.indeterminate = checkState === 'mixed'
   }, [checkState])
   const off = item.disabled === true
+  // Table de substitution du compte, construite une fois pour les DEUX libellés qui la
+  // partagent (le visible et le nom accessible).
+  const counts = { shown: groupShown, total: groupTotal }
   // La COLONNE du chevron n'existe que si la source sait déplier : sur un référentiel
   // plat (villes, zones), réserver sa gouttière décalait chaque ligne de 18 px pour un
   // contrôle qui n'apparaîtra jamais.
   const expandableSource = source.children !== undefined
   const expandable = item.hasChildren === true && expandableSource
+  // Même raisonnement que la colonne du chevron : une source dont l'hôte peint déjà les
+  // éléments n'a pas de case, et n'en réserve donc pas la gouttière (cf. `checkable`).
+  const checkable = source.checkable !== false
 
   return (
     <div className={`m3d-catrow${depth > 0 ? ' m3d-child' : ''}${off ? ' m3d-off' : ''}`}>
@@ -117,22 +133,28 @@ function CatalogRowInner({
       {/* Case à cocher et non bouton : « sur la carte » est un ÉTAT persistant, et c'est
           déjà ainsi que « Couches » l'exprime — jusqu'à sa PLACE, en tête de ligne, pour
           que les deux panneaux de la même barre se lisent pareil. */}
-      <input
-        ref={boxRef}
-        type="checkbox"
-        className="m3d-catcheck"
-        aria-label={formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title })}
-        checked={shown}
-        disabled={off || pending}
-        // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
-        // convention des arbres de cases, et `e.target.checked` la donne déjà.
-        onChange={(e) => onCheck(node, e.target.checked)}
-      />
+      {checkable && (
+        <input
+          ref={boxRef}
+          type="checkbox"
+          className="m3d-catcheck"
+          aria-label={formatLabel(shown ? labels.catalog.remove : labels.catalog.add, { label: item.title })}
+          checked={shown}
+          disabled={off || pending}
+          // Depuis « partiellement coché », le geste attendu est de TOUT cocher — c'est la
+          // convention des arbres de cases, et `e.target.checked` la donne déjà.
+          onChange={(e) => onCheck(node, e.target.checked)}
+        />
+      )}
 
       <button
         type="button"
         className="m3d-catmain"
-        aria-pressed={isShown}
+        // Sans case, le nom ne bascule plus rien : il cadre. `aria-pressed` annoncerait un
+        // état à deux positions là où il n'y en a plus qu'une, et le libellé promettrait
+        // d'afficher ce qui est déjà là.
+        aria-label={checkable ? undefined : formatLabel(labels.catalog.focus, { label: item.title })}
+        aria-pressed={checkable ? isShown : undefined}
         disabled={off || pending}
         onClick={() => onActivate(item)}
       >
@@ -147,6 +169,15 @@ function CatalogRowInner({
       {failed && (
         <span className="m3d-caterrdot" aria-label={labels.catalog.itemError}>
           <UiIcon path={mdiAlertCircleOutline} />
+        </span>
+      )}
+
+      {/* Ce qu'un agrégat a d'affiché, SANS le déplier — « 2/3 ». Muet quand rien ne l'est :
+          la case décochée le dit déjà, et un « 0/3 » sur chaque groupe rendrait illisible la
+          seule chose qu'on cherche ici, savoir lesquels sont actifs. */}
+      {groupShown > 0 && (
+        <span className="m3d-catcount" aria-label={formatLabel(labels.catalog.groupCountLabel, counts)}>
+          {formatLabel(labels.catalog.groupCount, counts)}
         </span>
       )}
 
@@ -183,3 +214,29 @@ function CatalogRowInner({
 }
 
 export const CatalogRow = memo(CatalogRowInner)
+
+/**
+ * L'intertitre d'une section de la liste (`CatalogItem.group`).
+ *
+ * Une LIGNE du flux virtualisé, pas un conteneur : la fenêtre visible suppose une hauteur
+ * de ligne constante, et un en-tête qui enveloppe ses éléments aurait demandé un
+ * virtualiseur à hauteurs variables — ou un scroll imbriqué. Il occupe donc exactement la
+ * hauteur d'une ligne.
+ *
+ * Un simple texte, et non un `<h3>` : l'annoncer comme en-tête de niveau ferait entrer
+ * dans la table des matières du lecteur d'écran autant d'entrées que la liste compte de
+ * sections — sur un référentiel paginé, des centaines. Il reste lu dans l'ordre du DOM,
+ * juste avant les éléments qu'il coiffe.
+ *
+ * `memo` par COHÉRENCE avec `CatalogRow`, pas par gain mesuré : il n'y a ici ni identité
+ * de fonction ni sous-arbre à sauter.
+ */
+function CatalogGroupRowInner({ title }: { title: string }) {
+  return (
+    <div className="m3d-catgroup">
+      <span className="m3d-catgroup-title">{title}</span>
+    </div>
+  )
+}
+
+export const CatalogGroupRow = memo(CatalogGroupRowInner)

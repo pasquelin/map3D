@@ -33,8 +33,11 @@ export const CSS_SETTINGS = `
 /* Préférences : plus large que le sous-panneau par défaut (212) pour que les groupes
    segmentés (Auto/Élevé/Moyen/Léger) et les touches en bout de ligne ne soient pas rognés. */
 .m3d-settings-sub-pref{width:300px}
-.m3d-settings-subtitle{font-size:11px;font-weight:var(--m3d-weight-semibold);color:var(--m3d-muted);
-  text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+/* Infos : deux colonnes de 188 + gouttière, donc 420. En une colonne, les 24 grandeurs
+   dépassaient panelMaxHeight.settingsSub et le panneau devenait scrollable. */
+.m3d-settings-sub-stats{width:420px}
+/* Habillage partagé avec les autres intertitres (cf. CSS_CHASSIS). */
+.m3d-settings-subtitle{margin-bottom:2px}
 .m3d-shortcuts{display:flex;flex-direction:column;gap:3px}
 /* column-count équilibre seul les trois colonnes (hauteurs égales à une ligne près) ;
    break-inside:avoid empêche qu'une ligne soit coupée en bas de colonne. */
@@ -44,8 +47,16 @@ export const CSS_SETTINGS = `
 .m3d-shortcut-cols .m3d-shortcut-row{break-inside:avoid;margin-bottom:7px}
 .m3d-shortcut-cols .m3d-shortcut-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m3d-shortcut-row .m3d-kbd{flex:none}
-/* Séparateur d'une liste en sections (récap raccourcis d'antan, panneau Stats). */
+/* Séparateur d'une liste en sections (récap raccourcis d'antan). */
 .m3d-shortcut-sep{border-top:1px solid var(--m3d-border);margin:5px 0}
+/* Panneau « Infos » : colonnes DÉDUITES de la largeur (columns = largeur idéale d'une
+   colonne) et non comptées en dur — le panneau est aussi montable dans une surface de
+   l'hôte, où deux colonnes imposées se seraient écrasées. Une section reste d'un seul
+   tenant (break-inside:avoid) : un intertitre coupé de ses lignes ne nomme plus rien. */
+.m3d-stats-cols{columns:188px;column-gap:22px}
+.m3d-stats-group{display:flex;flex-direction:column;gap:3px;break-inside:avoid;margin-bottom:11px}
+.m3d-stats-group:last-child{margin-bottom:0}
+.m3d-stats-cols .m3d-shortcut-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ── Panneau « Préférences » (qualité 3D + contrôles) ─────────────────────────
    Vit dans la même surface .m3d-settings-sub ; largeur un peu plus généreuse pour que

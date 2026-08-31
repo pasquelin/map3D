@@ -243,6 +243,8 @@ The toolbar's **“Settings”** menu carries an **“Infos”** row that opens 
 
 Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md).
 
+Sections flow into **columns derived from the width received** (an ideal column ≈ 188 px), each section staying in one piece: two columns with no scrolling inside the menu, a single one if you mount the panel in a narrow surface.
+
 ```tsx
 // In your own surface rather than in the menu:
 import { StatsPanel } from '@pasquelin/map3d'
@@ -338,7 +340,7 @@ tile is available: the map stays a map even without network or token.
 
 Buttons: `pan`, `rotate`, `compass`, `zoomIn`, `zoomOut`, `tilt`, `globe`, `graticule`,
 `mode3d`, `plan`, `traffic`, `pedestrian`, `target`, `layers`, `catalog`, `fullscreen`.
-Groups: `drag`, `compass`, `zoom`, `pedestrian`, `target`, `layers`, `fullscreen`.
+Groups: `drag`, `compass`, `layers`, `target`, `pedestrian`, `zoom`, `fullscreen`.
 
 `catalog` (remote entity catalog, see [CATALOG.md](CATALOG.md)) shares the `layers`
 group with “Layers”.

@@ -29,7 +29,7 @@ partiel est une erreur de compilation.
 |---|---|---|
 | `providers.internal.origin` | Origine du serveur auto-hébergé (schéma + hôte + port, sans `/` final), substituée à `{origin}` dans TOUS les gabarits internes — fond 2D **et** volume, qui sortent du même serveur. ⚠️ Le défaut est la production DU PROJET, pas un service public : un hôte tiers **doit** y mettre la sienne, ou choisir les fournisseurs `'external'`. Vide, les fournisseurs `'internal'` restent sans effet. | `'https://map.gosecure.site'` |
 | `providers.internal.elevationEpsilon` | Écart d'altitude du sol (m) en deçà duquel le fond raster et les volumes ne sont PAS reconstruits. L'altitude est intégrée à la géométrie des deux calques : la suivre au centimètre rejouerait tout le cache à chaque frame. Réglage commun, les deux devant partager la même référence. ⚠️ Était un littéral recopié dans les deux calques. | `1` |
-| `providers.tiles.provider` | Fournisseur des tuiles du fond de carte : `'external'` (Google Map Tiles, session + clé, trafic disponible) ou `'internal'` (serveur auto-hébergé, simples URLs XYZ, sans clé ni quota, **sans trafic**). Cf. [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles.provider` | Fournisseur des tuiles du fond de carte : `'external'` (Google Map Tiles, session + clé, trafic disponible) ou `'internal'` (serveur auto-hébergé, simples URLs XYZ, sans clé ni quota ; trafic seulement par emprunt, cf. `trafficViaExternal`). Cf. [TILES.md](TILES.md). | `'internal'` |
 | `providers.tiles.internalTileUrl` | Gabarit d'URL d'une tuile raster interne — `{origin}`, `{style}`, `{z}`, `{x}`, `{y}` et `{r}` sont substitués. Aucune query n'est ajoutée : le serveur interne ne signe rien. | `'{origin}/styles/{style}/{z}/{x}/{y}{r}.png'` |
 | `providers.tiles.style` | Nom du style rendu par le serveur interne, substitué à `{style}`. | `'liberty'` |
 | `providers.tiles.retina` | Demander les tuiles internes en double densité (`{r}` → `@2x`). Défaut `false` : le canvas suit `performance.pixelRatio` (1 par défaut), où une tuile @2x quadruple les octets sans rien ajouter à l'écran. | `false` |
@@ -40,6 +40,7 @@ partiel est une erreur de compilation.
 | `providers.tiles.language` | Langue des libellés gravés dans les tuiles. `'auto'` suit le navigateur. ⚠️ Codé en dur sur `'fr-FR'` jusqu'ici : la carte affichait des noms français quelle que soit la locale de l'application. | `'auto'` |
 | `providers.tiles.region` | Biais régional (tracé des frontières contestées, toponymie). `'auto'` laisse le fournisseur déduire. ⚠️ Codé en dur sur `'FR'` jusqu'ici. | `'auto'` |
 | `providers.tiles.mapType` | Fond de carte 2D demandé au fournisseur. | `'roadmap'` |
+| `providers.tiles.trafficViaExternal` | En fournisseur `'internal'`, **emprunter** le fond Google le temps du calque trafic (sans effet en `'external'`). Le bouton reste offert dès qu'une clé `<Map googleMapsApiKey>` est là ; l'allumer bascule le fond sur Google, l'éteindre revient au serveur interne. ⚠️ Le fond change d'aspect et les tuiles redeviennent facturées le temps du calque. `false` = comportement d'origine (pas de trafic hors `'external'`). | `true` |
 | `providers.tiles.layerTypes` | Calques additionnels demandés à la session de tuiles. | `["layerTraffic"]` |
 | `providers.tiles.sessionUrl` | Endpoint de création de session de tuiles. | `'https://tile.googleapis.com/v1/createSession'` |
 | `providers.tiles.tileUrl` | Gabarit d'URL de tuile — `{z}`, `{x}`, `{y}` et `{session}` sont substitués. | `'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'` |
@@ -158,10 +159,9 @@ partiel est une erreur de compilation.
 | `interaction.hubHitTolerancePx` | Tolérance de clic autour du socle d'une relation (le trait, lui, a la sienne). | `12` |
 | `interaction.repositionHitPx` | Cible cliquable du point au sol d'un marker repositionnable. Le point mesure 7 px : sans élargissement, l'attraper relève de l'adresse. La valeur vivait dans la feuille de styles (`::before`), donc hors de ce bloc alors qu'elle en est exactement — une tolérance de pointeur qu'un support tactile… | `22` |
 | `interaction.clickSuppressMs` | Filet temporel après un geste : durée pendant laquelle le `click` synthétique qui suit est avalé. Couplé à `longPressMs` — un contexte tactile qui allonge l'un doit pouvoir allonger l'autre. | `400` |
-| `interaction.freehandMinStepPx` | Décimation du tracé main levée (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
+| `interaction.freehandMinStepPx` | Décimation du tracé au crayon (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom du vol « Cibler » depuis un inventaire ou une liste. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom du vol au clic sur un favori du dock. | `16` |
-| `interaction.drawToolbarMinZoom` | Zoom sous lequel la barre de dessin se replie — dessiner suppose la vue proche. | `11` |
 | `interaction.barMinScale` | Plancher de compactage d'une barre avant qu'elle ne passe en colonnes. | `0.85` |
 | `interaction.tooltip.flipBelowPx` | Sous cette hauteur de fenêtre, l'infobulle bascule au-dessous du pointeur. | `76` |
 | `interaction.tooltip.clampMarginPx` | Demi-largeur estimée, pour le clamp horizontal aux bords. | `78` |
@@ -202,7 +202,7 @@ partiel est une erreur de compilation.
 | `interaction.shortcuts.draw.polygon` | Polygone. | `'p'` |
 | `interaction.shortcuts.draw.rect` | Rectangle. | `'r'` |
 | `interaction.shortcuts.draw.circle` | Cercle. | `'c'` |
-| `interaction.shortcuts.draw.freehand` | Tracé main levée. ⚠️ Était `'d'`, désormais pris par le déplacement au clavier (ZQSD). | `'h'` |
+| `interaction.shortcuts.draw.freehand` | Crayon (tracé libre). ⚠️ Était `'d'`, désormais pris par le déplacement au clavier (ZQSD). | `'h'` |
 | `interaction.shortcuts.draw.arrow` | Flèche. | `'a'` |
 | `interaction.shortcuts.draw.measure` | Règle de mesure. | `'m'` |
 | `interaction.shortcuts.draw.erase` | Gomme. | `'e'` |
@@ -510,6 +510,8 @@ Référentiels parcourables déclarés par l'hôte et par les plugins (`engine.c
 | `catalog.overscanRows` | Lignes rendues hors écran de chaque côté de la fenêtre virtuelle. Curseur entre « pas de vide au défilement rapide » et « travail React par frame » : chaque unité ajoute DEUX lignes rendues à chaque frame. | `4` |
 | `catalog.prefetchMarginPx` | 💰 Distance au bas de liste qui déclenche la page suivante (px). Décide du VOLUME d'appels à `CatalogSource.list` : une marge large précharge pendant qu'on défile encore, mais demande des pages qu'on ne regardera peut-être jamais. | `200` |
 | `catalog.persistDebounceMs` | Anti-rebond avant d'écrire la sélection dans le stockage. `localStorage.setItem` est SYNCHRONE : sans amortissement, une rafale de gestes écrit autant de fois qu'elle compte d'éléments, sur une charge qui grossit. `0` écrit immédiatement ; la charge en attente est toujours vidée avant que la page ne disparaisse. | `250` |
+| `catalog.familyHeaders` | Nommer les familles du menu des types (`CatalogSource.family`). `false` ne garde que le filet de séparation. Sans objet pour une source sans `family` : son groupe n'a pas de nom, et un intitulé inventé par la lib y mettrait du texte en dur. | `true` |
+| `catalog.groupHeaders` | Ouvrir une section nommée dans la LISTE au changement de `CatalogItem.group`. Un réglage plutôt que « il suffit de ne pas renseigner `group` » : les sources peuvent venir de plugins TIERS, que l'hôte ne contrôle pas. Sans objet pour une source qui ne renseigne pas `group` — le drapeau épargne alors même la comparaison par élément. | `true` |
 
 ---
 
@@ -553,3 +555,23 @@ Politique par cible : ce que la gomme (ponctuelle ou par sélection) est autoris
 | `erase.targets.symbol` | La gomme peut-elle effacer les symboles. | `true` |
 | `erase.targets.path` | La gomme peut-elle effacer les tracés hôte marqués `erasable` (`PathLayer`). | `true` |
 | `erase.targets.shape` | La gomme peut-elle effacer les formes hôte marquées `erasable` (`ShapeLayer`). | `true` |
+
+## `toolbar` — Barre de dessin
+
+Ce qui appartient à la **barre** (`<Toolbar>`). Ce qui appartient aux **outils** reste dans
+son domaine : `erase.targets` pour la politique de la gomme, `interaction.shortcuts.draw`
+pour les touches — celles-ci agissent sans barre montée.
+
+`autoHide` retire de la barre ce qui n'a **rien sur quoi agir**, plutôt que de le griser :
+une gomme sans cible n'est pas un outil indisponible mais un outil sans emploi, et deux
+flèches d'historique inertes occupent une barre qu'on compacte déjà faute de hauteur. Un
+*outil* auto-masqué ne s'arme pas non plus au clavier, et s'il l'était au moment où sa
+dernière cible disparaît, il est relâché — à la différence des commandes d'historique, qui
+gardent leur raccourci : l'historique n'a pas besoin de la barre pour exister. La rangée « Tout effacer » vit dans le sous-menu de la gomme
+et partage son périmètre : elle paraît et disparaît avec elle, sans clé propre.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `toolbar.minZoom` | Zoom sous lequel la barre se replie — au-dessous, tracer n'a plus de sens (vue globe). | `5` |
+| `toolbar.autoHide.erase` | Retirer la gomme — et sa rangée « Tout effacer » — tant qu'aucune cible autorisée n'est à l'écran. | `true` |
+| `toolbar.autoHide.history` | Retirer « Annuler » et « Rétablir » tant qu'il n'y a rien à défaire ni à refaire, au lieu de les griser. Chacun se retire pour son propre compte ; le raccourci clavier, lui, ne dépend pas de la barre. | `true` |

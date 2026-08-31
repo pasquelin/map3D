@@ -20,8 +20,9 @@ export type TileMapType = 'roadmap' | 'satellite' | 'terrain'
  *   obligatoire, calque trafic disponible. C'est le défaut, et le seul comportement
  *   qui existait.
  * - `'internal'` — serveur de tuiles auto-hébergé : simples URLs XYZ sur
- *   `origin`, ni session ni clé ni quota, **pas de trafic** (le calque trafic est une
- *   propriété de la tuile Google, pas une surcouche). Le volume (mode `'3d'`) vient
+ *   `origin`, ni session ni clé ni quota, **pas de trafic sur ses propres tuiles** (le
+ *   calque trafic est une propriété de la tuile Google, pas une surcouche — il ne s'obtient
+ *   qu'en empruntant Google, cf. `trafficViaExternal`). Le volume (mode `'3d'`) vient
  *   alors du relief et des bâtiments (cf. `providers.terrain` / `providers.buildings`)
  *   et non des tuiles 3D photoréalistes.
  *
@@ -176,6 +177,21 @@ export type TilesConfig = {
   region: AutoLocale
   /** Fond de carte 2D demandé au fournisseur. */
   mapType: TileMapType
+  /**
+   * En fournisseur `'internal'`, **emprunter** le fond Google le temps du trafic (défaut
+   * `true`, sans effet en `'external'`).
+   *
+   * Le trafic n'est pas une surcouche transparente qu'on poserait sur n'importe quel fond :
+   * c'est un `layerTypes` gravé DANS la tuile Google. Le proposer en interne revient donc à
+   * changer de fournisseur — le bouton reste offert dès qu'une clé (`<Map
+   * googleMapsApiKey>`) est là, l'allumer bascule le fond sur Google, l'éteindre revient au
+   * serveur interne. Le cache est vidé de part et d'autre : ce sont deux jeux de tuiles.
+   *
+   * ⚠️ Ce que ça engage : le fond CHANGE d'aspect (style Google, pas le vôtre) et les
+   * tuiles redeviennent facturées le temps que le trafic est allumé. `false` rend le
+   * comportement d'origine — pas de trafic hors fournisseur externe, bouton masqué.
+   */
+  trafficViaExternal: boolean
   /** Calques additionnels demandés à la session de tuiles. */
   layerTypes: readonly string[]
   /** Endpoint de création de session de tuiles. */

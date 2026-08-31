@@ -30,7 +30,10 @@ export const CSS_TOOLTIPS = `
   border:2.5px solid color-mix(in srgb,var(--m3d-target-color,#ff3b30) 85%,transparent);
   box-shadow:var(--m3d-shadow-lg),0 0 12px color-mix(in srgb,var(--m3d-target-color,#ff3b30) 45%,transparent)}
 .m3d-markertip-urgent .m3d-markertip-title{color:var(--m3d-target-color,#ff3b30)}
-@keyframes m3d-tip-in{from{opacity:0;transform:translate(-50%,calc(-100% - var(--m3d-tiplift,32px) + 4px))}}
+/* ⚠️ Entrée en OPACITÉ SEULE, et ce n'est pas un choix esthétique : la position de
+   l'infobulle est MESURÉE pour la rabattre dans le conteneur (cf. MarkerTip, mesure
+   'visual'). Animer sa position ferait mesurer une image de l'animation. */
+@keyframes m3d-tip-in{from{opacity:0}}
 
 /* APPARENCE des infobulles de barre (react-tooltip), au langage visuel de
    .m3d-markertip (panneau thémé) plutôt qu'au gris #222 par défaut du paquet.

@@ -11,11 +11,11 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useMapContext } from '../context'
+import { useMapContext, useToolbar } from '../context'
 import { useAnchoredPortal } from './panelFit'
 import { plainKey } from './shortcuts'
 import { ToolButton, type BarTip } from './ToolButton'
-import { useDismiss } from './useDismiss'
+import { useCloseWhenHidden, useDismiss } from './useDismiss'
 
 /**
  * Pose un raccourci à lettre seule qui bascule un `Dropdown` via son `toggleRef`.
@@ -46,25 +46,13 @@ export function useToggleShortcut(shortcut: string | false | undefined, toggleRe
  * différent » — deux surfaces à 92 % d'opacité empilées, chacune floutant l'autre.
  *
  * Un seul `id` ouvert à la fois. Les surfaces qui ne sont pas des menus mais occupent la
- * même région (le panneau de style, contextuel) s'effacent via `useYieldsToDropdown`.
+ * même région (les sous-menus de survol de la barre, l'infobulle d'un bouton) s'effacent
+ * via `useYieldsToDropdown`.
  */
 type DropdownRegistry = {
   openId: string | null
   /** Ouvre (et referme tout le reste), ou referme si `null`. */
   setOpenId: (id: string | null) => void
-}
-
-/**
- * Referme la surface ouverte, quelle qu'elle soit.
- *
- * Un seul point de fermeture globale : la barre qui se replie relâche déjà l'outil actif
- * et la loupe, elle relâche aussi ce qu'elle a d'ouvert. Le faire ici plutôt que dans
- * chaque surface évite qu'une nouvelle surface oublie de s'y raccrocher — et évite
- * surtout que `Dropdown` importe `useToolbar`, ce qui boucle (la barre le consomme).
- */
-export function useCloseAnyDropdown(): () => void {
-  const registry = useContext(DropdownContext)
-  return useCallback(() => registry?.setOpenId(null), [registry])
 }
 
 const DropdownContext = createContext<DropdownRegistry | null>(null)
@@ -100,17 +88,17 @@ export function DropdownProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Vrai dès qu'une surface déroulante est ouverte — pour qu'une surface CONTEXTUELLE
- * (le panneau de style, qui suit l'outil actif et que personne n'ouvre) libère la place
- * au lieu de se faire recouvrir.
+ * Vrai dès qu'une surface déroulante est ouverte — pour que ce qui s'ouvre TOUT SEUL (un
+ * sous-menu au survol, l'infobulle d'un bouton) libère la place au lieu de venir se poser
+ * sur un panneau qu'on est en train de lire.
  */
 export function useYieldsToDropdown(): boolean {
   return useContext(DropdownContext)?.openId != null
 }
 
 export type DropdownProps = {
-  /** Chemin d'icône @mdi/js du déclencheur. */
-  icon: string
+  /** Chemin d'icône @mdi/js du déclencheur. Absent, seul `badge` habille le bouton. */
+  icon?: string
   /** Libellé accessible du déclencheur — `aria-label` et contenu du tooltip. */
   label: string
   /** id du `<Tooltip>` partagé de la barre hôte. Absent = pas d'infobulle. */
@@ -130,7 +118,8 @@ export type DropdownProps = {
   buttonClassName?: string
   /** Classe de variante du panneau (largeur, padding) — le chrome vient de `m3d-panel`. */
   panelClassName?: string
-  /** Contenu DANS le bouton après l'icône (badge de compteur). */
+  /** Contenu DANS le bouton après l'icône (badge de compteur) — ou tout son contenu
+   *  quand `icon` est absent (l'aperçu des couleurs de la barre à dessin). */
   badge?: ReactNode
   /**
    * Rendu SANS sa propre carte `.m3d-controls-group` — pour cohabiter avec un autre
@@ -227,6 +216,9 @@ export function Dropdown({
   )
   const also = useCallback(() => [...subs].map((r) => r.current), [subs])
   useDismiss(zones, open, close, { also })
+  // La barre qui se replie emporte ses menus : sans ça, le panneau restait seul au milieu
+  // de la carte, sans le bouton qui l'a ouvert ni rien pour le refermer.
+  useCloseWhenHidden(useToolbar().retracted, close)
   if (toggleRef) toggleRef.current = () => setOpen(!open)
 
   // Publié depuis un EFFET, pas pendant le clic : l'hôte (palette de symboles) réagit à

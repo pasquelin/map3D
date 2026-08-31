@@ -1,4 +1,6 @@
+import type { DataSource, MarkerData } from '../data/types'
 import type { ShapeData } from '../layers/ShapeLayer'
+import type { MarkerLayerDecl } from '../react/components/MarkerLayer'
 import type { Bounds } from '../shared'
 
 /** Identité d'un élément DANS sa source. Jamais unique à elle seule — cf. `CatalogKey`. */
@@ -18,9 +20,23 @@ export type CatalogKey = string
  *
  * Écrite par l'hôte (ou par un plugin), inscrite sur `engine.catalog`. La lib ne sait
  * rien de ce qu'il y a derrière : ni le transport, ni l'authentification, ni la forme
- * des identifiants. Elle sait lister, paginer, demander une géométrie.
+ * des identifiants.
+ *
+ * **Deux régimes, et le choix ne relève pas du goût** : un référentiel qu'on PARCOURT
+ * élément par élément (`browse`), et un jeu qu'on ALLUME d'un bloc (`toggle`). Un
+ * référentiel de 36 000 défibrillateurs ne se parcourt pas — personne ne cochera trente
+ * mille cases —, il se charge au cadre visible ; à l'inverse, cinq zones qu'on compare
+ * une à une n'ont rien à faire dans un interrupteur unique.
+ *
+ * Union DISCRIMINÉE et non un jeu de champs optionnels : c'est ce qui rend impossible
+ * une source qui déclarerait `list` sans `geometry`, ou un `markerLayer` sur un
+ * référentiel qui ne pose que des formes. Le compilateur porte la règle, pas une garde
+ * à l'exécution.
  */
-export type CatalogSource = {
+export type CatalogSource = CatalogBrowseSource | CatalogToggleSource
+
+/** Ce que les deux régimes ont en commun : de quoi peupler une ligne de menu. */
+export type CatalogSourceBase = {
   /** Identité stable — préfixe de clé, valeur persistée, clé du registre. */
   id: string
   /** Libellé du sous-menu. Fourni par l'hôte : la lib ne traduit aucun nom de type. */
@@ -34,8 +50,21 @@ export type CatalogSource = {
    *
    * C'est ce qui permet d'afficher « 36 699 » à côté d'un type qu'on n'a jamais ouvert.
    * Absent, le sous-menu n'affiche pas de compte — il ne va pas le chercher.
+   *
+   * C'est le volume du JEU DE RÉFÉRENCE, une donnée stable et vérifiable — jamais une
+   * mesure de ce qui est à l'écran (cf. `CatalogToggleSource`).
    */
   total?: number
+}
+
+/**
+ * Le régime de PARCOURS : une liste paginée, une case par élément.
+ *
+ * `kind` est optionnel et vaut `'browse'` : une source écrite avant l'arrivée des
+ * bascules reste valide telle quelle, sans un caractère à changer.
+ */
+export type CatalogBrowseSource = CatalogSourceBase & {
+  kind?: 'browse'
 
   /** Une page de résultats. Voir `CatalogRequest` pour la sémantique du curseur. */
   list(req: CatalogRequest): Promise<CatalogPage>
@@ -43,8 +72,11 @@ export type CatalogSource = {
   /**
    * La géométrie d'un élément — UNE zone, ou les trois d'un groupe.
    *
-   * Le tableau est ce qui fait qu'un agrégat est un élément ordinaire : la lib n'a
-   * aucune notion de « groupe », elle affiche et retire ce qu'on lui rend, en bloc.
+   * Le tableau est ce qui fait qu'un agrégat est un élément ordinaire : sans `children`,
+   * la lib n'a aucune notion de « groupe », elle affiche et retire ce qu'on lui rend, en
+   * bloc. Déclarer `children` change ce statut — l'élément devient un **sélecteur de ses
+   * enfants** et n'entre plus lui-même en sélection (cf. `hasChildren`) ; c'est alors la
+   * géométrie de chaque enfant qui est demandée, jamais celle de l'agrégat.
    *
    * ⚠️ Doit répondre pour les éléments rendus par `list` **ET** pour ceux rendus par
    * `children` : un enfant déplié appartient à la même source que son parent, et c'est
@@ -55,14 +87,95 @@ export type CatalogSource = {
   geometry(id: CatalogId, signal: AbortSignal): Promise<ShapeData[]>
 
   /**
+   * Les POINTS d'un élément, s'il en a — une caserne, les bornes d'un secteur.
+   *
+   * Appelée avec `geometry` et sur le même geste : un élément peut n'avoir que des
+   * formes, que des points, ou les deux. Ils entrent dans le regroupement, le filtre
+   * « Couches » et la recherche comme n'importe quel marker, et repartent ensemble
+   * quand la case se décoche.
+   *
+   * Les points ne sont pas persistés (les formes non plus) : ils sont redemandés à la
+   * source à la restauration.
+   */
+  markers?(id: CatalogId, signal: AbortSignal): Promise<MarkerData[]>
+
+  /**
    * Enfants d'un élément. Fourni ⇒ les éléments marqués `hasChildren` deviennent
    * dépliables. Un seul niveau de descente est exploité (cf. `flattenCatalog`).
    */
   children?(id: CatalogId, req: CatalogRequest): Promise<CatalogPage>
 
-  /** Boutons d'icônes en ligne. Plafonnés par `config.catalog.maxInlineActions`. */
+  /**
+   * Boutons d'icônes en ligne. Plafonnés par `config.catalog.maxInlineActions`.
+   *
+   * Ici et non sur la base commune : une action reçoit le `CatalogItem` sur lequel elle
+   * porte, et une source à bascule n'a pas d'éléments. Déclarée là-bas, elle aurait
+   * compilé sans jamais être rendue nulle part.
+   */
   actions?: readonly CatalogAction[]
+
+  /**
+   * Cette liste peut-elle POSER ses éléments sur la carte ? Défaut `true`.
+   *
+   * `false` déclare un **référentiel que l'hôte peint déjà lui-même** : la liste ne sert
+   * plus qu'à le parcourir, y chercher, cadrer et agir dessus. La ligne perd sa case — et
+   * sa gouttière avec, comme le chevron d'une source qui ne déplie pas —, rien n'entre en
+   * sélection ni en persistance, et le clic sur le nom **cadre** au lieu de basculer.
+   *
+   * À poser dès que l'hôte monte les mêmes entités dans une couche à lui (typiquement
+   * `<DrawLayer>`, la seule où une forme est sélectionnable et éditable) : sans ça, la même
+   * entité serait peinte deux fois, par deux couches qui ne se connaissent pas. Et la case
+   * mentirait — on la coche, l'état visuel change, la carte ne bouge pas.
+   *
+   * ⚠️ `geometry` reste requise : c'est le chemin de cadrage quand l'élément n'annonce pas
+   * son `bounds`. Une source qui pose `bounds` sur tous ses items ne la verra jamais
+   * appelée dans ce régime.
+   */
+  checkable?: boolean
 }
+
+/**
+ * Le régime de BASCULE : un interrupteur, et le jeu se charge AU CADRE VISIBLE.
+ *
+ * Pour ce qui n'a pas vocation à être parcouru élément par élément. La source n'est
+ * qu'une `DataSource<MarkerData>` — le contrat viewport de la lib, inchangé : c'est
+ * `ViewportController` qui l'exécute, avec son anti-rebond, son gate `minZoom`, son
+ * `AbortSignal` et son rejet des réponses hors-ordre.
+ *
+ * ⚠️ **Le volume chargé n'est pas le volume affiché.** L'emprise demandée est
+ * délibérément ÉLARGIE (`config.performance.boundsMargin`, +15 % de part et d'autre sur
+ * les deux axes) pour qu'aucun marker réellement visible ne manque et que rien ne
+ * surgisse au moindre déplacement. Une bascule charge donc structurellement plus que ce
+ * qu'on voit — raison pour laquelle **aucune surface n'affiche le nombre d'éléments
+ * chargés** : posé à côté d'une carte qui en montre trois, un « 142 » se lit « 142
+ * affichés » et envoie chercher les 139 manquants. `total` (le jeu de référence) et
+ * l'état de chargement sont, eux, vrais et vérifiables.
+ */
+export type CatalogToggleSource = CatalogSourceBase & {
+  kind: 'toggle'
+
+  /**
+   * Le jeu, rechargé selon la vue. `minZoom` y agit comme gate : en dessous, aucune
+   * requête n'est émise (cf. `DataSource`).
+   */
+  source: DataSource<MarkerData>
+
+  /**
+   * Rendu des points — LE MÊME type que la voie déclarative des plugins, pour qu'une
+   * capacité ne se règle pas de deux façons selon d'où elle vient.
+   */
+  markerLayer?: MarkerLayerDecl
+}
+
+/**
+ * Point de vérité UNIQUE de la discrimination : `kind` absent vaut `'browse'`.
+ *
+ * Lire `s.kind === 'browse'` quelque part suffirait à faire disparaître du menu toutes
+ * les sources écrites avant l'arrivée des bascules — c'est la NÉGATION qui est correcte.
+ */
+export const isToggleSource = (s: CatalogSource): s is CatalogToggleSource => s.kind === 'toggle'
+
+export const isBrowseSource = (s: CatalogSource): s is CatalogBrowseSource => s.kind !== 'toggle'
 
 export type CatalogRequest = {
   /**
@@ -118,8 +231,29 @@ export type CatalogItem = {
    * que l'élément n'existe pas, alors qu'il est seulement indisponible.
    */
   disabled?: boolean
-  /** Déclare qu'il y a des enfants à aller chercher via `CatalogSource.children`. */
+  /**
+   * Déclare qu'il y a des enfants à aller chercher via `CatalogSource.children`.
+   *
+   * ⚠️ Avec une source qui fournit `children`, l'élément devient un **sélecteur** : ce sont
+   * ses enfants qui entrent en sélection, jamais lui, et tous les gestes (case, nom, API)
+   * portent sur eux. Sa case et son compte « 2/3 » en sont dérivés.
+   */
   hasChildren?: boolean
+  /**
+   * Section à laquelle appartient cet élément — un en-tête portant ce nom s'insère dans la
+   * liste au changement de valeur.
+   *
+   * ⚠️ **La lib ne trie pas** : elle ouvre une section quand `group` change d'un élément au
+   * suivant. C'est ce qui rend le regroupement compatible avec la pagination — une page
+   * arrive après coup et prolonge la section en cours. À vous de servir vos éléments
+   * groupés ; sinon le même intitulé réapparaîtra plus bas, ce qui est l'affichage fidèle
+   * de ce que la source a rendu.
+   *
+   * À ne pas confondre avec `hasChildren` : un **agrégat** est un élément qu'on coche et
+   * qui emporte ses enfants ; une **section** n'est qu'un intertitre, sans case ni action.
+   * Absent (ou vide), l'élément n'ouvre aucune section.
+   */
+  group?: string
 }
 
 /**

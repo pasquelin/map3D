@@ -35,8 +35,7 @@ import type { BuildingHit } from '../core/MapEngine'
 import type { Layer } from '../core/Layer'
 import type { MarkerData } from '../data/types'
 import type { Viewport } from '../data/types'
-import type { MenuItem } from '../react/components/ContextMenu'
-import type { MarkerLayerProps } from '../react/components/MarkerLayer'
+import type { MarkerLayerDecl } from '../react/components/MarkerLayer'
 
 /** Contexte de base passé au plugin. `fetchPolicy` : à utiliser avec `fetchWithPolicy`. */
 export type PluginContext<C> = {
@@ -94,14 +93,7 @@ export type Plugin<C = Record<string, never>> = {
   }
 
   /** Réglages de rendu passés à la `MarkerLayer` interne (voie A). */
-  markerLayer?: {
-    menu?: (p: MarkerData<unknown>) => MenuItem[]
-    tooltip?: MarkerLayerProps<unknown>['tooltip']
-    icon?: (p: MarkerData<unknown>) => string
-    typeLabel?: (type: string) => string
-    cluster?: { enabled: boolean }
-    size?: number
-  }
+  markerLayer?: MarkerLayerDecl
 
   // ── Voie C — échappatoire moteur (avancé) ──
   layer?: (ctx: PluginLayerContext<C>) => Layer

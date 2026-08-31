@@ -106,6 +106,8 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'selection.selectable': 'Types sélectionnables',
   erase: 'Gomme',
   'erase.targets': 'Ce que la gomme efface',
+  toolbar: 'Barre de dessin',
+  'toolbar.autoHide': 'Outils masqués faute d’objet',
 }
 
 /** Feuilles — toutes celles de `defaultConfig`, plus les clés optionnelles du type
@@ -125,6 +127,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.language': 'langue des libellés',
   'providers.tiles.region': 'biais régional',
   'providers.tiles.mapType': 'fond de carte',
+  'providers.tiles.trafficViaExternal': 'trafic en empruntant Google',
   'providers.tiles.layerTypes': 'calques demandés',
   'providers.tiles.sessionUrl': 'URL de session',
   'providers.tiles.tileUrl': 'gabarit d’URL de tuile',
@@ -249,10 +252,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.hubHitTolerancePx': 'tolérance clic socle (px)',
   'interaction.repositionHitPx': 'cible du point au sol (px)',
   'interaction.clickSuppressMs': 'clic avalé après geste (ms)',
-  'interaction.freehandMinStepPx': 'pas du main levée (px)',
+  'interaction.freehandMinStepPx': 'pas du crayon (px)',
   'interaction.targetZoom': 'zoom de ciblage',
   'interaction.pinnedFlyZoom': 'zoom vers un favori',
-  'interaction.drawToolbarMinZoom': 'zoom mini barre de dessin',
   'interaction.barMinScale': 'compactage mini des barres',
   'interaction.tooltip.flipBelowPx': 'bascule sous le pointeur (px)',
   'interaction.tooltip.clampMarginPx': 'marge de bord (px)',
@@ -288,7 +290,7 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shortcuts.draw.polygon': 'polygone',
   'interaction.shortcuts.draw.rect': 'rectangle',
   'interaction.shortcuts.draw.circle': 'cercle',
-  'interaction.shortcuts.draw.freehand': 'main levée',
+  'interaction.shortcuts.draw.freehand': 'crayon',
   'interaction.shortcuts.draw.arrow': 'flèche',
   'interaction.shortcuts.draw.measure': 'règle de mesure',
   'interaction.shortcuts.draw.erase': 'gomme',
@@ -516,6 +518,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'catalog.overscanRows': 'lignes de sur-rendu',
   'catalog.prefetchMarginPx': 'marge de préchargement (px)',
   'catalog.persistDebounceMs': 'anti-rebond d’écriture (ms)',
+  'catalog.familyHeaders': 'nommer les familles du menu',
+  'catalog.groupHeaders': 'nommer les sections de la liste',
   // ── watermark ──────────────────────────────────────────────────────────────
   'watermark.enabled': 'afficher la signature',
   // ── performance.statThresholds ─────────────────────────────────────────────
@@ -555,4 +559,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'erase.targets.symbol': 'symboles',
   'erase.targets.path': 'tracés hôte (routes)',
   'erase.targets.shape': 'formes hôte',
+
+  // ── toolbar ──────────────────────────────────────────────────────────────
+  'toolbar.minZoom': 'zoom mini barre de dessin',
+  'toolbar.autoHide.erase': 'masquer la gomme sans cible',
+  'toolbar.autoHide.history': 'masquer annuler/rétablir inutiles',
 }

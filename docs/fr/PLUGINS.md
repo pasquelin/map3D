@@ -41,6 +41,13 @@ registre, hub, hooks) ; les plugins officiels vivent hors de la lib (§ 9).
 Un plugin **doit** fournir au moins l'un de `data`, `layer`, `enrichBuilding`,
 `setup` — sinon il n'apporte rien.
 
+> **Plugin ou source de catalogue à bascule ?** Les deux chargent des markers au
+> viewport. Un plugin est une **capacité tierce** packagée, versionnée et distribuée,
+> que l'utilisateur active depuis le hub ; une bascule de catalogue est un **jeu de
+> référence de l'application hôte**, à côté de ses autres jeux, sans packaging ni
+> versioning. Tableau de décision complet :
+> [CATALOG.md § 4.3](CATALOG.md#43-bascule-ou-plugin).
+
 ---
 
 ## 2. Anatomie d'un plugin
@@ -171,11 +178,13 @@ data: {
 
 ## 5. Rendu carte
 
-`markerLayer?` réutilise l'ergonomie markers existante — la lib rend le résultat de
-`data.fetch` dans un `<MarkerLayer>` interne :
+`markerLayer?: MarkerLayerDecl` réutilise l'ergonomie markers existante — la lib rend le
+résultat de `data.fetch` dans un `<MarkerLayer>` interne. C'est le MÊME type que
+`CatalogToggleSource.markerLayer` ([CATALOG.md § 4](CATALOG.md#4-sources-à-bascule)) : une
+capacité ne se règle pas de deux façons selon d'où elle vient.
 
 ```ts
-markerLayer?: {
+type MarkerLayerDecl = {
   menu?: (p: MarkerData<unknown>) => MenuItem[]
   tooltip?: MarkerLayerProps<unknown>['tooltip']
   icon?: (p: MarkerData<unknown>) => string

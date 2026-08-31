@@ -1,5 +1,5 @@
 // Modèle de données du gestionnaire de templates. Un template = une sauvegarde du
-// DESSIN (formes + main levée + symboles) et, optionnellement, de la VUE d'où on le
+// DESSIN (formes + crayon + symboles) et, optionnellement, de la VUE d'où on le
 // regarde — jamais les zones, markers, tracés ou relations. Le contenu est le
 // `GeoJSONFeatureCollection` de `DrawLayer` (le seul format d'échange déjà éprouvé de
 // bout en bout, cf. `toGeoJSON`/`fromGeoJSON`), filtrable par catégorie via le `kind`

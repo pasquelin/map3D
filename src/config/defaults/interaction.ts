@@ -25,7 +25,6 @@ export const interactionDefaults: InteractionConfig = {
   freehandMinStepPx: 2,
   targetZoom: 17,
   pinnedFlyZoom: 16,
-  drawToolbarMinZoom: 11,
   barMinScale: 0.85,
   tooltip: { flipBelowPx: 76, clampMarginPx: 78, offsetBelowPx: 18, offsetAbovePx: 14 },
   spiderfy: { pairRadiusRatio: 0.1, minRingRatio: 1.15, gapPx: 8, zoomEpsilon: 0.05 },
@@ -82,9 +81,10 @@ export const interactionDefaults: InteractionConfig = {
       polygon: 'p',
       rect: 'r',
       circle: 'c',
-      // ⚠️ Était 'd', désormais pris par le déplacement au clavier (ZQSD). 'h' comme
-      // « main levée », et il était libre. À rebasculer sur 'd' par la config si
-      // l'application n'active pas les lettres de navigation.
+      // ⚠️ Était 'd', désormais pris par le déplacement au clavier (ZQSD). 'h' vient de
+      // l'ancien nom de l'outil (« main levée », rebaptisé « Crayon ») et il était libre ;
+      // 'c' est pris par le cercle. À rebasculer sur 'd' par la config si l'application
+      // n'active pas les lettres de navigation.
       freehand: 'h',
       arrow: 'a',
       measure: 'm',

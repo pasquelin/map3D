@@ -225,6 +225,11 @@ When provided, the `tooltip` prop **decides alone** — including returning `nul
 Reserve it for titles that plain text cannot express: `titleColor` already covers the
 common case.
 
+The tooltip is centred above its marker, and **nudged back inside the map** when that
+marker approaches an edge: it slides along the edge instead of being clipped, and follows
+its anchor for as long as it is shown. Nothing to configure — the same mechanism as context
+menus. It holds for the cluster tooltip and the pinned dock one.
+
 ### Cluster tooltip
 
 The cluster builds its own: the per-type count when hovering a donut **slice**, the

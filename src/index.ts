@@ -1,6 +1,10 @@
 // Point d'entrée public de map3d.
 
-export const VERSION = '0.1.0'
+import { version } from '../package.json'
+
+// Dérivée du manifeste : recopiée à la main, elle finit par mentir (restée à 0.1.0
+// pendant deux versions publiées).
+export const VERSION: string = version
 
 // ── Primitives partagées ──
 export type { LatLng, Bounds, SearchResult } from './shared'
@@ -198,6 +202,8 @@ export type {
   EraseConfig,
   SelectionConfig,
   HostLayerKind,
+  DrawToolbarConfig,
+  DrawToolbarAutoHide,
 } from './config/types'
 /**
  * Sources de tuiles 2D. Exposées pour qu'un hôte puisse brancher son propre
@@ -317,7 +323,10 @@ export { useMapDropZone } from './react/hooks/useMapDropZone'
 export type { UseMapDropZoneOptions } from './react/hooks/useMapDropZone'
 
 export { MarkerLayer } from './react/components/MarkerLayer'
-export type { MarkerLayerProps } from './react/components/MarkerLayer'
+// `MarkerLayerDecl` : réglages de rendu d'une couche marker montée PAR LA LIB — voie
+// déclarative d'un plugin (`Plugin.markerLayer`) et jeu de catalogue à bascule
+// (`CatalogToggleSource.markerLayer`).
+export type { MarkerLayerProps, MarkerLayerDecl } from './react/components/MarkerLayer'
 export { PinnedDock } from './react/components/PinnedDock'
 export type { PinnedDockProps, PinnedItem } from './react/components/PinnedDock'
 export { PathLayer } from './react/components/PathLayer'
@@ -372,7 +381,8 @@ export { TagFilterControl } from './react/components/TagFilterControl'
 export type { TagFilterControlProps } from './react/components/TagFilterControl'
 export { Toolbar, useToolbar } from './react/components/Toolbar'
 export type { DrawToolbarProps, DrawToolbarSection, ToolbarApi } from './react/components/Toolbar'
-/** Referme la surface d'un outil quand la barre qui le porte se replie (cf. `useToolbarRetracted`). */
+/** Referme la surface d'un outil quand la barre qui le porte se replie (`useToolbar().retracted`).
+ *  Inutile dans un `<Dropdown>` : il s'y raccroche déjà. */
 export { useCloseWhenHidden } from './react/components/useDismiss'
 /** Bouton de barre (icône + état + tooltip) — pour peupler `extraTools` / `components`
  *  avec le même langage visuel que les boutons natifs. */
@@ -429,21 +439,38 @@ export { createTitleCache } from './search/match'
 export type {
   CatalogAction,
   CatalogBadge,
+  CatalogBrowseSource,
   CatalogId,
   CatalogItem,
   CatalogKey,
   CatalogPage,
   CatalogRequest,
   CatalogSource,
+  CatalogSourceBase,
+  CatalogToggleSource,
 } from './catalog/types'
+// Discrimination de l'union, pour un hôte qui manipule une liste de sources hétérogènes.
+export { isBrowseSource, isToggleSource } from './catalog/types'
 export { CatalogRegistry } from './catalog/registry'
 export type { CatalogSettings } from './catalog/store'
 /** Composition/décomposition d'une clé — utile pour relier une sélection à vos données. */
 export { catalogKey, parseCatalogKey } from './catalog/selection'
 export { CatalogControl } from './react/components/CatalogControl'
 export type { CatalogControlProps } from './react/components/CatalogControl'
-export { useCatalog, useCatalogSettings } from './react/hooks/useCatalog'
+// `useCatalogToggle` et non `useCatalog()` pour LIRE l'état d'un jeu à bascule : il
+// s'abonne aux deux booléens de ce jeu, là où l'API entière re-rend l'appelant à chaque
+// mutation du catalogue. C'est le patron que la lib s'applique à ses propres lignes.
+// Même patron pour `useCatalogSourceCount` : ce qu'UNE source a d'affiché, en un scalaire.
+export {
+  useCatalog,
+  useCatalogSettings,
+  useCatalogToggle,
+  useCatalogClear,
+  useCatalogSourceCount,
+} from './react/hooks/useCatalog'
 export type { CatalogApi, CatalogSettingsApi } from './react/hooks/useCatalog'
+/** État d'un AGRÉGAT, dérivé de ses enfants — cf. `CatalogApi.groupState`. */
+export type { GroupCheck } from './catalog/groups'
 export { useCatalogSources, useCatalogSource } from './react/hooks/useCatalogSources'
 /** SVG (markup) → data-URI, idempotent — utile dès qu'une icône sort de la carte. */
 export { svgToDataUri } from './react/components/MarkerLayer'
@@ -518,7 +545,7 @@ export { useBuildingEnrichment } from './react/hooks/useBuildingEnrichment'
 export type { BuildingEnrichment } from './react/hooks/useBuildingEnrichment'
 // `BuildingHit` / `BuildingInfo` sont déjà exportés (section Core).
 
-// ── Templates (sauvegardes de dessin : formes + main levée + symboles) ──
+// ── Templates (sauvegardes de dessin : formes + crayon + symboles) ──
 export { TemplateRegistry } from './core/templates/TemplateRegistry'
 export type { TemplateMutateOptions, TemplateDrawPort } from './core/templates/TemplateRegistry'
 export type {

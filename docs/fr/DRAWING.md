@@ -51,7 +51,7 @@ Montage manuel :
 | Polygone | `P` | clics successifs + `Entrée` pour fermer |
 | Rectangle | `R` | angles arrondis réglables |
 | Cercle | `C` | centre + rayon |
-| Main levée | `H` | tracé continu |
+| Crayon | `H` | tracé continu à main levée |
 | Flèche | `A` | polyligne + tête |
 | Règle | `M` | cote fine pointillée ⊢––⊣ avec label de distance — **parent d'un sous-menu** (cf. ci-dessous) |
 | Gomme | `E` | supprime au clic ou par marquee — **parent d'un sous-menu** (cf. ci-dessous) |
@@ -104,6 +104,24 @@ Les deux modes suppriment **exactement le même ensemble** : dessins, mesures et
 
 Catégories : `drawing`, `measure`, `symbol` (objets de la lib), `path`, `shape` (couches hôte — `path`/`shape` partagent le vocabulaire de `config.selection.selectable`).
 
+**« Tout effacer » a le MÊME périmètre que la gomme.** La rangée « Tout effacer » du
+sous-menu est la gomme sans geste : elle efface les objets hôte comme les formes de la lib,
+respecte `erase.targets`, épargne verrouillées et masquées, et émet `onErase` — c'est à
+votre application d'y retirer ses routes et ses zones, exactement comme après un coup de
+gomme. `useDrawing().clear()` fait la même chose depuis le code.
+
+**La gomme se retire quand elle n'a rien à mordre.** Par défaut
+(`config.toolbar.autoHide.erase`), le bouton n'est pas grisé mais **absent** tant qu'aucune
+cible autorisée n'est à l'écran — les catégories interdites par `erase.targets` ne comptent
+donc pas. Elle reparaît dès qu'un objet effaçable arrive, y compris depuis vos données
+(`<PathLayer>` / `<ShapeLayer>` avec `erasable: true`). Tant qu'elle est masquée, son
+raccourci (`E`) ne l'arme pas ; et si sa dernière cible disparaît alors qu'elle est active,
+l'outil est relâché plutôt que de rester armé sans bouton pour en sortir.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false } } }} />  // gomme toujours visible
+```
+
 ```tsx
 <Toolbar tools={['select', 'rect', 'circle', 'arrow', 'erase']} />  // affichés, dans cet ordre
 <DrawLayer tools={['select', 'rect']} />                            // AUTORISÉS (filtre aussi setTool)
@@ -112,6 +130,16 @@ Catégories : `drawing`, `measure`, `symbol` (objets de la lib), `path`, `shape`
 `<DrawLayer tools>` borne ce qui est possible ; `<Toolbar tools>` borne ce qui est
 **affiché**. Le panneau « Réglages » liste les outils réellement activés — retirer un
 outil de la barre ne le laisse pas réglable dans un panneau qui l'ignore.
+
+Sur `<Map>`, **`toolbar.tools` fait autorité quand `draw.tools` est absent** : n'en
+renseigner qu'un ne désaccorde plus l'affichage et l'autorisation. Sans cette règle, un
+outil retiré de la barre restait armable à son raccourci clavier, sans bouton pour en
+sortir. Fournir les deux reste la façon de les dissocier volontairement :
+
+```tsx
+<Map toolbar={{ tools: ['select', 'polygon'] }} />                       // dessin borné aux deux
+<Map toolbar={{ tools: ['select', 'polygon'] }} draw={{ tools: DRAW }} /> // dissociés, assumé
+```
 
 **Barre espace** : maintenir `Espace` pendant un tracé ou une édition = **pan caméra
 temporaire** (le tracé en cours est gelé, pas perdu) ; `Espace+Maj` = rotation
@@ -218,17 +246,21 @@ rectangle tourné se redimensionne le long de ses **axes propres**.
 
 ## 5. Style
 
-Le panneau de style s'affiche avec un outil actif ou une sélection.
+Le **dernier bouton de la barre est le bloc de couleurs** : les deux carrés fond/bordure,
+façon case couleur de Photoshop. Le style courant s'y lit en permanence, et un clic ouvre le
+panneau — qui ne s'ouvre QUE comme ça. Dessiner ou sélectionner ne fait plus surgir de
+surface sur la carte.
 
-- Couleurs **fond et bordure séparées** (swatches superposés façon Photoshop, échange ⇄),
-  palette du thème (`theme.colors.draw.palette`) + sélecteur natif.
+- Couleurs **fond et bordure séparées** (swatches superposés façon Photoshop, échange ⇄
+  dans le panneau), palette du thème (`theme.colors.draw.palette`) + sélecteur natif.
 - Épaisseur de bordure **y compris 0** (remplissage seul).
 - Style de trait : `solid` / `dashed` / `dotted`.
 - Opacité de bordure **et** de fond.
 - Rayon d'angle des rectangles (% du petit côté, 0–50).
 
-**Sans sélection**, le panneau règle les défauts de l'outil actif ; **avec
-sélection**, il restyle les formes.
+**Sans sélection**, le panneau règle les défauts des prochaines formes ; **avec
+sélection**, il restyle celles qui sont sélectionnées (son titre les compte). Ce qu'il
+montre suit le type de forme : le rayon d'angle n'apparaît que pour les rectangles.
 
 ```ts
 const { setStyle, currentStyle, selectionHasRect } = useDrawing()
@@ -479,7 +511,7 @@ Défauts (`config.interaction.shortcuts.draw` et `.edit`) :
 | Touches | Action |
 |---|---|
 | `V` `1` `2` `3` | sélection, rectangle, polygone, lasso |
-| `L` `P` `R` `C` `H` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, main levée (`H`), flèche, mesure, gomme, symboles |
+| `L` `P` `R` `C` `H` `A` `M` `E` `Y` | ligne, polygone, rect, cercle, crayon (`H`), flèche, mesure, gomme, symboles |
 | `Entrée` | fermer le polygone (dessin ou marquee) |
 | `Échap` | cascade : annule le geste en cours → marquee → désélectionne → outil navigation |
 
@@ -500,13 +532,30 @@ Un remapping est immédiatement reflété dans les tooltips.
 />
 ```
 
-Sections (`components`) : `navigate`, `select`, `symbol`, `lens`, `stylePanel`,
-`settings`, `undo`, `redo`, `clear`. `false` masque, un `ReactNode` remplace.
+Sections (`components`) : `navigate`, `select`, `symbol`, `measure`, `erase`, `lens`,
+`plugins`, `stylePanel`, `settings`, `undo`, `redo`, `clear`. `false` masque, un
+`ReactNode` remplace. ⚠️ `stylePanel` est le **bloc de couleurs, dernier bouton de la barre**
+(et non plus une surface flottante à côté d'elle) : le remplacer y pose votre propre nœud. ⚠️ `clear` n'est plus un bouton de la barre mais la **rangée « Tout
+effacer » du sous-menu de la gomme** : `components={{ clear: false }}` retire cette rangée,
+et retirer l'outil `erase` de `tools` emporte la commande avec lui.
+
+**La barre ne montre que ce qui sert.** Par défaut, la gomme — et avec elle sa rangée
+« Tout effacer » — n'apparaît que si une de ses cibles autorisées est à l'écran
+(`config.toolbar.autoHide.erase`) ; **« Annuler » et « Rétablir » se retirent de même tant
+qu'il n'y a rien à défaire ni à refaire** (`autoHide.history`), au lieu de rester grisés.
+Une carte sans rien d'effaçable ne montre pas de gomme, et une carte vierge ne montre pas
+deux flèches inertes. Le raccourci clavier, lui, ne dépend jamais de la barre, et le
+masquage explicite par `components` reste prioritaire.
+
+```tsx
+<Map config={{ toolbar: { autoHide: { erase: false, history: false } } }} />   // tout visible
+```
 
 **La barre qui se replie relâche tout ce qu'elle pilote** et revient à la main : un
 outil resté armé continuerait d'intercepter les gestes, si bien qu'en dézoomant on se
 retrouverait à tracer des formes sur une carte où plus aucun bouton ne permet d'en
-sortir.
+sortir. **Ses menus se referment avec elle** — un panneau resté seul au milieu de la
+carte, sans le bouton qui l'a ouvert, n'aurait plus rien pour le refermer.
 
 ### Poser son propre outil dans la barre
 
@@ -514,7 +563,7 @@ sortir.
 const bar = useToolbar()
 const [open, setOpen] = useState(false)
 
-useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer
+useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer (inutile avec <Dropdown>)
 
 <ToolButton
   icon={mdiChartBox}
@@ -526,7 +575,8 @@ useCloseWhenHidden(bar.retracted || bar.nativeActive, setOpen)   // se refermer
 
 Sans ça, deux boutons restent allumés et la barre ne dit plus où on en est.
 `ToolbarApi` porte `{ retracted, nativeActive, claim(), el, activeToolEl, publishActiveTool }` —
-les trois derniers ancrent un panneau qui suit l'outil actif, au-delà du minimum montré ici.
+les trois derniers servent d'**ancres** à une surface de l'hôte : la barre elle-même, ou le
+bouton de l'outil actif pour une surface qui se rapporte à cet outil-là.
 
 ---
 
@@ -541,7 +591,7 @@ Obtenue par `useDrawing()` (lève hors d'un `<DrawLayer>`) ou par
 | Sélection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Verrou | `lock`, `unlock` |
-| Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear` |
+| Historique | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
 | Sérialisation | `toGeoJSON`, `fromGeoJSON` |
 | CRUD | `getShapes`, `getShape`, `getLastShape`, `addShape`, `updateShape`, `removeShape`, `replaceShapes` |
 | Symboles | `symbols` — cf. [SYMBOLS.md](SYMBOLS.md) |

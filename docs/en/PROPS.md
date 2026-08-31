@@ -111,6 +111,7 @@ Markers, clustering, selection, dragging.
 |---|---|---|
 | `points` | Markers to display. Mutually exclusive with `source`, which loads them per view. | — |
 | `source` | Viewport-driven source (refetched on move, `minZoom` gate). | — |
+| `onLoadingChange` | Is a `source` load in flight? Called on every transition, never in the frame loop. Not applicable with `points`, which the host loads itself. The layer knows this state — it owns the `ViewportController` — but a loading indicator belongs in the host's interface, not on the map. | — |
 | `getId` | Stable key of a marker (default `p.id`): it decides identity, hence tweening. | `((p: MarkerData<T>) => p.id)` |
 | `cluster` | `{ enabled: boolean }` — whether THIS layer takes part in the map's grouping (default: it does). The algorithm is set in `config.clustering`, the appearance on `<Map cluster>`: a cluster is a property of the map, not of a layer. | `{ enabled: true }` |
 | `icon` | **SVG** icon (markup) of a marker, rendered as a DOM `<img>` anchored to the map. | — |
@@ -235,7 +236,7 @@ Drawing toolbar.
 | Prop | Description | Default |
 |---|---|---|
 | `position` | Anchoring side of the bar. | `'left'` |
-| `minZoom` | Minimum display zoom — drawing only makes sense in a close view; below it the bar slides off screen. | `config.interaction.drawToolbarMinZoom` |
+| `minZoom` | Minimum display zoom; below it the bar slides off screen, taking its menus with it. Rationale and default: [`config.toolbar.minZoom`](CONFIG.md). | `config.toolbar.minZoom` |
 | `tools` | Displayed tools, in order (`'select'` included — default: all). | `DEFAULT_DRAW_TOOLS` |
 | `selectModes` | Modes offered by the selection flyout (default: all 3); a single one = no flyout. | — |
 | `eraseModes` | Modes offered by the eraser flyout (default: point + marquee); a single one = no flyout. | — |
@@ -266,6 +267,17 @@ through `config.graticule`, themed through `theme.colors.graticule`, and toggled
 
 It costs nothing while the grid is off. The component stays exported for maps built without
 `<Map>` (full imperative mounting).
+
+## `<DrawStylePanel>`
+
+The draw bar's colour block — its **last button** — and the style panel it opens. Mounted by
+`<Toolbar>`; these exports only serve a manual mount (custom bar), where it takes the sizing of
+a bar button.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Side of the bar carrying the button — the panel opens on the opposite side. | `'left'` |
+| `tip` | Host bar tooltip (`useTip(TIP_ID)`). Absent = no tooltip, the `aria-label` stays in place. | — |
 
 ## `<MeasureToolButton>`
 

@@ -84,10 +84,9 @@ export class SelectionOverlay {
   /**
    * L'élément qui porte l'emprise écran de la sélection.
    *
-   * Publié parce qu'il est la seule chose qui sache OÙ est la sélection à l'écran : le
-   * panneau de style s'ancre dessus pour s'ouvrir au niveau de la forme, et non au
-   * niveau du bouton de la barre — un panneau qui règle une forme doit se trouver près
-   * d'elle. Rendu en lecture seule : personne d'autre n'écrit dedans.
+   * Publié parce qu'il est la seule chose qui sache OÙ est la sélection à l'écran : une
+   * surface qui traite la forme sélectionnée peut ainsi s'ouvrir près d'elle, et non au
+   * niveau d'un bouton de barre. Rendu en lecture seule : personne d'autre n'écrit dedans.
    */
   get boxEl(): SVGRectElement {
     return this.bboxRect

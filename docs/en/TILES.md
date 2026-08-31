@@ -28,7 +28,7 @@ no quota. A complete 2D map without an API key becomes possible.
 | Source                | Google Map Tiles                      | your server (XYZ scheme)       |
 | Authentication        | API key + signed session              | none                           |
 | Minimum setting       | `<Map googleMapsApiKey>`              | `providers.internal.origin`       |
-| Traffic layer         | yes                                   | **no** (see § 4)               |
+| Traffic layer         | yes                                   | borrowed, with a key (see § 4) |
 | Volume (`'3d'` mode)  | photorealistic 3D tiles (Cesium Ion)  | extruded buildings (see § 5)   |
 | Quota                 | billed per tile                       | yours                          |
 
@@ -150,7 +150,8 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 | `external` + Google key, no Ion token            | shown       | **hidden**  | shown in plan  |
 | `external` without key (Ion token only)          | hidden      | shown       | hidden         |
 | neither key nor token                            | hidden      | hidden      | hidden         |
-| `internal` (origin set)                          | shown       | shown       | hidden         |
+| `internal` (origin set), no Google key           | shown       | shown       | hidden         |
+| `internal` (origin set) + Google key             | shown       | shown       | shown in plan  |
 | `internal` for 2D, `external` without token in 3D | shown      | **hidden**  | hidden         |
 
 Three rules behind that table:
@@ -164,9 +165,32 @@ Three rules behind that table:
   switching would empty the screen. One exception: if NO mode is servable, the map keeps
   its own and its fallback globe; it has to be somewhere.
 - **Traffic is a property of the Google tile** (`layerTypes` requested from the session),
-  not a transparent overlay. An internal server has nothing to switch on:
-  `setTrafficVisible(true)` is a no-op there, and the button is not offered — even when a
-  Google key is otherwise configured.
+  not a transparent overlay. An internal server therefore has nothing to switch on *on its
+  own tiles*: turning it on **changes provider** for as long as the layer lasts (see below).
+  Without a Google key there is nothing to borrow — `setTrafficVisible(true)` stays a no-op
+  and the button is not offered.
+
+### Traffic with the internal provider — borrowing
+
+`internal` 2D basemap **and** a `<Map googleMapsApiKey>`: the traffic button is offered, and
+turning it on **moves the basemap over to Google** for as long as the layer is on. Turning
+it off returns to the internal server. The tile cache is cleared both ways: these are two
+sets of tiles, not two versions of the same one.
+
+```tsx
+// The default behaviour — nothing to write to get it.
+<Map
+  googleMapsApiKey={KEY}
+  config={{ providers: { tiles: { provider: 'internal', trafficViaExternal: true } } }}
+/>
+```
+
+⚠️ **What borrowing commits to**: the basemap changes appearance (Google's style, not
+yours) and its tiles are billed again while traffic is on. `trafficViaExternal: false`
+restores the original refusal — no traffic outside the external provider, button hidden.
+
+3D mode turns traffic off as before, and borrowing with it: the basemap returns to the
+internal server with nothing for the host to do.
 
 A host building its own toolbar reads the same flags, or calls the pure function that
 settles them:

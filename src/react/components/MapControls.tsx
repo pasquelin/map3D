@@ -81,7 +81,7 @@ export type MapControlButton =
  * retour au globe et grille. Il n'y a donc plus de groupe `basemap` ni `view` dédié ; masquer /
  * remplacer passe par `compass` (grain groupe) ou par les boutons (grain fin).
  */
-export type ControlGroup = 'drag' | 'compass' | 'zoom' | 'pedestrian' | 'target' | 'layers' | 'fullscreen'
+export type ControlGroup = 'drag' | 'compass' | 'layers' | 'target' | 'pedestrian' | 'zoom' | 'fullscreen'
 
 export type MapControlsProps = {
   /** Côté d'ancrage de la barre. */
@@ -144,7 +144,9 @@ const modeButtonKey = (m: MapMode): MapControlButton => (m === 'plan' ? 'plan' :
 /** Sections de la barre (grain GROUPE) — clés de `MapControlsProps.components`. */
 type Slot = keyof NonNullable<MapControlsProps['components']>
 
-/** Contrôles de navigation : déplacement/rotation du drag, boussole, zoom, inclinaison / vue du dessus / retour au globe, couches (filtre par tag), plein écran. */
+/** Contrôles de navigation, de haut en bas : déplacement/rotation du drag, point de vue
+ *  (boussole, inclinaison, bascule 3D ↔ plan, trafic, globe, grille), couches (filtre par tag,
+ *  catalogue, templates), cible, piéton, zoom, plein écran. */
 export function MapControls({
   position = 'right',
   components = {},
@@ -399,7 +401,7 @@ export function MapControls({
               />
             )}
             {/* Grille de coordonnées. Présente ICI en plus du sous-menu « Mesures » de la
-                barre d'outils parce que celle-ci se replie sous `drawToolbarMinZoom` (11) :
+                barre d'outils parce que celle-ci se replie sous `toolbar.minZoom` :
                 sans ce bouton, la grille deviendrait impilotable en vue globe — exactement
                 là où elle sert le plus. Les deux pilotent le même état moteur. */}
             {btn('graticule') && (
@@ -416,28 +418,39 @@ export function MapControls({
         ),
       )}
 
+      {/* « Couches », « Catalogue » et « Templates » dans le MÊME groupe : filtrer par
+          tag, parcourir un référentiel et rappeler une sauvegarde sont la gestion du
+          contenu de la carte, réunie en une carte. Chacun garde son propre bouton +
+          flyout (ancré, dismiss), et l'exclusivité de `Dropdown` fait qu'un seul
+          s'ouvre à la fois. `<CatalogControl>` ne rend rien sans source déclarée.
+          Placé juste après le point de vue : on choisit CE QUE la carte montre avant
+          d'aller le regarder de près (piéton, cible, zoom). */}
       {slot(
-        'zoom',
-        (btn('zoomIn') || btn('zoomOut')) && (
+        'layers',
+        (btn('layers') || btn('catalog') || templates) && (
           <div className="m3d-controls-group">
-            {btn('zoomIn') && (
-              <ToolButton
-                icon={mdiPlus}
-                label={labels.controls.zoomIn}
-                tip={tip}
-                shortcut={keys.zoomIn}
-                onClick={() => zoomBy(config.camera.zoomFactor.in)}
-              />
+            {btn('layers') && (
+              <TagFilterControl grouped position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
             )}
-            {btn('zoomOut') && (
-              <ToolButton
-                icon={mdiMinus}
-                label={labels.controls.zoomOut}
-                tip={tip}
-                shortcut={keys.zoomOut}
-                onClick={() => zoomBy(config.camera.zoomFactor.out)}
-              />
-            )}
+            {btn('catalog') && <CatalogControl grouped position={position} tipId={TIP_ID} shortcut={keys.catalog} />}
+            {templates && <TemplatesPanel grouped {...templates} position={position} tipId={TIP_ID} />}
+          </div>
+        ),
+      )}
+
+      {/* Cible : présente = bouton, absente = rien. Aucune valeur par défaut ne
+          serait sensée — la lib ne sait pas vers quoi « revenir » d'elle-même. Juste avant
+          le piéton : on revient au point de contrôle, PUIS on descend s'y promener. */}
+      {slot(
+        'target',
+        btn('target') && target && (!target.onlyWhenOutOfView || targetOut) && (
+          <div className="m3d-controls-group">
+            <ToolButton
+              icon={mdiCrosshairsGps}
+              label={target.label ?? labels.controls.target}
+              tip={tip}
+              onClick={goToTarget}
+            />
           </div>
         ),
       )}
@@ -461,36 +474,31 @@ export function MapControls({
         ),
       )}
 
-      {/* Cible : présente = bouton, absente = rien. Aucune valeur par défaut ne
-          serait sensée — la lib ne sait pas vers quoi « revenir » d'elle-même. */}
+      {/* Zoom en BAS de barre, collé au plein écran : c'est le geste le plus répété, donc le
+          plus proche du pouce / du bord bas — et les deux boutons qui n'ouvrent aucune surface
+          finissent ensemble, après tout ce qui déploie un flyout. */}
       {slot(
-        'target',
-        btn('target') && target && (!target.onlyWhenOutOfView || targetOut) && (
+        'zoom',
+        (btn('zoomIn') || btn('zoomOut')) && (
           <div className="m3d-controls-group">
-            <ToolButton
-              icon={mdiCrosshairsGps}
-              label={target.label ?? labels.controls.target}
-              tip={tip}
-              onClick={goToTarget}
-            />
-          </div>
-        ),
-      )}
-
-      {/* « Couches », « Catalogue » et « Templates » dans le MÊME groupe : filtrer par
-          tag, parcourir un référentiel et rappeler une sauvegarde sont la gestion du
-          contenu de la carte, réunie en une carte. Chacun garde son propre bouton +
-          flyout (ancré, dismiss), et l'exclusivité de `Dropdown` fait qu'un seul
-          s'ouvre à la fois. `<CatalogControl>` ne rend rien sans source déclarée. */}
-      {slot(
-        'layers',
-        (btn('layers') || btn('catalog') || templates) && (
-          <div className="m3d-controls-group">
-            {btn('layers') && (
-              <TagFilterControl grouped position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
+            {btn('zoomIn') && (
+              <ToolButton
+                icon={mdiPlus}
+                label={labels.controls.zoomIn}
+                tip={tip}
+                shortcut={keys.zoomIn}
+                onClick={() => zoomBy(config.camera.zoomFactor.in)}
+              />
             )}
-            {btn('catalog') && <CatalogControl grouped position={position} tipId={TIP_ID} shortcut={keys.catalog} />}
-            {templates && <TemplatesPanel grouped {...templates} position={position} tipId={TIP_ID} />}
+            {btn('zoomOut') && (
+              <ToolButton
+                icon={mdiMinus}
+                label={labels.controls.zoomOut}
+                tip={tip}
+                shortcut={keys.zoomOut}
+                onClick={() => zoomBy(config.camera.zoomFactor.out)}
+              />
+            )}
           </div>
         ),
       )}

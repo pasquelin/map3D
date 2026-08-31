@@ -1,13 +1,69 @@
+import type { MarkerData } from '../data/types'
 import type { ShapeData } from '../layers/ShapeLayer'
 import {
-  deserializeSelection,
-  deserializeSelectionTitles,
+  deserializeSnapshot,
+  parseCatalogKey,
+  purgeGroups,
   purgeSources,
   removeFromSelection,
-  serializeSelection,
+  serializeSnapshot,
 } from './selection'
+import { groupCheck, NO_GROUP_CHECK, type GroupCheck } from './groups'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { CatalogKey } from './types'
+
+/**
+ * Ce qu'un élément pose sur la carte : des formes, des points, ou les deux.
+ *
+ * Un seul objet plutôt que deux tables parallèles : les deux arrivent du même geste, se
+ * retirent du même geste, et une paire désynchronisée laisserait les points d'une zone
+ * qu'on vient de décocher.
+ */
+export type CatalogContent = {
+  shapes: readonly ShapeData[]
+  markers: readonly MarkerData[]
+}
+
+/**
+ * Référence STABLE : rendue tant qu'aucun élément n'a de points, elle évite un re-render.
+ *
+ * Exportée pour que les appelants qui composent un `CatalogContent` sans point rendent la
+ * MÊME référence — deux tableaux vides distincts feraient croire à un changement.
+ */
+export const NO_MARKERS: readonly MarkerData[] = []
+
+/** Idem côté formes — cf. `NO_MARKERS`. */
+const NO_SHAPES: readonly ShapeData[] = []
+
+/**
+ * Aplatit des lots en une liste, **dédoublonnée par `id`**.
+ *
+ * Deux entrées de catalogue peuvent légitimement porter le même objet : un groupe et cette
+ * zone prise isolément, ou deux référentiels qui se recouvrent. Peint deux fois, il se
+ * superpose à lui-même — remplissages cumulés, contours plus épais — et reste à l'écran
+ * quand on décoche celle qu'on croyait seule.
+ *
+ * La PREMIÈRE occurrence gagne, et le retrait d'une entrée reconstruit tout : un objet
+ * encore référencé ailleurs survit donc de lui-même. Un objet SANS `id` n'est pas
+ * identifiable — on le garde tel quel plutôt que de deviner (le cas des formes anonymes ;
+ * un marker, lui, a toujours un id).
+ */
+function dedupeById<T extends { id?: string | number }>(batches: Iterable<readonly T[]>): T[] {
+  const out: T[] = []
+  const seen = new Set<string | number>()
+  for (const batch of batches) {
+    for (const item of batch) {
+      if (item.id === undefined) {
+        out.push(item)
+        continue
+      }
+      if (seen.has(item.id)) continue
+      seen.add(item.id)
+      out.push(item)
+    }
+  }
+  return out
+}
 
 /** Réglages du catalogue, pilotés depuis le panneau engrenage. */
 export type CatalogSettings = {
@@ -69,11 +125,59 @@ export class CatalogStore {
    */
   private shown = new Set<CatalogKey>()
   private readonly geometries = new Map<CatalogKey, readonly ShapeData[]>()
+  /**
+   * Points d'un élément — table SÉPARÉE des formes, et alimentée seulement quand il y en
+   * a : la quasi-totalité des sources n'en pose aucun, et une entrée vide par clé ferait
+   * balayer la table entière à chaque mutation pour n'y rien trouver.
+   */
+  private readonly markersByKey = new Map<CatalogKey, readonly MarkerData[]>()
+  /**
+   * `markersByKey` a bougé depuis la dernière reconstruction.
+   *
+   * Un drapeau porté par les deux accesseurs plutôt qu'une variable locale par méthode :
+   * `rebuildMarkers` change l'identité de `markersCache`, donc reconstruit la couche
+   * marker — le déclencher sur une source qui n'a jamais posé de point (le cas de presque
+   * toutes) était du travail pur. Oublier de le lever dans une nouvelle méthode ne casse
+   * rien de visible tout de suite, d'où l'invariant tenu ici et nulle part ailleurs.
+   */
+  private markersDirty = false
   private readonly pending = new Set<CatalogKey>()
   private readonly errors = new Set<CatalogKey>()
+  /**
+   * Sources à BASCULE allumées, par id.
+   *
+   * Volontairement à côté de `selectionKeys` et non dedans : une bascule n'a pas
+   * d'élément, donc pas de `CatalogKey`. Y glisser une sentinelle (`'defibs:*'`) la
+   * ferait entrer en collision avec l'identifiant d'un élément réel, et la purge comme la
+   * restauration ne sauraient plus laquelle des deux elles traitent.
+   */
+  private enabled = new Set<string>()
+  /**
+   * Quels éléments composent quel agrégat — persistée avec la sélection.
+   *
+   * Un agrégat n'entre JAMAIS dans `selectionKeys` : il n'est qu'un sélecteur de ses
+   * enfants. Sa case doit pourtant savoir où ils en sont, y compris replié et y compris à
+   * la réouverture du panneau — d'où cette table, alimentée dès que les enfants sont
+   * chargés (dépliage ou cochage), sans une requête de plus.
+   */
+  private groups = new Map<CatalogKey, readonly CatalogKey[]>()
+  /**
+   * Éléments affichés PAR SOURCE — dérivée de `selectionKeys`, invalidée par `bump`.
+   *
+   * Un seul point d'invalidation, et c'est celui par lequel passe toute mutation : un
+   * compteur incrémental tenu à jour dans les six méthodes d'écriture aurait dérivé au
+   * premier oubli, sans rien casser de visible tout de suite.
+   */
+  private countsBySource: ReadonlyMap<string, number> | null = null
+  /**
+   * Bascules dont un chargement est EN VOL — jamais persisté : c'est un état de la
+   * seconde qui passe, pas une préférence.
+   */
+  private readonly loadingSources = new Set<string>()
   private settings: CatalogSettings = DEFAULT_SETTINGS
   private token: object = {}
   private shapesCache: readonly ShapeData[] = []
+  private markersCache: readonly MarkerData[] = NO_MARKERS
   private readonly listeners = new Set<() => void>()
   private keys: CatalogStoreKeys | null = null
   /**
@@ -126,11 +230,19 @@ export class CatalogStore {
     this.settings = this.loadSettings(keys.settings)
     // Ne relire la sélection que si la persistance est active : sinon une charge
     // laissée par une session précédente ressusciterait un réglage qu'on a désactivé.
-    // Une seule lecture du stockage, deux dérivations : clés et titres viennent de la
-    // même charge, la relire deux fois doublerait un `JSON.parse` sur le chemin de démarrage.
-    const raw = this.settings.persist ? readStoredJSON(keys.selection) : null
-    this.selectionKeys = raw !== null ? deserializeSelection(raw) : []
-    this.titles = raw !== null ? new Map(deserializeSelectionTitles(raw)) : new Map()
+    // Une seule lecture, un seul parse : les trois champs viennent de la même charge.
+    const snap = this.settings.persist ? deserializeSnapshot(readStoredJSON(keys.selection)) : null
+    this.groups = new Map(snap?.groups)
+    // Une clé d'AGRÉGAT n'a rien à faire en sélection (cf. `rememberGroup`). Une session
+    // enregistrée avant cette règle en porte : la restaurer repeindrait les zones du groupe
+    // par-dessus celles de ses enfants, et laisserait une case que rien ne décoche. On
+    // l'écarte ici dès qu'on sait que c'en est un — le reste de la sélection est intact.
+    this.selectionKeys = (snap?.keys ?? []).filter((k) => !this.groups.has(k))
+    this.titles = new Map(snap?.titles)
+    // Les bascules sont dans leur propre champ : elles ne passent NI par `shown` (aucune
+    // clé d'élément) NI par `toRestore` (rien à redemander — c'est la couche qui
+    // rechargera au premier cadre).
+    this.enabled = new Set(snap?.sources)
     this.shown = new Set(this.selectionKeys)
     this.toRestore = new Set(this.selectionKeys)
     this.bump()
@@ -161,8 +273,67 @@ export class CatalogStore {
     return this.shapesCache
   }
 
+  /** Tous les points posés par les éléments affichés. Ceux des BASCULES n'y sont pas :
+   * ils vivent dans leur couche, rechargés au cadre, et ne transitent jamais par ici. */
+  markers(): readonly MarkerData[] {
+    return this.markersCache
+  }
+
+  /**
+   * Combien d'entrées le catalogue peint-il ? Éléments cochés **plus** bascules
+   * allumées — c'est le badge du bouton.
+   *
+   * Les deux comptent : allumer un jeu de 36 000 points sans que le bouton s'allume
+   * laisserait croire que le catalogue ne fait rien.
+   */
+  activeCount(): number {
+    return this.selectionKeys.length + this.enabled.size
+  }
+
   isShown(key: CatalogKey): boolean {
     return this.shown.has(key)
+  }
+
+  /**
+   * État de la case d'un agrégat, dérivé de ses enfants — `off` tant qu'on ignore de quoi
+   * il est fait.
+   *
+   * C'est ce qui rend une ligne REPLIÉE lisible : sans elle, la liste retombait sur
+   * l'état de l'agrégat lui-même, lequel n'est jamais sélectionné — donc toujours décoché,
+   * quel que soit le sort de ses zones.
+   */
+  groupState(parentKey: CatalogKey): GroupCheck {
+    const children = this.groups.get(parentKey)
+    return children ? groupCheck(children, (k) => this.shown.has(k)) : NO_GROUP_CHECK
+  }
+
+  /** Enfants connus d'un agrégat, ou `undefined` si son contenu n'a jamais été chargé. */
+  groupChildren(parentKey: CatalogKey): readonly CatalogKey[] | undefined {
+    return this.groups.get(parentKey)
+  }
+
+  /**
+   * Combien d'éléments de cette source sont sur la carte — le compte du MENU des types.
+   *
+   * Sans lui, rien n'indiquait d'un niveau à l'autre où se trouvait ce qui est affiché : il
+   * fallait ouvrir chaque type, puis déplier chaque agrégat, pour retrouver trois zones
+   * cochées. Le total annoncé par la source (`CatalogSource.total`), lui, ne dit rien de
+   * l'état — c'est la taille du jeu de référence.
+   *
+   * Table dérivée EN UNE passe et mémoïsée jusqu'à la prochaine mutation : appelée par
+   * ligne de menu, elle rebalayait sinon toute la sélection autant de fois qu'il y a de
+   * sources.
+   */
+  shownCountOf(sourceId: string): number {
+    if (this.countsBySource === null) {
+      const counts = new Map<string, number>()
+      for (const key of this.selectionKeys) {
+        const parsed = parseCatalogKey(key)
+        if (parsed) counts.set(parsed.sourceId, (counts.get(parsed.sourceId) ?? 0) + 1)
+      }
+      this.countsBySource = counts
+    }
+    return this.countsBySource.get(sourceId) ?? 0
   }
 
   /** Sa géométrie est-elle déjà en mémoire ? Faux pour une clé restaurée non rechargée. */
@@ -170,9 +341,16 @@ export class CatalogStore {
     return this.geometries.has(key)
   }
 
-  /** Ses formes, pour cadrer dessus avant de le retirer. */
-  getGeometry(key: CatalogKey): readonly ShapeData[] | undefined {
-    return this.geometries.get(key)
+  /**
+   * Tout ce qu'un élément a posé, ou `null` s'il n'a rien (pas encore chargé, retiré).
+   *
+   * Le store écrit des `CatalogContent` (`setContentMany`) : il doit aussi savoir en
+   * rendre. Sans ça, chaque appelant recomposait la paire à la main — et l'une des trois
+   * recompositions avait déjà dérivé sur le traitement de la géométrie absente.
+   */
+  getContent(key: CatalogKey): CatalogContent | null {
+    const shapes = this.geometries.get(key)
+    return shapes ? { shapes, markers: this.markersByKey.get(key) ?? NO_MARKERS } : null
   }
 
   isPending(key: CatalogKey): boolean {
@@ -185,6 +363,47 @@ export class CatalogStore {
 
   getSettings(): CatalogSettings {
     return this.settings
+  }
+
+  // ── Sources à bascule ──
+
+  isSourceOn(id: string): boolean {
+    return this.enabled.has(id)
+  }
+
+  /**
+   * Allume ou éteint un jeu. Le geste est complet à lui seul : rien à charger ici, la
+   * couche montée par la surface s'en occupe au premier cadre.
+   */
+  setSourceOn(id: string, on: boolean): void {
+    if (this.enabled.has(id) === on) return
+    if (on) this.enabled.add(id)
+    else {
+      this.enabled.delete(id)
+      // Éteinte, sa couche est démontée : plus personne ne rendra jamais ce drapeau à
+      // `false`, et la ligne resterait en chargement pour toujours.
+      this.loadingSources.delete(id)
+    }
+    this.persistSelection()
+    this.bump()
+  }
+
+  /**
+   * Un chargement est-il en vol pour ce jeu ? Jamais un COMPTE — cf. `CatalogToggleSource`.
+   *
+   * Éteint ⇒ jamais en chargement, quoi qu'il reste dans la table : la garde est ICI et pas
+   * dans les quatre endroits qui éteignent, sinon l'invariant tiendrait à ce qu'aucun d'eux
+   * n'oublie de nettoyer — et une ligne resterait en chargement pour toujours.
+   */
+  isSourceLoading(id: string): boolean {
+    return this.enabled.has(id) && this.loadingSources.has(id)
+  }
+
+  setSourceLoading(id: string, loading: boolean): void {
+    if (this.loadingSources.has(id) === loading) return
+    if (loading) this.loadingSources.add(id)
+    else this.loadingSources.delete(id)
+    this.bump()
   }
 
   // ── Écriture ──
@@ -265,30 +484,58 @@ export class CatalogStore {
     return added
   }
 
-  setGeometry(key: CatalogKey, shapes: readonly ShapeData[]): void {
-    this.geometries.set(key, shapes)
-    this.pending.delete(key)
-    this.errors.delete(key)
-    this.rebuildShapes()
-    this.bump()
+  /**
+   * Retient de quoi un agrégat est fait — et le SORT de la sélection s'il y était.
+   *
+   * Le retrait n'est pas un détail de rangement : un agrégat inscrit peignait ses zones une
+   * seconde fois, par-dessus celles de ses enfants, et sa clé survivait au décochage (le
+   * geste ne porte que sur les enfants) — badge faux, carte doublée, case recochée seule à
+   * la réouverture. Plus rien ne l'inscrit désormais ; ce nettoyage rattrape les sessions
+   * enregistrées AVANT, sans jeter le reste de leur sélection. Il a lieu au premier contact
+   * avec l'agrégat, dépliage compris.
+   *
+   * Rend `true` si la sélection a bougé — l'appelant repeint la carte, et lui seul sait
+   * s'il doit.
+   */
+  rememberGroup(parentKey: CatalogKey, childKeys: readonly CatalogKey[]): boolean {
+    const strayed = this.shown.has(parentKey)
+    // Réapprendre à l'identique n'est PAS un changement : un dépliage suffit à repasser
+    // ici, et notifier pour la même réponse re-rendrait tous les abonnés du store.
+    if (!strayed && this.knowsGroup(parentKey, childKeys)) return false
+    this.groups.set(parentKey, childKeys)
+    // `remove` persiste et notifie déjà — l'appeler ici évite une seconde écriture.
+    if (strayed) this.remove(parentKey)
+    else {
+      this.persistSelection()
+      this.bump()
+    }
+    return strayed
+  }
+
+  /** Cet agrégat est-il déjà connu, avec exactement ces enfants dans cet ordre ? */
+  private knowsGroup(parentKey: CatalogKey, childKeys: readonly CatalogKey[]): boolean {
+    const known = this.groups.get(parentKey)
+    return known !== undefined && known.length === childKeys.length && known.every((k, i) => k === childKeys[i])
   }
 
   /**
-   * Pose les géométries d'un LOT en une passe.
+   * Pose le contenu d'un LOT en une passe.
    *
    * `rebuildShapes` est en O(formes totales) et chaque `bump` redescend jusqu'à
    * `ShapeLayer`, qui reconstruit TOUTES ses formes. Élément par élément, afficher k
    * zones coûtait O(k × total) itérations et k reconstructions complètes de la couche
    * 3D — là où une seule suffit.
    */
-  setGeometryMany(entries: readonly (readonly [CatalogKey, readonly ShapeData[]])[]): void {
+  setContentMany(entries: readonly (readonly [CatalogKey, CatalogContent])[]): void {
     if (entries.length === 0) return
-    for (const [key, shapes] of entries) {
-      this.geometries.set(key, shapes)
+    for (const [key, content] of entries) {
+      this.geometries.set(key, content.shapes)
+      this.putMarkers(key, content.markers)
       this.pending.delete(key)
       this.errors.delete(key)
     }
     this.rebuildShapes()
+    this.flushMarkers()
     this.bump()
   }
 
@@ -298,10 +545,12 @@ export class CatalogStore {
     this.selectionKeys = removeFromSelection(this.selectionKeys, key)
     this.titles.delete(key)
     this.geometries.delete(key)
+    this.dropMarkers(key)
     this.pending.delete(key)
     if (failed) this.errors.add(key)
     else this.errors.delete(key)
     this.rebuildShapes()
+    this.flushMarkers()
     this.persistSelection()
     this.bump()
   }
@@ -320,6 +569,7 @@ export class CatalogStore {
       this.shown.delete(key)
       this.titles.delete(key)
       this.geometries.delete(key)
+      this.dropMarkers(key)
       this.pending.delete(key)
       // Même règle que `remove` : un lot qui échoue laisse ses pastilles d'erreur.
       if (failed) this.errors.add(key)
@@ -329,19 +579,36 @@ export class CatalogStore {
     if (!touched) return
     this.selectionKeys = this.selectionKeys.filter((k) => this.shown.has(k))
     this.rebuildShapes()
+    this.flushMarkers()
     this.persistSelection()
     this.bump()
   }
 
+  /**
+   * « Tout retirer » : la carte cesse de peindre ce qui vient du catalogue.
+   *
+   * Les bascules partent AVEC les éléments cochés. Les épargner laisserait des milliers
+   * de points sur une carte qu'on vient de demander à vider — le bouton dit « tout ».
+   *
+   * `groups` reste, DÉLIBÉRÉMENT, seule table à survivre ici : ce n'est pas de l'état
+   * affiché mais un index de ce que la source a déjà répondu. Vidée, le prochain dépliage
+   * repartirait en requête pour réapprendre ce qu'on savait. Rien n'en fuit à l'écran —
+   * sans enfant affiché, la case est décochée et le compte muet — ni dans le stockage, où
+   * seuls les agrégats ayant un enfant sur la carte sont écrits (cf. `serializeSnapshot`).
+   */
   clear(): void {
-    if (this.selectionKeys.length === 0 && this.geometries.size === 0) return
+    if (this.selectionKeys.length === 0 && this.geometries.size === 0 && this.enabled.size === 0) return
     this.selectionKeys = []
     this.titles.clear()
     this.shown.clear()
     this.geometries.clear()
+    this.clearMarkers()
     this.pending.clear()
     this.errors.clear()
+    this.enabled.clear()
+    this.loadingSources.clear()
     this.rebuildShapes()
+    this.flushMarkers()
     this.persistSelection()
     this.bump()
   }
@@ -354,20 +621,42 @@ export class CatalogStore {
    * une frame rendue pour rien à chaque plugin qui arrive.
    */
   purge(known: ReadonlySet<string>): boolean {
+    // Les bascules d'abord, et SÉPARÉMENT : leur source peut disparaître alors qu'aucune
+    // clé d'élément ne bouge (une source à bascule n'en a pas). Fusionner les deux tests
+    // laissait un jeu de points allumé, sans plus aucune ligne pour l'éteindre.
+    let touchedSources = false
+    for (const id of [...this.enabled]) {
+      if (known.has(id)) continue
+      this.enabled.delete(id)
+      this.loadingSources.delete(id)
+      touchedSources = true
+    }
     const kept = purgeSources(this.selectionKeys, known)
-    if (kept === this.selectionKeys) return false
-    const keep = new Set(kept)
-    for (const key of [...this.geometries.keys()]) if (!keep.has(key)) this.geometries.delete(key)
-    // `pending` et `errors` AUSSI : sans cela, un plugin démonté puis remonté retrouvait
-    // ses lignes en erreur ou en chargement alors que plus rien n'était en vol — une
-    // case désactivée et une pastille rouge que rien ne venait jamais effacer.
-    for (const key of [...this.pending]) if (!keep.has(key)) this.pending.delete(key)
-    for (const key of [...this.errors]) if (!keep.has(key)) this.errors.delete(key)
-    for (const key of [...this.toRestore]) if (!keep.has(key)) this.toRestore.delete(key)
-    for (const key of [...this.titles.keys()]) if (!keep.has(key)) this.titles.delete(key)
-    this.shown = keep
-    this.selectionKeys = kept
-    this.rebuildShapes()
+    // L'appartenance part avec sa source : gardée, elle ferait afficher un compte « 2/3 »
+    // sur des enfants que plus aucune source ne sait charger, et grossirait la charge
+    // persistée à chaque plugin passé par là.
+    const keptGroups = purgeGroups(this.groups, known)
+    const touchedGroups = keptGroups !== this.groups
+    if (touchedGroups) this.groups = keptGroups
+    // Rien nulle part : on ressort SANS notifier, pour ne pas rendre une frame à
+    // chaque inscription de source qui n'a rien retiré.
+    if (kept === this.selectionKeys && !touchedSources && !touchedGroups) return false
+    if (kept !== this.selectionKeys) {
+      const keep = new Set(kept)
+      for (const key of [...this.geometries.keys()]) if (!keep.has(key)) this.geometries.delete(key)
+      for (const key of [...this.markersByKey.keys()]) if (!keep.has(key)) this.dropMarkers(key)
+      // `pending` et `errors` AUSSI : sans cela, un plugin démonté puis remonté retrouvait
+      // ses lignes en erreur ou en chargement alors que plus rien n'était en vol — une
+      // case désactivée et une pastille rouge que rien ne venait jamais effacer.
+      for (const key of [...this.pending]) if (!keep.has(key)) this.pending.delete(key)
+      for (const key of [...this.errors]) if (!keep.has(key)) this.errors.delete(key)
+      for (const key of [...this.toRestore]) if (!keep.has(key)) this.toRestore.delete(key)
+      for (const key of [...this.titles.keys()]) if (!keep.has(key)) this.titles.delete(key)
+      this.shown = keep
+      this.selectionKeys = kept
+      this.rebuildShapes()
+      this.flushMarkers()
+    }
     this.persistSelection()
     this.bump()
     return true
@@ -414,33 +703,44 @@ export class CatalogStore {
 
   // ── Interne ──
 
-  /**
-   * Aplatit les géométries affichées, **dédoublonnées par `ShapeData.id`**.
-   *
-   * Deux entrées de catalogue peuvent légitimement porter la même zone : un groupe et
-   * cette zone prise isolément, ou deux référentiels qui se recouvrent. Peintes deux
-   * fois, elles se superposent — remplissages cumulés, contours plus épais, et une zone
-   * qui reste à l'écran quand on décoche celle qu'on croyait seule.
-   *
-   * La PREMIÈRE occurrence gagne, et le retrait d'une entrée reconstruit tout : une
-   * forme encore référencée ailleurs survit donc d'elle-même. Une forme sans `id` n'est
-   * pas identifiable — on la garde telle quelle plutôt que de deviner.
-   */
+  /** Formes affichées, à plat et dédoublonnées — cf. `dedupeById`. */
   private rebuildShapes(): void {
-    const out: ShapeData[] = []
-    const seen = new Set<string | number>()
-    for (const shapes of this.geometries.values()) {
-      for (const shape of shapes) {
-        if (shape.id === undefined) {
-          out.push(shape)
-          continue
-        }
-        if (seen.has(shape.id)) continue
-        seen.add(shape.id)
-        out.push(shape)
-      }
+    // Référence CONSTANTE quand rien n'est affiché, comme `rebuildMarkers` : un `[]` neuf
+    // par mutation ferait croire à un changement à qui compare `shapes()` par identité.
+    this.shapesCache = this.geometries.size === 0 ? NO_SHAPES : dedupeById(this.geometries.values())
+  }
+
+  /** Retient les points d'une clé — rien du tout si elle n'en a pas (cf. `markersByKey`). */
+  private putMarkers(key: CatalogKey, markers: readonly MarkerData[]): void {
+    if (markers.length === 0) {
+      this.dropMarkers(key)
+      return
     }
-    this.shapesCache = out
+    this.markersByKey.set(key, markers)
+    this.markersDirty = true
+  }
+
+  private dropMarkers(key: CatalogKey): void {
+    if (this.markersByKey.delete(key)) this.markersDirty = true
+  }
+
+  private clearMarkers(): void {
+    if (this.markersByKey.size === 0) return
+    this.markersByKey.clear()
+    this.markersDirty = true
+  }
+
+  /** Reconstruit le cache des points SEULEMENT si la table a bougé. */
+  private flushMarkers(): void {
+    if (!this.markersDirty) return
+    this.markersDirty = false
+    this.rebuildMarkers()
+  }
+
+  /** Points affichés, à plat et dédoublonnés — cf. `dedupeById`. */
+  private rebuildMarkers(): void {
+    // Référence CONSTANTE quand rien n'a de point — cf. `NO_MARKERS`.
+    this.markersCache = this.markersByKey.size === 0 ? NO_MARKERS : dedupeById(this.markersByKey.values())
   }
 
   /**
@@ -474,7 +774,15 @@ export class CatalogStore {
     if (!this.persistDirty) return
     this.persistDirty = false
     if (!this.keys || !this.settings.persist) return
-    writeStoredJSON(this.keys.selection, serializeSelection(this.selectionKeys, this.titles))
+    writeStoredJSON(
+      this.keys.selection,
+      serializeSnapshot({
+        keys: this.selectionKeys,
+        titles: this.titles,
+        sources: this.enabled,
+        groups: this.groups,
+      }),
+    )
   }
 
   /** Abandonne l'écriture en attente — la charge qu'elle porterait n'a plus lieu d'être. */
@@ -498,6 +806,7 @@ export class CatalogStore {
   }
 
   private bump(): void {
+    this.countsBySource = null
     this.token = {}
     for (const cb of this.listeners) cb()
   }
