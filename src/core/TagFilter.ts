@@ -1,4 +1,5 @@
 import { defaultConfig } from '../config/defaultConfig'
+import { readStoredJSON, writeStoredJSON } from './storage'
 /** Tag présent sur la carte + nombre d'éléments qui le portent. */
 export type TagEntry = { tag: string; count: number }
 
@@ -72,12 +73,8 @@ export class TagFilter {
 
   constructor(private readonly storageKey: string | null = defaultConfig.data.storageKeys.tagFilter) {
     if (!this.storageKey) return
-    try {
-      const raw = globalThis.localStorage?.getItem(this.storageKey)
-      if (raw) for (const t of JSON.parse(raw) as string[]) this.selection.add(t)
-    } catch {
-      /* stockage indisponible (SSR, vie privée) → filtre vide */
-    }
+    const stored = readStoredJSON(this.storageKey)
+    if (Array.isArray(stored)) for (const t of stored) if (typeof t === 'string') this.selection.add(t)
   }
 
   get selected(): ReadonlySet<string> {
@@ -204,11 +201,7 @@ export class TagFilter {
     // l'I/O localStorage ne doit pas précéder le travail visible à l'écran.
     for (const cb of this.selectionListeners) cb()
     if (!this.storageKey) return
-    try {
-      globalThis.localStorage?.setItem(this.storageKey, JSON.stringify([...this.selection]))
-    } catch {
-      /* stockage indisponible → sélection non persistée */
-    }
+    writeStoredJSON(this.storageKey, [...this.selection])
   }
 
   private emitRegistry(): void {

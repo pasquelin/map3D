@@ -43,6 +43,10 @@ import { useYieldsTool } from '../hooks/useYieldsTool'
 export type DrawLayerProps = {
   /** Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. */
   tools?: DrawTool[]
+  /** Modes de sélection autorisés (défaut : tous). Filtre aussi `setSelectMode`, clavier compris. */
+  selectModes?: SelectMode[]
+  /** Modes de gomme autorisés (défaut : tous). Filtre aussi `setEraseMode`, clavier compris. */
+  eraseModes?: EraseMode[]
   /** Raccourci par outil/action — `false` pour en désactiver un, autre touche pour remapper. */
   shortcuts?: Partial<Record<DrawTool | DrawAction, string | false>>
   /** Style d'une forme nouvellement tracée, avant tout réglage utilisateur. */
@@ -159,7 +163,22 @@ export function DrawLayer(props: DrawLayerProps) {
   /** Relâche la suspension barre-espace (posée par l'effet dédié plus bas). */
   const releaseSpaceRef = useRef<() => void>(() => {})
 
-  const allowed = props.tools ?? DEFAULT_DRAW_TOOLS
+  // Mémoïsé sur le CONTENU, comme `presets` juste en dessous : depuis que `toolbar.tools`
+  // alimente `draw.tools` par défaut, un hôte qui écrit sa barre en littéral inline
+  // ferait sinon changer `allowed` d'identité à chaque rendu — donc `DrawingApi`, donc
+  // toute la barre et ses panneaux.
+  const allowed = useMergedByContent<DrawTool[] | undefined, DrawTool[]>(
+    props.tools,
+    (tools) => tools ?? DEFAULT_DRAW_TOOLS,
+  )
+  const allowedSelectModes = useMergedByContent<SelectMode[] | undefined, SelectMode[] | undefined>(
+    props.selectModes,
+    (modes) => (modes?.length ? modes : undefined),
+  )
+  const allowedEraseModes = useMergedByContent<EraseMode[] | undefined, EraseMode[] | undefined>(
+    props.eraseModes,
+    (modes) => (modes?.length ? modes : undefined),
+  )
   // Fusion sur les défauts : `presets={{ widths: [...] }}` ne doit pas vider les trois
   // autres tables. Mémoïsé sur le CONTENU et non l'identité — le pattern documenté
   // est le littéral inline, qui recrée l'objet à chaque rendu : une mémoïsation par
@@ -235,12 +254,17 @@ export function DrawLayer(props: DrawLayerProps) {
   const pedestrianRef = useRef(pedestrian)
   pedestrianRef.current = pedestrian
 
+  // Gardés comme `setTool` l'est par `allowed` : une restriction annoncée par l'API doit
+  // valoir aussi au clavier, sinon un raccourci arme un mode dont aucune rangée du
+  // sous-menu ne permet de sortir.
   const setSelectMode = (m: SelectMode) => {
+    if (allowedSelectModes && !allowedSelectModes.includes(m)) return
     coreRef.current?.setSelectMode(m)
     setSelectModeState(m)
   }
 
   const setEraseMode = (m: EraseMode) => {
+    if (allowedEraseModes && !allowedEraseModes.includes(m)) return
     coreRef.current?.setEraseMode(m)
     setEraseModeState(m)
   }
@@ -273,9 +297,9 @@ export function DrawLayer(props: DrawLayerProps) {
       new DrawSettings(
         baseRef.current,
         props.settingsStorage === 'none' || typeof localStorage === 'undefined' ? null : localStorage,
-        props.settingsStorageKey,
+        props.settingsStorageKey ?? config.data.storageKeys.drawSettings,
       ),
-    [props.settingsStorage, props.settingsStorageKey],
+    [props.settingsStorage, props.settingsStorageKey, config.data.storageKeys.drawSettings],
   )
   useEffect(() => {
     settings.setBase(base)
