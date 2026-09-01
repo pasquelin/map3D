@@ -60,7 +60,6 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'style.zIndex': 'Empilement des surfaces',
 
   camera: 'Caméra',
-  'camera.dragSpeed': 'Vitesse de déplacement',
   'camera.zoomFactor': 'Facteur par cran de zoom',
   'camera.keyPan': 'Déplacement au clavier',
   'camera.followAltitude': 'Altitude du mode suivi',
@@ -372,9 +371,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'camera.maxZoom': 'zoom maximal en plan',
   'camera.maxZoom3d': 'zoom maximal en 3D (plancher)',
   'camera.maxTilt': 'inclinaison max (rad)',
-  'camera.zoomStep': 'pas de la molette',
-  'camera.dragSpeed.min': 'au ras du sol',
-  'camera.dragSpeed.max': 'en vue globe',
   'camera.fov': 'champ de vision (°)',
   'camera.maxTilt3d': 'inclinaison max en 3D (rad)',
   'camera.maxTilt2d': 'inclinaison max en plan (rad)',

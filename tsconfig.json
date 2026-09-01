@@ -24,9 +24,9 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
 
-    "baseUrl": ".",
+    // Sans `baseUrl` (déprécié en TS 6) : `paths` se résout relativement à ce fichier.
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]

@@ -105,6 +105,8 @@ export function buildUiTab(page: TabPageApi, ctxRef: UiContextRef, refresh: () =
   // Moniteur de perf, monté en haut à droite de la carte (cf. `StatsOverlay`).
   surfaces.addBinding(draft, 'stats', { label: 'moniteur perf (FPS/RAM)' }).on('change', emit)
   surfaces.addBinding(draft, 'liveLayer', { label: 'couche viewport hôte (console)' }).on('change', emit)
+  // Panneau des hooks (vue, caméra, tags, capture…), en bas à droite (cf. `DemoPanel`).
+  surfaces.addBinding(draft, 'demoPanel', { label: 'panneau hooks & poignée' }).on('change', emit)
 
   page.addBlade({ view: 'separator' })
 

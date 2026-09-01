@@ -287,10 +287,7 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
   'camera.maxTilt3d': { min: 0, max: Math.PI / 2, step: 0.01 },
   'camera.maxTilt2d': { min: 0, max: Math.PI / 2, step: 0.01 },
   'camera.tiltStep': { min: 0.01, max: 1, step: 0.01 },
-  'camera.zoomStep': { min: 0.1, max: 4, step: 0.1 },
   'camera.fov': { min: 20, max: 100, step: 1, cold: true },
-  'camera.dragSpeed.min': { min: 0.0001, max: 0.1, step: 0.0001 },
-  'camera.dragSpeed.max': { min: 0.01, max: 2, step: 0.01 },
   'camera.zoomFactor.in': { min: 0.1, max: 0.99, step: 0.05 },
   'camera.zoomFactor.out': { min: 1.01, max: 4, step: 0.05 },
   'camera.maxDistanceFactor': { min: 1.05, max: 10, step: 0.05 },
@@ -495,6 +492,14 @@ function kindOf(value: unknown, meta: LeafMeta): LeafKind {
 }
 
 /**
+ * Clés que le cœur RETIRE de `MapConfig` (jamais lues par le code) mais que `defaultConfig`
+ * porte encore sur cette branche : le panneau ne doit plus les montrer, sinon il propose un
+ * réglage sans effet — et leurs libellés, retirés, feraient échouer le garde-fou. À supprimer
+ * une fois la branche du cœur fusionnée (le jeu devient vide de sens, pas faux).
+ */
+const RETIRED_PATHS: ReadonlySet<string> = new Set(['camera.zoomStep', 'camera.dragSpeed'])
+
+/**
  * Arborescence des contrôleurs, déduite de `defaultConfig`.
  *
  * Les clés optionnelles du type (`routing.units`, `places.headers`) n'y sont PAS —
@@ -513,6 +518,7 @@ export function buildTree(): ConfigNode[] {
     const out: ConfigNode[] = []
     for (const [key, value] of Object.entries(node)) {
       const path = prefix ? `${prefix}${SEP}${key}` : key
+      if (RETIRED_PATHS.has(path)) continue
       const meta = metaFor(path)
       // Un objet SANS `kind` imposé est un dossier ; avec (`accel`), c'est une feuille.
       if (isRecord(value) && !meta.kind) {

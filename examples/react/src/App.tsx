@@ -1,4 +1,6 @@
 import {
+  type AnyPlugin,
+  type CameraState,
   type CaptureProps,
   type DockConfig,
   type DrawConfig,
@@ -60,9 +62,11 @@ import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
 import { EXAMPLE_CATALOG_SOURCES, hostViewportSource } from './catalogSources'
-import { geopfBatiments } from '@map3d/plugin-geopf'
-import { windyWebcams } from '@map3d/plugin-windy'
-import { plan3d } from '@map3d/plugin-plan-3d'
+import { DemoPanel } from './components/DemoPanel'
+import { loadOptionalPlugins } from './plugins'
+
+/** Clé localStorage de la position caméra (`positionStorageKey`) — propre au banc d'essai. */
+const POSITION_STORAGE_KEY = 'm3d-demo:position'
 
 /**
  * Preuve vivante de la plateforme plugins (voie A + config + enrichBuilding) : lit
@@ -182,10 +186,19 @@ export function App() {
     () => (selected === undefined ? undefined : allMarkers.find((m) => String(m.id) === selected)),
     [allMarkers, selected],
   )
+  // Dernière position caméra, reçue par `<Map onCameraChange>` — à CHAQUE frame de
+  // mouvement, d'où une ref et non un state : la mettre en état re-rendrait toute l'app
+  // soixante fois par seconde pendant un pan. C'est le bon usage de cette prop : un
+  // relevé qu'on lit quand on en a besoin, jamais un rendu.
+  const lastCamera = useRef<CameraState | null>(null)
+  const onCameraChange = useCallback((s: CameraState) => {
+    lastCamera.current = s
+  }, [])
   // Cible de « poser une alerte » : lue à l'appel, pas capturée — la vue a bougé
-  // entre la construction du panneau et le clic.
+  // entre la construction du panneau et le clic. Avant le premier mouvement, la poignée
+  // répond à la place du relevé.
   const centerOfView = useCallback((): LatLng | null => {
-    const state = map.current?.camera.getState()
+    const state = lastCamera.current ?? map.current?.camera.getState()
     return state ? { lat: state.lat, lng: state.lng } : null
   }, [])
   // Cadrages de démo. Ils vivaient dans un menu posé DANS la barre d'outils — donc
@@ -196,6 +209,8 @@ export function App() {
   // qu'au clic — et le `camera` du panneau changerait d'identité 3 fois par seconde.
   const sceneRef = useRef(scene)
   sceneRef.current = scene
+  // Même lecture différée pour le panneau des hooks (cf. `DemoPanel.getMarkers`).
+  const getMarkers = useCallback(() => sceneRef.current.markers, [])
   const demoCamera = useMemo(
     () => ({
       flyToCity: (index: number) => {
@@ -344,13 +359,21 @@ export function App() {
   /* Menu d'un bâtiment du volume 3D interne. La poignée est passée par REF : le menu se
      fabrique une fois, et lit la caméra au moment du clic. */
   const buildingMenu = useMemo(() => createBuildingMenu(map), [])
-  // Plateforme plugins : liste mémoïsée une fois — geopf/windy/plan-3d viennent du
-  // monorepo plugingsMap3D (aliasés en local), ils ne sont pas embarqués dans l'exemple
-  // de la lib. Les trois sont `enabledByDefault: false` : opt-in via le hub (bouton puzzle).
-  const plugins = useMemo(
-    () => [geopfBatiments(), windyWebcams({ apiKey: import.meta.env.VITE_WINDY_API_KEY }), plan3d()],
-    [],
-  )
+  // Plateforme plugins : geopf/windy/plan-3d viennent du dépôt voisin `plugingsMap3D`,
+  // OPTIONNEL (cf. `plugins.ts`) — sans lui, la liste reste vide et la carte tourne
+  // pareil. Chargés une fois, en asynchrone ; `<Map plugins>` resynchronise son registre
+  // quand la liste arrive. Les trois sont `enabledByDefault: false` : opt-in via le hub
+  // (bouton puzzle).
+  const [plugins, setPlugins] = useState<readonly AnyPlugin[]>([])
+  useEffect(() => {
+    let cancelled = false
+    loadOptionalPlugins().then((list) => {
+      if (!cancelled) setPlugins(list)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const markerMenu = useCallback<NonNullable<MapSurfaces<AnyData>['markerMenu']>>(
     (m, relations) => {
@@ -532,6 +555,16 @@ export function App() {
           fallbackGlobe={mapProps.fallbackGlobe}
           intro={mapProps.intro}
           errorTarget={mapProps.errorTarget}
+          // Position mémorisée (❄) : une clé = la dernière vue stabilisée remplace
+          // `center`/`zoom` au montage et coupe l'intro. `resetStoredPosition` l'efface au
+          // montage suivant — d'où « Recharger la carte » pour voir l'un comme l'autre.
+          positionStorageKey={mapProps.rememberPosition ? POSITION_STORAGE_KEY : undefined}
+          resetStoredPosition={mapProps.resetStoredPosition}
+          // Les deux relevés de la vue. `onViewportChange` part à la STABILISATION de la
+          // caméra (le déclencheur d'un refetch) ; `onCameraChange` à chaque frame de
+          // mouvement — jamais de réseau ni de state là-dedans (cf. `lastCamera`).
+          onViewportChange={(v) => console.log('[map] viewport stabilisé', v.zoom.toFixed(2), v.bounds)}
+          onCameraChange={onCameraChange}
           // Réglages : entièrement délégués au panneau. Ce qui s'y trouve n'est plus
           // écrit ici mais SE RÈGLE, y compris le seuil de lisibilité du décor
           // (`markers.staticMinZoom`) et le plafond de regroupement
@@ -659,6 +692,16 @@ export function App() {
           {/* Preuve vivante de l'enrichissement au pick : lit `useBuildingEnrichment()`,
               qui EXIGE le contexte carte — doit rester enfant de `<Map>`. */}
           <BuildingEnrichmentInfo />
+          {/* Les hooks de contexte et la poignée, lus depuis un overlay HÔTE (bas-droite).
+              La scène est lue par la ref : `getMarkers` ne change jamais d'identité. */}
+          {ui.demoPanel && (
+            <DemoPanel
+              handle={map}
+              getMarkers={getMarkers}
+              lens={ui.toolbar.enabled && ui.toolbar.lens}
+              relations={ui.relations}
+            />
+          )}
           {/* La grille de coordonnées est montée AUTOMATIQUEMENT par `<Map>` — rien à ajouter
               ici. On l'allume au démarrage via `graticule.enabled` (onglet `graticule` du banc
               d'essai), ou au bouton des contrôles de vue / sous-menu « Mesures ». */}

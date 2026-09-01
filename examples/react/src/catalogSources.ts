@@ -334,7 +334,7 @@ const drawnIndex = (id: string) => Number(id.slice('drawn-'.length))
 const drawnShape = (index: number): ShapeData[] => {
   const zone = DEMO_DRAW_ZONES[index]
   if (!zone || zone.kind !== 'polygon') return []
-  return [{ kind: 'polygon', id: drawnId(index), title: zone.title, points: zone.points, closed: true }]
+  return [{ kind: 'polygon', id: drawnId(index), title: zone.title, points: zone.points }]
 }
 
 const DRAWN_ZONES: readonly CatalogItem[] = DEMO_DRAW_ZONES.map((z, i) => ({

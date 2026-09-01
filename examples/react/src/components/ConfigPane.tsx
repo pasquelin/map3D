@@ -204,6 +204,8 @@ export function ConfigPane(props: ConfigPaneProps) {
     mapPage
       .addBinding(mapDraft, 'errorTarget', { label: '❄ erreur cible', min: 1, max: 64, step: 1 })
       .on('change', emitMapProps)
+    mapPage.addBinding(mapDraft, 'rememberPosition', { label: '❄ mémoriser la position' }).on('change', emitMapProps)
+    mapPage.addBinding(mapDraft, 'resetStoredPosition', { label: '❄ oublier la position' }).on('change', emitMapProps)
     mapPage.addBlade({ view: 'separator' })
     mapPage.addButton({ title: '⟳ Recharger la carte (réglages ❄)' }).on('click', () => propsRef.current.onRemount())
 

@@ -10,3 +10,8 @@ export const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY
  * sur un poste de dev (`http://localhost:8090`) et sur un domaine de production.
  */
 export const TILE_ORIGIN = import.meta.env.VITE_TILE_ORIGIN
+/**
+ * Clé Windy Webcams (plugin optionnel `windy`, cf. `plugins.ts`). Sans clé, le plugin se
+ * charge quand même : son champ `apiKey` se renseigne dans le hub des plugins.
+ */
+export const WINDY_API_KEY = import.meta.env.VITE_WINDY_API_KEY
