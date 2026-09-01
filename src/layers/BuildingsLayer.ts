@@ -181,6 +181,9 @@ export class BuildingsLayer {
     },
   ) {
     this.group.name = 'm3d-buildings'
+    // Groupe immobile sous `internalSurface` : cf. `TiledGlobeLayer`.
+    this.group.matrixAutoUpdate = false
+
     this.group.visible = false
     // Pas d'`add` ici : le groupe n'entre dans le graphe qu'une fois visible (cf. `setVisible`).
     // Le gabarit se résout par `setConfig`, seul endroit qui le sache : le poser aussi ici
@@ -208,9 +211,13 @@ export class BuildingsLayer {
   setVisible(visible: boolean): void {
     if (visible === this.group.visible) return
     this.group.visible = visible
-    if (visible) this.parent.add(this.group)
-    else this.parent.remove(this.group)
+    if (visible) {
+      this.parent.add(this.group)
+      // Cf. `TiledGlobeLayer.setVisible` : un parent rebasé pendant l'absence.
+      this.group.matrixWorldNeedsUpdate = true
+    } else this.parent.remove(this.group)
   }
+
 
   /**
    * Opacité globale des volumes (fondu d'extinction au dézoom). Un SEUL matériau partagé :

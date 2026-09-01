@@ -534,8 +534,11 @@ export class DrawLayer implements Layer {
     private onChange?: (geojson: GeoJSONFeatureCollection) => void,
   ) {
     this.group.name = 'm3d-draw'
+    // Conteneur immobile : les groupes ENU des dessins ont leur matrice posée à la main.
+    this.group.matrixAutoUpdate = false
     this.defaults = defaults
     this.scene.add(this.group)
+
     this.overlaySel = new SelectionOverlay(overlay)
     this.editCtl = new EditController(projection, {
       targets: () => this.selectedEditable(),

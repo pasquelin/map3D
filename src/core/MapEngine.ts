@@ -717,8 +717,19 @@ export class MapEngine {
     // à recalculer, ce que la descente propage ensuite à TOUT le sous-arbre — soit une
     // matrice monde recomposée par marker et par frame, quand bien même aucun n'a bougé.
     this.labelScene.matrixAutoUpdate = false
+    /**
+     * Même règle pour la scène WebGL : une `Scene` est un `Object3D` en `matrixAutoUpdate`,
+     * dont chaque rendu recomposait la matrice, levait `matrixWorldNeedsUpdate` et propageait
+     * `force` à TOUTE la descendance — jusqu'à 700 tuiles raster, 80 tuiles de volume et
+     * chaque groupe ENU recalculaient leur matrice monde à chaque frame peinte, `matrixAutoUpdate`
+     * coupé ou non. Racine et groupes conteneurs immobiles : seuls les objets qui bougent
+     * vraiment (ciel, étoiles, têtes de tracé) gardent l'auto-update.
+     */
+    this.scene.matrixAutoUpdate = false
     this.annotations.name = 'm3d-annotations'
+    this.annotations.matrixAutoUpdate = false
     this.scene.add(this.annotations)
+
 
     this.projection.setContext(this.tiles.ellipsoid, this.tiles.group)
 

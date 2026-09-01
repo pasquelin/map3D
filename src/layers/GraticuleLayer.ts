@@ -199,7 +199,10 @@ export class GraticuleLayer implements Layer {
     this.texts = texts
     this.group.name = 'graticule'
     this.group.visible = false
+    // Conteneur immobile (cf. `MapEngine` : la scène ne force plus ses descendants).
+    this.group.matrixAutoUpdate = false
     this.scene.add(this.group)
+
     // `passive` : on ne fait que LIRE la position, jamais annuler le geste — le déplacement
     // de la carte n'en est pas affecté d'un pixel.
     this.overlay.addEventListener('pointermove', this.onPointerMove, { passive: true })
@@ -357,8 +360,10 @@ export class GraticuleLayer implements Layer {
       // Les objets courants passent dans un groupe SORTANT — on ne les reconstruit pas, on
       // les laisse s'éteindre pendant que le nouveau jeu apparaît.
       const sortant = new THREE.Group()
+      sortant.matrixAutoUpdate = false
       for (const child of [...this.group.children]) sortant.add(child)
       this.scene.add(sortant)
+
       this.outgoing = { group: sortant, fade: 1 }
     }
     // Les anciennes références sont cédées (jetées ou passées au sortant) : les oublier ici

@@ -60,7 +60,10 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
     groupName: string,
   ) {
     this.group.name = groupName
+    // Conteneur immobile : les groupes ENU qu'il porte ont leur matrice posée à la main.
+    this.group.matrixAutoUpdate = false
     this.scene.add(this.group)
+
     // Accesseur et non valeur figée : `setConfig` remplace l'arbre, et le protocole
     // de drapage relit ses budgets à chaque frame.
     this.sync = new DrapeSync(
