@@ -3,6 +3,7 @@ import type { MapEngine } from '../../core/MapEngine'
 import type { LinkLayer } from '../../layers/LinkLayer'
 import type { RelationEngine } from '../../relations/core/engine'
 import { useConfig } from '../context'
+import { isActiveMap } from '../activeMap'
 
 /** Classe posée sur le conteneur carte quand un lien est survolé (curseur). */
 const HOVER_CLASS = 'm3d-hover-link'
@@ -126,7 +127,7 @@ export function useRelationInteraction(
       // La carte est montée DANS une application : Échap y sert aussi à quitter un
       // champ ou à refermer une surface. Effacer toutes les relations parce qu'une
       // modale de l'hôte se ferme serait une prise d'otage du raccourci.
-      if (e.defaultPrevented || isEditingTarget(e.target)) return
+      if (e.defaultPrevented || isEditingTarget(e.target) || !isActiveMap(engine)) return
       if (relations.snapshots.length === 0) return
       const traced = relations.snapshots.some((s) => s.tracedLinkId !== null)
       if (traced) relations.untrace()
@@ -134,7 +135,7 @@ export function useRelationInteraction(
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [relations])
+  }, [relations, engine])
 
   return hoveredId
 }

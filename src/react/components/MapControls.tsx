@@ -27,6 +27,7 @@ import { useGraticule } from '../hooks/useGraticule'
 import { usePedestrian } from '../hooks/usePedestrian'
 import { useFitColumns } from './panelFit'
 import { plainKey } from './shortcuts'
+import { isActiveMap } from '../activeMap'
 import { resolveSlots, type SlotConfig } from './slots'
 import { MapTooltip } from './MapTooltip'
 import { CatalogControl } from './CatalogControl'
@@ -272,7 +273,8 @@ export function MapControls({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = plainKey(e)
-      if (!k) return
+      // Deux cartes : `f` demanderait le plein écran deux fois — seule l'active répond.
+      if (!k || !isActiveMap(engine)) return
       const { keys, defaultShown, btn, graticule } = stateRef.current
       // '=' accepté pour zoomIn '+' : même touche sans Maj sur la plupart des claviers.
       const is = (a: MapControlAction) => k === keys[a] || (keys[a] === '+' && k === '=')

@@ -60,6 +60,8 @@ export function DragOverlay() {
     const onUp = () => {
       if (engine.drag.active) engine.drag.end()
     }
+    // Pas de garde « carte active » (cf. `activeMap.ts`) : un drag appartient à UN
+    // registre, `engine.drag.active` suffit à ne toucher que la carte concernée.
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && engine.drag.active) engine.drag.cancel()
     }
