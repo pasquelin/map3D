@@ -85,6 +85,24 @@ Declarative subscription. `onReady` is **replayed** if the map was already ready
 Boolean gate over a list of thresholds — what hides `static` markers. Re-renders only
 when a threshold is **crossed**, not on every move.
 
+### `useCapture(): (opts?: CaptureOptions) => Promise<Blob>`
+
+```ts
+const capture = useCapture()
+const blob = await capture({ format: 'png', scale: 2 })
+```
+
+Captures the map image from a component under `<Map>`. The returned function injects
+the overlay rasteriser of the `capture` prop (markers/labels composed over the 3D) and
+emits the `onCapture` trace; an explicit call option wins over the injection (e.g.
+`overlay: false` forces a 3D-only capture). Without a `capture` prop, capturing is
+still possible, **3D only**. Defaults (`format`, `quality`, `scale`, `background`) come
+from `config.capture`. **Stable** identity as long as the engine and the `capture` prop
+do not change: this hook subscribes to nothing and never re-renders. The imperative
+counterpart is `handle.capture()`; the core, `engine.capture()` — see
+[PROPS.md](PROPS.md#imperative-handle--maphandle-ref-and-usecapture) and
+[CONFIG.md § capture](CONFIG.md#capture--map-image-capture).
+
 ---
 
 ## Data
@@ -229,8 +247,8 @@ clear }`. Details in [RELATIONS.md § 9](RELATIONS.md#9-relationapi).
 
 ### `useTemplates(options?): TemplatesView` — under `<MapProvider>`
 
-`{ templates, categories, defaultCategories, defaultApply, allowExport, busy,
-saveCurrent, updateFromDrawing, apply, rename, remove, refresh, exportFile, importFile }`.
+`{ templates, categories, defaultCategories, defaultApply, allowExport, saveView,
+defaultSaveView, busy, saveCurrent, updateFromDrawing, apply, rename, remove, refresh, exportFile, importFile }`.
 Reactive view + actions of the drawing-template manager (localStorage only or an API
 provider). Details in [TEMPLATES.md § 8](TEMPLATES.md#8-usetemplates-hook).
 

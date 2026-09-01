@@ -6,11 +6,17 @@ Tout ce qui se VOIT : couleurs, tailles, rythme. Le pendant de `MapConfig`, qui
 règle les comportements.
 
 ```tsx
-<MapProvider theme={{ colors: { ui: { accent: '#0af' } } }}>
+import { defaultTheme, mergeTheme } from '@pasquelin/map3d'
+
+<MapProvider theme={mergeTheme(defaultTheme, { colors: { ui: { accent: '#0af' } } })}>
 ```
 
-Override partiel et profond, comme la config. Un couple `{ light, dark }` permet
-de suivre le mode de l'application hôte.
+À la différence de `labels` et `config`, la prop `theme` attend un thème **complet**
+(`ThemeInput = MapTheme | { light: MapTheme; dark: MapTheme }`) : elle ne merge rien
+elle-même. Un override partiel se compose avec `mergeTheme(base, override?, opts?)`
+(merge profond sur une base, `prefers-reduced-motion` respecté sauf si l'override force
+`animations.enabled`). Un couple `{ light, dark }` permet de suivre le mode de
+l'application hôte.
 
 Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 
@@ -157,8 +163,8 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 
 | Clé                                 | Description                                                                                                                                                                                                                                          | Défaut |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `sizing.lensPanelW`                 | Largeur du panneau d'inventaire de la loupe (px).                                                                                                                                                                                                    | `252`  |
-| `sizing.selectionPanelW`            | Largeur du panneau de sélection (px).                                                                                                                                                                                                                | `236`  |
+| `sizing.lensPanelW`                 | Largeur du panneau d'inventaire de la loupe (px).                                                                                                                                                                                                    | `260`  |
+| `sizing.selectionPanelW`            | Largeur du panneau de sélection (px).                                                                                                                                                                                                                | `260`  |
 | `sizing.templatesPanelW`            | Largeur du panneau de templates (px), calée sur sa rangée de cases la plus chargée (catégories + « Vue »).                                                                                                                                           | `352`  |
 | `sizing.panelMaxHeight.tags`        | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520).                                                                                                                | `380`  |
 | `sizing.panelMaxHeight.symbols`     | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520).                                                                                                                | `420`  |

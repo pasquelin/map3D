@@ -6,11 +6,17 @@ Everything you SEE: colours, sizes, rhythm. The counterpart of `MapConfig`, whic
 configures behaviour.
 
 ```tsx
-<MapProvider theme={{ colors: { ui: { accent: '#0af' } } }}>
+import { defaultTheme, mergeTheme } from '@pasquelin/map3d'
+
+<MapProvider theme={mergeTheme(defaultTheme, { colors: { ui: { accent: '#0af' } } })}>
 ```
 
-Partial, deep override, like the config. A `{ light, dark }` pair lets the theme follow
-the host application's mode.
+Unlike `labels` and `config`, the `theme` prop expects a **complete** theme
+(`ThemeInput = MapTheme | { light: MapTheme; dark: MapTheme }`): it merges nothing
+itself. A partial override is composed with `mergeTheme(base, override?, opts?)` (deep
+merge onto a base, `prefers-reduced-motion` honoured unless the override forces
+`animations.enabled`). A `{ light, dark }` pair lets the theme follow the host
+application's mode.
 
 Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 
@@ -160,8 +166,8 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 
 | Key                                 | Description                                                                                                                                                                                                              | Default |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `sizing.lensPanelW`                 | Width of the lens inventory panel (px).                                                                                                                                                                                  | `252`   |
-| `sizing.selectionPanelW`            | Width of the selection panel (px).                                                                                                                                                                                       | `236`   |
+| `sizing.lensPanelW`                 | Width of the lens inventory panel (px).                                                                                                                                                                                  | `260`   |
+| `sizing.selectionPanelW`            | Width of the selection panel (px).                                                                                                                                                                                       | `260`   |
 | `sizing.templatesPanelW`            | Width of the templates panel (px), sized after its busiest checkbox row (categories + “View”).                                                                                                                           | `352`   |
 | `sizing.panelMaxHeight.tags`        | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `380`   |
 | `sizing.panelMaxHeight.symbols`     | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `420`   |
