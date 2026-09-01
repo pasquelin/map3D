@@ -277,12 +277,22 @@ export class PedestrianController {
    * yeux passerait au-dessus d'un muret, un rayon au sol buterait sur le moindre trottoir.
    * Aucun rayon si l'on ne bouge pas — la boucle immobile ne coûte rien.
    */
+  private feelerCount = -1
+  private feelers: number[] = []
+
   private probeFeelers(): void {
     this.hits.length = 0
     const c = this.config.pedestrian
     const far = c.collision.radiusMeters + c.collision.feelerMarginMeters
-    const angles = feelerAngles(c.collision.feelers)
+    // Mémoïsé par nombre : les angles ne dépendent que de lui, et la marche les redemandait
+    // à chaque frame.
+    if (this.feelerCount !== c.collision.feelers) {
+      this.feelerCount = c.collision.feelers
+      this.feelers = feelerAngles(c.collision.feelers)
+    }
+    const angles = this.feelers
     if (angles.length === 0) return
+
     // Direction de marche normalisée dans le plan local.
     const len = Math.hypot(this.move.east, this.move.north)
     const dirE = this.move.east / len

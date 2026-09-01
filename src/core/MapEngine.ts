@@ -79,7 +79,6 @@ import { TagFilter } from './TagFilter'
 
 export type { PointerInterceptor, PointerPhase } from './pointer'
 
-
 // Le domaine du fond de carte (mode + capacités) vit dans `./basemap`, avec sa table de
 // vérité en fonction pure. Ré-exporté ici : c'est de `MapEngine` que les consommateurs
 // (et `src/index.ts`) l'importent depuis toujours.
@@ -474,7 +473,6 @@ export class MapEngine {
    */
   private canvasRect: DOMRect | null = null
 
-
   /** Clé Google exposée aux composants qui la réutilisent (ex. SearchBox → Places). */
   readonly googleMapsApiKey?: string
 
@@ -499,6 +497,43 @@ export class MapEngine {
   private interactiveMode: InteractiveMode = true
   private fallback: THREE.Object3D | null = null
   private size = { width: 1, height: 1 }
+
+  /** État caméra et `dt` de la frame en cours, lus par `frameCtx`. */
+  private frameState: CameraState = { lat: 0, lng: 0, altitude: 0, heading: 0, tilt: 0 }
+  private frameDt = 0
+  /**
+   * Contexte passé aux couches — UN objet pour la vie du moteur, lu par accesseurs : le
+   * littéral par frame était la dernière allocation systématique de la boucle. `view`
+   * (grille de 25 raycasts) reste paresseux : seul l'event `viewport` et `getView` le forcent.
+   */
+  private readonly frameCtx: FrameContext = (() => {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const engine = this
+    return {
+      get camera() {
+        return engine.threeCamera
+      },
+      get cameraState() {
+        return engine.frameState
+      },
+      get projection() {
+        return engine.projection
+      },
+      get view() {
+        return engine.computeView(engine.frameState)
+      },
+      get size() {
+        return engine.size
+      },
+      get dt() {
+        return engine.frameDt
+      },
+      get invalidate() {
+        return engine.invalidate
+      },
+    }
+  })()
+
   private raf = 0
   private running = false
   private lastTime = 0
@@ -747,7 +782,6 @@ export class MapEngine {
     this.annotations.name = 'm3d-annotations'
     this.annotations.matrixAutoUpdate = false
     this.scene.add(this.annotations)
-
 
     this.projection.setContext(this.tiles.ellipsoid, this.tiles.group)
 
@@ -2535,7 +2569,6 @@ export class MapEngine {
     // Le rect du canvas vaut pour toute la frame (cf. `canvasRect`).
     this.canvasRect = null
 
-
     const controlling = this.camera.update(dt)
 
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
@@ -2737,20 +2770,11 @@ export class MapEngine {
     // Alias nécessaire : `this` dans le getter ci-dessous désignerait `ctx`, pas le
     // moteur. Une flèche ne peut pas être un getter, et lier la méthode calculerait
     // la vue à chaque frame — ce que ce getter paresseux existe justement pour éviter.
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const engine = this
-    const ctx: FrameContext = {
-      camera: this.threeCamera,
-      cameraState: state,
-      projection: this.projection,
-      get view() {
-        return engine.computeView(state)
-      },
-      size: this.size,
-      dt,
-      invalidate: this.invalidate,
-    }
+    this.frameState = state
+    this.frameDt = dt
+    const ctx = this.frameCtx
     for (const layer of this.layers) layer.update(ctx)
+
     /**
      * Charnière entre la passe de LECTURE et la passe d'ÉCRITURE : `update` vient de poser
      * les positions locales des overlays, `project` va lire leurs matrices monde, et le
@@ -3112,7 +3136,6 @@ export class MapEngine {
   }
 
   private buildFallbackGlobe(oceanColor: string, landColor: string): THREE.Group {
-
     const group = new THREE.Group()
     const r = this.tiles.ellipsoid.radius
     const geo = new THREE.SphereGeometry(1, 96, 64)
@@ -3349,7 +3372,6 @@ export class MapEngine {
     return (this.canvasRect ??= this.canvas.getBoundingClientRect())
   }
 
-
   /**
    * Bâtiment sous le pointeur — brut : sa référence et le point d'impact en repère MONDE.
    *
@@ -3486,4 +3508,3 @@ export class MapEngine {
     for (const set of Object.values(this.listeners)) set.clear()
   }
 }
-
