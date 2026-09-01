@@ -141,3 +141,20 @@ describe('catalogue', () => {
     expect(defaultConfig.catalog.debounceMs).toBeGreaterThanOrEqual(defaultConfig.data.search.debounceMs)
   })
 })
+
+describe('mergeConfig — feuilles absentes', () => {
+  it('une feuille `undefined` garde le défaut au lieu de l’effacer', () => {
+    // `{ retries: env.X }` avec la variable absente : l'hôte n'a rien voulu régler.
+    const merged = mergeConfig(defaultConfig, { providers: { routing: { fetch: { retries: undefined } } } })
+    expect(merged.providers.routing.fetch.retries).toBe(defaultConfig.providers.routing.fetch.retries)
+    expect(merged.providers.routing.fetch.timeoutMs).toBe(defaultConfig.providers.routing.fetch.timeoutMs)
+  })
+
+  it('ignore une clé `__proto__` propre (override issu de JSON.parse)', () => {
+    const hostile = JSON.parse('{"interaction":{"__proto__":{"polluted":true},"dragSlopPx":3}}') as object
+    const merged = mergeConfig(defaultConfig, hostile)
+    expect(merged.interaction.dragSlopPx).toBe(3)
+    expect(Object.getPrototypeOf(merged.interaction)).toBe(Object.prototype)
+    expect((merged.interaction as unknown as { polluted?: boolean }).polluted).toBeUndefined()
+  })
+})
