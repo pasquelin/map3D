@@ -1,20 +1,27 @@
 /*
-  Vitrine map3d. Palette et typo dérivées du sujet : une image satellite de nuit
-  (ardoise très sombre, légèrement verte), l'orange d'un feu de position pour l'unique
-  accent, et une graisse variable d'Archivo utilisée comme une échelle de zoom —
-  titres élargis (wdth 112), étiquettes resserrées (wdth 78).
+  Vitrine map3d. La palette est ÉCHANTILLONNÉE DANS LE LOGO (`docs/assets/logo.png`),
+  pas inventée : son fond bleu nuit (#020610), le bleu de son globe filaire (#0e659a)
+  et le turquoise de son pin (#1acbc4). Deux conséquences voulues : l'icône recadrée
+  se pose sur la page sans bord visible, puisque son fond EST le fond du site ; et le
+  graticule du hero reprend le bleu du globe du logo, qui est lui-même un graticule.
+
+  Le turquoise est réservé aux actions et aux repères, le bleu aux structures — un
+  seul accent qui décide, un second qui organise.
+
+  Typo : la largeur variable d'Archivo sert d'échelle de zoom — titres élargis
+  (wdth 112), étiquettes resserrées (wdth 78).
 */
 
 :root {
   color-scheme: dark;
 
-  --nuit: #070c10;
-  --relief: #0e161c;
-  --relief-haut: #15222b;
-  --graticule: #1d2c36;
-  --releve: #e7eef2;
-  --cote: #7b929e;
-  --balise: #ff6b35;
+  --nuit: #020610;
+  --relief: #081420;
+  --graticule: #14293d;
+  --releve: #f0f4f6;
+  --cote: #7c97a6;
+  --balise: #1acbc4;
+  --globe: #0e659a;
 
   --display: 'Archivo', system-ui, sans-serif;
   --body: 'IBM Plex Sans', system-ui, sans-serif;
@@ -191,13 +198,13 @@ code {
   justify-content: space-between;
   padding: 14px var(--marge) 14px calc(var(--marge) + var(--altimetre));
   border-bottom: 1px solid var(--graticule);
-  background: color-mix(in srgb, var(--nuit) 88%, transparent);
+  background: color-mix(in srgb, var(--nuit) 96%, transparent);
   backdrop-filter: blur(10px);
 }
 
 .topbar__brand {
   display: flex;
-  gap: 10px;
+  gap: 9px;
   align-items: center;
   font-family: var(--display);
   font-variation-settings: 'wdth' 88;
@@ -205,6 +212,13 @@ code {
   font-size: 17px;
   letter-spacing: 0.02em;
   text-decoration: none;
+}
+
+/* Le fond du PNG est exactement `--nuit` : aucun masque ni découpe à faire, l'icône
+   se fond dans la barre. */
+.topbar__mark {
+  width: 30px;
+  height: 30px;
 }
 
 .topbar__version {
@@ -353,8 +367,8 @@ code {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--releve) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--releve) 8%, transparent) 1px, transparent 1px);
+    linear-gradient(to right, color-mix(in srgb, var(--globe) 42%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--globe) 42%, transparent) 1px, transparent 1px);
   background-size: 12.5% 25%;
 }
 
@@ -746,16 +760,25 @@ a.demo:hover .demo__shot img {
 
 .code i {
   font-style: normal;
-  color: #8fd3c4;
+  color: #6fa8d6;
 }
 
 /* — Pied ————————————————————————————————————————————————————————— */
 
 .footer {
+  display: grid;
+  gap: 24px;
   max-width: var(--shell);
   margin: clamp(72px, 10vw, 128px) auto 0;
-  padding: 32px var(--marge) 56px;
+  padding: 36px var(--marge) 56px;
   border-top: 1px solid var(--graticule);
+}
+
+/* Le logo complet signe le bas de page — seul endroit où il a la place de se lire,
+   wordmark compris. */
+.footer__logo {
+  width: 88px;
+  height: 88px;
 }
 
 .footer__links {
@@ -806,6 +829,16 @@ a.demo:hover .demo__shot img {
 @media (min-width: 900px) {
   .hero {
     gap: clamp(40px, 5vw, 60px);
+  }
+
+  .footer {
+    grid-template-columns: auto 1fr;
+    column-gap: 36px;
+    align-items: start;
+  }
+
+  .footer__logo {
+    grid-row: span 2;
   }
 
   /* Une seule démo pour l'instant : elle prend toute la largeur, capture à gauche et

@@ -14,7 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{head.title}}</title>
     <meta name="description" content="{{head.description}}" />
-    <link rel="icon" href="{{root}}assets/logo.webp" type="image/webp" />
+    <link rel="icon" href="{{root}}assets/mark.webp" type="image/webp" />
     {{alternates}}
 
     <meta property="og:type" content="website" />
@@ -45,6 +45,7 @@
 
     <header class="topbar">
       <a class="topbar__brand" href="#top">
+        <img class="topbar__mark" src="{{root}}assets/mark.webp" alt="" width="30" height="30" />
         <span>map3d</span>
         <span class="topbar__version">v{{version}}</span>
       </a>
@@ -264,6 +265,7 @@
     </main>
 
     <footer class="footer" data-alt="1.7">
+      <img class="footer__logo" src="{{root}}assets/logo.webp" alt="" width="96" height="96" />
       <div class="footer__links">
         <a href="https://github.com/pasquelin/map3D">{{footer.source}}</a>
         <a href="https://www.npmjs.com/package/@pasquelin/map3d">npm</a>

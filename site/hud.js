@@ -56,7 +56,10 @@
 
     cursor.style.top = `${progress * 100}%`
     if (metres >= 1000) {
-      value.textContent = format.format(Math.round(metres / 1000))
+      // Sous 10 km, l'entier seul écrase la descente (1 400 m et 1 900 m afficheraient
+      // le même « 1 ») : on garde une décimale tant que le chiffre des km est unique.
+      const km = metres / 1000
+      value.textContent = format.format(km < 10 ? Math.round(km * 10) / 10 : Math.round(km))
       unit.textContent = 'km'
     } else {
       value.textContent = format.format(metres < 10 ? Math.round(metres * 10) / 10 : Math.round(metres))

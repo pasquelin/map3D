@@ -20,6 +20,16 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   `canonical`. Ajouter une langue = déposer un JSON ; le rendu échoue si un
   dictionnaire n'a pas les mêmes clés que `en.json`.
 
+### Modifié
+
+- **Vitrine : palette échantillonnée dans le logo** (`docs/assets/logo.png`) au lieu de
+  couleurs inventées — fond `#020610`, bleu du globe filaire `#0e659a`, turquoise du pin
+  `#1acbc4`. Le turquoise porte les actions et les repères, le bleu les structures (dont
+  le graticule du hero, qui est le motif du logo agrandi). L'icône du logo, recadrée en
+  `site/assets/mark.webp`, revient dans la barre haute et sert de favicon ; son fond
+  étant celui de la page, elle se pose sans bord visible. Le logo complet signe le pied
+  de page.
+
 ## [0.5.0] — 2026-08-31
 
 ### change! : `toolbar.selectModes` / `toolbar.eraseModes` bornent aussi le clavier
