@@ -58,9 +58,9 @@ partiel est une erreur de compilation.
 | `providers.tiles.uniformMaxSpread` | Écart de zoom toléré, en crans, entre ce que réclame le sol REGARDÉ et ce que la vue entière permet, avant que `uniformDetail` ne cède la place à la cascade. À plat l'écart est nul ; en vue rasante il explose (mesuré : 73 m d'altitude et 73° d'inclinaison → tuiles de 805 m, onze fois la hauteur de l'œil). `1` tolère un cran (invisible) et bascule au-delà. `0` = cascade dès le moindre écart ; une valeur très haute revient à l'ancien comportement, uniforme quoi qu'il arrive. | `1` |
 | `providers.tiles.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
 | `providers.tiles.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
-| `providers.tiles.errorTtlMs` | Durée (ms) pendant laquelle une tuile en erreur n'est pas redemandée. <!-- audit: à vérifier à la fusion (cœur) --> | `30000` |
-| `providers.tiles.staleFrames` | Nombre de frames sans usage avant qu'une tuile soit considérée périmée et évincée. <!-- audit: à vérifier à la fusion (cœur) --> | `120` |
-| `providers.tiles.fetch.timeoutMs` | Abandon d'une requête sans réponse. `0` = pas de limite. <!-- audit: à vérifier à la fusion (cœur) --> | `10000` |
+| `providers.tiles.errorTtlMs` | Durée (ms) pendant laquelle une tuile qui a épuisé ses essais reste en erreur avant d'être redemandée, si elle est encore vue. `0` = erreur définitive. <!-- audit: à vérifier à la fusion (cœur) --> | `30000` |
+| `providers.tiles.staleFrames` | Frames sans être vue au-delà desquelles une tuile en attente sort de la file de téléchargement. Revue, elle y revient. <!-- audit: à vérifier à la fusion (cœur) --> | `120` |
+| `providers.tiles.fetch.timeoutMs` | Politique réseau (`FetchPolicy`) de la **création de session** Google. Abandon d'une requête sans réponse. `0` = pas de limite. <!-- audit: à vérifier à la fusion (cœur) --> | `10000` |
 | `providers.tiles.fetch.retries` | Réessais après échec réseau ou 5xx. `0` = aucun. <!-- audit: à vérifier à la fusion (cœur) --> | `0` |
 | `providers.tiles.fetch.backoffMs` | Attente avant le premier réessai, doublée à chaque tour, avec une part aléatoire. `0` = réessai immédiat. <!-- audit: à vérifier à la fusion (cœur) --> | `0` |
 | `providers.routing.matrixUrl` | Endpoint `computeRouteMatrix` — à viser sur un proxy serveur en production. | `'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix'` |
@@ -119,8 +119,8 @@ partiel est une erreur de compilation.
 | `providers.buildings.maxRequest` | Budget de tuiles demandées pour une vue. ⚠️ Ce n'est plus qu'un **filet** : c'est le disque de `maxViewDistance` qui borne désormais la couverture, et le pic mesuré à 5 km est de 32 tuiles. Auparavant, ce budget déclenchait un repli en carré de côté fixe autour du point regardé dès qu'il était dépassé — d'où une bascule brutale d'un régime à l'autre en vue inclinée. Cf. [TILES.md § 5](TILES.md). | `49` |
 | `providers.buildings.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
 | `providers.buildings.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
-| `providers.buildings.errorTtlMs` | Durée (ms) pendant laquelle une tuile en erreur n'est pas redemandée. <!-- audit: à vérifier à la fusion (cœur) --> | `30000` |
-| `providers.buildings.staleFrames` | Nombre de frames sans usage avant qu'une tuile soit considérée périmée et évincée. <!-- audit: à vérifier à la fusion (cœur) --> | `120` |
+| `providers.buildings.errorTtlMs` | Durée (ms) pendant laquelle une tuile qui a épuisé ses essais reste en erreur avant d'être redemandée, si elle est encore vue. `0` = erreur définitive. <!-- audit: à vérifier à la fusion (cœur) --> | `30000` |
+| `providers.buildings.staleFrames` | Frames sans être vue au-delà desquelles une tuile en attente sort de la file de téléchargement. Revue, elle y revient. <!-- audit: à vérifier à la fusion (cœur) --> | `120` |
 | `providers.buildings.pickFields` | Attributs MVT remontés par le pick de bâtiment (`buildingMenu`). **Vide par défaut** : la donnée en porte des dizaines par emprise, et les transporter toutes coûterait, par tuile, plus que toute la géométrie. L'hôte demande ce qu'il affiche. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles). ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de documentation : trois copies d'une valeur qui désigne un fournisseur, seule de son espèce à vivre hors de `providers`. | `'2275207'` |
 | `providers.tiles3d.hideVolumeWhenClamped` | Masque les bâtiments internes au-dessus de `providers.buildings.maxViewAltitude` : de plus haut ils ne couvrent que quelques pixels et laissent un « carré » dans le vide. Fondus puis masqués — mais **gardés en mémoire** tant qu'on reste dans la bande de `requestAltitudeFactor`, sans quoi l'apparition repartirait d'un cache vide et surgirait au lieu de fondre. La RAM/VRAM n'est rendue qu'au-dessus de cette bande. Critère = hauteur au-dessus du sol, donc **valable à toute inclinaison**. **Le mode ne change pas** (on reste en `'3d'`). `false` = toujours affichés. Interne seulement. | `true` |
@@ -166,7 +166,7 @@ partiel est une erreur de compilation.
 | `interaction.hubHitTolerancePx` | Tolérance de clic autour du socle d'une relation (le trait, lui, a la sienne). | `12` |
 | `interaction.repositionHitPx` | Cible cliquable du point au sol d'un marker repositionnable. Le point mesure 7 px : sans élargissement, l'attraper relève de l'adresse. La valeur vivait dans la feuille de styles (`::before`), donc hors de ce bloc alors qu'elle en est exactement — une tolérance de pointeur qu'un support tactile… | `22` |
 | `interaction.clickSuppressMs` | Filet temporel après un geste : durée pendant laquelle le `click` synthétique qui suit est avalé. Couplé à `longPressMs` — un contexte tactile qui allonge l'un doit pouvoir allonger l'autre. | `400` |
-| `interaction.lockFlashMs` | Durée (ms) du flash signalant une interaction verrouillée. <!-- audit: à vérifier à la fusion (cœur) --> | `800` |
+| `interaction.lockFlashMs` | Durée (ms) du flash « forme verrouillée » quand un geste vise une forme que ses contraintes empêchent de modifier. <!-- audit: à vérifier à la fusion (cœur) --> | `800` |
 | `interaction.freehandMinStepPx` | Décimation du tracé au crayon (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom du vol « Cibler » depuis un inventaire ou une liste. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom du vol au clic sur un favori du dock. | `16` |
@@ -298,7 +298,7 @@ partiel est une erreur de compilation.
 | `performance.relations.fanMaxLegs` | Au-delà de N liens, l'éventail se replie en trait agrégé (seuil de lisibilité). | `5` |
 | `performance.relations.zoomBand` | Bande d'hystérésis de zoom avant recalcul du regroupement visuel. | `0.3` |
 | `performance.circleSegments` | Densité de polygonisation d'un cercle — rendu **et** prédicats géométriques. | `64` |
-| `performance.shapeGroundSamples` | Nombre d'échantillons de drapage au sol par forme. <!-- audit: à vérifier à la fusion (cœur) --> | `16` |
+| `performance.shapeGroundSamples` | Points du contour d'une zone sondés pour trouver le sol le plus bas sous son volume — la base d'une extrusion ne flotte pas sur une pente. <!-- audit: à vérifier à la fusion (cœur) --> | `16` |
 | `performance.groundHeightRange` | Intervalle d'altitude accepté pour un échantillon de surface. Hors de ces bornes, l'échantillon est jugé aberrant et ignoré. À élargir pour un tileset non terrestre (maquette, intérieur, aérien). | `[-500, 9000]` |
 
 ## `style` — Empilement des surfaces
@@ -377,7 +377,7 @@ Ordre de rendu three.js (`renderOrder`) par **famille de couches** : les dessins
 | `clustering.radius` | Rayon de regroupement, en pixels écran. | `60` |
 | `clustering.minPoints` | En deçà, les points restent individuels. | `2` |
 | `clustering.maxZoom` | Zoom au-delà duquel le regroupement géographique s'arrête. | `18` |
-| `clustering.levelQuantization` | Quantification du zoom pour la stabilité des paliers de cluster. | `1` |
+| `clustering.levelQuantization` | Quantification du zoom pour la stabilité des paliers de cluster : le zoom est arrondi au multiple de cette valeur avant de choisir le palier. <!-- audit: à vérifier à la fusion (cœur) --> | `1` |
 | `clustering.spiderfyZoom` | Zoom à partir duquel un cluster inséparable (points confondus) éclate en éventail au clic — le zoom max UTILE de la caméra, au-delà duquel elle entre dans le bâti 3D. `19` ≈ 76 m d'altitude. | `19` |
 
 ## `markers` — Seuils de lisibilité

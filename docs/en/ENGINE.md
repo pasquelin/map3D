@@ -463,6 +463,9 @@ component: it runs server-side or in tests with a fake provider (no Three, no Re
 
 ---
 
+**Constructor options** (`MapEngineOptions`): among them, `landColor?: string` paints the
+landmasses of the fallback globe — under React, `<Map>` passes `theme.globe.landColor`. <!-- audit: à vérifier à la fusion (cœur) -->
+
 ## See also
 
 - [HOOKS.md](HOOKS.md) — the React façades over all of this

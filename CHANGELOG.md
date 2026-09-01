@@ -87,7 +87,8 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 - **SDK MIL-STD-2525D externalisé du paquet** : `@armyc2.c5isr.renderer/mil-sym-ts-web`
   reste une dépendance installée avec `@pasquelin/map3d`, chargée à la demande par
   `import()` au premier symbole affiché, mais ne fait plus partie du `dist/` de la lib —
-  jamais dans le bundle initial de l'hôte. <!-- audit: à compléter (cœur, React) -->
+  jamais dans le bundle initial de l'hôte. Le `dist/` publié passe de 23 Mo à 4,1 Mo.
+  <!-- audit: à compléter (cœur, React) -->
 - **Tween caméra en temps et non par frame** : un vol dure le même temps à 30 comme à
   120 Hz. <!-- audit: à compléter (cœur, React) -->
 - **`clustering.levelQuantization` est désormais appliqué** (il était lu mais sans effet).
@@ -99,10 +100,19 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   `{ timeoutMs: 10000, retries: 0, backoffMs: 0 }`), `performance.shapeGroundSamples`
   (défaut `16`), `interaction.lockFlashMs` (défaut `800`).
   <!-- audit: à compléter (cœur, React) -->
+- **`theme.colors.tagPalette`** (optionnel) : palette de repli des tags sans couleur
+  déclarée, choisie par hash stable du nom ; défaut = les 12 couleurs de la lib.
+  **`theme.globe.landColor`** est désormais réellement peint (graticule du globe de repli),
+  et `MapEngineOptions.landColor` le porte hors React. <!-- audit: à compléter (cœur, React) -->
+- **`ViewportControllerOptions.onError?: (error: unknown) => void`** : échec de `source.load`
+  (hors abandon). Types désormais exportés : `ViewportControllerOptions`, `DashStyle`,
+  `NavigateShortcuts`, `CatalogContent`. <!-- audit: à compléter (cœur, React) -->
+- **Interne** : `TileDeferred` (`core/TileQueue`) — une source diffère une tuile sans
+  consommer d'essai ; `PoolCrashError` (`WorkerPool`). <!-- audit: à compléter (cœur, React) -->
 
 ### Retiré
 
-- **`camera.zoomStep` et `camera.dragSpeed`** (`MapConfig`) : jamais lus par le code. Une
+- **`camera.zoomStep`, `camera.dragSpeed.min` et `camera.dragSpeed.max`** (`MapConfig`) : jamais lus par le code. Une
   config qui les fournissait ne casse pas au merge, mais le type ne les accepte plus —
   **rupture 0.x**. <!-- audit: à compléter (cœur, React) -->
 - **Libellés morts** : `settings.preferences.controls.{keyboard,azerty,qwerty,press}` et
