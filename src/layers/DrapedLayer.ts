@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig } from '../config/types'
 import type { FrameContext, Layer } from '../core/Layer'
-import type { Projection } from '../core/Projection'
+import type { Projection, ScreenPoint } from '../core/Projection'
+
 import { clearGroup, disposeObject3D } from '../core/geometry'
 import { GroundedState } from '../core/GroundedState'
 import { DrapeSync } from '../core/resettle'
@@ -10,6 +11,8 @@ import type { Bounds, LatLng } from '../shared'
 import { boundsIntersect } from '../core/bounds'
 import { boundsContains } from '../core/MarkerQuery'
 import type { StatContribution } from '../core/viewStats'
+import { segDistPx } from './draw/hitTest'
+
 
 /**
  * Groupe drapé auto-porteur : sa base ENU, l'ancre qui l'a produite, la hauteur de
@@ -51,6 +54,14 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
   /** Caméra de la dernière frame — `null` avant le premier `update` (mpp = 1). */
   protected lastCamera: THREE.Camera | null = null
   protected viewH = 1
+  /**
+   * Scratchs de projection partagés par les sous-classes : `worldToScreen` alloue son
+   * résultat sans le second, et il est appelé une fois par SOMMET sur les chemins de
+   * survol et de projection par frame.
+   */
+  protected readonly scratch = new THREE.Vector3()
+  protected readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
+
 
   constructor(
     /** Parent — `engine.annotations` pour hériter du masquage pendant l'intro. */
@@ -97,7 +108,44 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
    */
   config: MapConfig = defaultConfig
 
+  /**
+   * Distance écran (px) la plus courte entre un point et la polyligne `points` drapée à
+   * `height`, en deçà de `limit` ; `Infinity` au-delà. Un segment n'est testé qu'entre deux
+   * sommets visibles (jamais à travers un point derrière la caméra).
+   *
+   * Scalaire de bout en bout : un lien porte jusqu'à `MAX_STEPS + 1` sommets, et un couple
+   * `{x, y}` alloué par sommet mettait le GC sous pression à la cadence du pointeur. Les
+   * tracés et les liens en avaient chacun une copie ; celle des tracés allouait.
+   */
+  protected polylineDistancePx(
+    points: readonly LatLng[],
+    height: number,
+    camera: THREE.Camera,
+    sx: number,
+    sy: number,
+    limit: number,
+  ): number {
+    let best = Infinity
+    let prevX = 0
+    let prevY = 0
+    let hasPrev = false
+    for (const p of points) {
+      const world = this.projection.latLngToWorld(p, this.scratch, height)
+      const s = this.projection.worldToScreen(world, camera, this.screen)
+      const visible = s.z <= 1
+      if (hasPrev && visible) {
+        const dist = segDistPx(sx, sy, prevX, prevY, s.sx, s.sy)
+        if (dist < limit && dist < best) best = dist
+      }
+      prevX = s.sx
+      prevY = s.sy
+      hasPrev = visible
+    }
+    return best
+  }
+
   setConfig(config: MapConfig): void {
+
     this.config = config
   }
 
