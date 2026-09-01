@@ -70,7 +70,6 @@ export class PoolCrashError extends Error {
   }
 }
 
-
 /** Abandon demandé par l'appelant — distinct d'un échec, cf. `TileQueue.retryOrFail`. */
 export class PoolAbortError extends Error {
   constructor() {
@@ -89,7 +88,6 @@ type Task<Req, Res> = {
   /** Workers morts en la traitant — cf. `taskRetries`. */
   crashes: number
 }
-
 
 type Slot<Req, Res> = {
   worker: PoolWorker
@@ -126,7 +124,6 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
   private spawnFailed = false
   /** Morts de worker depuis la dernière réponse réussie — cf. `consecutiveDeaths`. */
   private deaths = 0
-
 
   constructor(private readonly opts: WorkerPoolOptions<Req, Res>) {}
 
@@ -302,7 +299,6 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
     this.spawnFailed = true
     if (this.slots.length === 0) this.drainToFallback()
   }
-
 
   /** Solde la file par le chemin sans worker (pool entièrement mort). */
   private drainToFallback(): void {

@@ -303,7 +303,6 @@ export class Camera {
     }
   }
 
-
   /** Version animée de `jumpToPose` — mêmes bornes, même prise de main. */
   flyToPose(pose: CameraState, opts: FlyOptions = {}): void {
     this.followFn = null

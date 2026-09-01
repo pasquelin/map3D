@@ -200,7 +200,6 @@ export class TileQueue<T extends Tile, R> {
     }
   }
 
-
   /** Mémoire actuellement retenue par les tuiles montées (octets). */
   get usedBytes(): number {
     return this.bytes
@@ -249,7 +248,6 @@ export class TileQueue<T extends Tile, R> {
     if (a < 0 || b < 0) return undefined
     return this.tiles.get(tileId(Number(key.slice(0, a)), Number(key.slice(a + 1, b)), Number(key.slice(b + 1))))
   }
-
 
   values(): IterableIterator<T> {
     return this.tiles.values()
@@ -357,7 +355,6 @@ export class TileQueue<T extends Tile, R> {
     return fallback
   }
 
-
   private async load(t: T): Promise<void> {
     t.state = 'loading'
     t.attempts++
@@ -383,7 +380,6 @@ export class TileQueue<T extends Tile, R> {
         this.retryOrFail(t)
       }
     } finally {
-
       t.abort = null
       this.inflight--
       this.pump()
@@ -406,7 +402,6 @@ export class TileQueue<T extends Tile, R> {
     t.retryAt = Date.now() + (retryDelays[t.attempts - 1] ?? retryDelays.at(-1) ?? 0)
     this.enqueue(t)
   }
-
 
   /**
    * Éviction LRU au-delà des plafonds (jamais les tuiles vues cette frame, jamais les
@@ -460,7 +455,6 @@ export class TileQueue<T extends Tile, R> {
     this.toMount.length = 0
     this.bytes = 0
   }
-
 
   dispose(): void {
     this.clear()

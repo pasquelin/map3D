@@ -16,7 +16,6 @@ const BUDGET = {
   staleFrames: 1_000_000,
 }
 
-
 type TestTile = Tile & { payload: string | null }
 
 /**

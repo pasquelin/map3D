@@ -161,6 +161,5 @@ describe('Camera — tween en temps, pas en frames', () => {
     }
     expect(frames).toBeGreaterThanOrEqual(30)
     expect(frames).toBeLessThanOrEqual(31)
-
   })
 })

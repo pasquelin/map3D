@@ -148,7 +148,6 @@ describe('mergeConfig — feuilles absentes', () => {
     const merged = mergeConfig(defaultConfig, { providers: { templates: { fetch: { retries: undefined } } } })
     expect(merged.providers.templates.fetch.retries).toBe(defaultConfig.providers.templates.fetch.retries)
     expect(merged.providers.templates.fetch.timeoutMs).toBe(defaultConfig.providers.templates.fetch.timeoutMs)
-
   })
 
   it('ignore une clé `__proto__` propre (override issu de JSON.parse)', () => {
