@@ -204,6 +204,23 @@ if (canEnterMode(basemap, '3d')) {
 }
 ```
 
+The whole table is exported too: `deriveBasemapCapabilities(mode, support, traffic)`
+returns the full `BasemapState` from a `BasemapSupport` — what the engine knows about its
+sources at publish time: `hasBasemap2d`, `sourceSupportsTraffic`, `canBorrowTraffic`,
+`provider3d`, `has3dTileset`, `hasRelief`, `hasBuildings`. Pure, with neither engine nor
+WebGL, it is what `MapEngine` applies on every config or mode change; it can be tested as
+is to check what a given configuration will offer on screen.
+
+```ts
+import { deriveBasemapCapabilities, type BasemapSupport } from '@pasquelin/map3d'
+
+const support: BasemapSupport = {
+  hasBasemap2d: true, sourceSupportsTraffic: false, canBorrowTraffic: true,
+  provider3d: 'internal', has3dTileset: false, hasRelief: true, hasBuildings: true,
+}
+deriveBasemapCapabilities('plan', support, true).trafficAvailable   // true — by borrowing
+```
+
 ## 5. Internal volume — extruded buildings
 
 `providers.tiles3d.provider` decides where volume comes from, **independently of the 2D
@@ -363,6 +380,16 @@ export type TileSource = {
 
 `createTileSource(cfg, origin, apiKey?)` returns the source matching `cfg.provider`, or `null` when
 that provider has nothing to serve.
+
+Both shipped sources are exported, to be instantiated by hand — tests, a composite source
+delegating to one of them:
+
+| Class | Constructor | What it does |
+|---|---|---|
+| `GoogleTileSource` | `new GoogleTileSource(apiKey, cfg?)` | `createSession` session (re)created on demand and reused as long as its signature (map type, traffic) does not change; `supportsTraffic = true` |
+| `InternalTileSource` | `new InternalTileSource(cfg?, origin?)` | XYZ URLs with neither session nor key: the `internalTileUrl` template is resolved once per `setConfig`, not per tile; `supportsTraffic = false` |
+
+`cfg` and `origin` fall back to `defaultConfig.providers.tiles` / `.internal.origin`.
 
 ---
 

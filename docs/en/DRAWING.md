@@ -197,6 +197,15 @@ One boolean per type (all `true` by default), honoured by **every** tool:
 ```
 
 `SELECTABLE_KINDS` (public export) enumerates the types to build your own UI.
+`kindAllowed(kind, policy?)` applies the same rule as the tools — `true` when the kind is
+absent from the policy or set to `true` — so a custom UI does not re-derive a different one:
+
+```ts
+import { SELECTABLE_KINDS, kindAllowed, useConfig } from '@pasquelin/map3d'
+
+const policy = useConfig().selection.selectable
+const kinds = SELECTABLE_KINDS.filter((k) => kindAllowed(k, policy))   // what the tools will accept
+```
 
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
@@ -211,6 +220,11 @@ marker, a path, a shape or a cluster child; only the content varies (the icon, a
 header's cross deselects the whole group. Shapes grouped by `kind`, paths under "Paths",
 clusters as an expandable "Cluster (N)" listing its children. Mounted by default;
 `selectionBadges: false` removes them.
+
+The panel is the `<SelectionBadges>` component; the object passed to `draw.selectionBadges`
+is its props (`SelectionBadgesProps`: `markerTypeLabel`, `shapeKindLabel`, `renderMarker`,
+`markerActions`, `markerMenu`). `<Map>` mounts it itself — the export is there to type that
+configuration, not to place it as a child.
 
 ---
 
@@ -273,6 +287,18 @@ for the same stroke widths as a tactical sketch.
 | `strokeOpacities` | `[0.25, 0.5, 0.75, 0.95]` |
 | `fillOpacities` | `[0, 0.3, 0.6, 1]` |
 | `radii` | `[0, 10, 25, 50]` |
+
+These defaults are exported (`DEFAULT_DRAW_PRESETS`, typed `DrawPresets`) — to derive yours
+from them rather than copy them — along with `maxRadiusOf(presets)`, the last radius of
+`radii` (falls back to `50` when the list is empty): the upper bound of the settings panel's
+preview scale, derived from the steps rather than rewritten so that a modified `radii` does
+not distort their drawing.
+
+```tsx
+import { DEFAULT_DRAW_PRESETS } from '@pasquelin/map3d'
+
+<Map draw={{ presets: { ...DEFAULT_DRAW_PRESETS, widths: [0, 1, 3, 6] } }} />
+```
 
 ### Per-tool settings (gear icon)
 

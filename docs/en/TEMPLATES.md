@@ -64,6 +64,32 @@ type Template = {
 }
 ```
 
+### 2.1 Pure functions over the content
+
+The per-category split is exported: enough to prepare or inspect a template host-side —
+a custom import, a preview before saving — without going through the panel. Everything
+happens in GeoJSON, the format `toGeoJSON` / `fromGeoJSON` already produce and re-ingest,
+and none of these functions mutates its argument.
+
+| Export | Signature | Role |
+|---|---|---|
+| `categoryOf(kind)` | `(kind: DrawTool) => TemplateCategory \| null` | category of a shape `kind`; `null` for `select` / `erase`, which are never serialised |
+| `filterByCategories(fc, cats)` | `(fc: GeoJSONFeatureCollection, cats: readonly TemplateCategory[]) => GeoJSONFeatureCollection` | sub-collection keeping only the requested categories (empty when `cats` is) |
+| `statsOf(fc)` | `(fc: GeoJSONFeatureCollection) => TemplateStats` | per-category counts, extent (`bounds`, `null` when empty, antimeridian handled) and JSON size in bytes |
+| `mergeCollections(base, add)` | `(base: GeoJSONFeatureCollection, add: GeoJSONFeatureCollection) => GeoJSONFeatureCollection` | union **idempotent by id**: a feature of `add` whose id is already in `base` is not added again |
+
+```ts
+import { filterByCategories, statsOf } from '@pasquelin/map3d'
+
+const draw = filterByCategories(api.toGeoJSON(), ['shapes', 'symbols'])
+const { shapes, symbols, bounds, bytes } = statsOf(draw)
+```
+
+`mergeCollections` deduplicates on the **raw** id. The panel's "merge" mode first prefixes
+every id with the template's own: two templates saved separately almost always share their
+local ids (`draw-1`…), and the second would otherwise lose all its shapes as "already
+present". Do the same if you merge yourself.
+
 ## 3. Applying a template
 
 Three modes (`ApplyMode`), chosen in the panel:

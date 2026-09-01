@@ -174,6 +174,20 @@ symboles tactiques, dont le point d'ancrage est porté par le graphisme lui-mêm
 > `leaderLine` décide de la **structure DOM** d'un nœud à sa création : ce n'est pas
 > un réglage vivant, contrairement à `cullMargin`.
 
+La pastille elle-même est le composant `DefaultMarker` (export public), rendu quand le
+marker n'a ni `avatar` ni `icon` :
+
+```tsx
+import { DefaultMarker, useTheme } from '@pasquelin/map3d'
+
+<DefaultMarker marker={m} theme={useTheme()} label="3" />   // même pastille, hors carte (légende, liste)
+```
+
+Il est **présentationnel** : le nœud qui le porte dans la couche tient déjà `role="button"`,
+`tabIndex` et l'`aria-label` — les reprendre imbriquerait un bouton dans un bouton. La
+couleur vient de `markerColorOf(theme, marker.type)`, le halo suit `theme.animations.halo`.
+Props détaillées dans [PROPS.md](PROPS.md).
+
 ### Où le marker se pose
 
 `settleToGround` (défaut `true`) pose le marker sur la surface réelle et non sur

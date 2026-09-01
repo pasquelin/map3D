@@ -241,7 +241,7 @@ The toolbar's **“Settings”** menu carries an **“Infos”** row that opens 
 
 ⚠️ **Everything is counted IN VIEW**, not in what the host has posted. `markers total` is the only exception, and it exists to be compared with `markers painted`: their gap is what reveals a cull or a clustering that is not doing its job.
 
-Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md).
+Each value turns green, amber or red according to [`performance.statThresholds`](CONFIG.md) — a metric without a threshold stays colourless, because a latitude has no good value. Tints come from [`theme.colors.ui.stat`](THEME.md). The verdict is exported — `statLevel(value, threshold)`, see [ENGINE.md § 5](ENGINE.md#5-the-registries) — for a custom panel colouring its own cells.
 
 Sections flow into **columns derived from the width received** (an ideal column ≈ 188 px), each section staying in one piece: two columns with no scrolling inside the menu, a single one if you mount the panel in a narrow surface.
 
