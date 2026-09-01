@@ -65,8 +65,9 @@ export type CameraConfig = {
    *
    * `speed` est une FRACTION de la hauteur au-dessus du sol parcourue par seconde, et non
    * une vitesse absolue : la carte défile alors à la même allure à l'écran qu'on soit à
-   * 150 m ou à 100 km. C'est le principe de `dragSpeed` pour la souris, et celui du mode
-   * vol de `GlobeControls`, dont la vitesse est déjà mise à l'échelle de l'altitude.
+   * 150 m ou à 100 km. C'est le principe du glisser de `GlobeControls` pour la souris, et
+   * celui de son mode vol, dont la vitesse est déjà mise à l'échelle de l'altitude.
+
    */
   keyPan: {
     /** Hauteurs-sol par seconde. `0.8` ≈ un écran par seconde en vue au nadir. */

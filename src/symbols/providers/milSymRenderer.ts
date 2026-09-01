@@ -7,9 +7,10 @@ import { milSymSidc } from './milSymCatalog'
 /**
  * Mécanique de rendu MIL-STD-2525D adossée au SDK officiel `@armyc2.c5isr.renderer`.
  *
- * Le SDK pèse ~9 Mo : il est chargé par **import dynamique**, donc dans un chunk
- * séparé qui ne part qu'à la première carte qui l'utilise — un consommateur de
- * map3d qui n'affiche pas de symboles ne le télécharge jamais. Les données du
+ * Le SDK pèse ~9 Mo : il reste une DÉPENDANCE du paquet (externalisée du build, jamais
+ * dans dist/) chargée par **import dynamique** à la première carte qui l'utilise — un
+ * consommateur de map3d qui n'affiche pas de symboles ne le télécharge jamais. Les données du
+
  * catalogue (SIDC, libellés) vivent dans `milSymCatalog.ts`, sans dépendance au SDK.
  */
 
@@ -35,7 +36,6 @@ function loadMilSym(): Promise<MilSymModule> {
   }
   return modulePromise
 }
-
 
 export type MilSymRendererOptions = {
   /** Affiliation par défaut quand `render` ne reçoit pas de `variant` (défaut `friendly`). */

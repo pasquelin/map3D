@@ -133,8 +133,10 @@ export { ringOfShape } from './layers/ShapeLayer'
 // Le graphisme est INJECTÉ (`SymbolRenderer`), comme les providers de recherche et
 // de routage : la couche ne connaît que des clés de catalogue.
 // Symbologie MIL-STD-2525D prête à l'emploi : catalogue (80 icônes + 11 graphiques
-// tactiques, libellés FR) et renderer adossé au SDK officiel, chargé en import
-// dynamique (chunk séparé, ~9 Mo, jamais téléchargé sans symboles à l'écran).
+// tactiques, libellés FR) et renderer adossé au SDK officiel — une dépendance installée
+// avec le paquet (jamais dans dist/), chargée par `import()` à la première carte qui
+// affiche des symboles : sans symboles à l'écran, ses ~9 Mo ne sont jamais téléchargés.
+
 export {
   MILSYM_CATALOG,
   MILSYM_ENTRIES,
@@ -169,7 +171,6 @@ export type {
   ShortcutsConfig,
   NavigateShortcuts,
   ZIndexConfig,
-
   DataConfig,
   FetchPolicy,
   GroundSampleConfig,
