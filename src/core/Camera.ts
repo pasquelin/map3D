@@ -52,9 +52,12 @@ type Fly = {
   fromQuat: THREE.Quaternion
   toPos: THREE.Vector3
   toQuat: THREE.Quaternion
+  /** Avancement 0→1, poussé par `update(dt)` à raison de `dt / durationS` par frame. */
   t: number
-  speed: number
+  /** Durée du vol (s). */
+  durationS: number
   target: LatLng
+
   altitude: number
   tag?: string
 }
@@ -274,8 +277,10 @@ export class Camera {
   /**
    * Monte le tween de vol commun à `flyTo`/`flyToPose` — même interpolation, seule la
    * destination (nadir ou orbitale) diffère. `duration` en secondes (défaut `flyDuration`),
-   * plancher `0.05` s ; `speed` normalise sur 60 fps (le tween avance par frame).
+   * plancher `0.05` s. Le tween avance en TEMPS (`update(dt)`), jamais par frame : à 30 fps,
+   * un vol « d'une seconde » durait deux secondes, et la moitié à 120 Hz.
    */
+
   private startFly(
     toPos: THREE.Vector3,
     toQuat: THREE.Quaternion,
@@ -291,12 +296,13 @@ export class Camera {
       toPos,
       toQuat,
       t: 0,
-      speed: 1 / (secs * 60),
+      durationS: secs,
       target,
       altitude,
       tag,
     }
   }
+
 
   /** Version animée de `jumpToPose` — mêmes bornes, même prise de main. */
   flyToPose(pose: CameraState, opts: FlyOptions = {}): void {
@@ -328,8 +334,9 @@ export class Camera {
       toPos: toPos.clone(),
       toQuat: toQuat.clone(),
       t: 0,
-      speed: 1 / (secs * 60),
+      durationS: secs,
       // `target`/`altitude` ne servent qu'au ré-ancrage d'altitude (vol d'intro) : sans objet
+
       // ici, on les renseigne par cohérence sans jamais les relire pendant le tween.
       target: this.projection.worldToLatLng(toPos),
       altitude: 0,
@@ -450,11 +457,16 @@ export class Camera {
     }
   }
 
-  /** Avance vol/suivi. Retourne true si la caméra a été pilotée cette frame. */
-  update(): boolean {
+  /**
+   * Avance vol/suivi de `dt` secondes (le `tick` du moteur le borne à 0,1 s : un onglet qui
+   * revient au premier plan ne saute pas la fin d'un vol). Retourne true si la caméra a été
+   * pilotée cette frame.
+   */
+  update(dt: number): boolean {
     if (this.fly) {
       const f = this.fly
-      f.t = Math.min(1, f.t + f.speed)
+      f.t = Math.min(1, f.t + dt / f.durationS)
+
       const e = this.flyEasing(f.t)
       this.camera.position.lerpVectors(f.fromPos, f.toPos, e)
       this.camera.quaternion.slerpQuaternions(f.fromQuat, f.toQuat, e)

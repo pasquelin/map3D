@@ -2501,7 +2501,8 @@ export class MapEngine {
     this.lastTime = now
     this.totalFrames++
 
-    const controlling = this.camera.update()
+    const controlling = this.camera.update(dt)
+
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
     // Suspendu (barre espace) : la caméra reprend la main sans quitter l'outil.
     if (this.drawingMode && !this.drawingSuspended) this.freezeControlsPanRotate()
