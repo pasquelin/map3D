@@ -66,6 +66,16 @@ docs/
    croisés en dépendent.
 3. Mettez à jour la ligne de langue en tête de chaque fichier, ce tableau, et le
    [README racine](../README.md).
+4. Pour que la **vitrine** ([pasquelin.github.io/map3D](https://pasquelin.github.io/map3D/))
+   parle aussi cette langue : copiez `site/i18n/en.json` en `site/i18n/<iso>.json` et
+   traduisez ses valeurs. Le rendu (`site/build.mjs`) publie la langue par défaut à la
+   racine du site et les autres sous `/<iso>/`, et **échoue** si un dictionnaire n'a
+   pas exactement les mêmes clés que `en.json`.
+
+*4. For the **landing page** to speak that language too: copy `site/i18n/en.json` to
+`site/i18n/<iso>.json` and translate its values. The renderer (`site/build.mjs`)
+publishes the default language at the site root and the others under `/<iso>/`, and
+**fails** when a dictionary does not carry exactly the same keys as `en.json`.*
 
 Ce qui **ne se traduit pas** : le code des exemples, les noms d'API, les clés de
 `labels`, les identifiants (`marker:agent`, `m3d:tag-filter`).

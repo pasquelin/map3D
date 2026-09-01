@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "lang": "fr",
+    "name": "Français",
+    "short": "FR",
+    "docs": "fr"
+  },
+  "head": {
+    "title": "map3d — cartographie 3D temps réel pour React",
+    "description": "Bibliothèque React de cartographie 3D temps réel : globe photoréaliste, markers et clusters DOM, éditeur de dessin, données temps réel pilotées par la vue.",
+    "ogDescription": "Un moteur Three.js impératif que React monte puis laisse travailler. Globe photoréaliste, markers DOM, éditeur de dessin, données temps réel."
+  },
+  "nav": {
+    "demos": "Démos",
+    "gallery": "Galerie",
+    "capabilities": "Capacités",
+    "docs": "Doc",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "Langue"
+  },
+  "altimeter": {
+    "caption": "altitude"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "Cartographie<br />3D temps réel<br />pour React",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "Un moteur Three.js impératif que React monte, puis laisse travailler. <code>MapEngine</code> détient la caméra, les tuiles et les couches : la boucle de rendu n'attend jamais un re-render.",
+    "demoButton": "Ouvrir la démo React",
+    "docsButton": "Lire la documentation",
+    "shotAlt": "Une ville en 3D photoréaliste rendue par map3d, avec l'éditeur de dessin ouvert par-dessus",
+    "plateCity": "Paris",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "Version",
+    "peers": "Peer deps",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "Build",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "Licence",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "Démos en ligne",
+    "title": "Essayez-la dans le navigateur",
+    "lede": "Sans installation ni clé. Les démos ci-dessous sont compilées depuis ce dépôt à chaque push et servies directement par GitHub Pages.",
+    "reactTag": "react",
+    "reactName": "Tableau de bord opérateur",
+    "reactText": "Une carte 3D avec des alertes regroupées par gravité et rechargées au déplacement, des agents animés suivis par la caméra, des zones, l'éditeur de dessin complet, une bascule clair/sombre et un thème néon alternatif.",
+    "reactShotAlt": "La démo React : éditeur de dessin, sélection au lasso et liste de markers en direct",
+    "reactNote": "Publiée sans token Cesium Ion : les tuiles 3D photoréalistes sont désactivées et la carte retombe sur le fond auto-hébergé. Tout le reste fonctionne. Clonez le dépôt et renseignez <code>VITE_CESIUM_ION_TOKEN</code> pour voir le globe photoréaliste.",
+    "reactCta": "Ouvrir la démo"
+  },
+  "gallery": {
+    "eyebrow": "Galerie",
+    "title": "De l'orbite au trottoir",
+    "lede": "Une seule bibliothèque couvre toute la descente : globe orbital, regroupement régional, détail au niveau de la rue, immersion première personne au sol.",
+    "railLabel": "Vues, de l'orbite au niveau de la rue",
+    "prev": "Vue précédente",
+    "next": "Vue suivante",
+    "globeAlt": "Globe photoréaliste avec des markers regroupés",
+    "globeName": "Du globe à la carte plane",
+    "globeText": "repli ellipsoïde, clustering intelligent",
+    "clustersAlt": "Markers regroupés sur une région, par gravité",
+    "clustersName": "Markers et clusters",
+    "clustersText": "nœuds DOM recyclés, identité stable",
+    "symbolsAlt": "Catalogue, recherche et symboles MIL-STD-2525D",
+    "symbolsName": "Catalogue, recherche, symboles",
+    "symbolsText": "MIL-STD-2525D",
+    "pedestrianAlt": "Mode piéton en immersion première personne",
+    "pedestrianName": "Mode piéton",
+    "pedestrianText": "immersion première personne"
+  },
+  "caps": {
+    "eyebrow": "Capacités",
+    "title": "Ce qui est livré",
+    "lede": "Toutes les surfaces — barre d'outils, contrôles, recherche, grille de coordonnées, clustering — sont montées dans <code>&lt;Map&gt;</code> et pilotées par la configuration. Vous n'ajoutez que les données.",
+    "tilesName": "3D photoréaliste, 2D à plat",
+    "tilesText": "Google Photorealistic 3D Tiles via Cesium Ion, un globe ellipsoïde quand aucun token n'est posé, et un fond 2D servi par Google ou par votre propre serveur XYZ.",
+    "markersName": "Markers et clusters DOM",
+    "markersText": "De vrais nœuds DOM, avec survol, focus et animations CSS natifs. Recyclés et écrits en une seule passe <code>translate3d</code> : un agent qui bouge glisse au lieu d'être recréé.",
+    "drawingName": "Éditeur de dessin",
+    "drawingText": "Sélection au rectangle et au lasso, poignées de redimensionnement et de rotation, styles par outil, annuler/refaire, GeoJSON en entrée comme en sortie.",
+    "dataName": "Données temps réel pilotées par la vue",
+    "dataText": "Rechargement par emprise au déplacement de la caméra, plus les mises à jour en temps réel.",
+    "symbolsName": "Symbologie MIL-STD-2525D",
+    "symbolsCode": "import dynamique",
+    "symbolsText": "Le SDK de symbologie, 9 Mo, est chargé à la demande — il n'entre jamais dans un bundle qui n'affiche aucun symbole.",
+    "themeName": "Thème et libellés typés",
+    "themeText": "Clair et sombre, <code>prefers-reduced-motion</code> respecté, entièrement traduisible. Aucune chaîne ni valeur en dur nulle part."
+  },
+  "start": {
+    "eyebrow": "Prise en main",
+    "title": "Une carte avec clusters en une douzaine de lignes",
+    "plugins": "Les plugins optionnels — IGN Géoplateforme, Windy, plans d'intérieur — vivent dans <a href=\"https://github.com/pasquelin/plugingsMap3D\">un dépôt séparé</a>, et vous pouvez écrire les vôtres avec l'<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/fr/PLUGINS.md\">API plugin</a>."
+  },
+  "footer": {
+    "source": "Sources",
+    "docsFr": "Doc 🇫🇷",
+    "docsEn": "Doc 🇬🇧",
+    "plugins": "Plugins",
+    "changelog": "Journal",
+    "legal": "© Alban Pasquelin — publiée sous <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. L'usage commercial requiert une licence séparée."
+  }
+}

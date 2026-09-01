@@ -1,0 +1,280 @@
+<!doctype html>
+<!--
+  Gabarit UNIQUE de la vitrine : `site/build.mjs` le rend une fois par dictionnaire de
+  `site/i18n/`. La langue par défaut sort à la racine du site, les autres dans leur
+  dossier ISO 639-1 (`/fr/`) — même convention que `docs/`.
+
+  Rien de traduisible ne doit rester ici : tout texte vit dans les JSON. Ne restent en
+  dur que ce que la règle du dépôt ne traduit pas — code des exemples, noms d'API,
+  identifiants, unités.
+-->
+<html lang="{{lang}}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{head.title}}</title>
+    <meta name="description" content="{{head.description}}" />
+    <link rel="icon" href="{{root}}assets/logo.webp" type="image/webp" />
+    {{alternates}}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{head.title}}" />
+    <meta property="og:description" content="{{head.ogDescription}}" />
+    <meta property="og:image" content="https://pasquelin.github.io/map3D/assets/photorealistic-3d.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{root}}styles.css" />
+  </head>
+
+  <body>
+    <!-- Altimètre : la page descend de l'orbite au trottoir, comme la lib elle-même.
+         Piloté par `hud.js`, alimenté par les `data-alt` de chaque section. -->
+    <aside class="altimeter" aria-hidden="true">
+      <div class="altimeter__track">
+        <span class="altimeter__cursor" data-altimeter-cursor></span>
+      </div>
+      <p class="altimeter__value"><span data-altimeter-value>12 000</span><span class="altimeter__unit">km</span></p>
+      <p class="altimeter__caption">{{altimeter.caption}}</p>
+    </aside>
+
+    <header class="topbar">
+      <a class="topbar__brand" href="#top">
+        <span>map3d</span>
+        <span class="topbar__version">v{{version}}</span>
+      </a>
+      <nav class="topbar__nav">
+        <a href="#demos">{{nav.demos}}</a>
+        <a href="#gallery">{{nav.gallery}}</a>
+        <a href="#capabilities">{{nav.capabilities}}</a>
+        <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/README.md">{{nav.docs}}</a>
+        <a href="https://www.npmjs.com/package/@pasquelin/map3d">{{nav.npm}}</a>
+        <a class="topbar__source" href="https://github.com/pasquelin/map3D">{{nav.source}}&nbsp;↗</a>
+        {{langSwitch}}
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" data-alt="12000000">
+        <div class="hero__frame">
+          <img
+            class="hero__shot"
+            src="{{root}}assets/photorealistic-3d.webp"
+            alt="{{hero.shotAlt}}"
+            width="1600"
+            height="914"
+            fetchpriority="high"
+          />
+          <span class="hero__graticule"></span>
+          <p class="hero__plate">
+            <span>{{hero.plateCity}}</span>
+            <span>{{hero.plateSource}}</span>
+            <span>48.8584° N · 2.2945° E</span>
+          </p>
+        </div>
+
+        <div class="hero__copy">
+          <p class="eyebrow">{{hero.eyebrow}}</p>
+          <h1 class="hero__title">{{hero.title}}</h1>
+          <p class="hero__sub" lang="{{hero.subLang}}">{{hero.sub}}</p>
+          <p class="hero__lede">{{hero.lede}}</p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="{{root}}examples/react/">{{hero.demoButton}}</a>
+            <a class="button" href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/README.md"
+              >{{hero.docsButton}}</a
+            >
+          </div>
+          <p class="hero__install"><code>npm i @pasquelin/map3d three react react-dom</code></p>
+        </div>
+      </section>
+
+      <!-- Faits vérifiables tirés du paquet, pas des chiffres de vitrine. -->
+      <dl class="facts">
+        <div><dt>{{facts.version}}</dt><dd>{{version}}</dd></div>
+        <div><dt>{{facts.peers}}</dt><dd>{{facts.peersValue}}</dd></div>
+        <div><dt>{{facts.build}}</dt><dd>{{facts.buildValue}}</dd></div>
+        <div><dt>{{facts.licence}}</dt><dd>{{facts.licenceValue}}</dd></div>
+      </dl>
+
+      <section class="section" id="demos" data-alt="400000">
+        <header class="section__head">
+          <p class="eyebrow">{{demos.eyebrow}}</p>
+          <h2 class="section__title">{{demos.title}}</h2>
+          <p class="section__lede">{{demos.lede}}</p>
+        </header>
+
+        <div class="demos">
+          <a class="demo" href="{{root}}examples/react/">
+            <span class="demo__shot">
+              <img
+                src="{{root}}assets/drawing-selection.webp"
+                alt="{{demos.reactShotAlt}}"
+                width="1600"
+                height="900"
+                loading="lazy"
+              />
+            </span>
+            <span class="demo__body">
+              <span class="demo__tag">{{demos.reactTag}}</span>
+              <span class="demo__name">{{demos.reactName}}</span>
+              <span class="demo__text">{{demos.reactText}}</span>
+              <span class="demo__note">{{demos.reactNote}}</span>
+              <span class="demo__cta">{{demos.reactCta}}</span>
+            </span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section" id="gallery" data-alt="12000">
+        <header class="section__head section__head--rail">
+          <div>
+            <p class="eyebrow">{{gallery.eyebrow}}</p>
+            <h2 class="section__title">{{gallery.title}}</h2>
+            <p class="section__lede">{{gallery.lede}}</p>
+          </div>
+          <div class="rail__nav">
+            <button type="button" class="rail__button" data-rail-prev aria-label="{{gallery.prev}}">←</button>
+            <button type="button" class="rail__button" data-rail-next aria-label="{{gallery.next}}">→</button>
+          </div>
+        </header>
+
+        <ul class="rail" data-rail tabindex="0" aria-label="{{gallery.railLabel}}">
+          <li class="rail__item">
+            <img src="{{root}}assets/globe.webp" alt="{{gallery.globeAlt}}" loading="lazy" />
+            <p class="rail__caption">
+              <span class="rail__alt">12 700 km</span>
+              <b>{{gallery.globeName}}</b>
+              {{gallery.globeText}}
+            </p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/clusters.webp" alt="{{gallery.clustersAlt}}" loading="lazy" />
+            <p class="rail__caption">
+              <span class="rail__alt">40 km</span>
+              <b>{{gallery.clustersName}}</b>
+              {{gallery.clustersText}}
+            </p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/catalog-symbols.webp" alt="{{gallery.symbolsAlt}}" loading="lazy" />
+            <p class="rail__caption">
+              <span class="rail__alt">900 m</span>
+              <b>{{gallery.symbolsName}}</b>
+              {{gallery.symbolsText}}
+            </p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/pedestrian.webp" alt="{{gallery.pedestrianAlt}}" loading="lazy" />
+            <p class="rail__caption">
+              <span class="rail__alt">1,7 m</span>
+              <b>{{gallery.pedestrianName}}</b>
+              {{gallery.pedestrianText}}
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" id="capabilities" data-alt="800">
+        <header class="section__head">
+          <p class="eyebrow">{{caps.eyebrow}}</p>
+          <h2 class="section__title">{{caps.title}}</h2>
+          <p class="section__lede">{{caps.lede}}</p>
+        </header>
+
+        <ul class="caps">
+          <li>
+            <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/TILES.md">
+              <span class="caps__name">{{caps.tilesName}}</span>
+              <code>cesiumIonToken</code>
+              <span class="caps__text">{{caps.tilesText}}</span>
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/MARKERS.md">
+              <span class="caps__name">{{caps.markersName}}</span>
+              <code>markersLayer()</code>
+              <span class="caps__text">{{caps.markersText}}</span>
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/DRAWING.md">
+              <span class="caps__name">{{caps.drawingName}}</span>
+              <code>draw</code>
+              <span class="caps__text">{{caps.drawingText}}</span>
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/DATA.md">
+              <span class="caps__name">{{caps.dataName}}</span>
+              <code>useLiveData()</code>
+              <span class="caps__text">{{caps.dataText}}</span>
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/SYMBOLS.md">
+              <span class="caps__name">{{caps.symbolsName}}</span>
+              <code>{{caps.symbolsCode}}</code>
+              <span class="caps__text">{{caps.symbolsText}}</span>
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/pasquelin/map3D/blob/main/docs/{{docs}}/THEME.md">
+              <span class="caps__name">{{caps.themeName}}</span>
+              <code>theme · labels</code>
+              <span class="caps__text">{{caps.themeText}}</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" id="start" data-alt="120">
+        <header class="section__head">
+          <p class="eyebrow">{{start.eyebrow}}</p>
+          <h2 class="section__title">{{start.title}}</h2>
+        </header>
+
+        <pre class="code"><code><b>import</b> { Map, markersLayer, <b>type</b> MarkerData } <b>from</b> <i>'@pasquelin/map3d'</i>
+
+<b>type</b> Alert = { title: <b>string</b> }
+
+<b>const</b> alerts: MarkerData&lt;Alert&gt;[] = [
+  { id: 1, type: <i>'critical'</i>, position: { lat: 48.8566, lng: 2.3522 }, title: <i>'Intrusion'</i>, data: { title: <i>'Intrusion'</i> } },
+  { id: 2, type: <i>'info'</i>, position: { lat: 48.8606, lng: 2.3376 }, title: <i>'Patrol'</i>, data: { title: <i>'Patrol'</i> } },
+]
+
+<b>export function</b> App() {
+  <b>return</b> (
+    &lt;div style={{ height: <i>'100vh'</i> }}&gt;
+      &lt;Map
+        center={{ lat: 48.8566, lng: 2.3522 }}
+        zoom={13}
+        layers={[markersLayer&lt;Alert&gt;({ points: alerts, cluster: { enabled: <b>true</b> } })]}
+      /&gt;
+    &lt;/div&gt;
+  )
+}</code></pre>
+
+        <p class="section__lede">{{start.plugins}}</p>
+      </section>
+    </main>
+
+    <footer class="footer" data-alt="1.7">
+      <div class="footer__links">
+        <a href="https://github.com/pasquelin/map3D">{{footer.source}}</a>
+        <a href="https://www.npmjs.com/package/@pasquelin/map3d">npm</a>
+        <a href="https://github.com/pasquelin/map3D/blob/main/docs/fr/README.md">{{footer.docsFr}}</a>
+        <a href="https://github.com/pasquelin/map3D/blob/main/docs/en/README.md">{{footer.docsEn}}</a>
+        <a href="https://github.com/pasquelin/plugingsMap3D">{{footer.plugins}}</a>
+        <a href="https://github.com/pasquelin/map3D/blob/main/CHANGELOG.md">{{footer.changelog}}</a>
+      </div>
+      <p class="footer__legal">{{footer.legal}}</p>
+    </footer>
+
+    <script src="{{root}}hud.js" defer></script>
+  </body>
+</html>

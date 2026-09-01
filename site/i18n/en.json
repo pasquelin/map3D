@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "lang": "en",
+    "name": "English",
+    "short": "EN",
+    "docs": "en"
+  },
+  "head": {
+    "title": "map3d — real-time 3D cartography for React",
+    "description": "React library for real-time 3D maps: photorealistic globe, DOM markers and clusters, a Figma-style drawing editor, live viewport-driven data.",
+    "ogDescription": "An imperative Three.js engine that React mounts and stays out of. Photorealistic globe, DOM markers, drawing editor, live data."
+  },
+  "nav": {
+    "demos": "Demos",
+    "gallery": "Gallery",
+    "capabilities": "Capabilities",
+    "docs": "Docs",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "Language"
+  },
+  "altimeter": {
+    "caption": "altitude"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "Real-time 3D<br />cartography<br />for React",
+    "sub": "Cartographie 3D temps réel pour React.",
+    "subLang": "fr",
+    "lede": "An imperative Three.js engine that React mounts and then stays out of. <code>MapEngine</code> owns the camera, the tiles and the layers, so the frame loop never waits on a re-render.",
+    "demoButton": "Open the React demo",
+    "docsButton": "Read the docs",
+    "shotAlt": "A photorealistic 3D city rendered by map3d, with the drawing editor open over it",
+    "plateCity": "Paris",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "Version",
+    "peers": "Peers",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "Build",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "Licence",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "Live demos",
+    "title": "Run it in the browser",
+    "lede": "No install, no key. The demos below are built from this repository on every push and served straight from GitHub Pages.",
+    "reactTag": "react",
+    "reactName": "Operator dashboard",
+    "reactText": "A 3D map with severity-clustered alerts refetched on move, animated agents with camera follow, zones, the full drawing editor, a light/dark toggle and an alternative neon theme.",
+    "reactShotAlt": "The React demo: drawing editor, marquee selection and a live marker list",
+    "reactNote": "Published without a Cesium Ion token, so photorealistic 3D tiles are off and the map falls back to the self-hosted basemap. Everything else runs. Clone the repository and set <code>VITE_CESIUM_ION_TOKEN</code> to see the photorealistic globe.",
+    "reactCta": "Open the demo"
+  },
+  "gallery": {
+    "eyebrow": "Gallery",
+    "title": "From orbit to the pavement",
+    "lede": "One library covers the whole descent — orbital globe, regional clustering, street-level detail, first person on the ground.",
+    "railLabel": "Views, from orbit down to street level",
+    "prev": "Previous view",
+    "next": "Next view",
+    "globeAlt": "Photorealistic globe with clustered markers",
+    "globeName": "Globe to flat map",
+    "globeText": "ellipsoid fallback, smart clustering",
+    "clustersAlt": "Clustered markers over a region, grouped by severity",
+    "clustersName": "Markers and clusters",
+    "clustersText": "pooled DOM nodes, stable identity",
+    "symbolsAlt": "Catalog, search and MIL-STD-2525D symbols",
+    "symbolsName": "Catalog, search, symbols",
+    "symbolsText": "MIL-STD-2525D",
+    "pedestrianAlt": "First-person pedestrian immersion mode",
+    "pedestrianName": "Pedestrian mode",
+    "pedestrianText": "first-person immersion"
+  },
+  "caps": {
+    "eyebrow": "Capabilities",
+    "title": "What ships in the box",
+    "lede": "Every surface — toolbar, controls, search, coordinate grid, clustering — is mounted inside <code>&lt;Map&gt;</code> and driven by configuration. You add the data.",
+    "tilesName": "Photorealistic 3D, flat 2D",
+    "tilesText": "Google Photorealistic 3D Tiles through Cesium Ion, an ellipsoid globe when no token is set, and a 2D basemap that runs from Google or your own XYZ server.",
+    "markersName": "DOM markers and clusters",
+    "markersText": "Real DOM nodes with native hover, focus and CSS animation. Pooled and written in a single <code>translate3d</code> pass; a moving agent glides instead of being recreated.",
+    "drawingName": "Drawing editor",
+    "drawingText": "Marquee and lasso selection, resize and rotate handles, per-tool styles, undo/redo, GeoJSON in and out.",
+    "dataName": "Viewport-driven live data",
+    "dataText": "Bounding-box refetch as the camera moves, plus real-time updates.",
+    "symbolsName": "MIL-STD-2525D symbology",
+    "symbolsCode": "dynamic import",
+    "symbolsText": "The 9 MB symbology SDK is loaded on demand — it never enters a bundle that shows no symbols.",
+    "themeName": "Typed theme and labels",
+    "themeText": "Light and dark, <code>prefers-reduced-motion</code> honoured, fully translatable. No hard-coded string or value anywhere."
+  },
+  "start": {
+    "eyebrow": "Quick start",
+    "title": "A clustered map in a dozen lines",
+    "plugins": "Optional plugins — IGN Géoplateforme, Windy, indoor floor plans — live in <a href=\"https://github.com/pasquelin/plugingsMap3D\">a separate repository</a>, and you can write your own with the <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">plugin API</a>."
+  },
+  "footer": {
+    "source": "Source",
+    "docsFr": "Docs 🇫🇷",
+    "docsEn": "Docs 🇬🇧",
+    "plugins": "Plugins",
+    "changelog": "Changelog",
+    "legal": "© Alban Pasquelin — released under <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Commercial use requires a separate licence."
+  }
+}

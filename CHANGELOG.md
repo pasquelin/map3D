@@ -14,6 +14,11 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   `main` /docs) : rien de compilé n'est commité, le workflow rebâtit la démo à chaque
   push sur `main`. Les secrets `VITE_CESIUM_ION_TOKEN` et `VITE_GOOGLE_MAPS_KEY` sont
   facultatifs — absents, la démo tourne sur le fond de carte interne.
+- **Vitrine bilingue** : la landing est rendue par `site/build.mjs` depuis un gabarit
+  unique (`site/template.html`) et un dictionnaire par langue (`site/i18n/*.json`),
+  anglais à la racine et français sous `/fr/`, avec sélecteur de langue, `hreflang` et
+  `canonical`. Ajouter une langue = déposer un JSON ; le rendu échoue si un
+  dictionnaire n'a pas les mêmes clés que `en.json`.
 
 ## [0.5.0] — 2026-08-31
 

@@ -85,19 +85,16 @@ jobs:
         # contrairement à `github.event.repository`.
         run: pnpm build:example --base="/${GITHUB_REPOSITORY#*/}/examples/react/"
 
+      # `build.mjs` rend le gabarit une fois par dictionnaire de `site/i18n/` (langue
+      # par défaut à la racine, les autres dans leur dossier ISO 639-1), copie les
+      # assets et échoue si un dictionnaire est désaccordé ou une clé manquante.
       - name: Assembler le site
         working-directory: map3D
         run: |
           set -euo pipefail
+          node site/build.mjs _site --site="https://${GITHUB_REPOSITORY%%/*}.github.io/${GITHUB_REPOSITORY#*/}/"
           mkdir -p _site/examples/react
-          cp -R site/. _site/
           cp -R examples/react/dist/. _site/examples/react/
-          # Pages passerait la sortie dans Jekyll et ignorerait tout nom en `_`.
-          touch _site/.nojekyll
-          # La version affichée vient du paquet : un gabarit vaut mieux qu'un numéro
-          # recopié à la main qui se périme au premier `npm version`.
-          version=$(node -p "require('./package.json').version")
-          sed -i "s/{{VERSION}}/${version}/g" _site/index.html
           du -sh _site
 
       - name: Préparer Pages

@@ -235,6 +235,34 @@ code {
   color: var(--releve);
 }
 
+/* Sélecteur de langue : rendu par `build.mjs`, une entrée par dictionnaire de
+   `site/i18n/`. La langue courante n'est pas un lien — elle est déjà là. */
+.topbar__langs {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  padding-left: 18px;
+  border-left: 1px solid var(--graticule);
+}
+
+.topbar__langs .topbar__lang {
+  padding: 3px 7px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--cote);
+  text-decoration: none;
+}
+
+.topbar__langs a.topbar__lang:hover {
+  color: var(--releve);
+}
+
+.topbar__langs .topbar__lang[aria-current='true'] {
+  background: var(--relief);
+  color: var(--releve);
+}
+
 /* — Hero ————————————————————————————————————————————————————————— */
 
 .hero {
@@ -456,12 +484,6 @@ a.demo:hover {
   transform: translateY(-3px);
 }
 
-.demo--pending {
-  grid-column: span 1;
-  border-style: dashed;
-  background: transparent;
-}
-
 .demo__shot {
   display: block;
   overflow: hidden;
@@ -493,10 +515,6 @@ a.demo:hover .demo__shot img {
   font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--balise);
-}
-
-.demo--pending .demo__tag {
-  color: var(--cote);
 }
 
 .demo__name {
@@ -537,14 +555,6 @@ a.demo:hover .demo__shot img {
 
 .demo__cta::after {
   content: ' →';
-}
-
-.demo__cta--muted {
-  color: var(--cote);
-}
-
-.demo__cta--muted::after {
-  content: '';
 }
 
 /* — Rail de la galerie ——————————————————————————————————————————
@@ -798,15 +808,29 @@ a.demo:hover .demo__shot img {
     gap: clamp(40px, 5vw, 60px);
   }
 
-  .demos {
-    grid-template-columns: 1.7fr 1fr;
+  /* Une seule démo pour l'instant : elle prend toute la largeur, capture à gauche et
+     texte à droite, plutôt que de laisser une demi-colonne vide. Une deuxième démo
+     rebasculera la grille en deux colonnes de cartes. */
+  .demo {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    align-items: stretch;
   }
 
-  .demo--pending .demo__body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+  .demo__shot {
     height: 100%;
+    border-right: 1px solid var(--graticule);
+    border-bottom: 0;
+  }
+
+  .demo__shot img {
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .demo__body {
+    align-self: center;
+    padding: 30px 32px;
   }
 }
 
