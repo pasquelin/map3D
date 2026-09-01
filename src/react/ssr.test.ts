@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from 'vitest'
 // `document`, ni `navigator` au niveau module. Node ≥ 21 expose un `navigator` global :
 // on le retire pour reproduire les runtimes qui ne l'ont pas.
 describe('SSR', () => {
-  it('importe `src/index.ts` sans window, document ni navigator', async () => {
+  // L'import transforme et charge TOUTE la lib (three, tuiles, couches) : ~1 s à vide,
+  // mais au-delà des 5 s par défaut quand la machine fait tourner d'autres suites.
+  it('importe `src/index.ts` sans window, document ni navigator', { timeout: 30_000 }, async () => {
     vi.stubGlobal('navigator', undefined)
     vi.stubGlobal('window', undefined)
     vi.stubGlobal('document', undefined)
