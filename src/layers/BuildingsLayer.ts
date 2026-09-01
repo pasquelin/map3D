@@ -218,7 +218,6 @@ export class BuildingsLayer {
     } else this.parent.remove(this.group)
   }
 
-
   /**
    * Opacité globale des volumes (fondu d'extinction au dézoom). Un SEUL matériau partagé :
    * une écriture suffit pour toutes les tuiles, aucune traversée. `transparent` n'est activé

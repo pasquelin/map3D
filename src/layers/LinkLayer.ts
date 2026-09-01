@@ -128,7 +128,6 @@ type LinkDrape = Drape<LinkVisual> & {
   labelSy?: number
 }
 
-
 /** Le casing reste un peu plus discret que le trait qu'il détoure. */
 const CASING_OPACITY_RATIO = 0.8
 
@@ -152,8 +151,6 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
   protected boundsOf(item: LinkVisual): Bounds | null {
     return item.disc ? boundsOfLatLngs([item.disc.center]) : boundsOfLatLngs(item.points)
   }
-
-
 
   constructor(
     scene: THREE.Object3D,
@@ -510,7 +507,6 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       }
     }
     return bestId
-
   }
 
   /**

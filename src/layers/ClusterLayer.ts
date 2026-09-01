@@ -87,7 +87,6 @@ export type ClusterOptions = {
   levelQuantization?: number
 }
 
-
 /**
  * Clustering en **espace géographique** via supercluster. Le zoom entier fait
  * office de palier discret : à zoom constant, `getClusters` renvoie des clusters

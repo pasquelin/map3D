@@ -8,7 +8,6 @@ import { fetchWithPolicy, HttpError } from './fetchPolicy'
 import { DEG2RAD, RAD2DEG, TILE_SIZE } from './math'
 import { TileDeferred } from './TileQueue'
 
-
 /** Ré-export : `math` en est la source (cf. `metersPerPixelAtZoom`). */
 export { TILE_SIZE }
 
@@ -178,6 +177,5 @@ export class GoogleTileSource {
     const key = encodeURIComponent(this.apiKey)
     if (this.signsItself) return base.replace('{session}', session).replace('{key}', key)
     return `${base}?session=${session}&key=${key}`
-
   }
 }

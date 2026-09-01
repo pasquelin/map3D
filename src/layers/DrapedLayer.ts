@@ -13,7 +13,6 @@ import { boundsContains } from '../core/MarkerQuery'
 import type { StatContribution } from '../core/viewStats'
 import { segDistPx } from './draw/hitTest'
 
-
 /**
  * Groupe drapé auto-porteur : sa base ENU, l'ancre qui l'a produite, la hauteur de
  * drapage et la résolution du build. Une sous-classe peut l'étendre (tête animée,
@@ -61,7 +60,6 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
    */
   protected readonly scratch = new THREE.Vector3()
   protected readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
-
 
   constructor(
     /** Parent — `engine.annotations` pour hériter du masquage pendant l'intro. */
@@ -145,7 +143,6 @@ export abstract class DrapedLayer<TItem, TDrape extends Drape<TItem> = Drape<TIt
   }
 
   setConfig(config: MapConfig): void {
-
     this.config = config
   }
 

@@ -10,7 +10,6 @@ import { fillMaterial, strokeMaterial } from '../core/geometryMaterials'
 import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
 
-
 /** Préfixe d'id des tracés dans le registre de sélection : évite les collisions avec les ids de markers. */
 const PATH_SID = 'path:'
 
@@ -191,7 +190,6 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     return s.sx >= -m && s.sy >= -m && s.sx <= ctx.size.width + m && s.sy <= ctx.size.height + m
   }
 
-
   /**
    * Projette les points d'un tracé à sa hauteur de drapage — chemin FROID
    * (finalize/clic, jamais par frame), d'où l'allocation. `visible` = devant la
@@ -295,7 +293,6 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     }
     return bestId
   }
-
 
   /**
    * Mémorise les tracés sélectionnés (filtrés au préfixe `path:`). Aucun rebuild de

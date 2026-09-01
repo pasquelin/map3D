@@ -123,7 +123,6 @@ export class TiledGlobeLayer {
      * soit lue nulle part.
      */
     private readonly oceanColor: string = defaultTheme.globe.oceanColor,
-
   ) {
     this.group.name = 'm3d-tiled-globe'
     this.group.visible = false

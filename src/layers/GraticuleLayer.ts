@@ -578,7 +578,6 @@ export class GraticuleLayer implements Layer {
         this.labelPos[k + 1] = s.sy
         this.labelPos[k + 2] = rot
       }
-
     }
     // `hideLabelsFrom` a besoin de l'ANCIEN `labelCount` pour savoir jusqu'où cacher, et pose
     // le nouveau lui-même : l'écrire avant l'appel laisserait des slots visibles.

@@ -10,7 +10,6 @@ export type ViewportControllerOptions = {
   onError?: (error: unknown) => void
 }
 
-
 /**
  * Orchestre le chargement viewport-driven d'une `DataSource` : anti-rebond,
  * gate de zoom (`source.minZoom`), et annulation de la requête précédente quand
@@ -94,7 +93,6 @@ export class ViewportController<T> {
       // Abort ou erreur réseau : on laisse le jeu de données courant intact.
       if (!controller.signal.aborted && !this.disposed) this.options.onError?.(error)
     } finally {
-
       if (this.inFlight === controller) {
         this.inFlight = null
         this.onLoadingChange?.(false)

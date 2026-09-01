@@ -261,7 +261,6 @@ export class SelectionOverlay {
 
   /** Flash bref (contour gris + cadenas) : « cette forme est protégée ». */
   flashLock(shape: OverlayShape | null, center: ScreenPt, durationMs: number): void {
-
     const g = document.createElementNS(SVG_NS, 'g')
     g.classList.add('m3d-lockflash')
     if (shape && shape.pts.length > 1) {
@@ -276,7 +275,6 @@ export class SelectionOverlay {
     g.appendChild(icon)
     this.svg.appendChild(g)
     window.setTimeout(() => g.remove(), durationMs)
-
   }
 
   dispose(): void {
