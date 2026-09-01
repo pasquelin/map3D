@@ -28,7 +28,11 @@ export default defineConfig({
         'three-mesh-bvh',
         'supercluster',
         /^3d-tiles-renderer/,
+        // Le SDK MIL-STD (~9,7 Mo) reste une dépendance installée avec le paquet et chargée
+        // par `import()` : l'embarquer le dupliquait dans dist/ (ESM + CJS = 19 Mo).
+        /^@armyc2\.c5isr\.renderer\//,
       ],
+
       output: {
         globals: { react: 'React', 'react-dom': 'ReactDOM', three: 'THREE' },
         // Directive « client » sur le POINT D'ENTRÉE : la carte est intrinsèquement
