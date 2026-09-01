@@ -8,6 +8,7 @@
 // sites. Elles vivent ici, et nulle part ailleurs.
 
 import { tagColor } from '../core/TagFilter'
+import { defaultTheme } from './defaultTheme'
 import type { MapTheme, MarkerColor } from './types'
 
 /**
@@ -25,5 +26,5 @@ export function markerColorOf(theme: MapTheme, type: string): MarkerColor {
  * `rect`…) garde ainsi une couleur stable entre les sessions et entre les surfaces.
  */
 export function tagColorOf(theme: MapTheme, tag: string): string {
-  return theme.colors.tags?.[tag] ?? tagColor(tag)
+  return theme.colors.tags?.[tag] ?? tagColor(tag, theme.colors.tagPalette ?? defaultTheme.colors.tagPalette)
 }

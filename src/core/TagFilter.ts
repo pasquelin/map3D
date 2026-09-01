@@ -1,34 +1,20 @@
 import { defaultConfig } from '../config/defaultConfig'
+import { defaultTheme } from '../theme/defaultTheme'
+
 import { readStoredJSON, writeStoredJSON } from './storage'
 /** Tag présent sur la carte + nombre d'éléments qui le portent. */
 export type TagEntry = { tag: string; count: number }
 
 /**
- * Palette de repli des pastilles du panneau « Couches ». L'attribution est un
- * hash déterministe du nom → un tag garde sa couleur entre sessions et entre
- * couches sans rien stocker. L'app impose ses propres couleurs via
- * `theme.colors.tags` (prioritaire).
+ * Couleur de repli d'un tag : un hash déterministe du nom choisit dans `palette` — un tag
+ * garde sa couleur entre sessions et entre couches sans rien stocker. La palette vient de
+ * `theme.colors.tagPalette` (elle était figée ici) ; `theme.colors.tags` reste prioritaire.
  */
-const TAG_PALETTE = [
-  '#ef4444',
-  '#f97316',
-  '#f59e0b',
-  '#84cc16',
-  '#22c55e',
-  '#10b981',
-  '#06b6d4',
-  '#3b82f6',
-  '#6366f1',
-  '#8b5cf6',
-  '#d946ef',
-  '#ec4899',
-]
-
-/** Couleur de repli d'un tag (hash djb2 → palette, stable entre sessions). */
-export function tagColor(tag: string): string {
+export function tagColor(tag: string, palette: readonly string[] = defaultTheme.colors.tagPalette ?? []): string {
+  if (palette.length === 0) return defaultTheme.colors.ui.accent
   let h = 5381
   for (let i = 0; i < tag.length; i++) h = ((h << 5) + h + tag.charCodeAt(i)) | 0
-  return TAG_PALETTE[Math.abs(h) % TAG_PALETTE.length]!
+  return palette[Math.abs(h) % palette.length]!
 }
 
 /**

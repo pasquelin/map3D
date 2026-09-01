@@ -20,6 +20,12 @@ export type MapTheme = {
     /** Couleur de repérage par tag (panneau « Couches ») ; tag/champ absent → palette hashée de la lib.
      *  Optionnel : un thème complet écrit avant cet ajout reste valide (et ne crashe pas le panneau). */
     tags?: Record<string, string>
+    /**
+     * Palette de repli des tags sans couleur déclarée : un hash stable du nom y choisit une
+     * entrée. Optionnel comme `tags`, pour les mêmes raisons ; vide = palette de la lib.
+     */
+    tagPalette?: readonly string[]
+
     /** Couleurs PROPRES au cluster, indépendantes des types qu'il agrège. */
     cluster: {
       /** Cœur du donut. */

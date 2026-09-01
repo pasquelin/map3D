@@ -535,7 +535,8 @@ export class DrawLayer implements Layer {
     private readonly projection: Projection,
     private readonly overlay: HTMLElement,
     defaults: DrawDefaults,
-    private renderOrder = 4,
+    private renderOrder = defaultConfig.style.renderOrder.drawings,
+
     private onChange?: (geojson: GeoJSONFeatureCollection) => void,
   ) {
     this.group.name = 'm3d-draw'
@@ -1243,7 +1244,6 @@ export class DrawLayer implements Layer {
     const bb = screenBBox(c.pts)
     const center = bb ? { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 } : c.pts[0]!
     this.overlaySel.flashLock(c, center, this.config.interaction.lockFlashMs)
-
   }
 
   /** Repositionne contours/bbox/marquee/poignées de la sélection (px écran, chaque frame). */
@@ -2081,7 +2081,6 @@ export class DrawLayer implements Layer {
     }
   }
 
-
   /** Oublie complètement un dessin supprimé : meshes, label ET mémos hauteur/mpp. */
   private dropDrawing(id: string): void {
     this.removeMeshes(id)
@@ -2236,7 +2235,6 @@ export class DrawLayer implements Layer {
     const w = this.projection.latLngToWorld(p, this.camScratch, height)
     const s = this.projection.worldToScreen(w, this.lastCamera, this.screen)
     return s.z <= 1 ? { x: s.sx, y: s.sy } : null
-
   }
 
   /** Curseur proche du 1er sommet à l'écran (≥3 sommets posés) → aimant de fermeture. */

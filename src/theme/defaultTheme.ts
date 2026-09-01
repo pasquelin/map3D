@@ -11,6 +11,21 @@ export const defaultTheme: MapTheme = {
       default: { base: '#2E7CF6', accent: '#78BEFF', contrast: '#ffffff' },
     },
     tags: {},
+    tagPalette: [
+      '#ef4444',
+      '#f97316',
+      '#f59e0b',
+      '#84cc16',
+      '#22c55e',
+      '#10b981',
+      '#06b6d4',
+      '#3b82f6',
+      '#6366f1',
+      '#8b5cf6',
+      '#d946ef',
+      '#ec4899',
+    ],
+
     // Couleur PROPRE au centre du cluster : gris ardoise neutre, distinct des couleurs
     // de type/accent → dit « total » sans se confondre avec une sévérité.
     cluster: { core: '#1e293b', text: '#ffffff', ring: '#ffffff' },
