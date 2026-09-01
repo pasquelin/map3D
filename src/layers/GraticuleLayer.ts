@@ -146,6 +146,9 @@ export class GraticuleLayer implements Layer {
   private measureEl: HTMLElement | null = null
   /** Dernière opacité écrite par slot : réécrire la même valeur est une écriture CSSOM pour rien. */
   private readonly labelOpacity: number[] = []
+  /** Dernier `transform` écrit par slot (sx, sy, rotation — trois entrées par slot), même raison. */
+  private readonly labelPos: number[] = []
+
   /** Rect de l'overlay, mémoïsé par frame — `getBoundingClientRect` force une mise en page. */
   private overlayRect: DOMRect | null = null
   /** Index de l'étiquette sous le pointeur, `-1` si aucune. */
@@ -568,7 +571,14 @@ export class GraticuleLayer implements Layer {
       // `screenAngle` reçoit le point DÉJÀ projeté : le recalculer doublait le coût de la
       // rotation pour un résultat bit-à-bit identique.
       const rot = g.labels.rotate ? this.screenAngle(line, anchor, s, ctx) : 0
-      el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
+      const k = i * 3
+      if (this.labelPos[k] !== s.sx || this.labelPos[k + 1] !== s.sy || this.labelPos[k + 2] !== rot) {
+        el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
+        this.labelPos[k] = s.sx
+        this.labelPos[k + 1] = s.sy
+        this.labelPos[k + 2] = rot
+      }
+
     }
     // `hideLabelsFrom` a besoin de l'ANCIEN `labelCount` pour savoir jusqu'où cacher, et pose
     // le nouveau lui-même : l'écrire avant l'appel laisserait des slots visibles.

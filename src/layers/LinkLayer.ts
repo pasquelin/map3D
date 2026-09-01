@@ -10,8 +10,7 @@ import {
 } from '../core/geometryMaterials'
 import { boundsOfLatLngs } from '../core/bounds'
 import type { FrameContext } from '../core/Layer'
-import type { Projection, ScreenPoint } from '../core/Projection'
-import { segDistPx } from './draw/hitTest'
+import type { Projection } from '../core/Projection'
 import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
 
@@ -123,7 +122,12 @@ type LinkDrape = Drape<LinkVisual> & {
    */
   dash: { material: DashedMaterial; speed: number } | null
   label: HTMLDivElement | null
+  /** Dernier état écrit sur l'étiquette : réécrire la même valeur est une écriture CSSOM pour rien. */
+  labelShown?: boolean
+  labelSx?: number
+  labelSy?: number
 }
+
 
 /** Le casing reste un peu plus discret que le trait qu'il détoure. */
 const CASING_OPACITY_RATIO = 0.8
@@ -149,11 +153,7 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     return item.disc ? boundsOfLatLngs([item.disc.center]) : boundsOfLatLngs(item.points)
   }
 
-  private readonly scratch = new THREE.Vector3()
-  /** Point écran réutilisé : `worldToScreen` alloue son résultat sans lui, et il est
-   *  appelé une fois par SOMMET (jusqu'à 257 par lien) sur les chemins de survol et
-   *  de projection par frame. Même patron que le scratch vectoriel au-dessus. */
-  private readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
+
 
   constructor(
     scene: THREE.Object3D,
@@ -503,30 +503,14 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
     for (const d of this.drapes) {
       // Un socle n'est pas un trait : il ne se sélectionne pas, il se commande.
       if (d.item.disc) continue
-      const h = this.heightOf(d)
-      // Sommet précédent tenu en SCALAIRES : un lien échantillonné porte jusqu'à
-      // `MAX_STEPS + 1` points, et un couple `{x, y}` alloué par sommet mettait le GC
-      // sous pression à la cadence du pointeur, pour une valeur lue une seule fois.
-      let prevX = 0
-      let prevY = 0
-      let hasPrev = false
-      for (const p of d.item.points) {
-        const world = this.projection.latLngToWorld(p, this.scratch, h)
-        const s = this.projection.worldToScreen(world, camera, this.screen)
-        const visible = s.z <= 1
-        if (hasPrev && visible) {
-          const dist = segDistPx(screenX, screenY, prevX, prevY, s.sx, s.sy)
-          if (dist < bestDistance) {
-            bestDistance = dist
-            bestId = d.item.id
-          }
-        }
-        prevX = s.sx
-        prevY = s.sy
-        hasPrev = visible
+      const dist = this.polylineDistancePx(d.item.points, this.heightOf(d), camera, screenX, screenY, bestDistance)
+      if (dist < bestDistance) {
+        bestDistance = dist
+        bestId = d.item.id
       }
     }
     return bestId
+
   }
 
   /**
@@ -566,7 +550,10 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       const pts = d.item.points
       const mid = d.item.disc ? d.item.disc.center : pts[Math.floor(pts.length / 2)]
       if (!mid) {
-        el.style.display = 'none'
+        if (d.labelShown !== false) {
+          el.style.display = 'none'
+          d.labelShown = false
+        }
         continue
       }
       const world = this.projection.latLngToWorld(mid, this.scratch, this.heightOf(d))
@@ -576,8 +563,17 @@ export class LinkLayer extends DrapedLayer<LinkVisual, LinkDrape> {
       // Rendu à la feuille de styles plutôt que forcé à `block` : un conteneur `slot`
       // est un flex (c'est ce qui centre son contenu sur le point du socle), et lui
       // imposer `block` en ligne le décentrerait à chaque frame visible.
-      el.style.display = show ? '' : 'none'
+      if (d.labelShown !== show) {
+        el.style.display = show ? '' : 'none'
+        d.labelShown = show
+      }
       if (!show) continue
+      // Écriture conditionnelle : carte immobile, la position ne change pas, et une
+      // chaîne `transform` par étiquette et par frame est parsée pour rien.
+      if (d.labelSx === s.sx && d.labelSy === s.sy) continue
+      d.labelSx = s.sx
+      d.labelSy = s.sy
+
       // Une étiquette se CENTRE sur son point (le texte l'entoure) ; un conteneur
       // `slot`, non : il est l'ANCRE de ce que l'hôte y accroche, et ce contenu doit
       // se poser à CÔTÉ du marker, jamais par-dessus. Le recentrer le ramènerait de

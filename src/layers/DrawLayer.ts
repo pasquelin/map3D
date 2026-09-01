@@ -9,7 +9,7 @@ import type { FrameContext, Layer } from '../core/Layer'
 import type { StatContribution } from '../core/viewStats'
 import { boundsContains } from '../core/MarkerQuery'
 import type { PointerInterceptor, PointerPhase } from '../core/pointer'
-import type { Projection } from '../core/Projection'
+import type { Projection, ScreenPoint } from '../core/Projection'
 import type { SelectableGeometry, SelectableRegistry } from '../core/Selectables'
 import type { ErasableItem, ErasableRegistry } from '../core/Erasables'
 import { clamp } from '../core/math'
@@ -467,6 +467,11 @@ export class DrawLayer implements Layer {
   private viewH = 1
   private readonly labels = new Map<string, HTMLDivElement>()
   private readonly camScratch = new THREE.Vector3()
+  /** Point écran réutilisé : `worldToScreen` alloue son résultat sans lui (un par label et par frame). */
+  private readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
+  /** Dernier état écrit par label de mesure : réécrire la même valeur est une écriture CSSOM pour rien. */
+  private readonly labelPos = new Map<HTMLDivElement, { sx: number; sy: number; shown: boolean }>()
+
   private lastCamera: THREE.Camera | null = null
   /** true quand le curseur aimante le 1er sommet du polygone (fermeture facile). */
   private snapping = false
@@ -2072,8 +2077,10 @@ export class DrawLayer implements Layer {
     if (label) {
       label.remove()
       this.labels.delete(id)
+      this.labelPos.delete(label)
     }
   }
+
 
   /** Oublie complètement un dessin supprimé : meshes, label ET mémos hauteur/mpp. */
   private dropDrawing(id: string): void {
@@ -2227,8 +2234,9 @@ export class DrawLayer implements Layer {
   private toScreen(p: LatLng, height = 0): { x: number; y: number } | null {
     if (!this.lastCamera) return null
     const w = this.projection.latLngToWorld(p, this.camScratch, height)
-    const s = this.projection.worldToScreen(w, this.lastCamera)
+    const s = this.projection.worldToScreen(w, this.lastCamera, this.screen)
     return s.z <= 1 ? { x: s.sx, y: s.sy } : null
+
   }
 
   /** Curseur proche du 1er sommet à l'écran (≥3 sommets posés) → aimant de fermeture. */
@@ -2243,9 +2251,17 @@ export class DrawLayer implements Layer {
   project(ctx: FrameContext): void {
     this.lastCamera = ctx.camera
     for (const [id, label] of this.labels) {
+      let pos = this.labelPos.get(label)
+      if (!pos) {
+        pos = { sx: NaN, sy: NaN, shown: true }
+        this.labelPos.set(label, pos)
+      }
       const d = this.drawingFor(id)
       if (!d || d.points.length < 2) {
-        label.style.display = 'none'
+        if (pos.shown) {
+          label.style.display = 'none'
+          pos.shown = false
+        }
         continue
       }
       const mid = d.points[Math.floor(d.points.length / 2)]!
@@ -2253,11 +2269,18 @@ export class DrawLayer implements Layer {
       // (`toScreen`, l'autre utilisateur du scratch, n'est jamais appelé ici).
       const world = this.projection.latLngToWorld(mid, this.camScratch, this.heightFor(d))
       const visible = this.projection.isAboveHorizon(world, ctx.camera.position)
-      const s = this.projection.worldToScreen(world, ctx.camera)
+      const s = this.projection.worldToScreen(world, ctx.camera, this.screen)
       const show = visible && s.z <= 1 && this.isShown(d)
-      label.style.display = show ? 'block' : 'none'
-      if (show) label.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%)`
+      if (pos.shown !== show) {
+        label.style.display = show ? 'block' : 'none'
+        pos.shown = show
+      }
+      if (!show || (pos.sx === s.sx && pos.sy === s.sy)) continue
+      pos.sx = s.sx
+      pos.sy = s.sy
+      label.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%)`
     }
+
     this.syncSelectionOverlay()
   }
 
