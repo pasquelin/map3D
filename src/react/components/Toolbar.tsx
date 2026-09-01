@@ -20,7 +20,7 @@ import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
 import { MeasureToolButton } from './MeasureToolButton'
 import { EraseToolButton } from './EraseToolButton'
-import { useFitColumns } from './panelFit'
+import { useFitColumns, useMergedRefs } from './panelFit'
 import { useCloseWhenHidden } from './useDismiss'
 import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
@@ -200,6 +200,9 @@ export function Toolbar({
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
+  // Ref STABLE : une flèche inline était détachée (null) puis rattachée à chaque rendu
+  // de la barre, ce qui rejouait le placement et republiait l'élément à chaque fois.
+  const barRef = useMergedRefs(setBar, setBarEl)
   const dropdownOuvert = useYieldsToDropdown()
   const tip = useTip(tipId)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
@@ -222,13 +225,7 @@ export function Toolbar({
 
   return (
     <ToolbarContext.Provider value={bar}>
-      <div
-        ref={(el) => {
-          setBar(el)
-          setBarEl(el)
-        }}
-        className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}
-      >
+      <div ref={barRef} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
         {slot(
           'navigate',
           <ToolButton
