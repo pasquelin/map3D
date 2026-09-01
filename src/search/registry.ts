@@ -83,7 +83,9 @@ export class SearchRegistry extends ProviderRegistry<SearchProvider> {
     const totals = new Map<string, number>()
     for (const p of this.providers) {
       const r = p.query(needle, opts)
-      entries.push(...r.entries)
+      // Boucle et non spread : un spread déborde la pile au-delà de ~120 k entrées.
+      for (const e of r.entries) entries.push(e)
+
       for (const [group, n] of r.totals) totals.set(group, (totals.get(group) ?? 0) + n)
     }
     return { entries, totals }
