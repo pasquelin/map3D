@@ -16,7 +16,7 @@
 
 <br/>
 
-<img src="docs/assets/photorealistic-3d.png" alt="map3d — photorealistic 3D city with the drawing editor" width="900" />
+<img src="docs/assets/photorealistic-3d.webp" alt="map3d — photorealistic 3D city with the drawing editor" width="900" />
 
 </div>
 
@@ -38,12 +38,16 @@ An **imperative Three.js engine driven declaratively by React**. `MapEngine` own
 
 <table width="100%">
   <tr>
-    <td width="50%"><img src="docs/assets/globe.png" alt="Photorealistic globe with clustered markers" width="100%"/><br/><sub><b>Globe → flat map</b> · ellipsoid fallback, smart clustering</sub></td>
-    <td width="50%"><img src="docs/assets/drawing-selection.png" alt="Drawing editor with marquee selection and marker list" width="100%"/><br/><sub><b>Drawing & selection</b> · marquee/lasso, live marker list</sub></td>
+    <td width="50%"><img src="docs/assets/globe.webp" alt="Photorealistic globe with clustered markers" width="100%"/><br/><sub><b>Globe → flat map</b> · ellipsoid fallback, smart clustering</sub></td>
+    <td width="50%"><img src="docs/assets/drawing-selection.webp" alt="Drawing editor with marquee selection and marker list" width="100%"/><br/><sub><b>Drawing & selection</b> · marquee/lasso, live marker list</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/assets/catalog-symbols.png" alt="Catalog, search and military symbols" width="100%"/><br/><sub><b>Catalog · search · symbols</b> · MIL-STD-2525D</sub></td>
-    <td width="50%"><img src="docs/assets/pedestrian.png" alt="First-person pedestrian immersion mode" width="100%"/><br/><sub><b>Pedestrian mode</b> · first-person immersion</sub></td>
+    <td width="50%"><img src="docs/assets/catalog-symbols.webp" alt="MIL-STD-2525D symbol palette open over the map" width="100%"/><br/><sub><b>Symbol palette</b> · MIL-STD-2525D, loaded on demand</sub></td>
+    <td width="50%"><img src="docs/assets/clusters.webp" alt="Clustered incidents over Paris with routed paths" width="100%"/><br/><sub><b>Markers & clusters</b> · pooled DOM nodes, split by category</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/pedestrian.webp" alt="First-person view from street level" width="100%"/><br/><sub><b>Pedestrian mode</b> · eye height, gravity, collisions</sub></td>
+    <td width="50%"><img src="docs/assets/photorealistic-3d.webp" alt="Photorealistic 3D city with zones and clusters" width="100%"/><br/><sub><b>Photorealistic 3D</b> · Google 3D Tiles via Cesium Ion</sub></td>
   </tr>
 </table>
 

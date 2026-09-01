@@ -88,10 +88,15 @@
  * disparaissent quand tout le rail tient déjà à l'écran.
  */
 ;(() => {
-  const rail = document.querySelector('[data-rail]')
-  const prev = document.querySelector('[data-rail-prev]')
-  const next = document.querySelector('[data-rail-next]')
-  if (!rail || !prev || !next) return
+  // Chaque rail cherche ses boutons DANS sa propre section : deux rails cohabitent,
+  // un `querySelector` global ferait piloter le premier par les flèches du second.
+  for (const rail of document.querySelectorAll('[data-rail]')) setup(rail)
+
+  function setup(rail) {
+  const scope = rail.closest('.section') ?? document
+  const prev = scope.querySelector('[data-rail-prev]')
+  const next = scope.querySelector('[data-rail-next]')
+  if (!prev || !next) return
 
   const step = () => rail.querySelector('.rail__item')?.getBoundingClientRect().width ?? rail.clientWidth
 
@@ -109,4 +114,5 @@
   rail.addEventListener('scroll', sync, { passive: true })
   addEventListener('resize', sync)
   sync()
+  }
 })()

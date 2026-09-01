@@ -20,7 +20,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{head.title}}" />
     <meta property="og:description" content="{{head.ogDescription}}" />
-    <meta property="og:image" content="https://pasquelin.github.io/map3D/assets/photorealistic-3d.webp" />
+    <meta property="og:image" content="https://pasquelin.github.io/map3D/assets/hero.webp" />
     <meta name="twitter:card" content="summary_large_image" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -65,10 +65,10 @@
         <div class="hero__frame">
           <img
             class="hero__shot"
-            src="{{root}}assets/photorealistic-3d.webp"
+            src="{{root}}assets/hero.webp"
             alt="{{hero.shotAlt}}"
             width="1600"
-            height="914"
+            height="900"
             fetchpriority="high"
           />
           <span class="hero__graticule"></span>
@@ -113,7 +113,7 @@
           <a class="demo" href="{{root}}examples/react/">
             <span class="demo__shot">
               <img
-                src="{{root}}assets/drawing-selection.webp"
+                src="{{root}}assets/drawing.webp"
                 alt="{{demos.reactShotAlt}}"
                 width="1600"
                 height="900"
@@ -156,17 +156,25 @@
           <li class="rail__item">
             <img src="{{root}}assets/clusters.webp" alt="{{gallery.clustersAlt}}" loading="lazy" />
             <p class="rail__caption">
-              <span class="rail__alt">40 km</span>
+              <span class="rail__alt">9 km</span>
               <b>{{gallery.clustersName}}</b>
               {{gallery.clustersText}}
             </p>
           </li>
           <li class="rail__item">
-            <img src="{{root}}assets/catalog-symbols.webp" alt="{{gallery.symbolsAlt}}" loading="lazy" />
+            <img src="{{root}}assets/skyline.webp" alt="{{gallery.skylineAlt}}" loading="lazy" />
+            <p class="rail__caption">
+              <span class="rail__alt">3 km</span>
+              <b>{{gallery.skylineName}}</b>
+              {{gallery.skylineText}}
+            </p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/graticule.webp" alt="{{gallery.graticuleAlt}}" loading="lazy" />
             <p class="rail__caption">
               <span class="rail__alt">900 m</span>
-              <b>{{gallery.symbolsName}}</b>
-              {{gallery.symbolsText}}
+              <b>{{gallery.graticuleName}}</b>
+              {{gallery.graticuleText}}
             </p>
           </li>
           <li class="rail__item">
@@ -229,6 +237,39 @@
               <code>theme · labels</code>
               <span class="caps__text">{{caps.themeText}}</span>
             </a>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" id="tooling" data-alt="400">
+        <header class="section__head section__head--rail">
+          <div>
+            <p class="eyebrow">{{tooling.eyebrow}}</p>
+            <h2 class="section__title">{{tooling.title}}</h2>
+            <p class="section__lede">{{tooling.lede}}</p>
+          </div>
+          <div class="rail__nav">
+            <button type="button" class="rail__button" data-rail-prev aria-label="{{gallery.prev}}">←</button>
+            <button type="button" class="rail__button" data-rail-next aria-label="{{gallery.next}}">→</button>
+          </div>
+        </header>
+
+        <ul class="rail rail--plain" data-rail tabindex="0" aria-label="{{tooling.railLabel}}">
+          <li class="rail__item">
+            <img src="{{root}}assets/drawing.webp" alt="{{tooling.drawAlt}}" loading="lazy" />
+            <p class="rail__caption"><b>{{tooling.drawName}}</b>{{tooling.drawText}}</p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/symbols.webp" alt="{{tooling.symbolsAlt}}" loading="lazy" />
+            <p class="rail__caption"><b>{{tooling.symbolsName}}</b>{{tooling.symbolsText}}</p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/catalog.webp" alt="{{tooling.catalogAlt}}" loading="lazy" />
+            <p class="rail__caption"><b>{{tooling.catalogName}}</b>{{tooling.catalogText}}</p>
+          </li>
+          <li class="rail__item">
+            <img src="{{root}}assets/theme.webp" alt="{{tooling.themeAlt}}" loading="lazy" />
+            <p class="rail__caption"><b>{{tooling.themeName}}</b>{{tooling.themeText}}</p>
           </li>
         </ul>
       </section>

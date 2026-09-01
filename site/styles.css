@@ -670,6 +670,10 @@ a.demo:hover .demo__shot img {
   color: var(--balise);
 }
 
+.rail--plain .rail__caption b {
+  margin-bottom: 5px;
+}
+
 .rail__caption b {
   display: block;
   margin-bottom: 3px;

@@ -22,6 +22,14 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ### Modifié
 
+- **Vitrine : captures refaites sur la démo réelle**, en 3D photoréaliste (Google 3D
+  Tiles via Cesium Ion) et non plus sur le fond de repli. La galerie « de l'orbite au
+  trottoir » passe à cinq vues qui descendent vraiment — globe, agglomération, ligne
+  d'horizon, grille de coordonnées, rue à hauteur d'homme — et une seconde galerie
+  « à l'œuvre » montre l'outillage : dessin et sélection, palette MIL-STD-2525D,
+  catalogue, thème clair. Les captures de `README.md` suivent, en WebP (13 Mo de PNG →
+  1,5 Mo).
+
 - **Vitrine : palette échantillonnée dans le logo** (`docs/assets/logo.png`) au lieu de
   couleurs inventées — fond `#020610`, bleu du globe filaire `#0e659a`, turquoise du pin
   `#1acbc4`. Le turquoise porte les actions et les repères, le bleu les structures (dont
