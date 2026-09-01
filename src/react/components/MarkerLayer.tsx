@@ -711,6 +711,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     props.menu,
     props.tooltip,
     props.draggable,
+    // Lues dans le corps du memo : sans elles ici, un hôte qui bascule
+    // `repositionable={editing}` ou `leaderLine` ne voyait ses markers changer qu'au
+    // prochain rebuild fortuit (survol, données) — la prop était figée entre-temps.
+    props.repositionable,
+    props.leaderLine,
     props.typeLabel,
     handleClick,
     markerSize,
