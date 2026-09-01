@@ -257,17 +257,26 @@ export function DrawLayer(props: DrawLayerProps) {
   // Gardés comme `setTool` l'est par `allowed` : une restriction annoncée par l'API doit
   // valoir aussi au clavier, sinon un raccourci arme un mode dont aucune rangée du
   // sous-menu ne permet de sortir.
-  const setSelectMode = (m: SelectMode) => {
-    if (allowedSelectModes && !allowedSelectModes.includes(m)) return
+  //
+  // Listes lues par REF au moment de l'appel (latest ref, cf. ARCHITECTURE § 3) : les deux
+  // setters sont capturés par l'effet clavier et par l'API de contexte, qui survivent à
+  // leurs renders. En flèches inline, ils y restaient figés sur les listes du premier
+  // rendu — un hôte qui restreignait `selectModes` après coup n'était jamais entendu.
+  const allowedModesRef = useRef({ select: allowedSelectModes, erase: allowedEraseModes })
+  allowedModesRef.current = { select: allowedSelectModes, erase: allowedEraseModes }
+  const setSelectMode = useCallback((m: SelectMode) => {
+    const allowedModes = allowedModesRef.current.select
+    if (allowedModes && !allowedModes.includes(m)) return
     coreRef.current?.setSelectMode(m)
     setSelectModeState(m)
-  }
+  }, [])
 
-  const setEraseMode = (m: EraseMode) => {
-    if (allowedEraseModes && !allowedEraseModes.includes(m)) return
+  const setEraseMode = useCallback((m: EraseMode) => {
+    const allowedModes = allowedModesRef.current.erase
+    if (allowedModes && !allowedModes.includes(m)) return
     coreRef.current?.setEraseMode(m)
     setEraseModeState(m)
-  }
+  }, [])
 
   // Défauts de base (thème/props) — construit UNE fois par rendu, consommé par le
   // store de réglages, le core et sa resynchronisation.
