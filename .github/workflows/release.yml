@@ -31,8 +31,6 @@ jobs:
 
       - name: Installer pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 11
 
       - name: Installer Node
         uses: actions/setup-node@v7
