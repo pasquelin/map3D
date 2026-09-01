@@ -3,7 +3,8 @@
     "lang": "fr",
     "name": "Français",
     "short": "FR",
-    "docs": "fr"
+    "docs": "fr",
+    "ogLocale": "fr_FR"
   },
   "head": {
     "title": "map3d — cartographie 3D temps réel pour React",

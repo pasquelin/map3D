@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "tr",
+    "name": "Türkçe",
+    "short": "TR",
+    "docs": "en",
+    "ogLocale": "tr_TR"
+  },
+  "head": {
+    "title": "map3d — React için gerçek zamanlı 3B haritacılık",
+    "description": "React için gerçek zamanlı 3B haritacılık kütüphanesi: fotogerçekçi küre, DOM işaretçileri ve kümeleri, çizim düzenleyici, görünüm alanına bağlı canlı veri.",
+    "ogDescription": "React'in monte ettikten sonra karışmadığı buyurgan bir Three.js motoru. Fotogerçekçi küre, DOM işaretçileri, çizim düzenleyici, canlı veri."
+  },
+  "nav": {
+    "demos": "Demolar",
+    "gallery": "Galeri",
+    "capabilities": "Yetenekler",
+    "docs": "Belgeler",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "Dil"
+  },
+  "altimeter": {
+    "caption": "yükseklik"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "React için<br />gerçek zamanlı<br />3B haritacılık",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "React'in monte ettikten sonra karışmadığı buyurgan bir Three.js motoru. Kamerayı, döşemeleri ve katmanları <code>MapEngine</code> tutar; böylece çizim döngüsü hiçbir zaman yeniden render beklemez.",
+    "demoButton": "React demosunu aç",
+    "docsButton": "Belgeleri oku",
+    "shotAlt": "map3d'nin işlediği fotogerçekçi 3B şehir; üzerinde çizim düzenleyici açık",
+    "plateCity": "Paris",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "Sürüm",
+    "peers": "Peer bağımlılıklar",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "Derleme",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "Lisans",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "Canlı demolar",
+    "title": "Doğrudan tarayıcıda deneyin",
+    "lede": "Kurulum da anahtar da gerekmez. Aşağıdaki demolar her push’ta bu depodan derlenir ve doğrudan GitHub Pages üzerinden sunulur.",
+    "reactTag": "react",
+    "reactName": "Operatör panosu",
+    "reactText": "Önem derecesine göre kümelenen ve hareket ettikçe yeniden çekilen uyarılar, kameranın izlediği hareketli birimler, bölgeler, eksiksiz çizim düzenleyici, açık/koyu geçişi ve alternatif bir neon tema içeren bir 3B harita.",
+    "reactShotAlt": "React demosu: çizim düzenleyici, çerçeveyle seçim ve canlı işaretçi listesi",
+    "reactNote": "Cesium Ion belirteci olmadan yayımlandı; bu yüzden kendi barındırdığımız temel haritayla açılır — geri kalan her şey çalışır. Fotogerçekçi küre için depoyu klonlayın, <code>VITE_CESIUM_ION_TOKEN</code> değerini verin ve <code>providers.tiles3d.provider</code> ayarını <code>external</code> yapın.",
+    "reactCta": "Demoyu aç"
+  },
+  "gallery": {
+    "eyebrow": "Galeri",
+    "title": "Yörüngeden kaldırıma",
+    "lede": "Tek bir kütüphane inişin tamamını karşılar: yörünge küresi, bölgesel kümeleme, çatı silueti, ayağınızın altındaki sokak adları.",
+    "railLabel": "Görünümler, yörüngeden sokak seviyesine",
+    "prev": "Önceki görünüm",
+    "next": "Sonraki görünüm",
+    "globeAlt": "Kümelenmiş işaretçilerin bulunduğu fotogerçekçi küre",
+    "globeName": "Küreden düz haritaya",
+    "globeText": "elipsoit yedeği, akıllı kümeleme",
+    "clustersAlt": "Paris üzerinde kümelenmiş olaylar ve şehri kat eden rotalar",
+    "clustersName": "İşaretçiler ve kümeler",
+    "clustersText": "yeniden kullanılan DOM düğümleri, kategoriye göre ayrılmış",
+    "pedestrianAlt": "Bina kütleleri arasında, sokak seviyesinde birinci şahıs görünümü",
+    "pedestrianName": "Yaya modu",
+    "pedestrianText": "göz yüksekliği, yerçekimi, çarpışmalar",
+    "skylineAlt": "Çatıların üzerinde süzülen kümelerle Paris’in alçak açılı 3B görünümü",
+    "skylineName": "Silüet ve ufuk",
+    "skylineText": "eğim ne olursa olsun işaretçiler ekran boyutunu korur",
+    "graticuleAlt": "Fotogerçekçi 3B şehrin üzerine serilmiş koordinat ızgarası",
+    "graticuleName": "Koordinat ızgarası",
+    "graticuleText": "zemine yapışır, ekrandaki çizgi kalınlığı sabit kalır"
+  },
+  "caps": {
+    "eyebrow": "Yetenekler",
+    "title": "Kutudan çıkanlar",
+    "lede": "Her yüzey — araç çubuğu, denetimler, arama, koordinat ızgarası, kümeleme — <code>&lt;Map&gt;</code> içinde monte edilir ve yapılandırmayla yönetilir. Siz yalnızca veriyi eklersiniz.",
+    "tilesName": "Fotogerçekçi 3B, düz 2B",
+    "tilesText": "Cesium Ion üzerinden Google Photorealistic 3D Tiles, belirteç yoksa elipsoit küre ve Google’dan ya da kendi XYZ sunucunuzdan gelen 2B temel harita.",
+    "markersName": "DOM işaretçileri ve kümeleri",
+    "markersText": "Yerel hover, odak ve CSS animasyonu çalışan gerçek DOM düğümleri. Havuzlanır ve tek bir <code>translate3d</code> geçişinde yazılır; hareket eden birim yeniden oluşturulmak yerine kayar.",
+    "drawingName": "Çizim düzenleyici",
+    "drawingText": "Çerçeve ve kement seçimi, yeniden boyutlandırma ve döndürme tutamakları, araca özgü stiller, geri al ve yinele, GeoJSON alma ve verme.",
+    "dataName": "Görünüm alanına bağlı canlı veri",
+    "dataText": "Kamera hareket ettikçe sınırlayıcı kutuya göre yeniden çekme, ayrıca gerçek zamanlı güncellemeler.",
+    "symbolsName": "MIL-STD-2525D sembolojisi",
+    "symbolsCode": "dinamik import",
+    "symbolsText": "9 MB’lık sembol SDK’sı yalnızca gerektiğinde yüklenir — sembol göstermeyen bir pakete asla girmez.",
+    "themeName": "Tipli tema ve etiketler",
+    "themeText": "Açık ve koyu, <code>prefers-reduced-motion</code> gözetilir, tamamı çevrilebilir. Kodun hiçbir yerinde sabitlenmiş metin ya da değer yok."
+  },
+  "start": {
+    "eyebrow": "Hızlı başlangıç",
+    "title": "On küsur satırda kümelenmiş bir harita",
+    "plugins": "İsteğe bağlı eklentiler — IGN Géoplateforme, Windy, iç mekân kat planları — <a href=\"https://github.com/pasquelin/plugingsMap3D\">ayrı bir depoda</a> yaşar; <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">eklenti API’siyle</a> kendinizinkini de yazabilirsiniz."
+  },
+  "footer": {
+    "source": "Kaynak",
+    "docsFr": "Belgeler 🇫🇷",
+    "docsEn": "Belgeler 🇬🇧",
+    "plugins": "Eklentiler",
+    "changelog": "Değişiklikler",
+    "legal": "© Alban Pasquelin — <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> ile yayımlanmıştır. Ticari kullanım ayrı lisans gerektirir."
+  },
+  "tooling": {
+    "eyebrow": "İş başında",
+    "title": "Araçlar, çalışırken",
+    "lede": "Aşağıdaki her ekran görüntüsü, yukarıdan açabileceğiniz demonun kendisidir — hiçbiri maket değil.",
+    "railLabel": "Araçların ekran görüntüleri",
+    "drawAlt": "Çizim düzenleyicide seçili bir dikdörtgen; tutamakları ve seçim paneli görünüyor",
+    "drawName": "Çizim ve seçim",
+    "drawText": "yeniden boyutlandırma ve döndürme tutamakları, canlı seçim paneli, geri al ve yinele",
+    "symbolsAlt": "Haritanın üzerinde açılmış, aidiyete göre süzülmüş MIL-STD-2525D paleti",
+    "symbolsName": "MIL-STD-2525D paleti",
+    "symbolsText": "dost, düşman, tarafsız, bilinmeyen — SDK gerektiğinde yüklenir",
+    "catalogAlt": "Bir veri kaynağı açılmış ve kümeleri yeniden hesaplanmış katalog paneli",
+    "catalogName": "Katalog ve veri kaynakları",
+    "catalogText": "bir kaynağı açarsınız, 252 nokta iner ve kümeler yeniden kurulur",
+    "themeAlt": "Aynı haritanın açık teması, alçak açıdan görünüm",
+    "themeName": "Açık tema",
+    "themeText": "tek bir ayar — harita dahil tüm arayüz onu izler"
+  }
+}

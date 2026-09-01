@@ -28,3 +28,4 @@ __pycache__/
 
 # Instructions locales de l'assistant IA (contexte de travail, pas du code livré).
 CLAUDE.md
+site/assets/bg.js

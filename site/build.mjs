@@ -16,6 +16,7 @@
  * Node pur, zéro dépendance : cette page ne doit jamais avoir besoin d'un `install`.
  */
 import { readFile, readdir, writeFile, mkdir, cp } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,10 +49,13 @@ const keysOf = (node, prefix = '') =>
     value && typeof value === 'object' ? keysOf(value, `${prefix}${key}.`) : [`${prefix}${key}`],
   )
 const reference = locales.find((l) => l.meta.lang === DEFAULT_LANG)
-const referenceKeys = keysOf(reference)
+// `meta` décrit la LANGUE (code, nom natif, sens de lecture) et non le contenu : une
+// entrée `dir` présente sur le seul arabe n'est pas un désaccord de traduction.
+const traduisible = (k) => !k.startsWith('meta.')
+const referenceKeys = keysOf(reference).filter(traduisible)
 for (const locale of locales) {
   const missing = referenceKeys.filter((k) => lookup(locale, k) === undefined)
-  const extra = keysOf(locale).filter((k) => !referenceKeys.includes(k))
+  const extra = keysOf(locale).filter(traduisible).filter((k) => !referenceKeys.includes(k))
   if (missing.length || extra.length) {
     throw new Error(
       `Dictionnaire « ${locale.meta.lang} » désaccordé avec « ${DEFAULT_LANG} » :` +
@@ -78,22 +82,60 @@ for (const locale of locales) {
     `<link rel="canonical" href="${site}${dir}" />`,
   ].join('\n    ')
 
-  // Le basculeur reste RELATIF là où les hreflang sont absolus : les liens doivent
-  // marcher servis depuis n'importe où (preview locale, fork, domaine custom), alors
-  // que les hreflang exigent l'URL canonique.
+  // Les liens du sélecteur restent RELATIFS là où les hreflang sont absolus : ils
+  // doivent marcher servis depuis n'importe où (preview locale, fork, domaine custom),
+  // alors que les hreflang exigent l'URL canonique.
   const root = dir ? '../' : ''
   const langSwitch =
-    `<span class="topbar__langs" role="group" aria-label="${attr(locale.nav.languageLabel)}">` +
+    `<details class="langs"><summary class="langs__current" title="${attr(locale.nav.languageLabel)}">` +
+    `<span>${locale.meta.short}</span></summary>` +
+    `<ul class="langs__menu" aria-label="${attr(locale.nav.languageLabel)}">` +
     locales
-      .map((l) =>
-        l.meta.lang === lang
-          ? `<span class="topbar__lang" aria-current="true">${l.meta.short}</span>`
-          : `<a class="topbar__lang" href="${root}${pathOf(l.meta.lang)}" lang="${l.meta.lang}" hreflang="${l.meta.lang}">${l.meta.short}</a>`,
-      )
+      .map((l) => {
+        const courant = l.meta.lang === lang
+        const contenu = `<i lang="${l.meta.lang}">${l.meta.name}</i><b>${l.meta.short}</b>`
+        return courant
+          ? `<li><span class="langs__item" aria-current="true">${contenu}</span></li>`
+          : `<li><a class="langs__item" href="${root}${pathOf(l.meta.lang)}" lang="${l.meta.lang}" hreflang="${l.meta.lang}">${contenu}</a></li>`
+      })
       .join('') +
-    '</span>'
+    '</ul></details>'
 
-  const values = { lang, docs: locale.meta.docs, root, version, alternates, langSwitch }
+  // Données structurées : c'est ce qui permet à un moteur de comprendre qu'il a affaire
+  // à une bibliothèque logicielle, pas à une page quelconque.
+  const jsonld = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareSourceCode',
+    name: 'map3d',
+    description: locale.head.description,
+    inLanguage: lang,
+    url: `${site}${dir}`,
+    codeRepository: 'https://github.com/pasquelin/map3D',
+    programmingLanguage: 'TypeScript',
+    runtimePlatform: 'React 19, three.js',
+    license: 'https://polyformproject.org/licenses/noncommercial/1.0.0/',
+    version,
+    author: { '@type': 'Person', name: 'Alban Pasquelin' },
+  })
+
+  const localeAlternates = locales
+    .filter((l) => l.meta.lang !== lang)
+    .map((l) => `<meta property="og:locale:alternate" content="${l.meta.ogLocale}" />`)
+    .join('\n    ')
+
+  const values = {
+    lang,
+    // `dir` vient du dictionnaire : c'est une propriété de la LANGUE, pas du gabarit.
+    dir: locale.meta.dir ?? 'ltr',
+    docs: locale.meta.docs,
+    root,
+    version,
+    alternates,
+    langSwitch,
+    jsonld,
+    ogLocale: locale.meta.ogLocale,
+    localeAlternates,
+  }
 
   const missing = []
   const html = template.replace(/\{\{([\w.]+)\}\}/g, (_, key) => {
@@ -113,7 +155,27 @@ for (const locale of locales) {
 for (const asset of ['styles.css', 'hud.js', 'assets']) {
   await cp(join(HERE, asset), join(out, asset), { recursive: true })
 }
+// `bg.js` est bundlé à part (`pnpm build:site`) et non versionné : sans lui la page
+// s'affiche très bien, mais sans décor — autant que le log le dise.
+if (!existsSync(join(out, 'assets', 'bg.js'))) {
+  console.warn('  ⚠ assets/bg.js absent — décor non compilé (`pnpm build:site`)')
+}
 // Sans ce fichier, Pages passe la sortie dans Jekyll et ignore tout nom en `_`.
 await writeFile(join(out, '.nojekyll'), '')
+
+const sitemap =
+  '<?xml version="1.0" encoding="UTF-8"?>\n' +
+  '<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' +
+  locales
+    .map((l) => {
+      const liens = locales
+        .map((a) => `    <xhtml:link rel="alternate" hreflang="${a.meta.lang}" href="${site}${pathOf(a.meta.lang)}"/>`)
+        .join('\n')
+      return `  <url>\n    <loc>${site}${pathOf(l.meta.lang)}</loc>\n${liens}\n  </url>`
+    })
+    .join('\n') +
+  '\n</urlset>\n'
+await writeFile(join(out, 'sitemap.xml'), sitemap.replace('www.sitemap.org', 'www.sitemaps.org'))
+await writeFile(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${site}sitemap.xml\n`)
 
 console.log(`Vitrine rendue dans ${out} (${locales.length} langues, base ${site})`)

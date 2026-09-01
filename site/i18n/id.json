@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "id",
+    "name": "Bahasa Indonesia",
+    "short": "ID",
+    "docs": "en",
+    "ogLocale": "id_ID"
+  },
+  "head": {
+    "title": "map3d — kartografi 3D real-time untuk React",
+    "description": "Pustaka React untuk kartografi 3D real-time: globe fotorealistis, marker dan cluster DOM, editor gambar, data langsung yang mengikuti viewport.",
+    "ogDescription": "Mesin Three.js imperatif yang dipasang React lalu dibiarkan bekerja. Globe fotorealistis, marker DOM, editor gambar, data langsung."
+  },
+  "nav": {
+    "demos": "Demo",
+    "gallery": "Galeri",
+    "capabilities": "Kemampuan",
+    "docs": "Dokumentasi",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "Bahasa"
+  },
+  "altimeter": {
+    "caption": "ketinggian"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "Kartografi 3D<br />real-time<br />untuk React",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "Mesin Three.js imperatif yang dipasang React lalu dibiarkan bekerja. <code>MapEngine</code> memegang kamera, tile, dan layer, sehingga loop render tidak pernah menunggu re-render.",
+    "demoButton": "Buka demo React",
+    "docsButton": "Baca dokumentasi",
+    "shotAlt": "Kota 3D fotorealistis yang dirender map3d, dengan editor gambar terbuka di atasnya",
+    "plateCity": "Paris",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "Versi",
+    "peers": "Peer",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "Build",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "Lisensi",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "Demo langsung",
+    "title": "Coba langsung di peramban",
+    "lede": "Tanpa instalasi, tanpa kunci. Demo di bawah dibangun dari repositori ini setiap kali ada push dan disajikan langsung oleh GitHub Pages.",
+    "reactTag": "react",
+    "reactName": "Dasbor operator",
+    "reactText": "Peta 3D dengan peringatan yang dikelompokkan menurut tingkat keparahan dan dimuat ulang saat digeser, agen beranimasi yang diikuti kamera, zona, editor gambar lengkap, sakelar terang/gelap, dan tema neon alternatif.",
+    "reactShotAlt": "Demo React: editor gambar, seleksi kotak, dan daftar marker langsung",
+    "reactNote": "Diterbitkan tanpa token Cesium Ion, jadi terbuka pada basemap yang di-host sendiri — selebihnya berjalan normal. Untuk globe fotorealistis, klona repositorinya, setel <code>VITE_CESIUM_ION_TOKEN</code>, lalu ubah <code>providers.tiles3d.provider</code> menjadi <code>external</code>.",
+    "reactCta": "Buka demo"
+  },
+  "gallery": {
+    "eyebrow": "Galeri",
+    "title": "Dari orbit ke trotoar",
+    "lede": "Satu pustaka menangani seluruh penurunan: globe orbital, clustering regional, garis atap, nama jalan di bawah kaki.",
+    "railLabel": "Tampilan, dari orbit hingga ketinggian jalan",
+    "prev": "Tampilan sebelumnya",
+    "next": "Tampilan berikutnya",
+    "globeAlt": "Globe fotorealistis dengan marker yang dikelompokkan",
+    "globeName": "Dari globe ke peta datar",
+    "globeText": "fallback elipsoid, clustering cerdas",
+    "clustersAlt": "Insiden yang dikelompokkan di atas Paris dengan rute melintasi kota",
+    "clustersName": "Marker dan cluster",
+    "clustersText": "node DOM yang dipakai ulang, dipisah menurut kategori",
+    "pedestrianAlt": "Tampilan orang pertama setinggi jalan, di antara volume bangunan",
+    "pedestrianName": "Mode pejalan kaki",
+    "pedestrianText": "tinggi mata, gravitasi, tumbukan",
+    "skylineAlt": "Tampilan 3D sudut rendah kota Paris dengan cluster melayang di atas atap",
+    "skylineName": "Garis langit dan cakrawala",
+    "skylineText": "marker mempertahankan ukuran layarnya, berapa pun kemiringannya",
+    "graticuleAlt": "Grid koordinat yang membentang di atas kota 3D fotorealistis",
+    "graticuleName": "Grid koordinat",
+    "graticuleText": "menempel ke tanah, tebal garis di layar tetap"
+  },
+  "caps": {
+    "eyebrow": "Kemampuan",
+    "title": "Yang sudah tersedia",
+    "lede": "Setiap permukaan — bilah alat, kontrol, pencarian, grid koordinat, clustering — dipasang di dalam <code>&lt;Map&gt;</code> dan dikendalikan oleh konfigurasi. Anda tinggal menambahkan datanya.",
+    "tilesName": "3D fotorealistis, 2D datar",
+    "tilesText": "Google Photorealistic 3D Tiles lewat Cesium Ion, globe elipsoid bila token tidak disetel, dan basemap 2D dari Google atau dari server XYZ Anda sendiri.",
+    "markersName": "Marker dan cluster DOM",
+    "markersText": "Node DOM sungguhan dengan hover, fokus, dan animasi CSS bawaan. Dipakai ulang dan ditulis dalam satu lintasan <code>translate3d</code>; agen yang bergerak meluncur, bukan dibuat ulang.",
+    "drawingName": "Editor gambar",
+    "drawingText": "Seleksi kotak dan laso, pegangan ubah ukuran dan putar, gaya per alat, urungkan dan ulangi, GeoJSON masuk dan keluar.",
+    "dataName": "Data langsung mengikuti viewport",
+    "dataText": "Muat ulang per bounding box saat kamera bergerak, ditambah pembaruan real-time.",
+    "symbolsName": "Simbologi MIL-STD-2525D",
+    "symbolsCode": "impor dinamis",
+    "symbolsText": "SDK simbologi 9 MB dimuat sesuai kebutuhan — tidak pernah masuk ke bundel yang tidak menampilkan simbol.",
+    "themeName": "Tema dan label bertipe",
+    "themeText": "Terang dan gelap, <code>prefers-reduced-motion</code> dihormati, sepenuhnya bisa diterjemahkan. Tidak ada teks atau nilai yang ditanam di kode."
+  },
+  "start": {
+    "eyebrow": "Mulai cepat",
+    "title": "Peta dengan cluster dalam belasan baris",
+    "plugins": "Plugin opsional — IGN Géoplateforme, Windy, denah dalam ruangan — berada di <a href=\"https://github.com/pasquelin/plugingsMap3D\">repositori terpisah</a>, dan Anda bisa menulis sendiri lewat <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
+  },
+  "footer": {
+    "source": "Kode sumber",
+    "docsFr": "Dokumentasi 🇫🇷",
+    "docsEn": "Dokumentasi 🇬🇧",
+    "plugins": "Plugin",
+    "changelog": "Perubahan",
+    "legal": "© Alban Pasquelin — dirilis di bawah <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Penggunaan komersial memerlukan lisensi terpisah."
+  },
+  "tooling": {
+    "eyebrow": "Sedang bekerja",
+    "title": "Perkakasnya, saat dipakai",
+    "lede": "Setiap tangkapan layar di bawah berasal dari demo yang bisa Anda buka di atas — bukan mockup.",
+    "railLabel": "Tangkapan layar perkakas",
+    "drawAlt": "Sebuah persegi panjang terpilih di editor gambar, lengkap dengan pegangan dan panel seleksi",
+    "drawName": "Menggambar dan menyeleksi",
+    "drawText": "pegangan ubah ukuran dan putar, panel seleksi langsung, urungkan dan ulangi",
+    "symbolsAlt": "Palet MIL-STD-2525D terbuka di atas peta, disaring menurut afiliasi",
+    "symbolsName": "Palet MIL-STD-2525D",
+    "symbolsText": "kawan, lawan, netral, tak dikenal — SDK dimuat sesuai kebutuhan",
+    "catalogAlt": "Panel katalog dengan satu sumber data diaktifkan dan cluster dihitung ulang",
+    "catalogName": "Katalog dan sumber data",
+    "catalogText": "aktifkan satu sumber, 252 titik berdatangan dan cluster tersusun ulang",
+    "themeAlt": "Peta yang sama dengan tema terang, dilihat dari sudut rendah",
+    "themeName": "Tema terang",
+    "themeText": "satu pengaturan — seluruh antarmuka mengikuti, termasuk petanya"
+  }
+}

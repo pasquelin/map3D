@@ -85,9 +85,17 @@ jobs:
         # contrairement à `github.event.repository`.
         run: pnpm build:example --base="/${GITHUB_REPOSITORY#*/}/examples/react/"
 
+      # Le décor de la vitrine (globe de particules) embarque three : il se bundle, là
+      # où le reste de `site/` est servi tel quel. Doit précéder `build.mjs`, qui copie
+      # `site/assets/` — `bg.js` n'y est pas versionné.
+      - name: Compiler le décor de la vitrine
+        working-directory: map3D
+        run: pnpm build:site
+
       # `build.mjs` rend le gabarit une fois par dictionnaire de `site/i18n/` (langue
       # par défaut à la racine, les autres dans leur dossier ISO 639-1), copie les
-      # assets et échoue si un dictionnaire est désaccordé ou une clé manquante.
+      # assets, écrit sitemap et robots, et échoue si un dictionnaire est désaccordé ou
+      # une clé manquante.
       - name: Assembler le site
         working-directory: map3D
         run: |

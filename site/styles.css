@@ -23,10 +23,23 @@
   --balise: #1acbc4;
   --globe: #0e659a;
 
-  --display: 'Archivo', system-ui, sans-serif;
-  --body: 'IBM Plex Sans', system-ui, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  /* Les faces latines d'abord, puis les piles système par écriture : aucune de nos
+     polices ne couvre le CJK, l'arabe ou la devanagari, et sans repli explicite le
+     navigateur substitue au hasard — d'une ligne à l'autre le dessin change. */
+  --scripts:
+    'Noto Sans SC', 'PingFang SC', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', 'Malgun Gothic',
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Noto Sans Devanagari', 'Nirmala UI', 'Noto Naskh Arabic',
+    'Geeza Pro', 'Segoe UI', system-ui;
+  --display: 'Archivo', var(--scripts), sans-serif;
+  --body: 'IBM Plex Sans', var(--scripts), sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, var(--scripts), monospace;
 
+  /* Une seule échelle de rayons, pour que rien ne durcisse un coin au hasard. */
+  --r-xs: 5px;
+  --r-sm: 7px;
+  --r-md: 9px;
+
+  --relief-haut: #10202f;
   --shell: 1200px;
   --marge: clamp(20px, 5vw, 56px);
   /* Largeur réservée à l'altimètre en colonne fixe (0 sous 1180px). */
@@ -39,13 +52,16 @@
   box-sizing: border-box;
 }
 
+/* Le fond est porté par `html`, pas par `body` : le canvas du décor est un enfant de
+   `body` en `z-index: -1`, il passerait DERRIÈRE un fond posé sur `body`. */
 html {
+  background: var(--nuit);
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  background: var(--nuit);
+  background: transparent;
   color: var(--releve);
   font-family: var(--body);
   font-size: 16px;
@@ -73,6 +89,45 @@ code {
   outline-offset: 3px;
 }
 
+/* — Décor —————————————————————————————————————————————————————————
+   Globe de particules rendu par `bg/globe.ts` (three.js). Le canvas est inséré par le
+   script : sans WebGL, sans JS ou si le fetch échoue, rien n'apparaît et la page reste
+   telle quelle. `pointer-events: none` — le décor ne prend jamais un clic. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Le décor s'éteint là où le texte vit. Un masque en dégradé vaut mieux qu'une
+     opacité globale plus basse : le globe garde toute sa densité à droite, et la
+     colonne de lecture reste sur fond net. */
+  --backdrop-mask: linear-gradient(to right, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.34) 30%, #000 52%);
+  -webkit-mask-image: var(--backdrop-mask);
+  mask-image: var(--backdrop-mask);
+  /* Fondu d'entrée : les particules arrivent après le premier rendu du texte, une
+     apparition franche accrocherait l'œil au mauvais moment. */
+  opacity: 0;
+  animation: backdrop-in 1.6s ease-out 0.25s forwards;
+}
+
+/* Sous 900 px le globe est centré : un masque latéral le couperait en deux. */
+@media (max-width: 899px) {
+  .backdrop {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+    mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+  }
+}
+
+@keyframes backdrop-in {
+  to {
+    opacity: 1;
+  }
+}
+
 /* — Blocs partagés —————————————————————————————————————————————— */
 
 .eyebrow {
@@ -90,7 +145,9 @@ code {
   display: inline-block;
   padding: 13px 24px;
   border: 1px solid var(--graticule);
-  border-radius: 2px;
+  border-radius: var(--r-sm);
+  /* Opaque, et non transparent : le décor de particules passe derrière, pas à travers. */
+  background: var(--relief);
   font-family: var(--display);
   font-variation-settings: 'wdth' 92;
   font-weight: 600;
@@ -105,7 +162,7 @@ code {
 
 .button:hover {
   border-color: var(--cote);
-  background: var(--relief);
+  background: var(--relief-haut);
 }
 
 .button--primary {
@@ -128,13 +185,13 @@ code {
 .altimeter {
   position: fixed;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   z-index: 5;
   display: none;
   width: 72px;
   height: 100vh;
   padding: 96px 0 40px;
-  border-right: 1px solid var(--graticule);
+  border-inline-end: 1px solid var(--graticule);
   background: var(--nuit);
   text-align: center;
 }
@@ -151,7 +208,7 @@ code {
 
 .altimeter__cursor {
   position: absolute;
-  left: -5px;
+  inset-inline-start: -5px;
   top: 0;
   width: 11px;
   height: 11px;
@@ -250,31 +307,91 @@ code {
 }
 
 /* Sélecteur de langue : rendu par `build.mjs`, une entrée par dictionnaire de
-   `site/i18n/`. La langue courante n'est pas un lien — elle est déjà là. */
-.topbar__langs {
-  display: inline-flex;
-  gap: 2px;
-  align-items: center;
-  padding-left: 18px;
-  border-left: 1px solid var(--graticule);
+   `site/i18n/`. Un menu `<details>` natif plutôt qu'une rangée de liens — au-delà de
+   trois langues la rangée déborde la barre, et le menu fonctionne sans JavaScript. */
+.langs {
+  position: relative;
+  padding-inline-start: 18px;
+  border-inline-start: 1px solid var(--graticule);
 }
 
-.topbar__langs .topbar__lang {
-  padding: 3px 7px;
-  border-radius: 2px;
+.langs__current {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--graticule);
+  border-radius: var(--r-xs);
+  background: var(--relief);
   font-family: var(--mono);
   font-size: 12px;
+  color: var(--releve);
+  cursor: pointer;
+  list-style: none;
+}
+
+.langs__current::-webkit-details-marker {
+  display: none;
+}
+
+.langs__current::after {
+  content: '▾';
+  font-size: 10px;
+  color: var(--cote);
+}
+
+.langs__current:hover {
+  border-color: var(--cote);
+}
+
+.langs__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 6;
+  min-width: 200px;
+  max-height: min(62vh, 440px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--graticule);
+  border-radius: var(--r-sm);
+  background: var(--relief);
+  list-style: none;
+  box-shadow: 0 18px 40px rgb(0 0 0 / 55%);
+}
+
+.langs__item {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: var(--r-xs);
+  font-size: 14px;
   color: var(--cote);
   text-decoration: none;
 }
 
-.topbar__langs a.topbar__lang:hover {
+.langs__item i {
+  font-style: normal;
+}
+
+.langs__item b {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--graticule);
+}
+
+a.langs__item:hover {
+  background: var(--relief-haut);
   color: var(--releve);
 }
 
-.topbar__langs .topbar__lang[aria-current='true'] {
-  background: var(--relief);
-  color: var(--releve);
+.langs__item[aria-current='true'],
+.langs__item[aria-current='true'] b {
+  color: var(--balise);
 }
 
 /* — Hero ————————————————————————————————————————————————————————— */
@@ -313,6 +430,7 @@ code {
 }
 
 .hero__lede {
+  text-wrap: pretty;
   margin: 22px 0 0;
   max-width: 52ch;
   font-size: clamp(16px, 1.6vw, 18px);
@@ -340,7 +458,7 @@ code {
 .hero__install code {
   padding: 7px 12px;
   border: 1px solid var(--graticule);
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   background: var(--relief);
   color: var(--releve);
   user-select: all;
@@ -351,7 +469,7 @@ code {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--graticule);
-  border-radius: 3px;
+  border-radius: var(--r-md);
   background: var(--relief);
 }
 
@@ -374,7 +492,7 @@ code {
 
 .hero__plate {
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   display: flex;
   flex-wrap: wrap;
@@ -382,7 +500,8 @@ code {
   margin: 0;
   padding: 8px 14px;
   border-top: 1px solid var(--graticule);
-  border-left: 1px solid var(--graticule);
+  border-inline-start: 1px solid var(--graticule);
+  border-start-start-radius: var(--r-sm);
   background: color-mix(in srgb, var(--nuit) 82%, transparent);
   backdrop-filter: blur(6px);
   font-family: var(--mono);
@@ -409,12 +528,12 @@ code {
 
 .facts > div {
   padding: 18px 0 18px 22px;
-  border-left: 1px solid var(--graticule);
+  border-inline-start: 1px solid var(--graticule);
 }
 
 .facts > div:first-child {
-  padding-left: 0;
-  border-left: 0;
+  padding-inline-start: 0;
+  border-inline-start: 0;
 }
 
 .facts dt {
@@ -442,13 +561,13 @@ code {
 }
 
 .section__head {
-  max-width: 62ch;
   margin-bottom: clamp(28px, 4vw, 44px);
 }
 
 .section__title {
   margin: 0;
   font-family: var(--display);
+  text-wrap: balance;
   font-variation-settings: 'wdth' 104;
   font-weight: 700;
   font-size: clamp(28px, 4.4vw, 46px);
@@ -457,6 +576,8 @@ code {
 }
 
 .section__lede {
+  text-wrap: pretty;
+  max-width: 62ch;
   margin: 16px 0 0;
   color: var(--cote);
 }
@@ -484,7 +605,7 @@ code {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--graticule);
-  border-radius: 3px;
+  border-radius: var(--r-md);
   background: var(--relief);
   color: inherit;
   text-decoration: none;
@@ -524,7 +645,7 @@ a.demo:hover .demo__shot img {
   margin-bottom: 12px;
   padding: 3px 9px;
   border: 1px solid var(--graticule);
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -534,6 +655,7 @@ a.demo:hover .demo__shot img {
 .demo__name {
   display: block;
   font-family: var(--display);
+  text-wrap: balance;
   font-variation-settings: 'wdth' 100;
   font-weight: 700;
   font-size: 22px;
@@ -541,6 +663,7 @@ a.demo:hover .demo__shot img {
 }
 
 .demo__text {
+  text-wrap: pretty;
   display: block;
   margin-top: 10px;
   color: var(--cote);
@@ -550,8 +673,8 @@ a.demo:hover .demo__shot img {
 .demo__note {
   display: block;
   margin-top: 14px;
-  padding-left: 12px;
-  border-left: 2px solid var(--graticule);
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid var(--graticule);
   font-size: 13px;
   color: var(--cote);
 }
@@ -586,7 +709,7 @@ a.demo:hover .demo__shot img {
 }
 
 .section__head--rail > div {
-  max-width: 62ch;
+  max-width: min(100%, 68ch);
 }
 
 .rail__nav {
@@ -602,8 +725,8 @@ a.demo:hover .demo__shot img {
   width: 38px;
   height: 38px;
   border: 1px solid var(--graticule);
-  border-radius: 2px;
-  background: transparent;
+  border-radius: var(--r-sm);
+  background: var(--relief);
   color: var(--releve);
   font-size: 15px;
   cursor: pointer;
@@ -614,6 +737,7 @@ a.demo:hover .demo__shot img {
 
 .rail__button:hover:not(:disabled) {
   border-color: var(--balise);
+  background: var(--relief-haut);
   color: var(--balise);
 }
 
@@ -623,23 +747,47 @@ a.demo:hover .demo__shot img {
 }
 
 .rail {
+  /* Largeurs de fondu, posées par `hud.js` selon ce qu'il reste à défiler de chaque
+     côté : un fondu au départ mangerait la première vignette pour rien. */
+  --fade-left: 0px;
+  --fade-right: 0px;
+
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: min(84vw, 430px);
   gap: 18px;
   overflow-x: auto;
+  /* Le rail reste dans la colonne, aligné sur les autres blocs : le faire déborder à
+     droite décalait toute la section par rapport aux titres et aux grilles. C'est le
+     fondu de bord, pas un débordement, qui supprime la coupure nette.
+     Le padding bas ne réserve plus la barre, juste de quoi loger l'anneau de focus. */
   margin: 0;
-  padding: 0 0 14px;
+  padding: 0 0 6px;
   list-style: none;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  scrollbar-color: var(--graticule) transparent;
+  /* Barre masquée : le fondu de bord et les flèches disent déjà qu'il y a une suite,
+     et le rail reste défilable à la molette, au trackpad et au clavier. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  --rail-mask: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fade-left),
+    #000 calc(100% - var(--fade-right)),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--rail-mask);
+  mask-image: var(--rail-mask);
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
 }
 
 .rail__item {
   overflow: hidden;
   border: 1px solid var(--graticule);
-  border-radius: 3px;
+  border-radius: var(--r-md);
   background: var(--relief);
   scroll-snap-align: start;
 }
@@ -691,12 +839,13 @@ a.demo:hover .demo__shot img {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1px;
+  overflow: hidden;
   margin: 0;
   padding: 0;
   list-style: none;
   background: var(--graticule);
   border: 1px solid var(--graticule);
-  border-radius: 3px;
+  border-radius: var(--r-md);
 }
 
 .caps li {
@@ -718,6 +867,7 @@ a.demo:hover .demo__shot img {
 .caps__name {
   display: block;
   font-family: var(--display);
+  text-wrap: balance;
   font-variation-settings: 'wdth' 96;
   font-weight: 700;
   font-size: 18px;
@@ -732,6 +882,7 @@ a.demo:hover .demo__shot img {
 }
 
 .caps__text {
+  text-wrap: pretty;
   display: block;
   margin-top: 10px;
   font-size: 14.5px;
@@ -749,7 +900,7 @@ a.demo:hover .demo__shot img {
   margin: 0;
   padding: 24px;
   border: 1px solid var(--graticule);
-  border-radius: 3px;
+  border-radius: var(--r-md);
   background: var(--relief);
   font-family: var(--mono);
   font-size: 13px;
@@ -822,7 +973,7 @@ a.demo:hover .demo__shot img {
   .facts > div {
     padding: 14px 0;
     border-top: 1px solid var(--graticule);
-    border-left: 0;
+    border-inline-start: 0;
   }
 
   .facts > div:first-child {
@@ -856,7 +1007,7 @@ a.demo:hover .demo__shot img {
 
   .demo__shot {
     height: 100%;
-    border-right: 1px solid var(--graticule);
+    border-inline-end: 1px solid var(--graticule);
     border-bottom: 0;
   }
 
@@ -884,7 +1035,7 @@ a.demo:hover .demo__shot img {
   .facts,
   .section,
   .footer {
-    padding-left: calc(var(--marge) + var(--altimetre));
+    padding-inline-start: calc(var(--marge) + var(--altimetre));
   }
 }
 
@@ -899,4 +1050,31 @@ a.demo:hover .demo__shot img {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/* — Sens de lecture inverse (arabe) ————————————————————————————————
+   Tout le reste du fichier est en propriétés logiques, donc déjà miroité par le
+   navigateur. Ne restent que les dégradés, qui ignorent `dir`, et la position du
+   globe — traitée dans `bg/globe.ts`, qui lit `dir` sur la racine. */
+
+[dir='rtl'] .backdrop {
+  --backdrop-mask: linear-gradient(to left, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.34) 30%, #000 52%);
+}
+
+[dir='rtl'] .rail {
+  --rail-mask: linear-gradient(
+    to left,
+    transparent 0,
+    #000 var(--fade-left),
+    #000 calc(100% - var(--fade-right)),
+    transparent 100%
+  );
+}
+
+/* Le code d'exemple n'est pas de la prose : il se lit de gauche à droite en arabe
+   comme ailleurs. */
+[dir='rtl'] .code,
+[dir='rtl'] .hero__install code {
+  direction: ltr;
+  text-align: left;
 }

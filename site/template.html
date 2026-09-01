@@ -8,7 +8,7 @@
   dur que ce que la règle du dépôt ne traduit pas — code des exemples, noms d'API,
   identifiants, unités.
 -->
-<html lang="{{lang}}">
+<html lang="{{lang}}" dir="{{dir}}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -18,6 +18,8 @@
     {{alternates}}
 
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="{{ogLocale}}" />
+    {{localeAlternates}}
     <meta property="og:title" content="{{head.title}}" />
     <meta property="og:description" content="{{head.ogDescription}}" />
     <meta property="og:image" content="https://pasquelin.github.io/map3D/assets/hero.webp" />
@@ -30,6 +32,9 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{root}}styles.css" />
+    <script type="application/ld+json">
+      {{jsonld}}
+    </script>
   </head>
 
   <body>
@@ -319,5 +324,6 @@
     </footer>
 
     <script src="{{root}}hud.js" defer></script>
+    <script type="module" src="{{root}}assets/bg.js"></script>
   </body>
 </html>

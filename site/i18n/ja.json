@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "ja",
+    "name": "日本語",
+    "short": "JA",
+    "docs": "en",
+    "ogLocale": "ja_JP"
+  },
+  "head": {
+    "title": "map3d — React 向けリアルタイム 3D 地図ライブラリ",
+    "description": "React 向けのリアルタイム 3D 地図ライブラリ。フォトリアルな地球儀、DOM マーカーとクラスタ、描画エディタ、ビューポート連動のライブデータ。",
+    "ogDescription": "React がマウントしたあとは手を出さない命令型 Three.js エンジン。フォトリアルな地球儀、DOM マーカー、描画エディタ、ライブデータ。"
+  },
+  "nav": {
+    "demos": "デモ",
+    "gallery": "ギャラリー",
+    "capabilities": "機能",
+    "docs": "ドキュメント",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "言語"
+  },
+  "altimeter": {
+    "caption": "高度"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "React のための<br />リアルタイム<br />3D 地図",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "React がマウントしたあとは手を出さない命令型 Three.js エンジン。<code>MapEngine</code> がカメラ・タイル・レイヤーを保持するため、描画ループが再レンダーを待つことはありません。",
+    "demoButton": "React デモを開く",
+    "docsButton": "ドキュメントを読む",
+    "shotAlt": "map3d が描画したフォトリアルな 3D 都市。上に描画エディタが開かれている",
+    "plateCity": "パリ",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "バージョン",
+    "peers": "ピア依存",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "ビルド",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "ライセンス",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "ライブデモ",
+    "title": "ブラウザーで試す",
+    "lede": "インストールもキーも不要。以下のデモはプッシュのたびに本リポジトリからビルドされ、GitHub Pages から直接配信されます。",
+    "reactTag": "react",
+    "reactName": "オペレーター向けダッシュボード",
+    "reactText": "深刻度でクラスタ化され移動のたびに再取得されるアラート、カメラが追従するアニメーション対象、ゾーン、完全な描画エディタ、ライト／ダーク切り替え、そして別系統のネオンテーマを備えた 3D 地図。",
+    "reactShotAlt": "React デモ：描画エディタ、矩形選択、リアルタイムのマーカー一覧",
+    "reactNote": "Cesium Ion トークンなしで公開しているため、自前ホストのベースマップで開きます。それ以外はすべて動作します。フォトリアルな地球儀を見るにはリポジトリをクローンし、<code>VITE_CESIUM_ION_TOKEN</code> を設定して <code>providers.tiles3d.provider</code> を <code>external</code> に切り替えてください。",
+    "reactCta": "デモを開く"
+  },
+  "gallery": {
+    "eyebrow": "ギャラリー",
+    "title": "軌道上から歩道まで",
+    "lede": "ひとつのライブラリが降下のすべてを担います。軌道上の地球儀、広域のクラスタリング、屋根の稜線、足元の通り名。",
+    "railLabel": "視点：軌道上から 街路レベルまで",
+    "prev": "前の視点",
+    "next": "次の視点",
+    "globeAlt": "クラスタ化されたマーカーを乗せたフォトリアルな地球儀",
+    "globeName": "地球儀から平面地図へ",
+    "globeText": "楕円体フォールバック、賢いクラスタリング",
+    "clustersAlt": "パリ上空のクラスタ化された事案と、市内を通る経路",
+    "clustersName": "マーカーとクラスタ",
+    "clustersText": "再利用される DOM ノード、カテゴリー別に分割",
+    "pedestrianAlt": "建物のボリュームに挟まれた、街路レベルの一人称視点",
+    "pedestrianName": "歩行者モード",
+    "pedestrianText": "目線の高さ、重力、衝突判定",
+    "skylineAlt": "屋根の上にクラスタが浮かぶ、パリの低い角度の 3D ビュー",
+    "skylineName": "スカイラインと地平線",
+    "skylineText": "傾きがどうであれ、マーカーは画面上の大きさを保つ",
+    "graticuleAlt": "フォトリアルな 3D 都市に重ねられた座標グリッド",
+    "graticuleName": "座標グリッド",
+    "graticuleText": "地表に沿い、画面上の線幅は一定"
+  },
+  "caps": {
+    "eyebrow": "機能",
+    "title": "最初から入っているもの",
+    "lede": "ツールバー、コントロール、検索、座標グリッド、クラスタリング —— どの面も <code>&lt;Map&gt;</code> の内部にマウントされ、設定で制御されます。用意するのはデータだけです。",
+    "tilesName": "フォトリアル 3D、平面 2D",
+    "tilesText": "Cesium Ion 経由の Google Photorealistic 3D Tiles、トークンがなければ楕円体の地球儀、そして Google または自前の XYZ サーバーから配信される 2D ベースマップ。",
+    "markersName": "DOM マーカーとクラスタ",
+    "markersText": "ネイティブの hover・フォーカス・CSS アニメーションが効く本物の DOM ノード。プールされ、単一の <code>translate3d</code> パスで書き込まれます。動く対象は作り直されるのではなく滑ります。",
+    "drawingName": "描画エディタ",
+    "drawingText": "矩形と投げ縄による選択、リサイズと回転のハンドル、ツールごとのスタイル、取り消しとやり直し、GeoJSON の入出力。",
+    "dataName": "ビューポート連動のライブデータ",
+    "dataText": "カメラの移動に合わせたバウンディングボックス単位の再取得と、リアルタイム更新。",
+    "symbolsName": "MIL-STD-2525D 記号",
+    "symbolsCode": "動的インポート",
+    "symbolsText": "9 MB の記号 SDK は必要になったときだけ読み込まれ、記号を表示しないバンドルには決して入りません。",
+    "themeName": "型付きテーマとラベル",
+    "themeText": "ライトとダーク、<code>prefers-reduced-motion</code> に対応、すべて翻訳可能。ハードコードされた文字列も数値もどこにもありません。"
+  },
+  "start": {
+    "eyebrow": "クイックスタート",
+    "title": "十数行でクラスタ付きの地図を",
+    "plugins": "任意のプラグイン —— IGN Géoplateforme、Windy、屋内フロアプラン —— は<a href=\"https://github.com/pasquelin/plugingsMap3D\">別リポジトリ</a>にあり、<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">プラグイン API</a> で自作もできます。"
+  },
+  "footer": {
+    "source": "ソース",
+    "docsFr": "ドキュメント 🇫🇷",
+    "docsEn": "ドキュメント 🇬🇧",
+    "plugins": "プラグイン",
+    "changelog": "変更履歴",
+    "legal": "© Alban Pasquelin —— <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> のもとで公開。商用利用には別途ライセンスが必要です。"
+  },
+  "tooling": {
+    "eyebrow": "実際の動作",
+    "title": "道具が働いているところ",
+    "lede": "以下のスクリーンショットはすべて、上で開けるデモそのものです。モックアップはありません。",
+    "railLabel": "各機能のスクリーンショット",
+    "drawAlt": "描画エディタで選択された矩形。ハンドルと選択パネルが表示されている",
+    "drawName": "描画と選択",
+    "drawText": "リサイズと回転のハンドル、リアルタイムの選択パネル、取り消しとやり直し",
+    "symbolsAlt": "地図の上に開かれた MIL-STD-2525D パレット。敵味方属性で絞り込み表示",
+    "symbolsName": "MIL-STD-2525D パレット",
+    "symbolsText": "友軍・敵性・中立・不明 —— SDK は必要時に読み込み",
+    "catalogAlt": "データソースを 1 つ有効にし、クラスタが再計算されたカタログパネル",
+    "catalogName": "カタログとデータソース",
+    "catalogText": "ソースを 1 つ有効にすると 252 地点が届き、クラスタが組み直される",
+    "themeAlt": "同じ地図のライトテーマ、低い角度の俯瞰",
+    "themeName": "ライトテーマ",
+    "themeText": "設定ひとつ —— 地図を含む UI 全体がそれに従う"
+  }
+}

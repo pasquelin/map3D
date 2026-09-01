@@ -100,19 +100,52 @@
 
   const step = () => rail.querySelector('.rail__item')?.getBoundingClientRect().width ?? rail.clientWidth
 
+  /** Largeur du fondu de bord, en px — assez pour adoucir, pas assez pour cacher. */
+  const FADE = 72
+
+  // En lecture arabe, `scrollLeft` part de 0 et devient NÉGATIF : sans valeur absolue,
+  // le rail se croit arrivé au bout dès le premier défilement.
+  const rtl = () => getComputedStyle(rail).direction === 'rtl'
+  const sens = () => (rtl() ? -1 : 1)
+
   function sync() {
     const overflow = rail.scrollWidth - rail.clientWidth
     const nav = prev.parentElement
     if (nav) nav.hidden = overflow < 4
-    prev.disabled = rail.scrollLeft < 4
-    next.disabled = rail.scrollLeft >= overflow - 4
+    const pos = Math.abs(rail.scrollLeft)
+    const auDebut = pos < 4
+    const aLaFin = pos >= overflow - 4
+    prev.disabled = auDebut
+    next.disabled = aLaFin
+    // Le fondu ne s'allume que du côté où il reste quelque chose à découvrir. Les
+    // variables restent nommées dans le sens du flux, le masque est retourné en CSS.
+    rail.style.setProperty('--fade-left', auDebut ? '0px' : `${FADE}px`)
+    rail.style.setProperty('--fade-right', aLaFin ? '0px' : `${FADE}px`)
   }
 
   const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
-  prev.addEventListener('click', () => rail.scrollBy({ left: -(step() + 18), behavior }))
-  next.addEventListener('click', () => rail.scrollBy({ left: step() + 18, behavior }))
+  prev.addEventListener('click', () => rail.scrollBy({ left: -(step() + 18) * sens(), behavior }))
+  next.addEventListener('click', () => rail.scrollBy({ left: (step() + 18) * sens(), behavior }))
   rail.addEventListener('scroll', sync, { passive: true })
   addEventListener('resize', sync)
   sync()
   }
+})()
+
+/*
+ * Menu de langues : `<details>` se ferme tout seul au second clic sur son résumé, pas
+ * au clic ailleurs ni à Échap. Ces deux gestes sont attendus d'un menu.
+ */
+;(() => {
+  const menu = document.querySelector('details.langs')
+  if (!menu) return
+  addEventListener('click', (e) => {
+    if (menu.open && !menu.contains(e.target)) menu.open = false
+  })
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu.open) {
+      menu.open = false
+      menu.querySelector('summary')?.focus()
+    }
+  })
 })()

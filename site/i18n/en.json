@@ -3,7 +3,8 @@
     "lang": "en",
     "name": "English",
     "short": "EN",
-    "docs": "en"
+    "docs": "en",
+    "ogLocale": "en_US"
   },
   "head": {
     "title": "map3d — real-time 3D cartography for React",

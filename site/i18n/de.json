@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "de",
+    "name": "Deutsch",
+    "short": "DE",
+    "docs": "en",
+    "ogLocale": "de_DE"
+  },
+  "head": {
+    "title": "map3d — 3D-Kartografie in Echtzeit für React",
+    "description": "React-Bibliothek für 3D-Kartografie in Echtzeit: fotorealistischer Globus, DOM-Marker und -Cluster, Zeichen-Editor, viewport-gesteuerte Live-Daten.",
+    "ogDescription": "Eine imperative Three.js-Engine, die React montiert und dann arbeiten lässt. Fotorealistischer Globus, DOM-Marker, Zeichen-Editor, Live-Daten."
+  },
+  "nav": {
+    "demos": "Demos",
+    "gallery": "Galerie",
+    "capabilities": "Funktionen",
+    "docs": "Doku",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "Sprache"
+  },
+  "altimeter": {
+    "caption": "Höhe"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "3D-Kartografie<br />in Echtzeit<br />für React",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "Eine imperative Three.js-Engine, die React montiert und dann arbeiten lässt. <code>MapEngine</code> besitzt Kamera, Tiles und Layer — die Renderschleife wartet nie auf ein Re-Render.",
+    "demoButton": "React-Demo öffnen",
+    "docsButton": "Dokumentation lesen",
+    "shotAlt": "Eine fotorealistische 3D-Stadt, gerendert von map3d, mit geöffnetem Zeichen-Editor darüber",
+    "plateCity": "Paris",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "Version",
+    "peers": "Peers",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "Build",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "Lizenz",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "Live-Demos",
+    "title": "Im Browser ausprobieren",
+    "lede": "Ohne Installation, ohne Schlüssel. Die Demos werden bei jedem Push aus diesem Repository gebaut und direkt über GitHub Pages ausgeliefert.",
+    "reactTag": "react",
+    "reactName": "Leitstand",
+    "reactText": "Eine 3D-Karte mit nach Schweregrad geclusterten Meldungen, die beim Bewegen nachgeladen werden, animierten Einheiten mit Kameraverfolgung, Zonen, dem vollständigen Zeichen-Editor, Hell/Dunkel-Umschaltung und einem alternativen Neon-Theme.",
+    "reactShotAlt": "Die React-Demo: Zeichen-Editor, Rahmenauswahl und Live-Markerliste",
+    "reactNote": "Ohne Cesium-Ion-Token veröffentlicht, startet also auf der selbst gehosteten Basiskarte — alles andere läuft. Für den fotorealistischen Globus das Repository klonen, <code>VITE_CESIUM_ION_TOKEN</code> setzen und <code>providers.tiles3d.provider</code> auf <code>external</code> stellen.",
+    "reactCta": "Demo öffnen"
+  },
+  "gallery": {
+    "eyebrow": "Galerie",
+    "title": "Vom Orbit bis zum Gehweg",
+    "lede": "Eine Bibliothek deckt den gesamten Abstieg ab: Orbitalglobus, regionales Clustering, Dachlinie, Straßennamen unter den Füßen.",
+    "railLabel": "Ansichten, vom Orbit bis auf Straßenniveau",
+    "prev": "Vorherige Ansicht",
+    "next": "Nächste Ansicht",
+    "globeAlt": "Fotorealistischer Globus mit geclusterten Markern",
+    "globeName": "Vom Globus zur flachen Karte",
+    "globeText": "Ellipsoid-Fallback, intelligentes Clustering",
+    "clustersAlt": "Geclusterte Vorfälle über Paris mit gerouteten Wegen durch die Stadt",
+    "clustersName": "Marker und Cluster",
+    "clustersText": "wiederverwendete DOM-Knoten, nach Kategorie aufgeteilt",
+    "pedestrianAlt": "Ego-Perspektive auf Straßenniveau, zwischen Gebäudevolumen",
+    "pedestrianName": "Fußgängermodus",
+    "pedestrianText": "Augenhöhe, Schwerkraft, Kollisionen",
+    "skylineAlt": "Flache 3D-Ansicht von Paris mit Clustern über den Dächern",
+    "skylineName": "Skyline und Horizont",
+    "skylineText": "Marker behalten ihre Bildschirmgröße, egal bei welcher Neigung",
+    "graticuleAlt": "Koordinatengitter über die fotorealistische 3D-Stadt gelegt",
+    "graticuleName": "Koordinatengitter",
+    "graticuleText": "auf den Boden gelegt, konstante Linienstärke am Bildschirm"
+  },
+  "caps": {
+    "eyebrow": "Funktionen",
+    "title": "Was mitgeliefert wird",
+    "lede": "Jede Oberfläche — Werkzeugleiste, Steuerung, Suche, Koordinatengitter, Clustering — wird innerhalb von <code>&lt;Map&gt;</code> montiert und über Konfiguration gesteuert. Sie liefern die Daten.",
+    "tilesName": "Fotorealistisches 3D, flaches 2D",
+    "tilesText": "Google Photorealistic 3D Tiles über Cesium Ion, ein Ellipsoid-Globus ohne Token und eine 2D-Basiskarte von Google oder Ihrem eigenen XYZ-Server.",
+    "markersName": "DOM-Marker und -Cluster",
+    "markersText": "Echte DOM-Knoten mit nativem Hover, Fokus und CSS-Animation. Wiederverwendet und in einem einzigen <code>translate3d</code>-Durchgang geschrieben; eine bewegte Einheit gleitet, statt neu erzeugt zu werden.",
+    "drawingName": "Zeichen-Editor",
+    "drawingText": "Rahmen- und Lasso-Auswahl, Griffe zum Skalieren und Drehen, Stile je Werkzeug, Rückgängig/Wiederholen, GeoJSON rein und raus.",
+    "dataName": "Viewport-gesteuerte Live-Daten",
+    "dataText": "Nachladen per Bounding Box während die Kamera sich bewegt, dazu Echtzeit-Updates.",
+    "symbolsName": "MIL-STD-2525D-Symbolik",
+    "symbolsCode": "dynamischer Import",
+    "symbolsText": "Das 9 MB große Symbolik-SDK wird bei Bedarf geladen — es landet nie in einem Bundle, das keine Symbole zeigt.",
+    "themeName": "Typisiertes Theme und Beschriftungen",
+    "themeText": "Hell und dunkel, <code>prefers-reduced-motion</code> respektiert, vollständig übersetzbar. Nirgends ein fest verdrahteter Text oder Wert."
+  },
+  "start": {
+    "eyebrow": "Schnellstart",
+    "title": "Eine geclusterte Karte in einem Dutzend Zeilen",
+    "plugins": "Optionale Plugins — IGN Géoplateforme, Windy, Innenraumpläne — liegen in <a href=\"https://github.com/pasquelin/plugingsMap3D\">einem eigenen Repository</a>, und eigene lassen sich mit der <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">Plugin-API</a> schreiben."
+  },
+  "footer": {
+    "source": "Quellcode",
+    "docsFr": "Doku 🇫🇷",
+    "docsEn": "Doku 🇬🇧",
+    "plugins": "Plugins",
+    "changelog": "Changelog",
+    "legal": "© Alban Pasquelin — veröffentlicht unter <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Kommerzielle Nutzung erfordert eine separate Lizenz."
+  },
+  "tooling": {
+    "eyebrow": "In Aktion",
+    "title": "Die Werkzeuge bei der Arbeit",
+    "lede": "Jeder Screenshot stammt aus der Demo, die Sie oben öffnen können — keine Mockups.",
+    "railLabel": "Screenshots der Werkzeuge",
+    "drawAlt": "Ein im Zeichen-Editor ausgewähltes Rechteck mit Griffen und Auswahlpanel",
+    "drawName": "Zeichnen und Auswählen",
+    "drawText": "Griffe zum Skalieren und Drehen, Live-Auswahlpanel, Rückgängig/Wiederholen",
+    "symbolsAlt": "Die MIL-STD-2525D-Palette über der Karte, nach Zugehörigkeit gefiltert",
+    "symbolsName": "MIL-STD-2525D-Palette",
+    "symbolsText": "freund, feindlich, neutral, unbekannt — SDK bei Bedarf geladen",
+    "catalogAlt": "Das Katalogpanel mit aktivierter Datenquelle und neu berechneten Clustern",
+    "catalogName": "Katalog und Datenquellen",
+    "catalogText": "eine Quelle einschalten, 252 Punkte kommen an und die Cluster ordnen sich neu",
+    "themeAlt": "Dieselbe Karte im hellen Theme, flach von oben gesehen",
+    "themeName": "Helles Theme",
+    "themeText": "eine Einstellung — die gesamte Oberfläche folgt, die Karte eingeschlossen"
+  }
+}

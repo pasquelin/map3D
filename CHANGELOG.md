@@ -20,6 +20,24 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   `canonical`. Ajouter une langue = déposer un JSON ; le rendu échoue si un
   dictionnaire n'a pas les mêmes clés que `en.json`.
 
+### Ajouté
+
+- **Décor de la vitrine : un globe de particules en three.js** (`site/bg/globe.ts`,
+  bundlé par `pnpm build:site`). Trois nuages superposés — trame de sphère, terres,
+  halo orbital — plus la Lune en orbite et un champ d'étoiles. Aucune image : les
+  positions viennent de `site/assets/globe.bin`, 43 Ko de coordonnées semées hors ligne
+  sur les terres émergées. Le scroll fait tourner la planète, lui donne une inertie
+  amortie et pousse une onde lumineuse d'un pôle à l'autre. Boucle arrêtée quand
+  l'onglet passe en fond, une seule frame sous `prefers-reduced-motion`, et rien du tout
+  sans WebGL.
+- **Vitrine en 15 langues** : en, zh, hi, es, ar, pt, ru, ja, de, fr, ko, id, tr, vi, it.
+  Un dossier ISO 639-1 par langue, l'anglais à la racine. L'arabe amène le **sens de
+  lecture inverse** : le CSS est passé en propriétés logiques, et le décor se miroite
+  avec la page.
+- **Référencement** : `sitemap.xml` et `robots.txt` générés, `hreflang` pour les 15
+  langues plus `x-default`, `canonical`, `og:locale` et ses alternates, et des données
+  structurées JSON-LD `SoftwareSourceCode`.
+
 ### Modifié
 
 - **Vitrine : captures refaites sur la démo réelle**, en 3D photoréaliste (Google 3D

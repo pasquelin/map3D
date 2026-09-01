@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "zh",
+    "name": "简体中文",
+    "short": "ZH",
+    "docs": "en",
+    "ogLocale": "zh_CN"
+  },
+  "head": {
+    "title": "map3d — 面向 React 的实时三维地图库",
+    "description": "面向 React 的实时三维地图库：照片级真实感地球、DOM 标记与聚合、绘图编辑器、随视口加载的实时数据。",
+    "ogDescription": "一个由 React 挂载后便自行运转的命令式 Three.js 引擎。照片级地球、DOM 标记、绘图编辑器、实时数据。"
+  },
+  "nav": {
+    "demos": "演示",
+    "gallery": "图库",
+    "capabilities": "能力",
+    "docs": "文档",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "语言"
+  },
+  "altimeter": {
+    "caption": "高度"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "面向 React 的<br />实时三维<br />地图库",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "一个由 React 挂载后便自行运转的命令式 Three.js 引擎。<code>MapEngine</code> 掌管相机、瓦片与图层，渲染循环从不等待组件重渲染。",
+    "demoButton": "打开 React 演示",
+    "docsButton": "阅读文档",
+    "shotAlt": "map3d 渲染的照片级真实感三维城市，上方打开着绘图编辑器",
+    "plateCity": "巴黎",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "版本",
+    "peers": "对等依赖",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "构建产物",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "许可协议",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "在线演示",
+    "title": "直接在浏览器里试用",
+    "lede": "无需安装，无需密钥。下方演示在每次推送时从本仓库构建，并由 GitHub Pages 直接提供。",
+    "reactTag": "react",
+    "reactName": "指挥调度面板",
+    "reactText": "一张三维地图：按严重程度聚合并随视图移动重新拉取的告警、被相机跟随的动画目标、区域、完整的绘图编辑器、明暗主题切换，以及一套霓虹备选主题。",
+    "reactShotAlt": "React 演示：绘图编辑器、框选与实时标记列表",
+    "reactNote": "发布时未附带 Cesium Ion 令牌，因此打开的是自托管底图 —— 其余功能一切正常。若需照片级地球，请克隆仓库，设置 <code>VITE_CESIUM_ION_TOKEN</code>，并将 <code>providers.tiles3d.provider</code> 改为 <code>external</code>。",
+    "reactCta": "打开演示"
+  },
+  "gallery": {
+    "eyebrow": "图库",
+    "title": "从轨道到街面",
+    "lede": "一个库覆盖整段下降：轨道地球、区域聚合、屋顶天际线、脚下的街道名称。",
+    "railLabel": "视角，从轨道直到街道高度",
+    "prev": "上一个视角",
+    "next": "下一个视角",
+    "globeAlt": "带聚合标记的照片级真实感地球",
+    "globeName": "从地球到平面地图",
+    "globeText": "椭球体回退，智能聚合",
+    "clustersAlt": "巴黎上空的聚合事件，以及贯穿城市的路径",
+    "clustersName": "标记与聚合",
+    "clustersText": "复用的 DOM 节点，按类别拆分",
+    "pedestrianAlt": "街道高度的第一人称视角，置身于建筑体量之间",
+    "pedestrianName": "步行模式",
+    "pedestrianText": "视线高度、重力、碰撞",
+    "skylineAlt": "巴黎的低角度三维视图，聚合标记悬浮于屋顶之上",
+    "skylineName": "天际线与地平线",
+    "skylineText": "无论俯仰角如何，标记都保持屏幕尺寸",
+    "graticuleAlt": "覆盖在照片级三维城市之上的坐标网格",
+    "graticuleName": "坐标网格",
+    "graticuleText": "贴合地面，屏幕线宽恒定"
+  },
+  "caps": {
+    "eyebrow": "能力",
+    "title": "开箱即有",
+    "lede": "每一层界面 —— 工具栏、控件、搜索、坐标网格、聚合 —— 都挂载在 <code>&lt;Map&gt;</code> 内部，由配置驱动。你只需要提供数据。",
+    "tilesName": "照片级三维，平面二维",
+    "tilesText": "通过 Cesium Ion 接入 Google Photorealistic 3D Tiles；未设置令牌时退回椭球地球；二维底图可来自 Google，也可来自你自己的 XYZ 服务器。",
+    "markersName": "DOM 标记与聚合",
+    "markersText": "真实的 DOM 节点，原生 hover、焦点与 CSS 动画。节点复用，并在单次 <code>translate3d</code> 中写入；移动中的目标是滑动，而不是被重建。",
+    "drawingName": "绘图编辑器",
+    "drawingText": "框选与套索选择、缩放与旋转手柄、按工具区分的样式、撤销与重做、GeoJSON 导入导出。",
+    "dataName": "随视口加载的实时数据",
+    "dataText": "相机移动时按包围盒重新拉取，并支持实时更新。",
+    "symbolsName": "MIL-STD-2525D 军标",
+    "symbolsCode": "动态导入",
+    "symbolsText": "9 MB 的军标 SDK 按需加载 —— 不显示军标的构建产物永远不会包含它。",
+    "themeName": "带类型的主题与文案",
+    "themeText": "明暗两套主题，遵循 <code>prefers-reduced-motion</code>，全部可翻译。代码中没有任何硬编码的文字或数值。"
+  },
+  "start": {
+    "eyebrow": "快速上手",
+    "title": "十几行代码画出带聚合的地图",
+    "plugins": "可选插件 —— IGN Géoplateforme、Windy、室内平面图 —— 位于<a href=\"https://github.com/pasquelin/plugingsMap3D\">独立仓库</a>，你也可以用<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">插件 API</a> 编写自己的插件。"
+  },
+  "footer": {
+    "source": "源码",
+    "docsFr": "文档 🇫🇷",
+    "docsEn": "文档 🇬🇧",
+    "plugins": "插件",
+    "changelog": "更新日志",
+    "legal": "© Alban Pasquelin —— 依据 <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> 发布。商业使用需另行取得许可。"
+  },
+  "tooling": {
+    "eyebrow": "实际运行",
+    "title": "工具在工作中",
+    "lede": "下方每一张截图都来自上方可直接打开的演示 —— 没有任何效果图。",
+    "railLabel": "工具截图",
+    "drawAlt": "绘图编辑器中被选中的矩形，带有手柄和选择面板",
+    "drawName": "绘制与选择",
+    "drawText": "缩放与旋转手柄、实时选择面板、撤销与重做",
+    "symbolsAlt": "地图上方打开的 MIL-STD-2525D 符号面板，按敌我属性筛选",
+    "symbolsName": "MIL-STD-2525D 符号面板",
+    "symbolsText": "友军、敌军、中立、未知 —— SDK 按需加载",
+    "catalogAlt": "目录面板中启用了一个数据源，聚合随之重新计算",
+    "catalogName": "目录与数据源",
+    "catalogText": "启用一个数据源，252 个点随即落位，聚合重新组合",
+    "themeAlt": "同一张地图的浅色主题，低角度俯视",
+    "themeName": "浅色主题",
+    "themeText": "一个设置项 —— 整个界面随之切换，地图也不例外"
+  }
+}

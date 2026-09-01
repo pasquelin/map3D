@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "vi",
+    "name": "Tiếng Việt",
+    "short": "VI",
+    "docs": "en",
+    "ogLocale": "vi_VN"
+  },
+  "head": {
+    "title": "map3d — bản đồ 3D thời gian thực cho React",
+    "description": "Thư viện React cho bản đồ 3D thời gian thực: quả địa cầu ảnh thực, marker và cụm bằng DOM, trình vẽ, dữ liệu trực tiếp theo khung nhìn.",
+    "ogDescription": "Một engine Three.js mệnh lệnh mà React gắn vào rồi để yên cho nó chạy. Địa cầu ảnh thực, marker DOM, trình vẽ, dữ liệu trực tiếp."
+  },
+  "nav": {
+    "demos": "Bản demo",
+    "gallery": "Thư viện ảnh",
+    "capabilities": "Tính năng",
+    "docs": "Tài liệu",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "Ngôn ngữ"
+  },
+  "altimeter": {
+    "caption": "độ cao"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "Bản đồ 3D<br />thời gian thực<br />cho React",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "Một engine Three.js mệnh lệnh mà React gắn vào rồi để yên cho nó chạy. <code>MapEngine</code> nắm giữ camera, các tile và các lớp, nên vòng lặp dựng hình không bao giờ phải chờ một lần render lại.",
+    "demoButton": "Mở bản demo React",
+    "docsButton": "Đọc tài liệu",
+    "shotAlt": "Một thành phố 3D ảnh thực do map3d dựng, với trình vẽ đang mở bên trên",
+    "plateCity": "Paris",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "Phiên bản",
+    "peers": "Phụ thuộc ngang hàng",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "Bản dựng",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "Giấy phép",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "Demo trực tiếp",
+    "title": "Dùng thử ngay trên trình duyệt",
+    "lede": "Không cần cài đặt, không cần khoá. Các bản demo bên dưới được dựng từ kho này sau mỗi lần push và phục vụ thẳng từ GitHub Pages.",
+    "reactTag": "react",
+    "reactName": "Bảng điều hành",
+    "reactText": "Một bản đồ 3D với cảnh báo gom cụm theo mức nghiêm trọng và tải lại khi di chuyển, các đối tượng động được camera bám theo, các vùng, trình vẽ đầy đủ, công tắc sáng/tối và một giao diện neon thay thế.",
+    "reactShotAlt": "Bản demo React: trình vẽ, chọn theo khung và danh sách marker trực tiếp",
+    "reactNote": "Được xuất bản mà không kèm token Cesium Ion, nên mở ra với bản đồ nền tự lưu trữ — mọi thứ còn lại vẫn chạy. Muốn có địa cầu ảnh thực, hãy sao chép kho, đặt <code>VITE_CESIUM_ION_TOKEN</code> và chuyển <code>providers.tiles3d.provider</code> sang <code>external</code>.",
+    "reactCta": "Mở bản demo"
+  },
+  "gallery": {
+    "eyebrow": "Thư viện ảnh",
+    "title": "Từ quỹ đạo xuống vỉa hè",
+    "lede": "Một thư viện lo trọn cả hành trình đi xuống: địa cầu trên quỹ đạo, gom cụm theo vùng, đường chân trời mái nhà, tên phố dưới chân.",
+    "railLabel": "Các góc nhìn, từ quỹ đạo xuống tầm đường phố",
+    "prev": "Góc nhìn trước",
+    "next": "Góc nhìn sau",
+    "globeAlt": "Quả địa cầu ảnh thực với các marker đã gom cụm",
+    "globeName": "Từ địa cầu sang bản đồ phẳng",
+    "globeText": "dự phòng ellipsoid, gom cụm thông minh",
+    "clustersAlt": "Các sự vụ gom cụm trên bầu trời Paris cùng những tuyến đường vạch qua thành phố",
+    "clustersName": "Marker và cụm",
+    "clustersText": "các nút DOM tái sử dụng, chia theo hạng mục",
+    "pedestrianAlt": "Góc nhìn thứ nhất ở tầm đường phố, giữa những khối nhà",
+    "pedestrianName": "Chế độ người đi bộ",
+    "pedestrianText": "tầm mắt, trọng lực, va chạm",
+    "skylineAlt": "Góc nhìn 3D thấp của Paris với các cụm lơ lửng trên mái nhà",
+    "skylineName": "Đường chân trời",
+    "skylineText": "dù nghiêng thế nào, marker vẫn giữ nguyên kích thước trên màn hình",
+    "graticuleAlt": "Lưới toạ độ phủ lên thành phố 3D ảnh thực",
+    "graticuleName": "Lưới toạ độ",
+    "graticuleText": "bám sát mặt đất, độ dày nét trên màn hình không đổi"
+  },
+  "caps": {
+    "eyebrow": "Tính năng",
+    "title": "Những gì có sẵn",
+    "lede": "Mọi bề mặt — thanh công cụ, các nút điều khiển, tìm kiếm, lưới toạ độ, gom cụm — đều được gắn bên trong <code>&lt;Map&gt;</code> và điều khiển bằng cấu hình. Bạn chỉ thêm dữ liệu.",
+    "tilesName": "3D ảnh thực, 2D phẳng",
+    "tilesText": "Google Photorealistic 3D Tiles qua Cesium Ion, địa cầu ellipsoid khi không có token, và bản đồ nền 2D từ Google hoặc từ máy chủ XYZ của bạn.",
+    "markersName": "Marker và cụm bằng DOM",
+    "markersText": "Là các nút DOM thật, có hover, focus và hoạt ảnh CSS nguyên bản. Được tái sử dụng và ghi trong một lượt <code>translate3d</code> duy nhất; đối tượng đang di chuyển sẽ trượt đi thay vì bị dựng lại.",
+    "drawingName": "Trình vẽ",
+    "drawingText": "Chọn theo khung và theo nét lasso, tay cầm đổi kích thước và xoay, kiểu riêng cho từng công cụ, hoàn tác và làm lại, GeoJSON vào và ra.",
+    "dataName": "Dữ liệu trực tiếp theo khung nhìn",
+    "dataText": "Tải lại theo hộp bao khi camera di chuyển, kèm cập nhật thời gian thực.",
+    "symbolsName": "Ký hiệu MIL-STD-2525D",
+    "symbolsCode": "import động",
+    "symbolsText": "Bộ SDK ký hiệu nặng 9 MB chỉ tải khi cần — nó không bao giờ lọt vào một gói không hiển thị ký hiệu nào.",
+    "themeName": "Giao diện và nhãn có kiểu",
+    "themeText": "Sáng và tối, tôn trọng <code>prefers-reduced-motion</code>, dịch được toàn bộ. Không một chuỗi hay giá trị nào bị viết cứng trong mã."
+  },
+  "start": {
+    "eyebrow": "Bắt đầu nhanh",
+    "title": "Một bản đồ có gom cụm trong hơn chục dòng",
+    "plugins": "Các plugin tuỳ chọn — IGN Géoplateforme, Windy, sơ đồ mặt bằng trong nhà — nằm ở <a href=\"https://github.com/pasquelin/plugingsMap3D\">một kho riêng</a>, và bạn có thể tự viết bằng <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
+  },
+  "footer": {
+    "source": "Mã nguồn",
+    "docsFr": "Tài liệu 🇫🇷",
+    "docsEn": "Tài liệu 🇬🇧",
+    "plugins": "Plugin",
+    "changelog": "Nhật ký thay đổi",
+    "legal": "© Alban Pasquelin — phát hành theo <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Dùng cho mục đích thương mại cần giấy phép riêng."
+  },
+  "tooling": {
+    "eyebrow": "Đang vận hành",
+    "title": "Bộ công cụ, lúc làm việc",
+    "lede": "Mỗi ảnh chụp bên dưới đều lấy từ chính bản demo bạn có thể mở ở trên — không có ảnh dựng.",
+    "railLabel": "Ảnh chụp các công cụ",
+    "drawAlt": "Một hình chữ nhật đang được chọn trong trình vẽ, kèm tay cầm và bảng chọn",
+    "drawName": "Vẽ và chọn",
+    "drawText": "tay cầm đổi kích thước và xoay, bảng chọn trực tiếp, hoàn tác và làm lại",
+    "symbolsAlt": "Bảng ký hiệu MIL-STD-2525D mở trên bản đồ, lọc theo phe",
+    "symbolsName": "Bảng ký hiệu MIL-STD-2525D",
+    "symbolsText": "bạn, địch, trung lập, chưa rõ — SDK tải khi cần",
+    "catalogAlt": "Bảng danh mục với một nguồn dữ liệu được bật và các cụm tính lại",
+    "catalogName": "Danh mục và nguồn dữ liệu",
+    "catalogText": "bật một nguồn, 252 điểm đổ về và các cụm sắp xếp lại",
+    "themeAlt": "Cũng bản đồ đó ở giao diện sáng, nhìn từ góc thấp",
+    "themeName": "Giao diện sáng",
+    "themeText": "một thiết lập — toàn bộ giao diện đi theo, kể cả bản đồ"
+  }
+}

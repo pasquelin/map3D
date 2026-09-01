@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "lang": "ko",
+    "name": "한국어",
+    "short": "KO",
+    "docs": "en",
+    "ogLocale": "ko_KR"
+  },
+  "head": {
+    "title": "map3d — React를 위한 실시간 3D 지도 라이브러리",
+    "description": "React용 실시간 3D 지도 라이브러리: 실사 지구본, DOM 마커와 클러스터, 드로잉 편집기, 뷰포트 기반 실시간 데이터.",
+    "ogDescription": "React가 마운트한 뒤에는 관여하지 않는 명령형 Three.js 엔진. 실사 지구본, DOM 마커, 드로잉 편집기, 실시간 데이터."
+  },
+  "nav": {
+    "demos": "데모",
+    "gallery": "갤러리",
+    "capabilities": "기능",
+    "docs": "문서",
+    "npm": "npm",
+    "source": "GitHub",
+    "languageLabel": "언어"
+  },
+  "altimeter": {
+    "caption": "고도"
+  },
+  "hero": {
+    "eyebrow": "React 19 · three.js ≥ 0.160 · ESM + CJS + types",
+    "title": "React를 위한<br />실시간 3D<br />지도",
+    "sub": "Real-time 3D cartography for React.",
+    "subLang": "en",
+    "lede": "React가 마운트한 뒤에는 관여하지 않는 명령형 Three.js 엔진입니다. <code>MapEngine</code>이 카메라와 타일, 레이어를 소유하므로 렌더 루프가 리렌더를 기다리는 일이 없습니다.",
+    "demoButton": "React 데모 열기",
+    "docsButton": "문서 읽기",
+    "shotAlt": "map3d가 렌더링한 실사 3D 도시. 위에 드로잉 편집기가 열려 있다",
+    "plateCity": "파리",
+    "plateSource": "Google Photorealistic 3D Tiles"
+  },
+  "facts": {
+    "version": "버전",
+    "peers": "피어 의존성",
+    "peersValue": "react 19 · three ≥ 0.160",
+    "build": "빌드",
+    "buildValue": "ESM + CJS + .d.ts",
+    "licence": "라이선스",
+    "licenceValue": "PolyForm Noncommercial"
+  },
+  "demos": {
+    "eyebrow": "실행 가능한 데모",
+    "title": "브라우저에서 바로 사용해 보세요",
+    "lede": "설치도 키도 필요 없습니다. 아래 데모는 푸시할 때마다 이 저장소에서 빌드되어 GitHub Pages가 그대로 제공합니다.",
+    "reactTag": "react",
+    "reactName": "관제 대시보드",
+    "reactText": "심각도별로 클러스터링되고 이동할 때마다 다시 불러오는 경보, 카메라가 따라가는 애니메이션 개체, 구역, 완전한 드로잉 편집기, 라이트·다크 전환, 그리고 별도의 네온 테마를 갖춘 3D 지도입니다.",
+    "reactShotAlt": "React 데모: 드로잉 편집기, 사각 선택, 실시간 마커 목록",
+    "reactNote": "Cesium Ion 토큰 없이 배포되어 자체 호스팅 베이스맵으로 열립니다. 나머지는 모두 동작합니다. 실사 지구본을 보려면 저장소를 클론하고 <code>VITE_CESIUM_ION_TOKEN</code>을 설정한 뒤 <code>providers.tiles3d.provider</code>를 <code>external</code>로 바꾸세요.",
+    "reactCta": "데모 열기"
+  },
+  "gallery": {
+    "eyebrow": "갤러리",
+    "title": "궤도에서 보도까지",
+    "lede": "하나의 라이브러리가 하강 전 구간을 담당합니다. 궤도 지구본, 광역 클러스터링, 지붕 스카이라인, 발밑의 도로명.",
+    "railLabel": "시점: 궤도에서 도로 높이까지",
+    "prev": "이전 시점",
+    "next": "다음 시점",
+    "globeAlt": "클러스터링된 마커가 놓인 실사 지구본",
+    "globeName": "지구본에서 평면 지도로",
+    "globeText": "타원체 폴백, 지능형 클러스터링",
+    "clustersAlt": "파리 상공의 클러스터링된 사건과 도시를 가로지르는 경로",
+    "clustersName": "마커와 클러스터",
+    "clustersText": "재사용되는 DOM 노드, 범주별 분할",
+    "pedestrianAlt": "건물 사이 도로 높이의 일인칭 시점",
+    "pedestrianName": "보행자 모드",
+    "pedestrianText": "눈높이, 중력, 충돌",
+    "skylineAlt": "지붕 위에 클러스터가 떠 있는 파리의 낮은 각도 3D 뷰",
+    "skylineName": "스카이라인과 지평선",
+    "skylineText": "기울기와 무관하게 마커는 화면 크기를 유지합니다",
+    "graticuleAlt": "실사 3D 도시 위에 덮인 좌표 격자",
+    "graticuleName": "좌표 격자",
+    "graticuleText": "지면에 밀착하고 화면 선 굵기는 일정"
+  },
+  "caps": {
+    "eyebrow": "기능",
+    "title": "기본으로 제공되는 것",
+    "lede": "툴바, 컨트롤, 검색, 좌표 격자, 클러스터링 등 모든 표면은 <code>&lt;Map&gt;</code> 내부에 마운트되고 설정으로 제어됩니다. 데이터만 넣으면 됩니다.",
+    "tilesName": "실사 3D, 평면 2D",
+    "tilesText": "Cesium Ion을 통한 Google Photorealistic 3D Tiles, 토큰이 없을 때의 타원체 지구본, 그리고 Google 또는 직접 운영하는 XYZ 서버가 제공하는 2D 베이스맵.",
+    "markersName": "DOM 마커와 클러스터",
+    "markersText": "네이티브 hover와 포커스, CSS 애니메이션이 동작하는 실제 DOM 노드입니다. 풀링되어 단 한 번의 <code>translate3d</code> 패스로 기록되며, 움직이는 개체는 새로 만들어지는 대신 미끄러집니다.",
+    "drawingName": "드로잉 편집기",
+    "drawingText": "사각형과 올가미 선택, 크기 조절과 회전 핸들, 도구별 스타일, 실행 취소와 다시 실행, GeoJSON 입출력.",
+    "dataName": "뷰포트 기반 실시간 데이터",
+    "dataText": "카메라가 움직일 때 바운딩 박스 단위로 다시 가져오며, 실시간 갱신도 지원합니다.",
+    "symbolsName": "MIL-STD-2525D 심볼",
+    "symbolsCode": "동적 임포트",
+    "symbolsText": "9 MB 심볼 SDK는 필요할 때만 로드되며, 심볼을 표시하지 않는 번들에는 절대 포함되지 않습니다.",
+    "themeName": "타입이 있는 테마와 레이블",
+    "themeText": "라이트와 다크, <code>prefers-reduced-motion</code> 준수, 전부 번역 가능. 코드에 박아 넣은 문자열이나 값이 어디에도 없습니다."
+  },
+  "start": {
+    "eyebrow": "빠른 시작",
+    "title": "열두어 줄로 만드는 클러스터 지도",
+    "plugins": "선택 플러그인 —— IGN Géoplateforme, Windy, 실내 도면 —— 은 <a href=\"https://github.com/pasquelin/plugingsMap3D\">별도 저장소</a>에 있으며, <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">플러그인 API</a>로 직접 만들 수도 있습니다."
+  },
+  "footer": {
+    "source": "소스",
+    "docsFr": "문서 🇫🇷",
+    "docsEn": "문서 🇬🇧",
+    "plugins": "플러그인",
+    "changelog": "변경 이력",
+    "legal": "© Alban Pasquelin —— <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>으로 배포됩니다. 상업적 사용에는 별도 라이선스가 필요합니다."
+  },
+  "tooling": {
+    "eyebrow": "실제 동작",
+    "title": "도구가 일하는 모습",
+    "lede": "아래 화면은 모두 위에서 열 수 있는 데모 그대로입니다. 목업이 아닙니다.",
+    "railLabel": "도구 화면",
+    "drawAlt": "드로잉 편집기에서 선택된 사각형. 핸들과 선택 패널이 보인다",
+    "drawName": "드로잉과 선택",
+    "drawText": "크기 조절과 회전 핸들, 실시간 선택 패널, 실행 취소와 다시 실행",
+    "symbolsAlt": "지도 위에 열린 MIL-STD-2525D 팔레트. 소속별로 필터링되어 있다",
+    "symbolsName": "MIL-STD-2525D 팔레트",
+    "symbolsText": "아군, 적대, 중립, 미상 —— SDK는 필요할 때 로드",
+    "catalogAlt": "데이터 소스 하나를 켜서 클러스터가 다시 계산된 카탈로그 패널",
+    "catalogName": "카탈로그와 데이터 소스",
+    "catalogText": "소스 하나를 켜면 252개 지점이 들어오고 클러스터가 다시 구성됩니다",
+    "themeAlt": "같은 지도의 라이트 테마, 낮은 각도의 부감",
+    "themeName": "라이트 테마",
+    "themeText": "설정 하나 —— 지도까지 포함해 UI 전체가 따라갑니다"
+  }
+}
