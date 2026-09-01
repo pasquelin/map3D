@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useContext, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
-import { boundsOfLatLngs, centerOfBounds } from '../../core/bounds'
-import { type Hit, NO_MATCH, normalizeSearch, proximityRank, rankHits, scoreMatch } from '../../search/match'
-import { DRAW_GROUP, emptyResult } from '../../search/registry'
+import { boundsOfLatLngs } from '../../core/bounds'
+import { normalizeSearch } from '../../search/match'
+import { DRAW_GROUP } from '../../search/registry'
 import {
   DrawLayer as CoreDrawLayer,
   type DrawConstraints,
@@ -30,7 +30,7 @@ import {
   useLabels,
   useMapContext,
 } from '../context'
-import type { Bounds, LatLng } from '../../shared'
+import type { LatLng } from '../../shared'
 import type { MarkerData } from '../../data/types'
 import { type MenuItem, prependMenuAction } from './ContextMenu'
 import { UiIcon } from './UiIcon'
@@ -42,6 +42,7 @@ import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
 import { useMergedByContent } from '../hooks/useMergedByContent'
 import { useDrawKeyboard } from '../hooks/useDrawKeyboard'
 import { useDrawSymbols } from '../hooks/useDrawSymbols'
+import { useSearchProvider } from '../hooks/useSearchProvider'
 import { useYieldsTool } from '../hooks/useYieldsTool'
 
 export type DrawLayerProps = {
@@ -552,62 +553,32 @@ export function DrawLayer(props: DrawLayerProps) {
   //
   // Les symboles sont exclus : ils sont déjà indexés comme markers par
   // `<SymbolMarkers>`, avec leur pictogramme et leur libellé de catalogue.
-  const drawGroupLabel = useLabels().search.groups.draw
-  const searchSource = useId()
+  //
   // Pas de cache de normalisation ici, contrairement aux markers et aux formes
   // déclaratives : `getShapes()` reconstruit un `DrawnShape` neuf à chaque appel, donc
   // une `WeakMap` clé sur l'objet n'aurait jamais un seul succès — elle ne ferait que
   // grossir. Les formes dessinées NOMMÉES se comptent en dizaines, pas en milliers.
-  const namedShapes = useCallback(
-    (): DrawnShape[] => (coreRef.current?.getShapes() ?? []).filter((s) => s.title && s.kind !== 'symbol'),
-    [],
-  )
-
-  useEffect(() => {
-    return engine.search.register({
-      query: (needle, opts) => {
-        if (opts.group && opts.group !== DRAW_GROUP) return emptyResult()
-        const hits: Hit<{ shape: DrawnShape; bounds: Bounds }>[] = []
-        for (const s of namedShapes()) {
-          const score = scoreMatch(normalizeSearch(s.title!), needle)
-          if (score === NO_MATCH) continue
-          const bounds = boundsOfLatLngs(s.points)
-          if (!bounds) continue
-          hits.push({
-            item: { shape: s, bounds },
-            score,
-            distance: opts.origin ? proximityRank(centerOfBounds(bounds), opts.origin) : 0,
-          })
-        }
-        return {
-          entries: rankHits(hits, opts.limit).map(({ shape, bounds }) => ({
-            group: DRAW_GROUP,
-            id: shape.id,
-            title: shape.title!,
-            position: centerOfBounds(bounds),
-            bounds,
-            color: shape.style.color,
-            select: () => coreRef.current?.select([shape.id]),
-          })),
-          totals: new Map([[DRAW_GROUP, hits.length]]),
-        }
-      },
-    })
-  }, [engine, namedShapes])
-
+  //
   // Rubrique déclarée sur le COMPTE des formes nommées (cf. `namedShapeCount`), pas sur
   // `rev` : ce dernier bumpe à chaque frame d'un restyle ou d'un geste d'édition, et
   // chaque bump refaisait `getShapes()` — N formes allouées par frame pour un compte
   // qui n'avait pas bougé.
-  useEffect(() => {
-    engine.search.report(
-      searchSource,
-      namedShapeCount > 0
-        ? [{ id: DRAW_GROUP, label: drawGroupLabel, color: theme.colors.draw.default, count: namedShapeCount }]
-        : [],
-    )
-  }, [engine, namedShapeCount, drawGroupLabel, theme, searchSource])
-  useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
+  useSearchProvider<DrawnShape>({
+    group: DRAW_GROUP,
+    label: labels.search.groups.draw,
+    color: theme.colors.draw.default,
+    source: useId(),
+    items: () => coreRef.current?.getShapes() ?? [],
+    normalizedTitle: (s) => (s.title && s.kind !== 'symbol' ? normalizeSearch(s.title) : null),
+    boundsOf: (s) => boundsOfLatLngs(s.points),
+    entryOf: (shape) => ({
+      id: shape.id,
+      title: shape.title!,
+      color: shape.style.color,
+      select: () => coreRef.current?.select([shape.id]),
+    }),
+    count: namedShapeCount,
+  })
 
   // ── Symboles ── (palette, affiliation, dépôt, symboles posés) — cf. `useDrawSymbols`.
   const {
