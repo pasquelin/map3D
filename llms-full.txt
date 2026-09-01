@@ -83,27 +83,41 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 `toolbar` / `controls` / `search` / `readout` / `dock` / `draw` / `relations` / `layers` props.
 `MapHandle` (a `ref` on `<Map>`) frames/draws/queries the map from the outside.
 
+## Guides
 
----
+- [MARKERS](docs/en/MARKERS.md): points, `MarkerData`, clustering, selection, following, threshold decor, repositioning, dock, performance
+- [ZONES](docs/en/ZONES.md): ground-draped zones and shapes, volumetric extrusion, geodesic predicates, framing, paths
+- [CATALOG](docs/en/CATALOG.md): remote reference sets — paginated browse sources (aggregates with children, tri-state checkboxes, shapes and markers) **or** viewport-driven toggle sources, persistence
+- [DRAWING](docs/en/DRAWING.md): tools, selection, editing, style, history, GeoJSON, CRUD by identity, constraints
+- [SYMBOLS](docs/en/SYMBOLS.md): drag-and-drop icon catalog, MIL-STD-2525D symbology
+- [TEMPLATES](docs/en/TEMPLATES.md): named drawing saves, local or API storage, sharing, `.m3dt` export
+- [RELATIONS](docs/en/RELATIONS.md): tag-based links, real routing distances and durations (Google Routes)
+- [LENS](docs/en/LENS.md): lens tool — inventory of the markers within an area
+- [SEARCH](docs/en/SEARCH.md): unified search over map elements + place geocoding
+- [CAMERA](docs/en/CAMERA.md): initial position, `ready`, flights, `fitBounds` framing, frozen map, basemap
+- [PEDESTRIAN](docs/en/PEDESTRIAN.md): pedestrian mode — ground walking, collision, gravity, first-person immersion
+- [TILES](docs/en/TILES.md): tile provider — Google or self-hosted server, capabilities and buttons
+- [BUILDINGS](docs/en/BUILDINGS.md): selecting a building from the internal volume — tool, `buildingMenu`, surfaced attributes
+- [GRATICULE](docs/en/GRATICULE.md): coordinate grid — adaptive mesh, remarkable lines, labels, fade-out on tilt
+- [DATA](docs/en/DATA.md): viewport-driven (bbox refetch on move), real-time, tags, pinning, persistence
+- [HOOKS](docs/en/HOOKS.md): every React hook, and what re-renders what
+- [ENGINE](docs/en/ENGINE.md): engine, events, registries, writing a custom layer
+- [PLUGINS](docs/en/PLUGINS.md): plugin author guide — contract, config, data source, pick-time enrichment, hub, registry
+- [PREFERENCES](docs/en/PREFERENCES.md): end-user preferences — 3D quality presets, keyboard layout, move/view rebinding, persistence
 
-This file is **self-contained**: it holds the entire map3d documentation (English).
-Each section below reproduces a full `docs/en/*.md` file. The French source lives in
-`docs/fr/` (same file names) — the reference docs are generated from the French types
-and JSDoc, then hand-translated here.
+## Reference (generated from the source types + JSDoc)
 
-## Table of contents
-
-**Guides**: Markers · Zones · Catalog · Drawing · Symbols · Templates · Relations ·
-Lens · Search · Camera · Pedestrian · Tiles · Buildings · Graticule · Data · Hooks ·
-Engine · Plugins · Preferences.
-**Reference** (generated from types + JSDoc): Config · Theme · Labels · Props.
+- [CONFIG](docs/en/CONFIG.md): `MapConfig` — what you **tune**: providers, gestures, budgets, storage
+- [THEME](docs/en/THEME.md): `MapTheme` — what you **see**: colors, sizes, rhythm
+- [LABELS](docs/en/LABELS.md): `MapLabels` — every **text string** and formatting rule (units, distances, durations)
+- [PROPS](docs/en/PROPS.md): React component props
 
 ## Public API — landmarks by domain (all from `'map3d'`)
 
 - **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
 - **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
 - **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle` / `useCatalogClear` / `useCatalogSourceCount`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
-- **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
+- **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `ErasableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
 - **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
 - **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
 - **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` / `.history` — the eraser and its “Clear all” row, and the undo/redo arrows, withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
@@ -124,15 +138,19 @@ Engine · Plugins · Preferences.
 - Nothing hard-coded: every behavior/color/label/threshold goes through `config` / `theme` / `labels` or a prop.
 - Colocated `*.test.ts` tests (vitest, jsdom). Commands: `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm lint`, `pnpm dev:example`.
 
+## Optional
 
+- [Root README](README.md): pitch, install, highlights, links (bilingual)
+- [Full guide + index](docs/en/README.md): guided tour of every domain, "where to start"
+- [CLAUDE.md](CLAUDE.md): detailed architecture, working principles, conventions (for agents)
 
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/README.md -->
-<!-- ============================================================ -->
+==============================================================================
+Documentation
+==============================================================================
 
 # map3d — English documentation
 
+[Français](../fr/README.md) · **English** · [↑ Root](../../README.md)
 
 **React 3D mapping library** (Three.js): globe → flat map, DOM markers/clusters, paths,
 shapes, drawing tools, real-time data — **fully themable**.
@@ -570,8 +588,8 @@ events too, derived by difference.
   onShapeDelete={(s) => deleteZone(s.meta?.uuid)}
   onShapeEdit={(s) => openSheet(s.meta?.uuid)} // double-click
   // Business rules for USER drawing (programmatic mutations are exempt).
-  constraints={{ limits: allowedPerimeters, maxAreaM2: 10_000_000, noOverlap: true }}
-  onReject={(reason, s) => toast({ outOfLimits: 'Outside the area', maxArea: 'Too large', overlap: 'Overlap not allowed' }[reason])}
+  constraints={{ limits: allowedPerimeters, maxAreaM2: 10_000_000 }}
+  onReject={(reason, s) => toast(reason === 'outOfLimits' ? 'Outside the area' : 'Too large')}
   settingsStorage="local"                      // or "none"
   shortcuts={{ selectLasso: 'q', rect: false }} // remap/disable tools and selection modes
 >
@@ -591,21 +609,19 @@ The `useDrawing()` API exposes everything: `tool/setTool`,
 `toGeoJSON`/`fromGeoJSON`, `shortcuts`.
 
 **Business constraints** — `constraints.limits` (`ShapeData`, as in `<ShapeLayer>`)
-requires every drawn shape to fit inside **at least one** perimeter,
-`constraints.maxAreaM2` caps its area, and `constraints.noOverlap` rejects a **closed**
-shape that overlaps another (closed) shape of the layer (edge-to-edge adjacency stays
-allowed; open lines are not affected). A refused creation leaves no trace (no mesh, no
+requires every drawn shape to fit inside **at least one** perimeter, and
+`constraints.maxAreaM2` caps its area. A refused creation leaves no trace (no mesh, no
 history, no `onChange`); a refused **edit** restores the shape to its pre-gesture state
 rather than losing it — and therefore does not emit `onShapeUpdate`.
-`onReject(reason, shape)` lets you display your own message (`reason` is `'outOfLimits'`,
-`'maxArea'` or `'overlap'`): the library displays nothing itself. `limits` draws nothing
-either — display your perimeters with `<ShapeLayer>` or as locked shapes. Only **user
-gestures** are constrained: `addShape`/`updateShape`/`fromGeoJSON` inject without checks.
+`onReject(reason, shape)` lets you display your own message: the library displays
+nothing itself. `limits` draws nothing either — display your perimeters with
+`<ShapeLayer>` or as locked shapes. Only **user gestures** are constrained:
+`addShape`/`updateShape`/`fromGeoJSON` inject without checks.
 
 The predicates are exported and **geodesic** (therefore stable under camera rotation,
 unlike a screen-space test): `polygonAreaM2` (spherical excess, the same method as
 `google.maps.geometry.spherical.computeArea`), `pointInRing`, `ringInsideRing`,
-`ringsOverlap`, `circleRing`, `ringOfShape`.
+`circleRing`, `ringOfShape`.
 
 **CRUD by identity** — to drive shapes one by one from your code: `getShapes()`,
 `getShape(id)`, `getLastShape()`, `addShape(shape, opts?)` (returns the id),
@@ -814,10 +830,8 @@ live** as the map scrolls underneath. `Escape` removes the area, then leaves the
 The lens and the drawing tools are **mutually exclusive** — they share the same pointer
 interceptor.
 
-The panel reuses the selection panel's building blocks (`SelectionScroll`, `SelectionGroup`,
-`MarkerList`, `ClusterPie`) with no duplication. Inventoried markers are grouped by cluster
-(current visual cluster, via `engine.markers.visualNodeOf`), groups open by default; standalone
-markers stay flat. Scrollable body, per-row cross, extensible actions menu.
+The panel reuses the selection panel's `<MarkerList>`: one row per marker, fixed header
+with the per-type count, scrollable body, per-row cross, extensible actions menu.
 
 ## Translating labels (`labels`)
 
@@ -1267,14 +1281,13 @@ the comments inside examples, and the interface labels quoted as examples.
 
 [Français](../fr/README.md) · [English](README.md) · [↑ Root](../../README.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/MARKERS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Markers
+==============================================================================
 
 # Markers — complete guide
 
+[Français](../fr/MARKERS.md) · **English** · [↑ Index](README.md)
 
 A **marker** is a stably-identified point placed on the globe, rendered in **DOM/CSS**
 (not as a WebGL sprite): it inherits native animations, `:hover`, accessibility and
@@ -1991,14 +2004,13 @@ step on each other.
 - [PEDESTRIAN.md](PEDESTRIAN.md) — eye-level declutter and view bounds
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/ZONES.md -->
-<!-- ============================================================ -->
+==============================================================================
+Zones, shapes and paths
+==============================================================================
 
 # Zones, shapes and paths — complete guide
 
+[Français](../fr/ZONES.md) · **English** · [↑ Index](README.md)
 
 A **zone** is a geometry placed on the globe and **draped over the terrain**: polygon,
 rectangle, circle, line, arrow. It hugs the ground, its strokes have a width in
@@ -2387,14 +2399,13 @@ const valid = ringInsideRing(ringOfShape(inputZone), ring)
 - [PEDESTRIAN.md](PEDESTRIAN.md) — why draped shapes depth-test while walking
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/CATALOG.md -->
-<!-- ============================================================ -->
+==============================================================================
+Catalog
+==============================================================================
 
 # Catalog — browsing a remote reference set
 
+[Français](../fr/CATALOG.md) · **English** · [↑ Index](README.md)
 
 A **catalog** is a set of geographic entities the map does not hold: your zones, your
 zone groups, France's 36,000 towns, its departments, its regions. You browse it, search
@@ -3013,14 +3024,13 @@ if (source) console.log(source.label, source.total)
 - [PLUGINS.md](PLUGINS.md) — declaring a source from a plugin
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/DRAWING.md -->
-<!-- ============================================================ -->
+==============================================================================
+Drawing
+==============================================================================
 
 # Drawing — complete guide
 
+[Français](../fr/DRAWING.md) · **English** · [↑ Index](README.md)
 
 A Figma-style shape editor, **draped over the 3D terrain**: shapes are stored in
 lat/lng, anchored to the ground, and their strokes have a screen-pixel width that stays
@@ -3182,36 +3192,55 @@ layer registers with the `engine.selectables` registry. The populations are read
 const { selection, markerSelection, pathSelection, clusterGroups, selectionDetails } = useDrawing()
 ```
 
-A **path** gets the **same dashed marching-ants outline** as shapes when selected (via
-`SelectionOverlay` — no 3D halo of its own). A **cluster**, when selected (click while the
-selection tool is active, or a marquee over its badge), selects **all its child markers** —
-shown as a collapsible row. On zoom the clustering recomputes: as long as the same members
-still form a cluster its row and ring follow it, otherwise the row dissolves and its members
-stay selected, listed flat. Outside the selection tool, clicking a badge **zooms**. A
-`static` decor marker that drops **below its zoom threshold** leaves the map **and the
-selection** — what is no longer shown is no longer selected (the panel counter drops), and
-zooming back in brings it back **not re-selected**.
+### What is selectable
 
-Which types are selectable is governed by `config.selection.selectable` (one boolean per
-`SelectableKind`: `marker` / `path` / `cluster`, all `true` by default), honoured by every
-tool: `<Map config={{ selection: { selectable: { cluster: false } } }} />`.
+| Type | Selectable | Config key | Note |
+|---|---|---|---|
+| Marker (and placed symbol) | yes | `marker` | — |
+| Drawn shape (`line`/`polygon`/`rect`/`circle`/`freehand`/`arrow`/`measure`) | yes | — | governed by `locked`/"Layers" filter |
+| **Path** (`PathLayer`) | yes | `path` | same **dashed outline** (marching-ants) as shapes |
+| **Cluster** (badge) | yes → collapsible group of children | `cluster` | click = **zoom** outside the selection tool |
+| Zone (`ShapeLayer`) | no | *(reserved)* | — |
+| Link / relation (`LinkLayer`) | no | *(reserved)* | click = trace a route |
+| 3D building | no (dedicated picking) | — | see [BUILDINGS.md](BUILDINGS.md) |
+| Graticule, HUD, basemap | no | — | chrome |
+
+**Cluster**: selecting it (click while the selection tool is active, or a marquee over the
+badge) selects **all its child markers**, shown as a **collapsible row**. Outside the
+selection tool, clicking a badge **zooms** (unchanged). On zoom the clustering recomputes:
+as long as **the same cluster** (same members) still exists on screen, its row and ring
+follow it; as soon as it no longer exists as such (split or merged), the row **disappears**
+and its members stay selected, **listed flat**.
+
+**`static` marker hidden by zoom**: a decor marker (`MarkerData.static`, cf.
+[MARKERS.md](MARKERS.md)) that drops **below its threshold** leaves the map **and the
+selection** — what is no longer shown is no longer selected (the panel counter drops
+accordingly). Zooming back in brings it back, **not re-selected**.
+
+### Restricting selection (`config.selection.selectable`)
+
+One boolean per type (all `true` by default), honoured by **every** tool:
+
+```tsx
+// Allow only markers (no paths, no clusters) in this context:
+<Map config={{ selection: { selectable: { path: false, cluster: false } } }} />
+```
+
+`SELECTABLE_KINDS` (public export) enumerates the types to build your own UI.
 
 Outlines use black/white **marching ants** (readable on any background, satellite and
 snow included — see `theme.colors.marquee`), with a bounding box in multi-selection.
 Markers, clusters and paths share this **same** dashed outline; overlapping selected
 items merge into a single **union silhouette** (the inner dashes never cross).
 
-The **selection badges** (`draw.selectionBadges`) list what is selected through two single
-building blocks — `SelectionGroup` (collapsible header) and `SelectionRow` (the row, via
-`SelectionList`; `MarkerList` is an adapter over it). Every row shares the same structure
-`[icon] title/subtitle · "…" menu · cross ✕`, only the content varies. Shapes grouped by
-`kind`, paths under "Paths", clusters as an expandable "Cluster (N)". A row's cross
-**deselects** it (a group header's cross deselects the whole group). Mounted by default;
+The **selection badges** (`draw.selectionBadges`) list what is selected through **two single
+building blocks**: `SelectionGroup` (collapsible header) and `SelectionRow` (the row). Every
+row shares the **same structure** — `[icon] title/subtitle · "…" menu · cross ✕` — whether a
+marker, a path, a shape or a cluster child; only the content varies (the icon, and the menu:
+"Target" everywhere, "Delete" on a shape). A row's **cross ✕** **deselects** it; a group
+header's cross deselects the whole group. Shapes grouped by `kind`, paths under "Paths",
+clusters as an expandable "Cluster (N)" listing its children. Mounted by default;
 `selectionBadges: false` removes them.
-
-`onSelectionChange(ids, markerIds, pathIds)` reports the flat selection: `markerIds` = the
-selected markers **including cluster children** (raw ids), `pathIds` = the selected paths
-(kept separate, never mixed into `markerIds`).
 
 ---
 
@@ -3497,7 +3526,7 @@ All of them appear in tooltips and are ignored while typing.
 
 Defaults (`config.interaction.shortcuts.draw` and `.edit`):
 
-| | |
+| Keys | Action |
 |---|---|
 | `V` `1` `2` `3` | select, rectangle, polygon, lasso |
 | `L` `P` `R` `C` `H` `A` `M` `E` `Y` | line, polygon, rect, circle, freehand (`H`), arrow, measure, eraser, symbols |
@@ -3576,7 +3605,7 @@ Obtained via `useDrawing()` (throws outside a `<DrawLayer>`) or via
 | Group | Members |
 |---|---|
 | Tool | `tool`, `setTool`, `tools`, `shortcuts` |
-| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `selectionDetails`, `select`, `deselectMarkers`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
+| Selection | `selectMode`, `setSelectMode`, `selection`, `markerSelection`, `pathSelection`, `clusterGroups`, `selectionDetails`, `select`, `deselectMarkers`, `deselectPaths`, `deselectClusterGroup`, `deselectClusterMember`, `clearSelection`, `selectAll`, `deleteSelection`, `duplicateSelection`, `selectionHasRect`, `selectionBoxEl` |
 | Style | `setStyle`, `currentStyle`, `settings` |
 | Lock | `lock`, `unlock` |
 | History | `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `canErase` |
@@ -3619,14 +3648,13 @@ api.replaceShapes(perimeters.map((p) => ({ ...p, locked: true })), { silent: tru
 - [MARKERS.md](MARKERS.md) — marker multi-selection
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/SYMBOLS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Symbols
+==============================================================================
 
 # Symbols — complete guide
 
+[Français](../fr/SYMBOLS.md) · **English** · [↑ Index](README.md)
 
 **Catalogue icons** are placed on the terrain by dragging them from a palette, then
 become movable, selectable, tag-filterable and persistable — the same guarantees as
@@ -3889,14 +3917,13 @@ yields the targeted lat/lng via ellipsoid raycast (accurate in a tilted view as 
 - [MARKERS.md](MARKERS.md) — `static`, tags, culling, selection
 - [LABELS.md](LABELS.md) — `labels.symbols`
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/TEMPLATES.md -->
-<!-- ============================================================ -->
+==============================================================================
+Templates
+==============================================================================
 
 # Templates — full guide
 
+[Français](../fr/TEMPLATES.md) · **English** · [↑ Index](README.md)
 
 A **template** is a **named save of the drawing**: shapes, freehand strokes and
 MIL-STD-2525D symbols. It contains **no zones, no markers, no paths, no links** — only
@@ -4150,14 +4177,13 @@ the tilt limit), leaving pedestrian mode precedes the pose (otherwise the contro
 overwrites it on the next frame), and entering pedestrian mode comes last (its standing
 point is validated by raycast, so you must have arrived).
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/RELATIONS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Relations
+==============================================================================
 
 # Relations — real distances and travel times
 
+[Français](../fr/RELATIONS.md) · **English** · [↑ Index](README.md)
 
 `<RelationLayer>` links a marker to its neighbours **by tags**, with the **real road**
 distances and durations from a routing provider.
@@ -4484,14 +4510,13 @@ Real defaults: [PROPS.md](PROPS.md). Labels and templates: `labels.relations` an
 - [ENGINE.md](ENGINE.md) — registries (`engine.markers.visualNodeOf` feeds the fans)
 - [PROPS.md](PROPS.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/LENS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Lens
+==============================================================================
 
 # Lens — X-ray of the markers in an area
 
+[Français](../fr/LENS.md) · **English** · [↑ Index](README.md)
 
 A **read-only** tool: you drag a rectangular area on screen, and a panel inventories
 **every marker it covers — including those aggregated inside a cluster**.
@@ -4647,14 +4672,13 @@ Useful types: `LensOptions`, `LensLayerProps`, `LensPanelProps`, `LensRenderItem
 - [DRAWING.md](DRAWING.md) — exclusivity with the drawing tools
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/SEARCH.md -->
-<!-- ============================================================ -->
+==============================================================================
+Search
+==============================================================================
 
 # Search — complete guide
 
+[Français](../fr/SEARCH.md) · **English** · [↑ Index](README.md)
 
 One box, one list: the **map's own elements** (markers, zones, drawings, symbols)
 **and** place **geocoding**, grouped into sections.
@@ -4890,14 +4914,13 @@ re-implementing the fallback chain.
 - [CAMERA.md](CAMERA.md) — what “framing” means
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/CAMERA.md -->
-<!-- ============================================================ -->
+==============================================================================
+Camera, view and basemap
+==============================================================================
 
 # Camera, view and basemap
 
+[Français](../fr/CAMERA.md) · **English** · [↑ Index](README.md)
 
 How you get somewhere, how you stay there, and what you look at once you are.
 
@@ -5150,7 +5173,6 @@ import { StatsPanel } from '@pasquelin/map3d'
 
 Like `<CameraReadout>`, **it never re-renders**: it lays out its DOM once and two engine layers write the cells. A performance panel refreshed through `useState` would measure what it caused itself.
 
-
 ---
 
 ## 6. Frozen map (`interactive`)
@@ -5342,14 +5364,13 @@ map.current?.camera.fitBounds(bounds, { padding: 60 })
 - [PEDESTRIAN.md](PEDESTRIAN.md) — the camera's third driver: ground-level walking
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/PEDESTRIAN.md -->
-<!-- ============================================================ -->
+==============================================================================
+Pedestrian mode
+==============================================================================
 
 # Pedestrian mode — ground-level walking and first-person immersion
 
+[Français](../fr/PEDESTRIAN.md) · **English** · [↑ Index](README.md)
 
 A third camera driver, alongside flight (`flyTo`) and follow (`follow`): walking at eye
 height. The camera drops to street level, gains keyboard movement, collision and
@@ -5509,18 +5530,24 @@ follows every movement **without a button** — the classic FPS view.
 | Level | Meaning |
 |---|---|
 | `explore` (default) | mouse visible, menus active — the look follows the drag described above |
-| `full` | total immersion: **Pointer Lock** (mouse captured, free look without a button), control interface **hidden**, central aiming **reticle** and an "Escape to exit" hint |
+| `full` | total immersion: **real browser fullscreen** + **Pointer Lock** (mouse captured, free look without a button), control bars **hidden**, central aiming **reticle** and an "Escape to exit" hint |
 
-**Entering and leaving immersion.** In pedestrian mode a **"Total immersion"** button appears
-(its click being the user gesture `requestPointerLock` demands): the library then engages
-Pointer Lock itself. `Escape` **releases the lock** and returns to `'explore'` (the interface
-reappears) **without leaving the walk**; a second `Escape`, from `'explore'`, exits pedestrian
-mode. A keyboard shortcut can also arm the toggle
-(`interaction.shortcuts.pedestrian.immersion`, disabled by default — see § 8).
+**FULLSCREEN drives immersion.** In pedestrian mode the toolbar's **fullscreen** button
+(labelled "Total immersion") triggers it: the library goes into **real fullscreen**
+(`requestFullscreen`, the browser chrome disappears), hides its bars and engages **Pointer
+Lock**. So there is **no floating button** in the middle of the screen.
+
+- **Enter**: the fullscreen button (or `F11`, or `interaction.shortcuts.pedestrian.immersion`
+  if a key is set — see § 8). The click/press is the user gesture `requestPointerLock` demands;
+  the lock is engaged once fullscreen is effective.
+- **Leave**: **leaving fullscreen** (`Escape`, `F11`, or re-toggling) **leaves pedestrian
+  mode** — back to orbit. A single `Escape` is enough (it releases the lock, then fullscreen,
+  which exits the mode).
 
 > The reticle takes the `theme.colors.pedestrian.reticle` colour; masking hides only the
-> **control bars**, never the scene or markers. `setImmersion` remains callable by the host
-> (custom button, shortcut) — the built-in HUD is just a default path.
+> **control bars**, never the scene or markers (real fullscreen additionally removes the
+> browser chrome — the two combine). `setImmersion` remains callable by the host, and arms the
+> real fullscreen the same way.
 
 ---
 
@@ -5597,10 +5624,12 @@ controls (`interaction.shortcuts.controls.pedestrian`, `W` by default):
 <MapControls shortcuts={{ pedestrian: 'e' }} />
 ```
 
-The immersion toggle (`interaction.shortcuts.pedestrian.immersion`) switches `explore` ↔
-`full` while actively walking. It has **no** default key (`false`) — the HUD's "Total
-immersion" button is enough, and burning a global letter would be confusing — but assigning
-one makes it functional (the `keydown` being a user gesture, it can engage Pointer Lock):
+In pedestrian mode the **fullscreen** button (`interaction.shortcuts.controls.fullscreen`,
+`F` by default) is labelled "Total immersion" and triggers the real immersive fullscreen (see
+§ 5) — it is the primary trigger. The dedicated immersion toggle
+(`interaction.shortcuts.pedestrian.immersion`) stays a secondary hook: with no default key
+(`false`), assigning one arms the same immersion (the `keydown` being a user gesture, it
+engages the real fullscreen + Pointer Lock):
 
 ```tsx
 <Map config={{ interaction: { shortcuts: { pedestrian: { immersion: 'v' } } } }} />
@@ -5707,14 +5736,13 @@ layer falling back to its own defaults (`ui.accent`/`ui.error`/`ui.text`).
 - [TEMPLATES.md](TEMPLATES.md) — saving a pedestrian view with a drawing
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md) · [THEME.md](THEME.md) · [LABELS.md](LABELS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/TILES.md -->
-<!-- ============================================================ -->
+==============================================================================
+Tiles
+==============================================================================
 
 # Tiles — external provider (Google) or internal server
 
+[Français](../fr/TILES.md) · **English** · [↑ Index](README.md)
 
 The 2D basemap comes either from **your own tile server** (`internal`, the default) or
 from **Google Map Tiles** (`external`). The choice is a setting: nothing to rewire,
@@ -6088,14 +6116,13 @@ that provider has nothing to serve.
 - [ENGINE.md](ENGINE.md) — `BasemapState`, `basemap` event
 - [PROPS.md](PROPS.md) — `<MapControls>` buttons
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/BUILDINGS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Buildings
+==============================================================================
 
 # Selecting a building
 
+[Français](../fr/BUILDINGS.md) · **English** · [↑ Index](README.md)
 
 When the map shows the **internal volume** (buildings extruded from vector tiles, see
 [TILES § 5](TILES.md#5-internal-volume--extruded-buildings)), a toolbar tool lets you
@@ -6272,14 +6299,13 @@ of colours: nothing enters or leaves the scene, and nothing is allocated in the 
 - [Markers](MARKERS.md) — `markerMenu`, whose contract `buildingMenu` mirrors
 - [`MapConfig`](CONFIG.md) · [`MapTheme`](THEME.md) · [`MapLabels`](LABELS.md) · [Props](PROPS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/GRATICULE.md -->
-<!-- ============================================================ -->
+==============================================================================
+Graticule
+==============================================================================
 
 # Graticule — geographic coordinate grid
 
+[Français](../fr/GRATICULE.md) · **English** · [↑ Index](README.md)
 
 Parallels and meridians draped over the globe, whose **mesh adapts to zoom** on an
 atlas's sexagesimal scale — 30° in globe view, 1″ at street level — and which **fades out
@@ -6295,7 +6321,7 @@ or the style panel.
 
 Three families of lines, and their labels:
 
-| | |
+| Family | Description |
 |---|---|
 | **Parallels** | constant latitudes — horizontal in a north-up view |
 | **Meridians** | constant longitudes — they **converge** towards the poles, which the grid actually shows since it follows the curvature |
@@ -6567,14 +6593,13 @@ Hard guard rails, to lower only on very weak machines: `maxLines` (64 per axis),
 **See also** — [CAMERA.md](CAMERA.md) (tilt ceilings the fade depends on) ·
 [THEME.md](THEME.md) · [CONFIG.md](CONFIG.md) · [HOOKS.md](HOOKS.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/DATA.md -->
-<!-- ============================================================ -->
+==============================================================================
+Data
+==============================================================================
 
 # Data — viewport, real time, tags, pinning
 
+[Français](../fr/DATA.md) · **English** · [↑ Index](README.md)
 
 How data enters the map, how it leaves, and what the user can do with it.
 
@@ -6843,14 +6868,13 @@ state, pre-filter your `points`.
 - [ENGINE.md](ENGINE.md) — registries and custom layers
 - [CONFIG.md](CONFIG.md) — rates, budgets, storage keys
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/HOOKS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Hooks
+==============================================================================
 
 # Hooks — reference
 
+[Français](../fr/HOOKS.md) · **English** · [↑ Index](README.md)
 
 Every hook must be called **under `<Map>`** (they consume the map context). Those marked
 “throws” raise an error outside the layer that provides them — deliberately: a silent
@@ -7211,14 +7235,13 @@ resynchronisation) is in [ENGINE.md § 3](ENGINE.md#3-writing-a-layer).
 - [MARKERS.md](MARKERS.md) · [ZONES.md](ZONES.md) · [DRAWING.md](DRAWING.md)
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/ENGINE.md -->
-<!-- ============================================================ -->
+==============================================================================
+Engine
+==============================================================================
 
 # Engine — the low level
 
+[Français](../fr/ENGINE.md) · **English** · [↑ Index](README.md)
 
 What `<Map>` mounts, what the layers consume, and where to go when the React API is not
 enough.
@@ -7659,14 +7682,13 @@ component: it runs server-side or in tests with a fake provider (no Three, no Re
 - [BUILDINGS.md](BUILDINGS.md) — `buildingMenu`, building picking
 - [TEMPLATES.md](TEMPLATES.md) — the `templatesave` / `templateremove` / `templateapply` events
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/PLUGINS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Plugins
+==============================================================================
 
 # Plugins — author guide
 
+[Français](../fr/PLUGINS.md) · **English** · [↑ Index](README.md)
 
 A **plugin** adds information to the map without touching map3D's core: its data
 source, its rendering and its configuration are declared once, and the library
@@ -8200,14 +8222,13 @@ it in the same movement as their first publication.
 - [BUILDINGS.md](BUILDINGS.md) — building picking, `buildingMenu`, `BuildingInfo`
 - [PROPS.md](PROPS.md) · [CONFIG.md](CONFIG.md)
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/PREFERENCES.md -->
-<!-- ============================================================ -->
+==============================================================================
+Preferences
+==============================================================================
 
 # Preferences — end-user tuning
 
+[Français](../fr/PREFERENCES.md) · **English** · [↑ Index](README.md)
 
 A panel the **end user** opens from the map to tune 3D quality and controls, like a video
 game's graphics menu. Not to be confused with `config` (what the **application** locks in,
@@ -8318,14 +8339,13 @@ import {
 > Without drawing, mount `<PreferencesPanel/>` in your own surface (like `StatsPanel`) — it
 > only needs a `<MapProvider>` above it.
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/CONFIG.md -->
-<!-- ============================================================ -->
+==============================================================================
+MapConfig
+==============================================================================
 
 # `MapConfig` — reference
 
+[Français](../fr/CONFIG.md) · **English** · [↑ Index](README.md)
 
 Every adjustable value of the map, its role and its default.
 
@@ -8902,14 +8922,13 @@ shares its scope: it appears and disappears with it, with no key of its own.
 | `toolbar.autoHide.erase` | Remove the eraser — and its “Clear all” row — while no allowed target is on screen. | `true` |
 | `toolbar.autoHide.history` | Remove “Undo” and “Redo” while there is nothing to undo or redo, instead of greying them out. Each hides on its own account; the keyboard shortcut does not depend on the bar. | `true` |
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/THEME.md -->
-<!-- ============================================================ -->
+==============================================================================
+MapTheme
+==============================================================================
 
 # `MapTheme` — reference
 
+[Français](../fr/THEME.md) · **English** · [↑ Index](README.md)
 
 Everything you SEE: colours, sizes, rhythm. The counterpart of `MapConfig`, which
 configures behaviour.
@@ -8930,196 +8949,195 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 
 ## `colorScheme` — Default mode
 
-| Key | Description | Default |
-|---|---|---|
+| Key           | Description                                                           | Default  |
+| ------------- | --------------------------------------------------------------------- | -------- |
 | `colorScheme` | The theme's default mode (a `{light, dark}` pair makes it automatic). | `'dark'` |
 
 ## `colors` — Palette
 
-| Key | Description | Default |
-|---|---|---|
-| `colors.background` | Canvas background, visible before tiles load. | `'#0d1415'` |
-| `colors.marker.default.base` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#2E7CF6'` |
-| `colors.marker.default.accent` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#78BEFF'` |
-| `colors.marker.default.contrast` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#ffffff'` |
-| `colors.tags` | Per-tag colour ("Layers" panel), key = tag name. A tag absent from this object falls back to the library's hashed palette. Optional. | `{}` |
-| `colors.cluster.core` | Donut core. | `'#1e293b'` |
-| `colors.cluster.text` | Total displayed in the centre. | `'#ffffff'` |
-| `colors.cluster.ring` | Separating ring between core and slices. | `'#ffffff'` |
-| `colors.draw.palette` | Palette offered by the drawing colour picker. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
-| `colors.draw.default` | Colour of a newly drawn shape. | `'#2E7CF6'` |
-| `colors.ui.panel` | Panel and bar background (translucent). | `'rgba(20,26,30,0.9)'` |
-| `colors.ui.text` | Primary text. | `'#f8fafc'` |
-| `colors.ui.muted` | Secondary text, discreet labels. | `'#94a3b8'` |
-| `colors.ui.accent` | Accent colour: active state, focus, selection. | `'#2E7CF6'` |
-| `colors.ui.error` | Errors and destructive actions. | `'#d11a01'` |
-| `colors.ui.border` | Borders and separators. | `'rgba(255,255,255,0.10)'` |
-| `colors.ui.stat` | **Optional.** Diagnostics panel verdicts (`ok` / `warn` / `bad`), see [`performance.statThresholds`](CONFIG.md). Distinct from `error`: an excessive value is not an error, it is a budget overrun — conflating them would make a heavy map read as a broken one. When absent the panel falls back to `colors.ui.text`: no colour rather than a verdict the theme did not intend. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }` |
-| `colors.attention.sonar` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ffd60a'` |
-| `colors.attention.target` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ff3b30'` |
-| `colors.pedestrian.placeValid` | Pedestrian mode: placement cursor and full-immersion reticle. Target shown when the aimed point is a placeable street. Optional: an earlier theme stays valid. | `'#2E7CF6'` |
-| `colors.pedestrian.placeBlocked` | Pedestrian mode: crossed-out target when the aimed point is a roof or the sky. Optional. | `'#d11a01'` |
-| `colors.pedestrian.reticle` | Pedestrian mode: central reticle of full immersion. Optional. | `'#f8fafc'` |
-| `colors.path.base` | Colour of a path. | `'#2E7CF6'` |
-| `colors.path.casing` | Path casing (legibility on satellite imagery). | `'#ffffff'` |
-| `colors.zone.fill` | Zone fill. | `'#079A7D'` |
-| `colors.zone.stroke` | Zone stroke. | `'#079A7D'` |
-| `colors.graticule.line` | Coordinate grid: ordinary parallels and meridians. Optional — an older theme stays valid (falls back to the default theme). | `'#ffd54a'` |
-| `colors.graticule.remarkable` | Equator, tropics, polar circles, remarkable meridians. | `'#ff8f00'` |
-| `colors.graticule.label` | Coordinate label text. | `'#ffffff'` |
-| `colors.graticule.labelBackground` | Label pill background. | `'rgba(0,0,0,0.55)'` |
-| `colors.marquee.fill` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'rgba(255,255,255,0.12)'` |
-| `colors.marquee.stroke` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#000000'` |
-| `colors.marquee.under` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#ffffff'` |
+| Key                                | Description                                                                                                                                                                                                                                                                                                                                                                       | Default                                                              |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `colors.background`                | Canvas background, visible before tiles load.                                                                                                                                                                                                                                                                                                                                     | `'#0d1415'`                                                          |
+| `colors.marker.default.base`       | Colour per marker type (e.g. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                | `'#2E7CF6'`                                                          |
+| `colors.marker.default.accent`     | Colour per marker type (e.g. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                | `'#78BEFF'`                                                          |
+| `colors.marker.default.contrast`   | Colour per marker type (e.g. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                | `'#ffffff'`                                                          |
+| `colors.tags`                      | Per-tag colour ("Layers" panel), key = tag name. A tag absent from this object falls back to the library's hashed palette. Optional.                                                                                                                                                                                                                                              | `{}`                                                                 |
+| `colors.cluster.core`              | Donut core.                                                                                                                                                                                                                                                                                                                                                                       | `'#1e293b'`                                                          |
+| `colors.cluster.text`              | Total displayed in the centre.                                                                                                                                                                                                                                                                                                                                                    | `'#ffffff'`                                                          |
+| `colors.cluster.ring`              | Separating ring between core and slices.                                                                                                                                                                                                                                                                                                                                          | `'#ffffff'`                                                          |
+| `colors.draw.palette`              | Palette offered by the drawing colour picker.                                                                                                                                                                                                                                                                                                                                     | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
+| `colors.draw.default`              | Colour of a newly drawn shape.                                                                                                                                                                                                                                                                                                                                                    | `'#2E7CF6'`                                                          |
+| `colors.ui.panel`                  | Panel and bar background (translucent).                                                                                                                                                                                                                                                                                                                                           | `'rgba(20,26,30,0.9)'`                                               |
+| `colors.ui.text`                   | Primary text.                                                                                                                                                                                                                                                                                                                                                                     | `'#f8fafc'`                                                          |
+| `colors.ui.muted`                  | Secondary text, discreet labels.                                                                                                                                                                                                                                                                                                                                                  | `'#94a3b8'`                                                          |
+| `colors.ui.accent`                 | Accent colour: active state, focus, selection.                                                                                                                                                                                                                                                                                                                                    | `'#2E7CF6'`                                                          |
+| `colors.ui.error`                  | Errors and destructive actions.                                                                                                                                                                                                                                                                                                                                                   | `'#d11a01'`                                                          |
+| `colors.ui.border`                 | Borders and separators.                                                                                                                                                                                                                                                                                                                                                           | `'rgba(255,255,255,0.10)'`                                           |
+| `colors.ui.stat`                   | **Optional.** Diagnostics panel verdicts (`ok` / `warn` / `bad`), see [`performance.statThresholds`](CONFIG.md). Distinct from `error`: an excessive value is not an error, it is a budget overrun — conflating them would make a heavy map read as a broken one. When absent the panel falls back to `colors.ui.text`: no colour rather than a verdict the theme did not intend. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }`                 |
+| `colors.attention.sonar`           | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid.                                                                                                                                                                                                                                 | `'#ffd60a'`                                                          |
+| `colors.attention.target`          | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid.                                                                                                                                                                                                                                 | `'#ff3b30'`                                                          |
+| `colors.pedestrian.placeValid`     | Pedestrian mode: placement cursor and full-immersion reticle. Target shown when the aimed point is a placeable street. Optional: an earlier theme stays valid.                                                                                                                                                                                                                    | `'#2E7CF6'`                                                          |
+| `colors.pedestrian.placeBlocked`   | Pedestrian mode: crossed-out target when the aimed point is a roof or the sky. Optional.                                                                                                                                                                                                                                                                                          | `'#d11a01'`                                                          |
+| `colors.pedestrian.reticle`        | Pedestrian mode: central reticle of full immersion. Optional.                                                                                                                                                                                                                                                                                                                     | `'#f8fafc'`                                                          |
+| `colors.path.base`                 | Colour of a path.                                                                                                                                                                                                                                                                                                                                                                 | `'#2E7CF6'`                                                          |
+| `colors.path.casing`               | Path casing (legibility on satellite imagery).                                                                                                                                                                                                                                                                                                                                    | `'#ffffff'`                                                          |
+| `colors.zone.fill`                 | Zone fill.                                                                                                                                                                                                                                                                                                                                                                        | `'#079A7D'`                                                          |
+| `colors.zone.stroke`               | Zone stroke.                                                                                                                                                                                                                                                                                                                                                                      | `'#079A7D'`                                                          |
+| `colors.graticule.line`            | Coordinate grid: ordinary parallels and meridians. Optional — an older theme stays valid (falls back to the default theme).                                                                                                                                                                                                                                                       | `'#ffd54a'`                                                          |
+| `colors.graticule.remarkable`      | Equator, tropics, polar circles, remarkable meridians.                                                                                                                                                                                                                                                                                                                            | `'#ff8f00'`                                                          |
+| `colors.graticule.label`           | Coordinate label text.                                                                                                                                                                                                                                                                                                                                                            | `'#ffffff'`                                                          |
+| `colors.graticule.labelBackground` | Label pill background.                                                                                                                                                                                                                                                                                                                                                            | `'rgba(0,0,0,0.55)'`                                                 |
+| `colors.marquee.fill`              | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath…                                                                                        | `'rgba(255,255,255,0.12)'`                                           |
+| `colors.marquee.stroke`            | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath…                                                                                        | `'#000000'`                                                          |
+| `colors.marquee.under`             | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath…                                                                                        | `'#ffffff'`                                                          |
 
 ## `shadows` — Shadows
 
-| Key | Description | Default |
-|---|---|---|
-| `shadows.sm` | Resting elements (swatches, chips). | `'0 1px 2px rgba(0,0,0,0.3)'` |
-| `shadows.md` | Buttons and small surfaces. | `'0 3px 8px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.3)'` |
-| `shadows.lg` | Floating panels and menus. | `'0 10px 26px rgba(0,0,0,0.45),0 3px 8px rgba(0,0,0,0.3)'` |
+| Key          | Description                         | Default                                                    |
+| ------------ | ----------------------------------- | ---------------------------------------------------------- |
+| `shadows.sm` | Resting elements (swatches, chips). | `'0 1px 2px rgba(0,0,0,0.3)'`                              |
+| `shadows.md` | Buttons and small surfaces.         | `'0 3px 8px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.3)'`   |
+| `shadows.lg` | Floating panels and menus.          | `'0 10px 26px rgba(0,0,0,0.45),0 3px 8px rgba(0,0,0,0.3)'` |
 
 ## `radii` — Corner radii (px)
 
-| Key | Description | Default |
-|---|---|---|
-| `radii.sm` | Small elements: toolbar buttons, handles. | `6` |
-| `radii.md` | Panels and menus. | `10` |
-| `radii.lg` | Large surfaces. | `14` |
-| `radii.pill` | Pill shape (deliberately huge value). | `999` |
+| Key          | Description                               | Default |
+| ------------ | ----------------------------------------- | ------- |
+| `radii.sm`   | Small elements: toolbar buttons, handles. | `6`     |
+| `radii.md`   | Panels and menus.                         | `10`    |
+| `radii.lg`   | Large surfaces.                           | `14`    |
+| `radii.pill` | Pill shape (deliberately huge value).     | `999`   |
 
 ## `typography` — Typography
 
-| Key | Description | Default |
-|---|---|---|
-| `typography.fontFamily` | Font stack for the whole map UI. | `'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'` |
-| `typography.sizes.xs` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `10.5` |
-| `typography.sizes.sm` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `12.5` |
-| `typography.sizes.md` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `13.5` |
-| `typography.sizes.lg` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `16` |
-| `typography.weights.medium` | Weights, published as `--m3d-weight-*`. | `500` |
-| `typography.weights.semibold` | Weights, published as `--m3d-weight-*`. | `600` |
-| `typography.weights.bold` | Weights, published as `--m3d-weight-*`. | `700` |
+| Key                           | Description                                                                                                                                                                     | Default                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `typography.fontFamily`       | Font stack for the whole map UI.                                                                                                                                                | `'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'` |
+| `typography.sizes.xs`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `10.5`                                                       |
+| `typography.sizes.sm`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `12.5`                                                       |
+| `typography.sizes.md`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `13.5`                                                       |
+| `typography.sizes.lg`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `16`                                                         |
+| `typography.weights.medium`   | Weights, published as `--m3d-weight-*`.                                                                                                                                         | `500`                                                        |
+| `typography.weights.semibold` | Weights, published as `--m3d-weight-*`.                                                                                                                                         | `600`                                                        |
+| `typography.weights.bold`     | Weights, published as `--m3d-weight-*`.                                                                                                                                         | `700`                                                        |
 
 ## `markers` — Markers
 
-| Key | Description | Default |
-|---|---|---|
-| `markers.size` | Sprite diameter (px). | `44` |
-| `markers.ringWidth` | Ring thickness (px). | `3` |
-| `markers.selectedGapPx` | Gap (px, each side) between the marker and its selection ring. | `4` |
-| `markers.gradient` | Gradient on the marker body. | `true` |
-| `markers.gloss` | Gloss highlight on the chip. | `true` |
-| `markers.icon` | Default content of a marker: nothing, the type icon, its rank, or a node. | `'type'` |
-| `markers.moveTween.duration` | Position tween (animated agent movement). | `500` |
-| `markers.moveTween.easing` | Position tween (animated agent movement). | *(function)* |
+| Key                          | Description                                                               | Default      |
+| ---------------------------- | ------------------------------------------------------------------------- | ------------ |
+| `markers.size`               | Sprite diameter (px).                                                     | `44`         |
+| `markers.ringWidth`          | Ring thickness (px).                                                      | `3`          |
+| `markers.selectedGapPx`      | Gap (px, each side) between the marker and its selection ring.            | `4`          |
+| `markers.gradient`           | Gradient on the marker body.                                              | `true`       |
+| `markers.gloss`              | Gloss highlight on the chip.                                              | `true`       |
+| `markers.icon`               | Default content of a marker: nothing, the type icon, its rank, or a node. | `'type'`     |
+| `markers.moveTween.duration` | Position tween (animated agent movement).                                 | `500`        |
+| `markers.moveTween.easing`   | Position tween (animated agent movement).                                 | _(function)_ |
 
 ## `clusters` — Default cluster geometry (donut)
 
-| Key | Description | Default |
-|---|---|---|
-| `clusters.coreRadius` | Core radius (px) as a function of the total number of points. | *(function)* |
-| `clusters.ringWidth` | Thickness of the segmented ring (px). | `30` |
-| `clusters.strokeWidth` | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5` |
-| `clusters.segmentGap` | Angular gap between two slices (rad); `0` makes them contiguous. | `0.045` |
-| `clusters.startAngle` | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom. | `3.141592653589793` |
-| `clusters.selectedGapPx` | Gap (px) between the badge and its marching-ants selection ring. | `4` |
+| Key                      | Description                                                                         | Default             |
+| ------------------------ | ----------------------------------------------------------------------------------- | ------------------- |
+| `clusters.coreRadius`    | Core radius (px) as a function of the total number of points.                       | _(function)_        |
+| `clusters.ringWidth`     | Thickness of the segmented ring (px).                                               | `30`                |
+| `clusters.strokeWidth`   | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5`               |
+| `clusters.segmentGap`    | Angular gap between two slices (rad); `0` makes them contiguous.                    | `0.045`             |
+| `clusters.startAngle`    | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom.       | `3.141592653589793` |
+| `clusters.selectedGapPx` | Gap (px) between the badge and its marching-ants selection ring.                    | `4`                 |
 
 ## `animations` — Animation and camera-flight rhythm
 
-| Key | Description | Default |
-|---|---|---|
-| `animations.enabled` | Turns off ALL JS animations (CSS has its own `prefers-reduced-motion` rule). | `true` |
-| `animations.pulse.duration` | Pulse of a marker to signal. `false` turns it off. | `2000` |
-| `animations.pulse.easing` | Pulse of a marker to signal. `false` turns it off. | `'ease-out'` |
-| `animations.pulse.scale` | Pulse of a marker to signal. `false` turns it off. | `1.16` |
-| `animations.halo.duration` | Halo expanding away from a marker (`maxScale` = final magnification). | `2600` |
-| `animations.halo.easing` | Halo expanding away from a marker (`maxScale` = final magnification). | `'cubic-bezier(.2,.6,.35,1)'` |
-| `animations.halo.maxScale` | Halo expanding away from a marker (`maxScale` = final magnification). | `2.1` |
-| `animations.bob.duration` | Slight vertical bobbing (`amplitude` in px). | `2400` |
-| `animations.bob.amplitude` | Slight vertical bobbing (`amplitude` in px). | `4` |
-| `animations.markerEnter.duration` | Marker entrance (`stagger` = delay between two appearances, ms). | `460` |
-| `animations.markerEnter.easing` | Marker entrance (`stagger` = delay between two appearances, ms). | `'cubic-bezier(.32,1.5,.5,1)'` |
-| `animations.markerEnter.stagger` | Marker entrance (`stagger` = delay between two appearances, ms). | `30` |
-| `animations.clusterEnter.duration` | Cluster entrance. | `460` |
-| `animations.clusterEnter.easing` | Cluster entrance. | `'cubic-bezier(.32,1.5,.5,1)'` |
-| `animations.clusterEnter.stagger` | Cluster entrance. | `55` |
-| `animations.menuOpen.duration` | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`. | `200` |
-| `animations.menuOpen.easing` | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`. | `'cubic-bezier(.32,1.3,.5,1)'` |
-| `animations.flyDuration` | Duration of an ordinary camera flight (s) — `flyTo`, `fitBounds`. | `1` |
-| `animations.flyEasing` | Easing curve of camera flights. | *(function)* |
-| `animations.pan` | Lateral movement. | `0.5` |
-| `animations.zoom` | Zoom change via a button. | `0.4` |
-| `animations.moveTo` | “Instant” recentring (`useCamera().moveTo`). | `0.4` |
-| `animations.target` | Targeting flight from a listing or a pinned favourite. | `0.8` |
-| `animations.clusterOpen` | Opening a cluster (zoom to its extent). | `0.6` |
-| `animations.topDown` | Switch to top-down view. | `0.5` |
-| `animations.globe` | Pull back to globe view. | `1` |
+| Key                                | Description                                                                  | Default                        |
+| ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
+| `animations.enabled`               | Turns off ALL JS animations (CSS has its own `prefers-reduced-motion` rule). | `true`                         |
+| `animations.pulse.duration`        | Pulse of a marker to signal. `false` turns it off.                           | `2000`                         |
+| `animations.pulse.easing`          | Pulse of a marker to signal. `false` turns it off.                           | `'ease-out'`                   |
+| `animations.pulse.scale`           | Pulse of a marker to signal. `false` turns it off.                           | `1.16`                         |
+| `animations.halo.duration`         | Halo expanding away from a marker (`maxScale` = final magnification).        | `2600`                         |
+| `animations.halo.easing`           | Halo expanding away from a marker (`maxScale` = final magnification).        | `'cubic-bezier(.2,.6,.35,1)'`  |
+| `animations.halo.maxScale`         | Halo expanding away from a marker (`maxScale` = final magnification).        | `2.1`                          |
+| `animations.bob.duration`          | Slight vertical bobbing (`amplitude` in px).                                 | `2400`                         |
+| `animations.bob.amplitude`         | Slight vertical bobbing (`amplitude` in px).                                 | `4`                            |
+| `animations.markerEnter.duration`  | Marker entrance (`stagger` = delay between two appearances, ms).             | `460`                          |
+| `animations.markerEnter.easing`    | Marker entrance (`stagger` = delay between two appearances, ms).             | `'cubic-bezier(.32,1.5,.5,1)'` |
+| `animations.markerEnter.stagger`   | Marker entrance (`stagger` = delay between two appearances, ms).             | `30`                           |
+| `animations.clusterEnter.duration` | Cluster entrance.                                                            | `460`                          |
+| `animations.clusterEnter.easing`   | Cluster entrance.                                                            | `'cubic-bezier(.32,1.5,.5,1)'` |
+| `animations.clusterEnter.stagger`  | Cluster entrance.                                                            | `55`                           |
+| `animations.menuOpen.duration`     | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`.         | `200`                          |
+| `animations.menuOpen.easing`       | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`.         | `'cubic-bezier(.32,1.3,.5,1)'` |
+| `animations.flyDuration`           | Duration of an ordinary camera flight (s) — `flyTo`, `fitBounds`.            | `1`                            |
+| `animations.flyEasing`             | Easing curve of camera flights.                                              | _(function)_                   |
+| `animations.pan`                   | Lateral movement.                                                            | `0.5`                          |
+| `animations.zoom`                  | Zoom change via a button.                                                    | `0.4`                          |
+| `animations.moveTo`                | “Instant” recentring (`useCamera().moveTo`).                                 | `0.4`                          |
+| `animations.target`                | Targeting flight from a listing or a pinned favourite.                       | `0.8`                          |
+| `animations.clusterOpen`           | Opening a cluster (zoom to its extent).                                      | `0.6`                          |
+| `animations.topDown`               | Switch to top-down view.                                                     | `0.5`                          |
+| `animations.globe`                 | Pull back to globe view.                                                     | `1`                            |
 
 ## `spacing` — Spacing of floating surfaces (px)
 
-| Key | Description | Default |
-|---|---|---|
-| `spacing.gap` | Gap between an anchored surface and its anchor. | `12` |
-| `spacing.edge` | Minimum margin between a surface and the container edge. | `8` |
-| `spacing.barInset` | Inset of the vertical bars from the edge. | `16` |
+| Key                | Description                                              | Default |
+| ------------------ | -------------------------------------------------------- | ------- |
+| `spacing.gap`      | Gap between an anchored surface and its anchor.          | `12`    |
+| `spacing.edge`     | Minimum margin between a surface and the container edge. | `8`     |
+| `spacing.barInset` | Inset of the vertical bars from the edge.                | `16`    |
 
 ## `sizing` — Surface and icon dimensions
 
-| Key | Description | Default |
-|---|---|---|
-| `sizing.lensPanelW` | Width of the lens inventory panel (px). | `252` |
-| `sizing.selectionPanelW` | Width of the selection panel (px). | `236` |
-| `sizing.templatesPanelW` | Width of the templates panel (px), sized after its busiest checkbox row (categories + “View”). | `352` |
-| `sizing.panelMaxHeight.tags` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `380` |
-| `sizing.panelMaxHeight.symbols` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `420` |
-| `sizing.panelMaxHeight.search` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `340` |
-| `sizing.panelMaxHeight.settings` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `560` |
-| `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `520` |
-| `sizing.panelMaxHeight.templates` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `460` |
-| `sizing.panelMaxHeight.catalog` | Maximum height of the catalog panel (px). | `380` |
-| `sizing.catalogRowHeight` | Catalog row height (px). ⚠️ CONSTANT by contract: `visibleWindow` derives the window to render from it without measuring rows. A taller row would shift everything below it. | `34` |
-| `sizing.catalogIndent` | Horizontal offset of an expanded child row (px). | `18` |
-| `sizing.catalogChevronW` | Expand-chevron width (px). ⚠️ It ALSO sets the width of the gutter reserved on rows without children: the two must match, otherwise names in the same list stop aligning depending on whether the row carries a chevron. | `18` |
-| `sizing.catalogPanelW` | Catalog panel width — the type menu (px). Also used as a framing margin, together with `catalogSubPanelW`: a zone framed while the catalog is open must not land underneath it. | `252` |
-| `sizing.catalogSubPanelW` | Width of the second panel, the list one (px). Distinct from `catalogPanelW` although equal by default: the two surfaces sit SIDE BY SIDE on the same edge, so framing must reserve their SUM. | `252` |
-| `sizing.iconSize` | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out. | `0.8` |
+| Key                                 | Description                                                                                                                                                                                                              | Default |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `sizing.lensPanelW`                 | Width of the lens inventory panel (px).                                                                                                                                                                                  | `252`   |
+| `sizing.selectionPanelW`            | Width of the selection panel (px).                                                                                                                                                                                       | `236`   |
+| `sizing.templatesPanelW`            | Width of the templates panel (px), sized after its busiest checkbox row (categories + “View”).                                                                                                                           | `352`   |
+| `sizing.panelMaxHeight.tags`        | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `380`   |
+| `sizing.panelMaxHeight.symbols`     | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `420`   |
+| `sizing.panelMaxHeight.search`      | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `340`   |
+| `sizing.panelMaxHeight.settings`    | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `560`   |
+| `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `520`   |
+| `sizing.panelMaxHeight.templates`   | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `460`   |
+| `sizing.panelMaxHeight.catalog`     | Maximum height of the catalog panel (px).                                                                                                                                                                                | `380`   |
+| `sizing.catalogRowHeight`           | Catalog row height (px). ⚠️ CONSTANT by contract: `visibleWindow` derives the window to render from it without measuring rows. A taller row would shift everything below it.                                             | `34`    |
+| `sizing.catalogIndent`              | Horizontal offset of an expanded child row (px).                                                                                                                                                                         | `18`    |
+| `sizing.catalogChevronW`            | Expand-chevron width (px). ⚠️ It ALSO sets the width of the gutter reserved on rows without children: the two must match, otherwise names in the same list stop aligning depending on whether the row carries a chevron. | `18`    |
+| `sizing.catalogPanelW`              | Catalog panel width — the type menu (px). Also used as a framing margin, together with `catalogSubPanelW`: a zone framed while the catalog is open must not land underneath it.                                          | `252`   |
+| `sizing.catalogSubPanelW`           | Width of the second panel, the list one (px). Distinct from `catalogPanelW` although equal by default: the two surfaces sit SIDE BY SIDE on the same edge, so framing must reserve their SUM.                            | `252`   |
+| `sizing.iconSize`                   | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out.                                                                              | `0.8`   |
 
 ## `tiles` — Colour treatment of the basemap (dark mode)
 
-| Key | Description | Default |
-|---|---|---|
-| `tiles.filter.brightness` | `1` = unchanged; `< 1` darkens. | `0.85` |
-| `tiles.filter.saturation` | `1` = unchanged; `< 1` desaturates. | `0.9` |
-| `tiles.filter.contrast` | `1` = unchanged. | `1.05` |
-| `tiles.filter.invert` | `0` = unchanged; `1` inverts — dramatic but rarely legible. Optional. | *(unset)* |
-| `tiles.filter.hueRotate` | Hue rotation, in degrees. Optional. | *(unset)* |
+| Key                       | Description                                                           | Default   |
+| ------------------------- | --------------------------------------------------------------------- | --------- |
+| `tiles.filter.brightness` | `1` = unchanged; `< 1` darkens.                                       | `0.85`    |
+| `tiles.filter.saturation` | `1` = unchanged; `< 1` desaturates.                                   | `0.9`     |
+| `tiles.filter.contrast`   | `1` = unchanged.                                                      | `1.05`    |
+| `tiles.filter.invert`     | `0` = unchanged; `1` inverts — dramatic but rarely legible. Optional. | _(unset)_ |
+| `tiles.filter.hueRotate`  | Hue rotation, in degrees. Optional.                                   | _(unset)_ |
 
 ## `globe` — Globe and atmosphere
 
-| Key | Description | Default |
-|---|---|---|
-| `globe.background` | Background behind the globe (space). | `'#070C16'` |
-| `globe.oceanColor` | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles. | `'#0F2942'` |
-| `globe.hazeColor` | Colour the distant scene dissolves into in **pedestrian mode** (fog from `pedestrian.fogStartMeters` to `viewDistanceMeters`). ⚠️ This used to be the canvas background, which was right as long as the background was what you saw behind the scene; since the atmospheric sky paints at the far plane, distant façades faded towards a light background **against a blue sky**, drawing a sharp horizontal bar at eye level. With the sky off (`sky.enabled: false`), the canvas background takes the role back. A low sky's tint varies with time of day and scattering: this default targets the default sky, at midday. | `'#C4D6E4'` |
-| `globe.landColor` | Landmasses of the fallback globe. | `'#4F7A45'` |
-| `globe.buildingColor` | Walls of the extruded buildings (internal provider's volume). A footprint carrying its own colour (`colour` attribute) keeps it. | `'#8A8E96'` |
-| `globe.buildingRoofColor` | Roofs of the extruded buildings, lighter than the walls — the top face reads at once. | `'#C2C6CE'` |
-| `globe.buildingRoofLighten` | How much to lighten the roof of a footprint carrying ITS OWN colour (the `colour` attribute), as a fraction towards white. `buildingRoofColor` only applies to footprints left to the theme, and without this offset volume disappears on those. ⚠️ Was a literal in `BuildingsLayer`: an appearance decision written into a layer's code, invisible from the theme. `0` makes the roof exactly the wall colour. | `0.35` |
-| `globe.buildingSunAzimuth` | Azimuth of the fake sun (degrees from north, clockwise) that modulates walls by orientation. The scene has **no** light: the term is baked into vertex colours by the extrusion worker, so it costs nothing per frame. Avoid multiples of 45°: on an exact diagonal, the four walls of an orthogonal building collapse pairwise onto the same tone. | `120` |
-| `globe.buildingShadeMin` | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading. | `0.62` |
-| `globe.buildingHoverColor` | Tint of a hovered building while the selection tool is active. It replaces the footprint's vertex colours but stays MODULATED by the shading baked into them: the building stands out of the neighbourhood without losing the relief of its walls. | `'#F2B441'` |
-| `globe.buildingSelectColor` | Tint of the building whose context menu is open. | `'#E8613C'` |
+| Key                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Default     |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `globe.background`          | Background behind the globe (space).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `'#070C16'` |
+| `globe.oceanColor`          | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `'#0F2942'` |
+| `globe.hazeColor`           | Colour the distant scene dissolves into in **pedestrian mode** (fog from `pedestrian.fogStartMeters` to `viewDistanceMeters`). ⚠️ This used to be the canvas background, which was right as long as the background was what you saw behind the scene; since the atmospheric sky paints at the far plane, distant façades faded towards a light background **against a blue sky**, drawing a sharp horizontal bar at eye level. With the sky off (`sky.enabled: false`), the canvas background takes the role back. A low sky's tint varies with time of day and scattering: this default targets the default sky, at midday. | `'#C4D6E4'` |
+| `globe.landColor`           | Landmasses of the fallback globe.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `'#4F7A45'` |
+| `globe.buildingColor`       | Walls of the extruded buildings (internal provider's volume). A footprint carrying its own colour (`colour` attribute) keeps it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `'#8A8E96'` |
+| `globe.buildingRoofColor`   | Roofs of the extruded buildings, lighter than the walls — the top face reads at once.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `'#C2C6CE'` |
+| `globe.buildingRoofLighten` | How much to lighten the roof of a footprint carrying ITS OWN colour (the `colour` attribute), as a fraction towards white. `buildingRoofColor` only applies to footprints left to the theme, and without this offset volume disappears on those. ⚠️ Was a literal in `BuildingsLayer`: an appearance decision written into a layer's code, invisible from the theme. `0` makes the roof exactly the wall colour.                                                                                                                                                                                                             | `0.35`      |
+| `globe.buildingSunAzimuth`  | Azimuth of the fake sun (degrees from north, clockwise) that modulates walls by orientation. The scene has **no** light: the term is baked into vertex colours by the extrusion worker, so it costs nothing per frame. Avoid multiples of 45°: on an exact diagonal, the four walls of an orthogonal building collapse pairwise onto the same tone.                                                                                                                                                                                                                                                                          | `120`       |
+| `globe.buildingShadeMin`    | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `0.62`      |
+| `globe.buildingHoverColor`  | Tint of a hovered building while the selection tool is active. It replaces the footprint's vertex colours but stays MODULATED by the shading baked into them: the building stands out of the neighbourhood without losing the relief of its walls.                                                                                                                                                                                                                                                                                                                                                                           | `'#F2B441'` |
+| `globe.buildingSelectColor` | Tint of the building whose context menu is open.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `'#E8613C'` |
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/LABELS.md -->
-<!-- ============================================================ -->
+==============================================================================
+MapLabels
+==============================================================================
 
 # `MapLabels` — reference
 
+[Français](../fr/LABELS.md) · **English** · [↑ Index](README.md)
 
 Every string in the interface, and the formatting rules that depend on them (units,
 plurals, templates). No visible string may live outside this tree.
@@ -9735,14 +9753,13 @@ Defaults below are the library's real French strings — they are data, not pros
 | `plugins.reset` | Reset a plugin to its defaults. | `'Réinitialiser'` |
 | `plugins.clear` | Footer button: disables all active plugins (counterpart of the catalog's “Tout retirer”). | `'Tout désactiver'` |
 
-
-
-<!-- ============================================================ -->
-<!-- SOURCE: docs/en/PROPS.md -->
-<!-- ============================================================ -->
+==============================================================================
+Component props
+==============================================================================
 
 # Component props — reference
 
+[Français](../fr/PROPS.md) · **English** · [↑ Index](README.md)
 
 What each component accepts, what it does, and its default.
 
@@ -10152,3 +10169,99 @@ Diagnostics panel, already mounted as the “Infos” row of the “Settings” 
 | `id` | `string` | — | Layer key (like `markersLayer`/`shapesLayer`) — provide it as soon as `layers` can be reordered or filtered. |
 
 Width is in **world metres**: a path grows with zoom, unlike drawing-layer strokes which keep a constant on-screen thickness. For a **computed** itinerary (traffic, travel time), see [RELATIONS.md](RELATIONS.md).
+
+==============================================================================
+Architecture
+==============================================================================
+
+# Architecture & conventions — map3d
+
+Spec interne destinée aux **contributeurs**. Décrit le modèle mental de la lib et les
+conventions non négociables. (Doc de dépôt, non publiée dans le paquet npm.)
+
+`map3d` est un **moteur impératif que React pilote**, pas un arbre de composants qui détient
+l'état. `MapEngine` est la source de vérité ; React le monte déclarativement et **reste hors de
+la boucle de frame**.
+
+## 1. Cœur agnostique (`src/core/`, `src/layers/`, `src/data/`…) — sans React
+
+`MapEngine` (`src/core/MapEngine.ts`) tient three.js, la caméra, les tuiles 3D et une **liste de
+couches**. Utilisable seul, hors React (retombe sur `defaultConfig`).
+
+- **`Layer`** (`src/core/Layer.ts`) : `update(ctx)` (avance la 3D — passe de **LECTURE**) /
+  `project(ctx)` (écrit les overlays DOM — passe d'**ÉCRITURE** pure, après toutes les lectures) /
+  `dispose()` / `setConfig?()`. Couches concrètes dans `src/layers/`.
+- **Séparation lecture/écriture par frame** : toutes les projections écran (`translate3d`) se
+  font en une passe `project()` **après** les `update()`, pour éviter les reflows entrelacés.
+  Viser le **zéro-alloc** en boucle de frame (scratch pré-alloués, pas de `new` par frame).
+- **Registres portés par le moteur** (branchables par une couche custom) : `engine.selectables`
+  (marquee), `engine.erasables` (cibles de la gomme, jumeau séparé de `selectables`),
+  `engine.drag` (drag-and-drop typé), `engine.markers` (inventaire loupe),
+  `engine.tags` (filtre « Couches »), `SearchRegistry` (recherche unifiée). Les **réutiliser**
+  plutôt que les recâbler.
+- **Drapage au sol** : hauteur d'ancre raycastée et mémoïsée (`AnchorHeightCache`), traits en
+  **px écran** constants au zoom, resettle LOD.
+
+## 2. Couche React (`src/react/`) — pilote le moteur
+
+- `MapProvider` fournit les **trois arbres de réglages**, mergés profondément sur une base
+  complète : **`theme`** (charte), **`labels`** (langue + unités, aucun texte en dur),
+  **`config`** (`MapConfig` : clés d'API, quotas, gestes, budgets). Les props d'un composant
+  surchargent ces arbres pour une instance.
+- `<Map>` monte l'UI déclarativement (props `toolbar` / `controls` / `search` / `dock` / `draw` /
+  `layers`) ; `MapHandle` (ref impérative) cadre/dessine/interroge de l'extérieur.
+- **Toutes les surfaces et couches de la lib sont montées EN INTERNE par `<Map>`** (dans
+  `MapSurfaces.tsx` ou les hôtes de `Map.tsx`), pilotées par `config`/`theme`/`labels`/props —
+  jamais par l'hôte. Une couche qui « peint » (grille, HUD piéton, cluster, catalogue…) se monte
+  inconditionnellement ou selon une prop, **jamais** en exigeant que l'app la place en enfant de
+  `<Map>`. Les **`children` de `<Map>` sont réservés aux overlays PROPRES à l'hôte** : une app
+  doit pouvoir tout obtenir sans presque rien y mettre. Avant d'exporter une nouvelle surface, la
+  monter dans `MapSurfaces`.
+
+## 3. « Latest ref pattern » assumé — NE PAS le combattre
+
+L'état vit dans `MapEngine`, pas dans React. Le motif **`ref.current = props` au render**, lu par
+un handler/closure qui **survit à ses renders**, est **délibéré** (~97 emplois) : il évite qu'un
+handler redéfini à chaque render ne reconstruise le moteur ou ne relance une requête. Les valeurs
+sont **lues au moment de l'appel**, pas capturées.
+
+En conséquence, les règles du **React Compiler sont désactivées sciemment** dans
+`eslint.config.js` (`react-hooks/refs`, `immutability`, `set-state-in-effect`, `use-memo`) et
+`exhaustive-deps` est en `warn`. **Ne pas « corriger » ces motifs vers du state React** ni
+compléter une deps-array marquée `// eslint-disable`.
+
+## 4. Domaines fonctionnels
+
+`src/layers/draw/` éditeur de dessin (Selection/Edit/Overlay/History/Settings). `src/relations/`
+liens par tags + routage réel (Google Routes). `src/symbols/` catalogue MIL-STD-2525D chargé en
+**import dynamique** (`@armyc2…`, ~9 Mo, jamais bundlé sans symboles à l'écran). `src/search/`,
+`src/theme/`, `src/labels/`, `src/config/` (merge + defaults).
+
+**Signature « map3D » (`src/core/Watermark.ts`).** Attribution PolyForm apposée en bas à
+droite, **peinte dans le canvas WebGL** par `MapEngine.tick` juste après le rendu de la carte
+(`autoClear` coupé puis restauré) : insensible au CSS/DOM de l'hôte, donc non masquable par
+`display:none` ni par retrait de nœud. `WatermarkLink` ne pose par-dessus qu'une zone de clic
+transparente vers le dépôt. **Exception assumée** à « tout est config » : le contenu
+(texte/URL/style, `src/core/watermark/constants.ts`) est hors `config`/`theme`/`labels` —
+les rendre surchargeables serait un vecteur de suppression. Seule l'existence de la
+signature se coupe via `config.watermark.enabled` (défaut `true`), interrupteur réservé aux
+clients sous licence commerciale.
+
+## 5. Conventions de code (non négociables)
+
+- **Point d'entrée public unique** : `src/index.ts`. Toute API publique y est ré-exportée.
+- **Tout est config et params.** Aucune valeur ni texte en dur : comportement, couleur, libellé,
+  seuil passent par `config` / `theme` / `labels` ou une prop.
+  **Exception assumée** : `config.toolbar.autoHide` (outil de la barre retiré faute d'objet)
+  n'a **pas** de prop de surcharge sur `<Toolbar>`. La règle a deux applications — le bouton
+  disparaît, et l'outil ne s'arme plus au clavier (`setTool`, dans `<DrawLayer>`) — et le
+  clavier ne passe pas par la barre : une surcharge locale ferait diverger les deux, laissant
+  une gomme armée sans bouton pour en sortir. `config.toolbar.minZoom`, lui, garde sa prop.
+- **`type`, jamais `interface`.** **`any` interdit** (`no-explicit-any: error`). `tsconfig` en
+  `strict` + `noUncheckedIndexedAccess` + `noUnused*`. Paramètre ignoré : préfixe `_`.
+- **Style** (Prettier) : pas de `;`, guillemets simples, `printWidth: 120`, `trailingComma: all`.
+- **Commentaires** courts, en **français**, expliquant le *pourquoi* (le piège, la contrainte),
+  jamais la paraphrase du code.
+- Alias d'import `@/*` → `src/*`. Tests colocalisés `*.test.ts` (env jsdom).
+- Le bundle **externalise** react/react-dom/three/supercluster/3d-tiles-renderer — ne rien
+  embarquer de ces deps.

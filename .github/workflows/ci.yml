@@ -1,11 +1,14 @@
-# Filet anti-régression : à chaque push sur main et sur chaque PR, on rejoue le même
-# garde-fou que `pnpm validater` en local — typecheck strict, lint, format:check et la
-# suite de tests. Un test qui casse (ou un `any`/format qui glisse) bloque la fusion.
+# Filet anti-régression : à chaque push sur `main` et sur chaque PR, on rejoue le même
+# garde-fou que `pnpm validate` en local — fraîcheur du llms, licences, typecheck strict,
+# lint, format:check et la suite de tests. Un test qui casse (ou un `any`/format qui
+# glisse) bloque la fusion.
+#
+# Squelette commun aux trois dépôts (map3D, panels, IA Studio).
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 # Une PR qui pousse un nouveau commit annule le run précédent : on ne paie que le dernier état.
@@ -13,26 +16,32 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
-      - name: Installer pnpm
-        uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6
         with:
           version: 11
 
-      - name: Installer Node
-        uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Installer les dépendances
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      # typecheck + lint + format:check + test — cf. le script `validater` de package.json.
-      - name: Valider (typecheck, lint, format, tests)
-        run: pnpm validater
+      # Le garde-fou lui-même, et non la liste de ses maillons : les épeler un par un
+      # donne une liste d'étapes plus jolie et un job qui cesse silencieusement de
+      # correspondre au poste de travail dès qu'un maillon est ajouté à `validate`.
+      - run: pnpm validate
+
+      # L'artefact publié doit se construire, pas seulement passer le typecheck :
+      # `vite build` émet aussi les types, et une déclaration cassée n'apparaît qu'ici.
+      - run: pnpm build

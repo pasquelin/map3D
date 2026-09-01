@@ -3,6 +3,7 @@
     "lang": "en",
     "name": "English",
     "short": "EN",
+    "flag": "🇺🇸",
     "docs": "en",
     "ogLocale": "en_US"
   },

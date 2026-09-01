@@ -1,0 +1,155 @@
+{
+  "name": "map3d",
+  "repo": "pasquelin/map3D",
+  "author": "Alban Pasquelin",
+  "license": "https://polyformproject.org/licenses/noncommercial/1.0.0/",
+  "site": {
+    "url": "https://pasquelin.github.io/map3D/",
+    "defaultLang": "en",
+    "schemaType": "SoftwareSourceCode",
+    "schema": {
+      "programmingLanguage": "TypeScript",
+      "runtimePlatform": "React 19, three.js"
+    },
+    "copy": [
+      "styles.css",
+      "hud.js",
+      "assets"
+    ],
+    "optional": [
+      {
+        "path": "assets/bg.js",
+        "hint": "décor non compilé (`pnpm build:site:decor`)"
+      }
+    ],
+    "examples": [
+      {
+        "from": "examples/react/dist",
+        "to": "examples/react"
+      }
+    ]
+  },
+  "llms": {
+    "parts": [
+      [
+        "llms.txt",
+        null
+      ],
+      [
+        "docs/en/README.md",
+        "Documentation"
+      ],
+      [
+        "docs/en/MARKERS.md",
+        "Markers"
+      ],
+      [
+        "docs/en/ZONES.md",
+        "Zones, shapes and paths"
+      ],
+      [
+        "docs/en/CATALOG.md",
+        "Catalog"
+      ],
+      [
+        "docs/en/DRAWING.md",
+        "Drawing"
+      ],
+      [
+        "docs/en/SYMBOLS.md",
+        "Symbols"
+      ],
+      [
+        "docs/en/TEMPLATES.md",
+        "Templates"
+      ],
+      [
+        "docs/en/RELATIONS.md",
+        "Relations"
+      ],
+      [
+        "docs/en/LENS.md",
+        "Lens"
+      ],
+      [
+        "docs/en/SEARCH.md",
+        "Search"
+      ],
+      [
+        "docs/en/CAMERA.md",
+        "Camera, view and basemap"
+      ],
+      [
+        "docs/en/PEDESTRIAN.md",
+        "Pedestrian mode"
+      ],
+      [
+        "docs/en/TILES.md",
+        "Tiles"
+      ],
+      [
+        "docs/en/BUILDINGS.md",
+        "Buildings"
+      ],
+      [
+        "docs/en/GRATICULE.md",
+        "Graticule"
+      ],
+      [
+        "docs/en/DATA.md",
+        "Data"
+      ],
+      [
+        "docs/en/HOOKS.md",
+        "Hooks"
+      ],
+      [
+        "docs/en/ENGINE.md",
+        "Engine"
+      ],
+      [
+        "docs/en/PLUGINS.md",
+        "Plugins"
+      ],
+      [
+        "docs/en/PREFERENCES.md",
+        "Preferences"
+      ],
+      [
+        "docs/en/CONFIG.md",
+        "MapConfig"
+      ],
+      [
+        "docs/en/THEME.md",
+        "MapTheme"
+      ],
+      [
+        "docs/en/LABELS.md",
+        "MapLabels"
+      ],
+      [
+        "docs/en/PROPS.md",
+        "Component props"
+      ],
+      [
+        "docs/ARCHITECTURE.md",
+        "Architecture"
+      ]
+    ]
+  },
+  "licences": {
+    "expected": "PolyForm-Noncommercial-1.0.0",
+    "noRuntimeDeps": false,
+    "bundled": [],
+    "allowed": [
+      "MIT",
+      "ISC",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "0BSD",
+      "Apache-2.0",
+      "CC0-1.0",
+      "Unlicense"
+    ]
+  }
+}

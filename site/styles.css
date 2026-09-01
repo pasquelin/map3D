@@ -1078,3 +1078,19 @@ a.demo:hover .demo__shot img {
   direction: ltr;
   text-align: left;
 }
+
+/* Le pavillon du sélecteur de langue. Taille fixée en `em` pour qu'il suive le texte, et
+   `line-height: 1` parce que les emoji drapeaux ont une hauteur de ligne propre qui
+   décalait la ligne de base des noms à côté d'eux. */
+.langs__flag {
+  flex: none;
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+/* Avec le pavillon la ligne porte trois éléments, et `space-between` les aurait écartés
+   un à un — drapeau à gauche, nom au milieu, code à droite. Le nom prend l'espace qui
+   reste : le drapeau lui reste collé, le code à deux lettres tient la droite. */
+.langs__item i {
+  flex: 1;
+}

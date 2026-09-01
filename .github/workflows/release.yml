@@ -60,7 +60,7 @@ jobs:
 
       # Même barrière que la CI (typecheck strict, lint, format, tests) avant de publier.
       - name: Valider
-        run: pnpm validater
+        run: pnpm validate
 
       - name: Build (dist/ ESM + CJS + types)
         run: pnpm build

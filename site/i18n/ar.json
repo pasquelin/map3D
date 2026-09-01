@@ -3,6 +3,7 @@
     "lang": "ar",
     "name": "العربية",
     "short": "AR",
+    "flag": "🌐",
     "docs": "en",
     "ogLocale": "ar_AR",
     "dir": "rtl"
