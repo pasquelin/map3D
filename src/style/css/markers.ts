@@ -27,9 +27,14 @@ export const CSS_MARKERS = `/* Sprite d'ancre — PARTAGÉ par le marker et le c
   background:linear-gradient(to top,rgba(17,24,39,.5),rgba(17,24,39,.12));pointer-events:none}
 .m3d-marker-dot{position:absolute;left:0;top:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
   border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(17,24,39,.5);pointer-events:none}
+/* Image de marker ou de pastille (icône SVG custom, avatar) : même boîte centrée que
+   .m3d-marker, la taille arrivant par --m3d-sprite. Six propriétés étaient posées en
+   style inline, recréées PAR MARKER à chaque rebuild des portails. */
+.m3d-marker-img{max-width:none;max-height:none;display:block;cursor:pointer;
+  width:var(--m3d-sprite);height:var(--m3d-sprite);
+  margin:calc(var(--m3d-sprite) / -2) 0 0 calc(var(--m3d-sprite) / -2)}
 /* Avatar de marker (MarkerData.avatar) : photo ronde cerclée de la couleur du
    type (border-color inline) + liseré blanc — prioritaire sur l'icône custom. */
-.m3d-marker-img{max-width:none;max-height:none}
 .m3d-marker-avatar{border-radius:50%;object-fit:cover;box-sizing:border-box;
   border:var(--m3d-marker-ring-w,3px) solid;background:var(--m3d-panel);
   box-shadow:0 0 0 1.5px rgba(255,255,255,.9),0 2px 6px rgba(0,0,0,.4)}

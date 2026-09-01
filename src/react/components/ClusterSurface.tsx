@@ -592,17 +592,12 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
 
   const portals = useMemo(() => {
     const out: ReactNode[] = []
+    // Boîte et centrage sont en CSS (`.m3d-marker-img`) : un seul objet de style pour
+    // toutes les pastilles, seule la taille varie.
+    const imgStyle = { '--m3d-sprite': `${clusterSize}px` } as CSSProperties
     for (const [key, el] of els) {
       const node = nodesRef.current.get(key)
       if (!node) continue
-      const imgStyle: CSSProperties = {
-        width: clusterSize,
-        height: clusterSize,
-        marginLeft: -clusterSize / 2,
-        marginTop: -clusterSize / 2,
-        display: 'block',
-        cursor: 'pointer',
-      }
       const content = chrome.icon ? (
         <img
           className="m3d-marker-img"

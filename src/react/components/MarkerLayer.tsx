@@ -574,17 +574,12 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       return src
     }
     const out: ReactNode[] = []
+    // Boîte et centrage sont en CSS (`.m3d-marker-img`, même convention que
+    // `.m3d-marker`) : un seul objet de style pour tous les portails, seule la taille varie.
+    const imgStyle = { '--m3d-sprite': `${markerSize}px` } as CSSProperties
     for (const [id, el] of nodes) {
       const marker = entriesRef.current.get(id)
       if (!marker) continue
-      const imgStyle: CSSProperties = {
-        width: markerSize,
-        height: markerSize,
-        marginLeft: -markerSize / 2,
-        marginTop: -markerSize / 2,
-        display: 'block',
-        cursor: 'pointer',
-      }
       // Avatar (photo ronde cerclée de la couleur du type) PRIORITAIRE sur l'icône
       // SVG custom, sinon `DefaultMarker` (pastille + halo).
       const content: ReactNode = marker.avatar ? (
