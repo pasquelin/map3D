@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatLabel } from '../../labels/mergeLabels'
 import { makeDistanceFormatter, makeLinkLabelFormatter } from '../../labels/measure'
@@ -141,8 +141,11 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
    * bouton « Agents » s'annoncerait « Agents Agents Les plus rapides Les 3 plus… » aux
    * lecteurs d'écran. Le wrapper porte le positionnement, le bouton reste nu.
    */
+  // Préfixé par `useId` : deux cartes affichant la même source produisaient deux
+  // menus de même id, et `aria-controls` pointait sur celui de l'autre carte.
+  const uid = useId()
   const segment = (segId: Segment, text: string, items: MenuItem[]) => {
-    const menuId = `m3d-relbar-${source.id}-${segId}`
+    const menuId = `${uid}-${source.id}-${segId}`
     return (
       <span className="m3d-relbar-segwrap">
         <button

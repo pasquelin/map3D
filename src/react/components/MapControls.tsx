@@ -17,7 +17,7 @@ import {
   mdiWalk,
   mdiVideo3d,
 } from '@mdi/js'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { canEnterMode } from '../../core/basemap'
 import { altitudeForZoom, type MapMode } from '../../core/MapEngine'
 import { boundsContains } from '../../core/MarkerQuery'
@@ -135,8 +135,6 @@ export type MapControlTarget = {
    */
   onlyWhenOutOfView?: boolean
 }
-
-const TIP_ID = 'm3d-tooltip'
 
 /** Clé de bouton qui gouverne l'accès à un mode de fond : `plan` mène au plan, le reste à la
  *  3D. Une seule règle, lue au render (visibilité de la bascule) comme au clavier. */
@@ -262,7 +260,10 @@ export function MapControls({
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (sans effet si elle est à l'opposé).
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
-  const tip = useTip(TIP_ID)
+  // Un id par barre, jamais en dur : `react-tooltip` apparie ses ancres sur tout le
+  // document, deux cartes se volaient leurs infobulles.
+  const tipId = useId()
+  const tip = useTip(tipId)
 
   // Raccourcis : listener monté UNE fois (les props sont lues via ref au moment de
   // la frappe — un littéral `shortcuts={{...}}` inline ne recrée pas le listener).
@@ -432,10 +433,10 @@ export function MapControls({
         (btn('layers') || btn('catalog') || templates) && (
           <div className="m3d-controls-group">
             {btn('layers') && (
-              <TagFilterControl grouped position={position} tipId={TIP_ID} shortcut={keys.layers} tagLabel={tagLabel} />
+              <TagFilterControl grouped position={position} tipId={tipId} shortcut={keys.layers} tagLabel={tagLabel} />
             )}
-            {btn('catalog') && <CatalogControl grouped position={position} tipId={TIP_ID} shortcut={keys.catalog} />}
-            {templates && <TemplatesPanel grouped {...templates} position={position} tipId={TIP_ID} />}
+            {btn('catalog') && <CatalogControl grouped position={position} tipId={tipId} shortcut={keys.catalog} />}
+            {templates && <TemplatesPanel grouped {...templates} position={position} tipId={tipId} />}
           </div>
         ),
       )}
@@ -525,7 +526,7 @@ export function MapControls({
 
       {/* Apparence pilotée par `.m3d-tip` (thème) : le style « base » du paquet est
           coupé, son « core » (position/opacité/transitions) reste injecté. */}
-      <MapTooltip id={TIP_ID} place={position === 'right' ? 'left' : 'right'} />
+      <MapTooltip id={tipId} place={position === 'right' ? 'left' : 'right'} />
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { useLabels } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { MEASURE_TOOL_META } from './drawControls'
 import { DropdownSurface } from './Dropdown'
-import { TIP_ID, useHoverFlyout, useToolbar } from './Toolbar'
+import { useHoverFlyout, useToolbar } from './Toolbar'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
@@ -23,9 +23,9 @@ import { UiIcon } from './UiIcon'
 export function MeasureToolButton({ position, tools }: { position: 'left' | 'right'; tools?: MeasureTool[] }) {
   const { tool, setTool, shortcuts } = useDrawing()
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
-  const wrapRef = useRef<HTMLDivElement>(null)
   const bar = useToolbar()
+  const tip = useTip(bar.tipId)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   const active = tool === 'measure'
   const available = tools ? MEASURE_TOOL_META.filter((m) => tools.includes(m.tool)) : MEASURE_TOOL_META

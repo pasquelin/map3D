@@ -5,7 +5,7 @@ import { useConfig, useLabels } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { ERASE_MODE_META } from './drawControls'
 import { DropdownSurface } from './Dropdown'
-import { TIP_ID, useHoverFlyout } from './Toolbar'
+import { useHoverFlyout, useToolbar } from './Toolbar'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 import { UiIcon } from './UiIcon'
@@ -33,7 +33,7 @@ export function EraseToolButton({
 }) {
   const { tool, setTool, eraseMode, setEraseMode, shortcuts, canErase } = useDrawing()
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(useToolbar().tipId)
   const wrapRef = useRef<HTMLDivElement>(null)
   // Hooks appelés INCONDITIONNELLEMENT, avant tout retour anticipé (même piège que
   // `ToolButton` et `Toolbar` avec `useConfig`) : la sortie « rien à effacer » est plus bas.

@@ -7,7 +7,7 @@ import {
   mdiUndo,
 } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, EraseMode, MeasureTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, ToolbarContext, useConfig, useLabels, useMapContext, useToolbar } from '../context'
@@ -71,9 +71,6 @@ export type DrawToolbarProps = {
    */
   extraTools?: ReactNode
 }
-
-/** Id du `<Tooltip>` partagé de la barre — réutilisable par les outils externes. */
-export const TIP_ID = 'm3d-draw-tip'
 
 // Le contexte vit avec les autres (`react/context`) : `Dropdown` doit le lire pour se
 // refermer quand la barre se replie, et la barre importe `Dropdown`. Ré-exporté ici parce
@@ -181,6 +178,9 @@ export function Toolbar({
   const nativeActive = tool !== null || !!lens?.active || symbols.paletteOpen
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   const [activeToolEl, setActiveToolEl] = useState<HTMLElement | null>(null)
+  // Un id par barre montée, jamais en dur : deux cartes sur la page partageaient
+  // `m3d-draw-tip` et leurs infobulles s'appariaient à la mauvaise instance.
+  const tipId = useId()
   const bar = useMemo<ToolbarApi>(
     () => ({
       retracted: hidden,
@@ -192,15 +192,16 @@ export function Toolbar({
       el: barEl,
       activeToolEl,
       publishActiveTool: setActiveToolEl,
+      tipId,
     }),
-    [hidden, nativeActive, setTool, lens, barEl, activeToolEl],
+    [hidden, nativeActive, setTool, lens, barEl, activeToolEl, tipId],
   )
 
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
   const dropdownOuvert = useYieldsToDropdown()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(tipId)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
   // Étiquettes composées depuis les raccourcis effectifs (cf. `formatEdit`).
   const edit = useConfig().interaction.shortcuts.edit
@@ -312,7 +313,7 @@ export function Toolbar({
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
       {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé
           venait se poser SUR le panneau qu'on est en train de lire. */}
-      <MapTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
+      <MapTooltip id={tipId} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
     </ToolbarContext.Provider>
   )
 }
@@ -332,7 +333,7 @@ export function Toolbar({
 function ClearFlyoutRow() {
   const { clear } = useDrawing()
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(useToolbar().tipId)
   return (
     <button {...tip(labels.toolbar.clearAllDescription)} className="m3d-flyout-item m3d-danger" onClick={clear}>
       <UiIcon path={mdiTrashCanOutline} />
@@ -367,7 +368,7 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
   const { picking: pickingBuilding, canPick: canPickBuildings, engine } = useBuildingPick()
   const lens = useContext(LensContext)
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(useToolbar().tipId)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const active = tool === 'select'

@@ -4,13 +4,12 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { normalizeSearch } from '../../search/match'
 import { symbolText } from '../../labels/mergeLabels'
 import type { SymbolEntry } from '../../symbols/types'
-import { useConfig, useLabels, useMapContext, useTheme } from '../context'
+import { useConfig, useLabels, useMapContext, useTheme, useToolbar } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
 import { useDrawing } from '../hooks/useDrawing'
 import { TOOL_ICONS } from './drawControls'
 import { Dropdown } from './Dropdown'
 import { useTip } from './tooltip'
-import { TIP_ID } from './Toolbar'
 
 /** Type de charge d'un drag venant de la palette (consommé par la zone carte). */
 export const SYMBOL_DRAG_TYPE = 'm3d-symbol'
@@ -30,7 +29,7 @@ export const SYMBOL_DRAG_TYPE = 'm3d-symbol'
 export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' | 'right' }) {
   const labels = useLabels()
   const { symbols, shortcuts } = useDrawing()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(useToolbar().tipId)
   const theme = useTheme()
   const { engine } = useMapContext()
 
