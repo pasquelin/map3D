@@ -36,8 +36,10 @@ export const CSS_MARKERS = `/* Sprite d'ancre — PARTAGÉ par le marker et le c
 .m3d-marker-node.m3d-enter{animation:m3d-enter var(--m3d-enter-dur,460ms)
   var(--m3d-enter-ease,cubic-bezier(.32,1.5,.5,1)) backwards}
 .m3d-marker-node.m3d-selected{z-index:var(--m3d-z-marker-selected,80)}
+/* Les replis des variables d'animation valent les défauts de theme.animations :
+   c'est themeToVars qui les émet, la feuille ne fait que les lire. */
 @keyframes m3d-enter{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
-@keyframes m3d-halo{0%{transform:scale(.62);opacity:.5}70%{opacity:0}100%{transform:scale(2.1);opacity:0}}
+@keyframes m3d-halo{0%{transform:scale(.62);opacity:.5}70%{opacity:0}100%{transform:scale(var(--m3d-halo-scale,2.1));opacity:0}}
 @keyframes m3d-pulse{0%,100%{transform:scale(1)}50%{transform:scale(var(--m3d-pulse-scale,1.16))}}
 @keyframes m3d-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(-1 * var(--m3d-bob-amp,4px)))}}
 @keyframes m3d-cluster-bloom{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
