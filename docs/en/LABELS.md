@@ -146,24 +146,6 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | Key | Description | Default |
 |---|---|---|
 | `toolbar.navigate` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Naviguer'` |
-| `buildingPick.label` | “Building” row of the selector — outside `selectModes`, which is keyed by `SelectMode`: picking a building is not a drawing selection mode. | `'Bâtiment'` |
-| `buildingPick.description` | Its tooltip. | `'Sélectionner un bâtiment (volume 3D interne)'` |
-| `measureTools.measure.label` | Rows of the “Measure” submenu: `label` = flyout row, `description` = tooltip (with the shortcut) — same convention as `selectModes`. | `'Mesurer'` |
-| `measureTools.measure.description` | Its tooltip. | `'Mesurer une distance'` |
-| `graticule.remarkable.equator` | Names of remarkable lines, indexed by `config.graticule.remarkable[].labelKey`. A missing key shows the coordinate instead of the name. | `'Équateur'` |
-| `graticule.remarkable.tropicCancer` | — | `'Tropique du Cancer'` |
-| `graticule.remarkable.tropicCapricorn` | — | `'Tropique du Capricorne'` |
-| `graticule.remarkable.arcticCircle` | — | `'Cercle arctique'` |
-| `graticule.remarkable.antarcticCircle` | — | `'Cercle antarctique'` |
-| `graticule.remarkable.primeMeridian` | — | `'Méridien d'origine'` |
-| `graticule.remarkable.antimeridian` | — | `'180ᵉ méridien'` |
-| `graticule.format.deg` | Label template at degree precision — variables `{d}`, `{hemi}`. | `'{d}°{hemi}'` |
-| `graticule.format.dm` | Minute precision — `{d}`, `{m}`, `{hemi}`. | `"{d}°{m}'{hemi}"` |
-| `graticule.format.dms` | Second precision — `{d}`, `{m}`, `{s}`, `{hemi}`. | `'{d}°{m}\'{s}"{hemi}'` |
-| `graticule.hemisphere.north` | Cardinal points — translatable (`W` → `O` if the host wants). | `'N'` |
-| `graticule.hemisphere.south` | — | `'S'` |
-| `graticule.hemisphere.east` | — | `'E'` |
-| `graticule.hemisphere.west` | — | `'W'` |
 | `toolbar.undo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Annuler'` |
 | `toolbar.redo` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Rétablir'` |
 | `toolbar.clearAll` | `<Toolbar>` buttons other than tools (navigation, history, clearing). | `'Tout effacer'` |
@@ -204,6 +186,45 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `eraseModes.select.label` | Same — marquee-mode row. | `'Gomme sélection'` |
 | `eraseModes.select.description` | Same — marquee-mode tooltip. | `'Effacer tout ce que la sélection touche'` |
 
+## `buildingPick` — Building pick
+
+“Building” row of the selection selector. Outside `selectModes`, which is keyed by `SelectMode`: picking a building is not a drawing selection mode, it is an engine tool that merely shares this menu.
+
+| Key | Description | Default |
+|---|---|---|
+| `buildingPick.label` | Flyout row. | `'Bâtiment'` |
+| `buildingPick.description` | Its tooltip. | `'Sélectionner un bâtiment (volume 3D interne)'` |
+
+## `measureTools` — “Measure” submenu
+
+Rows of the “Measure” submenu: `label` = flyout row, `description` = tooltip (with the shortcut) — same convention as `selectModes`. `measure` appears here on top of `tools.measure`: the former names the menu ROW, the latter the bar button. The two may legitimately differ in a translation.
+
+| Key | Description | Default |
+|---|---|---|
+| `measureTools.measure.label` | Flyout row. | `'Mesurer'` |
+| `measureTools.measure.description` | Its tooltip. | `'Mesurer une distance'` |
+
+## `graticule` — Coordinate grid
+
+Names of the remarkable lines and label formatting — see the [GRATICULE.md](GRATICULE.md) guide.
+
+| Key | Description | Default |
+|---|---|---|
+| `graticule.remarkable.equator` | Names of remarkable lines, indexed by `config.graticule.remarkable[].labelKey`. A host adding a line adds its key; a missing key shows the coordinate instead of the name. | `'Équateur'` |
+| `graticule.remarkable.tropicCancer` | — | `'Tropique du Cancer'` |
+| `graticule.remarkable.tropicCapricorn` | — | `'Tropique du Capricorne'` |
+| `graticule.remarkable.arcticCircle` | — | `'Cercle arctique'` |
+| `graticule.remarkable.antarcticCircle` | — | `'Cercle antarctique'` |
+| `graticule.remarkable.primeMeridian` | — | `'Méridien d'origine'` |
+| `graticule.remarkable.antimeridian` | — | `'180ᵉ méridien'` |
+| `graticule.format.deg` | Label template at degree precision — variables `{d}`, `{hemi}`. | `'{d}°{hemi}'` |
+| `graticule.format.dm` | Minute precision — `{d}`, `{m}`, `{hemi}`. | `"{d}°{m}'{hemi}"` |
+| `graticule.format.dms` | Second precision — `{d}`, `{m}`, `{s}`, `{hemi}`. | `'{d}°{m}\'{s}"{hemi}'` |
+| `graticule.hemisphere.north` | Cardinal points — translatable (`W` → `O` if the host wants). | `'N'` |
+| `graticule.hemisphere.south` | — | `'S'` |
+| `graticule.hemisphere.east` | — | `'E'` |
+| `graticule.hemisphere.west` | — | `'W'` |
+
 ## `style` — Style panel
 
 | Key | Description | Default |
@@ -241,7 +262,6 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `selection.movePanel` | aria-label of the panel's move grip. | `'Déplacer le panneau'` |
 | `selection.expandGroup` | aria-label of the chevron expanding a shape group — `{label}` = the group's label. | `'Déplier / replier {label}'` |
 | `selection.shapeItem` | Label of an expanded shape with no name of its own — `{type}` (translated kind), `{n}` (rank). | `'{type} {n}'` |
-| `selection.deleteShape` | aria-label of the trash button deleting a shape — `{label}` = the shape's label. | `'Supprimer {label}'` |
 | `selection.delete` | "Delete" menu item of a shape row (short label, no parameter). | `'Supprimer'` |
 | `selection.pathsGroup` | Name of the paths category in a row. | `'Tracés'` |
 | `selection.pathItem` | Label of an expanded path — `{n}` (rank in the group). | `'Tracé {n}'` |
@@ -292,15 +312,11 @@ Top-right panel: list, save, share. See [TEMPLATES.md](TEMPLATES.md).
 | `settings.preferences.controls.title` | Heading of the controls group (movement, view, keyboard). | `'Contrôles'` |
 | `settings.preferences.controls.move` | Heading of the continuous-movement keys group. | `'Déplacement'` |
 | `settings.preferences.controls.view` | Heading of the view commands group. | `'Vue'` |
-| `settings.preferences.controls.keyboard` | Label of the keyboard layout choice. | `'Clavier'` |
-| `settings.preferences.controls.azerty` | Keyboard layout option. | `'AZERTY'` |
-| `settings.preferences.controls.qwerty` | Keyboard layout option. | `'QWERTY'` |
 | `settings.preferences.controls.speed` | Label of the movement speed. | `'Vitesse'` |
 | `settings.preferences.controls.slow` | Speed preset. | `'Lent'` |
 | `settings.preferences.controls.normal` | Speed preset. | `'Normal'` |
 | `settings.preferences.controls.fast` | Speed preset. | `'Rapide'` |
 | `settings.preferences.controls.damping` | Camera-gesture inertia toggle. | `'Glissement de la carte'` |
-| `settings.preferences.controls.press` | Prompt while capturing a key. | `'Appuyez sur une touche…'` |
 | `settings.preferences.controls.rebind` | aria/title of the key-capture button — `{action}`. | `'Changer la touche : {action}'` |
 | `settings.preferences.controls.conflict` | Message when the entered key is already used by another panel action — `{action}`. | `'Touche déjà utilisée ({action})'` |
 | `settings.preferences.controls.conflictOther` | Same, when the key is used by a command outside the panel (its name is not translated here). | `'Touche déjà utilisée par une autre commande'` |
@@ -517,61 +533,6 @@ the library.
 
 ---
 
-## Full English label set
-
-A ready-to-paste starting point. Only the visible strings are translated; templates keep
-their `{variables}`.
-
-```tsx
-import { imperialMeasure } from '@pasquelin/map3d'
-
-<MapProvider
-  labels={{
-    controls: {
-      pan: 'Pan the map', rotate: 'Rotate the view (SHIFT)', north: 'North / top-down',
-      zoomIn: 'Zoom in', zoomOut: 'Zoom out', tilt: 'Tilt',
-      globe: 'Back to globe', fullscreen: 'Fullscreen', target: 'Back to target',
-      mode3d: '3D view', traffic: 'Traffic',
-    },
-    tags: {
-      button: 'Layers — filter by tag', searchPlaceholder: 'Search a tag…',
-      empty: 'No tag on the map', noMatch: 'No matching tag', showAll: 'Show all',
-    },
-    toolbar: {
-      navigate: 'Navigate', undo: 'Undo', redo: 'Redo', clearAll: 'Clear all',
-      clearAllDescription: 'Erase everything the eraser can erase',
-    },
-    tools: {
-      select: 'Select', line: 'Line', polygon: 'Polygon', rect: 'Rectangle',
-      circle: 'Circle', freehand: 'Freehand', arrow: 'Arrow', measure: 'Measure',
-      erase: 'Erase', symbol: 'Symbols',
-    },
-    search: {
-      placeholder: 'Search the map…', inputLabel: 'Search', noResults: 'No result',
-      noResultsInGroup: 'No result in “{group}”', historyTitle: 'Recent searches',
-      clearHistory: 'Clear history', clearInput: 'Clear search',
-      scopeAll: 'All', scopeLabel: 'Narrow the search',
-      groups: { shape: 'Zones', draw: 'Drawings', symbol: 'Symbols', place: 'Places' },
-    },
-    keys: {
-      escape: 'Esc', space: 'Space', spaceShift: 'Space+Shift', shiftDrag: 'Shift + drag',
-      enter: 'Enter', arrows: 'Arrows', backspace: '⌫', shiftClick: 'Shift + click',
-      altOrCmd: 'Alt / ⌘', shift: '⇧',
-    },
-    measure: imperialMeasure,   // or keep the metric block and only change `numberLocale`
-    errors: {
-      outsideMap: 'This component must be used inside <Map>',
-      drawingRequired: 'useDrawing requires drawing: it is removed by <Map draw={false}>',
-      lensRequired: 'useLens requires the lens: it is removed by <Map toolbar={{ lens: false }}>',
-    },
-  }}
->
-```
-
-The merge is deep: every key left out keeps its default.
-
----
-
 ## `catalog` — Remote entity catalog
 
 Bar button, type menu, list and settings — see the [CATALOG.md](CATALOG.md) guide. **Type names** are not here: they come from `CatalogSource.label`, provided by the host, which alone knows what it calls them.
@@ -615,3 +576,484 @@ Defaults below are the library's real French strings — they are data, not pros
 | `plugins.toggle` | Plugin enable toggle aria-label — `{name}`. | `'Activer {name}'` |
 | `plugins.reset` | Reset a plugin to its defaults. | `'Réinitialiser'` |
 | `plugins.clear` | Footer button: disables all active plugins (counterpart of the catalog's “Tout retirer”). | `'Tout désactiver'` |
+
+---
+
+## Full default label set
+
+The French set the library ships, as `defaultLabels` defines it — there is no English set in the source. Use it as a ready-to-copy skeleton for a translation: replace the values, keep the templates' `{variables}`, and pass the object to `<MapProvider labels={labels}>`. The merge is deep: every key left out keeps its default (`plural` included — override it in an English setup).
+
+This block is **generated** by `pnpm labels:doc` (`scripts/make-labels-doc.mjs`) from `src/labels/defaultLabels.ts`; `pnpm labels:doc:check` fails when it is stale. Functions (`plural`) appear with their source.
+
+<!-- labels:full:start -->
+```ts
+import type { MapLabels } from '@pasquelin/map3d'
+
+export const labels: MapLabels = {
+  controls: {
+    pan: 'Déplacer la carte',
+    rotate: 'Pivoter la vue (MAJ)',
+    north: 'Nord / vue du dessus',
+    zoomIn: 'Zoom avant',
+    zoomOut: 'Zoom arrière',
+    tilt: 'Incliner',
+    graticule: 'Grille de coordonnées',
+    globe: 'Retour au globe',
+    fullscreen: 'Plein écran',
+    target: 'Revenir à la cible',
+    mode3d: 'Vue 3D',
+    traffic: 'Trafic',
+    pedestrian: 'Mode piéton',
+    pedestrianExit: 'Quitter le mode piéton',
+    immersion: 'Immersion totale',
+    pedestrianHint: 'Échap pour quitter',
+  },
+  tags: {
+    button: 'Couches — filtrer par tag',
+    searchPlaceholder: 'Rechercher un tag…',
+    empty: 'Aucun tag sur la carte',
+    noMatch: 'Aucun tag ne correspond',
+    showAll: 'Tout afficher',
+  },
+  catalog: {
+    button: 'Catalogue',
+    searchPlaceholder: 'Taper votre recherche…',
+    empty: 'Aucun élément',
+    noMatch: 'Aucun résultat',
+    loading: 'Chargement…',
+    error: 'Chargement impossible',
+    retry: 'Réessayer',
+    itemError: 'Impossible d’afficher cet élément',
+    add: 'Afficher {label} sur la carte',
+    remove: 'Retirer {label} de la carte',
+    focus: 'Centrer sur {label}',
+    expand: 'Déplier',
+    collapse: 'Replier',
+    groupCount: '{shown}/{total}',
+    groupCountLabel: '{shown} élément(s) sur {total} affiché(s)',
+    sourceShown: '{count} élément(s) de cette source sur la carte',
+    numberLocale: 'auto',
+    settings: {
+      title: 'Catalogue',
+      persist: 'Conserver les éléments affichés entre les sessions',
+      fitOnAdd: 'Cadrer à l’ajout',
+      clear: 'Tout retirer',
+    },
+  },
+  symbols: {
+    button: 'Symboles',
+    searchPlaceholder: 'Rechercher un symbole…',
+    dragHint: 'Glissez une icône sur la carte pour la poser',
+    noMatch: 'Aucun symbole ne correspond',
+    affiliation: 'Affiliation',
+    multiPointHint: 'Tracé multi-points — bientôt disponible',
+    delete: 'Supprimer',
+    categories: {
+      installations: 'Installations',
+      units: 'Unités',
+      equipment: 'Équipements',
+      air: 'Aérien',
+      events: 'Événements',
+      control: 'Points de contrôle',
+      'tactical-graphics': 'Graphiques tactiques',
+    },
+    affiliations: {
+      friendly: 'Ami',
+      hostile: 'Hostile',
+      neutral: 'Neutre',
+      unknown: 'Inconnu',
+    },
+    catalog: {},
+  },
+  plugins: {
+    button: 'Plugins',
+    title: 'Plugins',
+    empty: 'Aucun plugin disponible',
+    toggle: 'Activer {name}',
+    reset: 'Réinitialiser',
+    clear: 'Tout désactiver',
+  },
+  templates: {
+    title: 'Templates',
+    save: 'Sauvegarder',
+    saveHint: 'Nommez ce template et choisissez ce qu’il contient',
+    name: 'Nom du template',
+    empty: 'Aucun template',
+    delete: 'Supprimer {name}',
+    deleteConfirm: 'Supprimer « {name} » ? Cette action est définitive.',
+    confirm: 'Confirmer',
+    cancel: 'Annuler',
+    rename: 'Renommer {name}',
+    update: 'Mettre à jour « {name} » avec le dessin courant',
+    updateConfirm: 'Mettre à jour « {name} » avec le dessin courant ? L’ancien contenu sera écrasé.',
+    apply: 'Charger ce template',
+    applyMode: 'Au clic sur un template :',
+    merge: 'Ajouter',
+    replace: 'Remplacer',
+    remove: 'Retirer',
+    export: 'Exporter en fichier .m3dt',
+    import: 'Importer',
+    shared: 'Partagé',
+    readOnly: 'Lecture seule',
+    defaultName: 'template',
+    importedName: 'Import',
+    category: {
+      shapes: 'Formes',
+      freehand: 'Crayon',
+      symbols: 'Symboles',
+    },
+    stats: {
+      pair: '{label} {count}',
+      bytes: '{count} o',
+    },
+    view: 'Vue',
+    viewHint: 'Position, orientation, type de carte et couches affichées',
+    hasView: 'Ce template rouvre sa vue',
+  },
+  search: {
+    placeholder: 'Rechercher sur la carte…',
+    inputLabel: 'Recherche',
+    noResults: 'Aucun résultat',
+    noResultsInGroup: 'Aucun résultat dans « {group} »',
+    historyTitle: 'Recherches récentes',
+    clearHistory: 'Effacer l’historique',
+    clearInput: 'Effacer la recherche',
+    scopeAll: 'Tout',
+    scopeLabel: 'Restreindre la recherche',
+    groups: {
+      shape: 'Zones',
+      draw: 'Dessins',
+      symbol: 'Symboles',
+      place: 'Lieux',
+    },
+  },
+  toolbar: {
+    navigate: 'Naviguer',
+    undo: 'Annuler',
+    redo: 'Rétablir',
+    clearAll: 'Tout effacer',
+    clearAllDescription: 'Effacer tout ce que la gomme peut effacer',
+  },
+  tools: {
+    select: 'Sélectionner',
+    line: 'Ligne',
+    polygon: 'Polygone',
+    rect: 'Rectangle',
+    circle: 'Cercle',
+    freehand: 'Crayon',
+    arrow: 'Flèche',
+    measure: 'Mesurer',
+    erase: 'Effacer',
+    symbol: 'Symboles',
+  },
+  selectModes: {
+    rect: {
+      label: 'Rectangle',
+      description: 'Sélection par rectangle',
+    },
+    poly: {
+      label: 'Polygone',
+      description: 'Sélection par polygone',
+    },
+    lasso: {
+      label: 'Lasso',
+      description: 'Sélection au lasso',
+    },
+  },
+  eraseModes: {
+    point: {
+      label: 'Gomme',
+      description: 'Effacer un élément au clic',
+    },
+    select: {
+      label: 'Gomme sélection',
+      description: 'Effacer tout ce que la sélection touche',
+    },
+  },
+  buildingPick: {
+    label: 'Bâtiment',
+    description: 'Sélectionner un bâtiment (volume 3D interne)',
+  },
+  measureTools: {
+    measure: {
+      label: 'Mesurer',
+      description: 'Mesurer une distance',
+    },
+  },
+  graticule: {
+    remarkable: {
+      equator: 'Équateur',
+      tropicCancer: 'Tropique du Cancer',
+      tropicCapricorn: 'Tropique du Capricorne',
+      arcticCircle: 'Cercle arctique',
+      antarcticCircle: 'Cercle antarctique',
+      primeMeridian: "Méridien d'origine",
+      antimeridian: '180ᵉ méridien',
+    },
+    format: {
+      deg: '{d}°{hemi}',
+      dm: "{d}°{m}'{hemi}",
+      dms: '{d}°{m}\'{s}"{hemi}',
+    },
+    hemisphere: {
+      north: 'N',
+      south: 'S',
+      east: 'E',
+      west: 'W',
+    },
+  },
+  style: {
+    fill: 'Couleur de fond',
+    stroke: 'Couleur de bordure',
+    swap: 'Échanger fond et bordure',
+    color: 'Couleur {color}',
+    customColor: 'Couleur personnalisée',
+    border: 'Bordure',
+    noBorder: 'Pas de bordure',
+    borderWidth: 'Bordure {width} px',
+    strokeStyle: 'Trait',
+    solid: 'Trait plein',
+    dashed: 'Tirets',
+    dotted: 'Pointillés',
+    strokeOpacity: 'Op. trait',
+    fillOpacity: 'Fond',
+    opacityPreset: 'Fond {percent} %',
+    corners: 'Angles',
+    cornerRadius: 'Angles arrondis {radius} %',
+    selectionCount: '{count} forme',
+    selectionCountPlural: '{count} formes',
+    expand: 'Modifier le style',
+  },
+  selection: {
+    title: 'Sélection',
+    shapesGroup: 'Formes',
+    group: '{group} · {type}',
+    deselectGroup: 'Désélectionner {label}',
+    clearAll: 'Tout désélectionner',
+    movePanel: 'Déplacer le panneau',
+    expandGroup: 'Déplier / replier {label}',
+    shapeItem: '{type} {n}',
+    delete: 'Supprimer',
+    pathsGroup: 'Tracés',
+    pathItem: 'Tracé {n}',
+  },
+  clusters: {
+    label: 'Groupe de {count} marqueurs',
+    labelSingular: 'Groupe de {count} marqueur',
+  },
+  markerList: {
+    target: 'Cibler',
+    actions: 'Actions pour {label}',
+    remove: 'Retirer {label}',
+  },
+  lens: {
+    tool: 'Loupe',
+    title: '{count} marqueurs',
+    titleSingular: '{count} marqueur',
+    empty: 'Aucun marqueur dans la zone',
+    remove: 'Retirer la loupe',
+    movePanel: 'Déplacer le panneau',
+    snapBack: 'Rattacher le panneau à la zone',
+    hidden: 'Masqué au zoom actuel',
+  },
+  settings: {
+    title: 'Réglages des outils',
+    resetAll: 'Tout réinitialiser',
+    resetTool: 'Réinitialiser cet outil',
+    shortcutsTitle: 'Raccourcis clavier',
+    preferences: {
+      title: 'Préférences',
+      reset: 'Réinitialiser les préférences',
+      quality: {
+        title: 'Qualité 3D',
+        auto: 'Auto',
+        high: 'Élevé',
+        medium: 'Moyen',
+        low: 'Léger',
+      },
+      controls: {
+        title: 'Contrôles',
+        move: 'Déplacement',
+        view: 'Vue',
+        speed: 'Vitesse',
+        slow: 'Lent',
+        normal: 'Normal',
+        fast: 'Rapide',
+        damping: 'Glissement de la carte',
+        rebind: 'Changer la touche : {action}',
+        conflict: 'Touche déjà utilisée ({action})',
+        conflictOther: 'Touche déjà utilisée par une autre commande',
+        resetKeys: 'Réinitialiser les touches',
+      },
+      actions: {
+        forward: 'Avancer',
+        backward: 'Reculer',
+        left: 'Gauche',
+        right: 'Droite',
+        boost: 'Accélérer (piéton)',
+        north: 'Nord',
+        tilt: 'Inclinaison',
+        globe: 'Globe',
+        zoomIn: 'Zoom avant',
+        zoomOut: 'Zoom arrière',
+        fullscreen: 'Plein écran',
+      },
+    },
+    capture: {
+      title: 'Prendre une photo',
+      format: 'Format',
+      quality: 'Qualité',
+      scale: 'Netteté',
+      transparent: 'Fond transparent',
+      download: 'Télécharger',
+      mail: 'Envoyer par mail',
+      share: 'Partager',
+      filename: 'carte',
+    },
+  },
+  actions: {
+    panMap: 'Déplacer la carte',
+    navigate: 'Se déplacer (caméra)',
+    boost: 'Accélérer',
+    zoom: 'Zoom avant / arrière',
+    basemap: 'Vue 3D / plan',
+    layers: 'Couches',
+    rotateCamera: 'Tourner la caméra',
+    rotateShape: 'Tourner la forme',
+    undoRedo: 'Annuler / Rétablir',
+    selectAll: 'Tout sélectionner',
+    duplicate: 'Dupliquer',
+    delete: 'Supprimer',
+    moveSelection: 'Déplacer la sélection',
+    closePolygon: 'Fermer le polygone',
+    cancel: 'Annuler / quitter',
+    addToSelection: 'Ajouter à la sélection',
+    markersOnly: 'Marqueurs seuls (tracé)',
+  },
+  glyphs: {
+    submenu: '›',
+    check: '✓',
+    none: '∅',
+    separator: '·',
+  },
+  modKey: {
+    mac: '⌘',
+    other: 'Ctrl+',
+  },
+  keys: {
+    escape: 'Échap',
+    space: 'Espace',
+    spaceShift: 'Espace+Maj',
+    shiftDrag: 'Maj + glisser',
+    enter: 'Entrée',
+    arrows: 'Flèches',
+    backspace: '⌫',
+    shiftClick: 'Maj + clic',
+    altOrCmd: 'Alt / ⌘',
+    shift: '⇧',
+    shiftKey: 'Maj',
+  },
+  format: {
+    shortcut: '{label} ({key})',
+  },
+  measure: {
+    major: '{value} km',
+    minor: '{value} m',
+    majorThreshold: 1000,
+    majorFactor: 1000,
+    minorFactor: 1,
+    majorDecimals: 2,
+    minorDecimals: 0,
+    numberLocale: 'auto',
+  },
+  duration: {
+    minorThreshold: 60,
+    majorThreshold: 60,
+    seconds: '{value} s',
+    minutes: '{value} min',
+    hours: '{h} h',
+    hoursMinutes: '{h} h {m}',
+  },
+  stats: {
+    title: 'Infos',
+    sections: {
+      camera: 'Caméra',
+      content: 'Contenu affiché',
+      render: 'Rendu',
+      tiles: 'Tuiles et mémoire',
+    },
+    markersVisible: 'markers affichés',
+    markersTotal: 'markers au total',
+    clusters: 'pastilles de regroupement',
+    shapes: 'formes',
+    paths: 'tracés',
+    links: 'liens',
+    drawings: 'dessins',
+    fps: 'images par seconde',
+    paintedRatio: 'frames peintes',
+    drawCalls: 'appels de rendu',
+    triangles: 'triangles',
+    textures: 'textures',
+    geometries: 'géométries',
+    resolutionScale: 'échelle de résolution',
+    tilesCached: 'tuiles en cache',
+    tilesInflight: 'tuiles en chargement',
+    tileBytes: 'mémoire des tuiles',
+    workers: 'workers d’extrusion',
+    percentFormat: '{value} %',
+    byteUnits: ['o', 'Ko', 'Mo', 'Go'],
+  },
+  readout: {
+    title: 'Position de la caméra',
+    altitude: 'alt',
+    latitude: 'lat',
+    longitude: 'lng',
+    heading: 'cap',
+    tilt: 'incl',
+    zoom: 'zoom',
+    degreeFormat: '{value}°',
+    degreeDecimals: 0,
+    coordDecimals: 5,
+    zoomDecimals: 1,
+    numberLocale: 'en-US',
+  },
+  relations: {
+    menuRoot: 'Distance autour',
+    pending: '…',
+    unavailable: 'Temps indisponible',
+    linkLabel: '{distance} · {duration}',
+    fastestGroup: 'Les plus rapides',
+    fastest: 'Les {count} plus rapides',
+    radiusGroup: 'Dans un rayon',
+    radius: 'Dans {radius}',
+    targetCount: '{count}',
+    tooWide: '{count} !',
+    noTargets: 'aucun',
+    clusterAggregate: '{count} éléments',
+    statusRelation: '{source} → {targets}',
+    clear: 'Supprimer',
+    removeRoute: 'Fermer l’itinéraire',
+    modes: {
+      DRIVE: 'En voiture',
+      WALK: 'À pied',
+      BICYCLE: 'À vélo',
+      TWO_WHEELER: 'En deux-roues',
+      TRANSIT: 'En transports',
+    },
+  },
+  pinned: {
+    add: 'Ajouter un marqueur',
+    remove: 'Supprimer',
+    collapse: 'Réduire',
+    expand: 'Développer',
+    title: 'Favoris',
+  },
+  plural: (count) => (count > 1 ? 'other' : 'one'),
+  errors: {
+    outsideMap: 'Ce composant doit être utilisé à l’intérieur de <Map>',
+    drawingRequired: 'useDrawing nécessite le dessin : il est retiré par <Map draw={false}>',
+    lensRequired: 'useLens nécessite la loupe : elle est retirée par <Map toolbar={{ lens: false }}>',
+  },
+}
+```
+<!-- labels:full:end -->
