@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { normalizeSearch } from '../../search/match'
 import { symbolText } from '../../labels/mergeLabels'
 import type { SymbolEntry } from '../../symbols/types'
+import type { MapTheme } from '../../theme/types'
 import { useConfig, useLabels, useMapContext, useTheme, useToolbar } from '../context'
 import { useDraggable } from '../hooks/useDraggable'
 import { useDrawing } from '../hooks/useDrawing'
@@ -76,6 +77,7 @@ export function SymbolPaletteButton({ position = 'left' }: { position?: 'left' |
 /** Contenu du panneau — monté uniquement ouvert (aucun rendu de vignette fermé). */
 function SymbolPanel() {
   const labels = useLabels()
+  const readable = useTheme().colors.readable
   const previewSize = useConfig().interaction.symbols.previewSizePx
   const { symbols } = useDrawing()
   const [query, setQuery] = useState('')
@@ -172,7 +174,7 @@ function SymbolPanel() {
                 // sur la carte, l'écho doit être immédiat.
                 style={
                   actif && couleur
-                    ? { background: couleur, borderColor: couleur, color: lisibleSur(couleur) }
+                    ? { background: couleur, borderColor: couleur, color: lisibleSur(couleur, readable) }
                     : undefined
                 }
               >
@@ -283,10 +285,10 @@ function SymbolGlyph({ svg, size }: { svg: string; size: number }) {
 }
 
 /**
- * Noir ou blanc selon la luminance du fond : le jaune de l'affiliation « inconnu »
- * rendrait un libellé blanc illisible.
+ * Sombre ou clair selon la luminance du fond (`theme.colors.readable`) : le jaune de
+ * l'affiliation « inconnu » rendrait un libellé blanc illisible.
  */
-function lisibleSur(hex: string): string {
+function lisibleSur(hex: string, readable: MapTheme['colors']['readable']): string {
   const v = hex.replace('#', '')
   const n =
     v.length === 3
@@ -299,5 +301,5 @@ function lisibleSur(hex: string): string {
   const g = parseInt(n.slice(2, 4), 16) / 255
   const b = parseInt(n.slice(4, 6), 16) / 255
   // Luminance perçue (pondération ITU-R BT.601, suffisante pour un choix binaire).
-  return 0.299 * r + 0.587 * g + 0.114 * b > 0.6 ? '#101828' : '#ffffff'
+  return 0.299 * r + 0.587 * g + 0.114 * b > readable.threshold ? readable.dark : readable.light
 }

@@ -2,10 +2,11 @@ import { useId, useMemo, useRef } from 'react'
 import { boundsOfShape, ringOfShape, ShapeLayer as CoreShapeLayer, type ShapeData } from '../../layers/ShapeLayer'
 import { createTitleCache } from '../../search/match'
 import { SHAPE_GROUP } from '../../search/registry'
-import { useLabels, useMapContext } from '../context'
+import { useConfig, useLabels, useMapContext } from '../context'
 import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 import { useSearchProvider } from '../hooks/useSearchProvider'
+import { renderOrderOf } from '../renderOrder'
 
 export type ShapeLayerProps = {
   /** Zones à afficher (cercles, rectangles, polygones), drapées sur le relief. */
@@ -15,14 +16,15 @@ export type ShapeLayerProps = {
 /** Zones/formes plaquées au sol (cercle-rayon, polygone, rectangle-bounds). */
 export function ShapeLayer({ shapes }: ShapeLayerProps) {
   const { engine, theme } = useMapContext()
+  const config = useConfig()
 
   const ref = useLayer(
     () =>
       new CoreShapeLayer(engine.annotations, engine.projection, {
         color: theme.colors.zone.stroke,
-        width: 6,
-        fillOpacity: 0.22,
-        renderOrder: 1,
+        width: theme.zone.width,
+        fillOpacity: theme.zone.fillOpacity,
+        renderOrder: renderOrderOf(config, 'shapes', 1),
       }),
   )
 

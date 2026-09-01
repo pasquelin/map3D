@@ -58,7 +58,7 @@ export function DefaultCluster({
   const colorOf = (type: string) => markerColorOf(theme, type)
   const core = theme.colors.cluster // couleur PROPRE du cluster (indépendante des types)
 
-  const { ringWidth: RING_W, strokeWidth: STROKE_W, segmentGap, startAngle } = theme.clusters
+  const { ringWidth: RING_W, strokeWidth: STROKE_W, segmentGap, startAngle, text, tip: tipTheme } = theme.clusters
   const ro = defaultClusterRadius(total, theme)
   /**
    * Boîte du sprite : le donut, et RIEN d'autre (demi-trait de contour compris).
@@ -156,12 +156,12 @@ export function DefaultCluster({
               }}
             >
               {segs.length === 1 ? (
-                <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke="#fff" strokeWidth={STROKE_W} />
+                <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke={core.stroke} strokeWidth={STROKE_W} />
               ) : (
                 <path
                   d={sector(s.a0, s.a1)}
                   fill={s.col.base}
-                  stroke="#fff"
+                  stroke={core.stroke}
                   strokeWidth={STROKE_W}
                   strokeLinejoin="round"
                 />
@@ -180,8 +180,8 @@ export function DefaultCluster({
                   y={0}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fontSize={s.count > 99 ? 11 : 13}
-                  fontWeight={800}
+                  fontSize={s.count >= text.wideFrom ? text.segmentSizeWide : text.segmentSize}
+                  fontWeight={text.weight}
                   fill={s.col.contrast}
                 >
                   {s.count}
@@ -198,8 +198,8 @@ export function DefaultCluster({
             y={C + 1}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={total > 99 ? 16 : 19}
-            fontWeight={800}
+            fontSize={total >= text.wideFrom ? text.coreSizeWide : text.coreSize}
+            fontWeight={text.weight}
             fill={core.text}
           >
             {total}
@@ -213,18 +213,20 @@ export function DefaultCluster({
             ref={attachTip}
             // `left`/`top`/`transform` sont écrits par `placeTip` (clampés aux bords de la
             // fenêtre, retournés sous le pointeur près du haut), jamais par ce style.
+            // Valeurs lues dans `theme.clusters.tip` et non via `--m3d-*` : ce portail vit
+            // hors de `.m3d-root`, là où `themeToVars` pose ses variables.
             style={{
               position: 'fixed',
               display: 'flex',
               alignItems: 'center',
-              gap: 7,
-              padding: '6px 10px',
-              borderRadius: 8,
-              background: 'rgba(17,24,39,0.96)',
-              color: '#fff',
-              font: '600 12px/1 system-ui, -apple-system, sans-serif',
+              gap: tipTheme.gap,
+              padding: `${tipTheme.paddingY}px ${tipTheme.paddingX}px`,
+              borderRadius: tipTheme.radius,
+              background: tipTheme.background,
+              color: tipTheme.color,
+              font: `${tipTheme.weight} ${tipTheme.fontSize}px/1 ${theme.typography.fontFamily}`,
               whiteSpace: 'nowrap',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              boxShadow: tipTheme.shadow,
               pointerEvents: 'none',
               // Palier `style.zIndex.menu`, comme `.m3d-menu`. Lu ici en JS et non
               // via `--m3d-z-menu` : cette vignette est le seul portail de la lib
@@ -235,10 +237,18 @@ export function DefaultCluster({
               zIndex: zIndex.menu,
             }}
           >
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: tip.color, flex: '0 0 auto' }} />
+            <span
+              style={{
+                width: tipTheme.dotSize,
+                height: tipTheme.dotSize,
+                borderRadius: '50%',
+                background: tip.color,
+                flex: '0 0 auto',
+              }}
+            />
             <span>{tip.label}</span>
-            <span style={{ opacity: 0.6 }}>{labels.glyphs.separator}</span>
-            <span style={{ fontWeight: 800 }}>{tip.count}</span>
+            <span style={{ opacity: tipTheme.separatorOpacity }}>{labels.glyphs.separator}</span>
+            <span style={{ fontWeight: text.weight }}>{tip.count}</span>
           </div>,
           document.body,
         )}

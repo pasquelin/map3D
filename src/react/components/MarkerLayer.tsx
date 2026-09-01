@@ -285,7 +285,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
 
   const markerSize = props.size ?? theme.markers.size
 
-  const ringSize = props.selectionRing ?? markerSize + 4
+  const ringSize = props.selectionRing ?? markerSize + theme.markers.selectionRingExtraPx
   // Un avatar remplit tout le gabarit : son anneau part de la taille du marker (sans le
   // facteur de pastille de `selectionRing`), écarté d'un gap THÉMÉ de chaque côté — jamais
   // une valeur en dur, la taille de l'avatar étant elle-même configurable (`markers.size`).
@@ -626,7 +626,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       // une invitation à retomber sur la donnée).
       const tip = !hovered ? null : props.tooltip ? props.tooltip(marker) : tipFromData(marker)
       const hoverable = !!props.tooltip || hasOwnTip(marker)
-      const tipLift = markerSize / 2 + 10
+      const tipLift = markerSize / 2 + theme.markers.tipGapPx
       // La prop de couche, si fournie, prime sur le drapeau porté par la donnée —
       // sinon c'est le marker lui-même qui décide (cas courant : un seul point
       // éditable au milieu de markers en lecture seule).

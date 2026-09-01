@@ -71,9 +71,6 @@ export type SearchBoxProps = {
   debounceMs?: number
 }
 
-/** Idem pour le menu de portée, plus court (une ligne par rubrique). */
-const SCOPE_MAX_HEIGHT = 280
-
 /** Entrée d'historique : le strict nécessaire pour re-trouver, ou à défaut y voler. */
 type HistoryItem = { group: string; id: string; title: string; lat: number; lng: number }
 
@@ -187,7 +184,7 @@ export function SearchBox({
   const setResultsPanel = useFitHeight('dropdown', theme.sizing.panelMaxHeight.search)
   // Le menu de portée est un déroulant comme un autre : sur une carte courte, la place
   // restante sous le champ est sa vraie borne — pas un plafond figé dans le CSS.
-  const setScopePanel = useFitHeight('dropdown', SCOPE_MAX_HEIGHT)
+  const setScopePanel = useFitHeight('dropdown', theme.sizing.panelMaxHeight.searchScope)
 
   useEffect(() => engine.search.onItemsChanged(bumpItems), [engine])
 
@@ -450,9 +447,10 @@ export function SearchBox({
     const rr = root?.getBoundingClientRect()
     if (!rr) return
     const r = btn.getBoundingClientRect()
-    const width = 180
-    const left = Math.min(r.right - rr.left - width, rr.width - width - 8)
-    setRowMenu({ key, left: Math.max(8, left), top: r.bottom - rr.top + 2 })
+    const width = theme.sizing.rowMenuW
+    const edge = theme.spacing.edge
+    const left = Math.min(r.right - rr.left - width, rr.width - width - edge)
+    setRowMenu({ key, left: Math.max(edge, left), top: r.bottom - rr.top + theme.spacing.rowMenuGap })
   }
 
   const scopeName = scopeGroup === null ? labels.search.scopeAll : groupLabelOf(scopeGroup)

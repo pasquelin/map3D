@@ -12,6 +12,7 @@ type DrawSymbolsProps = {
   enabled?: boolean
   catalog?: SymbolCatalog
   renderer?: SymbolRenderer
+  defaultVariant?: string
 }
 
 /**
@@ -43,7 +44,12 @@ export function useDrawSymbols(
   const providedRenderer = symbols?.renderer
   const [lazyRenderer, setLazyRenderer] = useState<SymbolRenderer | null>(null)
   const [symbolsReady, setSymbolsReady] = useState(false)
-  const [affiliation, setAffiliation] = useState('friendly')
+  // Variante initiale : la prop, sinon la première que le CATALOGUE déclare — c'est lui
+  // qui les connaît (`friendly` pour MIL-STD). `''` pour un catalogue sans variante :
+  // aucune n'est alors transmise au renderer (cf. `renderSymbol` dans `DrawLayer`).
+  const [affiliation, setAffiliation] = useState(
+    () => symbols?.defaultVariant ?? Object.keys(symbolCatalog.variantColors ?? {})[0] ?? '',
+  )
   // Palette ouverte, publiée par le bouton (cf. `paletteOpen`) : la barre en a
   // besoin pour son exclusivité visuelle, et c'est l'un des deux déclencheurs du
   // chargement de la symbologie.
@@ -127,7 +133,7 @@ export function useDrawSymbols(
   // ré-enregistrée à chaque rendu.
   const placeRef = useRef<(key: string, at: LatLng) => void>(() => {})
   placeRef.current = (key, at) => {
-    if (symbolsEnabled) coreRef.current?.placeSymbol(key, at, affiliation)
+    if (symbolsEnabled) coreRef.current?.placeSymbol(key, at, affiliation || undefined)
   }
   useMapDropZone({
     accept: (p) => symbolsEnabled && p.type === SYMBOL_DRAG_TYPE,

@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import type { StrokeStyle } from '../layers/DrawLayer'
+import type { DashStyle } from '../layers/LinkLayer'
 
 export type MarkerColor = { base: string; accent: string; contrast: string }
 
@@ -28,7 +30,21 @@ export type MapTheme = {
       text: string
       /** Anneau de séparation cœur/parts. */
       ring: string
+      /** Contour clair des parts (épaisseur : `clusters.strokeWidth`). */
+      stroke: string
     }
+    /**
+     * Texte posé sur une couleur ARBITRAIRE (pastille d'affiliation de la palette de
+     * symboles) : `dark` sur un fond clair, `light` sur un fond sombre. `threshold` est
+     * la luminance perçue (0–1, ITU-R BT.601) au-delà de laquelle le fond est jugé clair.
+     */
+    readable: { dark: string; light: string; threshold: number }
+    /**
+     * Assombrissement du bas d'une pastille de dock qui porte sa PROPRE couleur
+     * (`PinnedItem.color`) : `color-mix(in srgb, <couleur> <percent>%, <color>)`. Le
+     * contenu posé dessus a souvent la même teinte — un fond clair le rendrait invisible.
+     */
+    pinShade: { color: string; percent: number }
     draw: {
       /** Palette proposée par le sélecteur de couleur du dessin. */
       palette: string[]
@@ -164,6 +180,18 @@ export type MapTheme = {
     icon: 'none' | 'type' | 'number' | ReactNode
     /** Tween de position (déplacement animé des agents). */
     moveTween: { duration: number; easing: (t: number) => number }
+    /**
+     * Surplus de diamètre (px) de l'anneau de multi-sélection d'un SPRITE par rapport à
+     * `size` — repli de `<MarkerLayer selectionRing>`. Distinct de `selectedGapPx`, qui
+     * vaut de chaque côté d'un avatar plein.
+     */
+    selectionRingExtraPx: number
+    /** Écart (px) entre le haut du visuel — marker ou pastille de cluster — et son infobulle. */
+    tipGapPx: number
+    /** Anneau clair entre le corps de la pastille par défaut et son halo. */
+    ringColor: string
+    /** Couleur du reflet (`gloss`). */
+    glossColor: string
   }
   /**
    * Géométrie du cluster par défaut, en **donut** : un cœur portant le total,
@@ -189,6 +217,96 @@ export type MapTheme = {
     /** Écart (px) entre le bord de la pastille et son anneau de sélection marching-ants —
      *  sans lui, l'anneau tomberait pile sur le contour du donut et serait invisible. */
     selectedGapPx: number
+    /**
+     * Diamètre d'une pastille CUSTOM (`<Map cluster={{ icon }}>`) en fraction de
+     * `markers.size` — repli de `<ClusterSurface size>`. Le donut par défaut, lui, tire
+     * sa taille de `coreRadius`.
+     */
+    sizeRatio: number
+    /**
+     * Chiffres du donut (px). Une part ou le cœur passent en taille « wide » à partir de
+     * `wideFrom` — trois chiffres ne tiennent pas à la taille de deux.
+     */
+    text: {
+      segmentSize: number
+      segmentSizeWide: number
+      coreSize: number
+      coreSizeWide: number
+      wideFrom: number
+      weight: number
+    }
+    /**
+     * Vignette de survol d'une part (type + compte). Portée à `document.body` — hors de
+     * `.m3d-root`, donc hors de portée des variables CSS du thème : ses valeurs sont
+     * lues en JS, d'où ce bloc à part entière plutôt que des tokens partagés.
+     */
+    tip: {
+      background: string
+      color: string
+      fontSize: number
+      weight: number
+      radius: number
+      /** Écart entre pastille, libellé et compte (px). */
+      gap: number
+      paddingY: number
+      paddingX: number
+      /** Diamètre de la pastille de couleur du type (px). */
+      dotSize: number
+      shadow: string
+      /** Opacité du séparateur entre libellé et compte. */
+      separatorOpacity: number
+    }
+  }
+  /**
+   * Défauts d'apparence des liens de relation — repli des props de `<RelationLayer>`
+   * (`width`, `defaultColor`…), qui les surchargent par instance.
+   */
+  relations: {
+    /** Épaisseur du trait des liens, en pixels écran. */
+    width: number
+    /**
+     * Dernier repli de couleur des traits (ni la règle ni le marker source n'en
+     * donnent). Jaune : lisible sur satellite comme sur plan.
+     */
+    defaultColor: string
+    /**
+     * Couleur de l'itinéraire réel — violet façon navigation : sur imagerie
+     * satellite, un tracé bleu se confond avec les fleuves qu'il longe.
+     */
+    routeColor: string
+    /** Facteur d'assombrissement du trait survolé (< 1 = plus sombre). */
+    hoverDarken: number
+    /** Rayon du socle sous le marker source (px écran) — il porte la croix d'effacement. */
+    hubRadius: number
+    /** Contour sombre sous le trait (px). `0` l'ôte. */
+    casingWidth: number
+    /** Opacité du lien le moins bien classé — plancher du dégradé de rang. */
+    minOpacity: number
+    /**
+     * Pointillé défilant des traits de RECHERCHE (px écran, `speed` en px/s). Tiret plus
+     * long que l'espace — le trait doit rester une ligne — et défilement lent : c'est un
+     * signal d'attente, il ne doit pas capter le regard plus que le marker qu'il désigne.
+     */
+    dash: DashStyle
+  }
+  /** Style d'une forme nouvellement dessinée, avant tout réglage utilisateur. */
+  draw: {
+    width: number
+    fillOpacity: number
+    stroke: StrokeStyle
+    /** Opacité de la bordure quand le réglage de l'outil n'en dit rien. */
+    strokeOpacity: number
+  }
+  /** Tracés déclaratifs (`<PathLayer>`) : épaisseurs en mètres au sol. */
+  path: {
+    width: number
+    casingWidth: number
+  }
+  /** Zones déclaratives (`<ShapeLayer>`). */
+  zone: {
+    /** Épaisseur du contour (m). */
+    width: number
+    fillOpacity: number
   }
   animations: {
     /** Coupe TOUTES les animations JS (le CSS a sa propre règle `prefers-reduced-motion`). */
@@ -247,6 +365,8 @@ export type MapTheme = {
     edge: number
     /** Retrait des barres verticales par rapport au bord. */
     barInset: number
+    /** Écart entre le bouton « … » d'une ligne (recherche, sélection) et son menu. */
+    rowMenuGap: number
   }
   /** Dimensions des surfaces flottantes et des icônes. */
   sizing: {
@@ -264,11 +384,17 @@ export type MapTheme = {
       tags: number
       symbols: number
       search: number
+      /** Menu de portée de la recherche — plus court : une ligne par rubrique. */
+      searchScope: number
       settings: number
       settingsSub: number
       templates: number
       catalog: number
     }
+    /** Largeur du menu « … » d'une ligne de résultat ou de sélection (px). */
+    rowMenuW: number
+    /** Côté (px) d'un carré de la dock des favoris — repli de `<PinnedDock size>`. */
+    pinSize: number
     /**
      * Hauteur d'une ligne de catalogue (px).
      *

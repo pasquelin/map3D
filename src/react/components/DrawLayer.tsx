@@ -44,6 +44,7 @@ import { useDrawKeyboard } from '../hooks/useDrawKeyboard'
 import { useDrawSymbols } from '../hooks/useDrawSymbols'
 import { useSearchProvider } from '../hooks/useSearchProvider'
 import { useYieldsTool } from '../hooks/useYieldsTool'
+import { renderOrderOf } from '../renderOrder'
 
 export type DrawLayerProps = {
   /** Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. */
@@ -120,6 +121,12 @@ export type DrawLayerProps = {
     enabled?: boolean
     catalog?: SymbolCatalog
     renderer?: SymbolRenderer
+    /**
+     * Variante (affiliation MIL-STD) sélectionnée à l'ouverture de la palette. Défaut :
+     * la première que le catalogue déclare (`SymbolCatalog.variantColors`) — `friendly`
+     * pour MIL-STD-2525D.
+     */
+    defaultVariant?: string
     /** Regroupement des symboles entre eux — cf. `SymbolMarkersProps.cluster`. */
     cluster?: SymbolMarkersProps['cluster']
     /** Zoom en deçà duquel les symboles posés disparaissent — cf. `SymbolMarkersProps.minZoom`. */
@@ -306,14 +313,21 @@ export function DrawLayer(props: DrawLayerProps) {
   // quatrième champ de `ToolSettings` (`radius`, `fillColor`, `strokeOpacity`) aurait
   // demandé de penser à trois tableaux de dépendances distincts, et le champ manquant
   // serait passé inaperçu. Un seul endroit à tenir désormais.
+  const drawDefaults = theme.draw
   const base = useMemo<ToolSettings>(
     () => ({
       color: props.defaults?.color ?? theme.colors.draw.default,
-      width: props.defaults?.width ?? 8,
-      fillOpacity: props.defaults?.fillOpacity ?? 0.3,
-      stroke: 'solid',
+      width: props.defaults?.width ?? drawDefaults.width,
+      fillOpacity: props.defaults?.fillOpacity ?? drawDefaults.fillOpacity,
+      stroke: drawDefaults.stroke,
     }),
-    [props.defaults?.color, props.defaults?.width, props.defaults?.fillOpacity, theme.colors.draw.default],
+    [
+      props.defaults?.color,
+      props.defaults?.width,
+      props.defaults?.fillOpacity,
+      theme.colors.draw.default,
+      drawDefaults,
+    ],
   )
   // Réglages par outil, persistés (localStorage) : base < overrides utilisateur.
   // `base` par ref, à dessein : il n'entre ici qu'à la CONSTRUCTION du store, et le
@@ -340,8 +354,11 @@ export function DrawLayer(props: DrawLayerProps) {
   // Re-render (panneaux, aperçus) à chaque changement de réglage.
   useEffect(() => settings.onChange(bump), [settings])
 
+  // Empilement des formes dessinées parmi les couches 3D — lu à la création du core,
+  // comme ses autres réglages de construction.
+  const drawOrder = renderOrderOf(config, 'drawings', 4)
   useEffect(() => {
-    const core = new CoreDrawLayer(engine.annotations, engine.projection, overlay, base, 4, (fc) => {
+    const core = new CoreDrawLayer(engine.annotations, engine.projection, overlay, base, drawOrder, (fc) => {
       lastEmittedRef.current = fc
       onChangeRef.current?.(fc)
       // Registre du panneau « Couches » : à chaque ajout/suppression de dessin.
@@ -678,15 +695,17 @@ export function DrawLayer(props: DrawLayerProps) {
   // appelées par les vignettes de la palette et par le dépôt, hors cycle de rendu.
   const symbolsRef = useRef({ renderer, affiliation, enabled: symbolsEnabled })
   symbolsRef.current = { renderer, affiliation, enabled: symbolsEnabled }
+  // Un catalogue sans variante n'en transmet AUCUNE (`''` → `undefined`) : le renderer
+  // retombe sur la sienne, au lieu de recevoir une chaîne qu'il ne connaît pas.
   const renderSymbol = useCallback((key: string, opts?: SymbolRenderOptions) => {
     const { renderer: r, affiliation: a } = symbolsRef.current
     // `null` tant que le renderer n'est pas acquis ou pas prêt : c'est le contrat
     // de `SymbolRenderer.render`, et l'appelant affiche déjà un placeholder.
-    return r?.render(key, { variant: a, ...opts }) ?? null
+    return r?.render(key, { variant: a || undefined, ...opts }) ?? null
   }, [])
   const placeSymbol = useCallback((key: string, at: LatLng, variant?: string) => {
     const { enabled, affiliation: a } = symbolsRef.current
-    return enabled ? (coreRef.current?.placeSymbol(key, at, variant ?? a) ?? null) : null
+    return enabled ? (coreRef.current?.placeSymbol(key, at, variant ?? (a || undefined)) ?? null) : null
   }, [])
 
   // DONNÉES dérivées du core, lues à chaque rendu (`rev` en provoque un à chaque
@@ -708,7 +727,7 @@ export function DrawLayer(props: DrawLayerProps) {
         fillColor: d.fillColor,
         width: d.width,
         fillOpacity: d.fillOpacity,
-        strokeOpacity: d.strokeOpacity ?? 0.95,
+        strokeOpacity: d.strokeOpacity ?? drawDefaults.strokeOpacity,
         stroke: d.stroke,
         radius: d.radius ?? 0,
       }
