@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { intersectsView, type Tile, TileQueue, tileRange, tileRing } from './TileQueue'
+import { intersectsView, type Tile, TileDeferred, tileId, TileQueue, tileRange, tileRing } from './TileQueue'
+
 import { latToTileY, lngToTileX } from './googleTiles'
 
 const BUDGET = {
@@ -11,7 +12,10 @@ const BUDGET = {
   evictEvery: 1,
   evictSlack: 0,
   mountPerFrame: 8,
+  errorTtlMs: 0,
+  staleFrames: 1_000_000,
 }
+
 
 type TestTile = Tile & { payload: string | null }
 
@@ -289,5 +293,130 @@ describe('helpers de tuiles', () => {
     const r = tileRing({ lat: 48.85, lng: 2.35 }, 14, 1, lngToTileX, latToTileY)
     expect(r.x0).toBe(r.x1)
     expect(r.y0).toBe(r.y1)
+  })
+})
+
+describe('TileQueue — erreur périssable, priorité et montage protégé', () => {
+  it('redemande une tuile en erreur une fois `errorTtlMs` écoulé, si elle est encore vue', async () => {
+    vi.useFakeTimers()
+    try {
+      const { queue, results, ensure } = makeQueue({ maxAttempts: 1, errorTtlMs: 1000 })
+      results.set('3/1/1', Promise.reject(new Error('503')))
+      queue.beginFrame()
+      const t = ensure(3, 1, 1)
+      queue.pump()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(t.state).toBe('error')
+      // Toujours vue avant le délai : rien ne bouge.
+      queue.beginFrame()
+      ensure(3, 1, 1)
+      expect(t.state).toBe('error')
+      // Délai passé : la tuile repart en file, compteur d'essais remis à zéro.
+      results.set('3/1/1', Promise.resolve('ok'))
+      vi.advanceTimersByTime(1001)
+      queue.beginFrame()
+      ensure(3, 1, 1)
+      expect(t.state).toBe('queued')
+      expect(t.attempts).toBe(0)
+      queue.pump()
+      await vi.advanceTimersByTimeAsync(0)
+      queue.beginFrame()
+      expect(t.state).toBe('ready')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('un échec différé (`TileDeferred`) ne consomme pas d’essai et replanifie à la date donnée', async () => {
+    vi.useFakeTimers()
+    try {
+      const { queue, results, ensure } = makeQueue({ maxAttempts: 1 })
+      const retryAt = Date.now() + 5000
+      results.set('3/2/2', Promise.reject(new TileDeferred(retryAt)))
+      queue.beginFrame()
+      const t = ensure(3, 2, 2)
+      queue.pump()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(t.state).toBe('queued')
+      expect(t.attempts).toBe(0)
+      expect(t.retryAt).toBe(retryAt)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sert d’abord les tuiles vues cette frame, et laisse tomber celles d’une vue quittée', async () => {
+    const { queue, ensure, mounted } = makeQueue({ maxInflight: 1, staleFrames: 2 })
+    queue.beginFrame()
+    const old = ensure(5, 0, 0)
+    // Trois frames sans revoir `old` : elle est périmée.
+    queue.beginFrame()
+    queue.beginFrame()
+    queue.beginFrame()
+    const fresh = ensure(5, 9, 9)
+    queue.pump()
+    expect(fresh.state).toBe('loading')
+    expect(old.state).toBe('queued')
+    await settle()
+    queue.beginFrame()
+    queue.pump()
+    // `old` n'a pas été chargée : sortie de la file, pas de téléchargement pour une vue quittée.
+    expect(old.state).toBe('queued')
+    expect(mounted.map((t) => t.key)).toEqual(['5/9/9'])
+    // Revue, elle reprend sa place.
+    ensure(5, 0, 0)
+    queue.pump()
+    expect(old.state).toBe('loading')
+  })
+
+  it('un `commit` qui lève ne fige pas la tuile et ne sort pas de la frame', async () => {
+    const released: string[] = []
+    let boom = true
+    const queue = new TileQueue<TestTile, string>({
+      budget: () => ({ ...BUDGET, maxAttempts: 2, retryDelays: [0] }),
+      make: (base) => ({ ...base, payload: null }),
+      fetch: (t) => Promise.resolve(`data:${t.key}`),
+      commit: (t, result) => {
+        if (boom) throw new Error('géométrie invalide')
+        t.payload = result
+      },
+      release: (t) => {
+        released.push(t.key)
+      },
+    })
+    queue.beginFrame()
+    const t = queue.ensure(4, 1, 1, 0, 1, 1, 0)
+    queue.pump()
+    await settle()
+    expect(() => queue.beginFrame()).not.toThrow()
+    expect(t.state).toBe('queued')
+    expect(released).toEqual(['4/1/1'])
+    boom = false
+    queue.pump()
+    await settle()
+    queue.beginFrame()
+    expect(t.state).toBe('ready')
+  })
+
+  it('`clear` oublie aussi les résultats en attente de montage', async () => {
+    const { queue, ensure } = makeQueue()
+    queue.beginFrame()
+    ensure(2, 1, 1)
+    queue.pump()
+    await settle()
+    expect(queue.pending).toBe(1)
+    queue.clear()
+    expect(queue.pending).toBe(0)
+    expect(queue.busy).toBe(false)
+  })
+
+  it('indexe par clé numérique et retrouve une tuile par sa clé lisible', () => {
+    const { queue, ensure } = makeQueue()
+    queue.beginFrame()
+    const t = ensure(14, 8300, 5640)
+    expect(t.key).toBe('14/8300/5640')
+    expect(queue.get('14/8300/5640')).toBe(t)
+    expect(queue.get('14/8300/5641')).toBeUndefined()
+    expect(tileId(14, 8300, 5640)).not.toBe(tileId(14, 8300, 5641))
   })
 })

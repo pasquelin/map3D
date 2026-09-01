@@ -14,13 +14,40 @@ import type { Bounds, LatLng } from '../shared'
 
 export type TileState = 'queued' | 'loading' | 'ready' | 'error'
 
+/**
+ * Échec DIFFÉRÉ : la source sait qu'il est inutile de réessayer avant `retryAt` (session
+ * Google en backoff). La file replanifie la tuile à cette date SANS lui compter une
+ * tentative — sinon chaque tuile visible brûlait ses `maxAttempts` en quelques secondes de
+ * rejets immédiats, et restait en erreur bien après le retour de la session.
+ */
+export class TileDeferred extends Error {
+  constructor(readonly retryAt: number) {
+    super('tuile différée')
+    this.name = 'TileDeferred'
+  }
+}
+
+/** Clé numérique d'une tuile — exacte sous 2⁵³ jusqu'au zoom 30, sans chaîne à allouer. */
+export function tileId(z: number, x: number, y: number): number {
+  return (z * 2 ** 22 + x) * 2 ** 22 + y
+}
+
 /** Ce que la file sait de toute tuile ; un calque y ajoute ce qu'il monte. */
 export type Tile = {
   z: number
   x: number
   y: number
+  /**
+   * Clé lisible `z/x/y`, calculée UNE fois à la création : elle sert aux références
+   * externes (`BuildingRef.tileKey`). Le cache, lui, est indexé par `id`.
+   */
   key: string
+  /** Clé numérique du cache (cf. `tileId`) — `ensure` est appelé par tuile et par frame. */
+  id: number
   state: TileState
+  /** Présente dans la file d'attente ? (une tuile `queued` sortie de la file y revient dès qu'elle est revue). */
+  inQueue: boolean
+
   /** Numéro de la dernière frame où la tuile a été demandée ou vue. */
   lastUsed: number
   /** Tentatives de téléchargement déjà consommées. */
@@ -57,10 +84,22 @@ export type TileBudget = {
   maxBytes: number
   /** Chargements simultanés. */
   maxInflight: number
-  /** Essais par tuile avant abandon définitif. */
+  /** Essais par tuile avant abandon. */
   maxAttempts: number
   /** Backoff entre deux essais d'une même tuile ; le dernier délai est reconduit. */
   retryDelays: readonly number[]
+  /**
+   * Durée (ms) pendant laquelle une tuile qui a épuisé ses essais reste en erreur avant
+   * d'être redemandée si elle est encore vue. `0` = erreur définitive (jusqu'à l'éviction).
+   */
+  errorTtlMs: number
+  /**
+   * Frames sans être vue au-delà desquelles une tuile en attente est retirée de la file : les
+   * tuiles d'une vue quittée ne se téléchargent pas (et ne se facturent pas) avant celles de
+   * la vue courante. Revue, elle reprend sa place.
+   */
+  staleFrames: number
+
   /**
    * Une frame sur `evictEvery` déclenche le tri d'éviction — il alloue et coûte
    * O(n log n). Rester une seconde au-dessus du plafond le rejouerait sinon à CHAQUE
@@ -110,7 +149,8 @@ export type TileQueueOptions<T extends Tile, R> = {
 }
 
 export class TileQueue<T extends Tile, R> {
-  private readonly tiles = new Map<string, T>()
+  private readonly tiles = new Map<number, T>()
+
   private readonly queue: T[] = []
   private inflight = 0
   private disposed = false
@@ -144,12 +184,22 @@ export class TileQueue<T extends Tile, R> {
     while (this.toMount.length > 0 && mounted < mountPerFrame) {
       const { tile, result } = this.toMount.shift()!
       if (!this.owns(tile)) continue
-      this.opts.commit(tile, result)
+      try {
+        this.opts.commit(tile, result)
+      } catch {
+        // Un montage qui lève (géométrie invalide, contexte WebGL perdu) sortait de la boucle
+        // de frame et laissait la tuile figée en `loading` : ni réessayée, ni évincée.
+        this.opts.release(tile)
+        tile.bytes = 0
+        this.retryOrFail(tile)
+        continue
+      }
       this.bytes += tile.bytes
       tile.state = 'ready'
       mounted++
     }
   }
+
 
   /** Mémoire actuellement retenue par les tuiles montées (octets). */
   get usedBytes(): number {
@@ -192,10 +242,14 @@ export class TileQueue<T extends Tile, R> {
     return this.inflight + this.queue.length + this.toMount.length
   }
 
-  /** Tuile d'une clé, `undefined` si elle n'est pas (ou plus) en cache. */
+  /** Tuile d'une clé `z/x/y`, `undefined` si elle n'est pas (ou plus) en cache. Chemin froid. */
   get(key: string): T | undefined {
-    return this.tiles.get(key)
+    const a = key.indexOf('/')
+    const b = key.indexOf('/', a + 1)
+    if (a < 0 || b < 0) return undefined
+    return this.tiles.get(tileId(Number(key.slice(0, a)), Number(key.slice(a + 1, b)), Number(key.slice(b + 1))))
   }
+
 
   values(): IterableIterator<T> {
     return this.tiles.values()
@@ -212,20 +266,22 @@ export class TileQueue<T extends Tile, R> {
    * mémoire, à chaque occurrence.
    */
   owns(tile: T): boolean {
-    return !this.disposed && this.tiles.get(tile.key) === tile
+    return !this.disposed && this.tiles.get(tile.id) === tile
   }
 
   /** Garantit la présence de la tuile dans le cache, et la marque vue cette frame. */
   ensure(z: number, x: number, y: number, west: number, east: number, north: number, south: number): T {
-    const key = `${z}/${x}/${y}`
-    let t = this.tiles.get(key)
+    const id = tileId(z, x, y)
+    let t = this.tiles.get(id)
     if (!t) {
       t = this.opts.make({
         z,
         x,
         y,
-        key,
+        key: `${z}/${x}/${y}`,
+        id,
         state: 'queued',
+        inQueue: false,
         lastUsed: this.frame,
         attempts: 0,
         retryAt: 0,
@@ -236,33 +292,71 @@ export class TileQueue<T extends Tile, R> {
         north,
         south,
       })
-      this.tiles.set(key, t)
-      this.queue.push(t)
+      this.tiles.set(id, t)
+      this.enqueue(t)
+    } else if (t.state === 'error') {
+      // Erreur PÉRISSABLE : une tuile toujours vue une fois le délai passé mérite un nouvel
+      // essai. Terminal, l'état laissait des trous définitifs après un simple 429.
+      const { errorTtlMs } = this.opts.budget()
+      if (errorTtlMs > 0 && Date.now() >= t.retryAt) {
+        t.attempts = 0
+        t.state = 'queued'
+        this.enqueue(t)
+      }
+    } else if (t.state === 'queued' && !t.inQueue) {
+      // Sortie de la file comme périmée (cf. `nextToLoad`), revue depuis : elle y revient.
+      this.enqueue(t)
     }
     t.lastUsed = this.frame
     return t
   }
 
+  private enqueue(t: T): void {
+    if (t.inQueue) return
+    t.inQueue = true
+    this.queue.push(t)
+  }
+
   /** Lance des chargements tant qu'il reste des créneaux de concurrence. */
   pump(): void {
     if (this.disposed) return
-    const { maxInflight } = this.opts.budget()
+    const { maxInflight, staleFrames } = this.opts.budget()
     const now = Date.now()
-    // `skipped` fait avancer la boucle quand la tête de file attend un réessai : la tuile
-    // repart en queue, la longueur ne bouge pas — sans ce compteur, une file entièrement
-    // en backoff tournerait à l'infini.
-    let skipped = 0
-    while (this.inflight < maxInflight && this.queue.length > skipped) {
-      const t = this.queue.shift()!
-      if (t.state !== 'queued' || !this.owns(t)) continue
-      if (t.retryAt > now) {
-        this.queue.push(t)
-        skipped++
-        continue
-      }
+    while (this.inflight < maxInflight) {
+      const i = this.nextToLoad(now, staleFrames)
+      if (i < 0) return
+      const t = this.queue[i]!
+      this.queue.splice(i, 1)
+      t.inQueue = false
       void this.load(t)
     }
   }
+
+  /**
+   * Rang de la prochaine tuile à charger, `-1` si rien n'est prêt. Les tuiles vues CETTE
+   * frame passent avant celles d'une vue quittée, et celles qu'on n'a plus vues depuis
+   * `staleFrames` sortent de la file en passant — un pan rapide laissait sinon des dizaines
+   * de tuiles hors champ se télécharger (et se facturer) avant celles de la vue courante.
+   * Purge aussi les entrées mortes (évincées, réétiquetées) et saute celles en backoff.
+   */
+  private nextToLoad(now: number, staleFrames: number): number {
+    let fallback = -1
+    for (let i = 0; i < this.queue.length; i++) {
+      const t = this.queue[i]!
+      const dead = t.state !== 'queued' || !this.owns(t)
+      if (dead || this.frame - t.lastUsed > staleFrames) {
+        t.inQueue = false
+        this.queue.splice(i, 1)
+        i--
+        continue
+      }
+      if (t.retryAt > now) continue
+      if (t.lastUsed === this.frame) return i
+      if (fallback < 0) fallback = i
+    }
+    return fallback
+  }
+
 
   private async load(t: T): Promise<void> {
     t.state = 'loading'
@@ -277,27 +371,42 @@ export class TileQueue<T extends Tile, R> {
       // façon d'empêcher deux chargements simultanés d'additionner leur coût dans la même
       // frame. La tuile reste donc en `loading` jusque-là, ce qui la garde hors du rendu.
       this.toMount.push({ tile: t, result })
-    } catch {
-      if (this.owns(t)) this.retryOrFail(t)
+    } catch (err) {
+      if (!this.owns(t)) return
+      if (err instanceof TileDeferred) {
+        // La source a différé, pas échoué : l'essai n'est pas compté.
+        t.attempts--
+        t.state = 'queued'
+        t.retryAt = err.retryAt
+        this.enqueue(t)
+      } else {
+        this.retryOrFail(t)
+      }
     } finally {
+
       t.abort = null
       this.inflight--
       this.pump()
     }
   }
 
-  /** Replanifie une tuile en échec, ou l'abandonne au bout de `maxAttempts`. */
+  /**
+   * Replanifie une tuile en échec, ou la met en erreur au bout de `maxAttempts` — pour
+   * `errorTtlMs`, après quoi `ensure` la relance si elle est encore vue.
+   */
   private retryOrFail(t: T): void {
-    const { maxAttempts, retryDelays } = this.opts.budget()
+    const { maxAttempts, retryDelays, errorTtlMs } = this.opts.budget()
     if (t.attempts >= maxAttempts) {
       t.state = 'error'
+      t.retryAt = Date.now() + errorTtlMs
       return
     }
     t.state = 'queued'
     // Dernier délai reconduit au-delà de la liste ; liste vide = réessai immédiat.
     t.retryAt = Date.now() + (retryDelays[t.attempts - 1] ?? retryDelays.at(-1) ?? 0)
-    this.queue.push(t)
+    this.enqueue(t)
   }
+
 
   /**
    * Éviction LRU au-delà des plafonds (jamais les tuiles vues cette frame, jamais les
@@ -337,16 +446,21 @@ export class TileQueue<T extends Tile, R> {
     this.opts.release(t)
     this.bytes -= t.bytes
     t.bytes = 0
-    this.tiles.delete(t.key)
+    this.tiles.delete(t.id)
   }
 
   /** Vide le cache (changement de source, de gabarit, d'altitude). */
   clear(): void {
     for (const t of [...this.tiles.values()]) this.drop(t)
     this.tiles.clear()
+    for (const t of this.queue) t.inQueue = false
     this.queue.length = 0
+    // Résultats chargés mais pas encore montés (images, tuiles construites de plusieurs Mo) :
+    // ils appartiennent à l'ancienne source, et `pending`/`busy` les comptaient encore.
+    this.toMount.length = 0
     this.bytes = 0
   }
+
 
   dispose(): void {
     this.clear()

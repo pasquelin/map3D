@@ -30,6 +30,8 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'providers.templates': 'Templates de dessin',
   'providers.templates.headers': 'En-têtes HTTP',
   'providers.templates.fetch': 'Politique réseau',
+  'providers.tiles.fetch': 'Réseau de la session',
+
 
   interaction: 'Interaction',
   'interaction.lens': 'Loupe',
@@ -133,6 +135,10 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.tileUrl': 'gabarit d’URL de tuile',
   'providers.tiles.backoffAuthMs': 'attente après refus d’identité (ms)',
   'providers.tiles.backoffTransientMs': 'attente après panne (ms)',
+  'providers.tiles.fetch.timeoutMs': 'délai d’abandon (ms)',
+  'providers.tiles.fetch.retries': 'réessais',
+  'providers.tiles.fetch.backoffMs': 'attente avant réessai (ms)',
+
   'providers.tiles.maxTiles': 'cache de textures (tuiles)',
   'providers.tiles.maxBytes': 'cache de textures (Mio)',
   'providers.tiles.evictEvery': 'éviction : une frame sur',
@@ -145,6 +151,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.uniformMaxSpread': 'écart toléré avant cascade (crans)',
   'providers.tiles.maxAttempts': 'essais par tuile',
   'providers.tiles.retryDelays': 'délais entre essais (ms)',
+  'providers.tiles.errorTtlMs': 'erreur gardée avant réessai (ms)',
+  'providers.tiles.staleFrames': 'frames hors vue avant abandon',
+
 
   // ── providers.routing ──────────────────────────────────────────────────────
   'providers.routing.matrixUrl': 'URL de la matrice',
@@ -223,6 +232,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.maxRequest': 'budget de tuiles par vue',
   'providers.buildings.maxAttempts': 'essais par tuile',
   'providers.buildings.retryDelays': 'délais entre essais (ms)',
+  'providers.buildings.errorTtlMs': 'erreur gardée avant réessai (ms)',
+  'providers.buildings.staleFrames': 'frames hors vue avant abandon',
+
   'providers.buildings.pickFields': 'attributs remontés au clic',
   'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
   'providers.tiles3d.hideVolumeWhenClamped': 'masquer la 3D si vue non couverte',

@@ -145,9 +145,10 @@ describe('catalogue', () => {
 describe('mergeConfig — feuilles absentes', () => {
   it('une feuille `undefined` garde le défaut au lieu de l’effacer', () => {
     // `{ retries: env.X }` avec la variable absente : l'hôte n'a rien voulu régler.
-    const merged = mergeConfig(defaultConfig, { providers: { routing: { fetch: { retries: undefined } } } })
-    expect(merged.providers.routing.fetch.retries).toBe(defaultConfig.providers.routing.fetch.retries)
-    expect(merged.providers.routing.fetch.timeoutMs).toBe(defaultConfig.providers.routing.fetch.timeoutMs)
+    const merged = mergeConfig(defaultConfig, { providers: { templates: { fetch: { retries: undefined } } } })
+    expect(merged.providers.templates.fetch.retries).toBe(defaultConfig.providers.templates.fetch.retries)
+    expect(merged.providers.templates.fetch.timeoutMs).toBe(defaultConfig.providers.templates.fetch.timeoutMs)
+
   })
 
   it('ignore une clé `__proto__` propre (override issu de JSON.parse)', () => {
