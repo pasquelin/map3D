@@ -257,3 +257,52 @@ describe('WorkerPool', () => {
     await expect(pool.run({ id: 0, n: 3 }, never)).rejects.toThrow('pool démonté')
   })
 })
+
+describe('WorkerPool — tâche qui tue son worker', () => {
+  /** Worker qui meurt à CHAQUE demande : la tâche est empoisonnée, pas le worker. */
+  class DyingWorker extends FakeWorker {
+    override postMessage(message: unknown): void {
+      super.postMessage(message)
+      queueMicrotask(() => this.onerror?.(new Error('boom')))
+    }
+  }
+
+  it('rejette la tâche après `taskRetries` remplacements au lieu de recréer des workers sans fin', async () => {
+    const workers: DyingWorker[] = []
+    const pool = new WorkerPool<Req, Res>({
+      spawn: () => {
+        const w = new DyingWorker()
+        workers.push(w)
+        return w
+      },
+      size: () => 1,
+      cancelMessage: (id) => ({ id, cancel: true }),
+      fallback: async (req) => ({ id: req.id, out: -req.n }),
+      taskRetries: 1,
+    })
+    await expect(pool.run({ id: 0, n: 1 }, never)).rejects.toMatchObject({ name: 'PoolCrashError' })
+    // Un worker initial + un remplacement, jamais 266.
+    expect(workers.length).toBeLessThanOrEqual(3)
+  })
+
+  it('passe au repli quand les workers meurent tous aussitôt, sans en créer un par tâche', async () => {
+    let spawned = 0
+    const pool = new WorkerPool<Req, Res>({
+      spawn: () => {
+        spawned++
+        return new DyingWorker()
+      },
+      size: () => 1,
+      cancelMessage: (id) => ({ id, cancel: true }),
+      fallback: async (req) => ({ id: req.id, out: -req.n }),
+      taskRetries: 0,
+      consecutiveDeaths: 2,
+    })
+    await expect(pool.run({ id: 0, n: 1 }, never)).rejects.toBeInstanceOf(Error)
+    await expect(pool.run({ id: 0, n: 2 }, never)).rejects.toBeInstanceOf(Error)
+    // Après deux morts d'affilée le pool ne recrée plus rien : la tâche suivante part au repli.
+    const res = await pool.run({ id: 0, n: 3 }, never)
+    expect(res.out).toBe(-3)
+    expect(spawned).toBe(2)
+  })
+})

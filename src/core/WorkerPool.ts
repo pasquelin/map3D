@@ -43,7 +43,33 @@ export type WorkerPoolOptions<Req extends PoolMessage, Res extends PoolMessage> 
    * interne, qui n'existe que pour apparier une réponse de worker à sa promesse.
    */
   fallback(req: Req, signal: AbortSignal): Promise<Res>
+  /**
+   * Remplacements de worker qu'une MÊME tâche peut consommer avant d'être rejetée (défaut
+   * `1`). Une tuile qui tue son worker de façon déterministe (OOM du worker, blob refusé)
+   * relançait sinon `error → terminate → spawn → dispatch` sans fin, et sa promesse ne se
+   * réglait jamais — le créneau `inflight` de la file de tuiles restait consommé pour de bon.
+   */
+  taskRetries?: number
+  /**
+   * Morts consécutives sans aucune réponse réussie au-delà desquelles le pool cesse de
+   * recréer des workers et passe au repli (défaut `3`) : un environnement où les workers
+   * meurent tous aussitôt ne mérite pas d'en créer un par tâche.
+   */
+  consecutiveDeaths?: number
 }
+
+/** Défauts des bornes de résilience — cf. `WorkerPoolOptions`. */
+const DEFAULT_TASK_RETRIES = 1
+const DEFAULT_CONSECUTIVE_DEATHS = 3
+
+/** Worker mort sur une tâche qui a épuisé ses remplacements — réessayable côté file de tuiles. */
+export class PoolCrashError extends Error {
+  constructor() {
+    super('worker mort pendant la tâche')
+    this.name = 'PoolCrashError'
+  }
+}
+
 
 /** Abandon demandé par l'appelant — distinct d'un échec, cf. `TileQueue.retryOrFail`. */
 export class PoolAbortError extends Error {
@@ -60,7 +86,10 @@ type Task<Req, Res> = {
   reject: (err: Error) => void
   /** Détache l'écoute de l'abandon quand la tâche se solde, quelle qu'en soit l'issue. */
   release: () => void
+  /** Workers morts en la traitant — cf. `taskRetries`. */
+  crashes: number
 }
+
 
 type Slot<Req, Res> = {
   worker: PoolWorker
@@ -95,6 +124,9 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
   private disposed = false
   /** Aucun worker n'a pu naître : tout passe au repli, et on cesse d'essayer. */
   private spawnFailed = false
+  /** Morts de worker depuis la dernière réponse réussie — cf. `consecutiveDeaths`. */
+  private deaths = 0
+
 
   constructor(private readonly opts: WorkerPoolOptions<Req, Res>) {}
 
@@ -125,7 +157,9 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
         resolve,
         reject,
         release: () => signal.removeEventListener('abort', onAbort),
+        crashes: 0,
       }
+
       this.inflight.set(id, task)
       const free = this.slots.find((s) => s.busy === null)
       // Premier worker LIBRE, jamais un tour de rôle : les tuiles vont du simple au double
@@ -187,6 +221,9 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
     if (slot.busy?.id !== res.id) return
     const task = slot.busy
     slot.busy = null
+    // Une réponse prouve que les workers vivent : la série de morts repart de zéro.
+    this.deaths = 0
+
     const live = this.inflight.get(res.id)
     if (live) {
       this.inflight.delete(res.id)
@@ -236,21 +273,36 @@ export class WorkerPool<Req extends PoolMessage, Res extends PoolMessage> {
     slot.worker.terminate()
     const i = this.slots.indexOf(slot)
     if (i >= 0) this.slots.splice(i, 1)
-    // Remise en TÊTE : la tâche attend déjà depuis un tour complet.
-    if (orphan && this.inflight.has(orphan.id)) this.queue.unshift(orphan)
+    this.deaths++
+    if (orphan && this.inflight.has(orphan.id)) {
+      orphan.crashes++
+      if (orphan.crashes > (this.opts.taskRetries ?? DEFAULT_TASK_RETRIES)) {
+        // La tâche elle-même tue les workers : la rejeter rend la main à la file de tuiles
+        // (backoff, puis abandon), au lieu de lui faire consommer un worker par tentative.
+        this.inflight.delete(orphan.id)
+        orphan.release()
+        orphan.reject(new PoolCrashError())
+      } else {
+        // Remise en TÊTE : la tâche attend déjà depuis un tour complet.
+        this.queue.unshift(orphan)
+      }
+    }
     if (this.disposed) return
-    const fresh = this.opts.spawn()
+    const giveUp = this.deaths >= (this.opts.consecutiveDeaths ?? DEFAULT_CONSECUTIVE_DEATHS)
+    const fresh = giveUp ? null : this.opts.spawn()
     if (fresh) {
       const next = this.wire(fresh)
       this.slots.push(next)
       this.pump(next)
       return
     }
-    // Plus aucun worker ne naît. Ce qui attend part au repli plutôt que de rester en
-    // suspens — une promesse jamais résolue gèlerait la file de tuiles pour de bon.
+    // Plus aucun worker ne naît (ou ils meurent tous aussitôt). Ce qui attend part au repli
+    // plutôt que de rester en suspens — une promesse jamais résolue gèlerait la file de
+    // tuiles pour de bon.
     this.spawnFailed = true
     if (this.slots.length === 0) this.drainToFallback()
   }
+
 
   /** Solde la file par le chemin sans worker (pool entièrement mort). */
   private drainToFallback(): void {
