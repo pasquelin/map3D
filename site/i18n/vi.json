@@ -103,12 +103,13 @@
     "plugins": "Các plugin tuỳ chọn — IGN Géoplateforme, Windy, sơ đồ mặt bằng trong nhà — nằm ở <a href=\"https://github.com/pasquelin/plugingsMap3D\">một kho riêng</a>, và bạn có thể tự viết bằng <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
   },
   "footer": {
-    "source": "Mã nguồn",
     "docsFr": "Tài liệu 🇫🇷",
     "docsEn": "Tài liệu 🇬🇧",
     "plugins": "Plugin",
     "changelog": "Nhật ký thay đổi",
-    "legal": "© Alban Pasquelin — phát hành theo <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Dùng cho mục đích thương mại cần giấy phép riêng."
+    "legal": "© Alban Pasquelin — phát hành theo <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Dùng cho mục đích thương mại cần giấy phép riêng.",
+    "eula": "Điều khoản sử dụng",
+    "notices": "Thông báo bên thứ ba"
   },
   "tooling": {
     "eyebrow": "Đang vận hành",

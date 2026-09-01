@@ -103,12 +103,13 @@
     "plugins": "可选插件 —— IGN Géoplateforme、Windy、室内平面图 —— 位于<a href=\"https://github.com/pasquelin/plugingsMap3D\">独立仓库</a>，你也可以用<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">插件 API</a> 编写自己的插件。"
   },
   "footer": {
-    "source": "源码",
     "docsFr": "文档 🇫🇷",
     "docsEn": "文档 🇬🇧",
     "plugins": "插件",
     "changelog": "更新日志",
-    "legal": "© Alban Pasquelin —— 依据 <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> 发布。商业使用需另行取得许可。"
+    "legal": "© Alban Pasquelin —— 依据 <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> 发布。商业使用需另行取得许可。",
+    "eula": "使用条款",
+    "notices": "第三方声明"
   },
   "tooling": {
     "eyebrow": "实际运行",

@@ -103,12 +103,13 @@
     "plugins": "Дополнительные плагины — IGN Géoplateforme, Windy, планы помещений — живут в <a href=\"https://github.com/pasquelin/plugingsMap3D\">отдельном репозитории</a>, а свой можно написать через <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API плагинов</a>."
   },
   "footer": {
-    "source": "Исходники",
-    "docsFr": "Док 🇫🇷",
-    "docsEn": "Док 🇬🇧",
+    "docsFr": "Док. 🇫🇷",
+    "docsEn": "Док. 🇬🇧",
     "plugins": "Плагины",
     "changelog": "Изменения",
-    "legal": "© Alban Pasquelin — опубликовано под <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Коммерческое использование требует отдельной лицензии."
+    "legal": "© Alban Pasquelin — опубликовано под <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Коммерческое использование требует отдельной лицензии.",
+    "eula": "Условия использования",
+    "notices": "Уведомления третьих сторон"
   },
   "tooling": {
     "eyebrow": "В деле",

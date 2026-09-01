@@ -103,12 +103,13 @@
     "plugins": "İsteğe bağlı eklentiler — IGN Géoplateforme, Windy, iç mekân kat planları — <a href=\"https://github.com/pasquelin/plugingsMap3D\">ayrı bir depoda</a> yaşar; <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">eklenti API’siyle</a> kendinizinkini de yazabilirsiniz."
   },
   "footer": {
-    "source": "Kaynak",
     "docsFr": "Belgeler 🇫🇷",
     "docsEn": "Belgeler 🇬🇧",
     "plugins": "Eklentiler",
     "changelog": "Değişiklikler",
-    "legal": "© Alban Pasquelin — <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> ile yayımlanmıştır. Ticari kullanım ayrı lisans gerektirir."
+    "legal": "© Alban Pasquelin — <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> ile yayımlanmıştır. Ticari kullanım ayrı lisans gerektirir.",
+    "eula": "Kullanım koşulları",
+    "notices": "Üçüncü taraf bildirimleri"
   },
   "tooling": {
     "eyebrow": "İş başında",

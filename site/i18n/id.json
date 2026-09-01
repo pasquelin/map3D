@@ -103,12 +103,13 @@
     "plugins": "Plugin opsional — IGN Géoplateforme, Windy, denah dalam ruangan — berada di <a href=\"https://github.com/pasquelin/plugingsMap3D\">repositori terpisah</a>, dan Anda bisa menulis sendiri lewat <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
   },
   "footer": {
-    "source": "Kode sumber",
-    "docsFr": "Dokumentasi 🇫🇷",
-    "docsEn": "Dokumentasi 🇬🇧",
+    "docsFr": "Dokumen 🇫🇷",
+    "docsEn": "Dokumen 🇬🇧",
     "plugins": "Plugin",
     "changelog": "Perubahan",
-    "legal": "© Alban Pasquelin — dirilis di bawah <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Penggunaan komersial memerlukan lisensi terpisah."
+    "legal": "© Alban Pasquelin — dirilis di bawah <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. Penggunaan komersial memerlukan lisensi terpisah.",
+    "eula": "Ketentuan penggunaan",
+    "notices": "Pemberitahuan pihak ketiga"
   },
   "tooling": {
     "eyebrow": "Sedang bekerja",

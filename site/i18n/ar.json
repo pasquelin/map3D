@@ -104,12 +104,13 @@
     "plugins": "الإضافات الاختيارية — IGN Géoplateforme وWindy ومخطّطات الطوابق الداخلية — تعيش في <a href=\"https://github.com/pasquelin/plugingsMap3D\">مستودع منفصل</a>، ويمكنك كتابة إضافتك بواسطة <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">واجهة الإضافات</a>."
   },
   "footer": {
-    "source": "الشيفرة",
     "docsFr": "التوثيق 🇫🇷",
     "docsEn": "التوثيق 🇬🇧",
     "plugins": "الإضافات",
     "changelog": "سجل التغييرات",
-    "legal": "© Alban Pasquelin — منشورة بموجب <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. الاستخدام التجاري يتطلّب رخصة منفصلة."
+    "legal": "© Alban Pasquelin — منشورة بموجب <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. الاستخدام التجاري يتطلّب رخصة منفصلة.",
+    "eula": "شروط الاستخدام",
+    "notices": "إشعارات الأطراف الثالثة"
   },
   "tooling": {
     "eyebrow": "أثناء العمل",

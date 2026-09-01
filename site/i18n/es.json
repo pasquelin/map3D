@@ -103,12 +103,13 @@
     "plugins": "Los plugins opcionales — IGN Géoplateforme, Windy, planos de interior — viven en <a href=\"https://github.com/pasquelin/plugingsMap3D\">un repositorio aparte</a>, y puedes escribir el tuyo con la <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API de plugins</a>."
   },
   "footer": {
-    "source": "Código",
     "docsFr": "Docs 🇫🇷",
     "docsEn": "Docs 🇬🇧",
     "plugins": "Plugins",
     "changelog": "Cambios",
-    "legal": "© Alban Pasquelin — publicado bajo <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. El uso comercial requiere una licencia aparte."
+    "legal": "© Alban Pasquelin — publicado bajo <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>. El uso comercial requiere una licencia aparte.",
+    "eula": "Condiciones de uso",
+    "notices": "Avisos de terceros"
   },
   "tooling": {
     "eyebrow": "En acción",

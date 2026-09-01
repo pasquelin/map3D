@@ -103,12 +103,13 @@
     "plugins": "任意のプラグイン —— IGN Géoplateforme、Windy、屋内フロアプラン —— は<a href=\"https://github.com/pasquelin/plugingsMap3D\">別リポジトリ</a>にあり、<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">プラグイン API</a> で自作もできます。"
   },
   "footer": {
-    "source": "ソース",
     "docsFr": "ドキュメント 🇫🇷",
     "docsEn": "ドキュメント 🇬🇧",
     "plugins": "プラグイン",
     "changelog": "変更履歴",
-    "legal": "© Alban Pasquelin —— <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> のもとで公開。商用利用には別途ライセンスが必要です。"
+    "legal": "© Alban Pasquelin —— <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> のもとで公開。商用利用には別途ライセンスが必要です。",
+    "eula": "利用規約",
+    "notices": "サードパーティ表示"
   },
   "tooling": {
     "eyebrow": "実際の動作",

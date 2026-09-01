@@ -103,12 +103,13 @@
     "plugins": "वैकल्पिक प्लगइन — IGN Géoplateforme, Windy, इनडोर फ़्लोर प्लान — <a href=\"https://github.com/pasquelin/plugingsMap3D\">एक अलग रिपॉज़िटरी</a> में हैं, और आप <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">प्लगइन API</a> से अपना भी लिख सकते हैं।"
   },
   "footer": {
-    "source": "स्रोत",
     "docsFr": "दस्तावेज़ 🇫🇷",
     "docsEn": "दस्तावेज़ 🇬🇧",
     "plugins": "प्लगइन",
     "changelog": "बदलाव",
-    "legal": "© Alban Pasquelin — <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> के तहत जारी। व्यावसायिक उपयोग के लिए अलग लाइसेंस चाहिए।"
+    "legal": "© Alban Pasquelin — <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a> के तहत जारी। व्यावसायिक उपयोग के लिए अलग लाइसेंस चाहिए।",
+    "eula": "उपयोग की शर्तें",
+    "notices": "तृतीय-पक्ष सूचनाएँ"
   },
   "tooling": {
     "eyebrow": "काम करते हुए",

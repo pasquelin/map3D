@@ -103,12 +103,13 @@
     "plugins": "선택 플러그인 —— IGN Géoplateforme, Windy, 실내 도면 —— 은 <a href=\"https://github.com/pasquelin/plugingsMap3D\">별도 저장소</a>에 있으며, <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">플러그인 API</a>로 직접 만들 수도 있습니다."
   },
   "footer": {
-    "source": "소스",
     "docsFr": "문서 🇫🇷",
     "docsEn": "문서 🇬🇧",
     "plugins": "플러그인",
     "changelog": "변경 이력",
-    "legal": "© Alban Pasquelin —— <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>으로 배포됩니다. 상업적 사용에는 별도 라이선스가 필요합니다."
+    "legal": "© Alban Pasquelin —— <a href=\"https://github.com/pasquelin/map3D/blob/main/LICENSE\">PolyForm Noncommercial 1.0.0</a>으로 배포됩니다. 상업적 사용에는 별도 라이선스가 필요합니다.",
+    "eula": "이용 약관",
+    "notices": "서드파티 고지"
   },
   "tooling": {
     "eyebrow": "실제 동작",
