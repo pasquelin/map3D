@@ -21,12 +21,21 @@ type MilSymModule = typeof import('@armyc2.c5isr.renderer/mil-sym-ts-web')
 let modulePromise: Promise<MilSymModule> | null = null
 
 function loadMilSym(): Promise<MilSymModule> {
-  modulePromise ??= import('@armyc2.c5isr.renderer/mil-sym-ts-web').then(async (mod) => {
-    if (!mod.isReady()) await mod.initialize()
-    return mod
-  })
+  if (!modulePromise) {
+    const p = import('@armyc2.c5isr.renderer/mil-sym-ts-web').then(async (mod) => {
+      if (!mod.isReady()) await mod.initialize()
+      return mod
+    })
+    // Un REJET n'est pas mémoïsé : un chunk de 9 Mo qui échoue au premier essai (réseau
+    // coupé) condamnait sinon les symboles jusqu'au rechargement de la page.
+    p.catch(() => {
+      if (modulePromise === p) modulePromise = null
+    })
+    modulePromise = p
+  }
   return modulePromise
 }
+
 
 export type MilSymRendererOptions = {
   /** Affiliation par défaut quand `render` ne reçoit pas de `variant` (défaut `friendly`). */
