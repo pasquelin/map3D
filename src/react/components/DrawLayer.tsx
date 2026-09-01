@@ -7,11 +7,15 @@ import {
   type DrawConstraints,
   type DrawnShape,
   type DrawRejectReason,
+  type DrawStyle,
   type DrawTool,
   type EraseMode,
   type EraseResult,
   type GeoJSONFeatureCollection,
+  type MutateOptions,
+  type NewShape,
   type SelectMode,
+  type ShapePatch,
 } from '../../layers/DrawLayer'
 import { DrawSettings, type ToolSettings } from '../../layers/draw/DrawSettings'
 import { makeDistanceFormatter } from '../../labels/measure'
@@ -26,14 +30,14 @@ import {
   useLabels,
   useMapContext,
 } from '../context'
-import type { Bounds } from '../../shared'
+import type { Bounds, LatLng } from '../../shared'
 import type { MarkerData } from '../../data/types'
 import { type MenuItem, prependMenuAction } from './ContextMenu'
 import { UiIcon } from './UiIcon'
 import { mdiTrashCanOutline } from '@mdi/js'
 import { usePedestrian } from '../hooks/usePedestrian'
 import { SymbolMarkers, type SymbolMarkersProps, type PlacedSymbolShape } from './SymbolMarkers'
-import type { SymbolCatalog, SymbolRenderer } from '../../symbols/types'
+import type { SymbolCatalog, SymbolRenderer, SymbolRenderOptions } from '../../symbols/types'
 import { DEFAULT_DRAW_PRESETS, type DrawPresets } from './drawPresets'
 import { useMergedByContent } from '../hooks/useMergedByContent'
 import { useDrawKeyboard } from '../hooks/useDrawKeyboard'
@@ -135,6 +139,17 @@ export type DrawLayerProps = {
   children?: ReactNode
 }
 
+/**
+ * Formes que la recherche indexe : nommées, et pas des symboles (déjà indexés comme
+ * markers par `<SymbolMarkers>`). Même prédicat que `namedShapes`, sur la collection
+ * sérialisée — c'est ce qui permet de compter sans rien allouer.
+ */
+const countNamedShapes = (fc: GeoJSONFeatureCollection): number => {
+  let n = 0
+  for (const f of fc.features) if (f.properties.title && f.properties.kind !== 'symbol') n++
+  return n
+}
+
 /** Outils de dessin : câble l'intercepteur d'entrée et expose `useDrawing()`. */
 export function DrawLayer(props: DrawLayerProps) {
   const { engine, overlay, theme } = useMapContext()
@@ -150,11 +165,15 @@ export function DrawLayer(props: DrawLayerProps) {
   const editKeys = config.interaction.shortcuts.edit
   const coreRef = useRef<CoreDrawLayer | null>(null)
   const [tool, setToolState] = useState<DrawTool | null>(null)
-  // Re-render à chaque mutation du core (canUndo/canRedo, sélection…) ; `rev`
-  // sert aussi de clé de mémoïsation à l'objet de contexte.
-  const [rev, bump] = useReducer((x: number) => x + 1, 0)
+  // Re-render à chaque mutation du core ou des réglages : c'est ce rendu qui relit
+  // `canUndo`, `currentStyle`, l'emprise de sélection… Le compteur lui-même n'est lu
+  // par personne — il n'est PAS une clé de mémoïsation du contexte, sinon un restyle
+  // par frame recomposerait l'API et re-rendrait toute la barre.
+  const [, bump] = useReducer((x: number) => x + 1, 0)
   /** Passe à `true` une fois la couche core créée (le renderer y est alors posé). */
   const [coreReady, setCoreReady] = useState(false)
+  /** Formes nommées hors symboles — ce que la recherche indexe (cf. `namedShapes`). */
+  const [namedShapeCount, setNamedShapeCount] = useState(0)
   // Dernière collection émise par le core : en usage contrôlé (value/onChange),
   // ré-importer notre propre écho créerait une boucle infinie.
   const lastEmittedRef = useRef<GeoJSONFeatureCollection | null>(null)
@@ -326,6 +345,10 @@ export function DrawLayer(props: DrawLayerProps) {
       onChangeRef.current?.(fc)
       // Registre du panneau « Couches » : à chaque ajout/suppression de dessin.
       engine.tags.report(tagSource, core.tagCounts())
+      // Formes NOMMÉES (rubrique de recherche), comptées sur la collection que le core
+      // vient de sérialiser : aucune allocation, et un state comparé — un restyle ou un
+      // geste d'édition, qui n'en changent pas le compte, ne relancent rien.
+      setNamedShapeCount(countNamedShapes(fc))
       bump()
     })
     core.onSelectionChange = (ids, markerIds, pathIds) => {
@@ -517,8 +540,7 @@ export function DrawLayer(props: DrawLayerProps) {
     editKeys,
   })
 
-  // Hors du memo `api` (qui recompute à chaque `rev`, jusqu'à 1×/frame pendant
-  // un restyle) : kind par id ne change qu'avec la sélection elle-même.
+  // Sur la sélection seule : kind par id ne change qu'avec elle, pas à chaque `rev`.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const selectionDetails = useMemo(() => coreRef.current?.selectionDetails() ?? [], [selection])
 
@@ -573,16 +595,18 @@ export function DrawLayer(props: DrawLayerProps) {
     })
   }, [engine, namedShapes])
 
-  // `rev` bumpe à chaque mutation du core : c'est le seul signal qui dise qu'une forme
-  // a été ajoutée, renommée ou supprimée. Il bumpe aussi à chaque frame d'un tracé en
-  // cours — d'où la déclaration comparée côté registre plutôt qu'une notification nue.
+  // Rubrique déclarée sur le COMPTE des formes nommées (cf. `namedShapeCount`), pas sur
+  // `rev` : ce dernier bumpe à chaque frame d'un restyle ou d'un geste d'édition, et
+  // chaque bump refaisait `getShapes()` — N formes allouées par frame pour un compte
+  // qui n'avait pas bougé.
   useEffect(() => {
-    const count = namedShapes().length
     engine.search.report(
       searchSource,
-      count > 0 ? [{ id: DRAW_GROUP, label: drawGroupLabel, color: theme.colors.draw.default, count }] : [],
+      namedShapeCount > 0
+        ? [{ id: DRAW_GROUP, label: drawGroupLabel, color: theme.colors.draw.default, count: namedShapeCount }]
+        : [],
     )
-  }, [engine, rev, namedShapes, drawGroupLabel, theme, searchSource])
+  }, [engine, namedShapeCount, drawGroupLabel, theme, searchSource])
   useEffect(() => () => engine.search.unreport(searchSource), [engine, searchSource])
 
   // ── Symboles ── (palette, affiliation, dépôt, symboles posés) — cf. `useDrawSymbols`.
@@ -624,10 +648,114 @@ export function DrawLayer(props: DrawLayerProps) {
   // Passe par `eraseSymbol` (et non `removeShape`) pour émettre `onErase` — ISO avec le marquee.
   const eraseSymbol = useCallback((id: string) => void coreRef.current?.eraseSymbol(id), [])
 
+  /**
+   * ACTIONS de l'API, à identité définitive : toutes lisent le core et l'état par ref au
+   * moment de l'appel. Elles vivaient dans le même memo que les données, recomposé à
+   * chaque `rev` — c'est-à-dire à chaque frame d'un restyle ou d'un geste d'édition —
+   * si bien que toute la barre et ses panneaux re-rendaient par frame, pour des
+   * fonctions qui n'avaient pas changé. Séparées, l'objet de contexte ne bouge plus que
+   * quand une DONNÉE observable bouge.
+   */
+  const actions = useMemo(
+    () => ({
+      select: (ids: readonly string[]) => coreRef.current?.select(ids),
+      deselectMarkers: (ids: ReadonlyArray<string | number>) => coreRef.current?.deselectExternal(ids),
+      deselectPaths: (ids: ReadonlyArray<string | number>) => coreRef.current?.deselectExternal(ids),
+      deselectClusterGroup: (id: string | number) => coreRef.current?.deselectSelectionGroup(id),
+      deselectClusterMember: (key: string | number, memberId: string | number) =>
+        coreRef.current?.deselectSelectionGroupMember(key, memberId),
+      clearSelection: () => coreRef.current?.clearSelection(),
+      deleteSelection: () => coreRef.current?.deleteSelected(),
+      selectAll: () => {
+        coreRef.current?.selectAll()
+        setTool('select')
+      },
+      duplicateSelection: () => coreRef.current?.duplicateSelected(),
+      setStyle: (patch: DrawStyle) => {
+        const core = coreRef.current
+        if (!core) return
+        const t = toolRef.current
+        if (core.getSelection().length > 0) {
+          core.setStyleForSelection(patch)
+        } else if (t && t !== 'select' && t !== 'erase') {
+          // Pas de sélection : le style devient le réglage persisté de l'outil actif.
+          settingsRef.current.set(t, patch)
+        }
+      },
+      lock: (ids: readonly string[]) => coreRef.current?.setLocked(ids, true),
+      unlock: (ids: readonly string[]) => coreRef.current?.setLocked(ids, false),
+      undo: () => coreRef.current?.undo(),
+      redo: () => coreRef.current?.redo(),
+      clear: () => coreRef.current?.clear(),
+      toGeoJSON: (): GeoJSONFeatureCollection =>
+        coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
+      fromGeoJSON: (fc: GeoJSONFeatureCollection) => coreRef.current?.fromGeoJSON(fc),
+      getShapes: () => coreRef.current?.getShapes() ?? [],
+      getShape: (id: string) => coreRef.current?.getShape(id) ?? null,
+      getLastShape: () => coreRef.current?.getLastShape() ?? null,
+      addShape: (shape: NewShape, opts?: MutateOptions) => coreRef.current?.addShape(shape, opts),
+      updateShape: (id: string, patch: ShapePatch, opts?: MutateOptions) =>
+        coreRef.current?.updateShape(id, patch, opts) ?? false,
+      removeShape: (id: string, opts?: MutateOptions) => coreRef.current?.removeShape(id, opts) ?? false,
+      replaceShapes: (shapes: readonly NewShape[], opts?: MutateOptions) =>
+        coreRef.current?.replaceShapes(shapes, opts),
+    }),
+    [setTool],
+  )
+
+  // Renderer, affiliation et activation des symboles par ref : `render` et `place` sont
+  // appelées par les vignettes de la palette et par le dépôt, hors cycle de rendu.
+  const symbolsRef = useRef({ renderer, affiliation, enabled: symbolsEnabled })
+  symbolsRef.current = { renderer, affiliation, enabled: symbolsEnabled }
+  const renderSymbol = useCallback((key: string, opts?: SymbolRenderOptions) => {
+    const { renderer: r, affiliation: a } = symbolsRef.current
+    // `null` tant que le renderer n'est pas acquis ou pas prêt : c'est le contrat
+    // de `SymbolRenderer.render`, et l'appelant affiche déjà un placeholder.
+    return r?.render(key, { variant: a, ...opts }) ?? null
+  }, [])
+  const placeSymbol = useCallback((key: string, at: LatLng, variant?: string) => {
+    const { enabled, affiliation: a } = symbolsRef.current
+    return enabled ? (coreRef.current?.placeSymbol(key, at, variant ?? a) ?? null) : null
+  }, [])
+
+  // DONNÉES dérivées du core, lues à chaque rendu (`rev` en provoque un à chaque
+  // mutation) et posées en dépendances du contexte À LEUR VALEUR — pas via `rev` :
+  // un restyle par frame ne change ni `canUndo`, ni l'emprise de sélection, donc ne
+  // recompose plus l'objet. `currentStyle` est comparé par contenu pour la même raison.
+  const canUndo = coreRef.current?.canUndo ?? false
+  const canRedo = coreRef.current?.canRedo ?? false
+  const selectionHasRect = coreRef.current?.selectionHas('rect') ?? false
+  const selectionBoxEl = coreRef.current?.selectionBoxEl() ?? null
+  const currentStyle = useMergedByContent<DrawStyle, DrawStyle>(
+    (() => {
+      const sel = coreRef.current?.styleOfSelection()
+      if (sel) return sel
+      const t = tool && tool !== 'select' && tool !== 'erase' ? tool : 'line'
+      const d = settings.get(t)
+      return {
+        color: d.color,
+        fillColor: d.fillColor,
+        width: d.width,
+        fillOpacity: d.fillOpacity,
+        strokeOpacity: d.strokeOpacity ?? 0.95,
+        stroke: d.stroke,
+        radius: d.radius ?? 0,
+      }
+    })(),
+    (s) => s,
+  )
+  // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips. Par
+  // contenu, comme `presets` : le pattern documenté est le littéral inline.
+  const shortcuts = useMergedByContent<DrawLayerProps['shortcuts'], DrawingApi['shortcuts']>(props.shortcuts, (o) => ({
+    ...drawKeys,
+    ...o,
+  }))
+
   // Objet de contexte mémoïsé : les consommateurs ne re-rendent que quand l'état
-  // réactif change réellement (`rev` bumpe à chaque mutation du core/réglages).
+  // réactif change réellement.
   const api: DrawingApi = useMemo(
     () => ({
+      ...actions,
       tool,
       setTool,
       selectMode,
@@ -639,73 +767,19 @@ export function DrawLayer(props: DrawLayerProps) {
       pathSelection,
       clusterGroups,
       selectionDetails,
-      select: (ids) => coreRef.current?.select(ids),
-      deselectMarkers: (ids) => coreRef.current?.deselectExternal(ids),
-      deselectPaths: (ids) => coreRef.current?.deselectExternal(ids),
-      deselectClusterGroup: (id) => coreRef.current?.deselectSelectionGroup(id),
-      deselectClusterMember: (key: string | number, memberId: string | number) =>
-        coreRef.current?.deselectSelectionGroupMember(key, memberId),
-      clearSelection: () => coreRef.current?.clearSelection(),
-      deleteSelection: () => coreRef.current?.deleteSelected(),
-      selectAll: () => {
-        coreRef.current?.selectAll()
-        setTool('select')
-      },
-      duplicateSelection: () => coreRef.current?.duplicateSelected(),
-      setStyle: (patch) => {
-        const core = coreRef.current
-        if (!core) return
-        if (core.getSelection().length > 0) {
-          core.setStyleForSelection(patch)
-        } else if (tool && tool !== 'select' && tool !== 'erase') {
-          // Pas de sélection : le style devient le réglage persisté de l'outil actif.
-          settings.set(tool, patch)
-        }
-      },
-      currentStyle: (() => {
-        const sel = coreRef.current?.styleOfSelection()
-        if (sel) return sel
-        const t = tool && tool !== 'select' && tool !== 'erase' ? tool : 'line'
-        const d = settings.get(t)
-        return {
-          color: d.color,
-          fillColor: d.fillColor,
-          width: d.width,
-          fillOpacity: d.fillOpacity,
-          strokeOpacity: d.strokeOpacity ?? 0.95,
-          stroke: d.stroke,
-          radius: d.radius ?? 0,
-        }
-      })(),
-      selectionHasRect: coreRef.current?.selectionHas('rect') ?? false,
-      selectionBoxEl: coreRef.current?.selectionBoxEl() ?? null,
+      currentStyle,
+      selectionHasRect,
+      selectionBoxEl,
       settings,
-      lock: (ids) => coreRef.current?.setLocked(ids, true),
-      unlock: (ids) => coreRef.current?.setLocked(ids, false),
-      undo: () => coreRef.current?.undo(),
-      redo: () => coreRef.current?.redo(),
-      canUndo: coreRef.current?.canUndo ?? false,
-      canRedo: coreRef.current?.canRedo ?? false,
+      canUndo,
+      canRedo,
       canErase,
-      clear: () => coreRef.current?.clear(),
-      toGeoJSON: () => coreRef.current?.toGeoJSON() ?? { type: 'FeatureCollection', features: [] },
-      fromGeoJSON: (fc) => coreRef.current?.fromGeoJSON(fc),
-      getShapes: () => coreRef.current?.getShapes() ?? [],
-      getShape: (id) => coreRef.current?.getShape(id) ?? null,
-      getLastShape: () => coreRef.current?.getLastShape() ?? null,
-      addShape: (shape, opts) => coreRef.current?.addShape(shape, opts),
-      updateShape: (id, patch, opts) => coreRef.current?.updateShape(id, patch, opts) ?? false,
-      removeShape: (id, opts) => coreRef.current?.removeShape(id, opts) ?? false,
-      replaceShapes: (shapes, opts) => coreRef.current?.replaceShapes(shapes, opts),
-      // Raccourcis effectifs (défauts + overrides) : dispatch clavier ET tooltips.
-      shortcuts: { ...drawKeys, ...props.shortcuts },
+      shortcuts,
       tools: allowed,
       symbols: {
         enabled: symbolsEnabled,
         catalog: symbolCatalog,
-        // `null` tant que le renderer n'est pas acquis ou pas prêt : c'est le contrat
-        // de `SymbolRenderer.render`, et l'appelant affiche déjà un placeholder.
-        render: (key, opts) => renderer?.render(key, { variant: affiliation, ...opts }) ?? null,
+        render: renderSymbol,
         // Reflète le renderer EFFECTIF. Le forcer à `true` sur la simple présence d'un
         // renderer fourni mentirait : le sien peut encore être en cours de chargement.
         ready: symbolsReady,
@@ -713,34 +787,43 @@ export function DrawLayer(props: DrawLayerProps) {
         setAffiliation,
         paletteOpen,
         setPaletteOpen,
-        place: (key, at, variant) =>
-          symbolsEnabled ? (coreRef.current?.placeSymbol(key, at, variant ?? affiliation) ?? null) : null,
+        place: placeSymbol,
         // Compte des symboles posés → badge du bouton de barre. `symbolShapes` suit la
         // signature des symboles (pas `rev`), donc ne bouge qu'à une vraie pose/retrait.
         count: symbolShapes.length,
       },
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      actions,
       tool,
+      setTool,
       selectMode,
+      setSelectMode,
       eraseMode,
+      setEraseMode,
       selection,
       selectionDetails,
       markerSelection,
       pathSelection,
       clusterGroups,
-      rev,
-      canErase,
+      currentStyle,
+      selectionHasRect,
+      selectionBoxEl,
       settings,
-      setTool,
-      props.shortcuts,
-      affiliation,
-      symbolsReady,
+      canUndo,
+      canRedo,
+      canErase,
+      shortcuts,
+      allowed,
       symbolsEnabled,
       symbolCatalog,
-      renderer,
+      renderSymbol,
+      symbolsReady,
+      affiliation,
+      setAffiliation,
       paletteOpen,
+      setPaletteOpen,
+      placeSymbol,
       symbolShapes,
     ],
   )
