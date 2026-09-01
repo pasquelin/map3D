@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useState } from 'react'
+import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { clamp, RAD2DEG } from '../../core/math'
 import type { ClusterInfo } from '../../layers/ClusterLayer'
@@ -21,7 +21,7 @@ export type DefaultClusterProps = {
   onSegmentHover?: (type: string | null) => void
 }
 
-type Tip = { x: number; y: number; below: boolean; label: string; count: number; color: string }
+type Tip = { label: string; count: number; color: string }
 
 /** Rayon extérieur (px) du donut — l'ancrage de l'infobulle de cluster le lit pour
  *  ne jamais recouvrir le camembert.
@@ -99,16 +99,35 @@ export function DefaultCluster({
     return { type, count, a0, a1, am, col: colorOf(type) }
   })
 
+  /**
+   * Position de la vignette écrite DIRECTEMENT sur son nœud à chaque `pointermove`, le
+   * state ne portant que le contenu (posé à l'entrée dans la part). Un `setState` par
+   * mouvement re-rendait tout le donut — SVG, parts, textes — à la cadence du pointeur,
+   * pour déplacer une boîte de trois spans.
+   */
+  const tipElRef = useRef<HTMLDivElement | null>(null)
+  const tipPosRef = useRef({ x: 0, y: 0 })
+  const placeTip = (el: HTMLDivElement) => {
+    const { x, y } = tipPosRef.current
+    const below = y < tipCfg.flipBelowPx
+    el.style.left = `${clamp(x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx)}px`
+    el.style.top = `${below ? y + tipCfg.offsetBelowPx : y - tipCfg.offsetAbovePx}px`
+    el.style.transform = below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
+  }
+  // Callback ref : la vignette naît APRÈS le premier mouvement (le state la monte), donc
+  // elle doit se placer d'elle-même à son apparition.
+  const attachTip = (el: HTMLDivElement | null) => {
+    tipElRef.current = el
+    if (el) placeTip(el)
+  }
+  const moveTip = (e: { clientX: number; clientY: number }) => {
+    tipPosRef.current = { x: e.clientX, y: e.clientY }
+    if (tipElRef.current) placeTip(tipElRef.current)
+  }
   const showTip = (e: { clientX: number; clientY: number }, type: string, count: number, color: string) => {
     if (!satelliteTip) return
-    setTip({
-      x: e.clientX,
-      y: e.clientY,
-      below: e.clientY < tipCfg.flipBelowPx,
-      label: typeLabel?.(type) ?? type,
-      count,
-      color,
-    })
+    moveTip(e)
+    setTip({ label: typeLabel?.(type) ?? type, count, color })
   }
 
   return (
@@ -126,10 +145,11 @@ export function DefaultCluster({
             <g
               key={s.type}
               className="m3d-cluster-sat"
-              onPointerMove={(e) => {
+              onPointerEnter={(e) => {
                 showTip(e, s.type, s.count, s.col.base)
                 onSegmentHover?.(s.type)
               }}
+              onPointerMove={satelliteTip ? moveTip : undefined}
               onPointerLeave={() => {
                 setTip(null)
                 onSegmentHover?.(null)
@@ -190,12 +210,11 @@ export function DefaultCluster({
       {tip &&
         createPortal(
           <div
+            ref={attachTip}
+            // `left`/`top`/`transform` sont écrits par `placeTip` (clampés aux bords de la
+            // fenêtre, retournés sous le pointeur près du haut), jamais par ce style.
             style={{
               position: 'fixed',
-              // Clampe horizontalement pour ne jamais sortir de la fenêtre (bords du canvas).
-              left: clamp(tip.x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx),
-              top: tip.below ? tip.y + tipCfg.offsetBelowPx : tip.y - tipCfg.offsetAbovePx,
-              transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
               display: 'flex',
               alignItems: 'center',
               gap: 7,
