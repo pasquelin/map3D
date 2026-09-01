@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { defaultConfig } from '../config/defaultConfig'
+import { defaultTheme } from '../theme/defaultTheme'
 import type { InternalServerConfig, TilesConfig } from '../config/types'
 import { WORLD_BOUNDS } from '../core/bounds'
 import { makeUnraycastable } from '../core/bvh'
@@ -121,7 +122,8 @@ export class TiledGlobeLayer {
      * littéraux qui décidaient d'une couleur que le thème exposait déjà sans qu'elle
      * soit lue nulle part.
      */
-    private readonly oceanColor: string = '#0F2942',
+    private readonly oceanColor: string = defaultTheme.globe.oceanColor,
+
   ) {
     this.group.name = 'm3d-tiled-globe'
     this.group.visible = false

@@ -14,6 +14,9 @@ export type InteractionConfig = {
   linkHitTolerancePx: number
   /** Aimant de fermeture d'un polygone (dessin et marquee). */
   closeSnapPx: number
+  /** Durée (ms) du flash « forme verrouillée » dessiné sur une forme qu'un outil refuse de toucher. */
+  lockFlashMs: number
+
   /** Déplacement au-delà duquel un clic devient un glissé (sélection). */
   clickSlopPx: number
   /** Idem pour la saisie d'un marker vers une zone de dépôt. */

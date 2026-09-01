@@ -75,7 +75,18 @@ export function spiderfyLayout(
 
 type LeafProps = { markerId: string | number; mType: string }
 
-export type ClusterOptions = { radius: number; minPoints: number; maxZoom: number }
+export type ClusterOptions = {
+  radius: number
+  minPoints: number
+  maxZoom: number
+  /**
+   * Pas de quantification du zoom (cf. `clustering.levelQuantization`) : `1` = paliers
+   * entiers, `2` = un palier sur deux — moins de recompositions pendant un zoom continu.
+   * Défaut `1`.
+   */
+  levelQuantization?: number
+}
+
 
 /**
  * Clustering en **espace géographique** via supercluster. Le zoom entier fait
@@ -154,7 +165,9 @@ export class ClusterEngine {
 
   getClusters(bounds: Bounds, zoom: number): ClusterEntry[] {
     if (!this.index) return []
-    const z = clamp(Math.round(zoom), 0, this.options.maxZoom + 1)
+    const q = Math.max(1, Math.round(this.options.levelQuantization ?? 1))
+    const z = clamp(Math.round(zoom / q) * q, 0, this.options.maxZoom + 1)
+
     const bbox: [number, number, number, number] = [bounds.west, bounds.south, bounds.east, bounds.north]
     const features = this.index.getClusters(bbox, z)
     const out: ClusterEntry[] = []

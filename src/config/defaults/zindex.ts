@@ -1,4 +1,4 @@
-import type { ZIndexConfig } from '../types'
+import type { RenderOrderConfig, ZIndexConfig } from '../types'
 
 // ⚠️ Nouveau : l'échelle d'empilement, jusqu'ici éparpillée dans la feuille de
 // styles. Valeurs reprises à l'identique.
@@ -34,4 +34,13 @@ export const zIndexDefaults: ZIndexConfig = {
   tooltip: 2,
   // Dans l'ancre d'un marker seulement — cf. la note sur le type.
   markerSelected: 80,
+}
+
+/** Cf. `RenderOrderConfig` — valeurs qui étaient en dur dans chaque couche. */
+export const renderOrderDefaults: RenderOrderConfig = {
+  shapes: 1,
+  paths: 1,
+  links: 1,
+  relations: 2,
+  drawings: 4,
 }

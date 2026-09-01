@@ -95,3 +95,24 @@ export type ZIndexConfig = {
    */
   markerSelected: number
 }
+
+/**
+ * Ordre de rendu three.js des couches drapées sur le globe (`Object3D.renderOrder`).
+ *
+ * Ces couches se peignent sans test de profondeur (elles épousent un sol qui, lui, en a
+ * un) : c'est cet ordre seul qui décide ce qui passe au-dessus de quoi. Le fond raster
+ * vit dans la bande (-1, 0), les étoiles à -1 : tout ici reste ≥ 1. Un tracé ajoute +1
+ * pour son casing et +2 pour sa tête au-dessus de sa base.
+ */
+export type RenderOrderConfig = {
+  /** Zones (`<ShapeLayer>`). */
+  shapes: number
+  /** Tracés (`<PathLayer>`). */
+  paths: number
+  /** Liens par tags (`<LinkLayer>`). */
+  links: number
+  /** Itinéraires calculés (`<RelationLayer>`) — au-dessus des zones et tracés. */
+  relations: number
+  /** Dessins de l'éditeur (`<DrawLayer>`) — au-dessus de tout le reste. */
+  drawings: number
+}

@@ -41,14 +41,7 @@ export type CameraConfig = {
   maxZoom3d: number
   /** Inclinaison maximale générale (rad depuis le nadir). */
   maxTilt: number
-  /** Pas de zoom d'un cran de molette. */
-  zoomStep: number
-  dragSpeed: {
-    /** Vitesse de déplacement au ras du sol. */
-    min: number
-    /** Vitesse de déplacement en vue globe. */
-    max: number
-  }
+
   /** Champ de vision vertical (degrés). Lu à la construction du moteur seulement. */
   fov: number
   /** Inclinaison max en 3D (rad depuis le nadir) — au-delà, la vue bascule. */

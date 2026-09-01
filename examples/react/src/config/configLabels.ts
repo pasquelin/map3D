@@ -60,9 +60,10 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
 
   style: 'Style',
   'style.zIndex': 'Empilement des surfaces',
+  'style.renderOrder': 'Ordre de rendu 3D',
+
 
   camera: 'Caméra',
-  'camera.dragSpeed': 'Vitesse de déplacement',
   'camera.zoomFactor': 'Facteur par cran de zoom',
   'camera.keyPan': 'Déplacement au clavier',
   'camera.followAltitude': 'Altitude du mode suivi',
@@ -245,6 +246,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shapeHitTolerancePx': 'tolérance clic forme (px)',
   'interaction.linkHitTolerancePx': 'tolérance clic lien (px)',
   'interaction.closeSnapPx': 'aimant de fermeture (px)',
+  'interaction.lockFlashMs': 'flash forme verrouillée (ms)',
+
   'interaction.clickSlopPx': 'seuil clic → glissé (px)',
   'interaction.dragSlopPx': 'seuil de saisie (px)',
   'interaction.repositionSlopPx': 'seuil de repositionnement (px)',
@@ -364,6 +367,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'performance.relations.fanMaxLegs': 'liens max dans l’éventail',
   'performance.relations.zoomBand': 'hystérésis de regroupement',
   'performance.circleSegments': 'segments d’un cercle',
+  'performance.shapeGroundSamples': 'sondages du sol sous une zone',
+
   'performance.groundHeightRange': 'altitudes admises (m)',
 
   // ── style.zIndex ───────────────────────────────────────────────────────────
@@ -373,6 +378,12 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'style.zIndex.floatingHud': 'HUD flottant',
   'style.zIndex.markerSelected': 'marker sélectionné',
   'style.zIndex.tooltip': 'infobulles',
+  'style.renderOrder.shapes': 'zones',
+  'style.renderOrder.paths': 'tracés',
+  'style.renderOrder.links': 'liens',
+  'style.renderOrder.relations': 'itinéraires',
+  'style.renderOrder.drawings': 'dessins',
+
   'style.zIndex.listMenu': 'menu d’une ligne',
   'style.zIndex.dock': 'dock des favoris',
   'style.zIndex.ui': 'barres et panneaux',
@@ -384,9 +395,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'camera.maxZoom': 'zoom maximal en plan',
   'camera.maxZoom3d': 'zoom maximal en 3D (plancher)',
   'camera.maxTilt': 'inclinaison max (rad)',
-  'camera.zoomStep': 'pas de la molette',
-  'camera.dragSpeed.min': 'au ras du sol',
-  'camera.dragSpeed.max': 'en vue globe',
   'camera.fov': 'champ de vision (°)',
   'camera.maxTilt3d': 'inclinaison max en 3D (rad)',
   'camera.maxTilt2d': 'inclinaison max en plan (rad)',

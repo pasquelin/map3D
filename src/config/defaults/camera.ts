@@ -15,8 +15,7 @@ export const cameraDefaults: CameraConfig = {
   // Un immeuble haussmannien fait ~20 m — la marge est large, y compris sur les tours.
   maxZoom3d: 18,
   maxTilt: 1.05,
-  zoomStep: 0.5,
-  dragSpeed: { min: 0.002, max: 0.35 },
+
   fov: CAMERA_FOV,
   maxTilt3d: Math.PI * 0.44,
   // Aligné sur la 3D (~79°) : on incline le plan autant qu'un volume. On reste borné AVANT

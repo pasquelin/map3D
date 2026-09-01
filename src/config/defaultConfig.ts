@@ -12,7 +12,7 @@ import type { MapConfig } from './types'
 import { providersDefaults } from './defaults/providers'
 import { interactionDefaults } from './defaults/interaction'
 import { performanceDefaults } from './defaults/performance'
-import { zIndexDefaults } from './defaults/zindex'
+import { renderOrderDefaults, zIndexDefaults } from './defaults/zindex'
 import { cameraDefaults } from './defaults/camera'
 import { clusteringDefaults } from './defaults/clustering'
 import { markersDefaults } from './defaults/markers'
@@ -32,7 +32,7 @@ export const defaultConfig: MapConfig = {
   providers: providersDefaults,
   interaction: interactionDefaults,
   performance: performanceDefaults,
-  style: { zIndex: zIndexDefaults },
+  style: { zIndex: zIndexDefaults, renderOrder: renderOrderDefaults },
   camera: cameraDefaults,
   clustering: clusteringDefaults,
   markers: markersDefaults,

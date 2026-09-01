@@ -21,7 +21,7 @@ import type { ProvidersConfig } from './providers'
 import type { InteractionConfig } from './interaction'
 import type { PerformanceConfig } from './performance'
 import type { CameraConfig } from './camera'
-import type { ZIndexConfig } from './zindex'
+import type { RenderOrderConfig, ZIndexConfig } from './zindex'
 import type { ClusteringConfig } from './clustering'
 import type { MarkersConfig } from './markers'
 import type { DataConfig } from './data'
@@ -61,8 +61,9 @@ export type MapConfig = {
   interaction: InteractionConfig
   performance: PerformanceConfig
   camera: CameraConfig
-  /** Empilement des surfaces — cf. `ZIndexConfig`. */
-  style: { zIndex: ZIndexConfig }
+  /** Empilement des surfaces DOM (`ZIndexConfig`) et ordre de rendu 3D (`RenderOrderConfig`). */
+  style: { zIndex: ZIndexConfig; renderOrder: RenderOrderConfig }
+
   clustering: ClusteringConfig
   markers: MarkersConfig
   data: DataConfig

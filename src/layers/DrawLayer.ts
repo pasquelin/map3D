@@ -1237,7 +1237,8 @@ export class DrawLayer implements Layer {
     if (!c || !this.overlaySel) return
     const bb = screenBBox(c.pts)
     const center = bb ? { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 } : c.pts[0]!
-    this.overlaySel.flashLock(c, center)
+    this.overlaySel.flashLock(c, center, this.config.interaction.lockFlashMs)
+
   }
 
   /** Repositionne contours/bbox/marquee/poignées de la sélection (px écran, chaque frame). */
