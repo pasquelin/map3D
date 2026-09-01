@@ -24,7 +24,9 @@ import { boundsOfCircle, boundsOfLatLngs } from './bounds'
 import type { CaptureOptions } from './capture'
 import { Camera, type CameraState } from './Camera'
 import { HEADING_EPSILON, projectViewForward, tiltFromNadir } from './enu'
+import { disposeObject3D } from './geometry'
 import { GroundedState } from './GroundedState'
+
 import { PedestrianController, type PedestrianPose } from './PedestrianController'
 import { isGroundPlacement } from './pedestrianPlacement'
 import {
@@ -61,7 +63,9 @@ import { Watermark } from './Watermark'
 import { IntroFlight } from './IntroFlight'
 import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
+import type { PointerInterceptor } from './pointer'
 import { Projection } from './Projection'
+
 import { SelectableRegistry } from './Selectables'
 import { ErasableRegistry } from './Erasables'
 import { CatalogRegistry } from '../catalog/registry'
@@ -73,9 +77,8 @@ import type { ViewStats } from './viewStats'
 import { MarkerRegistry } from './MarkerQuery'
 import { TagFilter } from './TagFilter'
 
-export type PointerPhase = 'down' | 'move' | 'up'
-/** Intercepteur d'entrée (outils de dessin) : renvoie true pour consommer. */
-export type PointerInterceptor = (phase: PointerPhase, latLng: LatLng | null, event: PointerEvent) => boolean
+export type { PointerInterceptor, PointerPhase } from './pointer'
+
 
 // Le domaine du fond de carte (mode + capacités) vit dans `./basemap`, avec sa table de
 // vérité en fonction pure. Ré-exporté ici : c'est de `MapEngine` que les consommateurs
@@ -97,7 +100,13 @@ export type MapEngineOptions = {
    */
   oceanColor: string
   /**
+   * Terres émergées du globe de repli (`theme.globe.landColor`) : la teinte de son graticule,
+   * seul relief que ce globe sans tuiles ait à montrer. Était un littéral.
+   */
+  landColor?: string
+  /**
    * Couleur du voile de distance en mode piéton (`theme.globe.hazeColor`). Lue au montage,
+
    * comme `oceanColor` — voir `applyPedestrianView` pour ce qu'elle corrige.
    */
   hazeColor?: string
@@ -457,6 +466,15 @@ export class MapEngine {
 
   inputInterceptor: PointerInterceptor | null = null
 
+  /**
+   * Rect du canvas, mémoïsé pour la frame. `getBoundingClientRect` force une mise en page,
+   * et les picks du pointeur (dessin, survol de bâtiment, loupe) le demandaient à chaque
+   * `pointermove` — entre les écritures DOM de `project()` : le cas d'école du layout
+   * thrashing, en plein geste. Invalidé en tête de tick et à chaque redimensionnement.
+   */
+  private canvasRect: DOMRect | null = null
+
+
   /** Clé Google exposée aux composants qui la réutilisent (ex. SearchBox → Places). */
   readonly googleMapsApiKey?: string
 
@@ -798,7 +816,8 @@ export class MapEngine {
     this.canvas.parentElement?.appendChild(labelDom)
 
     if (opts.fallbackGlobe && !hasCustomTiles) {
-      this.fallback = this.buildFallbackGlobe(opts.oceanColor)
+      this.fallback = this.buildFallbackGlobe(opts.oceanColor, opts.landColor ?? defaultTheme.globe.landColor)
+
       this.tiles.group.add(this.fallback)
     }
 
@@ -979,6 +998,8 @@ export class MapEngine {
     const w = width > 1 ? width : 1
     const h = height > 1 ? height : 1
     this.size = { width: w, height: h }
+    this.canvasRect = null
+
     // updateStyle=true : three fixe canvas.style.width/height en px CSS (= taille du
     // conteneur), le backing store restant à ×DPR. SANS ça, le canvas (élément
     // remplacé) garde sa largeur intrinsèque (attribut = ×DPR) → affiché 2× trop
@@ -2511,6 +2532,9 @@ export class MapEngine {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000)
     this.lastTime = now
     this.totalFrames++
+    // Le rect du canvas vaut pour toute la frame (cf. `canvasRect`).
+    this.canvasRect = null
+
 
     const controlling = this.camera.update(dt)
 
@@ -3087,7 +3111,8 @@ export class MapEngine {
     }
   }
 
-  private buildFallbackGlobe(oceanColor: string): THREE.Group {
+  private buildFallbackGlobe(oceanColor: string, landColor: string): THREE.Group {
+
     const group = new THREE.Group()
     const r = this.tiles.ellipsoid.radius
     const geo = new THREE.SphereGeometry(1, 96, 64)
@@ -3097,7 +3122,8 @@ export class MapEngine {
     group.add(new THREE.Mesh(geo, mat))
 
     // Graticule pour percevoir la rotation du globe.
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x5b7aa5, transparent: true, opacity: 0.4 })
+    const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(landColor), transparent: true, opacity: 0.4 })
+
     const pts: THREE.Vector3[] = []
     const push = (lat: number, lon: number) => {
       const v = new THREE.Vector3()
@@ -3305,7 +3331,8 @@ export class MapEngine {
    * pas se figer parce que le pointeur a débordé.
    */
   pickLatLngAtClient(clientX: number, clientY: number, fallbackToEllipsoid = false): LatLng | null {
-    const rect = this.canvas.getBoundingClientRect()
+    const rect = this.clientRect()
+
     const x = clientX - rect.left
     const y = clientY - rect.top
     const hit = this.projection.pickLatLng(x, y, this.threeCamera)
@@ -3317,6 +3344,12 @@ export class MapEngine {
     return this.pickLatLngAtClient(e.clientX, e.clientY)
   }
 
+  /** Rect du canvas, mémoïsé par frame (cf. `canvasRect`). */
+  private clientRect(): DOMRect {
+    return (this.canvasRect ??= this.canvas.getBoundingClientRect())
+  }
+
+
   /**
    * Bâtiment sous le pointeur — brut : sa référence et le point d'impact en repère MONDE.
    *
@@ -3324,7 +3357,8 @@ export class MapEngine {
    * que de la référence. C'est `buildingHitOf` qui convertit, au clic seulement.
    */
   private pickBuildingAt(e: PointerEvent): BuildingPickResult | null {
-    const rect = this.canvas.getBoundingClientRect()
+    const rect = this.clientRect()
+
     this.pickNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
     return this.buildings.pick(this.pickNdc, this.threeCamera)
   }
@@ -3421,7 +3455,11 @@ export class MapEngine {
   dispose(): void {
     this.disposed = true
     this.stop()
+    // Démonté en marche ou en placement : le Pointer Lock, les classes du conteneur et le
+    // plein écran ne se relâchaient pas d'eux-mêmes.
+    if (this.cameraMode === 'pedestrian') this.exitPedestrian()
     this.canvas.style.cursor = ''
+
     this.unbindInput()
     this.unbindTagPaint()
     for (const layer of this.layers) layer.dispose()
@@ -3430,7 +3468,13 @@ export class MapEngine {
     this.buildings.dispose()
     this.scene.remove(this.internalSurface)
     this.controls.dispose()
+    // `TilesRenderer.dispose` ne libère pas les enfants étrangers de son groupe : la sphère
+    // de repli (12 k sommets) et son graticule fuitaient à chaque démontage sans token.
+    if (this.fallback) disposeObject3D(this.fallback)
+    this.fallback = null
+    this.fallbackGraticule = null
     this.tiles.dispose()
+
     this.renderer.dispose()
     this.sky.dispose()
     this.watermark.dispose()
@@ -3439,5 +3483,7 @@ export class MapEngine {
     this.templates.dispose()
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
+    for (const set of Object.values(this.listeners)) set.clear()
   }
 }
+

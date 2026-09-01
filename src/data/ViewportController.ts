@@ -3,7 +3,13 @@ import type { DataSource, Viewport } from './types'
 export type ViewportControllerOptions = {
   /** Anti-rebond en millisecondes (operator utilise 500 ms). */
   debounce: number
+  /**
+   * Notifié d'un échec de `source.load` (jamais d'un abandon). Sans lui, un backend en panne
+   * est indiscernable d'un viewport vide : le jeu courant reste affiché, en silence.
+   */
+  onError?: (error: unknown) => void
 }
+
 
 /**
  * Orchestre le chargement viewport-driven d'une `DataSource` : anti-rebond,
@@ -84,9 +90,11 @@ export class ViewportController<T> {
     try {
       const data = await source.load(viewport, controller.signal)
       if (!controller.signal.aborted && !this.disposed) this.onData(data)
-    } catch {
+    } catch (error) {
       // Abort ou erreur réseau : on laisse le jeu de données courant intact.
+      if (!controller.signal.aborted && !this.disposed) this.options.onError?.(error)
     } finally {
+
       if (this.inFlight === controller) {
         this.inFlight = null
         this.onLoadingChange?.(false)

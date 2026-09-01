@@ -1,5 +1,5 @@
 import { mdiLock } from '@mdi/js'
-import type { PointerPhase } from '../../core/MapEngine'
+import type { PointerPhase } from '../../core/pointer'
 import type { SelectableGeometry } from '../../core/Selectables'
 import type { HandleId, HandleSpec } from './EditController'
 import type { ScreenBBox, ScreenPt } from './hitTest'

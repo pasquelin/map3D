@@ -98,6 +98,8 @@ export type { CaptureOptions, CaptureFormat, CaptureBackground, OverlayRasterize
 // ── Data (viewport-driven / temps réel) ──
 export type { Viewport, DataSource, MarkerData, StaticMarker } from './data/types'
 export { ViewportController } from './data/ViewportController'
+export type { ViewportControllerOptions } from './data/ViewportController'
+
 export { diffById } from './data/diff'
 export type { DiffResult } from './data/diff'
 
@@ -165,7 +167,9 @@ export type {
   EditShortcut,
   EditShortcuts,
   ShortcutsConfig,
+  NavigateShortcuts,
   ZIndexConfig,
+
   DataConfig,
   FetchPolicy,
   GroundSampleConfig,
@@ -469,6 +473,8 @@ export {
   useCatalogSourceCount,
 } from './react/hooks/useCatalog'
 export type { CatalogApi, CatalogSettingsApi } from './react/hooks/useCatalog'
+export type { CatalogContent } from './catalog/store'
+
 /** État d'un AGRÉGAT, dérivé de ses enfants — cf. `CatalogApi.groupState`. */
 export type { GroupCheck } from './catalog/groups'
 export { useCatalogSources, useCatalogSource } from './react/hooks/useCatalogSources'
@@ -513,7 +519,8 @@ export { createGoogleRoutesProvider } from './relations/providers/GoogleRoutesPr
 export type { GoogleRoutesOptions } from './relations/providers/GoogleRoutesProvider'
 export type { RoutingProvider, MatrixEntry, ProviderRoute } from './relations/providers/RoutingProvider'
 export { LinkLayer } from './layers/LinkLayer'
-export type { LinkVisual, LinkLayerDefaults } from './layers/LinkLayer'
+export type { LinkVisual, LinkLayerDefaults, DashStyle } from './layers/LinkLayer'
+
 export { DefaultMarker } from './react/components/DefaultMarker'
 export { DefaultCluster } from './react/components/DefaultCluster'
 

@@ -1,5 +1,5 @@
 import type { InteractionConfig } from '../../config/types'
-import type { PointerPhase } from '../../core/MapEngine'
+import type { PointerPhase } from '../../core/pointer'
 import {
   kindAllowed,
   type SelectableGroup,
