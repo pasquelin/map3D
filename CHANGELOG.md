@@ -6,6 +6,15 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Ajouté
+
+- **Vitrine GitHub Pages** (`site/`, `.github/workflows/pages.yml`) : landing statique
+  publiée sur <https://pasquelin.github.io/map3D/>, d'où la démo React est jouable en
+  ligne sous `examples/react/`. La source Pages est **GitHub Actions** (plus la branche
+  `main` /docs) : rien de compilé n'est commité, le workflow rebâtit la démo à chaque
+  push sur `main`. Les secrets `VITE_CESIUM_ION_TOKEN` et `VITE_GOOGLE_MAPS_KEY` sont
+  facultatifs — absents, la démo tourne sur le fond de carte interne.
+
 ## [0.5.0] — 2026-08-31
 
 ### change! : `toolbar.selectModes` / `toolbar.eraseModes` bornent aussi le clavier

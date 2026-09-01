@@ -12,7 +12,7 @@
 [![ESM + CJS](https://img.shields.io/badge/build-ESM%20%2B%20CJS%20%2B%20types-cb3837?logo=npm&logoColor=white)](#build)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-1e6fbf)](LICENSE)
 
-**[Documentation 🇫🇷](docs/fr/README.md)** · **[Documentation 🇬🇧](docs/en/README.md)** · **[Plugins ↗](https://github.com/pasquelin/plugingsMap3D)**
+**[Live demo ↗](https://pasquelin.github.io/map3D/)** · **[Documentation 🇫🇷](docs/fr/README.md)** · **[Documentation 🇬🇧](docs/en/README.md)** · **[Plugins ↗](https://github.com/pasquelin/plugingsMap3D)**
 
 <br/>
 
@@ -127,6 +127,10 @@ Optional plugins live in a separate repository: **[github.com/pasquelin/plugings
 Write your own with the [plugin API](docs/en/PLUGINS.md) — start from `plugin-template`.
 
 ## Example app
+
+The React example runs in the browser at **[pasquelin.github.io/map3D](https://pasquelin.github.io/map3D/)** — published from `main` on every push, without a Cesium Ion token (photorealistic 3D tiles are off there).
+
+To run it locally, with your own token:
 
 ```bash
 pnpm install

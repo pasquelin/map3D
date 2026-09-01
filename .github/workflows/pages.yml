@@ -1,0 +1,123 @@
+# Vitrine GitHub Pages : la landing statique de `site/` à la racine du site, et la démo
+# React compilée sous `examples/react/`. Source Pages = GitHub Actions (pas la branche
+# `main` /docs) : rien de compilé n'est commité, tout est rebâti à chaque push sur `main`.
+#
+# La démo importe `@map3d/plugin-*`, qui vit dans un AUTRE dépôt (public). Les deux
+# dépôts sont donc checkout côte à côte dans le workspace, exactement comme en local :
+# `examples/react/vite.config.ts` aliase `../../../plugingsMap3D/packages/*/src`.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'examples/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'examples/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois, sans annuler celui en cours : une publication à moitié
+# écrite est pire qu'une publication en retard.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer la librairie
+        uses: actions/checkout@v7
+        with:
+          path: map3D
+
+      - name: Récupérer les plugins (dépôt public séparé)
+        uses: actions/checkout@v7
+        with:
+          repository: pasquelin/plugingsMap3D
+          path: plugingsMap3D
+
+      - name: Installer pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Installer Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Installer les dépendances de la librairie
+        working-directory: map3D
+        run: pnpm install --frozen-lockfile
+
+      # Les alias pointent vers les SOURCES des plugins : leurs propres imports
+      # (`@mdi/js`, `three`) doivent être résolvables depuis leur dossier.
+      - name: Installer les dépendances des plugins
+        working-directory: plugingsMap3D
+        run: pnpm install --no-frozen-lockfile
+
+      # `base` = chemin du site + sous-dossier de la démo, sinon les assets sont
+      # demandés à la racine du domaine `pasquelin.github.io`.
+      - name: Compiler la démo React
+        working-directory: map3D
+        env:
+          # Secrets facultatifs : absents, la démo retombe sur le globe ellipsoïde et
+          # le fournisseur de tuiles interne. Les définir dans les secrets du dépôt
+          # suffit à les activer, sans toucher à ce workflow.
+          VITE_CESIUM_ION_TOKEN: ${{ secrets.VITE_CESIUM_ION_TOKEN }}
+          VITE_GOOGLE_MAPS_KEY: ${{ secrets.VITE_GOOGLE_MAPS_KEY }}
+        # `GITHUB_REPOSITORY` vaut `owner/nom` et est défini pour tous les événements,
+        # contrairement à `github.event.repository`.
+        run: pnpm build:example --base="/${GITHUB_REPOSITORY#*/}/examples/react/"
+
+      - name: Assembler le site
+        working-directory: map3D
+        run: |
+          set -euo pipefail
+          mkdir -p _site/examples/react
+          cp -R site/. _site/
+          cp -R examples/react/dist/. _site/examples/react/
+          # Pages passerait la sortie dans Jekyll et ignorerait tout nom en `_`.
+          touch _site/.nojekyll
+          # La version affichée vient du paquet : un gabarit vaut mieux qu'un numéro
+          # recopié à la main qui se périme au premier `npm version`.
+          version=$(node -p "require('./package.json').version")
+          sed -i "s/{{VERSION}}/${version}/g" _site/index.html
+          du -sh _site
+
+      - name: Préparer Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v6
+
+      - name: Téléverser l'artefact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: map3D/_site
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Déployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

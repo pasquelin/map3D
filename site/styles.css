@@ -1,0 +1,841 @@
+/*
+  Vitrine map3d. Palette et typo dérivées du sujet : une image satellite de nuit
+  (ardoise très sombre, légèrement verte), l'orange d'un feu de position pour l'unique
+  accent, et une graisse variable d'Archivo utilisée comme une échelle de zoom —
+  titres élargis (wdth 112), étiquettes resserrées (wdth 78).
+*/
+
+:root {
+  color-scheme: dark;
+
+  --nuit: #070c10;
+  --relief: #0e161c;
+  --relief-haut: #15222b;
+  --graticule: #1d2c36;
+  --releve: #e7eef2;
+  --cote: #7b929e;
+  --balise: #ff6b35;
+
+  --display: 'Archivo', system-ui, sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --shell: 1200px;
+  --marge: clamp(20px, 5vw, 56px);
+  /* Largeur réservée à l'altimètre en colonne fixe (0 sous 1180px). */
+  --altimetre: 0px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--nuit);
+  color: var(--releve);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: inherit;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--balise);
+  outline-offset: 3px;
+}
+
+/* — Blocs partagés —————————————————————————————————————————————— */
+
+.eyebrow {
+  margin: 0 0 14px;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 78;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--balise);
+}
+
+.button {
+  display: inline-block;
+  padding: 13px 24px;
+  border: 1px solid var(--graticule);
+  border-radius: 2px;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 92;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.button:hover {
+  border-color: var(--cote);
+  background: var(--relief);
+}
+
+.button--primary {
+  border-color: var(--balise);
+  background: var(--balise);
+  color: var(--nuit);
+}
+
+.button--primary:hover {
+  border-color: var(--releve);
+  background: var(--releve);
+  color: var(--nuit);
+}
+
+/* — Altimètre : le fil conducteur de la page ————————————————————————
+   La page descend de l'orbite (hero) au trottoir (footer), comme la lib va du globe
+   au mode piéton. Chaque section porte son altitude en `data-alt` ; `hud.js`
+   interpole entre elles au scroll. */
+
+.altimeter {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: none;
+  width: 72px;
+  height: 100vh;
+  padding: 96px 0 40px;
+  border-right: 1px solid var(--graticule);
+  background: var(--nuit);
+  text-align: center;
+}
+
+.altimeter__track {
+  position: relative;
+  width: 1px;
+  height: calc(100vh - 240px);
+  margin: 0 auto;
+  background: linear-gradient(to bottom, var(--graticule), var(--graticule) 50%, transparent);
+  background-size: 1px 8px;
+  background-repeat: repeat-y;
+}
+
+.altimeter__cursor {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--balise);
+  border-radius: 50%;
+  background: var(--nuit);
+  transition: top 0.25s ease-out;
+}
+
+.altimeter__value {
+  margin: 18px 0 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--releve);
+}
+
+.altimeter__unit {
+  display: block;
+  font-size: 10px;
+  color: var(--cote);
+}
+
+.altimeter__caption {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 78;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cote);
+}
+
+/* — Barre haute ————————————————————————————————————————————————— */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px var(--marge) 14px calc(var(--marge) + var(--altimetre));
+  border-bottom: 1px solid var(--graticule);
+  background: color-mix(in srgb, var(--nuit) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.topbar__brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 88;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.topbar__version {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--cote);
+}
+
+.topbar__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  font-size: 14px;
+}
+
+.topbar__nav a {
+  color: var(--cote);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.topbar__nav a:hover {
+  color: var(--releve);
+}
+
+.topbar__source {
+  color: var(--releve);
+}
+
+/* — Hero ————————————————————————————————————————————————————————— */
+
+.hero {
+  display: grid;
+  gap: clamp(36px, 5vw, 64px);
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: clamp(56px, 9vw, 108px) var(--marge) clamp(40px, 6vw, 72px);
+}
+
+/* Le texte porte la thèse, la capture la prouve : dans cet ordre à toutes les
+   tailles, alors que le HTML place le cadre en premier pour le préchargement. */
+.hero__copy {
+  order: -1;
+  min-width: 0;
+  max-width: 64ch;
+}
+
+.hero__title {
+  margin: 0;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 112;
+  font-weight: 700;
+  font-size: clamp(38px, 7vw, 82px);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+}
+
+.hero__sub {
+  margin: 18px 0 0;
+  font-size: clamp(16px, 2.2vw, 20px);
+  font-style: italic;
+  color: var(--cote);
+}
+
+.hero__lede {
+  margin: 22px 0 0;
+  max-width: 52ch;
+  font-size: clamp(16px, 1.6vw, 18px);
+  color: color-mix(in srgb, var(--releve) 82%, var(--nuit));
+}
+
+.hero__lede code {
+  color: var(--releve);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.hero__install {
+  margin: 22px 0 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--cote);
+}
+
+.hero__install code {
+  padding: 7px 12px;
+  border: 1px solid var(--graticule);
+  border-radius: 2px;
+  background: var(--relief);
+  color: var(--releve);
+  user-select: all;
+}
+
+.hero__frame {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--graticule);
+  border-radius: 3px;
+  background: var(--relief);
+}
+
+.hero__shot {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+/* Graticule superposé : c'est ce que la lib dessine, pas un motif décoratif. */
+.hero__graticule {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--releve) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--releve) 8%, transparent) 1px, transparent 1px);
+  background-size: 12.5% 25%;
+}
+
+.hero__plate {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--graticule);
+  border-left: 1px solid var(--graticule);
+  background: color-mix(in srgb, var(--nuit) 82%, transparent);
+  backdrop-filter: blur(6px);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--cote);
+}
+
+.hero__plate span:first-child {
+  color: var(--releve);
+}
+
+/* — Bandeau de faits ————————————————————————————————————————————— */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: 0 var(--marge);
+  border-top: 1px solid var(--graticule);
+  border-bottom: 1px solid var(--graticule);
+}
+
+.facts > div {
+  padding: 18px 0 18px 22px;
+  border-left: 1px solid var(--graticule);
+}
+
+.facts > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.facts dt {
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 78;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cote);
+}
+
+.facts dd {
+  margin: 5px 0 0;
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+/* — Sections ————————————————————————————————————————————————————— */
+
+.section {
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: clamp(64px, 9vw, 116px) var(--marge) 0;
+}
+
+.section__head {
+  max-width: 62ch;
+  margin-bottom: clamp(28px, 4vw, 44px);
+}
+
+.section__title {
+  margin: 0;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 104;
+  font-weight: 700;
+  font-size: clamp(28px, 4.4vw, 46px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.section__lede {
+  margin: 16px 0 0;
+  color: var(--cote);
+}
+
+.section__lede a {
+  color: var(--releve);
+  text-decoration-color: var(--graticule);
+  text-underline-offset: 3px;
+}
+
+.section__lede a:hover {
+  text-decoration-color: var(--balise);
+}
+
+/* — Démos ———————————————————————————————————————————————————————— */
+
+.demos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.demo {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--graticule);
+  border-radius: 3px;
+  background: var(--relief);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+a.demo:hover {
+  border-color: var(--balise);
+  transform: translateY(-3px);
+}
+
+.demo--pending {
+  grid-column: span 1;
+  border-style: dashed;
+  background: transparent;
+}
+
+.demo__shot {
+  display: block;
+  overflow: hidden;
+  border-bottom: 1px solid var(--graticule);
+}
+
+.demo__shot img {
+  width: 100%;
+  transition: transform 0.4s ease;
+}
+
+a.demo:hover .demo__shot img {
+  transform: scale(1.02);
+}
+
+.demo__body {
+  display: block;
+  padding: 22px 24px 26px;
+}
+
+.demo__tag {
+  display: inline-block;
+  align-self: flex-start;
+  margin-bottom: 12px;
+  padding: 3px 9px;
+  border: 1px solid var(--graticule);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--balise);
+}
+
+.demo--pending .demo__tag {
+  color: var(--cote);
+}
+
+.demo__name {
+  display: block;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 100;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.demo__text {
+  display: block;
+  margin-top: 10px;
+  color: var(--cote);
+  font-size: 15px;
+}
+
+.demo__note {
+  display: block;
+  margin-top: 14px;
+  padding-left: 12px;
+  border-left: 2px solid var(--graticule);
+  font-size: 13px;
+  color: var(--cote);
+}
+
+.demo__cta {
+  display: block;
+  margin-top: 20px;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 88;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--balise);
+}
+
+.demo__cta::after {
+  content: ' →';
+}
+
+.demo__cta--muted {
+  color: var(--cote);
+}
+
+.demo__cta--muted::after {
+  content: '';
+}
+
+/* — Rail de la galerie ——————————————————————————————————————————
+   Une descente, pas une grille : les vues sont ORDONNÉES de l'orbite au trottoir, et
+   chacune porte son altitude. Le rail défile horizontalement — quatre vues ou dix, la
+   composition ne se déséquilibre jamais. */
+
+.section__head--rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+  justify-content: space-between;
+  max-width: none;
+}
+
+.section__head--rail > div {
+  max-width: 62ch;
+}
+
+.rail__nav {
+  display: flex;
+  gap: 8px;
+}
+
+.rail__nav[hidden] {
+  display: none;
+}
+
+.rail__button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--graticule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--releve);
+  font-size: 15px;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.rail__button:hover:not(:disabled) {
+  border-color: var(--balise);
+  color: var(--balise);
+}
+
+.rail__button:disabled {
+  color: var(--graticule);
+  cursor: default;
+}
+
+.rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(84vw, 430px);
+  gap: 18px;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0 0 14px;
+  list-style: none;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--graticule) transparent;
+}
+
+.rail__item {
+  overflow: hidden;
+  border: 1px solid var(--graticule);
+  border-radius: 3px;
+  background: var(--relief);
+  scroll-snap-align: start;
+}
+
+.rail__item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-bottom: 1px solid var(--graticule);
+}
+
+.rail__caption {
+  margin: 0;
+  padding: 16px 18px 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cote);
+}
+
+/* La cote d'altitude relie la vignette à l'altimètre de la marge : même échelle,
+   même unité, même lecture. */
+.rail__alt {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--balise);
+}
+
+.rail__caption b {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 88;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  color: var(--releve);
+}
+
+/* — Capacités ———————————————————————————————————————————————————— */
+
+.caps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--graticule);
+  border: 1px solid var(--graticule);
+  border-radius: 3px;
+}
+
+.caps li {
+  background: var(--nuit);
+}
+
+.caps a {
+  display: block;
+  height: 100%;
+  padding: 26px 26px 28px;
+  text-decoration: none;
+  transition: background-color 0.18s ease;
+}
+
+.caps a:hover {
+  background: var(--relief);
+}
+
+.caps__name {
+  display: block;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 96;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.005em;
+}
+
+.caps a > code {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--balise);
+}
+
+.caps__text {
+  display: block;
+  margin-top: 10px;
+  font-size: 14.5px;
+  color: var(--cote);
+}
+
+.caps__text code {
+  color: var(--releve);
+}
+
+/* — Bloc de code ————————————————————————————————————————————————— */
+
+.code {
+  overflow-x: auto;
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--graticule);
+  border-radius: 3px;
+  background: var(--relief);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--releve) 88%, var(--nuit));
+}
+
+.code b {
+  font-weight: 500;
+  color: var(--balise);
+}
+
+.code i {
+  font-style: normal;
+  color: #8fd3c4;
+}
+
+/* — Pied ————————————————————————————————————————————————————————— */
+
+.footer {
+  max-width: var(--shell);
+  margin: clamp(72px, 10vw, 128px) auto 0;
+  padding: 32px var(--marge) 56px;
+  border-top: 1px solid var(--graticule);
+}
+
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 26px;
+  font-family: var(--display);
+  font-variation-settings: 'wdth' 88;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.footer__links a {
+  text-decoration: none;
+  color: var(--releve);
+  transition: color 0.15s ease;
+}
+
+.footer__links a:hover {
+  color: var(--balise);
+}
+
+.footer__legal {
+  margin: 20px 0 0;
+  font-size: 13px;
+  color: var(--cote);
+}
+
+.footer__legal a {
+  color: var(--cote);
+  text-underline-offset: 3px;
+}
+
+/* — Adaptations ————————————————————————————————————————————————— */
+
+@media (max-width: 719px) {
+  .facts > div {
+    padding: 14px 0;
+    border-top: 1px solid var(--graticule);
+    border-left: 0;
+  }
+
+  .facts > div:first-child {
+    border-top: 0;
+  }
+}
+
+@media (min-width: 900px) {
+  .hero {
+    gap: clamp(40px, 5vw, 60px);
+  }
+
+  .demos {
+    grid-template-columns: 1.7fr 1fr;
+  }
+
+  .demo--pending .demo__body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+  }
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --altimetre: 72px;
+  }
+
+  .altimeter {
+    display: block;
+  }
+
+  .hero,
+  .facts,
+  .section,
+  .footer {
+    padding-left: calc(var(--marge) + var(--altimetre));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
