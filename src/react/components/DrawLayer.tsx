@@ -380,8 +380,13 @@ export function DrawLayer(props: DrawLayerProps) {
     return () => {
       offSelection()
       offErasables()
-      engine.inputInterceptor = null
-      engine.setDrawing(false)
+      // Le slot d'intercepteur est PARTAGÉ avec la loupe (cf. `LensLayer`) : ne le
+      // relâcher — et ne dégeler le pan — que si c'est encore le nôtre, sinon on
+      // débranche la loupe active sous les doigts de l'utilisateur.
+      if (engine.inputInterceptor === core.interceptor) {
+        engine.inputInterceptor = null
+        engine.setDrawing(false)
+      }
       unregisterCounter()
       engine.removeLayer(core)
       engine.templates.drawPort = null
