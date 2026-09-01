@@ -66,6 +66,8 @@ jobs:
 
       - name: Installer pnpm
         uses: pnpm/action-setup@v6
+        with:
+          package_json_file: map3D/package.json
 
       - name: Installer Node
         uses: actions/setup-node@v7
