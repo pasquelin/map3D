@@ -143,7 +143,15 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 - **`THEME.md`** : `sizing.lensPanelW` et `sizing.selectionPanelW` valent `260`
   (`src/style/panelGeometry.ts`), pas 252 / 236. **`CONFIG.md`** : la référence est extraite
   de `src/config/types/*.ts`, pas d'un fichier `types.ts` unique.
-- **Un worker qui meurt sur une tuile ne renaît plus sans fin** (`WorkerPool`) : la tâche
+- **La carte ne clignote plus au redimensionnement de la fenêtre.** Redimensionner le
+  tampon de rendu écrit `canvas.width/height`, ce qui le VIDE ; le repaint n'arrivant qu'à
+  la frame suivante, le navigateur composait un canvas transparent entre les deux. Le
+  `ResizeObserver` appelant `setSize` hors de la boucle, un geste de redimensionnement
+  vidait le tampon à chaque frame — mesuré sur 40 frames : 40 vidages, 0 repeint avant
+  composition. Le moteur repeint désormais dans le tour courant (0 flash sur la même
+  mesure). Même parade pour un changement de `performance.pixelRatio` à chaud.
+- **Un worker qui meurt sur une tuile ne renaît plus sans fin** (`WorkerPool`)
+ : la tâche
   était remise en tête de file et confiée à un worker neuf qui mourait à son tour ; la
   promesse ne se réglait jamais et le créneau de la file de tuiles restait consommé — quatre
   tuiles empoisonnées gelaient tout le volume. La tâche compte ses remplacements, le pool ses

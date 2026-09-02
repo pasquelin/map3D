@@ -1052,6 +1052,11 @@ export class MapEngine {
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     // La taille du viewport change les bounds : invalide la vue mémoïsée.
     this.viewDirty = true
+    // Le tampon vient d'être vidé par le redimensionnement : on le repeint AVANT que le
+    // navigateur ne compose, sans quoi la carte disparaît le temps d'une frame (cf.
+    // `repaintNow`). `invalidate()` ci-dessus reste nécessaire : les couches n'ont pas
+    // rejoué leurs passes avec la nouvelle taille, seuls leurs overlays DOM attendent.
+    this.repaintNow()
   }
 
   addLayer(layer: Layer): void {
@@ -2370,6 +2375,9 @@ export class MapEngine {
   private dirtyFrames = 1
   /** Date de la dernière frame réellement peinte — origine du filet `maxIdleMs`. */
   private paintedAt = 0
+  /** Dans la boucle de frame : `repaintNow` s'abstient, le rendu de fin de frame vient. */
+  private inTick = false
+
   /** Pose de la caméra à la dernière frame — détecteur de mouvement du rendu à la demande. */
   private readonly lastCamMatrix = new THREE.Matrix4()
   /** Désabonnement du repaint sur le filtre de tags (cf. constructeur). */
@@ -2425,7 +2433,7 @@ export class MapEngine {
    * redemander ici réallouait le tampon de rendu deux fois par palier.
    *
    * ⚠️ Écrire `canvas.width/height` VIDE le tampon de rendu : tout appelant doit repeindre
-   * dans la foulée, sinon le navigateur compose un canvas noir. D'où `invalidate()` ici —
+   * dans la foulée, sinon le navigateur compose un canvas vide. D'où `invalidate()` ici (frame
    * qui garantit la peinture, mais à la frame SUIVANTE : un appel en cours de `tick` doit
    * en plus se placer avant les passes de rendu (cf. son site d'appel dans `tick`).
    */
@@ -2435,6 +2443,10 @@ export class MapEngine {
     // La résolution entre dans le calcul d'erreur d'écran des tuiles : sans ça, le LOD
     // continuerait de viser la finesse de l'ancienne définition.
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
+    // Appelé hors boucle (`setConfig` change `pixelRatio`) : même vidage de tampon qu'un
+    // redimensionnement, donc même parade. Dans la boucle, `repaintNow` s'abstient — le
+    // rendu de fin de frame suit de toute façon.
+    this.repaintNow()
   }
 
   /**
@@ -2562,8 +2574,41 @@ export class MapEngine {
     return this.basemap2d.busy || this.buildings.busy
   }
 
+  /**
+   * Une frame de la boucle. Le drapeau `inTick` dit à `repaintNow` que le rendu de fin de
+   * frame vient, et qu'il n'a donc rien à peindre de son côté.
+   */
   private tick(now: number): void {
+    this.inTick = true
+    try {
+      this.frame(now)
+    } finally {
+      this.inTick = false
+    }
+  }
+
+  /**
+   * Repeint IMMÉDIATEMENT, dans le tour de boucle courant.
+   *
+   * Redimensionner le tampon de rendu — `renderer.setSize`, `setPixelRatio` — écrit
+   * `canvas.width/height`, ce qui le VIDE. Attendre la frame suivante laisse alors le
+   * compositeur afficher un canvas transparent : le `ResizeObserver` appelant `setSize` hors
+   * de la boucle, un redimensionnement de fenêtre vidait le tampon à CHAQUE frame du geste
+   * (mesuré : 40 vidages, 0 repeint avant composition) — d'où le clignotement. Peindre ici
+   * ferme le trou, puisque la phase `ResizeObserver` précède encore la composition.
+   *
+   * Sans effet dans la boucle (`inTick`) : le rendu de fin de frame s'en charge déjà.
+   */
+  private repaintNow(): void {
+    if (!this.running || this.disposed || this.inTick) return
+    this.renderFrame(this.camera.getState())
+    // La frame de filet (`maxIdleMs`) se compte depuis la dernière image RÉELLEMENT peinte.
+    this.paintedAt = performance.now()
+  }
+
+  private frame(now: number): void {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000)
+
     this.lastTime = now
     this.totalFrames++
     // Le rect du canvas vaut pour toute la frame (cf. `canvasRect`).
