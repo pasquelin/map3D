@@ -38,6 +38,10 @@ const engine = useMap()   // ou map.current?.engine
 | `markers` | inventaire des markers (`MarkerRegistry`) |
 | `clusters` | registre de regroupement (`ClusterRegistry`) — alimenté par les couches, consommé par `<ClusterSurface>` |
 | `selectables` | registre des sélectionnables au marquee |
+| `erasables` | registre des objets hôte effaçables par la gomme (`ErasableRegistry`) |
+| `counters` | compteurs du panneau de diagnostic (`CounterRegistry`) |
+| `catalog` | registre des sources de catalogue (`CatalogRegistry`) — cf. [CATALOG.md](CATALOG.md) |
+| `enrichment` | orchestrateur d'enrichissement au pick de bâtiment (`PluginEnrichment`) — cf. [PLUGINS.md](PLUGINS.md) |
 | `drag` | registre du drag-and-drop (`DragRegistry`) |
 | `ready` | booléen synchrone (cf. [CAMERA.md § 2](CAMERA.md#2--la-carte-est-prête--ready)) |
 | `interactive` | mode courant (`true` \| `'view'` \| `false`) |
@@ -128,6 +132,10 @@ le bouton trafic là où il n'aurait rien à allumer.
 `setMapMode('plan')` sans `canPlan`, comme `setTrafficVisible(true)` sans
 `trafficAvailable`, sont **sans effet** — un état accepté sans rien à l'écran vaut moins
 qu'un refus net.
+
+Ces drapeaux sortent d'une fonction pure exportée, `deriveBasemapCapabilities(mode, support,
+traffic)`, dont l'entrée `BasemapSupport` décrit ce que le moteur sait de ses sources — cf.
+[TILES.md § 4](TILES.md#4-ce-que-linterface-propose-capacités).
 
 ---
 
@@ -325,6 +333,25 @@ type SelectableProvider = {
 Branchez-y votre propre couche pour la rendre sélectionnable au marquee.
 `itemsChanged()` signale une modification (prune de la sélection).
 
+### `ErasableRegistry` (`engine.erasables`)
+
+Miroir de `selectables` pour la **gomme**, mais séparé : un objet effaçable n'est pas pour
+autant sélectionnable, et réciproquement. Une couche hôte y branche un provider ; le
+`DrawLayer` l'interroge au clic ou au finalize d'un marquee, jamais par frame.
+
+```ts
+type ErasableProvider = {
+  readonly kind: HostLayerKind   // 'path' | 'shape' — régi par `config.erase.targets`
+  items(): ErasableItem[]        // { id, ring: LatLng[], closed, kind } — seulement les objets `erasable`
+  has(): boolean                 // répond SANS construire la liste : décide si la gomme a lieu d'être
+}
+const off = engine.erasables.register(provider)
+```
+
+La lib ne possède pas ces objets (ce sont vos props) : elle n'en connaît qu'un anneau
+géodésique, et la suppression effective passe par votre `onErase`. `all()` concatène les
+objets de tous les providers ; `hasAny(targets)` répond au premier trouvé, sans rien allouer.
+
 ### `CounterRegistry` (`engine.counters`)
 
 Ce que la vue **contient réellement**, pour le panneau de diagnostic (`<StatsPanel>`). Une couche s'y inscrit et déclare ses éléments ; le panneau agrège.
@@ -341,6 +368,8 @@ const off = engine.counters.register({
 `stats(bounds)` reçoit le cadre de la vue et n'est appelé qu'à la cadence du panneau (`performance.readoutRefreshMs`), **et seulement pendant qu'il est ouvert** — c'est là, jamais dans une passe de frame, que le balayage se paie.
 
 `engine.viewStats(out)` rend l'instantané complet (contenu, rendu, tuiles) en écrivant dans `out`, réutilisable d'un appel à l'autre.
+
+`statLevel(value, threshold)` est le verdict (`'ok' | 'warn' | 'bad'`) que le panneau applique à chaque grandeur d'après `performance.statThresholds` — exporté pour un panneau maison qui colore ses propres cellules. Le sens se déduit de l'ordre des deux bornes (`ok < warn` : petit est bon, comme les triangles ; `ok > warn` : grand est bon, comme les fps), et une valeur non finie rend `'ok'` — une grandeur qu'on ne sait pas encore mesurer n'est pas une alerte, la peindre en rouge apprendrait à ignorer le rouge.
 
 ### `DragRegistry` (`engine.drag`)
 
@@ -407,6 +436,8 @@ CSS ne casse rien.
 | `boundsContains(bounds, p)` | test d'appartenance à un cadre géo |
 | `resolveLocale()` / `resolveRegion()` | 🌍 résolution de `'auto'` en locale/région effectives |
 | `DEFAULT_STROKE_OPACITY`, `MEASURE_STROKE_OPACITY` | opacités de trait de référence |
+| `VERSION` | version du paquet, lue dans `package.json` au build — pour un diagnostic ou un garde-fou de compatibilité côté hôte |
+| `RemoveButton` / `REMOVE_ICON_PATH` | bouton « supprimer » partagé (`label`, `withText?`, `className?`, `onRemove`) — barre d'état de relation, dock, indice de retrait au drag — et son tracé d'icône `mdiClose` ; pour qu'un geste de retrait maison ait le même visage |
 
 **Sur `setGeometryWarner`** : les géométries dont les coordonnées ne sont pas finies
 sont écartées et signalées **une fois par origine**. Redirigez-les vers le journal de
@@ -432,6 +463,9 @@ son composant : il tourne côté serveur ou en test avec un fournisseur factice 
 Three, ni React, ni `fetch`).
 
 ---
+
+**Options du constructeur** (`MapEngineOptions`) : parmi elles, `landColor?: string` peint les
+terres du globe de repli — sous React, `<Map>` y passe `theme.globe.landColor`. <!-- audit: à vérifier à la fusion (cœur) -->
 
 ## Voir aussi
 

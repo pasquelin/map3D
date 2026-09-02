@@ -173,6 +173,20 @@ symbols, whose anchor point is carried by the artwork itself.
 > `leaderLine` decides the **DOM structure** of a node at creation time: it is not a
 > live setting, unlike `cullMargin`.
 
+The chip itself is the `DefaultMarker` component (public export), rendered when the marker
+has neither `avatar` nor `icon`:
+
+```tsx
+import { DefaultMarker, useTheme } from '@pasquelin/map3d'
+
+<DefaultMarker marker={m} theme={useTheme()} label="3" />   // the same chip, off-map (legend, list)
+```
+
+It is **presentational**: the node carrying it in the layer already holds `role="button"`,
+`tabIndex` and the `aria-label` — repeating them would nest a button inside a button. The
+colour comes from `markerColorOf(theme, marker.type)`, the halo follows
+`theme.animations.halo`. Props detailed in [PROPS.md](PROPS.md).
+
 ### Where the marker settles
 
 `settleToGround` (default `true`) settles the marker on the real surface rather than on

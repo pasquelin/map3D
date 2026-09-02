@@ -6,11 +6,17 @@ Tout ce qui se VOIT : couleurs, tailles, rythme. Le pendant de `MapConfig`, qui
 règle les comportements.
 
 ```tsx
-<MapProvider theme={{ colors: { ui: { accent: '#0af' } } }}>
+import { defaultTheme, mergeTheme } from '@pasquelin/map3d'
+
+<MapProvider theme={mergeTheme(defaultTheme, { colors: { ui: { accent: '#0af' } } })}>
 ```
 
-Override partiel et profond, comme la config. Un couple `{ light, dark }` permet
-de suivre le mode de l'application hôte.
+À la différence de `labels` et `config`, la prop `theme` attend un thème **complet**
+(`ThemeInput = MapTheme | { light: MapTheme; dark: MapTheme }`) : elle ne merge rien
+elle-même. Un override partiel se compose avec `mergeTheme(base, override?, opts?)`
+(merge profond sur une base, `prefers-reduced-motion` respecté sauf si l'override force
+`animations.enabled`). Un couple `{ light, dark }` permet de suivre le mode de
+l'application hôte.
 
 Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 
@@ -31,9 +37,11 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.marker.default.accent`     | Couleur par type de marker (ex. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                                          | `'#78BEFF'`                                                          |
 | `colors.marker.default.contrast`   | Couleur par type de marker (ex. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                                          | `'#ffffff'`                                                          |
 | `colors.tags`                      | Couleur de repérage par tag (panneau « Couches »), clé = nom du tag. Tag absent de cet objet → palette hashée de la lib. Optionnel.                                                                                                                                                                                                                                                                            | `{}`                                                                 |
+| `colors.tagPalette`                | **Optionnel.** Palette de repli des tags sans couleur déclarée dans `colors.tags` : un hash stable du nom du tag y choisit une couleur — le même tag garde la même couleur d'une session à l'autre. Absente, les 12 couleurs de la lib. <!-- audit: à vérifier à la fusion (cœur) --> | `['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899']` |
 | `colors.cluster.core`              | Cœur du donut.                                                                                                                                                                                                                                                                                                                                                                                                 | `'#1e293b'`                                                          |
 | `colors.cluster.text`              | Total affiché au centre.                                                                                                                                                                                                                                                                                                                                                                                       | `'#ffffff'`                                                          |
 | `colors.cluster.ring`              | Anneau de séparation cœur/parts.                                                                                                                                                                                                                                                                                                                                                                               | `'#ffffff'`                                                          |
+| `colors.cluster.stroke` | Contour clair des parts du donut (épaisseur `clusters.strokeWidth`). <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
 | `colors.draw.palette`              | Palette proposée par le sélecteur de couleur du dessin.                                                                                                                                                                                                                                                                                                                                                        | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
 | `colors.draw.default`              | Couleur d'une forme nouvellement tracée.                                                                                                                                                                                                                                                                                                                                                                       | `'#2E7CF6'`                                                          |
 | `colors.ui.panel`                  | Fond des panneaux et barres (translucide).                                                                                                                                                                                                                                                                                                                                                                     | `'rgba(20,26,30,0.9)'`                                               |
@@ -59,6 +67,11 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.marquee.fill`              | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu…                                                                                                          | `'rgba(255,255,255,0.12)'`                                           |
 | `colors.marquee.stroke`            | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu…                                                                                                          | `'#000000'`                                                          |
 | `colors.marquee.under`             | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu…                                                                                                          | `'#ffffff'`                                                          |
+| `colors.readable.dark` | Texte posé sur une couleur arbitraire (pastille d'affiliation) : encre sombre quand le fond est clair. <!-- audit: à vérifier à la fusion (React) --> | `'#101828'` |
+| `colors.readable.light` | Encre claire quand le fond est sombre. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `colors.readable.threshold` | Luminance perçue au-delà de laquelle le fond est jugé clair. <!-- audit: à vérifier à la fusion (React) --> | `0.6` |
+| `colors.pinShade.color` | Assombrissement du bas d'une pastille de dock à couleur explicite (`color-mix`). <!-- audit: à vérifier à la fusion (React) --> | `'#000000'` |
+| `colors.pinShade.percent` | Part (%) de `pinShade.color` dans le mélange. <!-- audit: à vérifier à la fusion (React) --> | `45` |
 
 ## `shadows` — Ombres
 
@@ -102,6 +115,10 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `markers.icon`               | Contenu par défaut d'un marker : rien, l'icône du type, son rang, ou un nœud. | `'type'`     |
 | `markers.moveTween.duration` | Tween de position (déplacement animé des agents).                             | `500`        |
 | `markers.moveTween.easing`   | Tween de position (déplacement animé des agents).                             | _(fonction)_ |
+| `markers.selectionRingExtraPx` | Surplus de diamètre (px) de l'anneau de multi-sélection d'un sprite — repli de `<MarkerLayer selectionRing>`. <!-- audit: à vérifier à la fusion (React) --> | `4` |
+| `markers.tipGapPx` | Écart (px) entre le haut du visuel et son infobulle. <!-- audit: à vérifier à la fusion (React) --> | `10` |
+| `markers.ringColor` | Anneau clair entre corps et halo du marker par défaut. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `markers.glossColor` | Couleur du reflet. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
 
 ## `clusters` — Géométrie du cluster par défaut (donut)
 
@@ -113,6 +130,24 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `clusters.segmentGap`    | Écart angulaire entre deux parts (rad) ; `0` les rend jointives.           | `0.045`             |
 | `clusters.startAngle`    | Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas.      | `3.141592653589793` |
 | `clusters.selectedGapPx` | Écart (px) entre la pastille et son anneau de sélection marching-ants.     | `4`                 |
+| `clusters.sizeRatio` | Diamètre d'une pastille custom en fraction de `markers.size` — repli de `<ClusterSurface size>`. <!-- audit: à vérifier à la fusion (React) --> | `1.18` |
+| `clusters.text.segmentSize` | Chiffres du donut : taille (px) du compte d'une part. <!-- audit: à vérifier à la fusion (React) --> | `13` |
+| `clusters.text.segmentSizeWide` | Taille (px) d'une part à partir de `wideFrom`. <!-- audit: à vérifier à la fusion (React) --> | `11` |
+| `clusters.text.coreSize` | Taille (px) du total au centre. <!-- audit: à vérifier à la fusion (React) --> | `19` |
+| `clusters.text.coreSizeWide` | Taille (px) du total à partir de `wideFrom`. <!-- audit: à vérifier à la fusion (React) --> | `16` |
+| `clusters.text.wideFrom` | Nombre de points à partir duquel les tailles « wide » s'appliquent. <!-- audit: à vérifier à la fusion (React) --> | `100` |
+| `clusters.text.weight` | Graisse des chiffres. <!-- audit: à vérifier à la fusion (React) --> | `800` |
+| `clusters.tip.background` | Vignette de survol d'une part (portail hors `.m3d-root`, lue en JS) ; police = `typography.fontFamily`. Fond. <!-- audit: à vérifier à la fusion (React) --> | `'rgba(17,24,39,0.96)'` |
+| `clusters.tip.color` | Texte de la vignette. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `clusters.tip.fontSize` | Taille (px) du texte. <!-- audit: à vérifier à la fusion (React) --> | `12` |
+| `clusters.tip.weight` | Graisse du texte. <!-- audit: à vérifier à la fusion (React) --> | `600` |
+| `clusters.tip.radius` | Rayon d'angle (px). <!-- audit: à vérifier à la fusion (React) --> | `8` |
+| `clusters.tip.gap` | Écart (px) entre la part et la vignette. <!-- audit: à vérifier à la fusion (React) --> | `7` |
+| `clusters.tip.paddingY` | Marge interne verticale (px). <!-- audit: à vérifier à la fusion (React) --> | `6` |
+| `clusters.tip.paddingX` | Marge interne horizontale (px). <!-- audit: à vérifier à la fusion (React) --> | `10` |
+| `clusters.tip.dotSize` | Diamètre (px) de la pastille de couleur. <!-- audit: à vérifier à la fusion (React) --> | `9` |
+| `clusters.tip.shadow` | Ombre portée. <!-- audit: à vérifier à la fusion (React) --> | `'0 6px 20px rgba(0,0,0,0.35)'` |
+| `clusters.tip.separatorOpacity` | Opacité du séparateur. <!-- audit: à vérifier à la fusion (React) --> | `0.6` |
 
 ## `animations` — Rythme des animations et des vols caméra
 
@@ -145,6 +180,8 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `animations.topDown`               | Bascule en vue du dessus.                                                           | `0.5`                          |
 | `animations.globe`                 | Recul en vue globe.                                                                 | `1`                            |
 
+`themeToVars` publie aussi ces rythmes en variables CSS : `--m3d-{pulse,halo,bob,enter,cluster-enter}-{dur,ease,scale,amp,stagger}` et `--m3d-menu-ease`. Une spec à `false` donne une durée `0ms`. <!-- audit: à vérifier à la fusion (React) -->
+
 ## `spacing` — Espacements des surfaces flottantes (px)
 
 | Clé                | Description                                               | Défaut |
@@ -152,13 +189,14 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `spacing.gap`      | Écart entre une surface ancrée et son ancre.              | `12`   |
 | `spacing.edge`     | Marge minimale entre une surface et le bord du conteneur. | `8`    |
 | `spacing.barInset` | Retrait des barres verticales par rapport au bord.        | `16`   |
+| `spacing.rowMenuGap` | Écart entre le bouton « … » d'une ligne et son menu. <!-- audit: à vérifier à la fusion (React) --> | `2` |
 
 ## `sizing` — Dimensions des surfaces et des icônes
 
 | Clé                                 | Description                                                                                                                                                                                                                                          | Défaut |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `sizing.lensPanelW`                 | Largeur du panneau d'inventaire de la loupe (px).                                                                                                                                                                                                    | `252`  |
-| `sizing.selectionPanelW`            | Largeur du panneau de sélection (px).                                                                                                                                                                                                                | `236`  |
+| `sizing.lensPanelW`                 | Largeur du panneau d'inventaire de la loupe (px).                                                                                                                                                                                                    | `260`  |
+| `sizing.selectionPanelW`            | Largeur du panneau de sélection (px).                                                                                                                                                                                                                | `260`  |
 | `sizing.templatesPanelW`            | Largeur du panneau de templates (px), calée sur sa rangée de cases la plus chargée (catégories + « Vue »).                                                                                                                                           | `352`  |
 | `sizing.panelMaxHeight.tags`        | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520).                                                                                                                | `380`  |
 | `sizing.panelMaxHeight.symbols`     | Hauteurs maximales des panneaux quand la place le permet (px). Elles divergeaient sans raison exprimée (380 / 420 / 300 / 560 / 520).                                                                                                                | `420`  |
@@ -173,6 +211,42 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `sizing.catalogPanelW`              | Largeur du panneau de catalogue — le menu des types (px). Sert aussi de marge de cadrage, avec `catalogSubPanelW` : une zone cadrée pendant que le catalogue est ouvert ne doit pas atterrir dessous.                                                | `252`  |
 | `sizing.catalogSubPanelW`           | Largeur du second panneau, celui de la liste (px). Distincte de `catalogPanelW` bien qu'égale par défaut : les deux surfaces sont ACCOLÉES du même côté, donc c'est leur SOMME que le cadrage réserve.                                               | `252`  |
 | `sizing.iconSize`                   | Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue.                                                                                                 | `0.8`  |
+| `sizing.rowMenuW` | Largeur (px) du menu d'actions d'une ligne de liste. <!-- audit: à vérifier à la fusion (React) --> | `180` |
+| `sizing.pinSize` | Taille (px) d'une pastille du dock — repli de `<PinnedDock size>`. <!-- audit: à vérifier à la fusion (React) --> | `64` |
+| `sizing.panelMaxHeight.searchScope` | Hauteur maximale (px) du menu de portée de la recherche. <!-- audit: à vérifier à la fusion (React) --> | `280` |
+
+## `relations` — Défauts des liens de relation
+
+Défauts des props de [`<RelationLayer>`](PROPS.md#relationlayer) — les props priment.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `relations.width` | Épaisseur du trait des liens (px écran). <!-- audit: à vérifier à la fusion (React) --> | `8` |
+| `relations.defaultColor` | Dernier repli de couleur d'un lien. <!-- audit: à vérifier à la fusion (React) --> | `'#ffd400'` |
+| `relations.routeColor` | Couleur de l'itinéraire réel. <!-- audit: à vérifier à la fusion (React) --> | `'#7c4dff'` |
+| `relations.hoverDarken` | Facteur d'assombrissement du trait survolé. <!-- audit: à vérifier à la fusion (React) --> | `0.72` |
+| `relations.hubRadius` | Rayon (px écran) du socle sous le marker source. <!-- audit: à vérifier à la fusion (React) --> | `26` |
+| `relations.casingWidth` | Contour sombre sous le trait (px). <!-- audit: à vérifier à la fusion (React) --> | `3` |
+| `relations.minOpacity` | Opacité du lien le moins bien classé. <!-- audit: à vérifier à la fusion (React) --> | `1` |
+| `relations.dash` | Pointillé défilant des traits de recherche (`DashStyle`). <!-- audit: à vérifier à la fusion (React) --> | `{ length: 20, gap: 8, speed: 16, gapOpacity: 0.3 }` |
+
+## `draw` — Style d'une forme nouvellement dessinée
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `draw.width` | Épaisseur du trait. <!-- audit: à vérifier à la fusion (React) --> | `8` |
+| `draw.fillOpacity` | Opacité du remplissage. <!-- audit: à vérifier à la fusion (React) --> | `0.3` |
+| `draw.stroke` | Style de trait (`StrokeStyle`). <!-- audit: à vérifier à la fusion (React) --> | `'solid'` |
+| `draw.strokeOpacity` | Opacité du trait. <!-- audit: à vérifier à la fusion (React) --> | `0.95` |
+
+## `path` et `zone` — Tracés et zones drapés
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `path.width` | `<PathLayer>` : largeur du tracé (m au sol). <!-- audit: à vérifier à la fusion (React) --> | `6` |
+| `path.casingWidth` | `<PathLayer>` : contour (m au sol). <!-- audit: à vérifier à la fusion (React) --> | `3` |
+| `zone.width` | `<ShapeLayer>` : largeur du contour (m au sol). <!-- audit: à vérifier à la fusion (React) --> | `6` |
+| `zone.fillOpacity` | `<ShapeLayer>` : opacité du remplissage. <!-- audit: à vérifier à la fusion (React) --> | `0.22` |
 
 ## `tiles` — Traitement colorimétrique du fond de carte (mode sombre)
 
@@ -191,7 +265,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `globe.background`          | Fond derrière le globe (espace).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `'#070C16'` |
 | `globe.oceanColor`          | Océan des globes de repli — celui de secours et celui sous les tuiles 2D.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `'#0F2942'` |
 | `globe.hazeColor`           | Couleur dans laquelle le décor lointain se dissout en **mode piéton** (brouillard de `pedestrian.fogStartMeters` à `viewDistanceMeters`). ⚠️ C'était le fond du canvas, ce qui était juste tant que le fond était ce qu'on voyait derrière le décor ; le ciel atmosphérique se peignant au plan far, les façades lointaines s'estompaient vers un fond clair **sur un ciel bleu** et dessinaient une barre horizontale nette à hauteur d'horizon. Ciel éteint (`sky.enabled: false`), le fond du canvas reprend ce rôle. La teinte d'un ciel bas varie avec l'heure et la diffusion : ce défaut vise le ciel par défaut, en milieu de journée. | `'#C4D6E4'` |
-| `globe.landColor`           | Terres émergées du globe de repli.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `'#4F7A45'` |
+| `globe.landColor`           | Terres émergées du globe de repli (le graticule qui les dessine est peint de cette couleur).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `'#4F7A45'` |
 | `globe.buildingColor`       | Façades des bâtiments extrudés (volume du fournisseur interne). Une emprise qui porte sa propre couleur (attribut `colour`) garde la sienne.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `'#8A8E96'` |
 | `globe.buildingRoofColor`   | Toits des bâtiments extrudés, plus clairs que les façades — la face haute se lit d'emblée.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `'#C2C6CE'` |
 | `globe.buildingRoofLighten` | De combien éclaircir le toit d'une emprise qui porte SA PROPRE couleur (attribut `colour`), en fraction vers le blanc. `buildingRoofColor` ne s'applique qu'aux emprises laissées au thème, et sans cet écart le volume disparaît sur celles-là. ⚠️ Était un littéral dans `BuildingsLayer` : une décision d'apparence écrite dans le code d'un calque, invisible depuis le thème. `0` rend le toit de la couleur exacte de la façade.                                                                                                                                                                                                         | `0.35`      |

@@ -4,8 +4,13 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "types": ["vite/client", "node"],
+    // La lib par son nom public, résolue vers les SOURCES — le même chemin que l'alias de
+    // `vite.config.ts` et de `vitest.config.ts`. `${configDir}` (TS ≥ 5.5) ancre le chemin
+    // sur CE dossier, que le `baseUrl` hérité de la racine soit là ou non : sans lui,
+    // un chemin relatif se résoudrait depuis la racine du dépôt (ou depuis ce fichier,
+    // selon la présence de `baseUrl`) — deux réponses différentes pour la même ligne.
     "paths": {
-      "map3d": ["../../src/index.ts"]
+      "@pasquelin/map3d": ["${configDir}/../../src/index.ts"]
     }
   },
   "include": ["src"]

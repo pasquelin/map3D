@@ -4,7 +4,7 @@
 
 Every adjustable value of the map, its role and its default.
 
-Generated from `src/config/defaultConfig.ts` (values) and `src/config/types.ts`
+Generated from `src/config/defaultConfig.ts` (values) and `src/config/types/*.ts`
 (descriptions) — the defaults below are the ones the library actually applies.
 
 ```tsx
@@ -61,6 +61,11 @@ compile error.
 | `providers.tiles.uniformMaxSpread` | Zoom gap tolerated, in steps, between what the LOOKED-AT ground requires and what the whole view allows, before `uniformDetail` gives way to the cascade. On a flat view the gap is nil; in grazing view it explodes (measured: 73 m altitude and 73° tilt → 805 m tiles, eleven times eye height). `1` tolerates one step (invisible) and switches beyond that. `0` = cascade at the slightest gap; a very high value reverts to the old behaviour, uniform no matter what. | `1` |
 | `providers.tiles.maxAttempts` | Attempts per tile before giving up for good. | `3` |
 | `providers.tiles.retryDelays` | Backoff between two attempts at the same tile. | `[1000, 4000]` |
+| `providers.tiles.errorTtlMs` | Duration (ms) a tile that exhausted its attempts stays in error before being requested again, if it is still in view. `0` = permanent error. <!-- audit: à vérifier à la fusion (cœur) --> | `30000` |
+| `providers.tiles.staleFrames` | Frames out of view beyond which a pending tile leaves the download queue. Seen again, it comes back. <!-- audit: à vérifier à la fusion (cœur) --> | `120` |
+| `providers.tiles.fetch.timeoutMs` | Network policy (`FetchPolicy`) of the Google **session creation**. Give up on a request with no response. `0` = no limit. <!-- audit: à vérifier à la fusion (cœur) --> | `10000` |
+| `providers.tiles.fetch.retries` | Retries after a network failure or 5xx. `0` = none. <!-- audit: à vérifier à la fusion (cœur) --> | `0` |
+| `providers.tiles.fetch.backoffMs` | Wait before the first retry, doubled on each round, with a random share. `0` = immediate retry. <!-- audit: à vérifier à la fusion (cœur) --> | `0` |
 | `providers.routing.matrixUrl` | `computeRouteMatrix` endpoint — point it at a server proxy in production. | `'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix'` |
 | `providers.routing.routesUrl` | `computeRoutes` endpoint. | `'https://routes.googleapis.com/directions/v2:computeRoutes'` |
 | `providers.routing.matrixFields` | Matrix FieldMask — 💰 directly drives Google billing. | `'originIndex,destinationIndex,duration,distanceMeters,condition'` |
@@ -117,6 +122,8 @@ compile error.
 | `providers.buildings.maxRequest` | Budget of tiles requested for one view. ⚠️ Now only a **safety net**: the `maxViewDistance` disc bounds coverage, and the measured peak at 5 km is 32 tiles. This budget used to trigger a fallback to a fixed-size square around the looked-at point whenever exceeded — hence an abrupt switch between two regimes in tilted view. See [TILES.md § 5](TILES.md). | `49` |
 | `providers.buildings.maxAttempts` | Attempts per tile before giving up. | `3` |
 | `providers.buildings.retryDelays` | Backoff between two attempts on the same tile. | `[1000, 4000]` |
+| `providers.buildings.errorTtlMs` | Duration (ms) a tile that exhausted its attempts stays in error before being requested again, if it is still in view. `0` = permanent error. <!-- audit: à vérifier à la fusion (cœur) --> | `30000` |
+| `providers.buildings.staleFrames` | Frames out of view beyond which a pending tile leaves the download queue. Seen again, it comes back. <!-- audit: à vérifier à la fusion (cœur) --> | `120` |
 | `providers.buildings.pickFields` | MVT attributes surfaced by the building pick (`buildingMenu`). **Empty by default**: the data carries dozens per footprint, and carrying them all would cost, per tile, more than the whole geometry. The host asks for what it displays. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Cesium Ion asset served by default (Google Photorealistic 3D Tiles). ⚠️ The identifier used to be written in the engine and repeated in TWO documentation blocks: three copies of a value that designates a provider, the only one of its kind living outside `providers`. | `'2275207'` |
 | `providers.tiles3d.hideVolumeWhenClamped` | Hides the internal buildings above `providers.buildings.maxViewAltitude`: from higher up they cover only a few pixels and leave a "square" in the void. Faded out then hidden — but **kept in memory** as long as you stay within the `requestAltitudeFactor` band, otherwise the reappearance would restart from an empty cache and pop instead of fading. RAM/VRAM is returned only above that band. The criterion is a height above ground, so **valid at any tilt**. **The mode does not change** (stays `'3d'`). `false` = always shown. Internal only. | `true` |
@@ -162,6 +169,7 @@ compile error.
 | `interaction.hubHitTolerancePx` | Click tolerance around a relation hub (the link has its own). | `12` |
 | `interaction.repositionHitPx` | Clickable target of a repositionable marker's ground point. The dot is 7 px: without widening, catching it is a matter of dexterity. The value used to live in the stylesheet (`::before`), hence outside this block although it belongs exactly here — a pointer tolerance that touch support… | `22` |
 | `interaction.clickSuppressMs` | Time net after a gesture: how long the synthetic `click` that follows is swallowed. Coupled with `longPressMs` — a touch context that lengthens one must be able to lengthen the other. | `400` |
+| `interaction.lockFlashMs` | Duration (ms) of the “shape locked” flash when a gesture targets a shape its constraints forbid editing. <!-- audit: à vérifier à la fusion (cœur) --> | `800` |
 | `interaction.freehandMinStepPx` | Decimation of the freehand stroke (floor, in px). Counterpart of `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom of the “Target” flight from an inventory or a list. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom of the flight when clicking a dock favourite. | `16` |
@@ -293,6 +301,7 @@ compile error.
 | `performance.relations.fanMaxLegs` | Beyond N links, the fan collapses into an aggregated line (legibility threshold). | `5` |
 | `performance.relations.zoomBand` | Zoom hysteresis band before recomputing the visual grouping. | `0.3` |
 | `performance.circleSegments` | Polygonisation density of a circle — rendering **and** geometric predicates. | `64` |
+| `performance.shapeGroundSamples` | Points of a zone's outline probed to find the lowest ground under its volume — the base of an extrusion does not float on a slope. <!-- audit: à vérifier à la fusion (cœur) --> | `16` |
 | `performance.groundHeightRange` | Altitude range accepted for a surface sample. Outside these bounds, the sample is deemed aberrant and ignored. Widen it for a non-terrestrial tileset (mock-up, indoor, aerial). | `[-500, 9000]` |
 
 ## `style` — Surface stacking
@@ -327,6 +336,16 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `style.zIndex.listMenu` | MAP plane. Actions menu of a list row. | `96` |
 | `style.zIndex.markerSelected` | Selected marker, INSIDE its own marker anchor. ⚠️ Do not raise it above neighbouring markers: the anchor carries a numeric `z-index`, so it creates a context and this value stays locked inside it. The order BETWEEN markers is decided by the `renderOrder` the engine gives to CSS2DRenderer (see `setRaised`), not here. | `80` |
 
+three.js render order (`renderOrder`) per **layer family**: drawings go above relations, themselves above shapes, paths and links (which tie).
+
+| Key | Description | Default |
+|---|---|---|
+| `style.renderOrder.shapes` | Shapes (`<ShapeLayer>`). <!-- audit: à vérifier à la fusion (cœur) --> | `1` |
+| `style.renderOrder.paths` | Paths (`<PathLayer>`). <!-- audit: à vérifier à la fusion (cœur) --> | `1` |
+| `style.renderOrder.links` | Links. <!-- audit: à vérifier à la fusion (cœur) --> | `1` |
+| `style.renderOrder.relations` | Relations — above shapes, paths and links. <!-- audit: à vérifier à la fusion (cœur) --> | `2` |
+| `style.renderOrder.drawings` | Drawings — above everything else. <!-- audit: à vérifier à la fusion (cœur) --> | `4` |
+
 ## `camera` — Navigation limits and command steps
 
 | Key | Description | Default |
@@ -335,9 +354,6 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `camera.maxZoom` | Maximum reachable zoom **in plan mode** — the descent floor. A flat map only reads better the closer you get. | `21` |
 | `camera.maxZoom3d` | Maximum zoom **in 3D**, the counterpart of `maxZoom` as `maxTilt3d` is of `maxTilt2d`. Below building height the camera ends up IN the street: a wall fills the screen. Height above ground = `40,075,016 / 2^zoom` — ~153 m at 18, ~76 m at 19, ~19 m at 21. | `18` |
 | `camera.maxTilt` | General maximum tilt (rad from nadir). | `1.05` |
-| `camera.zoomStep` | Zoom step per wheel notch. | `0.5` |
-| `camera.dragSpeed.min` | Movement speed at ground level. | `0.002` |
-| `camera.dragSpeed.max` | Movement speed in globe view. | `0.35` |
 | `camera.fov` | Vertical field of view (degrees). Read at engine construction only. | `60` |
 | `camera.maxTilt3d` | Maximum tilt in 3D (rad from nadir) — beyond it, the view flips. | `1.382300767579509` |
 | `camera.maxTilt2d` | Maximum tilt in 2D (rad from nadir). Defaults to `maxTilt3d` (~79°); tightening it bounds tile coverage (a flat map tilted toward the horizon requests them ever farther) and raises the angle at which the graticule fades out. | `1.382300767579509` |
@@ -362,7 +378,7 @@ own modals to the old ones (`ui: 999`, `menu: 9999`) must revisit them.
 | `clustering.radius` | Grouping radius, in screen pixels. | `60` |
 | `clustering.minPoints` | Below this, points stay individual. | `2` |
 | `clustering.maxZoom` | Zoom beyond which geographic grouping stops. | `18` |
-| `clustering.levelQuantization` | Zoom quantisation for the stability of cluster steps. | `1` |
+| `clustering.levelQuantization` | Zoom quantisation for the stability of cluster steps: the zoom is rounded to a multiple of this value before the step is chosen. <!-- audit: à vérifier à la fusion (cœur) --> | `1` |
 | `clustering.spiderfyZoom` | Zoom from which an inseparable cluster (coincident points) fans out on click — the camera's maximum USEFUL zoom, beyond which it enters the 3D buildings. `19` ≈ 76 m altitude. | `19` |
 
 ## `markers` — Legibility thresholds

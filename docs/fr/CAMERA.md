@@ -244,7 +244,7 @@ Le menu **« Réglages »** de la barre d'outils porte une ligne **« Infos »**
 
 ⚠️ **Tout est compté DANS LA VUE**, pas dans ce que l'hôte a posé. `markers au total` est la seule exception, et elle est là pour être comparée à `markers affichés` : c'est leur écart qui révèle un cull ou un regroupement qui ne fait pas son travail.
 
-Chaque valeur se colore en vert, jaune ou rouge selon [`performance.statThresholds`](CONFIG.md) — une grandeur sans seuil reste incolore, car une latitude n'a pas de bonne valeur. Les teintes viennent de [`theme.colors.ui.stat`](THEME.md).
+Chaque valeur se colore en vert, jaune ou rouge selon [`performance.statThresholds`](CONFIG.md) — une grandeur sans seuil reste incolore, car une latitude n'a pas de bonne valeur. Les teintes viennent de [`theme.colors.ui.stat`](THEME.md). Le verdict est exporté — `statLevel(value, threshold)`, cf. [ENGINE.md § 5](ENGINE.md#5-les-registres) — pour un panneau maison qui colore ses propres cellules.
 
 Les sections se répartissent en **colonnes déduites de la largeur reçue** (une colonne idéale ≈ 188 px), chacune restant d'un seul tenant : deux colonnes sans défilement dans le menu, une seule si vous montez le panneau dans une surface étroite.
 

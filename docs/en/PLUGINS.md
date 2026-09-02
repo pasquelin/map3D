@@ -255,6 +255,12 @@ component.
 displays “Source: X” and **filters** sources through the existing “Layers”
 mechanism (`engine.tags`) — no new system.
 
+**Outside React** — the orchestrator is `engine.enrichment`, a `PluginEnrichment` (public
+export): `get(pluginId)` returns one plugin's state, `merged()` the merge of the `data`
+(and the union of the `tags`) of the enabled plugins not hidden by "Layers", `on(listener)`
+subscribes to changes — which is what `useBuildingEnrichment()` does through
+`useSyncExternalStore`. Nothing per frame: everything starts from `buildingclick`.
+
 ---
 
 ## 7. `Layer` escape hatch
@@ -338,9 +344,10 @@ import { myOwnPlugin } from './plugins/mine'
 ```
 
 **Dynamic import for heavy plugins** — a plugin bundling a heavy SDK (catalogue,
-third-party rendering engine) should follow the library's own MIL-STD symbol
-catalogue precedent (~9 MB, loaded on demand): expose a factory that dynamically
-imports the dead weight, so no map pays its cost without using it.
+third-party rendering engine) should follow the precedent of the library's MIL-STD SDK
+(~9 MB, a dependency installed with the package but loaded through `import()` on the
+first symbol, outside the initial bundle): expose a factory that dynamically imports the
+dead weight, so no map pays its cost without using it.
 
 ```ts
 export const myHeavyPlugin = () =>

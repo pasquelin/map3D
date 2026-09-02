@@ -19,9 +19,6 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   anglais à la racine et français sous `/fr/`, avec sélecteur de langue, `hreflang` et
   `canonical`. Ajouter une langue = déposer un JSON ; le rendu échoue si un
   dictionnaire n'a pas les mêmes clés que `en.json`.
-
-### Ajouté
-
 - **Décor de la vitrine : un globe de particules en three.js** (`site/bg/globe.ts`,
   bundlé par `pnpm build:site`). Trois nuages superposés — trame de sphère, terres,
   halo orbital — plus la Lune en orbite et un champ d'étoiles. Aucune image : les
@@ -37,6 +34,30 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 - **Référencement** : `sitemap.xml` et `robots.txt` générés, `hreflang` pour les 15
   langues plus `x-default`, `canonical`, `og:locale` et ses alternates, et des données
   structurées JSON-LD `SoftwareSourceCode`.
+
+- **Exemple React : typecheck dans `pnpm validate`** (`typecheck:example`, `tsc -p
+  examples/react/tsconfig.json`). L'exemple se type contre `src/` (`@pasquelin/map3d`) et
+  compile sur un clone frais : les plugins `@map3d/plugin-*` du dépôt voisin
+  `../plugingsMap3D` sont **optionnels** (import dynamique, absents = démo sans eux).
+  Un `examples/react/README.md` dit ce qu'il faut pour le lancer.
+- **Exemple React : panneau de démo** qui exerce `onViewportChange`, `onCameraChange`,
+  `positionStorageKey` / `resetStoredPosition`, `MapHandle` (`fitBounds`, dessin,
+  interrogation, capture) et les hooks `useCameraCommands`, `useMapEvents`, `useViewport`,
+  `useTags`, `useLens`, `useRelations`, `useCapture`, `useZoomGate`.
+- **Docs : jeu complet de libellés généré** (`pnpm labels:doc`, `scripts/make-labels-doc.mjs`)
+  dans `LABELS.md` FR et EN, à partir de `src/labels/defaultLabels.ts` — 33 groupes sur 33,
+  contrôlé par `pnpm validate` (`labels:doc:check`) pour ne plus dériver.
+- **Docs : `PROPS.md` documente tous les composants exportés** (`CameraReadout`,
+  `TagFilterControl`, `PreferencesPanel`, `ContextMenu`, `ToolButton`, `LinkLayer`,
+  `DefaultMarker`, `DefaultCluster`, `SymbolPaletteButton`, `LensPanel`, `DrawSettingsButton`,
+  `SymbolMarkers`, `RelationStatusBar`, `SelectionBadges`, `Swatch`, `RemoveButton`,
+  `LensToolButton`) et les props `selectModes`, `eraseModes`, `markerMenu` de `<DrawLayer>` ;
+  `HOOKS.md` couvre `useCapture` et complète `useTemplates` (`saveView`,
+  `defaultSaveView`) ; les guides couvrent les exports qui n'y figuraient pas (`BasemapSupport`,
+  `DEFAULT_DRAW_PRESETS`, `SYMBOL_DRAG_TYPE`, `categoryOf`, `statsOf`, `mergeCollections`,
+  `parseCatalogKey`, `CatalogRegistry`, `ErasableRegistry`, `PluginEnrichment`,
+  `GoogleTileSource` / `InternalTileSource`, `VERSION`…). `llms.txt` cite désormais **chaque
+  valeur exportée** par `src/index.ts`.
 
 ### Modifié
 
@@ -55,6 +76,71 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   `site/assets/mark.webp`, revient dans la barre haute et sert de favicon ; son fond
   étant celui de la page, elle se pose sans bord visible. Le logo complet signe le pied
   de page.
+
+- **`LABELS.md` : sections propres** pour `buildingPick`, `measureTools` et `graticule`,
+  jusque-là rangés sous `toolbar`.
+- **Contact** : plus d'adresse e-mail en clair dans `README.md` ni `package.json` — le
+  contact passe par LinkedIn, comme sur la vitrine (`scripts/check-site.mjs`).
+- **`engines.node` ≥ 22.13** (était ≥ 18) : c'est le plancher réel de l'outillage —
+  `stripTypeScriptTypes` de `node:module` dans `scripts/make-labels-doc.mjs`, `import.meta.dirname`,
+  eslint 10, jsdom 29, vitest 4 — et la ligne que la CI joue (`.nvmrc` = 22).
+- **SDK MIL-STD-2525D externalisé du paquet** : `@armyc2.c5isr.renderer/mil-sym-ts-web`
+  reste une dépendance installée avec `@pasquelin/map3d`, chargée à la demande par
+  `import()` au premier symbole affiché, mais ne fait plus partie du `dist/` de la lib —
+  jamais dans le bundle initial de l'hôte. Le `dist/` publié passe de 23 Mo à 4,1 Mo.
+  <!-- audit: à compléter (cœur, React) -->
+- **Tween caméra en temps et non par frame** : un vol dure le même temps à 30 comme à
+  120 Hz. <!-- audit: à compléter (cœur, React) -->
+- **`clustering.levelQuantization` est désormais appliqué** (il était lu mais sans effet).
+  <!-- audit: à compléter (cœur, React) -->
+- **Nouvelles clés de `MapConfig`** — cf. `CONFIG.md` : `style.renderOrder.{shapes,paths,
+  links,relations,drawings}` (défauts `1,1,1,2,4`), `providers.tiles.errorTtlMs` /
+  `providers.buildings.errorTtlMs` (défaut `30000`), `providers.tiles.staleFrames` /
+  `providers.buildings.staleFrames` (défaut `120`), `providers.tiles.fetch` (`FetchPolicy`
+  `{ timeoutMs: 10000, retries: 0, backoffMs: 0 }`), `performance.shapeGroundSamples`
+  (défaut `16`), `interaction.lockFlashMs` (défaut `800`).
+  <!-- audit: à compléter (cœur, React) -->
+- **`theme.colors.tagPalette`** (optionnel) : palette de repli des tags sans couleur
+  déclarée, choisie par hash stable du nom ; défaut = les 12 couleurs de la lib.
+  **`theme.globe.landColor`** est désormais réellement peint (graticule du globe de repli),
+  et `MapEngineOptions.landColor` le porte hors React. <!-- audit: à compléter (cœur, React) -->
+- **`ViewportControllerOptions.onError?: (error: unknown) => void`** : échec de `source.load`
+  (hors abandon). Types désormais exportés : `ViewportControllerOptions`, `DashStyle`,
+  `NavigateShortcuts`, `CatalogContent`. <!-- audit: à compléter (cœur, React) -->
+- **Thème : les valeurs en dur de la couche React passent dans `MapTheme`** (défaut = valeur
+  remplacée, zéro régression visuelle) — cf. `THEME.md` : `colors.cluster.stroke`,
+  `colors.readable.{dark,light,threshold}`, `colors.pinShade.{color,percent}`,
+  `markers.{selectionRingExtraPx,tipGapPx,ringColor,glossColor}`, `clusters.sizeRatio`,
+  `clusters.text.*`, `clusters.tip.*`, `spacing.rowMenuGap`, `sizing.{rowMenuW,pinSize}`,
+  `sizing.panelMaxHeight.searchScope`, et les sections `relations` (défauts de
+  `<RelationLayer>`, dont `dash: DashStyle`), `draw`, `path`, `zone`. `themeToVars` publie
+  `--m3d-{pulse,halo,bob,enter,cluster-enter}-*` et `--m3d-menu-ease` (`false` → `0ms`).
+  `<DrawLayer symbols={{ defaultVariant }}>` ; `<RelationLayer>` lit son palier de zoom
+  initial sur la caméra. <!-- audit: à compléter (cœur, React) -->
+- **Interne** : `TileDeferred` (`core/TileQueue`) — une source diffère une tuile sans
+  consommer d'essai ; `PoolCrashError` (`WorkerPool`). <!-- audit: à compléter (cœur, React) -->
+
+### Retiré
+
+- **`camera.zoomStep`, `camera.dragSpeed.min` et `camera.dragSpeed.max`** (`MapConfig`) : jamais lus par le code. Une
+  config qui les fournissait ne casse pas au merge, mais le type ne les accepte plus —
+  **rupture 0.x**. <!-- audit: à compléter (cœur, React) -->
+- **Libellés morts** : `settings.preferences.controls.{keyboard,azerty,qwerty,press}` et
+  `selection.deleteShape` (`MapLabels`), qu'aucune surface n'affichait. Un `labels` qui
+  les surchargeait doit les retirer (le type les refuse).
+
+### Corrigé
+
+- **Quick start des guides** (`docs/*/README.md`) : `<MapControls>` monté en enfant de
+  `<Map>` doublait la barre que `<Map>` monte déjà ; l'extrait est aligné sur la forme
+  canonique (`layers={[markersLayer(…)]}`, contrôles via la prop `controls`) et compile
+  contre `src/index.ts`. `llms.txt` : `useState` importé, nom de paquet `@pasquelin/map3d`,
+  et `theme` documenté comme un `MapTheme` **complet** (`mergeTheme(defaultTheme, …)`) —
+  seuls `labels` et `config` sont des partiels mergés.
+- **Exemple** : `closed` n'existe pas sur un polygone `ShapeData` (`catalogSources.ts`).
+- **`THEME.md`** : `sizing.lensPanelW` et `sizing.selectionPanelW` valent `260`
+  (`src/style/panelGeometry.ts`), pas 252 / 236. **`CONFIG.md`** : la référence est extraite
+  de `src/config/types/*.ts`, pas d'un fichier `types.ts` unique.
 
 ## [0.5.0] — 2026-08-31
 

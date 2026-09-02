@@ -479,6 +479,27 @@ on add*, *remove all*. **"Remove all" also turns off toggle sources** — the bu
 "all", and sparing one would leave thousands of points on a map you just asked to clear.
 The **Catalog button's badge** likewise counts ticked items and switched-on sets alike.
 
+### 7.1 Keys (`catalogKey` / `parseCatalogKey`)
+
+The selection — `useCatalog().selection`, the persisted payload — is a list of **keys**
+(`CatalogKey`), shaped `` `${sourceId}:${itemId}` ``. Two sources may number their items
+from 1: the prefix is what makes the key global, and what lets the selection of a vanished
+source be purged without touching the others. Two helpers tie a key back to your data:
+
+```ts
+import { catalogKey, parseCatalogKey } from '@pasquelin/map3d'
+
+catalogKey('cities', 42)        // 'cities:42'
+parseCatalogKey('geo:ref:7')    // { sourceId: 'geo', itemId: 'ref:7' } — splits at the FIRST ":"
+parseCatalogKey('no-source')    // null
+
+const { isShown } = useCatalog()
+isShown(catalogKey(source.id, item.id))
+```
+
+A business id may contain colons, a source id may not — you choose it. `parseCatalogKey`
+returns `itemId` as **text**: a numeric id comes back as `'42'`, compare with `String(id)`.
+
 ---
 
 ## 8. Config, theme, labels
@@ -537,6 +558,13 @@ useEffect(() => {
 
 A removed source takes away whatever it had placed on the map — otherwise zones no panel
 can remove any more would stay on screen.
+
+`engine.catalog` is a `CatalogRegistry` (public export), indexed by **`id`** rather than by
+reference: re-registering a source with the same `id` **replaces** it (hot reload, two
+mounts of the same plugin) instead of doubling the row, and the removal function only acts
+if the source in place is still its own. `sources()` returns the sources in registration
+order, `byId(id)` finds one, `onItemsChanged(cb)` subscribes to changes and `snapshot()`
+provides the identity token to hand to `useSyncExternalStore`.
 
 ---
 

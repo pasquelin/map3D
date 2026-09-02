@@ -208,6 +208,15 @@ Un booléen par type (tout `true` par défaut), respecté par **tous** les outil
 ```
 
 `SELECTABLE_KINDS` (export public) énumère les types pour construire sa propre UI.
+`kindAllowed(kind, policy?)` applique la même règle que les outils — `true` si le kind est
+absent de la politique ou à `true` — pour qu'une UI maison n'en redérive pas une autre :
+
+```ts
+import { SELECTABLE_KINDS, kindAllowed, useConfig } from '@pasquelin/map3d'
+
+const policy = useConfig().selection.selectable
+const kinds = SELECTABLE_KINDS.filter((k) => kindAllowed(k, policy))   // ce que les outils accepteront
+```
 
 Contours en **marching-ants** noir/blanc (lisibles sur tout fond, y compris satellite
 et neige — cf. `theme.colors.marquee`), bbox englobante en multi-sélection. Markers,
@@ -223,6 +232,11 @@ que ce soit un marker, un tracé, une forme ou un enfant de cluster ; seul le co
 d'une ligne la **désélectionne** ; celle d'un en-tête de groupe désélectionne le groupe
 entier. Formes groupées par `kind`, tracés sous « Tracés », clusters en « Cluster (N) »
 dépliable listant ses enfants. Montées d'office ; `selectionBadges: false` les retire.
+
+Le panneau est le composant `<SelectionBadges>` ; l'objet passé à `draw.selectionBadges`
+est ses props (`SelectionBadgesProps` : `markerTypeLabel`, `shapeKindLabel`, `renderMarker`,
+`markerActions`, `markerMenu`). `<Map>` le monte lui-même — l'export sert à typer cette
+configuration, pas à le poser en enfant.
 
 ---
 
@@ -285,6 +299,18 @@ n'appelle pas les mêmes épaisseurs qu'un croquis tactique.
 | `strokeOpacities` | `[0.25, 0.5, 0.75, 0.95]` |
 | `fillOpacities` | `[0, 0.3, 0.6, 1]` |
 | `radii` | `[0, 10, 25, 50]` |
+
+Ces défauts sont exportés (`DEFAULT_DRAW_PRESETS`, typé `DrawPresets`) — pour en dériver les
+vôtres plutôt que les recopier — ainsi que `maxRadiusOf(presets)`, le dernier rayon de
+`radii` (repli `50` si la liste est vide) : la borne de l'échelle des aperçus du panneau de
+réglages, dérivée des paliers plutôt que réécrite pour qu'un `radii` modifié ne fausse pas
+leur dessin.
+
+```tsx
+import { DEFAULT_DRAW_PRESETS } from '@pasquelin/map3d'
+
+<Map draw={{ presets: { ...DEFAULT_DRAW_PRESETS, widths: [0, 1, 3, 6] } }} />
+```
 
 ### Réglages par outil (engrenage)
 

@@ -142,6 +142,11 @@ export type UiSettings = {
    * propre état de chargement sans rebrancher un second `ViewportController`.
    */
   liveLayer: boolean
+  /**
+   * `DemoPanel` : les hooks de contexte (`useViewport`, `useMapEvents`, `useTags`, `useCapture`…)
+   * et la poignée `MapHandle`, lus et actionnés depuis un overlay hôte en bas à droite.
+   */
+  demoPanel: boolean
 }
 
 const allOn = <K extends string>(keys: readonly K[]): Record<K, boolean> =>
@@ -182,6 +187,7 @@ export const defaultUiSettings: UiSettings = {
   // Outil de mesure : éteint par défaut, on l'allume pour profiler.
   stats: false,
   liveLayer: false,
+  demoPanel: true,
 }
 
 /** Les clés cochées, dans l'ordre déclaré — la forme qu'attendent `tools`/`selectModes`. */

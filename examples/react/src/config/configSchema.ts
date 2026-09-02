@@ -492,6 +492,14 @@ function kindOf(value: unknown, meta: LeafMeta): LeafKind {
 }
 
 /**
+ * Clés que le cœur RETIRE de `MapConfig` (jamais lues par le code) mais que `defaultConfig`
+ * porte encore sur cette branche : le panneau ne doit plus les montrer, sinon il propose un
+ * réglage sans effet — et leurs libellés, retirés, feraient échouer le garde-fou. À supprimer
+ * une fois la branche du cœur fusionnée (le jeu devient vide de sens, pas faux).
+ */
+const RETIRED_PATHS: ReadonlySet<string> = new Set(['camera.zoomStep', 'camera.dragSpeed'])
+
+/**
  * Arborescence des contrôleurs, déduite de `defaultConfig`.
  *
  * Les clés optionnelles du type (`routing.units`, `places.headers`) n'y sont PAS —
@@ -510,6 +518,7 @@ export function buildTree(): ConfigNode[] {
     const out: ConfigNode[] = []
     for (const [key, value] of Object.entries(node)) {
       const path = prefix ? `${prefix}${SEP}${key}` : key
+      if (RETIRED_PATHS.has(path)) continue
       const meta = metaFor(path)
       // Un objet SANS `kind` imposé est un dossier ; avec (`accel`), c'est une feuille.
       if (isRecord(value) && !meta.kind) {

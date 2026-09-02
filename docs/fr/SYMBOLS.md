@@ -110,10 +110,21 @@ tactiques multi-points — avec libellés et descriptions **en français**.
 La `variant` d'un symbole est son **affiliation** : `friendly`, `hostile`, `neutral`,
 `unknown`. Couleurs de repérage dans `MILSYM_AFFILIATION_COLORS`.
 
+`MILSYM_ENTRIES` est la liste brute de ces entrées (`MilSymEntry[]` — un `SymbolEntry`
+porteur de son `sidc` —, icônes puis graphiques tactiques) : de quoi composer un catalogue
+réduit sans perdre les couleurs d'affiliation.
+
+```ts
+import { MILSYM_CATALOG, MILSYM_ENTRIES, type SymbolCatalog } from '@pasquelin/map3d'
+
+const units: SymbolCatalog = { ...MILSYM_CATALOG, entries: MILSYM_ENTRIES.filter((e) => e.category === 'units') }
+```
+
 **Poids et chargement.** Le SDK `@armyc2.c5isr.renderer/mil-sym-ts-web` pèse ~9 Mo. Il
-est chargé en **import dynamique**, donc isolé dans un chunk que seule une carte
-affichant des symboles télécharge — et jamais au simple montage de `<DrawLayer>` : le
-chargement est déclenché par l'ouverture de la palette ou par la présence d'un symbole
+n'est **pas embarqué dans `dist/`** : c'est une dépendance déclarée de `@pasquelin/map3d`,
+installée avec le paquet, que la lib charge par **`import()`** au premier symbole affiché
+— jamais dans le bundle initial de l'hôte, et jamais au simple montage de `<DrawLayer>` :
+le chargement est déclenché par l'ouverture de la palette ou par la présence d'un symbole
 posé. `render` reste synchrone et sert depuis un cache par SIDC + taille.
 
 ### ⚠️ Piège du SIDC
@@ -166,6 +177,12 @@ Détails d'usage, et pourquoi :
   pas faire croire à un catalogue incomplet. Elles sont **ignorées au dépôt** : elles
   se posent par collecte de points successifs, mode qui n'est pas encore implémenté.
 - Le panneau n'est monté qu'ouvert : fermé, il n'appelle pas le renderer.
+
+Une vignette saisie est une charge du drag-and-drop générique (`engine.drag`, cf.
+[DATA.md § 5](DATA.md#5-épingler-dock-des-favoris)) de type `SYMBOL_DRAG_TYPE`
+(`'m3d-symbol'`), dont l'`id` est la clé de catalogue : c'est ce que la zone carte accepte
+pour poser le symbole. Exporté pour qu'une zone de dépôt maison (`useDropZone`) reconnaisse
+— ou refuse — un symbole venu de la palette : `accept: (p) => p.type === SYMBOL_DRAG_TYPE`.
 
 Les textes (bouton, catégories, affiliations) ne passent pas par le catalogue : ils
 sont dans `labels.symbols` — cf. [LABELS.md](LABELS.md).

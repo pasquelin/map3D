@@ -17,10 +17,11 @@
   pedestrian HUD, coordinate grid…), driven by `config`/`theme`/`labels`/props. Its `children`
   are for the host's OWN overlays only — you get a full map without putting anything there. Never
   require the host to child-mount a lib layer.
-- **Three settings trees** provided by `<MapProvider>`, deep-merged onto a complete base:
-  `theme` (visual identity — colors/sizes/rhythm), `labels` (language + units, no hard-coded
-  text), `config` (`MapConfig` — API keys, quotas, gestures, budgets, support). A component's
-  props **override** these trees for a single instance.
+- **Three settings trees** provided by `<MapProvider>` (or `<Map>` directly): `theme` (visual
+  identity — colors/sizes/rhythm; a **full** `MapTheme` or a `{ light, dark }` pair — build one with
+  `mergeTheme(defaultTheme, partial)`), `labels` and `config` (language + units, `MapConfig` — API
+  keys, quotas, gestures, budgets, support; both are **partials deep-merged** onto `defaultLabels` /
+  `defaultConfig`). A component's props **override** these trees for a single instance.
 - **Peer deps**: `react`/`react-dom` **19**, `three` **≥ 0.160**. Install:
   `npm i @pasquelin/map3d three react react-dom`.
 - **Per-frame read/write separation**: layers run `update()` (advance the 3D — read pass) then
@@ -31,13 +32,16 @@
 - **"Latest ref pattern" is intentional**: state lives in `MapEngine`, not React. The
   `ref.current = props` on render, read by a long-lived handler, is deliberate — do not convert
   it into React state.
-- **MIL-STD-2525D symbology**: `@armyc2.c5isr.renderer/mil-sym-ts-web` SDK (~9 MB) loaded via
-  **dynamic import** — never bundled until a symbol is actually on screen.
+- **MIL-STD-2525D symbology**: the `@armyc2.c5isr.renderer/mil-sym-ts-web` SDK (~9 MB) is
+  **external to the package** — a declared dependency installed alongside it, never inside the
+  library's `dist/`, loaded on demand through `import()` the first time a symbol is drawn. It
+  never enters the host's initial bundle.
 
 ## Quick start
 
 ```tsx
-import { MapProvider, Map, markersLayer, imperialMeasure, type MarkerData } from '@pasquelin/map3d'
+import { useState } from 'react'
+import { MapProvider, Map, markersLayer, mergeTheme, defaultTheme, imperialMeasure, type MarkerData } from '@pasquelin/map3d'
 
 type Agent = { status: string }
 
@@ -53,10 +57,10 @@ const agents: MarkerData<Agent>[] = [
 ]
 
 export function MyMap() {
-  const [selected, setSelected] = useState<string>()
+  const [selected, setSelected] = useState<string | number>()
   return (
     <MapProvider
-      theme={{ colors: { ui: { accent: '#0af' } } }}   // visual identity
+      theme={mergeTheme(defaultTheme, { colors: { ui: { accent: '#0af' } } })} // visual identity (a full MapTheme)
       labels={{ measure: imperialMeasure }}            // language and units
       config={{ performance: { antialias: false } }}   // machine, quota, support
     >
@@ -112,21 +116,21 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 - [LABELS](docs/en/LABELS.md): `MapLabels` — every **text string** and formatting rule (units, distances, durations)
 - [PROPS](docs/en/PROPS.md): React component props
 
-## Public API — landmarks by domain (all from `'map3d'`)
+## Public API — map by domain (every value export of `src/index.ts`, all from `'@pasquelin/map3d'`)
 
-- **React mounting**: `MapProvider`, `Map`, `MapHandle`, `markersLayer` / `pathsLayer` / `shapesLayer`, `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `DefaultMarker`, `DefaultCluster`.
-- **Built-in UI**: `Toolbar`, `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel`, `PreferencesPanel`, `StatsPanel`, `ContextMenu`, `ToolButton`.
-- **Hooks**: `useMap`, `useTheme`, `useLabels`, `useConfig`, `useCamera` / `useCameraCommands`, `useViewport`, `useLiveData`, `useDrawing`, `useLens`, `useTags`, `usePedestrian`, `useGraticule`, `useRelations`, `usePlugins`, `useTemplates`, `useCatalog` / `useCatalogToggle` / `useCatalogClear` / `useCatalogSourceCount`, `usePreferences`, `useCapture`, `useDraggable` / `useDropZone` / `useMapDropZone`.
-- **Core (no React)**: `MapEngine`, `Camera`, `Projection`, `EnuFrame`, `altitudeForZoom` / `zoomForAltitude`, bounds (`boundsOfLatLngs`, `unionBounds`, `altitudeForBounds`…), `MapMath`, registries `SelectableRegistry` / `ErasableRegistry` / `DragRegistry` / `MarkerRegistry` / `CounterRegistry` / `SearchRegistry`, `AnchorHeightCache`.
-- **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController`, `diffById`.
-- **Config / theme / labels**: `defaultConfig`, `mergeConfig`, `defaultTheme`, `mergeTheme`, `defaultLabels`, `mergeLabels`, `imperialMeasure`, `themeToVars`, `injectStyles`, quality presets (`detectQuality`, `qualityPreset`), preferences (`defaultPreferences`).
-- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `GeoJSONFeatureCollection`, `DrawConstraints`, eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` / `.history` — the eraser and its “Clear all” row, and the undo/redo arrows, withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); `DrawSettings`, predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`.
+- **React mounting**: `MapProvider`, `Map` (+ `MapHandle` ref, `MapSurfaces` props), typed layer factories `markersLayer` / `pathsLayer` / `shapesLayer` (`LayerSpec`, `MarkersSpec`); layer components for manual placement `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `SymbolMarkers`, `ClusterSurface`; default renderers `DefaultMarker`, `DefaultCluster`; `svgToDataUri` (SVG markup → data URI for icons).
+- **Built-in UI** (all mounted by `<Map>`; exported for manual placement): `Toolbar` (+ `useToolbar`, `useCloseWhenHidden`), `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel` (+ `TemplateThumb`), `PreferencesPanel`, `StatsPanel`, `ContextMenu` (`MenuItem`), `MarkerList`, `LensPanel`, `DrawStylePanel`, `Confirm`, `DraggablePanel`; bar buttons `ToolButton`, `LensToolButton`, `MeasureToolButton`, `DrawSettingsButton`, `SymbolPaletteButton`; atoms `SelectionBadges`, `RelationStatusBar`, `Swatch`, `RemoveButton` (+ `REMOVE_ICON_PATH`).
+- **Hooks**: context `useMap`, `useTheme`, `useLabels`, `useConfig`; camera `useCamera` / `useCameraCommands`, `useViewport`, `useZoomGate`, `useMapEvents`; data `useLiveData`, `useTags` / `useTagSelection`; tools `useDrawing`, `useDrawSettings`, `useLens`, `usePedestrian`, `useGraticule`, `useRelations`, `useCapture`; catalog `useCatalog` / `useCatalogSettings` / `useCatalogToggle` / `useCatalogClear` / `useCatalogSourceCount` / `useCatalogSources` / `useCatalogSource`; plugins `usePlugins`, `useBuildingEnrichment`; `useTemplates`; `usePreferences`; drag `useDraggable` / `useDropZone` / `useMapDropZone` / `useRepositionable` / `useDraggablePanel`.
+- **Core (no React)**: `MapEngine` (`MapEngineOptions` incl. `landColor`; `WHEEL_SURFACE_ATTR` marks a host overlay whose wheel zooms the map), `Camera`, `Projection`, `EnuFrame`, `MapMath` (namespace), `altitudeForZoom` / `zoomForAltitude`, constants `CAMERA_FOV` / `TILE_SIZE`; bounds `boundsOfLatLngs`, `boundsOfCircle`, `boundsOfShape` / `boundsOfShapes`, `boundsOfMarkers`, `boundsAround`, `boundsContains`, `unionBounds`, `centerOfBounds`, `lngSpanDeg`, `altitudeForBounds`; registries `SelectableRegistry` (`SELECTABLE_KINDS`, `kindAllowed`), `ErasableRegistry`, `DragRegistry`, `MarkerRegistry`, `CounterRegistry`, `SearchRegistry`, `AnchorHeightCache`, `ClusterEngine`; `setGeometryWarner` (route non-finite geometry warnings to the host log, or `null`); `VERSION`.
+- **Data**: types `Viewport`, `DataSource`, `MarkerData`, `StaticMarker`; `ViewportController` (`ViewportControllerOptions`: `debounce`, `onError`), `diffById`; tag helpers `tagColor`, `countTags`, `markerColorOf`, `tagColorOf`.
+- **Config / theme / labels**: shortcut types `ShortcutsConfig` / `ControlShortcuts` / `DrawToolShortcuts` / `NavigateShortcuts` / `PedestrianShortcuts`; `defaultConfig`, `mergeConfig`, `resolveLocale` / `resolveRegion`; `defaultTheme`, `mergeTheme`, `themeToVars`, `configToVars`, `tilesFilterCss`, `injectStyles`; `defaultLabels`, `mergeLabels`, `imperialMeasure`, `formatLabel`, `formatCount`, `symbolText`, formatters `makeDistanceFormatter` / `makeDurationFormatter` / `makeLinkLabelFormatter` / `makeReadoutFormatter` / `makeStatFormatter` (+ `statLabel`, `statLevel`, `isCameraField`); quality `detectDeviceCaps`, `detectQuality`, `qualityPreset`; preferences `defaultPreferences`, `preferencesToPartialConfig`, `usePreferences`; network `fetchWithPolicy` (`FetchPolicy`), `HttpError`, `defaultPluginFetchPolicy`.
+- **Drawing / geodesy**: types `DrawTool`, `Drawing`, `DrawnShape`, `NewShape`, `ShapePatch`, `GeoJSONFeatureCollection`, `DrawConstraints`; `DrawSettings`, `DEFAULT_DRAW_PRESETS` (`DrawPresets`), `maxRadiusOf`; eraser `EraseMode` / `EraseResult` / `EraseTarget` (`<DrawLayer onErase>`, `config.erase.targets`, host `erasable` on `PathData`/`ShapeData`); drawing bar `DrawToolbarConfig` / `DrawToolbarAutoHide` (`config.toolbar.minZoom`, `config.toolbar.autoHide.erase` / `.history` — the eraser and its “Clear all” row, and the undo/redo arrows, withdraw when they have nothing to act on, `useDrawing().canErase`; `clear()` shares the eraser's scope, host objects included); geodesic predicates `pointInRing`, `polygonAreaM2`, `circleRing`, `ringInsideRing`, `ringsOverlap`, `ringOfShape`, `predicateSegments` (`PREDICATE_CIRCLE_SEGMENTS`); material constants `DEFAULT_STROKE_OPACITY` / `MEASURE_STROKE_OPACITY`.
 - **Selection**: homogeneous selection of markers / paths / clusters with a per-kind policy (`config.selection`, `SelectionConfig`), `SELECTABLE_KINDS` / `kindAllowed`, types `SelectableKind` / `SelectablePolicy` / `SelectableGeometry` / `PolyGeometry` / `SelectableGroup`; single union silhouette (marching-ants) across all kinds via `SelectableRegistry`; `<DrawLayer onSelectionChange>`.
-- **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`.
-- **Search / catalog**: `SearchRegistry`, `createGooglePlacesSearch`, `normalizeSearch`, `CatalogRegistry`, `catalogKey`, `isBrowseSource` / `isToggleSource`, `CatalogBrowseSource.checkable` (`false` = index mode: no checkbox, the name frames — for a reference set the host paints itself).
-- **Relations / routing**: `RelationEngine`, `selectTargets`, `createGoogleRoutesProvider`, `haversineMeters`, `decodePolyline`, `RouteCache`.
-- **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
-- **Tiles**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities`, `canEnterMode`.
+- **Symbols**: `MILSYM_CATALOG`, `MILSYM_ENTRIES`, `MILSYM_AFFILIATION_COLORS`, `createMilSymRenderer`, `milSymSidc`, `applyAffiliation`, `SymbolPaletteButton`, `SYMBOL_DRAG_TYPE` (drag payload type of a palette icon).
+- **Search / catalog**: `SearchRegistry` (+ `markerGroupId`, groups `SHAPE_GROUP` / `DRAW_GROUP` / `PLACE_GROUP`), `createGooglePlacesSearch`, matching `normalizeSearch`, `scoreMatch`, `proximityRank`, `rankHits`, `NO_MATCH`, `createTitleCache`; catalog `CatalogRegistry` (`CatalogContent`, `CatalogSettings`), `catalogKey` / `parseCatalogKey`, `isBrowseSource` / `isToggleSource`, `categoryOf`, `filterByCategories`, `mergeCollections`, `statsOf`, `CatalogBrowseSource.checkable` (`false` = index mode: no checkbox, the name frames — for a reference set the host paints itself).
+- **Relations / routing**: types `Link`, `LinkVisual`, `DashStyle`; `RelationEngine`, `selectTargets`, `matchesSelector`, `familyTag`, `buildRelationMenu`, `createGoogleRoutesProvider`, `haversineMeters`, `bearingDeg`, `greatCirclePoints`, `fanLegs`, `decodePolyline`, `RouteCache`.
+- **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `PersistedVersionedStore` (shared base of the persisted registries), `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
+- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`.
 - **Capture**: `engine.capture(opts)` / `MapHandle.capture` / `useCapture()` → `Promise<Blob>` (synchronous WebGL render + optional DOM-overlay compositing via an injected `rasterizeOverlay`); `<Map capture>` (`CaptureProps`), `config.capture` (`CaptureConfig`), types `CaptureOptions` / `CaptureFormat` / `CaptureBackground` / `OverlayRasterizer`. UI: "Take a photo" row in the ⚙ menu (download / mail / Web Share).
 - **Watermark**: "map3D" signature painted into the canvas + licence link, `config.watermark` (`WatermarkConfig`, `enabled` default `true`). Disabling requires a commercial licence — removing attribution under the default PolyForm-Noncommercial licence violates it.
 

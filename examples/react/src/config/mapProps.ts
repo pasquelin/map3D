@@ -34,6 +34,13 @@ export type MapPropsSettings = {
   intro: boolean
   /** ❄ Erreur d'écran cible (qualité/charge). Défaut de `3d-tiles-renderer` : 16. */
   errorTarget: number
+  /**
+   * ❄ `positionStorageKey` : mémorise la dernière vue stabilisée (localStorage) et la
+   * rejoue au montage suivant, à la place de `center`/`zoom` — et sans intro.
+   */
+  rememberPosition: boolean
+  /** ❄ `resetStoredPosition` : efface la position mémorisée au prochain montage. */
+  resetStoredPosition: boolean
 }
 
 export const defaultMapProps: MapPropsSettings = {
@@ -49,6 +56,10 @@ export const defaultMapProps: MapPropsSettings = {
   // deux densifie le maillage proche.
   // 💰 Le raffinement supplémentaire se paie en tuiles demandées au fournisseur.
   errorTarget: 8,
+  // Éteint : le banc doit repartir de Paris à chaque rechargement, intro comprise — c'est
+  // ce qu'on teste le plus souvent. À cocher pour voir la reprise de position.
+  rememberPosition: false,
+  resetStoredPosition: false,
 }
 
 /** `<Map interactive>` accepte `true | 'view' | false` ; le panneau n'a que du texte. */

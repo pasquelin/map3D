@@ -131,13 +131,45 @@ Markers, clustering, selection, dragging.
 | `cullMargin` | Margin (screen px) beyond the frame past which a marker is **hidden** (`display:none`): the browser stops computing its style, layout and compositing. Default: 200 px. `0` disables culling. A marker already displayed is not… | — |
 | `staticMinZoom` | Zoom below which THIS layer's `static` markers disappear, instead of `config.markers.staticMinZoom` — a scenery layer and an alert layer do not share a legibility horizon. A marker declaring `static: { minZoom }`… | `config.markers.staticMinZoom` |
 
+## `<DefaultMarker>`
+
+Default marker rendering: gradient chip + ring + optional radar halo. It is what
+`<MarkerLayer>` renders without `icon`. **Presentational**: it is the CONTENT of a marker
+node that already carries `role="button"`, `tabIndex` and its `aria-label` — do not wrap it
+in a second button.
+
+| Prop | Description | Default |
+|---|---|---|
+| `marker` **(required)** | Rendered marker (`MarkerData`) — its colour comes from `theme.colors.marker[type]` (else `default`). | — |
+| `theme` **(required)** | Resolved theme (`MapTheme`): size, gradient, gloss and halo are read from it. | — |
+| `label` | Short text drawn at the centre of the chip. | — |
+
+## `<DefaultCluster>`
+
+Default cluster, as a **donut**: a core carrying the **total count** (the cluster's own
+colour, no icon) surrounded by a **ring segmented by type** (equal slices ≤ 4 types,
+proportional beyond). Each slice carries, along the arc, the type icon + its count, and a
+**styled tooltip** on hover (clamped to the window edges). Rendered by `<ClusterSurface>`
+without `icon`.
+
+| Prop | Description | Default |
+|---|---|---|
+| `cluster` **(required)** | Rendered cluster (`ClusterInfo`: `total`, `counts`, `types`). | — |
+| `theme` **(required)** | Resolved theme (`MapTheme`) — the donut geometry lives in `theme.clusters`. | — |
+| `typeIcon` | Icon of a type, as an SVG fragment (viewBox `0 0 24 24`, `currentColor`) — displayed inside the segment. | — |
+| `typeLabel` | Readable label of a type, for the hover tooltip. | — |
+| `satelliteTip` | Built-in per-slice tooltip — turned off when the host provides `clusterTooltip` (otherwise two tooltips would overlap on hover). | `true` |
+| `onSegmentHover` | Reports the type of the hovered slice (`null`: core or leave) — lets the host show a per-segment tooltip distinct from the global one. | — |
+
 ## `<DrawLayer>`
 
 Drawing tools and symbols.
 
 | Prop | Description | Default |
 |---|---|---|
-| `tools` | Allowed tools (default: all). Also filters what `setTool` accepts. | — |
+| `tools` | Allowed tools. Also filters what `setTool` accepts. Not provided on `<Map>`, falls back to `toolbar.tools`; failing that, all. | `toolbar.tools` |
+| `selectModes` | Allowed selection modes (default: all). Also filters `setSelectMode`, keyboard included. Not provided on `<Map>`, falls back to `toolbar.selectModes`. | `toolbar.selectModes` |
+| `eraseModes` | Allowed eraser modes (default: all). Also filters `setEraseMode`, keyboard included. Not provided on `<Map>`, falls back to `toolbar.eraseModes`. | `toolbar.eraseModes` |
 | `shortcuts` | Shortcut per tool/action — `false` to disable one, another key to remap. | — |
 | `defaults` | Style of a newly drawn shape, before any user setting. | — |
 | `presets` | Steps offered by the style palettes (widths, opacities, corner radii). Merged onto the defaults: provide only what changes. | — |
@@ -153,10 +185,52 @@ Drawing tools and symbols.
 | `onShapeEdit` | Double-click on a shape: intent to open a sheet — nothing has changed. | — |
 | `constraints` | Business rules for **user** drawing: allowed perimeters, maximum area. Programmatic mutations are not subject to them. | — |
 | `onReject` | Shape refused — wire it to your toast (the library displays nothing itself). | — |
-| `symbols` | The bar's **Symbols** tool: enabled by default with the MIL-STD-2525D catalogue and its renderer (SDK loaded through a dynamic import when the palette is first opened). `enabled: false` removes the tool; `catalog`/`renderer` replace the bundled symbology… | — |
+| `symbols` | The bar's **Symbols** tool: enabled by default with the MIL-STD-2525D catalogue and its renderer (SDK loaded through a dynamic import when the palette is first opened). `enabled: false` removes the tool; `catalog`/`renderer` replace the bundled symbology with yours; `cluster` and `minZoom` are passed to [`<SymbolMarkers>`](#symbolmarkers); `defaultVariant` picks the variant placed by default (default: first key of `catalog.variantColors`, `friendly` for MIL-STD; a catalogue without variants no longer passes a `variant` to the renderer). <!-- audit: à vérifier à la fusion (React) --> Texts (button, categories, affiliations) do NOT go through here: they live in `labels.symbols`. | — |
+| `markerMenu` | Context menu of placed symbols — **strict parity with markers**. Receives the `<Map markerMenu>` menu **already bound to relations** by the surface (like data markers, the lens and the selection panel), so that a symbol opens the same menu as a marker on click. The library prepends “Delete” by default. Wired by `<Map>`; an application mounting `<DrawLayer>` by hand provides an already-bound menu here. | `<Map markerMenu>` |
 | `children` | Mounted inside the drawing context — place the bar and panels there. | — |
 
+## `<SelectionBadges>`
+
+Selection panel (top-right by default, mounted inside `<DrawLayer>`). ALL of its content —
+shapes, paths, clusters, markers — is rendered by TWO shared building blocks: `SelectionGroup`
+(collapsible header) and `SelectionRow` (through `SelectionList` / `MarkerList`). A row has the
+SAME structure everywhere, `[icon] title/subtitle · “…” · ✕`; only the content (icon, menu)
+varies per type. Draggable by its grip. Configured through `<Map draw={{ selectionBadges }}>`
+(`false` removes it); mount it yourself only alongside a hand-mounted `<DrawLayer>`.
+
+| Prop | Description | Default |
+|---|---|---|
+| `markerTypeLabel` | Readable label of a marker type (default: the raw type). | — |
+| `shapeKindLabel` | Readable label of a shape kind (default: `labels.tools[kind]`). | — |
+| `renderMarker` | Rendering of a marker row (default: type chip + avatar + id). | — |
+| `markerActions` | Actions of a row's dropdown menu, in addition to “Target”. | — |
+| `markerMenu` | Menu of a row, same shape as `<MarkerLayer menu>` — takes precedence over `markerActions`. Mounted by `<Map>`, it receives `<Map markerMenu>` already bound to relations. | `<Map markerMenu>` |
+
+## `<SymbolMarkers>`
+
+Rendering of placed symbols, as **DOM markers**. It is the right medium for a pictogram:
+always facing the screen and of constant size, hence readable at any zoom and tilt — where a
+ground-draped quad flattens into a line at grazing angles. State does NOT live here: it stays
+in the drawing collection (undo/redo history, GeoJSON, per-shape events). Mounted by
+`<DrawLayer>`; exported for a custom rendering.
+
+| Prop | Description | Default |
+|---|---|---|
+| `shapes` **(required)** | Placed symbols (`PlacedSymbolShape[]`), as provided by the drawing layer. | — |
+| `catalog` **(required)** | Symbol catalogue (`SymbolCatalog`). | — |
+| `renderer` **(required)** | Symbol renderer (`SymbolRenderer`). | — |
+| `size` | On-screen size (px) — constant, unlike a ground footprint. | `config.interaction.symbols.sizePx` |
+| `ready` | Is the renderer responding? Flips to `true` when its artwork becomes available, which triggers the recomputation of the embedded SVGs: without this signal, `render()` having returned `null` before loading, the drag payload would stay without artwork until the next `shapes` change. | — |
+| `cluster` | Participation in the map's COMMON grouping (see `<Map cluster>`). Symbols take part by default: dropped by the dozen on the same area, they overlap without saying what they hide — and they group with the application's markers. `{ enabled: false }` opts them out: one marker per symbol, at any zoom. | — |
+| `minZoom` | Zoom below which placed symbols disappear — instead of `config.markers.staticMinZoom`, and itself overridden by a catalogue entry's `minZoom`. The cascade goes from the most general to the most specific: config → layer → kind of symbol. | — |
+| `onMove` **(required)** | New position after the marker has been moved. | — |
+| `menu` | Context menu on click — **strict parity with markers**: a placed symbol opens on click like any marker (see `MarkerLayer.menu`). Built by `<DrawLayer>` with “Delete” (the library owns the shape) followed by the host's `markerMenu` bound to relations. | — |
+| `eraseMode` | **Eraser** tool active: clicking a symbol deletes it (through `onErase`) instead of opening the menu, and moving is neutralised. | — |
+| `onErase` | Deletion of a symbol by the eraser. | — |
+
 ## `<RelationLayer>`
+
+The visual defaults of the props below come from `theme.relations` (see [THEME.md](THEME.md#relations--relation-link-defaults)); the initial zoom step is read from the camera on mount, no longer a hard-coded `14`. <!-- audit: à vérifier à la fusion (React) -->
 
 Routed links between markers. 💰
 
@@ -180,6 +254,47 @@ Routed links between markers. 💰
 | `fastestOversample` | 💰 Candidates queried per displayed link in “fastest” mode (default 3). The closest as the crow flies is not the fastest — one-way streets, a river to go around. Several are therefore queried and DURATION decides. Each unit multiplies the… | `routing.fastestOversample` |
 | `children` | Children mounted inside the relations context. The FUNCTION form receives the API directly: grafting the menu entry onto a marker layer declared at the same level then does not require extracting a component just for `useRelations()`. | — |
 
+## `<RelationStatusBar>`
+
+Status bars of the active relations: **one per relation**, anchored to the hub of its source
+marker. Each segment is the entry point to change what it describes (travel mode, tag
+family), and the cross clears the relation. Mounted by default by `<Map relations>` —
+`relations={{ statusBar: false }}` removes it, an object configures it.
+
+| Prop | Description | Default |
+|---|---|---|
+| `nameOf` | Readable name of a point — only the application knows how to produce it (default: its id). | — |
+| `modes` | Travel modes offered, in menu order. Restricting the list is a common need — a vehicle fleet has no use for “walking” or public transport. | `['DRIVE', 'WALK', 'BICYCLE', 'TWO_WHEELER', 'TRANSIT']` |
+
+## `LinkLayer` (core, outside React)
+
+**Imperative** layer (a class, not a component) of draped links between markers — direct
+lines or real routes — with their labels. Distinct from `ShapeLayer`: the rank (hence the
+opacity) changes on every matrix response and costs only a material mutation, not a geometry
+rebuild; and a link carries a label positioned per frame. `<RelationLayer>` mounts it;
+exported with its types (`LinkVisual`, `LinkLayerDefaults`) for a custom relation engine or a
+non-React setup.
+
+Constructor `new LinkLayer(scene, projection, overlay, defaults, onSlotMount?, onSlotUnmount?, slotHost?)`:
+
+| Parameter | Description | Default |
+|---|---|---|
+| `scene` **(required)** | Parent `THREE.Object3D` of the meshes. | — |
+| `projection` **(required)** | The engine's `Projection` (draping and screen projection). | — |
+| `overlay` **(required)** | HTML overlay of the labels (the same surface as the ruler's labels). | — |
+| `defaults` **(required)** | `LinkLayerDefaults`: `renderOrder`, `casingWidth` (dark outline under the stroke, 0 to disable), `casingColor`, `hoverDarken` (factor < 1 applied to the hovered stroke). Colour and width are not part of it: each `LinkVisual` carries them. | — |
+| `onSlotMount` | Container of a mounted `slot` visual: portal target for the host. | — |
+| `onSlotUnmount` | The container goes away (link removed, layer unmounted): the host must detach from it. | — |
+| `slotHost` | Host surface of the `slot` anchors, when it differs from the labels' — to place the anchor inside the stacking context of the `CSS2DRenderer` markers. | — |
+
+Methods: `setLinks(next: readonly LinkVisual[])` applies a new set of links by DIFF (a mere
+rank change only mutates the opacity); `setDefaults(partial)`; `hitTest(sx, sy, tolPx)` and
+`hitTestHub(sx, sy)` return the id of the hit link / hub. A `LinkVisual` carries `id`,
+`points` (already sampled), `color`, `opacity` (the RANK), `width` (screen px), `label`
+(`null` = none), and optionally `disc` (flat hub instead of a stroke), `colors` (alternating
+dashes when several sources share the same stroke), `rank`, `slot`, `hovered`, `traced`,
+`dash` (`DashStyle`: marching dash, never outlined).
+
 ## `<LensLayer>`
 
 Lens tool (inventory of an area).
@@ -193,6 +308,28 @@ Lens tool (inventory of an area).
 | `markerTypeLabel` | Readable label of a marker type (per-type summary). | — |
 | `shortcut` | Activation keyboard shortcut (single letter, case-insensitive). Default `x`. `null` = none. | — |
 | `targetZoom` | Zoom of a row's “Target” flight (default 17). | — |
+| `children` | Children mounted inside the lens context (`useLens()`). | — |
+
+## `<LensPanel>`
+
+Inventory panel of the lens, anchored to the right of the area: fixed header (count +
+per-type summary + close), body = `MarkerList` **shared** with the selection panel (1 row per
+marker, colour chip, “Target” menu, removal cross). Draggable (`useDraggablePanel`). Mounted
+by `<LensLayer>`; exported for a manual mount.
+
+| Prop | Description | Default |
+|---|---|---|
+| `markers` **(required)** | Inventoried markers. | — |
+| `hidden` | Ids hidden by the zoom gate: their row carries a crossed-out eye (see `<MarkerList hidden>`). | — |
+| `getId` **(required)** | Stable key of a marker. | — |
+| `anchor` **(required)** | Default position (container px) — the panel follows the area until it is moved. | — |
+| `onRemove` **(required)** | A row's cross: removes the marker from the displayed list. | — |
+| `onClose` **(required)** | Panel closed. | — |
+| `renderItem` | Rendering of a row (`LensRenderItem`, default: type chip + avatar + id). | — |
+| `actions` | Actions of a row's dropdown menu (in addition to “Target”). | — |
+| `menu` | Menu of a row, same shape as `<MarkerLayer menu>` — takes precedence over `actions`. | — |
+| `targetZoom` | Zoom of the “Target” flight — passed to `<MarkerList targetZoom>` (default 17). | — |
+| `markerTypeLabel` | Readable label of a marker type (per-type summary). | — |
 
 ## `<ShapeLayer>`
 
@@ -258,6 +395,38 @@ Navigation bar.
 | `templates` | Templates manager (button below “Layers”, same structure). `false`/absent removes it; an object configures it (API provider, categories…). Provided by `<Map templates>`. | — |
 | `target` | The screen's point of reference (the alert being viewed, the ongoing event…): providing this prop adds a **“back to target”** button to the bar; omitting it removes the button. The map does not need to know what the target represents, only where it is. | — |
 
+## `<CameraReadout>`
+
+View readout block: eye altitude, ground point below it, heading, tilt and zoom — on a single
+line, in the requested corner. **It never re-renders**: it lays out its structure once and
+hands the writing of values to `ReadoutLayer` (React lays the DOM, the engine animates it).
+Mounted by `<Map readout>`; exported for a manual placement (a custom banner outside the map,
+an operations panel) — it only needs the map context. See [CAMERA.md](CAMERA.md).
+
+| Prop | Description | Default |
+|---|---|---|
+| `corner` | Anchor corner (`'top-right'` \| `'top-left'` \| `'bottom-right'` \| `'bottom-left'`) — the default is the only one no other surface occupies. | `'top-right'` |
+| `fields` | Displayed quantities, in order. A removed quantity is not merely hidden: it is no longer computed on each refresh. | `['altitude', 'latitude', 'longitude', 'heading', 'tilt', 'zoom']` |
+| `refreshMs` | Maximum write rate (ms). | `config.performance.readoutRefreshMs` |
+| `className` | Extra class, in addition to `m3d-readout`. | — |
+
+## `<TagFilterControl>`
+
+“Layers” button: filters the map's elements (markers, drawings) by tag. The panel lists the
+tags actually present (`engine.tags` registry) with search, checkbox, colour dot
+(`theme.colors.tags`, otherwise a hashed palette) and count. A badge on the button shows the
+number of active tags; the selection is persisted (localStorage) by `TagFilter`. The panel is
+only mounted while open. Already mounted by `<MapControls>` (“Layers” group); instantiate it
+yourself for a custom bar.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Host bar side: the panel opens on the opposite side. | `'right'` |
+| `tipId` | id of the host bar's shared `<Tooltip>` (MapControls). Absent: the `aria-label` alone carries the accessible name. | — |
+| `shortcut` | Key (single letter) that opens/closes the panel — shown in the tooltip. `false` = no shortcut. | — |
+| `tagLabel` | Readable label of a tag in the panel (default: the raw tag). | — |
+| `grouped` | Rendered WITHOUT its own `.m3d-controls-group` card — to sit alongside another control (e.g. “Templates”) in a shared group of the bar. Default: `false` (the button carries its card, standalone use). | `false` |
+
 ## `<GraticuleLayer>`
 
 Geographic coordinate grid — see [GRATICULE.md](GRATICULE.md). **Mounted automatically by
@@ -286,8 +455,43 @@ manual mount (custom bar).
 
 | Prop | Description | Default |
 |---|---|---|
-| `position` | Anchor side, for opening the submenu. | — |
+| `position` **(required)** | Anchor side, for opening the submenu. | — |
 | `tools` | Rows displayed; a single one = no submenu — the current state, since only one row (`measure`) exists. | *(the only existing row)* |
+
+## `<SymbolPaletteButton>`
+
+The drawing bar's **Symbols** tool: the button behaves like the other tools (icon, label,
+shortcut, active state) and opens a palette where the catalogue entries are arranged by
+category, with search and affiliation choice. No configuration: the catalogue, renderer and
+affiliation come from `useDrawing().symbols` (provided by `<DrawLayer>`), and **every text**
+from `labels.symbols`. A thumbnail is **dragged onto the map**: dropping creates a
+`kind: 'symbol'` shape. Rendered by `<Toolbar>`; exported for a manual placement (custom bar).
+Renders nothing when `symbols.enabled` is false.
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` | Host bar side: the palette opens on the opposite side. | `'left'` |
+
+## `<LensToolButton>`
+
+Button of the lens tool — a primary item of the bar, in the same visual language as the
+drawing tools. Rendered by `<Toolbar>` itself: nothing to wire application-side. It only shows
+when the lens is mounted (`toolbar.lens`, the default); a map without a lens makes it vanish
+instead of crashing. Exported for a manual placement (custom bar); it then assumes a
+`<Toolbar>` somewhere, which provides the shared `<Tooltip>`. **No props.**
+
+## `<DrawSettingsButton>`
+
+Gear button + “Tool settings” panel: each tool keeps its own colours/width/stroke style/opacities
+(+ corner radius for the rectangle), persisted in localStorage. A tool's editor, the shortcuts
+summary, the plugin hub, the catalogue, the stats, the preferences and the capture open in a
+**side sub-panel** (on the side opposite the bar). Mounted by `<Toolbar>`; exported for a
+manual mount (custom bar).
+
+| Prop | Description | Default |
+|---|---|---|
+| `position` **(required)** | Side of the bar carrying the button — the sub-panel opens on the opposite side. | — |
+| `tip` **(required)** | Host bar tooltip (`BarTip`, the value of `useTip(TIP_ID)`). | — |
 
 ## `<PinnedDock>`
 
@@ -325,7 +529,8 @@ Reusable marker list.
 | `onTarget` | Click on the row / “Target” action. Default: camera flight to the marker. | — |
 | `targetZoom` | Zoom of the “target” flight (default 17). | — |
 | `actions` | Actions of the dropdown menu, in addition to “Target”. | — |
-| `menu` | Menu of a row, in the SAME shape as `<MarkerLayer menu>`: this is what lets a row's “…” button offer exactly the marker's map menu, submenus and separators included. When provided, it takes precedence over `actions`. “Target” stays… | — |
+| `menu` | Menu of a row, in the SAME shape as `<MarkerLayer menu>`: this is what lets a row's “…” button offer exactly the marker's map menu, submenus and separators included. When provided, it takes precedence over `actions`. “Target” is still prepended by the list — do not add it here. | — |
+| `hidden` | Ids of markers listed but REMOVED from the map by the zoom gate (`static` below its threshold). Their row carries a crossed-out eye (`hiddenLabel`) — the inventory does not change, it explains itself. Provided by the lens only; the selection prunes its hidden ones. | — |
 
 ## `<TemplatesPanel>`
 
@@ -380,6 +585,28 @@ Modal confirmation dialog (above everything, `style.zIndex.modal`). Closes on En
 | `onConfirm` **(required)** | Called on confirmation. | — |
 | `onCancel` **(required)** | Called on cancel (cross, Escape, outside click). | — |
 
+## `<ContextMenu>`
+
+The library's context menu — the one used by markers, list rows and relation segments.
+Keyboard navigation (↑/↓, → opens a submenu, ← goes up one level, Enter/Space selects);
+**Escape is not handled here** — the host surface listens for it and closes the whole menu.
+Submenus open on hover with intent (`config.interaction.menu.hoverIntentMs`), panel nudged
+inside the container. Render it yourself to offer the same menu from a host surface.
+
+| Prop | Description | Default |
+|---|---|---|
+| `items` **(required)** | Menu entries (`MenuItem[]`). | — |
+| `header` | Header rendered above the entries. | — |
+| `onClose` **(required)** | Called after an item is selected (click, Enter, Space). | — |
+| `className` | Classes in addition to `m3d-menu-panel` (anchoring variant: row menu, etc.). | — |
+| `style` | Panel position. The CSS default anchors it to the cursor; a menu opened under a specific button (marker list) provides its `left`/`top` here in container px. | — |
+| `panelRef` | Access to the panel node. Needed by a host that handles outside-click dismissal itself (`useDismiss` tests a `contains`): without this ref, clicking an item would be seen as “outside” and would close the menu before the action. | — |
+
+A `MenuItem` is either `{ separator: true }` or `{ label, icon?, hint?, swatch?, disabled?, danger?, onSelect?, children? }`:
+`hint` = secondary text aligned right; `swatch` = colour dot in the icon slot; `disabled` =
+inert item; `danger` = destructive action rendered in red; `children` = submenu, as an array
+or a **synchronous function** evaluated only when the level opens.
+
 ## `<TemplateThumb>`
 
 SVG preview thumbnail of a template's content — projected, auto-framed geometries, no
@@ -399,6 +626,16 @@ Diagnostics panel, already mounted as the “Infos” row of the “Settings” 
 | `sections` | `readonly StatsSection[]` | all four | Sections shown, in panel order: `'camera'`, `'content'`, `'render'`, `'tiles'`. |
 | `refreshMs` | `number` | `config.performance.readoutRefreshMs` | Maximum write rate. It is also the rate at which layer counters are queried — the panel costs nothing while closed. |
 
+## `<PreferencesPanel>`
+
+End-user “Preferences” panel, opened from the bar's ⚙ (`<DrawSettingsButton>`). Two NON-keyboard
+sections: **3D quality** (presets only) and **Controls** in the sense of FEEL (movement speed,
+inertia). It writes nothing to the engine: each gesture updates the preferences store, which
+`<MapProvider>` merges over the application's config and applies live. Everything is
+persisted. Exported like `<StatsPanel>`: access through the ⚙ requires `<DrawLayer>`, so a host
+without drawing places it in ITS own surface. Only requires a `<MapProvider>` (the store)
+above — without it, the panel renders nothing. **No props.**
+
 ## `pathsLayer({ paths, animateHead })`
 
 **Draped path** layer (routes, itineraries), to be placed in `layers` like `shapesLayer`.
@@ -410,3 +647,55 @@ Diagnostics panel, already mounted as the “Infos” row of the “Settings” 
 | `id` | `string` | — | Layer key (like `markersLayer`/`shapesLayer`) — provide it as soon as `layers` can be reordered or filtered. |
 
 Width is in **world metres**: a path grows with zoom, unlike drawing-layer strokes which keep a constant on-screen thickness. For a **computed** itinerary (traffic, travel time), see [RELATIONS.md](RELATIONS.md).
+
+## UI building blocks
+
+Atoms shared by the library's surfaces, exported so that a custom bar or panel speaks the same
+visual language.
+
+### `<ToolButton>`
+
+Toolbar button: @mdi icon, active state, tooltip + `aria-label` carrying the shortcut. Single
+source of the bars' language (`MapControls`, `Toolbar`, `LensToolButton`, `TagFilterControl`,
+`DrawSettingsButton`) — what to populate `<Toolbar>`'s `extraTools` / `components` with. Any
+`<button>` attribute not listed is passed through as is (`onClick`, `disabled`,
+`aria-expanded`, `onPointerEnter`…).
+
+| Prop | Description | Default |
+|---|---|---|
+| `icon` | @mdi/js icon path. Absent, the button only shows its `children` — for the one whose preview IS the value it sets (the draw bar's colour block). | — |
+| `label` **(required)** | Accessible label — used as `aria-label` and as the tooltip content. | — |
+| `tip` | Host bar tooltip (`BarTip`, `useTip(TIP_ID)`). Absent = no tooltip, but the `aria-label` stays in place (shortcut included). | — |
+| `shortcut` | Key shown after the label. `false`/absent = none. | — |
+| `active` | Pressed state (`m3d-on`). | — |
+| `className` | Classes IN ADDITION to `m3d-btn` (e.g. `m3d-btn-delete`, `m3d-tagbtn`). | — |
+| `iconSize` | Icon size. | `theme.sizing.iconSize` |
+| `children` | Extra content INSIDE the button, after the icon (e.g. a counter badge). | — |
+| `ref` | The `<button>` itself — a bar must be able to publish its active button as an ANCHOR: a surface opens at the height of the item it relates to. | — |
+
+### `<Swatch>`
+
+Visual cue of a list row, always present: photo > icon > dot. Shared by the lens inventory,
+the selection panel and the search — the same entity must be recognised by the same sign
+wherever it is met. A pictogram is shown WHOLE, never cropped into a circle: it is precisely
+what identifies the row.
+
+| Prop | Description | Default |
+|---|---|---|
+| `avatar` | Photo (agent, user) — cropped into a circle, ringed with `color`. | — |
+| `icon` | Pictogram (tactical symbol, domain icon) — shown WHOLE, never cropped. | — |
+| `color` **(required)** | Colour of the fallback dot, and of the ring around the two other forms. | — |
+
+### `<RemoveButton>`
+
+The library's “remove” button — identical icon, colour and label everywhere (a relation's
+status bar, dock chips, drag removal hint). The icon path (`REMOVE_ICON_PATH`) and the classes
+come from `core/removeButton`. `pointerdown` is stopped in addition to the click: otherwise
+the gesture would start a drag before the click completes.
+
+| Prop | Description | Default |
+|---|---|---|
+| `label` **(required)** | Label: visible text (when `withText`), tooltip and `aria-label`. | — |
+| `withText` | Show the label next to the icon. Without it, the button stays icon-only. | — |
+| `className` | Extra classes, for each host's own positioning. | — |
+| `onRemove` **(required)** | Called on click. | — |

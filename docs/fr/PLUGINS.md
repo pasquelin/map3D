@@ -256,6 +256,12 @@ marque **d'où vient** chaque bloc. Quand N plugins enrichissent le même bâtim
 l'hôte affiche « Source : X » et **filtre** les sources via le mécanisme « Couches »
 existant (`engine.tags`) — aucun nouveau système.
 
+**Hors React** — l'orchestrateur est `engine.enrichment`, un `PluginEnrichment` (export
+public) : `get(pluginId)` rend l'état d'un plugin, `merged()` la fusion des `data` (et
+l'union des `tags`) des plugins activés et non masqués par « Couches », `on(listener)`
+s'abonne aux changements — c'est ce que `useBuildingEnrichment()` fait via
+`useSyncExternalStore`. Rien à la frame : tout part de `buildingclick`.
+
 ---
 
 ## 7. Échappatoire `Layer`
@@ -340,10 +346,10 @@ import { monPluginMaison } from './plugins/maison'
 ```
 
 **Import dynamique pour les gros plugins** — un plugin qui embarque un SDK lourd
-(catalogue, moteur de rendu tiers) devrait suivre le précédent du catalogue de
-symboles MIL-STD de la lib (~9 Mo, chargé à la demande) : exposer une factory qui
-importe dynamiquement le poids mort, pour qu'aucune carte n'en paie le coût sans
-l'utiliser.
+(catalogue, moteur de rendu tiers) devrait suivre le précédent du SDK MIL-STD de la lib
+(~9 Mo, dépendance installée avec le paquet mais chargée par `import()` au premier
+symbole, hors du bundle initial) : exposer une factory qui importe dynamiquement le poids
+mort, pour qu'aucune carte n'en paie le coût sans l'utiliser.
 
 ```ts
 export const monGrosPlugin = () =>

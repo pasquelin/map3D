@@ -1,6 +1,16 @@
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+/**
+ * Dépôt voisin des plugins officiels (`plugingsMap3D`), OPTIONNEL : l'exemple le découvre par
+ * `import.meta.glob` (cf. `src/plugins.ts`) et tourne sans lui. Sa présence ne change ici
+ * qu'une chose : ses sources doivent être SERVABLES en dev — elles sont hors de la racine du
+ * workspace, que Vite refuse de servir par défaut (`server.fs.allow`).
+ */
+const PLUGINS_REPO = resolve(__dirname, '../../../plugingsMap3D')
+const pluginsRepoFound = existsSync(PLUGINS_REPO)
 
 // App d'exemple : carte 3D plein écran.
 // La librairie est aliasée vers les sources pour un dev en direct (HMR).
@@ -10,9 +20,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@pasquelin/map3d': resolve(__dirname, '../../src/index.ts'),
-      '@map3d/plugin-geopf': resolve(__dirname, '../../../plugingsMap3D/packages/geopf/src/index.ts'),
-      '@map3d/plugin-windy': resolve(__dirname, '../../../plugingsMap3D/packages/windy/src/index.ts'),
-      '@map3d/plugin-plan-3d': resolve(__dirname, '../../../plugingsMap3D/packages/plan-3d/src/index.ts'),
       'three/addons': resolve(__dirname, '../../node_modules/three/examples/jsm'),
     },
     /*
@@ -30,6 +37,11 @@ export default defineConfig({
      */
     dedupe: ['three'],
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    // Uniquement si le dépôt est là : un chemin absent dans `allow` n'est pas une erreur,
+    // mais il documenterait une intention que rien ne vérifie.
+    ...(pluginsRepoFound && { fs: { allow: [resolve(__dirname, '../..'), PLUGINS_REPO] } }),
+  },
   build: { outDir: resolve(__dirname, 'dist') },
 })

@@ -485,6 +485,29 @@ sources à bascule** — le bouton dit « tout », et en épargner une laisserai
 de points sur une carte qu'on vient de demander à vider. Le **badge du bouton Catalogue**
 compte de la même façon les éléments cochés et les jeux allumés.
 
+### 7.1 Les clés (`catalogKey` / `parseCatalogKey`)
+
+La sélection — `useCatalog().selection`, la charge persistée — est une liste de **clés**
+`CatalogKey`, de la forme `` `${sourceId}:${itemId}` ``. Deux sources peuvent numéroter
+leurs éléments à partir de 1 : c'est le préfixe qui rend la clé globale, et lui qui permet
+de purger la sélection d'une source disparue sans toucher aux autres. Deux helpers relient
+une clé à vos données :
+
+```ts
+import { catalogKey, parseCatalogKey } from '@pasquelin/map3d'
+
+catalogKey('cities', 42)        // 'cities:42'
+parseCatalogKey('geo:ref:7')    // { sourceId: 'geo', itemId: 'ref:7' } — coupe au PREMIER « : »
+parseCatalogKey('sans-source')  // null
+
+const { isShown } = useCatalog()
+isShown(catalogKey(source.id, item.id))
+```
+
+Un identifiant métier peut contenir des deux-points, un identifiant de source non — c'est
+vous qui le choisissez. `parseCatalogKey` rend `itemId` en **texte** : un id numérique
+ressort en `'42'`, comparez avec `String(id)`.
+
 ---
 
 ## 8. Config, thème, libellés
@@ -544,6 +567,13 @@ useEffect(() => {
 
 Une source retirée emporte ce qu'elle avait posé sur la carte — sinon des zones que plus
 aucun panneau ne sait retirer resteraient à l'écran.
+
+`engine.catalog` est un `CatalogRegistry` (export public), indexé par **`id`** et non par
+référence : réinscrire une source de même `id` la **remplace** (rechargement à chaud, deux
+montages du même plugin) au lieu de doubler la ligne, et la fonction de retrait n'agit que
+si la source en place est toujours la sienne. `sources()` rend les sources dans l'ordre
+d'inscription, `byId(id)` en retrouve une, `onItemsChanged(cb)` s'abonne aux changements et
+`snapshot()` fournit le jeton d'identité à donner à `useSyncExternalStore`.
 
 ---
 
