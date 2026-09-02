@@ -6,7 +6,13 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+## [0.6.0] — 2026-09-02
+
+Version d'audit : une passe complète sur le rendu, la robustesse réseau, la couche React,
+le paquet npm et la documentation. Trois ruptures mineures, listées sous « Retiré ».
+
 ### Ajouté
+
 
 - **Vitrine GitHub Pages** (`site/`, `.github/workflows/pages.yml`) : landing statique
   publiée sur <https://pasquelin.github.io/map3D/>, d'où la démo React est jouable en
