@@ -6,7 +6,6 @@ import { useConfig, useLabels, useMapContext } from '../context'
 import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 import { useSearchProvider } from '../hooks/useSearchProvider'
-import { renderOrderOf } from '../renderOrder'
 
 export type ShapeLayerProps = {
   /** Zones à afficher (cercles, rectangles, polygones), drapées sur le relief. */
@@ -24,7 +23,7 @@ export function ShapeLayer({ shapes }: ShapeLayerProps) {
         color: theme.colors.zone.stroke,
         width: theme.zone.width,
         fillOpacity: theme.zone.fillOpacity,
-        renderOrder: renderOrderOf(config, 'shapes', 1),
+        renderOrder: config.style.renderOrder.shapes,
       }),
   )
 

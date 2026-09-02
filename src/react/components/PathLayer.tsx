@@ -3,7 +3,6 @@ import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLaye
 import { useConfig, useMapContext } from '../context'
 import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
-import { renderOrderOf } from '../renderOrder'
 
 export type PathLayerProps = {
   /** Tracés à afficher, drapés sur le relief. */
@@ -27,7 +26,7 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
           casingColor: theme.colors.path.casing,
           width: theme.path.width,
           casingWidth: theme.path.casingWidth,
-          renderOrder: renderOrderOf(config, 'paths', 1),
+          renderOrder: config.style.renderOrder.paths,
         },
         animateHead,
       ),

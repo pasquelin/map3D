@@ -29,7 +29,6 @@ import { markerColorOf, tagColorOf } from '../../theme/colors'
 import { RelationContext, type RelationApi, useConfig, useLabels, useMapContext } from '../context'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 import { useRelationInteraction } from '../hooks/useRelationInteraction'
-import { renderOrderOf } from '../renderOrder'
 import type { MenuItem } from './ContextMenu'
 
 export type RelationLayerProps = {
@@ -298,7 +297,7 @@ export function RelationLayer({
         engine.projection,
         overlay,
         {
-          renderOrder: renderOrderOf(config, 'relations', 2),
+          renderOrder: config.style.renderOrder.relations,
           casingWidth,
           casingColor: casingColor ?? theme.colors.path.casing,
           hoverDarken,

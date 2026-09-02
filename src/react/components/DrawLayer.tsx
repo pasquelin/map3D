@@ -44,7 +44,6 @@ import { useDrawKeyboard } from '../hooks/useDrawKeyboard'
 import { useDrawSymbols } from '../hooks/useDrawSymbols'
 import { useSearchProvider } from '../hooks/useSearchProvider'
 import { useYieldsTool } from '../hooks/useYieldsTool'
-import { renderOrderOf } from '../renderOrder'
 
 export type DrawLayerProps = {
   /** Outils autorisés (défaut : tous). Filtre aussi ce que `setTool` accepte. */
@@ -356,7 +355,7 @@ export function DrawLayer(props: DrawLayerProps) {
 
   // Empilement des formes dessinées parmi les couches 3D — lu à la création du core,
   // comme ses autres réglages de construction.
-  const drawOrder = renderOrderOf(config, 'drawings', 4)
+  const drawOrder = config.style.renderOrder.drawings
   useEffect(() => {
     const core = new CoreDrawLayer(engine.annotations, engine.projection, overlay, base, drawOrder, (fc) => {
       lastEmittedRef.current = fc

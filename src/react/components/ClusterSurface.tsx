@@ -23,7 +23,6 @@ import {
   ClusterEngine,
   type ClusterEntry,
   type ClusterInfo,
-  type ClusterOptions,
   clusterInfoFromCounts,
   spiderfyLayout,
 } from '../../layers/ClusterLayer'
@@ -384,16 +383,13 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
         uidByMarker.set(p.marker, p.uid)
       }
       byUidRef.current = byUid
-      // ⚠️ TRANSITOIRE : `levelQuantization` rejoint `ClusterOptions` par une autre branche
-      // (cœur). L'objet passe par une variable élargie pour compiler seul ; à la fusion,
-      // repasser le littéral directement au constructeur.
-      const options: ClusterOptions & { levelQuantization?: number } = {
+      const index = new ClusterEngine({
         radius: clustering.radius,
         minPoints: clustering.minPoints,
         maxZoom: clustering.maxZoom,
         levelQuantization: clustering.levelQuantization,
-      }
-      const index = new ClusterEngine(options)
+      })
+
       // L'index ne connaît que la clé GLOBALE : deux couches peuvent porter le même
       // id métier, et supercluster n'en garderait qu'un. Les markers sont passés TELS
       // QUELS, avec un accesseur d'id : les recopier pour ne changer qu'un champ

@@ -6,6 +6,11 @@ import { useConfig, useMap } from '../context'
 export type UseLiveDataOptions = {
   /** Anti-rebond du chargement (ms). Défaut `data.viewportDebounceMs`. */
   debounce?: number
+  /**
+   * Notifié d'un échec de `source.load` (jamais d'un abandon). Sans lui, un backend en panne
+   * est indiscernable d'un viewport vide : le jeu courant reste affiché, en silence.
+   */
+  onError?: (error: unknown) => void
 }
 
 /**
@@ -29,9 +34,17 @@ export function useLiveData<T>(
   // muet à jamais (`push` sort tant que `source` est nulle), sans la moindre erreur.
   const sourceRef = useRef(source)
   sourceRef.current = source
+  // Latest ref : le contrôleur survit aux renders, l'hôte peut changer de callback.
+  const onErrorRef = useRef(opts.onError)
+  onErrorRef.current = opts.onError
 
   useEffect(() => {
-    const controller = new ViewportController<T>({ debounce: opts.debounce ?? viewportDebounceMs }, setData, setLoading)
+    const controller = new ViewportController<T>(
+      { debounce: opts.debounce ?? viewportDebounceMs, onError: (error) => onErrorRef.current?.(error) },
+      setData,
+      setLoading,
+    )
+
     controllerRef.current = controller
     controller.setSource(sourceRef.current ?? null)
     // Amorce avec la vue courante.

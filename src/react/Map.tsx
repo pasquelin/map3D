@@ -218,6 +218,8 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       zoom: props.zoom,
       background: theme.colors.background,
       oceanColor: theme.globe.oceanColor,
+      landColor: theme.globe.landColor,
+
       hazeColor: theme.globe.hazeColor,
       // ⚠️ Ces quatre-là n'étaient PAS transmises : le moteur retombait donc toujours sur
       // `defaultTheme`, et un hôte qui changeait la couleur de ses bâtiments ne voyait
