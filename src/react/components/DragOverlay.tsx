@@ -1,7 +1,7 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useMapContext } from '../context'
 
-type Ghost = { left: number; top: number; node: ReactNode; className?: string; over: boolean }
+type Ghost = { node: ReactNode; className?: string; over: boolean }
 
 /**
  * Contrôleur global du drag-and-drop, monté une fois par `<Map>` : il pilote le
@@ -18,6 +18,24 @@ type Ghost = { left: number; top: number; node: ReactNode; className?: string; o
 export function DragOverlay() {
   const { engine, overlay } = useMapContext()
   const [ghost, setGhost] = useState<Ghost | null>(null)
+  /**
+   * Position écrite DIRECTEMENT sur le nœud du ghost à chaque mouvement ; le state ne
+   * porte que ce qui change rarement (charge, classe, zone survolée). Un `setState`
+   * par `pointermove` re-rendait le ghost — et sa charge, souvent un marker complet —
+   * à la cadence du pointeur, pour déplacer une boîte.
+   */
+  const ghostElRef = useRef<HTMLDivElement | null>(null)
+  const ghostPosRef = useRef({ left: 0, top: 0 })
+  const placeGhost = (el: HTMLDivElement) => {
+    el.style.left = `${ghostPosRef.current.left}px`
+    el.style.top = `${ghostPosRef.current.top}px`
+  }
+  // Callback ref : le ghost naît au premier `sync` (le state le monte), donc il doit se
+  // placer d'elle-même à son apparition.
+  const attachGhost = (el: HTMLDivElement | null) => {
+    ghostElRef.current = el
+    if (el) placeGhost(el)
+  }
 
   // Reflet de l'état du registre → position/état du ghost (origine = conteneur carte).
   // L'origine du conteneur est invariante pendant un drag : on la mesure UNE fois
@@ -26,9 +44,11 @@ export function DragOverlay() {
   useEffect(() => {
     const root = overlay.parentElement
     let origin = { left: 0, top: 0 }
+    let last: Ghost | null = null
     const sync = () => {
       const s = engine.drag.active
       if (!s) {
+        last = null
         setGhost(null)
         root?.classList.remove('m3d-dragging')
         return
@@ -38,13 +58,14 @@ export function DragOverlay() {
         origin = { left: rect.left, top: rect.top }
         root?.classList.add('m3d-dragging')
       }
-      setGhost({
-        left: s.x - origin.left,
-        top: s.y - origin.top,
-        node: s.ghost as ReactNode,
-        className: s.ghostClassName,
-        over: s.overZone !== null,
-      })
+      ghostPosRef.current = { left: s.x - origin.left, top: s.y - origin.top }
+      if (ghostElRef.current) placeGhost(ghostElRef.current)
+      const node = s.ghost as ReactNode
+      const over = s.overZone !== null
+      // Rendu React seulement quand la charge, sa classe ou la zone survolée changent.
+      if (last && last.node === node && last.className === s.ghostClassName && last.over === over) return
+      last = { node, className: s.ghostClassName, over }
+      setGhost(last)
     }
     return engine.drag.onChange(sync)
   }, [engine, overlay])
@@ -60,6 +81,8 @@ export function DragOverlay() {
     const onUp = () => {
       if (engine.drag.active) engine.drag.end()
     }
+    // Pas de garde « carte active » (cf. `activeMap.ts`) : un drag appartient à UN
+    // registre, `engine.drag.active` suffit à ne toucher que la carte concernée.
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && engine.drag.active) engine.drag.cancel()
     }
@@ -76,8 +99,8 @@ export function DragOverlay() {
   if (!ghost) return null
   return (
     <div
+      ref={attachGhost}
       className={`m3d-drag-ghost${ghost.over ? ' m3d-drag-over' : ''}${ghost.className ? ` ${ghost.className}` : ''}`}
-      style={{ left: ghost.left, top: ghost.top }}
       aria-hidden
     >
       {ghost.node}

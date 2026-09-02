@@ -68,7 +68,7 @@ export type SelectionRowModel = {
  * d'une ligne — d'où l'absence de tout markup de ligne ailleurs.
  */
 export function SelectionList({ rows }: { rows: readonly SelectionRowModel[] }) {
-  const { overlay } = useMapContext()
+  const { overlay, theme } = useMapContext()
   const root = overlay.parentElement
   // Une instance d'infobulle PAR liste (id unique), montée seulement s'il y a une ligne
   // masquée à expliquer. `react-tooltip` apparie ses ancres par cet id — cf. `MapTooltip`.
@@ -91,9 +91,10 @@ export function SelectionList({ rows }: { rows: readonly SelectionRowModel[] }) 
     const rr = root?.getBoundingClientRect()
     if (!rr) return
     const r = btn.getBoundingClientRect()
-    const width = 180
-    const left = Math.min(r.right - rr.left - width, rr.width - width - 8)
-    setMenu({ key, left: Math.max(8, left), top: r.bottom - rr.top + 2 })
+    const width = theme.sizing.rowMenuW
+    const edge = theme.spacing.edge
+    const left = Math.min(r.right - rr.left - width, rr.width - width - edge)
+    setMenu({ key, left: Math.max(edge, left), top: r.bottom - rr.top + theme.spacing.rowMenuGap })
   }
 
   return (

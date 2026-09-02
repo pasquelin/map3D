@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useState } from 'react'
+import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { clamp, RAD2DEG } from '../../core/math'
 import type { ClusterInfo } from '../../layers/ClusterLayer'
@@ -21,7 +21,7 @@ export type DefaultClusterProps = {
   onSegmentHover?: (type: string | null) => void
 }
 
-type Tip = { x: number; y: number; below: boolean; label: string; count: number; color: string }
+type Tip = { label: string; count: number; color: string }
 
 /** Rayon extérieur (px) du donut — l'ancrage de l'infobulle de cluster le lit pour
  *  ne jamais recouvrir le camembert.
@@ -58,7 +58,7 @@ export function DefaultCluster({
   const colorOf = (type: string) => markerColorOf(theme, type)
   const core = theme.colors.cluster // couleur PROPRE du cluster (indépendante des types)
 
-  const { ringWidth: RING_W, strokeWidth: STROKE_W, segmentGap, startAngle } = theme.clusters
+  const { ringWidth: RING_W, strokeWidth: STROKE_W, segmentGap, startAngle, text, tip: tipTheme } = theme.clusters
   const ro = defaultClusterRadius(total, theme)
   /**
    * Boîte du sprite : le donut, et RIEN d'autre (demi-trait de contour compris).
@@ -99,16 +99,35 @@ export function DefaultCluster({
     return { type, count, a0, a1, am, col: colorOf(type) }
   })
 
+  /**
+   * Position de la vignette écrite DIRECTEMENT sur son nœud à chaque `pointermove`, le
+   * state ne portant que le contenu (posé à l'entrée dans la part). Un `setState` par
+   * mouvement re-rendait tout le donut — SVG, parts, textes — à la cadence du pointeur,
+   * pour déplacer une boîte de trois spans.
+   */
+  const tipElRef = useRef<HTMLDivElement | null>(null)
+  const tipPosRef = useRef({ x: 0, y: 0 })
+  const placeTip = (el: HTMLDivElement) => {
+    const { x, y } = tipPosRef.current
+    const below = y < tipCfg.flipBelowPx
+    el.style.left = `${clamp(x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx)}px`
+    el.style.top = `${below ? y + tipCfg.offsetBelowPx : y - tipCfg.offsetAbovePx}px`
+    el.style.transform = below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
+  }
+  // Callback ref : la vignette naît APRÈS le premier mouvement (le state la monte), donc
+  // elle doit se placer d'elle-même à son apparition.
+  const attachTip = (el: HTMLDivElement | null) => {
+    tipElRef.current = el
+    if (el) placeTip(el)
+  }
+  const moveTip = (e: { clientX: number; clientY: number }) => {
+    tipPosRef.current = { x: e.clientX, y: e.clientY }
+    if (tipElRef.current) placeTip(tipElRef.current)
+  }
   const showTip = (e: { clientX: number; clientY: number }, type: string, count: number, color: string) => {
     if (!satelliteTip) return
-    setTip({
-      x: e.clientX,
-      y: e.clientY,
-      below: e.clientY < tipCfg.flipBelowPx,
-      label: typeLabel?.(type) ?? type,
-      count,
-      color,
-    })
+    moveTip(e)
+    setTip({ label: typeLabel?.(type) ?? type, count, color })
   }
 
   return (
@@ -126,22 +145,23 @@ export function DefaultCluster({
             <g
               key={s.type}
               className="m3d-cluster-sat"
-              onPointerMove={(e) => {
+              onPointerEnter={(e) => {
                 showTip(e, s.type, s.count, s.col.base)
                 onSegmentHover?.(s.type)
               }}
+              onPointerMove={satelliteTip ? moveTip : undefined}
               onPointerLeave={() => {
                 setTip(null)
                 onSegmentHover?.(null)
               }}
             >
               {segs.length === 1 ? (
-                <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke="#fff" strokeWidth={STROKE_W} />
+                <circle cx={C} cy={C} r={ro} fill={s.col.base} stroke={core.stroke} strokeWidth={STROKE_W} />
               ) : (
                 <path
                   d={sector(s.a0, s.a1)}
                   fill={s.col.base}
-                  stroke="#fff"
+                  stroke={core.stroke}
                   strokeWidth={STROKE_W}
                   strokeLinejoin="round"
                 />
@@ -160,8 +180,8 @@ export function DefaultCluster({
                   y={0}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fontSize={s.count > 99 ? 11 : 13}
-                  fontWeight={800}
+                  fontSize={s.count >= text.wideFrom ? text.segmentSizeWide : text.segmentSize}
+                  fontWeight={text.weight}
                   fill={s.col.contrast}
                 >
                   {s.count}
@@ -178,8 +198,8 @@ export function DefaultCluster({
             y={C + 1}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={total > 99 ? 16 : 19}
-            fontWeight={800}
+            fontSize={total >= text.wideFrom ? text.coreSizeWide : text.coreSize}
+            fontWeight={text.weight}
             fill={core.text}
           >
             {total}
@@ -190,22 +210,23 @@ export function DefaultCluster({
       {tip &&
         createPortal(
           <div
+            ref={attachTip}
+            // `left`/`top`/`transform` sont écrits par `placeTip` (clampés aux bords de la
+            // fenêtre, retournés sous le pointeur près du haut), jamais par ce style.
+            // Valeurs lues dans `theme.clusters.tip` et non via `--m3d-*` : ce portail vit
+            // hors de `.m3d-root`, là où `themeToVars` pose ses variables.
             style={{
               position: 'fixed',
-              // Clampe horizontalement pour ne jamais sortir de la fenêtre (bords du canvas).
-              left: clamp(tip.x, tipCfg.clampMarginPx, window.innerWidth - tipCfg.clampMarginPx),
-              top: tip.below ? tip.y + tipCfg.offsetBelowPx : tip.y - tipCfg.offsetAbovePx,
-              transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
               display: 'flex',
               alignItems: 'center',
-              gap: 7,
-              padding: '6px 10px',
-              borderRadius: 8,
-              background: 'rgba(17,24,39,0.96)',
-              color: '#fff',
-              font: '600 12px/1 system-ui, -apple-system, sans-serif',
+              gap: tipTheme.gap,
+              padding: `${tipTheme.paddingY}px ${tipTheme.paddingX}px`,
+              borderRadius: tipTheme.radius,
+              background: tipTheme.background,
+              color: tipTheme.color,
+              font: `${tipTheme.weight} ${tipTheme.fontSize}px/1 ${theme.typography.fontFamily}`,
               whiteSpace: 'nowrap',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+              boxShadow: tipTheme.shadow,
               pointerEvents: 'none',
               // Palier `style.zIndex.menu`, comme `.m3d-menu`. Lu ici en JS et non
               // via `--m3d-z-menu` : cette vignette est le seul portail de la lib
@@ -216,10 +237,18 @@ export function DefaultCluster({
               zIndex: zIndex.menu,
             }}
           >
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: tip.color, flex: '0 0 auto' }} />
+            <span
+              style={{
+                width: tipTheme.dotSize,
+                height: tipTheme.dotSize,
+                borderRadius: '50%',
+                background: tip.color,
+                flex: '0 0 auto',
+              }}
+            />
             <span>{tip.label}</span>
-            <span style={{ opacity: 0.6 }}>{labels.glyphs.separator}</span>
-            <span style={{ fontWeight: 800 }}>{tip.count}</span>
+            <span style={{ opacity: tipTheme.separatorOpacity }}>{labels.glyphs.separator}</span>
+            <span style={{ fontWeight: text.weight }}>{tip.count}</span>
           </div>,
           document.body,
         )}

@@ -53,6 +53,20 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     // Attendue par 7 règles d'animation de `injectStyles` (menus, flyouts, panneaux)
     // qui repliaient toutes sur 200ms faute d'émetteur.
     '--m3d-menu-dur': `${theme.animations.menuOpen.duration}ms`,
+    '--m3d-menu-ease': theme.animations.menuOpen.easing,
+    // Animations de marker/cluster. Ces clés étaient typées et documentées sans jamais
+    // être émises : la feuille de styles lisait `--m3d-enter-dur`, `--m3d-pulse-scale`,
+    // `--m3d-bob-amp`… et retombait TOUJOURS sur ses replis — un hôte pouvait les régler
+    // sans que rien ne bouge. Une spec coupée (`false`) publie une durée nulle : le CSS
+    // qui la consomme ne tourne pas, sans règle supplémentaire.
+    ...animationVars('pulse', theme.animations.pulse, (s) => ({ ease: s.easing, scale: String(s.scale) })),
+    ...animationVars('halo', theme.animations.halo, (s) => ({ ease: s.easing, scale: String(s.maxScale) })),
+    ...animationVars('bob', theme.animations.bob, (s) => ({ amp: `${s.amplitude}px` })),
+    ...animationVars('enter', theme.animations.markerEnter, (s) => ({ ease: s.easing, stagger: `${s.stagger}ms` })),
+    ...animationVars('cluster-enter', theme.animations.clusterEnter, (s) => ({
+      ease: s.easing,
+      stagger: `${s.stagger}ms`,
+    })),
     '--m3d-lens-panel-w': `${theme.sizing.lensPanelW}px`,
     '--m3d-selection-panel-w': `${theme.sizing.selectionPanelW}px`,
     '--m3d-templates-panel-w': `${theme.sizing.templatesPanelW}px`,
@@ -89,6 +103,21 @@ export function themeToVars(theme: MapTheme): Record<string, string> {
     vars['--m3d-marquee-under'] = c.marquee.under
   }
   return vars
+}
+
+/**
+ * Variables d'UNE animation : `--m3d-<name>-dur` toujours, plus ce que `extra` tire de
+ * la spec (easing, échelle, amplitude, décalage). Une spec `false` ne publie que la
+ * durée, à zéro — les autres variables gardent leur repli CSS, sans effet à durée nulle.
+ */
+function animationVars<S extends { duration: number }>(
+  name: string,
+  spec: S | false,
+  extra: (spec: S) => Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = { [`--m3d-${name}-dur`]: `${spec === false ? 0 : spec.duration}ms` }
+  if (spec !== false) for (const [k, v] of Object.entries(extra(spec))) out[`--m3d-${name}-${k}`] = v
+  return out
 }
 
 /**

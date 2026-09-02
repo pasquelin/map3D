@@ -12,6 +12,7 @@ type DrawSymbolsProps = {
   enabled?: boolean
   catalog?: SymbolCatalog
   renderer?: SymbolRenderer
+  defaultVariant?: string
 }
 
 /**
@@ -41,9 +42,14 @@ export function useDrawSymbols(
   const symbolsEnabled = symbols?.enabled ?? true
   const symbolCatalog = symbols?.catalog ?? MILSYM_CATALOG
   const providedRenderer = symbols?.renderer
-  const lazyRenderer = useRef<SymbolRenderer | null>(null)
+  const [lazyRenderer, setLazyRenderer] = useState<SymbolRenderer | null>(null)
   const [symbolsReady, setSymbolsReady] = useState(false)
-  const [affiliation, setAffiliation] = useState('friendly')
+  // Variante initiale : la prop, sinon la première que le CATALOGUE déclare — c'est lui
+  // qui les connaît (`friendly` pour MIL-STD). `''` pour un catalogue sans variante :
+  // aucune n'est alors transmise au renderer (cf. `renderSymbol` dans `DrawLayer`).
+  const [affiliation, setAffiliation] = useState(
+    () => symbols?.defaultVariant ?? Object.keys(symbolCatalog.variantColors ?? {})[0] ?? '',
+  )
   // Palette ouverte, publiée par le bouton (cf. `paletteOpen`) : la barre en a
   // besoin pour son exclusivité visuelle, et c'est l'un des deux déclencheurs du
   // chargement de la symbologie.
@@ -84,12 +90,17 @@ export function useDrawSymbols(
    * collection contient déjà des symboles (import GeoJSON, restauration d'état).
    */
   const needsRenderer = symbolsEnabled && (graphicsWanted.current || symbolShapes.length > 0)
+  // Instancié dans un EFFET, jamais pendant le rendu : le constructeur lance un
+  // `import()` de 9 Mo, et un rendu abandonné (StrictMode, rendu concurrent) l'aurait
+  // lancé pour un arbre qui ne sera jamais monté — deux téléchargements, un renderer
+  // orphelin. Une fois acquis, il reste (cf. `graphicsWanted`).
   // Le plafond du cache de vignettes vient de la config : sans l'argument, le
   // renderer retombait sur `defaultConfig`, donc `providers.symbols.cacheMaxEntries`
   // n'avait aucun effet sur le chemin par défaut — le seul emprunté en pratique.
-  const renderer = needsRenderer
-    ? (providedRenderer ?? (lazyRenderer.current ??= createMilSymRenderer({ cacheMaxEntries })))
-    : null
+  useEffect(() => {
+    if (needsRenderer && !providedRenderer && !lazyRenderer) setLazyRenderer(createMilSymRenderer({ cacheMaxEntries }))
+  }, [needsRenderer, providedRenderer, lazyRenderer, cacheMaxEntries])
+  const renderer = needsRenderer ? (providedRenderer ?? lazyRenderer) : null
 
   // Disponibilité du graphisme. L'abonnement porte sur le renderer EFFECTIF, celui
   // fourni compris : `SymbolRenderer.ready` est un contrat public, et un catalogue
@@ -122,7 +133,7 @@ export function useDrawSymbols(
   // ré-enregistrée à chaque rendu.
   const placeRef = useRef<(key: string, at: LatLng) => void>(() => {})
   placeRef.current = (key, at) => {
-    if (symbolsEnabled) coreRef.current?.placeSymbol(key, at, affiliation)
+    if (symbolsEnabled) coreRef.current?.placeSymbol(key, at, affiliation || undefined)
   }
   useMapDropZone({
     accept: (p) => symbolsEnabled && p.type === SYMBOL_DRAG_TYPE,

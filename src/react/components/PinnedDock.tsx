@@ -71,7 +71,7 @@ export type PinnedDockProps<T = unknown> = {
   tooltip?: (item: PinnedItem<T>) => { title?: ReactNode; content?: ReactNode } | null
   /** Id de la zone de dépôt (distinct si plusieurs docks cohabitent). Défaut `m3d-pinned`. */
   zoneId?: string
-  /** Côté (px) des carrés. Défaut 64. */
+  /** Côté (px) des carrés. Défaut : `theme.sizing.pinSize`. */
   size?: number
   /** Dock repliée au montage (l'utilisateur la redéploie d'un clic). Défaut `false`. */
   defaultCollapsed?: boolean
@@ -94,7 +94,7 @@ export function PinnedDock<T = unknown>(props: PinnedDockProps<T>) {
   const config = useConfig()
   const labels = useLabels()
   const zoneId = props.zoneId ?? 'm3d-pinned'
-  const size = props.size ?? 64
+  const size = props.size ?? theme.sizing.pinSize
   // Textes traduisibles : uniquement via le système de labels (i18n), comme le
   // reste de la lib — surchargeables par `<MapProvider labels>`.
   const addLabel = labels.pinned.add
@@ -406,8 +406,9 @@ function DefaultPin<T>({ item, theme }: { item: PinnedItem<T>; theme: MapTheme }
   // Couleur explicite : dégradé ASSOMBRI à partir d'elle. Le contenu posé dessus
   // porte souvent la même teinte (un symbole MIL-STD est coloré par son affiliation) ;
   // un fond clair de cette teinte le rendrait invisible.
+  const shade = theme.colors.pinShade
   const bg = item.color
-    ? `linear-gradient(180deg, ${item.color}, color-mix(in srgb, ${item.color} 45%, #000))`
+    ? `linear-gradient(180deg, ${item.color}, color-mix(in srgb, ${item.color} ${shade.percent}%, ${shade.color}))`
     : `linear-gradient(180deg, ${color.accent}, ${color.base})`
   if (item.icon) {
     return (

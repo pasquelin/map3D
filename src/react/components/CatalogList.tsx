@@ -55,7 +55,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
   const [children, setChildren] = useState<ReadonlyMap<CatalogId, readonly CatalogItem[]>>(new Map())
 
   const viewportRef = useRef<HTMLDivElement | null>(null)
-  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
 
@@ -141,20 +141,25 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
 
   // Sentinelle de pagination. `prefetchMarginPx` la déclenche AVANT le bas réel : la
   // page suivante arrive pendant que l'utilisateur défile encore, au lieu d'un à-coup.
+  //
+  // Nœud en STATE, pas en ref : le viewport (et la sentinelle avec lui) n'existe pas
+  // pendant « Chargement… », et `hasMore` est déjà vrai à ce moment-là. Un effet à
+  // dépendances `[hasMore, …]` lisait donc une ref nulle au premier passage et ne
+  // rejouait jamais — l'observateur n'était posé sur rien, et la pagination au
+  // défilement était morte. Le nœud qui apparaît doit lui-même relancer l'effet.
   const prefetchMarginPx = config.catalog.prefetchMarginPx
   useEffect(() => {
-    const el = sentinelRef.current
     const root = viewportRef.current
-    if (!el || !root || !hasMore) return
+    if (!sentinel || !root || !hasMore) return
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) loadMoreRef.current()
       },
       { root, rootMargin: `${prefetchMarginPx}px` },
     )
-    io.observe(el)
+    io.observe(sentinel)
     return () => io.disconnect()
-  }, [hasMore, prefetchMarginPx])
+  }, [sentinel, hasMore, prefetchMarginPx])
 
   const childrenRef = useRef(children)
   childrenRef.current = children
@@ -378,7 +383,7 @@ export function CatalogList({ source, query, tipId, side }: CatalogListProps) {
                 )
               })}
             </div>
-            <div ref={sentinelRef} className="m3d-catmorespace" style={{ position: 'absolute', bottom: 0 }} />
+            <div ref={setSentinel} className="m3d-catmorespace" style={{ position: 'absolute', bottom: 0 }} />
           </div>
         </div>
       )}

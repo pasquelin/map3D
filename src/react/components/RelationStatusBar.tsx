@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatLabel } from '../../labels/mergeLabels'
 import { makeDistanceFormatter, makeLinkLabelFormatter } from '../../labels/measure'
@@ -7,7 +7,7 @@ import type { MapPoint, TravelMode } from '../../relations/core/types'
 import { useLabels } from '../context'
 import { useRelations } from '../hooks/useRelations'
 import { ContextMenu, type MenuItem } from './ContextMenu'
-import { useNudgeInside } from './panelFit'
+import { useMergedRefs, useNudgeInside } from './panelFit'
 import { useDismiss } from './useDismiss'
 import { RemoveButton } from './RemoveButton'
 
@@ -83,6 +83,12 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
   // conteneur est trop proche, et se rabat verticalement s'il le faut. Le hook suit
   // aussi le socle par frame — la carte bouge sous la barre en permanence.
   const [flipped, setFit] = useNudgeInside(true)
+  // Ref STABLE : une flèche inline était détachée (null) puis rattachée à chaque rendu
+  // de la barre — et elle re-rend à chaque tick du moteur de relations.
+  const assignBar = useCallback((el: HTMLElement | null) => {
+    barRef.current = el as HTMLDivElement | null
+  }, [])
+  const attachBar = useMergedRefs(setFit, assignBar)
   const distance = useMemo(() => makeDistanceFormatter(labels.measure), [labels])
   const formatLink = useMemo(() => makeLinkLabelFormatter(labels), [labels])
 
@@ -141,8 +147,11 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
    * bouton « Agents » s'annoncerait « Agents Agents Les plus rapides Les 3 plus… » aux
    * lecteurs d'écran. Le wrapper porte le positionnement, le bouton reste nu.
    */
+  // Préfixé par `useId` : deux cartes affichant la même source produisaient deux
+  // menus de même id, et `aria-controls` pointait sur celui de l'autre carte.
+  const uid = useId()
   const segment = (segId: Segment, text: string, items: MenuItem[]) => {
-    const menuId = `m3d-relbar-${source.id}-${segId}`
+    const menuId = `${uid}-${source.id}-${segId}`
     return (
       <span className="m3d-relbar-segwrap">
         <button
@@ -165,13 +174,7 @@ function RelationBar({ snapshot, nameOf, modes }: BarProps) {
   }
 
   return (
-    <div
-      ref={(el) => {
-        barRef.current = el
-        setFit(el)
-      }}
-      className={`m3d-relbar${flipped ? ' m3d-flip' : ''}`}
-    >
+    <div ref={attachBar} className={`m3d-relbar${flipped ? ' m3d-flip' : ''}`}>
       {/* La pastille porte la couleur de ce qui est RÉELLEMENT à l'écran : celle de la
           famille tant qu'on voit ses liens, celle de l'itinéraire dès qu'il est tracé.
           Sinon elle continue d'annoncer une famille alors que le tracé, lui, a changé

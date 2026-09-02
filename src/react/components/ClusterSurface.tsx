@@ -23,6 +23,7 @@ import {
   ClusterEngine,
   type ClusterEntry,
   type ClusterInfo,
+  type ClusterOptions,
   clusterInfoFromCounts,
   spiderfyLayout,
 } from '../../layers/ClusterLayer'
@@ -136,7 +137,7 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
   const appliedIdsRef = useRef<ReadonlySet<string | number>>(new Set())
   const [rev, signature] = useEntriesSignature()
 
-  const clusterSize = size ?? Math.round(theme.markers.size * 1.18)
+  const clusterSize = size ?? Math.round(theme.markers.size * theme.clusters.sizeRatio)
   const latest = useRef({ chrome, clustering, config, theme, clusterSize, grounded })
   latest.current = { chrome, clustering, config, theme, clusterSize, grounded }
   // Ref pour le provider de sélection : garder ses deps stables ([engine, leavesOf])
@@ -383,11 +384,16 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
         uidByMarker.set(p.marker, p.uid)
       }
       byUidRef.current = byUid
-      const index = new ClusterEngine({
+      // ⚠️ TRANSITOIRE : `levelQuantization` rejoint `ClusterOptions` par une autre branche
+      // (cœur). L'objet passe par une variable élargie pour compiler seul ; à la fusion,
+      // repasser le littéral directement au constructeur.
+      const options: ClusterOptions & { levelQuantization?: number } = {
         radius: clustering.radius,
         minPoints: clustering.minPoints,
         maxZoom: clustering.maxZoom,
-      })
+        levelQuantization: clustering.levelQuantization,
+      }
+      const index = new ClusterEngine(options)
       // L'index ne connaît que la clé GLOBALE : deux couches peuvent porter le même
       // id métier, et supercluster n'en garderait qu'un. Les markers sont passés TELS
       // QUELS, avec un accesseur d'id : les recopier pour ne changer qu'un champ
@@ -592,17 +598,12 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
 
   const portals = useMemo(() => {
     const out: ReactNode[] = []
+    // Boîte et centrage sont en CSS (`.m3d-marker-img`) : un seul objet de style pour
+    // toutes les pastilles, seule la taille varie.
+    const imgStyle = { '--m3d-sprite': `${clusterSize}px` } as CSSProperties
     for (const [key, el] of els) {
       const node = nodesRef.current.get(key)
       if (!node) continue
-      const imgStyle: CSSProperties = {
-        width: clusterSize,
-        height: clusterSize,
-        marginLeft: -clusterSize / 2,
-        marginTop: -clusterSize / 2,
-        display: 'block',
-        cursor: 'pointer',
-      }
       const content = chrome.icon ? (
         <img
           className="m3d-marker-img"
@@ -635,7 +636,8 @@ export function ClusterSurface({ enabled = true, size, ...chrome }: ClusterSurfa
           : null
       // Ancrage de l'infobulle : au-dessus du VISUEL réel — donut par défaut (rayon
       // dépendant du total) ou pastille custom.
-      const tipLift = chrome.icon ? clusterSize / 2 + 10 : defaultClusterRadius(node.cluster.total, theme) + 10
+      const tipLift =
+        (chrome.icon ? clusterSize / 2 : defaultClusterRadius(node.cluster.total, theme)) + theme.markers.tipGapPx
       out.push(
         createPortal(
           <>

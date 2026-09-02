@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { inTextInput, plainKey } from '../components/shortcuts'
-import { useConfig } from '../context'
+import { useConfig, useMap } from '../context'
+import { isActiveMap } from '../activeMap'
 import type { PedestrianChrome } from './usePedestrian'
 
 /**
@@ -21,6 +22,7 @@ import type { PedestrianChrome } from './usePedestrian'
  */
 export function usePedestrianKeys(chrome: PedestrianChrome): void {
   const immersionKey = useConfig().interaction.shortcuts.pedestrian.immersion
+  const engine = useMap()
   const ref = useRef({ chrome, immersionKey })
   ref.current = { chrome, immersionKey }
 
@@ -28,7 +30,8 @@ export function usePedestrianKeys(chrome: PedestrianChrome): void {
     const onKey = (e: KeyboardEvent) => {
       if (inTextInput(e)) return
       const { chrome, immersionKey } = ref.current
-      if (chrome.mode !== 'pedestrian') return
+      // Échap ne doit sortir du mode piéton que sur la carte active (deux cartes).
+      if (chrome.mode !== 'pedestrian' || !isActiveMap(engine)) return
       // Bascule d'immersion (si une touche est configurée), en marche active seulement.
       if (immersionKey !== false && chrome.phase === 'active' && plainKey(e) === immersionKey) {
         e.preventDefault()
@@ -41,5 +44,5 @@ export function usePedestrianKeys(chrome: PedestrianChrome): void {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [engine])
 }

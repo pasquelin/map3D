@@ -12,6 +12,7 @@ import { LensZone } from './LensZone'
 import type { MenuItem } from './ContextMenu'
 import type { MarkerListAction } from './MarkerList'
 import { inTextInput, plainKey } from './shortcuts'
+import { isActiveMap } from '../activeMap'
 import type { LensRect, LensRenderItem } from './lensTypes'
 
 /** Clé par défaut d'un marker. Hissée : identité stable → `MarkerList` reste mémoïsée. */
@@ -356,13 +357,13 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
   useEffect(() => {
     if (!active) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      if (e.key !== 'Escape' || !isActiveMap(engine)) return
       if (rectRef.current) clearZone()
       else deactivate()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [active, clearZone, deactivate])
+  }, [active, clearZone, deactivate, engine])
 
   // Raccourci clavier d'activation (défaut « x » — « f » est pris par le plein écran).
   // `false` (config) et `null` (prop) disent la même chose : pas de raccourci.
@@ -372,13 +373,14 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
     if (!shortcut) return
     const key = shortcut.toLowerCase()
     const onKey = (e: KeyboardEvent) => {
-      if (plainKey(e) !== key) return // modificateurs / champ de saisie exclus
+      // Modificateurs / champ de saisie exclus ; deux cartes : seule l'active s'arme.
+      if (plainKey(e) !== key || !isActiveMap(engine)) return
       e.preventDefault()
       toggle()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [shortcut, toggle])
+  }, [shortcut, toggle, engine])
 
   // Barre espace = pan caméra temporaire (l'intercepteur se suspend) ; Espace+Maj =
   // rotation. Même geste que les outils de dessin. Relâcher reprend la loupe.
@@ -394,7 +396,7 @@ export function LensLayer<T = unknown>(props: LensLayerProps<T>) {
       held = null
     }
     const onDown = (e: KeyboardEvent) => {
-      if (inTextInput(e)) return
+      if (inTextInput(e) || !isActiveMap(engine)) return
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault()
         if (held) return

@@ -13,7 +13,7 @@ import { CapturePanel } from './CapturePanel'
 import { CaptureContext } from '../capture'
 import { StatsPanel } from './StatsPanel'
 import { UiIcon } from './UiIcon'
-import { useContext, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { EditShortcut } from '../../config/types'
 import { DEFAULT_STROKE_OPACITY } from '../../core/geometryMaterials'
 import type { DrawTool } from '../../layers/DrawLayer'
@@ -114,6 +114,9 @@ export function DrawSettingsButton({
     if (closeTimer.current) clearTimeout(closeTimer.current)
     closeTimer.current = null
   }
+  // Le panneau se démonte pendant le délai (clic extérieur, repli de la barre) : le
+  // timer écrivait sinon dans un composant qui n'existe plus.
+  useEffect(() => cancelClose, [])
   const scheduleClose = () => {
     cancelClose()
     closeTimer.current = setTimeout(() => setOpenSub(null), submenuCloseMs)

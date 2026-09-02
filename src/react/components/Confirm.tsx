@@ -34,6 +34,8 @@ export function Confirm({ message, confirmLabel, cancelLabel, danger, onConfirm,
   const handlers = useRef({ onConfirm, onCancel })
   handlers.current = { onConfirm, onCancel }
 
+  // Pas de garde « carte active » (cf. `activeMap.ts`) : le dialogue est modal et
+  // n'existe que sur la carte qui l'a ouvert — Échap/Entrée lui appartiennent.
   useEffect(() => {
     okRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {

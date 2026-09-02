@@ -300,6 +300,13 @@ export type ToolbarApi = {
    * de la boucle `tools.map` (les sous-menus), qu'elle ne peut pas publier pour eux.
    */
   publishActiveTool: (el: HTMLElement | null) => void
+  /**
+   * Id de l'infobulle partagée de la barre (`useTip(bar.tipId)`), UNIQUE par instance :
+   * `react-tooltip` apparie ses ancres par `querySelectorAll` sur tout le document, et
+   * deux cartes qui partageaient un id en dur voyaient leurs infobulles se croiser.
+   * Vide hors d'une `<Toolbar>` (aucune infobulle à viser).
+   */
+  tipId: string
 }
 
 /** ⚠️ Défaut INERTE : un bouton monté hors `<Toolbar>` n'a personne à qui céder la main,
@@ -311,6 +318,7 @@ export const ToolbarContext = createContext<ToolbarApi>({
   el: null,
   activeToolEl: null,
   publishActiveTool: () => {},
+  tipId: '',
 })
 
 /**

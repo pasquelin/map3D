@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import { zoomForAltitude } from '../../core/MapEngine'
+import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import { markerTags, type MarkerData } from '../../data/types'
 import { LinkLayer as CoreLinkLayer, type DashStyle } from '../../layers/LinkLayer'
 import { makeLinkLabelFormatter } from '../../labels/measure'
@@ -29,6 +29,7 @@ import { markerColorOf, tagColorOf } from '../../theme/colors'
 import { RelationContext, type RelationApi, useConfig, useLabels, useMapContext } from '../context'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 import { useRelationInteraction } from '../hooks/useRelationInteraction'
+import { renderOrderOf } from '../renderOrder'
 import type { MenuItem } from './ContextMenu'
 
 export type RelationLayerProps = {
@@ -140,16 +141,11 @@ export type RelationLayerProps = {
 /** Un id de marker numérique doit être retenté en nombre auprès du registre. */
 const NUMERIC_ID = /^-?\d+$/
 
-/**
- * Motif par défaut des traits de recherche, en pixels écran. Tiret un peu plus long
- * que l'espace (le trait doit rester une ligne, pas une file de points) et défilement
- * lent : c'est un signal d'attente, il ne doit pas capter le regard plus que le marker
- * qu'il désigne. `gapOpacity` à 30 % : l'espace entre deux tirets reste juste assez
- * présent pour tenir la ligne, sans concurrencer les tirets. Hissé hors du composant —
- * un littéral par défaut serait une nouvelle référence à chaque rendu, et referait
- * tous les visuels de la couche.
- */
-const DEFAULT_DASH: DashStyle = { length: 20, gap: 8, speed: 16, gapOpacity: 0.3 }
+/** Palier de zoom courant, tel que le regroupement visuel le lit (cf. `camRef`). */
+const camAt = (engine: MapEngine): { zoom: number; step: number } => {
+  const zoom = zoomForAltitude(engine.camera.getState().altitude)
+  return { zoom, step: Math.round(zoom) }
+}
 
 const toMapPoint = (m: MarkerData): MapPoint => ({
   id: String(m.id),
@@ -169,15 +165,15 @@ const toMapPoint = (m: MarkerData): MapPoint => ({
 export function RelationLayer({
   rules,
   provider,
-  width = 8,
-  defaultColor = '#ffd400',
-  linkDash = DEFAULT_DASH,
-  routeColor = '#7c4dff',
-  hoverDarken = 0.72,
-  hubRadius = 26,
-  casingWidth = 3,
+  width: widthProp,
+  defaultColor: defaultColorProp,
+  linkDash: linkDashProp,
+  routeColor: routeColorProp,
+  hoverDarken: hoverDarkenProp,
+  hubRadius: hubRadiusProp,
+  casingWidth: casingWidthProp,
   casingColor,
-  minOpacity = 1,
+  minOpacity: minOpacityProp,
   staleMeters: staleMetersProp,
   refreshIntervalMs: refreshIntervalMsProp,
   menuPresets,
@@ -187,6 +183,18 @@ export function RelationLayer({
 }: RelationLayerProps) {
   const { engine, overlay, theme } = useMapContext()
   const labels = useLabels()
+  // Défauts d'apparence dans le THÈME, pas en littéral de prop : une charte doit pouvoir
+  // les régler d'un coup. `theme.relations.dash` est une référence stable (le thème est
+  // mémoïsé par `MapProvider`), donc `visualStyle` ne se refait pas à chaque rendu.
+  const rel = theme.relations
+  const width = widthProp ?? rel.width
+  const defaultColor = defaultColorProp ?? rel.defaultColor
+  const linkDash = linkDashProp ?? rel.dash
+  const routeColor = routeColorProp ?? rel.routeColor
+  const hoverDarken = hoverDarkenProp ?? rel.hoverDarken
+  const hubRadius = hubRadiusProp ?? rel.hubRadius
+  const casingWidth = casingWidthProp ?? rel.casingWidth
+  const minOpacity = minOpacityProp ?? rel.minOpacity
   // `useConfig()` et NON `engine.config` : au render, le moteur porte encore la config
   // de la frame précédente. `<Map>` la lui pose dans un effet, et les effets d'un
   // enfant s'exécutent AVANT ceux du parent — lire le moteur ici renverrait donc
@@ -256,7 +264,10 @@ export function RelationLayer({
   // Palier de zoom courant. Le clustering est stable à zoom entier constant (cf.
   // `ClusterEngine`) : on ne recalcule donc le regroupement visuel qu'au changement
   // de palier, pas à chaque frame d'un mouvement caméra.
-  const camRef = useRef({ zoom: 14, step: 14 })
+  // Initialisé sur la caméra RÉELLE au montage, pas sur un palier supposé : le premier
+  // regroupement d'une carte montée en vue globe se calculait sinon au palier 14.
+  const [initialCam] = useState(() => camAt(engine))
+  const camRef = useRef(initialCam)
   const [clusterTick, bumpCluster] = useReducer((x: number) => x + 1, 0)
   const zoomBand = config.performance.relations.zoomBand
   /** Budgets de la couche relations — identité stable tant que `<Map config>` ne change pas. */
@@ -287,7 +298,7 @@ export function RelationLayer({
         engine.projection,
         overlay,
         {
-          renderOrder: 2,
+          renderOrder: renderOrderOf(config, 'relations', 2),
           casingWidth,
           casingColor: casingColor ?? theme.colors.path.casing,
           hoverDarken,

@@ -5,7 +5,7 @@ export const CSS_MENU = `
 .m3d-menu-panel{position:absolute;left:14px;top:-14px;min-width:186px;padding:5px;z-index:var(--m3d-z-menu,9999);
   display:flex;flex-direction:column;align-content:flex-start;
   pointer-events:auto;
-  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+  animation:m3d-menu-in var(--m3d-menu-dur,200ms) var(--m3d-menu-ease,cubic-bezier(.32,1.3,.5,1)) backwards}
 .m3d-menu-item{display:flex;align-items:center;gap:9px;padding:7px 10px;
   border-radius:8px;font-size:var(--m3d-size-sm);cursor:pointer;user-select:none;color:var(--m3d-text);
   position:relative}
