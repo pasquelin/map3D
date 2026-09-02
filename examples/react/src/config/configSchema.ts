@@ -491,8 +491,6 @@ function kindOf(value: unknown, meta: LeafMeta): LeafKind {
   return 'string'
 }
 
-
-
 /**
  * Arborescence des contrôleurs, déduite de `defaultConfig`.
  *

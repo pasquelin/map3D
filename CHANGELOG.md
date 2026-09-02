@@ -40,10 +40,12 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   compile sur un clone frais : les plugins `@map3d/plugin-*` du dépôt voisin
   `../plugingsMap3D` sont **optionnels** (import dynamique, absents = démo sans eux).
   Un `examples/react/README.md` dit ce qu'il faut pour le lancer.
-- **Exemple React : panneau de démo** qui exerce `onViewportChange`, `onCameraChange`,
+- **Exemple React : onglet « Hooks » du banc d'essai** (Tweakpane de droite, alimenté par
+  `HooksBridge` sous `<Map>`) qui exerce `onViewportChange`, `onCameraChange`,
   `positionStorageKey` / `resetStoredPosition`, `MapHandle` (`fitBounds`, dessin,
   interrogation, capture) et les hooks `useCameraCommands`, `useMapEvents`, `useViewport`,
   `useTags`, `useLens`, `useRelations`, `useCapture`, `useZoomGate`.
+
 - **Docs : jeu complet de libellés généré** (`pnpm labels:doc`, `scripts/make-labels-doc.mjs`)
   dans `LABELS.md` FR et EN, à partir de `src/labels/defaultLabels.ts` — 33 groupes sur 33,
   contrôlé par `pnpm validate` (`labels:doc:check`) pour ne plus dériver.

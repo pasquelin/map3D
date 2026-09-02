@@ -32,7 +32,6 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'providers.templates.fetch': 'Politique réseau',
   'providers.tiles.fetch': 'Réseau de la session',
 
-
   interaction: 'Interaction',
   'interaction.lens': 'Loupe',
   'interaction.history': 'Annulation',
@@ -61,7 +60,6 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   style: 'Style',
   'style.zIndex': 'Empilement des surfaces',
   'style.renderOrder': 'Ordre de rendu 3D',
-
 
   camera: 'Caméra',
   'camera.zoomFactor': 'Facteur par cran de zoom',
@@ -154,7 +152,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.retryDelays': 'délais entre essais (ms)',
   'providers.tiles.errorTtlMs': 'erreur gardée avant réessai (ms)',
   'providers.tiles.staleFrames': 'frames hors vue avant abandon',
-
 
   // ── providers.routing ──────────────────────────────────────────────────────
   'providers.routing.matrixUrl': 'URL de la matrice',

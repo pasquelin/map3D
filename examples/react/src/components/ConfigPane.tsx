@@ -28,10 +28,14 @@ import type { UiSettings } from '../config/uiSettings'
 import type { DataSettings, DemoScene } from '../hooks/useDemoScene'
 import { buildDataTab } from './dataTab'
 import { buildPluginsTab } from '../config/pluginsTab'
+import type { HooksFeed } from '../hooks/hooksFeed'
+import { buildHooksTab } from './hooksTab'
+
 import { type UiTabContext, buildUiTab } from './uiTab'
 
 /**
- * Banc d'essai de la démo, en trois onglets.
+ * Banc d'essai de la démo, en six onglets.
+
  *
  * **Réglages** est le cœur : `MapConfig` en entier, manipulable en direct. Il n'énumère
  * aucun réglage — l'arborescence vient de `defaultConfig` (cf. `buildTree`), les bornes
@@ -47,14 +51,18 @@ import { type UiTabContext, buildUiTab } from './uiTab'
  * `<Map>` : le clair/sombre (`colorScheme`), le fond, l'interactivité. **Interface**
  * découpe les surfaces montées par `<Map>`, jusqu'au bouton près. **Données**
  * compose la scène (cf. `dataTab`) — un réglage de clustering ou de cull ne se juge pas
- * sur quarante points.
+ * sur quarante points. **Plugins** lit le registre du moteur. **Hooks** montre ce que les
+ * hooks de contexte et la poignée `MapHandle` donnent, et les actionne (cf. `hooksTab`).
  */
 
 export type ConfigPaneProps = {
   /** Moteur capté à `ready` (cf. `onReady` dans `App.tsx`) — `null` avant. Pilote l'onglet
    * « Plugins », construit dans un effet séparé puisqu'il arrive après le montage du panneau. */
   engine: MapEngine | null
+  /** Ce que les hooks de contexte et la poignée donnent et déclenchent — onglet « Hooks » (cf. `HooksBridge`). */
+  hooks: HooksFeed
   /** Réglages du montage — ce que `partialFromFlat` a produit la fois précédente. */
+
   initial: PartialConfig
   /** Chaque modification de `MapConfig`, sous forme de `PartialConfig` minimal. */
   onChange: (config: PartialConfig) => void
@@ -171,11 +179,14 @@ export function ConfigPane(props: ConfigPaneProps) {
         { title: 'Réglages' },
         { title: 'Données' },
         { title: 'Plugins' },
+        { title: 'Hooks' },
       ],
     })
-    const [mapPage, uiPage, configPage, dataPage, pluginsPage] = tab.pages
-    if (!mapPage || !uiPage || !configPage || !dataPage || !pluginsPage) return
+    const [mapPage, uiPage, configPage, dataPage, pluginsPage, hooksPage] = tab.pages
+    if (!mapPage || !uiPage || !configPage || !dataPage || !pluginsPage || !hooksPage) return
     pluginsPageRef.current = pluginsPage
+    // Le pont vit aussi longtemps que l'app : l'onglet s'y abonne pour la durée du panneau.
+    const hooksTab = buildHooksTab(hooksPage, propsRef.current.hooks)
 
     // ── Onglet « Carte » : les props de `<Map>` hors `MapConfig` ────────────────
     const mapDraft: MapPropsSettings = { ...propsRef.current.mapProps }
@@ -354,6 +365,7 @@ export function ConfigPane(props: ConfigPaneProps) {
       syncUiRef.current = null
       syncDataRef.current = null
       pluginsPageRef.current = null
+      hooksTab.dispose()
       window.clearTimeout(copyTimer)
       pane.dispose()
     }

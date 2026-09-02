@@ -62,7 +62,7 @@ voisin en dev que s'il existe.
   dessin par identité (`addShape`/`updateShape`/`getShape`), interrogation (`engine.getView()`).
 - **Les hooks de contexte**, depuis des overlays hôte montés en enfants de `<Map>` :
   `useViewport`, `useMapEvents`, `useCameraCommands`, `useZoomGate`, `useTags`, `useCapture`,
-  `useLens`, `useRelations` (`components/DemoPanel.tsx`), `useDrawing`/`useDrawSettings`
+  `useLens`, `useRelations` (`components/HooksBridge.tsx`, affichés dans l’onglet « Hooks » du banc d’essai), `useDrawing`/`useDrawSettings`
   (`DrawDebug`), `useBuildingEnrichment`, `useCatalogSource`, `<MarkerLayer source>` +
   `onLoadingChange`.
 - **Le catalogue** (`catalogSources.ts`) : sources de navigation, de recherche et à bascule,

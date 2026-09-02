@@ -62,7 +62,9 @@ import { useFavorites } from './hooks/useFavorites'
 import { clusterTypeIcon } from './icons/clusterIcons'
 import { iconFor } from './icons/markerIcons'
 import { EXAMPLE_CATALOG_SOURCES, hostViewportSource } from './catalogSources'
-import { DemoPanel } from './components/DemoPanel'
+import { HooksBridge } from './components/HooksBridge'
+import { createHooksFeed } from './hooks/hooksFeed'
+
 import { loadOptionalPlugins } from './plugins'
 
 /** Clé localStorage de la position caméra (`positionStorageKey`) — propre au banc d'essai. */
@@ -209,8 +211,11 @@ export function App() {
   // qu'au clic — et le `camera` du panneau changerait d'identité 3 fois par seconde.
   const sceneRef = useRef(scene)
   sceneRef.current = scene
-  // Même lecture différée pour le panneau des hooks (cf. `DemoPanel.getMarkers`).
+  // Même lecture différée pour le pont des hooks (cf. `HooksBridge.getMarkers`).
   const getMarkers = useCallback(() => sceneRef.current.markers, [])
+  // Un seul pont pour la vie de l'app : Tweakpane lit ses bindings par référence.
+  const [hooksFeed] = useState(createHooksFeed)
+
   const demoCamera = useMemo(
     () => ({
       flyToCity: (index: number) => {
@@ -692,16 +697,17 @@ export function App() {
           {/* Preuve vivante de l'enrichissement au pick : lit `useBuildingEnrichment()`,
               qui EXIGE le contexte carte — doit rester enfant de `<Map>`. */}
           <BuildingEnrichmentInfo />
-          {/* Les hooks de contexte et la poignée, lus depuis un overlay HÔTE (bas-droite).
+          {/* Les hooks de contexte et la poignée, exécutés ICI (seule position d'où les hooks
+              atteignent le moteur) et affichés dans l'onglet « Hooks » du banc d'essai.
               La scène est lue par la ref : `getMarkers` ne change jamais d'identité. */}
-          {ui.demoPanel && (
-            <DemoPanel
-              handle={map}
-              getMarkers={getMarkers}
-              lens={ui.toolbar.enabled && ui.toolbar.lens}
-              relations={ui.relations}
-            />
-          )}
+          <HooksBridge
+            feed={hooksFeed}
+            handle={map}
+            getMarkers={getMarkers}
+            lens={ui.toolbar.enabled && ui.toolbar.lens}
+            relations={ui.relations}
+          />
+
           {/* La grille de coordonnées est montée AUTOMATIQUEMENT par `<Map>` — rien à ajouter
               ici. On l'allume au démarrage via `graticule.enabled` (onglet `graticule` du banc
               d'essai), ou au bouton des contrôles de vue / sous-menu « Mesures ». */}
@@ -712,6 +718,8 @@ export function App() {
           carte. */}
       <ConfigPane
         engine={engine}
+        hooks={hooksFeed}
+
         initial={config}
         onChange={setConfig}
         onRemount={() => setMapKey((k) => k + 1)}
