@@ -41,6 +41,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.cluster.core`              | Cœur du donut.                                                                                                                                                                                                                                                                                                                                                                                                 | `'#1e293b'`                                                          |
 | `colors.cluster.text`              | Total affiché au centre.                                                                                                                                                                                                                                                                                                                                                                                       | `'#ffffff'`                                                          |
 | `colors.cluster.ring`              | Anneau de séparation cœur/parts.                                                                                                                                                                                                                                                                                                                                                                               | `'#ffffff'`                                                          |
+| `colors.cluster.stroke` | Contour clair des parts du donut (épaisseur `clusters.strokeWidth`). <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
 | `colors.draw.palette`              | Palette proposée par le sélecteur de couleur du dessin.                                                                                                                                                                                                                                                                                                                                                        | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
 | `colors.draw.default`              | Couleur d'une forme nouvellement tracée.                                                                                                                                                                                                                                                                                                                                                                       | `'#2E7CF6'`                                                          |
 | `colors.ui.panel`                  | Fond des panneaux et barres (translucide).                                                                                                                                                                                                                                                                                                                                                                     | `'rgba(20,26,30,0.9)'`                                               |
@@ -66,6 +67,11 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `colors.marquee.fill`              | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu…                                                                                                          | `'rgba(255,255,255,0.12)'`                                           |
 | `colors.marquee.stroke`            | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu…                                                                                                          | `'#000000'`                                                          |
 | `colors.marquee.under`             | Marching-ants **partagé** par les trois surfaces de sélection : contour des formes sélectionnées, tracé du sélecteur (rect/poly/lasso) et zone de la loupe. `fill` = voile de fond (sélecteur et loupe seuls — un contour de forme reste creux), `stroke` = pointillé animé, `under` = trait continu…                                                                                                          | `'#ffffff'`                                                          |
+| `colors.readable.dark` | Texte posé sur une couleur arbitraire (pastille d'affiliation) : encre sombre quand le fond est clair. <!-- audit: à vérifier à la fusion (React) --> | `'#101828'` |
+| `colors.readable.light` | Encre claire quand le fond est sombre. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `colors.readable.threshold` | Luminance perçue au-delà de laquelle le fond est jugé clair. <!-- audit: à vérifier à la fusion (React) --> | `0.6` |
+| `colors.pinShade.color` | Assombrissement du bas d'une pastille de dock à couleur explicite (`color-mix`). <!-- audit: à vérifier à la fusion (React) --> | `'#000000'` |
+| `colors.pinShade.percent` | Part (%) de `pinShade.color` dans le mélange. <!-- audit: à vérifier à la fusion (React) --> | `45` |
 
 ## `shadows` — Ombres
 
@@ -109,6 +115,10 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `markers.icon`               | Contenu par défaut d'un marker : rien, l'icône du type, son rang, ou un nœud. | `'type'`     |
 | `markers.moveTween.duration` | Tween de position (déplacement animé des agents).                             | `500`        |
 | `markers.moveTween.easing`   | Tween de position (déplacement animé des agents).                             | _(fonction)_ |
+| `markers.selectionRingExtraPx` | Surplus de diamètre (px) de l'anneau de multi-sélection d'un sprite — repli de `<MarkerLayer selectionRing>`. <!-- audit: à vérifier à la fusion (React) --> | `4` |
+| `markers.tipGapPx` | Écart (px) entre le haut du visuel et son infobulle. <!-- audit: à vérifier à la fusion (React) --> | `10` |
+| `markers.ringColor` | Anneau clair entre corps et halo du marker par défaut. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `markers.glossColor` | Couleur du reflet. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
 
 ## `clusters` — Géométrie du cluster par défaut (donut)
 
@@ -120,6 +130,24 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `clusters.segmentGap`    | Écart angulaire entre deux parts (rad) ; `0` les rend jointives.           | `0.045`             |
 | `clusters.startAngle`    | Angle de la première part (rad). `Math.PI` = 9h, deux parts haut/bas.      | `3.141592653589793` |
 | `clusters.selectedGapPx` | Écart (px) entre la pastille et son anneau de sélection marching-ants.     | `4`                 |
+| `clusters.sizeRatio` | Diamètre d'une pastille custom en fraction de `markers.size` — repli de `<ClusterSurface size>`. <!-- audit: à vérifier à la fusion (React) --> | `1.18` |
+| `clusters.text.segmentSize` | Chiffres du donut : taille (px) du compte d'une part. <!-- audit: à vérifier à la fusion (React) --> | `13` |
+| `clusters.text.segmentSizeWide` | Taille (px) d'une part à partir de `wideFrom`. <!-- audit: à vérifier à la fusion (React) --> | `11` |
+| `clusters.text.coreSize` | Taille (px) du total au centre. <!-- audit: à vérifier à la fusion (React) --> | `19` |
+| `clusters.text.coreSizeWide` | Taille (px) du total à partir de `wideFrom`. <!-- audit: à vérifier à la fusion (React) --> | `16` |
+| `clusters.text.wideFrom` | Nombre de points à partir duquel les tailles « wide » s'appliquent. <!-- audit: à vérifier à la fusion (React) --> | `100` |
+| `clusters.text.weight` | Graisse des chiffres. <!-- audit: à vérifier à la fusion (React) --> | `800` |
+| `clusters.tip.background` | Vignette de survol d'une part (portail hors `.m3d-root`, lue en JS) ; police = `typography.fontFamily`. Fond. <!-- audit: à vérifier à la fusion (React) --> | `'rgba(17,24,39,0.96)'` |
+| `clusters.tip.color` | Texte de la vignette. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `clusters.tip.fontSize` | Taille (px) du texte. <!-- audit: à vérifier à la fusion (React) --> | `12` |
+| `clusters.tip.weight` | Graisse du texte. <!-- audit: à vérifier à la fusion (React) --> | `600` |
+| `clusters.tip.radius` | Rayon d'angle (px). <!-- audit: à vérifier à la fusion (React) --> | `8` |
+| `clusters.tip.gap` | Écart (px) entre la part et la vignette. <!-- audit: à vérifier à la fusion (React) --> | `7` |
+| `clusters.tip.paddingY` | Marge interne verticale (px). <!-- audit: à vérifier à la fusion (React) --> | `6` |
+| `clusters.tip.paddingX` | Marge interne horizontale (px). <!-- audit: à vérifier à la fusion (React) --> | `10` |
+| `clusters.tip.dotSize` | Diamètre (px) de la pastille de couleur. <!-- audit: à vérifier à la fusion (React) --> | `9` |
+| `clusters.tip.shadow` | Ombre portée. <!-- audit: à vérifier à la fusion (React) --> | `'0 6px 20px rgba(0,0,0,0.35)'` |
+| `clusters.tip.separatorOpacity` | Opacité du séparateur. <!-- audit: à vérifier à la fusion (React) --> | `0.6` |
 
 ## `animations` — Rythme des animations et des vols caméra
 
@@ -152,6 +180,8 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `animations.topDown`               | Bascule en vue du dessus.                                                           | `0.5`                          |
 | `animations.globe`                 | Recul en vue globe.                                                                 | `1`                            |
 
+`themeToVars` publie aussi ces rythmes en variables CSS : `--m3d-{pulse,halo,bob,enter,cluster-enter}-{dur,ease,scale,amp,stagger}` et `--m3d-menu-ease`. Une spec à `false` donne une durée `0ms`. <!-- audit: à vérifier à la fusion (React) -->
+
 ## `spacing` — Espacements des surfaces flottantes (px)
 
 | Clé                | Description                                               | Défaut |
@@ -159,6 +189,7 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `spacing.gap`      | Écart entre une surface ancrée et son ancre.              | `12`   |
 | `spacing.edge`     | Marge minimale entre une surface et le bord du conteneur. | `8`    |
 | `spacing.barInset` | Retrait des barres verticales par rapport au bord.        | `16`   |
+| `spacing.rowMenuGap` | Écart entre le bouton « … » d'une ligne et son menu. <!-- audit: à vérifier à la fusion (React) --> | `2` |
 
 ## `sizing` — Dimensions des surfaces et des icônes
 
@@ -180,6 +211,42 @@ Généré depuis `src/theme/defaultTheme.ts` et `src/theme/types.ts`.
 | `sizing.catalogPanelW`              | Largeur du panneau de catalogue — le menu des types (px). Sert aussi de marge de cadrage, avec `catalogSubPanelW` : une zone cadrée pendant que le catalogue est ouvert ne doit pas atterrir dessous.                                                | `252`  |
 | `sizing.catalogSubPanelW`           | Largeur du second panneau, celui de la liste (px). Distincte de `catalogPanelW` bien qu'égale par défaut : les deux surfaces sont ACCOLÉES du même côté, donc c'est leur SOMME que le cadrage réserve.                                               | `252`  |
 | `sizing.iconSize`                   | Taille des icônes @mdi (unité `@mdi/react` : 1 ≈ 24 px). Une seule valeur là où sept coexistaient en dur (0.5 à 0.8) sans qu'aucune ne se distingue.                                                                                                 | `0.8`  |
+| `sizing.rowMenuW` | Largeur (px) du menu d'actions d'une ligne de liste. <!-- audit: à vérifier à la fusion (React) --> | `180` |
+| `sizing.pinSize` | Taille (px) d'une pastille du dock — repli de `<PinnedDock size>`. <!-- audit: à vérifier à la fusion (React) --> | `64` |
+| `sizing.panelMaxHeight.searchScope` | Hauteur maximale (px) du menu de portée de la recherche. <!-- audit: à vérifier à la fusion (React) --> | `280` |
+
+## `relations` — Défauts des liens de relation
+
+Défauts des props de [`<RelationLayer>`](PROPS.md#relationlayer) — les props priment.
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `relations.width` | Épaisseur du trait des liens (px écran). <!-- audit: à vérifier à la fusion (React) --> | `8` |
+| `relations.defaultColor` | Dernier repli de couleur d'un lien. <!-- audit: à vérifier à la fusion (React) --> | `'#ffd400'` |
+| `relations.routeColor` | Couleur de l'itinéraire réel. <!-- audit: à vérifier à la fusion (React) --> | `'#7c4dff'` |
+| `relations.hoverDarken` | Facteur d'assombrissement du trait survolé. <!-- audit: à vérifier à la fusion (React) --> | `0.72` |
+| `relations.hubRadius` | Rayon (px écran) du socle sous le marker source. <!-- audit: à vérifier à la fusion (React) --> | `26` |
+| `relations.casingWidth` | Contour sombre sous le trait (px). <!-- audit: à vérifier à la fusion (React) --> | `3` |
+| `relations.minOpacity` | Opacité du lien le moins bien classé. <!-- audit: à vérifier à la fusion (React) --> | `1` |
+| `relations.dash` | Pointillé défilant des traits de recherche (`DashStyle`). <!-- audit: à vérifier à la fusion (React) --> | `{ length: 20, gap: 8, speed: 16, gapOpacity: 0.3 }` |
+
+## `draw` — Style d'une forme nouvellement dessinée
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `draw.width` | Épaisseur du trait. <!-- audit: à vérifier à la fusion (React) --> | `8` |
+| `draw.fillOpacity` | Opacité du remplissage. <!-- audit: à vérifier à la fusion (React) --> | `0.3` |
+| `draw.stroke` | Style de trait (`StrokeStyle`). <!-- audit: à vérifier à la fusion (React) --> | `'solid'` |
+| `draw.strokeOpacity` | Opacité du trait. <!-- audit: à vérifier à la fusion (React) --> | `0.95` |
+
+## `path` et `zone` — Tracés et zones drapés
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `path.width` | `<PathLayer>` : largeur du tracé (m au sol). <!-- audit: à vérifier à la fusion (React) --> | `6` |
+| `path.casingWidth` | `<PathLayer>` : contour (m au sol). <!-- audit: à vérifier à la fusion (React) --> | `3` |
+| `zone.width` | `<ShapeLayer>` : largeur du contour (m au sol). <!-- audit: à vérifier à la fusion (React) --> | `6` |
+| `zone.fillOpacity` | `<ShapeLayer>` : opacité du remplissage. <!-- audit: à vérifier à la fusion (React) --> | `0.22` |
 
 ## `tiles` — Traitement colorimétrique du fond de carte (mode sombre)
 

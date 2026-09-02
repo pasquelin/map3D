@@ -182,7 +182,7 @@ Outils de dessin et symboles.
 | `onShapeEdit` | Double-clic sur une forme : intention d'ouvrir une fiche — rien n'a changé. | — |
 | `constraints` | Règles métier du dessin **utilisateur** : périmètres autorisés, aire maximale. Les mutations programmatiques n'y sont pas soumises. | — |
 | `onReject` | Forme refusée — à brancher sur votre toast (la lib n'affiche rien d'elle-même). | — |
-| `symbols` | Outil **Symboles** de la barre : actif par défaut avec le catalogue MIL-STD-2525D et son renderer (SDK chargé en import dynamique à la première ouverture de la palette). `enabled: false` retire l'outil ; `catalog`/`renderer` remplacent la symbologie fournie par la vôtre ; `cluster` et `minZoom` sont transmis à [`<SymbolMarkers>`](#symbolmarkers). Les textes (bouton, catégories, affiliations) ne passent PAS par ici : ils sont dans `labels.symbols`. | — |
+| `symbols` | Outil **Symboles** de la barre : actif par défaut avec le catalogue MIL-STD-2525D et son renderer (SDK chargé en import dynamique à la première ouverture de la palette). `enabled: false` retire l'outil ; `catalog`/`renderer` remplacent la symbologie fournie par la vôtre ; `cluster` et `minZoom` sont transmis à [`<SymbolMarkers>`](#symbolmarkers) ; `defaultVariant` choisit la variante posée par défaut (défaut : première clé de `catalog.variantColors`, `friendly` pour MIL-STD ; un catalogue sans variante ne transmet plus de `variant` au renderer). <!-- audit: à vérifier à la fusion (React) --> Les textes (bouton, catégories, affiliations) ne passent PAS par ici : ils sont dans `labels.symbols`. | — |
 | `markerMenu` | Menu contextuel des symboles posés — **parité stricte avec les markers**. Reçoit le menu de `<Map markerMenu>` **déjà lié aux relations** par la surface (comme les markers de données, la loupe et le panneau de sélection), pour qu'un symbole ouvre au clic le même menu qu'un marker. La lib y ajoute d'office « Supprimer » en tête. Câblé par `<Map>` ; une application qui monte `<DrawLayer>` à la main fournit ici un menu déjà lié. | `<Map markerMenu>` |
 | `children` | Monté dans le contexte de dessin — y placer barre et panneaux. | — |
 
@@ -226,6 +226,8 @@ Monté par `<DrawLayer>` ; exporté pour un rendu custom.
 | `onErase` | Suppression d'un symbole par la gomme. | — |
 
 ## `<RelationLayer>`
+
+Les défauts visuels des props ci-dessous viennent de `theme.relations` (cf. [THEME.md](THEME.md#relations--défauts-des-liens-de-relation)) ; le palier de zoom initial est lu sur la caméra au montage, plus un `14` en dur. <!-- audit: à vérifier à la fusion (React) -->
 
 Liens routés entre markers. 💰
 

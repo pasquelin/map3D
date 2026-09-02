@@ -107,6 +107,16 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 - **`ViewportControllerOptions.onError?: (error: unknown) => void`** : échec de `source.load`
   (hors abandon). Types désormais exportés : `ViewportControllerOptions`, `DashStyle`,
   `NavigateShortcuts`, `CatalogContent`. <!-- audit: à compléter (cœur, React) -->
+- **Thème : les valeurs en dur de la couche React passent dans `MapTheme`** (défaut = valeur
+  remplacée, zéro régression visuelle) — cf. `THEME.md` : `colors.cluster.stroke`,
+  `colors.readable.{dark,light,threshold}`, `colors.pinShade.{color,percent}`,
+  `markers.{selectionRingExtraPx,tipGapPx,ringColor,glossColor}`, `clusters.sizeRatio`,
+  `clusters.text.*`, `clusters.tip.*`, `spacing.rowMenuGap`, `sizing.{rowMenuW,pinSize}`,
+  `sizing.panelMaxHeight.searchScope`, et les sections `relations` (défauts de
+  `<RelationLayer>`, dont `dash: DashStyle`), `draw`, `path`, `zone`. `themeToVars` publie
+  `--m3d-{pulse,halo,bob,enter,cluster-enter}-*` et `--m3d-menu-ease` (`false` → `0ms`).
+  `<DrawLayer symbols={{ defaultVariant }}>` ; `<RelationLayer>` lit son palier de zoom
+  initial sur la caméra. <!-- audit: à compléter (cœur, React) -->
 - **Interne** : `TileDeferred` (`core/TileQueue`) — une source diffère une tuile sans
   consommer d'essai ; `PoolCrashError` (`WorkerPool`). <!-- audit: à compléter (cœur, React) -->
 
