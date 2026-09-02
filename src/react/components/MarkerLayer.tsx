@@ -56,6 +56,12 @@ export type MarkerLayerProps<T> = {
    * contrôleur à côté pour la seule raison de savoir ce que celui-ci sait déjà.
    */
   onLoadingChange?: (loading: boolean) => void
+  /**
+   * Échec d'un chargement de `source` (hors abandon par une vue plus récente). Même
+   * raison que `onLoadingChange` : la couche tient le contrôleur, l'hôte tient l'UI
+   * d'erreur. Sans objet avec `points`.
+   */
+  onLoadError?: (error: unknown) => void
   /** Clé stable d'un marker (défaut `p.id`) : elle décide de l'identité, donc du tween. */
   getId?: (p: MarkerData<T>) => string | number
   /**
@@ -208,7 +214,8 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
   const config = useConfig()
   const getId = props.getId ?? ((p: MarkerData<T>) => p.id)
 
-  const { data: sourceData, loading } = useLiveData<MarkerData<T>>(props.source)
+  // `onError` lu par ref dans le hook : une flèche neuve par rendu ne reconstruit rien.
+  const { data: sourceData, loading } = useLiveData<MarkerData<T>>(props.source, { onError: props.onLoadError })
   const rawPoints = props.points ?? sourceData
 
   // Latest ref (cf. docs/ARCHITECTURE.md § 3) : une closure recréée par l'hôte à chaque
@@ -285,7 +292,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
 
   const markerSize = props.size ?? theme.markers.size
 
-  const ringSize = props.selectionRing ?? markerSize + 4
+  const ringSize = props.selectionRing ?? markerSize + theme.markers.selectionRingExtraPx
   // Un avatar remplit tout le gabarit : son anneau part de la taille du marker (sans le
   // facteur de pastille de `selectionRing`), écarté d'un gap THÉMÉ de chaque côté — jamais
   // une valeur en dur, la taille de l'avatar étant elle-même configurable (`markers.size`).
@@ -574,17 +581,12 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       return src
     }
     const out: ReactNode[] = []
+    // Boîte et centrage sont en CSS (`.m3d-marker-img`, même convention que
+    // `.m3d-marker`) : un seul objet de style pour tous les portails, seule la taille varie.
+    const imgStyle = { '--m3d-sprite': `${markerSize}px` } as CSSProperties
     for (const [id, el] of nodes) {
       const marker = entriesRef.current.get(id)
       if (!marker) continue
-      const imgStyle: CSSProperties = {
-        width: markerSize,
-        height: markerSize,
-        marginLeft: -markerSize / 2,
-        marginTop: -markerSize / 2,
-        display: 'block',
-        cursor: 'pointer',
-      }
       // Avatar (photo ronde cerclée de la couleur du type) PRIORITAIRE sur l'icône
       // SVG custom, sinon `DefaultMarker` (pastille + halo).
       const content: ReactNode = marker.avatar ? (
@@ -631,7 +633,7 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
       // une invitation à retomber sur la donnée).
       const tip = !hovered ? null : props.tooltip ? props.tooltip(marker) : tipFromData(marker)
       const hoverable = !!props.tooltip || hasOwnTip(marker)
-      const tipLift = markerSize / 2 + 10
+      const tipLift = markerSize / 2 + theme.markers.tipGapPx
       // La prop de couche, si fournie, prime sur le drapeau porté par la donnée —
       // sinon c'est le marker lui-même qui décide (cas courant : un seul point
       // éditable au milieu de markers en lecture seule).
@@ -711,6 +713,11 @@ export function MarkerLayer<T>(props: MarkerLayerProps<T>) {
     props.menu,
     props.tooltip,
     props.draggable,
+    // Lues dans le corps du memo : sans elles ici, un hôte qui bascule
+    // `repositionable={editing}` ou `leaderLine` ne voyait ses markers changer qu'au
+    // prochain rebuild fortuit (survol, données) — la prop était figée entre-temps.
+    props.repositionable,
+    props.leaderLine,
     props.typeLabel,
     handleClick,
     markerSize,

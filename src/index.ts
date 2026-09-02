@@ -98,6 +98,8 @@ export type { CaptureOptions, CaptureFormat, CaptureBackground, OverlayRasterize
 // ── Data (viewport-driven / temps réel) ──
 export type { Viewport, DataSource, MarkerData, StaticMarker } from './data/types'
 export { ViewportController } from './data/ViewportController'
+export type { ViewportControllerOptions } from './data/ViewportController'
+
 export { diffById } from './data/diff'
 export type { DiffResult } from './data/diff'
 
@@ -131,8 +133,10 @@ export { ringOfShape } from './layers/ShapeLayer'
 // Le graphisme est INJECTÉ (`SymbolRenderer`), comme les providers de recherche et
 // de routage : la couche ne connaît que des clés de catalogue.
 // Symbologie MIL-STD-2525D prête à l'emploi : catalogue (80 icônes + 11 graphiques
-// tactiques, libellés FR) et renderer adossé au SDK officiel, chargé en import
-// dynamique (chunk séparé, ~9 Mo, jamais téléchargé sans symboles à l'écran).
+// tactiques, libellés FR) et renderer adossé au SDK officiel — une dépendance installée
+// avec le paquet (jamais dans dist/), chargée par `import()` à la première carte qui
+// affiche des symboles : sans symboles à l'écran, ses ~9 Mo ne sont jamais téléchargés.
+
 export {
   MILSYM_CATALOG,
   MILSYM_ENTRIES,
@@ -165,6 +169,7 @@ export type {
   EditShortcut,
   EditShortcuts,
   ShortcutsConfig,
+  NavigateShortcuts,
   ZIndexConfig,
   DataConfig,
   FetchPolicy,
@@ -469,6 +474,8 @@ export {
   useCatalogSourceCount,
 } from './react/hooks/useCatalog'
 export type { CatalogApi, CatalogSettingsApi } from './react/hooks/useCatalog'
+export type { CatalogContent } from './catalog/store'
+
 /** État d'un AGRÉGAT, dérivé de ses enfants — cf. `CatalogApi.groupState`. */
 export type { GroupCheck } from './catalog/groups'
 export { useCatalogSources, useCatalogSource } from './react/hooks/useCatalogSources'
@@ -513,7 +520,8 @@ export { createGoogleRoutesProvider } from './relations/providers/GoogleRoutesPr
 export type { GoogleRoutesOptions } from './relations/providers/GoogleRoutesProvider'
 export type { RoutingProvider, MatrixEntry, ProviderRoute } from './relations/providers/RoutingProvider'
 export { LinkLayer } from './layers/LinkLayer'
-export type { LinkVisual, LinkLayerDefaults } from './layers/LinkLayer'
+export type { LinkVisual, LinkLayerDefaults, DashStyle } from './layers/LinkLayer'
+
 export { DefaultMarker } from './react/components/DefaultMarker'
 export { DefaultCluster } from './react/components/DefaultCluster'
 

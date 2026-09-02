@@ -60,7 +60,9 @@ const { data, loading } = useLiveData(source, { debounce: 800 })
 ```
 
 Et le contrôleur nu, hors React : `ViewportController` (`push`, `setSource`,
-`dispose`).
+`dispose`). Ses options (`ViewportControllerOptions`) : `debounce` (ms) et `onError?:
+(error: unknown) => void`, appelé quand `source.load` échoue — jamais pour une requête
+abandonnée par une vue plus récente.
 
 ### Juste s'abonner à la vue
 

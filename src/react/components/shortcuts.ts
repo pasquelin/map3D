@@ -11,8 +11,20 @@ import type { EditShortcut } from '../../config/types'
  */
 export { inTextInput, plainKey } from '../../core/NavKeys'
 
-/** Plateforme Mac (⌘ au lieu de Ctrl) — unique point de détection. */
-export const isMac = /Mac|iP(hone|ad|od)/.test(navigator.userAgent)
+let macCache: boolean | undefined
+
+/**
+ * Plateforme Mac (⌘ au lieu de Ctrl) — unique point de détection.
+ *
+ * Évalué à l'APPEL et mémoïsé, jamais à l'import : `navigator` n'existe pas côté serveur
+ * (Next/Remix, Node 18/20, edge runtimes) et un simple `import` de la lib y plantait.
+ */
+export const isMac = (): boolean => {
+  if (macCache === undefined) {
+    macCache = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.userAgent)
+  }
+  return macCache
+}
 
 /**
  * Écriture affichable d'un raccourci à modificateur (`⌘Z`, `Ctrl+⇧Z`).
@@ -27,7 +39,7 @@ export const formatEdit = (
   shiftGlyph: string,
 ): string | undefined => {
   if (!spec) return undefined
-  const prefix = spec.mod === 'ctrl' && !isMac ? modKey.other : modKeyOf(modKey)
+  const prefix = spec.mod === 'ctrl' && !isMac() ? modKey.other : modKeyOf(modKey)
   return `${prefix}${spec.shift ? shiftGlyph : ''}${spec.key.toUpperCase()}`
 }
 
@@ -58,4 +70,4 @@ export const matchesEdit = (e: KeyboardEvent, spec: EditShortcut): boolean => {
  * elles relèvent de la traduction — « Ctrl+ » ne s'écrit pas partout ainsi. Requis et
  * non optionnel : un repli en dur redupliquerait `defaultLabels.modKey`.
  */
-export const modKeyOf = (mod: { mac: string; other: string }): string => (isMac ? mod.mac : mod.other)
+export const modKeyOf = (mod: { mac: string; other: string }): string => (isMac() ? mod.mac : mod.other)

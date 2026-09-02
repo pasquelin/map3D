@@ -1,5 +1,5 @@
 import { mdiLock } from '@mdi/js'
-import type { PointerPhase } from '../../core/MapEngine'
+import type { PointerPhase } from '../../core/pointer'
 import type { SelectableGeometry } from '../../core/Selectables'
 import type { HandleId, HandleSpec } from './EditController'
 import type { ScreenBBox, ScreenPt } from './hitTest'
@@ -260,7 +260,7 @@ export class SelectionOverlay {
   }
 
   /** Flash bref (contour gris + cadenas) : « cette forme est protégée ». */
-  flashLock(shape: OverlayShape | null, center: ScreenPt): void {
+  flashLock(shape: OverlayShape | null, center: ScreenPt, durationMs: number): void {
     const g = document.createElementNS(SVG_NS, 'g')
     g.classList.add('m3d-lockflash')
     if (shape && shape.pts.length > 1) {
@@ -274,7 +274,7 @@ export class SelectionOverlay {
     icon.classList.add('m3d-lockflash-icon')
     g.appendChild(icon)
     this.svg.appendChild(g)
-    window.setTimeout(() => g.remove(), 800)
+    window.setTimeout(() => g.remove(), durationMs)
   }
 
   dispose(): void {

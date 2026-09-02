@@ -12,6 +12,7 @@ import type { PartialConfig } from '../config/types'
 import type { PartialLabels } from '../labels/types'
 import type { MapTheme, ThemeInput } from '../theme/types'
 import { MapProvider } from './MapProvider'
+import { registerActiveMap } from './activeMap'
 import { DragOverlay } from './components/DragOverlay'
 import { DropdownProvider } from './components/Dropdown'
 import { MapContext, useConfig, useTheme } from './context'
@@ -217,6 +218,8 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       zoom: props.zoom,
       background: theme.colors.background,
       oceanColor: theme.globe.oceanColor,
+      landColor: theme.globe.landColor,
+
       hazeColor: theme.globe.hazeColor,
       // ⚠️ Ces quatre-là n'étaient PAS transmises : le moteur retombait donc toujours sur
       // `defaultTheme`, et un hôte qui changeait la couleur de ses bâtiments ne voyait
@@ -292,9 +295,13 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       eng.setSize(r.width, r.height)
     })
     ro.observe(container)
+    // Carte active pour les raccourcis globaux (cf. `activeMap.ts`) : la racine porte
+    // la détection, le registre survit aux arbres React.
+    const offActive = registerActiveMap(eng, container)
 
     setEngine(eng)
     return () => {
+      offActive()
       offReady()
       offCam()
       offVp()

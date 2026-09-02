@@ -349,8 +349,6 @@ export type MapLabels = {
     expandGroup: string
     /** Libellé d'une forme dépliée sans nom propre — `{type}` (kind traduit), `{n}` (rang). */
     shapeItem: string
-    /** aria-label de la corbeille supprimant une forme — `{label}` = libellé de la forme. */
-    deleteShape: string
     /** Item de menu « Supprimer » d'une ligne de forme (libellé court, sans paramètre). */
     delete: string
     /** Nom de la catégorie tracés dans une rangée. */
@@ -430,10 +428,6 @@ export type MapLabels = {
         move: string
         /** Titre du groupe des commandes de vue. */
         view: string
-        /** Étiquette du choix de disposition clavier. */
-        keyboard: string
-        azerty: string
-        qwerty: string
         /** Étiquette de la vitesse de déplacement. */
         speed: string
         slow: string
@@ -441,8 +435,6 @@ export type MapLabels = {
         fast: string
         /** Interrupteur d'inertie des gestes de caméra. */
         damping: string
-        /** Invite pendant la capture d'une touche. */
-        press: string
         /** aria/titre du bouton de capture d'une touche — `{action}`. */
         rebind: string
         /** Message quand la touche saisie est déjà prise par une autre action du panneau — `{action}`. */

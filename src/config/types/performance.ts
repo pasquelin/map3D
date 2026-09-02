@@ -225,6 +225,13 @@ export type PerformanceConfig = {
   /** Densité de polygonisation d'un cercle — rendu **et** prédicats géométriques. */
   circleSegments: number
   /**
+   * Points du contour d'une zone échantillonnés pour trouver le sol le plus bas sous son
+   * volume (un rayon chacun, au build seulement). Plus = un socle mieux enterré sur terrain
+   * accidenté, au prix d'autant de rayons par zone reconstruite.
+   */
+  shapeGroundSamples: number
+
+  /**
    * Intervalle d'altitude accepté pour un échantillon de surface. Hors de ces
    * bornes, l'échantillon est jugé aberrant et ignoré. À élargir pour un tileset
    * non terrestre (maquette, intérieur, aérien).

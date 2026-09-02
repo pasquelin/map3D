@@ -109,8 +109,9 @@ describe('Camera — pose mémorisable', () => {
     const target = pose(49.09, 1.48, 1200, 90, 40)
     camera.flyToPose(target, { duration: 0.05 })
     expect(camera.isFlying()).toBe(true)
-    // 60 frames par seconde de vol : `update` avance de `speed` et se termine à t ≥ 1.
-    for (let i = 0; i < 10 && camera.isFlying(); i++) camera.update()
+    // Le tween avance en temps : 0,05 s de vol à 60 fps, soit trois frames de 1/60 s.
+    for (let i = 0; i < 10 && camera.isFlying(); i++) camera.update(1 / 60)
+
     expect(camera.isFlying()).toBe(false)
     const read = camera.getPose()
     expect(read.lat).toBeCloseTo(target.lat, 6)
@@ -138,9 +139,27 @@ describe('Camera — pose mémorisable', () => {
     expect(camera.isFlying('pedestrian')).toBe(true)
     // Un autre tag ne reconnaît pas ce vol comme le sien (isolation du gating du tick).
     expect(camera.isFlying('intro')).toBe(false)
-    for (let i = 0; i < 10 && camera.isFlying(); i++) camera.update()
+    for (let i = 0; i < 10 && camera.isFlying(); i++) camera.update(1 / 60)
     expect(camera.isFlying()).toBe(false)
     expect(three.position.distanceTo(toPos)).toBeLessThan(1e-3)
+
     expect(three.quaternion.angleTo(toQuat)).toBeLessThan(1e-4)
+  })
+})
+
+describe('Camera — tween en temps, pas en frames', () => {
+  it('un vol dure sa durée quelle que soit la cadence', () => {
+    const { camera } = setup()
+    camera.jumpTo({ lat: 48.86, lng: 2.34 }, 5000)
+    camera.flyTo({ lat: 49, lng: 2 }, { duration: 1 })
+    // 30 fps : ~30 frames de 1/30 s doivent suffire — par frame, il en fallait 60. Une frame
+    // de tolérance : la somme flottante de trente 1/30 peut rester un epsilon sous 1.
+    let frames = 0
+    while (camera.isFlying() && frames < 100) {
+      camera.update(1 / 30)
+      frames++
+    }
+    expect(frames).toBeGreaterThanOrEqual(30)
+    expect(frames).toBeLessThanOrEqual(31)
   })
 })

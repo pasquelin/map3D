@@ -4,7 +4,7 @@
 
 Toutes les valeurs réglables de la carte, leur rôle et leur défaut.
 
-Généré depuis `src/config/defaultConfig.ts` (valeurs) et `src/config/types.ts`
+Généré depuis `src/config/defaultConfig.ts` (valeurs) et `src/config/types/*.ts`
 (descriptions) — les défauts ci-dessous sont ceux que la lib applique réellement.
 
 ```tsx
@@ -58,6 +58,11 @@ partiel est une erreur de compilation.
 | `providers.tiles.uniformMaxSpread` | Écart de zoom toléré, en crans, entre ce que réclame le sol REGARDÉ et ce que la vue entière permet, avant que `uniformDetail` ne cède la place à la cascade. À plat l'écart est nul ; en vue rasante il explose (mesuré : 73 m d'altitude et 73° d'inclinaison → tuiles de 805 m, onze fois la hauteur de l'œil). `1` tolère un cran (invisible) et bascule au-delà. `0` = cascade dès le moindre écart ; une valeur très haute revient à l'ancien comportement, uniforme quoi qu'il arrive. | `1` |
 | `providers.tiles.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
 | `providers.tiles.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
+| `providers.tiles.errorTtlMs` | Durée (ms) pendant laquelle une tuile qui a épuisé ses essais reste en erreur avant d'être redemandée, si elle est encore vue. `0` = erreur définitive. | `30000` |
+| `providers.tiles.staleFrames` | Frames sans être vue au-delà desquelles une tuile en attente sort de la file de téléchargement. Revue, elle y revient. | `120` |
+| `providers.tiles.fetch.timeoutMs` | Politique réseau (`FetchPolicy`) de la **création de session** Google. Abandon d'une requête sans réponse. `0` = pas de limite. | `10000` |
+| `providers.tiles.fetch.retries` | Réessais après échec réseau ou 5xx. `0` = aucun. | `0` |
+| `providers.tiles.fetch.backoffMs` | Attente avant le premier réessai, doublée à chaque tour, avec une part aléatoire. `0` = réessai immédiat. | `0` |
 | `providers.routing.matrixUrl` | Endpoint `computeRouteMatrix` — à viser sur un proxy serveur en production. | `'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix'` |
 | `providers.routing.routesUrl` | Endpoint `computeRoutes`. | `'https://routes.googleapis.com/directions/v2:computeRoutes'` |
 | `providers.routing.matrixFields` | FieldMask de la matrice — 💰 conditionne directement la facturation Google. | `'originIndex,destinationIndex,duration,distanceMeters,condition'` |
@@ -114,6 +119,8 @@ partiel est une erreur de compilation.
 | `providers.buildings.maxRequest` | Budget de tuiles demandées pour une vue. ⚠️ Ce n'est plus qu'un **filet** : c'est le disque de `maxViewDistance` qui borne désormais la couverture, et le pic mesuré à 5 km est de 32 tuiles. Auparavant, ce budget déclenchait un repli en carré de côté fixe autour du point regardé dès qu'il était dépassé — d'où une bascule brutale d'un régime à l'autre en vue inclinée. Cf. [TILES.md § 5](TILES.md). | `49` |
 | `providers.buildings.maxAttempts` | Essais par tuile avant abandon définitif. | `3` |
 | `providers.buildings.retryDelays` | Backoff entre deux essais d'une même tuile. | `[1000, 4000]` |
+| `providers.buildings.errorTtlMs` | Durée (ms) pendant laquelle une tuile qui a épuisé ses essais reste en erreur avant d'être redemandée, si elle est encore vue. `0` = erreur définitive. | `30000` |
+| `providers.buildings.staleFrames` | Frames sans être vue au-delà desquelles une tuile en attente sort de la file de téléchargement. Revue, elle y revient. | `120` |
 | `providers.buildings.pickFields` | Attributs MVT remontés par le pick de bâtiment (`buildingMenu`). **Vide par défaut** : la donnée en porte des dizaines par emprise, et les transporter toutes coûterait, par tuile, plus que toute la géométrie. L'hôte demande ce qu'il affiche. | `[]` |
 | `providers.tiles3d.cesiumIonAssetId` | Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles). ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de documentation : trois copies d'une valeur qui désigne un fournisseur, seule de son espèce à vivre hors de `providers`. | `'2275207'` |
 | `providers.tiles3d.hideVolumeWhenClamped` | Masque les bâtiments internes au-dessus de `providers.buildings.maxViewAltitude` : de plus haut ils ne couvrent que quelques pixels et laissent un « carré » dans le vide. Fondus puis masqués — mais **gardés en mémoire** tant qu'on reste dans la bande de `requestAltitudeFactor`, sans quoi l'apparition repartirait d'un cache vide et surgirait au lieu de fondre. La RAM/VRAM n'est rendue qu'au-dessus de cette bande. Critère = hauteur au-dessus du sol, donc **valable à toute inclinaison**. **Le mode ne change pas** (on reste en `'3d'`). `false` = toujours affichés. Interne seulement. | `true` |
@@ -159,6 +166,7 @@ partiel est une erreur de compilation.
 | `interaction.hubHitTolerancePx` | Tolérance de clic autour du socle d'une relation (le trait, lui, a la sienne). | `12` |
 | `interaction.repositionHitPx` | Cible cliquable du point au sol d'un marker repositionnable. Le point mesure 7 px : sans élargissement, l'attraper relève de l'adresse. La valeur vivait dans la feuille de styles (`::before`), donc hors de ce bloc alors qu'elle en est exactement — une tolérance de pointeur qu'un support tactile… | `22` |
 | `interaction.clickSuppressMs` | Filet temporel après un geste : durée pendant laquelle le `click` synthétique qui suit est avalé. Couplé à `longPressMs` — un contexte tactile qui allonge l'un doit pouvoir allonger l'autre. | `400` |
+| `interaction.lockFlashMs` | Durée (ms) du flash « forme verrouillée » quand un geste vise une forme que ses contraintes empêchent de modifier. | `800` |
 | `interaction.freehandMinStepPx` | Décimation du tracé au crayon (plancher, en px). Pendant de `lassoMinStepPx`. | `2` |
 | `interaction.targetZoom` | Zoom du vol « Cibler » depuis un inventaire ou une liste. | `17` |
 | `interaction.pinnedFlyZoom` | Zoom du vol au clic sur un favori du dock. | `16` |
@@ -290,6 +298,7 @@ partiel est une erreur de compilation.
 | `performance.relations.fanMaxLegs` | Au-delà de N liens, l'éventail se replie en trait agrégé (seuil de lisibilité). | `5` |
 | `performance.relations.zoomBand` | Bande d'hystérésis de zoom avant recalcul du regroupement visuel. | `0.3` |
 | `performance.circleSegments` | Densité de polygonisation d'un cercle — rendu **et** prédicats géométriques. | `64` |
+| `performance.shapeGroundSamples` | Points du contour d'une zone sondés pour trouver le sol le plus bas sous son volume — la base d'une extrusion ne flotte pas sur une pente. | `16` |
 | `performance.groundHeightRange` | Intervalle d'altitude accepté pour un échantillon de surface. Hors de ces bornes, l'échantillon est jugé aberrant et ignoré. À élargir pour un tileset non terrestre (maquette, intérieur, aérien). | `[-500, 9000]` |
 
 ## `style` — Empilement des surfaces
@@ -326,6 +335,16 @@ doit les revoir.
 | `style.zIndex.listMenu` | Plan CARTE. Menu d'actions d'une ligne de liste. | `96` |
 | `style.zIndex.markerSelected` | Marker sélectionné, DANS l'ancre de son propre marker. ⚠️ Ne le hisse pas au-dessus des markers voisins : l'ancre porte un `z-index` numérique, donc elle crée un contexte et cette valeur y reste enfermée. L'ordre ENTRE markers est décidé par le `renderOrder` que le moteur donne à CSS2DRenderer (cf. `setRaised`), pas ici. | `80` |
 
+Ordre de rendu three.js (`renderOrder`) par **famille de couches** : les dessins passent au-dessus des relations, elles-mêmes au-dessus des formes, tracés et liens (à égalité).
+
+| Clé | Description | Défaut |
+|---|---|---|
+| `style.renderOrder.shapes` | Formes (`<ShapeLayer>`). | `1` |
+| `style.renderOrder.paths` | Tracés (`<PathLayer>`). | `1` |
+| `style.renderOrder.links` | Liens. | `1` |
+| `style.renderOrder.relations` | Relations — au-dessus des formes, tracés et liens. | `2` |
+| `style.renderOrder.drawings` | Dessins — au-dessus de tout le reste. | `4` |
+
 ## `camera` — Limites de navigation et pas des commandes
 
 | Clé | Description | Défaut |
@@ -334,9 +353,6 @@ doit les revoir.
 | `camera.maxZoom` | Zoom maximal atteignable **en mode plan** — le plancher de descente. Une carte plate se lit d'autant mieux qu'on s'en approche. | `21` |
 | `camera.maxZoom3d` | Zoom maximal **en 3D**, pendant de `maxZoom` comme `maxTilt3d` l'est de `maxTilt2d`. Sous la hauteur du bâti, la caméra se retrouve DANS la rue : un mur occupe l'écran. Hauteur au-dessus du sol = `40 075 016 / 2^zoom` — ~153 m à 18, ~76 m à 19, ~19 m à 21. | `18` |
 | `camera.maxTilt` | Inclinaison maximale générale (rad depuis le nadir). | `1.05` |
-| `camera.zoomStep` | Pas de zoom d'un cran de molette. | `0.5` |
-| `camera.dragSpeed.min` | Vitesse de déplacement au ras du sol. | `0.002` |
-| `camera.dragSpeed.max` | Vitesse de déplacement en vue globe. | `0.35` |
 | `camera.fov` | Champ de vision vertical (degrés). Lu à la construction du moteur seulement. | `60` |
 | `camera.maxTilt3d` | Inclinaison max en 3D (rad depuis le nadir) — au-delà, la vue bascule. | `1.382300767579509` |
 | `camera.maxTilt2d` | Inclinaison max en 2D (rad depuis le nadir). Par défaut alignée sur `maxTilt3d` (~79°) ; la resserrer borne la couverture de tuiles (une carte plate inclinée vers l'horizon en demande de plus en plus loin) et remonte l'angle où le graticule s'efface. | `1.382300767579509` |
@@ -361,7 +377,7 @@ doit les revoir.
 | `clustering.radius` | Rayon de regroupement, en pixels écran. | `60` |
 | `clustering.minPoints` | En deçà, les points restent individuels. | `2` |
 | `clustering.maxZoom` | Zoom au-delà duquel le regroupement géographique s'arrête. | `18` |
-| `clustering.levelQuantization` | Quantification du zoom pour la stabilité des paliers de cluster. | `1` |
+| `clustering.levelQuantization` | Quantification du zoom pour la stabilité des paliers de cluster : le zoom est arrondi au multiple de cette valeur avant de choisir le palier. | `1` |
 | `clustering.spiderfyZoom` | Zoom à partir duquel un cluster inséparable (points confondus) éclate en éventail au clic — le zoom max UTILE de la caméra, au-delà duquel elle entre dans le bâti 3D. `19` ≈ 76 m d'altitude. | `19` |
 
 ## `markers` — Seuils de lisibilité

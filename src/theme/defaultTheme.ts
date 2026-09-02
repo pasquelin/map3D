@@ -11,9 +11,27 @@ export const defaultTheme: MapTheme = {
       default: { base: '#2E7CF6', accent: '#78BEFF', contrast: '#ffffff' },
     },
     tags: {},
+    tagPalette: [
+      '#ef4444',
+      '#f97316',
+      '#f59e0b',
+      '#84cc16',
+      '#22c55e',
+      '#10b981',
+      '#06b6d4',
+      '#3b82f6',
+      '#6366f1',
+      '#8b5cf6',
+      '#d946ef',
+      '#ec4899',
+    ],
+
     // Couleur PROPRE au centre du cluster : gris ardoise neutre, distinct des couleurs
     // de type/accent → dit « total » sans se confondre avec une sévérité.
-    cluster: { core: '#1e293b', text: '#ffffff', ring: '#ffffff' },
+    cluster: { core: '#1e293b', text: '#ffffff', ring: '#ffffff', stroke: '#ffffff' },
+    // Reprises telles quelles de la palette de symboles (`lisibleSur`) et de la dock.
+    readable: { dark: '#101828', light: '#ffffff', threshold: 0.6 },
+    pinShade: { color: '#000000', percent: 45 },
     draw: {
       palette: ['#F0503A', '#EE8F0A', '#079A7D', '#2E7CF6', '#6344F0', '#101828'],
       default: '#2E7CF6',
@@ -79,6 +97,10 @@ export const defaultTheme: MapTheme = {
     gloss: true,
     icon: 'type',
     moveTween: { duration: 500, easing: easeInOutCubic },
+    selectionRingExtraPx: 4,
+    tipGapPx: 10,
+    ringColor: '#ffffff',
+    glossColor: '#ffffff',
   },
   // Valeurs reprises du donut réellement dessiné par `<DefaultCluster>`, à
   // l'identique : le thème décrit enfin ce que le composant fait.
@@ -89,7 +111,39 @@ export const defaultTheme: MapTheme = {
     segmentGap: 0.045,
     startAngle: Math.PI,
     selectedGapPx: 4,
+    sizeRatio: 1.18,
+    text: { segmentSize: 13, segmentSizeWide: 11, coreSize: 19, coreSizeWide: 16, wideFrom: 100, weight: 800 },
+    tip: {
+      background: 'rgba(17,24,39,0.96)',
+      color: '#ffffff',
+      fontSize: 12,
+      weight: 600,
+      radius: 8,
+      gap: 7,
+      paddingY: 6,
+      paddingX: 10,
+      dotSize: 9,
+      shadow: '0 6px 20px rgba(0,0,0,0.35)',
+      separatorOpacity: 0.6,
+    },
   },
+  // Reprises telles quelles des défauts de props de `<RelationLayer>`. `gapOpacity` à
+  // 30 % : l'espace entre deux tirets reste juste assez présent pour tenir la ligne,
+  // sans concurrencer les tirets.
+  relations: {
+    width: 8,
+    defaultColor: '#ffd400',
+    routeColor: '#7c4dff',
+    hoverDarken: 0.72,
+    hubRadius: 26,
+    casingWidth: 3,
+    minOpacity: 1,
+    dash: { length: 20, gap: 8, speed: 16, gapOpacity: 0.3 },
+  },
+  // Reprises telles quelles des littéraux de `<DrawLayer>`, `<PathLayer>`, `<ShapeLayer>`.
+  draw: { width: 8, fillOpacity: 0.3, stroke: 'solid', strokeOpacity: 0.95 },
+  path: { width: 6, casingWidth: 3 },
+  zone: { width: 6, fillOpacity: 0.22 },
   animations: {
     enabled: true,
     pulse: { duration: 2000, easing: 'ease-out', scale: 1.16 },
@@ -111,7 +165,7 @@ export const defaultTheme: MapTheme = {
   },
   // Valeurs reprises de `style/panelGeometry`, qui en reste l'unique source pour le
   // code sans thème (SSR, hooks montés hors carte).
-  spacing: { gap: GAP, edge: EDGE, barInset: BAR_INSET },
+  spacing: { gap: GAP, edge: EDGE, barInset: BAR_INSET, rowMenuGap: 2 },
   sizing: {
     lensPanelW: LENS_PANEL_W,
     selectionPanelW: SELECTION_PANEL_W,
@@ -120,11 +174,14 @@ export const defaultTheme: MapTheme = {
       tags: 380,
       symbols: 420,
       search: 340,
+      searchScope: 280,
       settings: 560,
       settingsSub: 520,
       templates: 460,
       catalog: 380,
     },
+    rowMenuW: 180,
+    pinSize: 64,
     // 34 px : la hauteur d'une ligne du panneau « Couches », dont le catalogue reprend
     // la densité — les deux panneaux s'ouvrent depuis la même barre.
     catalogRowHeight: 34,

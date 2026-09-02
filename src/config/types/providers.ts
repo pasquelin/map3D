@@ -71,8 +71,24 @@ export type InternalServerConfig = {
  * à protéger. Les deux cohabitent : le plus contraignant gagne.
  */
 export type TileCacheBudget = {
+  /**
+   * Durée (ms) pendant laquelle une tuile qui a épuisé ses essais reste en erreur avant
+   * d'être redemandée si elle est encore vue. `0` = erreur définitive jusqu'à l'éviction.
+   *
+   * ⚠️ L'erreur était terminale : un 429 de session Google (5 min de backoff) faisait
+   * brûler les essais de chaque tuile visible en quelques secondes, et la zone restait
+   * blanche jusqu'au rechargement de la page, session revenue ou non.
+   */
+  errorTtlMs: number
+  /**
+   * Frames sans être vue au-delà desquelles une tuile en attente sort de la file de
+   * téléchargement : après un pan rapide, les tuiles de la vue quittée ne se téléchargent
+   * plus (ni ne se facturent) avant celles de la vue courante. Revue, elle y revient.
+   */
+  staleFrames: number
   /** Plafond du nombre de tuiles en cache. */
   maxTiles: number
+
   /** Plafond de la mémoire retenue par les tuiles montées (octets). `0` = illimité. */
   maxBytes: number
   /**
@@ -202,6 +218,13 @@ export type TilesConfig = {
   backoffAuthMs: number
   /** Attente après une panne transitoire (5xx, réseau). */
   backoffTransientMs: number
+  /**
+   * Politique réseau de la CRÉATION DE SESSION (les tuiles elles-mêmes passent par `<img>`).
+   * Sans timeout, une création sans réponse retenait toutes les tuiles indéfiniment : la
+   * promesse coalescée ne se réglait jamais. Les réessais sont laissés à la file de tuiles.
+   */
+  fetch: FetchPolicy
+
   /** Téléchargements simultanés. */
   maxInflight: number
   /** Anneau de tuiles préchargées autour du viewport. */

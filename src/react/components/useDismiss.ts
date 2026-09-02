@@ -66,6 +66,8 @@ export function useDismiss(
       if (alsoRef.current?.().some((el) => el?.contains(target))) return
       close()
     }
+    // Pas de garde « carte active » (cf. `activeMap.ts`) : la surface n'écoute que
+    // tant qu'elle est OUVERTE, donc sur la carte où l'utilisateur vient d'agir.
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (captureEscape) e.stopPropagation()

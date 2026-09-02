@@ -79,12 +79,14 @@ ne peut diverger de ce que la lib applique :
 
 ### Les trois arbres de réglages
 
-`<Map>` accepte trois arbres, mergés profondément sur une base complète. Chacun a sa
+`<Map>` accepte trois arbres. `labels` et `config` sont des **partiels mergés profondément**
+sur `defaultLabels` / `defaultConfig` ; `theme` est un `MapTheme` **complet** (ou un couple
+`{ light, dark }`) — à construire avec `mergeTheme(defaultTheme, partiel)`. Chacun a sa
 raison de changer :
 
 ```tsx
 <MapProvider
-  theme={{ colors: { ui: { accent: '#0af' } } }}   // charte graphique
+  theme={mergeTheme(defaultTheme, { colors: { ui: { accent: '#0af' } } })} // charte graphique
   labels={{ measure: imperialMeasure }}            // langue et unités
   config={{ performance: { antialias: false } }}   // machine, quota, support
 >
@@ -110,29 +112,31 @@ Le SDK de symbologie MIL-STD (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 Mo) es
 ## Démarrage rapide
 
 ```tsx
-import {
-  MapProvider, Map, MarkerLayer, MapControls,
-  defaultTheme, type MarkerData,
-} from '@pasquelin/map3d'
+import { MapProvider, Map, markersLayer, type MarkerData } from '@pasquelin/map3d'
 
 type Alert = { title: string }
 
+const alerts: MarkerData<Alert>[] = [
+  { id: 1, type: 'alert-critical', position: { lat: 48.8566, lng: 2.3522 }, title: 'Intrusion', data: { title: 'Intrusion' } },
+]
+
 export function App() {
-  const alerts: MarkerData<Alert>[] = [
-    { id: 1, type: 'alert-critical', position: { lat: 48.8566, lng: 2.3522 }, data: { title: 'Intrusion' } },
-  ]
   return (
-    <MapProvider theme={defaultTheme} colorScheme="auto">
+    <MapProvider colorScheme="auto">
       <div style={{ height: '100vh' }}>
-        <Map cesiumIonToken={import.meta.env.VITE_CESIUM_ION_TOKEN} center={{ lat: 48.8566, lng: 2.3522 }} zoom={13}>
-          <MarkerLayer<Alert>
-            points={alerts}
-            getId={(m) => m.id}
-            cluster={{ enabled: true }}
-            onSelect={(m) => console.log(m.data.title)}
-          />
-          <MapControls position="right" />
-        </Map>
+        <Map
+          cesiumIonToken={import.meta.env.VITE_CESIUM_ION_TOKEN} // facultatif — sans token, globe de repli
+          center={{ lat: 48.8566, lng: 2.3522 }}
+          zoom={13}
+          controls={{ position: 'right' }}
+          layers={[
+            markersLayer<Alert>({
+              points: alerts,
+              cluster: { enabled: true },
+              onSelect: (m) => console.log(m?.data.title),
+            }),
+          ]}
+        />
       </div>
     </MapProvider>
   )

@@ -57,7 +57,7 @@ An **imperative Three.js engine driven declaratively by React**. `MapEngine` own
 npm i @pasquelin/map3d three react react-dom
 ```
 
-`three` and `react`/`react-dom` **19** are **peer dependencies**. The MIL-STD symbology SDK (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 MB) is a dependency loaded through a **dynamic import** — it never enters a bundle that does not display symbols.
+`three` and `react`/`react-dom` **19** are **peer dependencies**. The MIL-STD symbology SDK (`@armyc2.c5isr.renderer/mil-sym-ts-web`, ~9 MB) is **external to the package**: a declared dependency installed alongside it, never inside the library's `dist/`, loaded on demand through `import()` the first time a symbol is drawn — it never enters your initial bundle.
 
 ## Quick start
 
@@ -144,6 +144,8 @@ pnpm dev:example
 
 Reproduces an operator dashboard: 3D map, severity-clustered alerts refetched on move, animated agents with camera follow, zones, drawing, light/dark toggle, an alternative neon theme, and the fallback globe.
 
+The official plugins (GeoPF, Windy, Plan-3D) are **optional**: the example picks them up when [plugingsMap3D](https://github.com/pasquelin/plugingsMap3D) is cloned **next to** this repository (`../plugingsMap3D`, with its own `pnpm install`), and runs identically without it. Details in [`examples/react/README.md`](examples/react/README.md).
+
 ## Build
 
 ```bash
@@ -156,4 +158,4 @@ pnpm test         # vitest
 
 [**PolyForm Noncommercial 1.0.0**](LICENSE) — free for any **noncommercial** use (personal, research, nonprofit, education, government).
 
-**Commercial use requires a separate license from Alban Pasquelin**, the copyright holder — contact **alban.pasquelin@gmail.com**.
+**Commercial use requires a separate license from Alban Pasquelin**, the copyright holder — get in touch on **[LinkedIn](https://www.linkedin.com/in/alban-pasquelin/)**.

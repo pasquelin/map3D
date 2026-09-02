@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Ellipsoid } from '3d-tiles-renderer'
 import { defaultConfig } from '../config/defaultConfig'
+import { defaultTheme } from '../theme/defaultTheme'
 import type { InternalServerConfig, TilesConfig } from '../config/types'
 import { WORLD_BOUNDS } from '../core/bounds'
 import { makeUnraycastable } from '../core/bvh'
@@ -121,10 +122,14 @@ export class TiledGlobeLayer {
      * littéraux qui décidaient d'une couleur que le thème exposait déjà sans qu'elle
      * soit lue nulle part.
      */
-    private readonly oceanColor: string = '#0F2942',
+    private readonly oceanColor: string = defaultTheme.globe.oceanColor,
   ) {
     this.group.name = 'm3d-tiled-globe'
     this.group.visible = false
+    // Groupe immobile sous un parent lui-même piloté à la main (`internalSurface`) : sans
+    // ça, son `updateMatrix()` par frame forçait le recalcul de toutes ses tuiles.
+    this.group.matrixAutoUpdate = false
+
     this.source = createSource(cfg, server.origin)
     this.signature = sourceSignature(cfg, server.origin)
     this.epsilon = server.elevationEpsilon
@@ -149,11 +154,16 @@ export class TiledGlobeLayer {
   setVisible(visible: boolean): void {
     if (visible === this.group.visible) return
     this.group.visible = visible
-    if (visible) this.parent.add(this.group)
-    else this.parent.remove(this.group)
+    if (visible) {
+      this.parent.add(this.group)
+      // Le parent a pu être rebasé pendant l'absence : sa descente forcée n'a pas atteint
+      // ce groupe, dont la matrice monde (et celles de ses tuiles) date d'avant le retrait.
+      this.group.matrixWorldNeedsUpdate = true
+    } else this.parent.remove(this.group)
   }
 
   /** Le fournisseur courant a-t-il de quoi servir des tuiles ? (clé, ou origine) */
+
   get hasSource(): boolean {
     return this.source !== null
   }
@@ -572,9 +582,13 @@ export class TiledGlobeLayer {
     // renderOrder dans la bande (-1, 0) : au-dessus des étoiles (-1), sous les zones/
     // tracés/dessins (≥ 1). Fin (z élevé) → ordre plus haut → peint par-dessus la coarse.
     const mesh = new THREE.Mesh(geo, mat)
-    // La position monde vit dans la matrice, pas dans les sommets (cf. l'en-tête).
+    // La position monde vit dans la matrice, pas dans les sommets (cf. l'en-tête). Une tuile
+    // posée ne bouge plus : matrice composée une fois, jamais plus par frame.
     mesh.position.copy(origin)
+    mesh.matrixAutoUpdate = false
+    mesh.updateMatrix()
     mesh.renderOrder = -0.8 + t.z * 0.005
+
     /**
      * Jamais touchée par un rayon, comme l'océan. Sous `TilesGroup`, ce fond ne l'était
      * pas non plus — le `raycast()` du groupe arrêtait la traversée. Le sortir de là l'a
@@ -612,6 +626,10 @@ export class TiledGlobeLayer {
     })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = -0.9
+    // Sphère à l'origine du repère, jamais déplacée : matrice composée une fois.
+    mesh.matrixAutoUpdate = false
+    mesh.updateMatrix()
+
     // Jamais touchée par un rayon : son volume englobant est la Terre entière, donc TOUS
     // les rayons de la carte la traversent et testaient ses 3 072 triangles — pour un
     // résultat que le repli ellipsoïde de `GlobeControls` et de `Projection` donne déjà,

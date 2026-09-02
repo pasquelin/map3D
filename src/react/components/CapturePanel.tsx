@@ -1,5 +1,5 @@
 import { mdiDownloadOutline, mdiEmailOutline, mdiShareVariantOutline } from '@mdi/js'
-import { useContext, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import type { CaptureBackground, CaptureFormat } from '../../core/capture'
 import { CaptureContext } from '../capture'
 import { useConfig, useLabels } from '../context'
@@ -45,6 +45,17 @@ export function CapturePanel() {
     return runCapture({ format, quality, scale, background })
   }
 
+  // Le panneau vit dans un sous-menu qui se referme au clic extérieur : une capture en
+  // vol lui survit couramment. L'ACTION va au bout (l'utilisateur l'a demandée, la
+  // fermeture du menu n'est pas une annulation), seul l'état local n'est plus écrit.
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
+
   // Sérialise les actions (une capture surélève le pixelRatio : deux en vol se gêneraient,
   // le moteur les rejette de toute façon) et neutralise les boutons le temps du rendu.
   const run = async (action: (blob: Blob) => void | Promise<void>): Promise<void> => {
@@ -55,7 +66,7 @@ export function CapturePanel() {
     } catch {
       // Annulation de partage / encodage échoué : on relâche simplement les boutons.
     } finally {
-      setBusy(false)
+      if (alive.current) setBusy(false)
     }
   }
 

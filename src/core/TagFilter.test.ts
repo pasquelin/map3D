@@ -5,7 +5,7 @@
 // l'utilisateur devant une carte vide.
 
 import { describe, expect, it } from 'vitest'
-import { TagFilter } from './TagFilter'
+import { TagFilter, tagColor } from './TagFilter'
 
 /** `null` : pas de persistance, le test ne juge que la sélection. */
 const filter = (): TagFilter => new TagFilter(null)
@@ -80,5 +80,18 @@ describe('TagFilter.add', () => {
     f.onSelection(() => emits++)
     f.add(['shapes'])
     expect(emits).toBe(0)
+  })
+})
+
+describe('tagColor', () => {
+  it('choisit dans la palette fournie, de façon stable', () => {
+    const palette = ['#111111', '#222222', '#333333']
+    const a = tagColor('alpha', palette)
+    expect(palette).toContain(a)
+    expect(tagColor('alpha', palette)).toBe(a)
+  })
+
+  it('retombe sur la palette du thème par défaut sans argument', () => {
+    expect(tagColor('alpha')).toMatch(/^#[0-9a-f]{6}$/)
   })
 })

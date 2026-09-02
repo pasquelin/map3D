@@ -1,7 +1,6 @@
 import { mdiMagnifyExpand } from '@mdi/js'
 import { useContext } from 'react'
-import { LensContext, useLabels } from '../context'
-import { TIP_ID } from './Toolbar'
+import { LensContext, useLabels, useToolbar } from '../context'
 import { ToolButton } from './ToolButton'
 import { useTip } from './tooltip'
 
@@ -18,7 +17,7 @@ import { useTip } from './tooltip'
 export function LensToolButton() {
   const lens = useContext(LensContext)
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(useToolbar().tipId)
   if (!lens) return null
   return (
     <ToolButton

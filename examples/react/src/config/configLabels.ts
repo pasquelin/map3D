@@ -30,6 +30,7 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
   'providers.templates': 'Templates de dessin',
   'providers.templates.headers': 'En-têtes HTTP',
   'providers.templates.fetch': 'Politique réseau',
+  'providers.tiles.fetch': 'Réseau de la session',
 
   interaction: 'Interaction',
   'interaction.lens': 'Loupe',
@@ -58,9 +59,9 @@ export const FOLDER_LABELS: Readonly<Record<string, string>> = {
 
   style: 'Style',
   'style.zIndex': 'Empilement des surfaces',
+  'style.renderOrder': 'Ordre de rendu 3D',
 
   camera: 'Caméra',
-  'camera.dragSpeed': 'Vitesse de déplacement',
   'camera.zoomFactor': 'Facteur par cran de zoom',
   'camera.keyPan': 'Déplacement au clavier',
   'camera.followAltitude': 'Altitude du mode suivi',
@@ -133,6 +134,10 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.tileUrl': 'gabarit d’URL de tuile',
   'providers.tiles.backoffAuthMs': 'attente après refus d’identité (ms)',
   'providers.tiles.backoffTransientMs': 'attente après panne (ms)',
+  'providers.tiles.fetch.timeoutMs': 'délai d’abandon (ms)',
+  'providers.tiles.fetch.retries': 'réessais',
+  'providers.tiles.fetch.backoffMs': 'attente avant réessai (ms)',
+
   'providers.tiles.maxTiles': 'cache de textures (tuiles)',
   'providers.tiles.maxBytes': 'cache de textures (Mio)',
   'providers.tiles.evictEvery': 'éviction : une frame sur',
@@ -145,6 +150,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.tiles.uniformMaxSpread': 'écart toléré avant cascade (crans)',
   'providers.tiles.maxAttempts': 'essais par tuile',
   'providers.tiles.retryDelays': 'délais entre essais (ms)',
+  'providers.tiles.errorTtlMs': 'erreur gardée avant réessai (ms)',
+  'providers.tiles.staleFrames': 'frames hors vue avant abandon',
 
   // ── providers.routing ──────────────────────────────────────────────────────
   'providers.routing.matrixUrl': 'URL de la matrice',
@@ -223,6 +230,9 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.maxRequest': 'budget de tuiles par vue',
   'providers.buildings.maxAttempts': 'essais par tuile',
   'providers.buildings.retryDelays': 'délais entre essais (ms)',
+  'providers.buildings.errorTtlMs': 'erreur gardée avant réessai (ms)',
+  'providers.buildings.staleFrames': 'frames hors vue avant abandon',
+
   'providers.buildings.pickFields': 'attributs remontés au clic',
   'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
   'providers.tiles3d.hideVolumeWhenClamped': 'masquer la 3D si vue non couverte',
@@ -233,6 +243,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'interaction.shapeHitTolerancePx': 'tolérance clic forme (px)',
   'interaction.linkHitTolerancePx': 'tolérance clic lien (px)',
   'interaction.closeSnapPx': 'aimant de fermeture (px)',
+  'interaction.lockFlashMs': 'flash forme verrouillée (ms)',
+
   'interaction.clickSlopPx': 'seuil clic → glissé (px)',
   'interaction.dragSlopPx': 'seuil de saisie (px)',
   'interaction.repositionSlopPx': 'seuil de repositionnement (px)',
@@ -352,6 +364,8 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'performance.relations.fanMaxLegs': 'liens max dans l’éventail',
   'performance.relations.zoomBand': 'hystérésis de regroupement',
   'performance.circleSegments': 'segments d’un cercle',
+  'performance.shapeGroundSamples': 'sondages du sol sous une zone',
+
   'performance.groundHeightRange': 'altitudes admises (m)',
 
   // ── style.zIndex ───────────────────────────────────────────────────────────
@@ -361,6 +375,12 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'style.zIndex.floatingHud': 'HUD flottant',
   'style.zIndex.markerSelected': 'marker sélectionné',
   'style.zIndex.tooltip': 'infobulles',
+  'style.renderOrder.shapes': 'zones',
+  'style.renderOrder.paths': 'tracés',
+  'style.renderOrder.links': 'liens',
+  'style.renderOrder.relations': 'itinéraires',
+  'style.renderOrder.drawings': 'dessins',
+
   'style.zIndex.listMenu': 'menu d’une ligne',
   'style.zIndex.dock': 'dock des favoris',
   'style.zIndex.ui': 'barres et panneaux',
@@ -372,9 +392,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'camera.maxZoom': 'zoom maximal en plan',
   'camera.maxZoom3d': 'zoom maximal en 3D (plancher)',
   'camera.maxTilt': 'inclinaison max (rad)',
-  'camera.zoomStep': 'pas de la molette',
-  'camera.dragSpeed.min': 'au ras du sol',
-  'camera.dragSpeed.max': 'en vue globe',
   'camera.fov': 'champ de vision (°)',
   'camera.maxTilt3d': 'inclinaison max en 3D (rad)',
   'camera.maxTilt2d': 'inclinaison max en plan (rad)',

@@ -78,6 +78,8 @@ export function EditableKbd({ action, display }: { action: BindableAction; displ
 
   useEffect(() => {
     if (!capturing || !store) return
+    // Pas de garde « carte active » (cf. `activeMap.ts`) : la capture n'est armée que
+    // par un clic sur CE bouton, et consomme la touche en capture avant tout le monde.
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault()
       e.stopPropagation()

@@ -13,7 +13,8 @@ export type DefaultMarkerProps = {
 export function DefaultMarker({ marker, theme, label }: DefaultMarkerProps) {
   const color = markerColorOf(theme, marker.type)
   const size = theme.markers.size
-  const halo = theme.animations.enabled && theme.animations.halo !== false
+  // La spec, pas un booléen : durée et easing en sortent, plus aucun repli chiffré ici.
+  const halo = theme.animations.enabled && theme.animations.halo !== false ? theme.animations.halo : null
   const r = size / 2
   const gid = `m3d-g-${marker.type}`
 
@@ -44,13 +45,15 @@ export function DefaultMarker({ marker, theme, label }: DefaultMarkerProps) {
             opacity={0.22}
             style={{
               transformOrigin: `${r}px ${r}px`,
-              animation: `m3d-halo ${theme.animations.halo !== false ? theme.animations.halo.duration : 2600}ms cubic-bezier(.2,.6,.35,1) infinite`,
+              animation: `m3d-halo ${halo.duration}ms ${halo.easing} infinite`,
             }}
           />
         )}
-        <circle cx={r} cy={r} r={r * 0.68} fill="#fff" />
+        <circle cx={r} cy={r} r={r * 0.68} fill={theme.markers.ringColor} />
         <circle cx={r} cy={r} r={r * 0.56} fill={theme.markers.gradient ? `url(#${gid})` : color.base} />
-        {theme.markers.gloss && <ellipse cx={r} cy={r * 0.8} rx={r * 0.42} ry={r * 0.28} fill="#fff" opacity={0.25} />}
+        {theme.markers.gloss && (
+          <ellipse cx={r} cy={r * 0.8} rx={r * 0.42} ry={r * 0.28} fill={theme.markers.glossColor} opacity={0.25} />
+        )}
         {label && (
           <text x={r} y={r + 4} textAnchor="middle" fontSize={size * 0.32} fontWeight={700} fill={color.contrast}>
             {label}

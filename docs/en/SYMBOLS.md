@@ -110,11 +110,22 @@ tactical graphics — with labels and descriptions **in French**.
 A symbol's `variant` is its **affiliation**: `friendly`, `hostile`, `neutral`,
 `unknown`. Identification colours in `MILSYM_AFFILIATION_COLORS`.
 
+`MILSYM_ENTRIES` is the raw list of those entries (`MilSymEntry[]` — a `SymbolEntry`
+carrying its `sidc` —, icons then tactical graphics): enough to compose a reduced catalogue
+without losing the affiliation colours.
+
+```ts
+import { MILSYM_CATALOG, MILSYM_ENTRIES, type SymbolCatalog } from '@pasquelin/map3d'
+
+const units: SymbolCatalog = { ...MILSYM_CATALOG, entries: MILSYM_ENTRIES.filter((e) => e.category === 'units') }
+```
+
 **Weight and loading.** The `@armyc2.c5isr.renderer/mil-sym-ts-web` SDK weighs ~9 MB.
-It is loaded through a **dynamic import**, isolated in a chunk that only a map
-displaying symbols downloads — and never on the mere mount of `<DrawLayer>`: loading is
-triggered by opening the palette or by the presence of a placed symbol. `render` stays
-synchronous and serves from a cache keyed by SIDC + size.
+It is **not shipped inside `dist/`**: it is a declared dependency of `@pasquelin/map3d`,
+installed alongside the package, which the library loads through **`import()`** on the
+first symbol displayed — never in the host's initial bundle, and never on the mere mount
+of `<DrawLayer>`: loading is triggered by opening the palette or by the presence of a
+placed symbol. `render` stays synchronous and serves from a cache keyed by SIDC + size.
 
 ### ⚠️ The SIDC pitfall
 
@@ -166,6 +177,12 @@ Usage details, and why:
   catalogue does not look incomplete. They are **ignored on drop**: they are placed by
   collecting successive points, a mode that is not implemented yet.
 - The panel is only mounted while open: closed, it never calls the renderer.
+
+A grabbed thumbnail is a payload of the generic drag-and-drop (`engine.drag`, see
+[DATA.md § 5](DATA.md#5-pinning-favourites-dock)) of type `SYMBOL_DRAG_TYPE`
+(`'m3d-symbol'`), whose `id` is the catalogue key: that is what the map zone accepts to
+place the symbol. Exported so a custom drop zone (`useDropZone`) can recognise — or refuse —
+a symbol coming from the palette: `accept: (p) => p.type === SYMBOL_DRAG_TYPE`.
 
 The texts (button, categories, affiliations) do not go through the catalogue: they live
 in `labels.symbols` — see [LABELS.md](LABELS.md).

@@ -85,7 +85,9 @@ export class MarkerRegistry extends ProviderRegistry<MarkerProvider> {
     const out: MarkerData[] = []
     for (const p of this.providers) {
       const found = p.markersInBounds?.(bounds)
-      if (found) out.push(...found)
+      // Jamais `push(...found)` : le spread passe chaque élément en argument, et la pile
+      // déborde dès ~120 k markers (la loupe interroge sur le monde entier).
+      if (found) for (const m of found) out.push(m)
     }
     return out
   }

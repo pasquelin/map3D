@@ -82,5 +82,7 @@ export const performanceDefaults: PerformanceConfig = {
   // liens et les cercles dessinés, 64 pour les zones) : aligner vers le bas aurait
   // aplati les zones, ce qui se voit. Le surcoût est de quelques sommets par cercle.
   circleSegments: 64,
+  shapeGroundSamples: 16,
+
   groundHeightRange: [-500, 9000],
 }

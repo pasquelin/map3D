@@ -5,7 +5,7 @@
     // `ES2022.Error` seul, et non tout ES2022 : il ne débloque que `new Error(msg,
     // { cause })`, largement disponible (Chrome 93+, Safari 15+, Firefox 91+, soit
     // sous le plancher que WebGL 2 impose déjà). Le `target` reste ES2020.
-    "lib": ["ES2020", "ES2022.Error", "DOM", "DOM.Iterable", "WebWorker"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -24,9 +24,9 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
 
-    "baseUrl": ".",
+    // Sans `baseUrl` (déprécié en TS 6) : `paths` se résout relativement à ce fichier.
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]

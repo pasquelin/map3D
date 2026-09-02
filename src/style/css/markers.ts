@@ -27,17 +27,24 @@ export const CSS_MARKERS = `/* Sprite d'ancre — PARTAGÉ par le marker et le c
   background:linear-gradient(to top,rgba(17,24,39,.5),rgba(17,24,39,.12));pointer-events:none}
 .m3d-marker-dot{position:absolute;left:0;top:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
   border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(17,24,39,.5);pointer-events:none}
+/* Image de marker ou de pastille (icône SVG custom, avatar) : même boîte centrée que
+   .m3d-marker, la taille arrivant par --m3d-sprite. Six propriétés étaient posées en
+   style inline, recréées PAR MARKER à chaque rebuild des portails. */
+.m3d-marker-img{max-width:none;max-height:none;display:block;cursor:pointer;
+  width:var(--m3d-sprite);height:var(--m3d-sprite);
+  margin:calc(var(--m3d-sprite) / -2) 0 0 calc(var(--m3d-sprite) / -2)}
 /* Avatar de marker (MarkerData.avatar) : photo ronde cerclée de la couleur du
    type (border-color inline) + liseré blanc — prioritaire sur l'icône custom. */
-.m3d-marker-img{max-width:none;max-height:none}
 .m3d-marker-avatar{border-radius:50%;object-fit:cover;box-sizing:border-box;
   border:var(--m3d-marker-ring-w,3px) solid;background:var(--m3d-panel);
   box-shadow:0 0 0 1.5px rgba(255,255,255,.9),0 2px 6px rgba(0,0,0,.4)}
 .m3d-marker-node.m3d-enter{animation:m3d-enter var(--m3d-enter-dur,460ms)
   var(--m3d-enter-ease,cubic-bezier(.32,1.5,.5,1)) backwards}
 .m3d-marker-node.m3d-selected{z-index:var(--m3d-z-marker-selected,80)}
+/* Les replis des variables d'animation valent les défauts de theme.animations :
+   c'est themeToVars qui les émet, la feuille ne fait que les lire. */
 @keyframes m3d-enter{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
-@keyframes m3d-halo{0%{transform:scale(.62);opacity:.5}70%{opacity:0}100%{transform:scale(2.1);opacity:0}}
+@keyframes m3d-halo{0%{transform:scale(.62);opacity:.5}70%{opacity:0}100%{transform:scale(var(--m3d-halo-scale,2.1));opacity:0}}
 @keyframes m3d-pulse{0%,100%{transform:scale(1)}50%{transform:scale(var(--m3d-pulse-scale,1.16))}}
 @keyframes m3d-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(-1 * var(--m3d-bob-amp,4px)))}}
 @keyframes m3d-cluster-bloom{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}

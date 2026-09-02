@@ -7,21 +7,21 @@ import {
   mdiUndo,
 } from '@mdi/js'
 import { UiIcon } from './UiIcon'
-import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { type MapEngine, zoomForAltitude } from '../../core/MapEngine'
 import type { DrawTool, EraseMode, MeasureTool, SelectMode } from '../../layers/DrawLayer'
 import { LensContext, ToolbarContext, useConfig, useLabels, useMapContext, useToolbar } from '../context'
 import type { ToolbarApi } from '../context'
 import { useDrawing } from '../hooks/useDrawing'
 import { DEFAULT_DRAW_TOOLS, SELECT_MODE_META, TOOL_ICONS } from './drawControls'
-import { DropdownSurface, useYieldsToDropdown } from './Dropdown'
+import { useYieldsToDropdown } from './Dropdown'
 import { DrawSettingsButton } from './DrawSettingsPanel'
 import { DrawStylePanel } from './DrawStylePanel'
 import { LensToolButton } from './LensToolButton'
 import { MeasureToolButton } from './MeasureToolButton'
 import { EraseToolButton } from './EraseToolButton'
-import { useFitColumns } from './panelFit'
-import { useCloseWhenHidden } from './useDismiss'
+import { type FlyoutRow, FlyoutToolButton } from './FlyoutToolButton'
+import { useFitColumns, useMergedRefs } from './panelFit'
 import { formatEdit } from './shortcuts'
 import { resolveSlots, type SlotConfig } from './slots'
 import { SymbolPaletteButton } from './SymbolPaletteButton'
@@ -72,51 +72,10 @@ export type DrawToolbarProps = {
   extraTools?: ReactNode
 }
 
-/** Id du `<Tooltip>` partagé de la barre — réutilisable par les outils externes. */
-export const TIP_ID = 'm3d-draw-tip'
-
 // Le contexte vit avec les autres (`react/context`) : `Dropdown` doit le lire pour se
 // refermer quand la barre se replie, et la barre importe `Dropdown`. Ré-exporté ici parce
 // que c'est `<Toolbar>` que l'API publique déclare.
 export { useToolbar, type ToolbarApi }
-
-/**
- * Châssis d'un SOUS-MENU DE SURVOL de la barre (sélecteur, mesures).
- *
- * Réunit les trois règles non évidentes que chaque sous-menu doit tenir, et qui étaient
- * réécrites à l'identique dans chacun :
- * — il ne s'ouvre que s'il a plus d'une rangée (une seule = le bouton agit directement) ;
- * — il s'efface devant une vraie surface déroulante, qu'il ne doit pas recouvrir au survol ;
- * — il se referme quand la barre se replie, sinon il rouvrirait tel quel au retour.
- *
- * Ne rend rien et ne connaît AUCUNE sémantique de rangée : c'est délibéré. Les deux sous-menus
- * mêlent des natures différentes (outil exclusif, mode du moteur, calque), et un composant
- * générique aurait fini avec un `if (kind === …)` — le même cas particulier remonté d'un cran.
- */
-export function useHoverFlyout(rowCount: number): {
-  wrapProps: { className: string; onPointerEnter?: () => void; onPointerLeave?: () => void }
-  hasFlyout: boolean
-  showing: boolean
-  close: () => void
-} {
-  const [open, setOpen] = useState(false)
-  useCloseWhenHidden(useToolbar().retracted, setOpen)
-  // Hook appelé INCONDITIONNELLEMENT : `rowCount > 1 && !useYieldsToDropdown()` le
-  // court-circuiterait dès qu'il n'y a qu'une rangée — même piège que `ToolButton` et
-  // `Toolbar` avec `useConfig`.
-  const dropdownOuvert = useYieldsToDropdown()
-  const hasFlyout = rowCount > 1 && !dropdownOuvert
-  return {
-    wrapProps: {
-      className: 'm3d-selectwrap',
-      onPointerEnter: hasFlyout ? () => setOpen(true) : undefined,
-      onPointerLeave: hasFlyout ? () => setOpen(false) : undefined,
-    },
-    hasFlyout,
-    showing: open && hasFlyout,
-    close: () => setOpen(false),
-  }
-}
 
 /**
  * Barre d'outils de dessin (navigation, formes, gomme, annuler, tout effacer).
@@ -181,6 +140,9 @@ export function Toolbar({
   const nativeActive = tool !== null || !!lens?.active || symbols.paletteOpen
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   const [activeToolEl, setActiveToolEl] = useState<HTMLElement | null>(null)
+  // Un id par barre montée, jamais en dur : deux cartes sur la page partageaient
+  // `m3d-draw-tip` et leurs infobulles s'appariaient à la mauvaise instance.
+  const tipId = useId()
   const bar = useMemo<ToolbarApi>(
     () => ({
       retracted: hidden,
@@ -192,15 +154,19 @@ export function Toolbar({
       el: barEl,
       activeToolEl,
       publishActiveTool: setActiveToolEl,
+      tipId,
     }),
-    [hidden, nativeActive, setTool, lens, barEl, activeToolEl],
+    [hidden, nativeActive, setTool, lens, barEl, activeToolEl, tipId],
   )
 
   // Barre compactée puis étalée en colonnes plutôt que débordant d'une carte courte,
   // sans jamais passer sous la boîte de recherche (même coin haut).
   const setBar = useFitColumns({ recenter: true, avoid: '.m3d-search' })
+  // Ref STABLE : une flèche inline était détachée (null) puis rattachée à chaque rendu
+  // de la barre, ce qui rejouait le placement et republiait l'élément à chaque fois.
+  const barRef = useMergedRefs(setBar, setBarEl)
   const dropdownOuvert = useYieldsToDropdown()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(tipId)
   const toggle = (t: DrawTool) => setTool(tool === t ? null : t)
   // Étiquettes composées depuis les raccourcis effectifs (cf. `formatEdit`).
   const edit = useConfig().interaction.shortcuts.edit
@@ -221,13 +187,7 @@ export function Toolbar({
 
   return (
     <ToolbarContext.Provider value={bar}>
-      <div
-        ref={(el) => {
-          setBar(el)
-          setBarEl(el)
-        }}
-        className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}
-      >
+      <div ref={barRef} className={`m3d-drawbar m3d-${position}${hidden ? ' m3d-hidden' : ''}`}>
         {slot(
           'navigate',
           <ToolButton
@@ -312,7 +272,7 @@ export function Toolbar({
           — l'apparence vient de `.m3d-tip` (thème), son « core » reste injecté. */}
       {/* Masquée tant qu'une surface est ouverte : l'infobulle d'un bouton survolé
           venait se poser SUR le panneau qu'on est en train de lire. */}
-      <MapTooltip id={TIP_ID} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
+      <MapTooltip id={tipId} place={position === 'left' ? 'right' : 'left'} hidden={dropdownOuvert} />
     </ToolbarContext.Provider>
   )
 }
@@ -332,7 +292,7 @@ export function Toolbar({
 function ClearFlyoutRow() {
   const { clear } = useDrawing()
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
+  const tip = useTip(useToolbar().tipId)
   return (
     <button {...tip(labels.toolbar.clearAllDescription)} className="m3d-flyout-item m3d-danger" onClick={clear}>
       <UiIcon path={mdiTrashCanOutline} />
@@ -367,76 +327,57 @@ function SelectToolButton({ position, modes }: { position: 'left' | 'right'; mod
   const { picking: pickingBuilding, canPick: canPickBuildings, engine } = useBuildingPick()
   const lens = useContext(LensContext)
   const labels = useLabels()
-  const tip = useTip(TIP_ID)
-  const wrapRef = useRef<HTMLDivElement>(null)
 
   const active = tool === 'select'
   const available = modes ? SELECT_MODE_META.filter((m) => modes.includes(m.mode)) : SELECT_MODE_META
-  // Sous-menu de SURVOL, pas une surface déroulante : son bouton active l'outil au lieu
-  // de déplier, d'où l'absence assumée d'`aria-expanded` et de fermeture au clic
-  // extérieur (le pointeur qui sort suffit). Il partage seulement le châssis du panneau.
-  const flyout = useHoverFlyout(available.length + (canPickBuildings ? 1 : 0))
+  const rows: FlyoutRow[] = available.map((m) => ({
+    key: m.mode,
+    icon: m.icon,
+    label: labels.selectModes[m.mode].label,
+    description: labels.selectModes[m.mode].description,
+    shortcut: shortcuts[m.action],
+    on: active && selectMode === m.mode,
+    onSelect: () => {
+      setSelectMode(m.mode)
+      setTool('select')
+    },
+  }))
+  // Désigner un bâtiment du volume 3D interne. Dans CE menu parce que c'est une
+  // manière de sélectionner de plus — mais l'outil vit dans le moteur, et il est
+  // exclusif du dessin : l'armer quitte l'outil de tracé, et inversement.
+  if (canPickBuildings) {
+    rows.push({
+      key: 'building',
+      icon: mdiOfficeBuildingOutline,
+      label: labels.buildingPick.label,
+      description: labels.buildingPick.description,
+      shortcut: shortcuts.selectBuilding,
+      on: pickingBuilding,
+      onSelect: () => {
+        const next = !pickingBuilding
+        // L'outil de tracé se retire seul (`useYieldsTool`, comme pour la loupe) ;
+        // la loupe, elle, ne se cède pas — on la relâche, comme la main le fait.
+        if (next) lens?.deactivate()
+        engine.setBuildingPickMode(next)
+      },
+    })
+  }
 
   return (
-    <div ref={wrapRef} {...flyout.wrapProps}>
-      <ToolButton
-        icon={mdiCursorDefaultOutline}
-        label={labels.tools.select}
-        shortcut={shortcuts.select}
-        active={active || pickingBuilding}
-        className={flyout.hasFlyout ? 'm3d-btn-flyout' : undefined}
-        onClick={() => {
-          // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
-          if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
-            setSelectMode(available[0]!.mode)
-          }
-          setTool(active ? null : 'select')
-        }}
-      />
-      {/* MÊME surface que les autres sous-menus — portée à la racine de la carte, même
-          châssis, même placement. Elle était rendue DANS la barre : la barre porte
-          backdrop-filter, donc son flou ne pouvait pas jouer comme ailleurs, et c'est
-          ce qui la faisait paraître d'un autre composant. Seule la façon de l'OUVRIR
-          reste propre à ce bouton (survol, pas clic). */}
-      {flyout.showing && (
-        <DropdownSurface anchor={wrapRef.current} position={position} clampHeight={false} panelClassName="m3d-flyout">
-          {available.map((m) => (
-            <button
-              key={m.mode}
-              {...tip(labels.selectModes[m.mode].description, shortcuts[m.action])}
-              className={`m3d-flyout-item${active && selectMode === m.mode ? ' m3d-on' : ''}`}
-              onClick={() => {
-                setSelectMode(m.mode)
-                setTool('select')
-                flyout.close()
-              }}
-            >
-              <UiIcon path={m.icon} />
-              <span className="m3d-flyout-label">{labels.selectModes[m.mode].label}</span>
-            </button>
-          ))}
-          {/* Désigner un bâtiment du volume 3D interne. Dans CE menu parce que c'est une
-              manière de sélectionner de plus — mais l'outil vit dans le moteur, et il est
-              exclusif du dessin : l'armer quitte l'outil de tracé, et inversement. */}
-          {canPickBuildings && (
-            <button
-              {...tip(labels.buildingPick.description, shortcuts.selectBuilding)}
-              className={`m3d-flyout-item${pickingBuilding ? ' m3d-on' : ''}`}
-              onClick={() => {
-                const next = !pickingBuilding
-                // L'outil de tracé se retire seul (`useYieldsTool`, comme pour la loupe) ;
-                // la loupe, elle, ne se cède pas — on la relâche, comme la main le fait.
-                if (next) lens?.deactivate()
-                engine.setBuildingPickMode(next)
-                flyout.close()
-              }}
-            >
-              <UiIcon path={mdiOfficeBuildingOutline} />
-              <span className="m3d-flyout-label">{labels.buildingPick.label}</span>
-            </button>
-          )}
-        </DropdownSurface>
-      )}
-    </div>
+    <FlyoutToolButton
+      position={position}
+      icon={mdiCursorDefaultOutline}
+      label={labels.tools.select}
+      shortcut={shortcuts.select}
+      active={active || pickingBuilding}
+      onClick={() => {
+        // Mode courant hors liste (config restreinte) : bascule sur le 1er autorisé.
+        if (!active && available.length > 0 && !available.some((m) => m.mode === selectMode)) {
+          setSelectMode(available[0]!.mode)
+        }
+        setTool(active ? null : 'select')
+      }}
+      rows={rows}
+    />
   )
 }

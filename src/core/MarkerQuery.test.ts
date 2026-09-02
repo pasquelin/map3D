@@ -60,3 +60,17 @@ describe('MarkerRegistry.hiddenByZoom', () => {
     expect(reg.hiddenByZoom('b')).toBe(false)
   })
 })
+
+describe('MarkerRegistry.markersInBounds', () => {
+  it('concatène un très grand inventaire sans déborder la pile', () => {
+    // 200 000 markers : un `push(...found)` levait `RangeError: Maximum call stack size exceeded`.
+    const many: MarkerData[] = []
+    for (let i = 0; i < 200_000; i++) many.push(at(i % 90, i % 180))
+    const reg = new MarkerRegistry()
+    reg.register({ markersInBounds: () => many })
+    reg.register({ markersInBounds: () => many.slice(0, 3) })
+    const out = reg.markersInBounds({ north: 90, south: -90, east: 180, west: -180 })
+    expect(out).toHaveLength(200_003)
+    expect(out[0]).toBe(many[0])
+  })
+})

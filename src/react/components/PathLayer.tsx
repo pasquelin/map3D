@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { PathLayer as CorePathLayer, type PathData } from '../../layers/PathLayer'
-import { useMapContext } from '../context'
+import { useConfig, useMapContext } from '../context'
 import { useErasableProvider } from '../hooks/useErasableProvider'
 import { useLayer, useLayerSync, useStatCounter } from '../hooks/useLayer'
 
@@ -14,6 +14,7 @@ export type PathLayerProps = {
 /** Tracés / parcours (ruban + casing, épaisseur en mètres, tête animée). */
 export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
   const { engine, theme } = useMapContext()
+  const config = useConfig()
 
   const ref = useLayer(
     () =>
@@ -23,9 +24,9 @@ export function PathLayer({ paths, animateHead = true }: PathLayerProps) {
         {
           color: theme.colors.path.base,
           casingColor: theme.colors.path.casing,
-          width: 6,
-          casingWidth: 3,
-          renderOrder: 1,
+          width: theme.path.width,
+          casingWidth: theme.path.casingWidth,
+          renderOrder: config.style.renderOrder.paths,
         },
         animateHead,
       ),

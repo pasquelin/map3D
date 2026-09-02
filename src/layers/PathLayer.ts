@@ -2,13 +2,13 @@ import * as THREE from 'three'
 import { EnuFrame } from '../core/enu'
 import { boundsOfLatLngs } from '../core/bounds'
 import type { FrameContext } from '../core/Layer'
-import type { Projection, ScreenPoint } from '../core/Projection'
+import type { Projection } from '../core/Projection'
+
 import type { SelectableGeometry, SelectableScreenItem } from '../core/Selectables'
 import { circlePoints, fillGeo, ribbon } from '../core/geometry'
 import { fillMaterial, strokeMaterial } from '../core/geometryMaterials'
 import type { Bounds, LatLng } from '../shared'
 import { type Drape, DrapedLayer } from './DrapedLayer'
-import { segDistPx } from './draw/hitTest'
 
 /** Préfixe d'id des tracés dans le registre de sélection : évite les collisions avec les ids de markers. */
 const PATH_SID = 'path:'
@@ -58,9 +58,7 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
 
   private paths: PathData[] = []
   private time = 0
-  /** Scratch de projection (chemin froid : finalize/clic), même patron que `LinkLayer`. */
-  private readonly scratch = new THREE.Vector3()
-  private readonly screen: ScreenPoint = { sx: 0, sy: 0, z: 0 }
+
   /** Ids (préfixés `path:`) des tracés sélectionnés — pilote leur contour dans l'overlay. */
   private selected = new Set<string>()
   /** Id synthétique stable pour un tracé sans `id` propre (réassigné à chaque `setPaths`). */
@@ -167,13 +165,29 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     let pulsing = false
     for (const d of this.drapes) {
       if (!d.head) continue
-      pulsing = true
       d.head.mesh.scale.set(scale, scale, scale)
       d.head.mat.opacity = opacity
+      if (!pulsing && this.headInView(d.head.mesh, d.enu, ctx)) pulsing = true
     }
     // Une tête qui pulse fait changer l'image sans que rien ne bouge par ailleurs. Signalé
-    // une fois pour la couche : le drapeau est global, le poser par tracé ne l'est pas plus.
+    // une fois pour la couche — et seulement si une tête est À L'ÉCRAN : sinon le rendu à
+    // la demande ne dormait jamais tant qu'un tracé était monté, où qu'il soit.
     if (pulsing) ctx.invalidate()
+  }
+
+  /**
+   * La tête est-elle dans le cadre (marge de culling des markers) ? Position monde tirée de
+   * la matrice LOCALE du groupe ENU — ses conteneurs sont à l'identité — et non de
+   * `matrixWorld`, que seule une descente de rendu recalcule : sous rendu à la demande, la
+   * première tête ne serait jamais vue, donc jamais repeinte, donc jamais descendue.
+   */
+  private headInView(mesh: THREE.Object3D, enu: THREE.Group, ctx: FrameContext): boolean {
+    const world = this.scratch.copy(mesh.position).applyMatrix4(enu.matrix)
+    if (!this.projection.isAboveHorizon(world, ctx.camera.position)) return false
+    const s = this.projection.worldToScreen(world, ctx.camera, this.screen)
+    if (s.z > 1) return false
+    const m = this.config.performance.markerCullMarginPx
+    return s.sx >= -m && s.sy >= -m && s.sx <= ctx.size.width + m && s.sy <= ctx.size.height + m
   }
 
   /**
@@ -271,17 +285,10 @@ export class PathLayer extends DrapedLayer<PathData, PathDrape> {
     let bestId: string | null = null
     let bestDistance = tolPx
     for (const d of this.drapes) {
-      const pts = this.projectPath(d, camera)
-      // Segment testé seulement entre deux points visibles (jamais à travers un point derrière la caméra).
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i - 1]!
-        const b = pts[i]!
-        if (!a.visible || !b.visible) continue
-        const dist = segDistPx(screenX, screenY, a.x, a.y, b.x, b.y)
-        if (dist < bestDistance) {
-          bestDistance = dist
-          bestId = d.sid
-        }
+      const dist = this.polylineDistancePx(d.item.points, this.heightOf(d), camera, screenX, screenY, bestDistance)
+      if (dist < bestDistance) {
+        bestDistance = dist
+        bestId = d.sid
       }
     }
     return bestId

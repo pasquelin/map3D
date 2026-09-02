@@ -29,7 +29,13 @@ export type TemplateProvider = {
  */
 export function createHttpTemplateProvider(initial?: Partial<TemplatesConfig>): TemplateProvider {
   let cfg: Partial<TemplatesConfig> = initial ?? {}
-  const base = () => (cfg.baseUrl ?? '').replace(/\/+$/, '')
+  const base = () => {
+    const url = (cfg.baseUrl ?? '').replace(/\/+$/, '')
+    // `fetch('')` viserait la page courante et tenterait de la parser en JSON.
+    if (!url) throw new Error('map3d: providers.templates.baseUrl est vide — aucun backend de templates')
+    return url
+  }
+
   const policy = () => cfg.fetch ?? defaultConfig.providers.templates.fetch
   const headers = (): Record<string, string> => ({ 'Content-Type': 'application/json', ...(cfg.headers ?? {}) })
 

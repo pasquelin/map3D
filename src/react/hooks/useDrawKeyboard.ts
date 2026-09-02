@@ -4,6 +4,7 @@ import type { DrawAction, LensApi } from '../context'
 import { type DrawLayer as CoreDrawLayer, type DrawTool, type EraseMode, type SelectMode } from '../../layers/DrawLayer'
 import type { DrawToolShortcuts, EditShortcuts } from '../../config/types'
 import { inTextInput, matchesEdit, plainKey } from '../components/shortcuts'
+import { isActiveMap } from '../activeMap'
 import { ERASE_MODE_META, SELECT_MODE_META } from '../components/drawControls'
 import type { PedestrianApi } from './usePedestrian'
 
@@ -62,7 +63,7 @@ export function useDrawKeyboard({
     }
     releaseSpaceRef.current = releaseSpace
     const onDown = (e: KeyboardEvent) => {
-      if (inTextInput(e)) return
+      if (inTextInput(e) || !isActiveMap(engine)) return
       if (e.code === 'Space' && !e.repeat && toolRef.current !== null) {
         e.preventDefault()
         if (spaceRef.current) return
@@ -100,7 +101,8 @@ export function useDrawKeyboard({
   useEffect(() => {
     const table = { ...drawKeys, ...shortcuts }
     const onKey = (e: KeyboardEvent) => {
-      if (inTextInput(e)) return
+      // Deux cartes sur la page : seule l'active répond (Suppr, lettres d'outil, Échap…).
+      if (inTextInput(e) || !isActiveMap(engine)) return
       if (e.code === 'Space') return // géré par l'effet barre espace
       if (editKeys.closePolygon !== false && e.key === editKeys.closePolygon) coreRef.current?.closeCurrent()
       else if (e.key === 'Escape') {

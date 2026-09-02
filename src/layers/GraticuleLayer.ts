@@ -146,6 +146,9 @@ export class GraticuleLayer implements Layer {
   private measureEl: HTMLElement | null = null
   /** Dernière opacité écrite par slot : réécrire la même valeur est une écriture CSSOM pour rien. */
   private readonly labelOpacity: number[] = []
+  /** Dernier `transform` écrit par slot (sx, sy, rotation — trois entrées par slot), même raison. */
+  private readonly labelPos: number[] = []
+
   /** Rect de l'overlay, mémoïsé par frame — `getBoundingClientRect` force une mise en page. */
   private overlayRect: DOMRect | null = null
   /** Index de l'étiquette sous le pointeur, `-1` si aucune. */
@@ -199,7 +202,10 @@ export class GraticuleLayer implements Layer {
     this.texts = texts
     this.group.name = 'graticule'
     this.group.visible = false
+    // Conteneur immobile (cf. `MapEngine` : la scène ne force plus ses descendants).
+    this.group.matrixAutoUpdate = false
     this.scene.add(this.group)
+
     // `passive` : on ne fait que LIRE la position, jamais annuler le geste — le déplacement
     // de la carte n'en est pas affecté d'un pixel.
     this.overlay.addEventListener('pointermove', this.onPointerMove, { passive: true })
@@ -357,8 +363,10 @@ export class GraticuleLayer implements Layer {
       // Les objets courants passent dans un groupe SORTANT — on ne les reconstruit pas, on
       // les laisse s'éteindre pendant que le nouveau jeu apparaît.
       const sortant = new THREE.Group()
+      sortant.matrixAutoUpdate = false
       for (const child of [...this.group.children]) sortant.add(child)
       this.scene.add(sortant)
+
       this.outgoing = { group: sortant, fade: 1 }
     }
     // Les anciennes références sont cédées (jetées ou passées au sortant) : les oublier ici
@@ -563,7 +571,13 @@ export class GraticuleLayer implements Layer {
       // `screenAngle` reçoit le point DÉJÀ projeté : le recalculer doublait le coût de la
       // rotation pour un résultat bit-à-bit identique.
       const rot = g.labels.rotate ? this.screenAngle(line, anchor, s, ctx) : 0
-      el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
+      const k = i * 3
+      if (this.labelPos[k] !== s.sx || this.labelPos[k + 1] !== s.sy || this.labelPos[k + 2] !== rot) {
+        el.style.transform = `translate3d(${s.sx}px, ${s.sy}px, 0) translate(-50%, -50%) rotate(${rot}deg)`
+        this.labelPos[k] = s.sx
+        this.labelPos[k + 1] = s.sy
+        this.labelPos[k + 2] = rot
+      }
     }
     // `hideLabelsFrom` a besoin de l'ANCIEN `labelCount` pour savoir jusqu'où cacher, et pose
     // le nouveau lui-même : l'écrire avant l'appel laisserait des slots visibles.

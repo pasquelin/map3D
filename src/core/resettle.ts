@@ -71,13 +71,20 @@ export class HeightResettle {
     return moved
   }
 
-  /** Indices (round-robin, ≤ `batch`) à re-échantillonner cette frame ; [] hors cadence. */
-  batch(count: number, batch = this.cfg().performance.resettle.batch): number[] {
-    if (count === 0 || this.frames <= 0) return []
+  /** Tableau rendu par `batch`, réutilisé d'une frame à l'autre — à parcourir tout de suite, jamais à retenir. */
+  private readonly batchOut: number[] = []
+
+  /**
+   * Indices (round-robin, ≤ `batch`) à re-échantillonner cette frame ; vide hors cadence.
+   * Le tableau est le MÊME à chaque appel (une couche drapée en demandait un neuf par frame).
+   */
+  batch(count: number, batch = this.cfg().performance.resettle.batch): readonly number[] {
+    const out = this.batchOut
+    out.length = 0
+    if (count === 0 || this.frames <= 0) return out
     this.frames--
-    if (++this.tick % this.cfg().performance.resettle.everyNFrames !== 0) return []
+    if (++this.tick % this.cfg().performance.resettle.everyNFrames !== 0) return out
     const k = Math.min(batch, count)
-    const out: number[] = []
     for (let i = 0; i < k; i++) out.push((this.cursor + i) % count)
     this.cursor = (this.cursor + k) % count
     return out

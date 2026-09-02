@@ -87,6 +87,24 @@ Abonnement déclaratif. `onReady` est **rejoué** si la carte l'était déjà.
 Gate booléen sur une liste de seuils — ce qui masque les markers `static`. Ne re-rend
 qu'au **franchissement** d'un seuil, pas à chaque mouvement.
 
+### `useCapture(): (opts?: CaptureOptions) => Promise<Blob>`
+
+```ts
+const capture = useCapture()
+const blob = await capture({ format: 'png', scale: 2 })
+```
+
+Capture l'image de la carte depuis un composant sous `<Map>`. La fonction renvoyée
+injecte le rasteriseur d'overlay de la prop `capture` (markers/labels composés
+par-dessus la 3D) et émet la trace `onCapture` ; une option d'appel explicite l'emporte
+sur l'injection (ex. `overlay: false` force une capture 3D seule). Sans prop `capture`,
+la capture reste possible, **en 3D seule**. Les défauts (`format`, `quality`, `scale`,
+`background`) viennent de `config.capture`. Identité **stable** tant que le moteur et la
+prop `capture` ne changent pas : ce hook ne s'abonne à rien et ne re-rend jamais. Le
+pendant impératif est `handle.capture()` ; le cœur, `engine.capture()` — cf.
+[PROPS.md](PROPS.md#poignée-impérative--maphandle-ref-et-usecapture) et
+[CONFIG.md § capture](CONFIG.md#capture--capture-dimage-de-la-carte).
+
 ---
 
 ## Données
@@ -231,8 +249,8 @@ untrace, clear }`. Détail dans [RELATIONS.md § 9](RELATIONS.md#9-relationapi).
 
 ### `useTemplates(options?): TemplatesView` — sous `<MapProvider>`
 
-`{ templates, categories, defaultCategories, defaultApply, allowExport, busy,
-saveCurrent, updateFromDrawing, apply, rename, remove, refresh, exportFile, importFile }`.
+`{ templates, categories, defaultCategories, defaultApply, allowExport, saveView,
+defaultSaveView, busy, saveCurrent, updateFromDrawing, apply, rename, remove, refresh, exportFile, importFile }`.
 Vue réactive + actions du gestionnaire de sauvegardes de dessin (localStorage seul ou
 provider API). Détail dans [TEMPLATES.md § 8](TEMPLATES.md#8-hook-usetemplates).
 

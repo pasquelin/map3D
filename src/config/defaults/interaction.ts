@@ -4,6 +4,8 @@ export const interactionDefaults: InteractionConfig = {
   shapeHitTolerancePx: 14,
   linkHitTolerancePx: 12,
   closeSnapPx: 16,
+  lockFlashMs: 800,
+
   clickSlopPx: 4,
   dragSlopPx: 8,
   repositionSlopPx: 4,

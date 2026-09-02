@@ -4,7 +4,9 @@
 import { defaultConfig } from '../config/defaultConfig'
 import { resolveLocale, resolveRegion } from '../config/mergeConfig'
 import type { TilesConfig } from '../config/types'
+import { fetchWithPolicy, HttpError } from './fetchPolicy'
 import { DEG2RAD, RAD2DEG, TILE_SIZE } from './math'
+import { TileDeferred } from './TileQueue'
 
 /** Ré-export : `math` en est la source (cf. `metersPerPixelAtZoom`). */
 export { TILE_SIZE }
@@ -103,33 +105,46 @@ export class GoogleTileSource {
      * donc la cadence, sans jamais rendre l'échec définitif.
      */
     if (Date.now() < this.retryAt) {
-      return Promise.reject(new Error('Google createSession: nouvelle tentative différée'))
+      // Différé, pas échoué : la file replanifie la tuile à `retryAt` sans lui compter un
+      // essai. Un rejet ordinaire lui en brûlait trois en quelques secondes.
+      return Promise.reject(new TileDeferred(this.retryAt))
     }
+
     this.pendingTraffic = traffic
     const p = (async () => {
       const cfg = this.cfg
       const language = resolveLocale(cfg.language)
       const region = resolveRegion(cfg.region)
-      const res = await fetch(`${cfg.sessionUrl}?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mapType: cfg.mapType,
-          // Omis plutôt qu'envoyés vides : sans `region`, Google déduit du contexte
-          // d'appel, ce qui vaut mieux qu'un biais choisi à la place de l'hôte.
-          ...(language ? { language } : {}),
-          ...(region ? { region } : {}),
-          ...(traffic && cfg.layerTypes.length ? { layerTypes: [...cfg.layerTypes] } : {}),
-        }),
-      })
-      if (!res.ok) {
+      let res: Response
+      try {
+        res = await fetchWithPolicy(
+          `${cfg.sessionUrl}?key=${encodeURIComponent(this.apiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mapType: cfg.mapType,
+              // Omis plutôt qu'envoyés vides : sans `region`, Google déduit du contexte
+              // d'appel, ce qui vaut mieux qu'un biais choisi à la place de l'hôte.
+              ...(language ? { language } : {}),
+              ...(region ? { region } : {}),
+              ...(traffic && cfg.layerTypes.length ? { layerTypes: [...cfg.layerTypes] } : {}),
+            }),
+          },
+          cfg.fetch,
+          undefined,
+          'Google createSession',
+        )
+      } catch (err) {
         // Refus d'identité (clé absente, invalide, API non activée, quota épuisé) :
-        // réessayer dans la seconde ne sert à rien. Le reste (5xx, réseau) est
+        // réessayer dans la seconde ne sert à rien. Le reste (5xx, réseau, délai) est
         // présumé transitoire et reprend vite.
-        this.retryAt = Date.now() + (AUTH_STATUS.has(res.status) ? cfg.backoffAuthMs : cfg.backoffTransientMs)
-        throw new Error(`Google createSession ${res.status}`)
+        const auth = err instanceof HttpError && AUTH_STATUS.has(err.status)
+        this.retryAt = Date.now() + (auth ? cfg.backoffAuthMs : cfg.backoffTransientMs)
+        throw err
       }
       const body = (await res.json()) as { session: string }
+
       this.retryAt = 0
       this.session = body.session
       // Après le succès SEULEMENT : un échec laisserait sinon l'objet prétendre
@@ -158,9 +173,9 @@ export class GoogleTileSource {
   /** URL d'une tuile (session doit être établie). */
   tileUrl(z: number, x: number, y: number): string {
     const base = this.cfg.tileUrl.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
-    if (this.signsItself) {
-      return base.replace('{session}', this.session ?? '').replace('{key}', this.apiKey)
-    }
-    return `${base}?session=${this.session}&key=${this.apiKey}`
+    const session = encodeURIComponent(this.session ?? '')
+    const key = encodeURIComponent(this.apiKey)
+    if (this.signsItself) return base.replace('{session}', session).replace('{key}', key)
+    return `${base}?session=${session}&key=${key}`
   }
 }

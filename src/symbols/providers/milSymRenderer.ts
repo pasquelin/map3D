@@ -7,9 +7,10 @@ import { milSymSidc } from './milSymCatalog'
 /**
  * Mécanique de rendu MIL-STD-2525D adossée au SDK officiel `@armyc2.c5isr.renderer`.
  *
- * Le SDK pèse ~9 Mo : il est chargé par **import dynamique**, donc dans un chunk
- * séparé qui ne part qu'à la première carte qui l'utilise — un consommateur de
- * map3d qui n'affiche pas de symboles ne le télécharge jamais. Les données du
+ * Le SDK pèse ~9 Mo : il reste une DÉPENDANCE du paquet (externalisée du build, jamais
+ * dans dist/) chargée par **import dynamique** à la première carte qui l'utilise — un
+ * consommateur de map3d qui n'affiche pas de symboles ne le télécharge jamais. Les données du
+
  * catalogue (SIDC, libellés) vivent dans `milSymCatalog.ts`, sans dépendance au SDK.
  */
 
@@ -21,10 +22,18 @@ type MilSymModule = typeof import('@armyc2.c5isr.renderer/mil-sym-ts-web')
 let modulePromise: Promise<MilSymModule> | null = null
 
 function loadMilSym(): Promise<MilSymModule> {
-  modulePromise ??= import('@armyc2.c5isr.renderer/mil-sym-ts-web').then(async (mod) => {
-    if (!mod.isReady()) await mod.initialize()
-    return mod
-  })
+  if (!modulePromise) {
+    const p = import('@armyc2.c5isr.renderer/mil-sym-ts-web').then(async (mod) => {
+      if (!mod.isReady()) await mod.initialize()
+      return mod
+    })
+    // Un REJET n'est pas mémoïsé : un chunk de 9 Mo qui échoue au premier essai (réseau
+    // coupé) condamnait sinon les symboles jusqu'au rechargement de la page.
+    p.catch(() => {
+      if (modulePromise === p) modulePromise = null
+    })
+    modulePromise = p
+  }
   return modulePromise
 }
 

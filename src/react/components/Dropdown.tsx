@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { useMapContext, useToolbar } from '../context'
+import { isActiveMap } from '../activeMap'
 import { useAnchoredPortal } from './panelFit'
 import { plainKey } from './shortcuts'
 import { ToolButton, type BarTip } from './ToolButton'
@@ -25,16 +26,18 @@ import { useCloseWhenHidden, useDismiss } from './useDismiss'
  * l'ouverture focalise (autoFocus synchrone).
  */
 export function useToggleShortcut(shortcut: string | false | undefined, toggleRef: RefObject<() => void>) {
+  const { engine } = useMapContext()
   useEffect(() => {
     if (!shortcut) return
     const onKey = (e: KeyboardEvent) => {
-      if (plainKey(e) !== shortcut) return
+      // Écouteur `window` : avec deux cartes, seule l'active ouvre son panneau.
+      if (plainKey(e) !== shortcut || !isActiveMap(engine)) return
       e.preventDefault()
       toggleRef.current()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [shortcut, toggleRef])
+  }, [shortcut, toggleRef, engine])
 }
 
 /**

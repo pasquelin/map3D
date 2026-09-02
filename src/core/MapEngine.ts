@@ -24,7 +24,9 @@ import { boundsOfCircle, boundsOfLatLngs } from './bounds'
 import type { CaptureOptions } from './capture'
 import { Camera, type CameraState } from './Camera'
 import { HEADING_EPSILON, projectViewForward, tiltFromNadir } from './enu'
+import { disposeObject3D } from './geometry'
 import { GroundedState } from './GroundedState'
+
 import { PedestrianController, type PedestrianPose } from './PedestrianController'
 import { isGroundPlacement } from './pedestrianPlacement'
 import {
@@ -61,7 +63,9 @@ import { Watermark } from './Watermark'
 import { IntroFlight } from './IntroFlight'
 import { DragRegistry } from './DragRegistry'
 import { NavKeys } from './NavKeys'
+import type { PointerInterceptor } from './pointer'
 import { Projection } from './Projection'
+
 import { SelectableRegistry } from './Selectables'
 import { ErasableRegistry } from './Erasables'
 import { CatalogRegistry } from '../catalog/registry'
@@ -73,9 +77,7 @@ import type { ViewStats } from './viewStats'
 import { MarkerRegistry } from './MarkerQuery'
 import { TagFilter } from './TagFilter'
 
-export type PointerPhase = 'down' | 'move' | 'up'
-/** Intercepteur d'entrée (outils de dessin) : renvoie true pour consommer. */
-export type PointerInterceptor = (phase: PointerPhase, latLng: LatLng | null, event: PointerEvent) => boolean
+export type { PointerInterceptor, PointerPhase } from './pointer'
 
 // Le domaine du fond de carte (mode + capacités) vit dans `./basemap`, avec sa table de
 // vérité en fonction pure. Ré-exporté ici : c'est de `MapEngine` que les consommateurs
@@ -97,7 +99,13 @@ export type MapEngineOptions = {
    */
   oceanColor: string
   /**
+   * Terres émergées du globe de repli (`theme.globe.landColor`) : la teinte de son graticule,
+   * seul relief que ce globe sans tuiles ait à montrer. Était un littéral.
+   */
+  landColor?: string
+  /**
    * Couleur du voile de distance en mode piéton (`theme.globe.hazeColor`). Lue au montage,
+
    * comme `oceanColor` — voir `applyPedestrianView` pour ce qu'elle corrige.
    */
   hazeColor?: string
@@ -457,6 +465,14 @@ export class MapEngine {
 
   inputInterceptor: PointerInterceptor | null = null
 
+  /**
+   * Rect du canvas, mémoïsé pour la frame. `getBoundingClientRect` force une mise en page,
+   * et les picks du pointeur (dessin, survol de bâtiment, loupe) le demandaient à chaque
+   * `pointermove` — entre les écritures DOM de `project()` : le cas d'école du layout
+   * thrashing, en plein geste. Invalidé en tête de tick et à chaque redimensionnement.
+   */
+  private canvasRect: DOMRect | null = null
+
   /** Clé Google exposée aux composants qui la réutilisent (ex. SearchBox → Places). */
   readonly googleMapsApiKey?: string
 
@@ -481,6 +497,43 @@ export class MapEngine {
   private interactiveMode: InteractiveMode = true
   private fallback: THREE.Object3D | null = null
   private size = { width: 1, height: 1 }
+
+  /** État caméra et `dt` de la frame en cours, lus par `frameCtx`. */
+  private frameState: CameraState = { lat: 0, lng: 0, altitude: 0, heading: 0, tilt: 0 }
+  private frameDt = 0
+  /**
+   * Contexte passé aux couches — UN objet pour la vie du moteur, lu par accesseurs : le
+   * littéral par frame était la dernière allocation systématique de la boucle. `view`
+   * (grille de 25 raycasts) reste paresseux : seul l'event `viewport` et `getView` le forcent.
+   */
+  private readonly frameCtx: FrameContext = (() => {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const engine = this
+    return {
+      get camera() {
+        return engine.threeCamera
+      },
+      get cameraState() {
+        return engine.frameState
+      },
+      get projection() {
+        return engine.projection
+      },
+      get view() {
+        return engine.computeView(engine.frameState)
+      },
+      get size() {
+        return engine.size
+      },
+      get dt() {
+        return engine.frameDt
+      },
+      get invalidate() {
+        return engine.invalidate
+      },
+    }
+  })()
+
   private raf = 0
   private running = false
   private lastTime = 0
@@ -717,7 +770,17 @@ export class MapEngine {
     // à recalculer, ce que la descente propage ensuite à TOUT le sous-arbre — soit une
     // matrice monde recomposée par marker et par frame, quand bien même aucun n'a bougé.
     this.labelScene.matrixAutoUpdate = false
+    /**
+     * Même règle pour la scène WebGL : une `Scene` est un `Object3D` en `matrixAutoUpdate`,
+     * dont chaque rendu recomposait la matrice, levait `matrixWorldNeedsUpdate` et propageait
+     * `force` à TOUTE la descendance — jusqu'à 700 tuiles raster, 80 tuiles de volume et
+     * chaque groupe ENU recalculaient leur matrice monde à chaque frame peinte, `matrixAutoUpdate`
+     * coupé ou non. Racine et groupes conteneurs immobiles : seuls les objets qui bougent
+     * vraiment (ciel, étoiles, têtes de tracé) gardent l'auto-update.
+     */
+    this.scene.matrixAutoUpdate = false
     this.annotations.name = 'm3d-annotations'
+    this.annotations.matrixAutoUpdate = false
     this.scene.add(this.annotations)
 
     this.projection.setContext(this.tiles.ellipsoid, this.tiles.group)
@@ -787,7 +850,8 @@ export class MapEngine {
     this.canvas.parentElement?.appendChild(labelDom)
 
     if (opts.fallbackGlobe && !hasCustomTiles) {
-      this.fallback = this.buildFallbackGlobe(opts.oceanColor)
+      this.fallback = this.buildFallbackGlobe(opts.oceanColor, opts.landColor ?? defaultTheme.globe.landColor)
+
       this.tiles.group.add(this.fallback)
     }
 
@@ -968,6 +1032,8 @@ export class MapEngine {
     const w = width > 1 ? width : 1
     const h = height > 1 ? height : 1
     this.size = { width: w, height: h }
+    this.canvasRect = null
+
     // updateStyle=true : three fixe canvas.style.width/height en px CSS (= taille du
     // conteneur), le backing store restant à ×DPR. SANS ça, le canvas (élément
     // remplacé) garde sa largeur intrinsèque (attribut = ×DPR) → affiché 2× trop
@@ -986,6 +1052,11 @@ export class MapEngine {
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
     // La taille du viewport change les bounds : invalide la vue mémoïsée.
     this.viewDirty = true
+    // Le tampon vient d'être vidé par le redimensionnement : on le repeint AVANT que le
+    // navigateur ne compose, sans quoi la carte disparaît le temps d'une frame (cf.
+    // `repaintNow`). `invalidate()` ci-dessus reste nécessaire : les couches n'ont pas
+    // rejoué leurs passes avec la nouvelle taille, seuls leurs overlays DOM attendent.
+    this.repaintNow()
   }
 
   addLayer(layer: Layer): void {
@@ -2304,6 +2375,9 @@ export class MapEngine {
   private dirtyFrames = 1
   /** Date de la dernière frame réellement peinte — origine du filet `maxIdleMs`. */
   private paintedAt = 0
+  /** Dans la boucle de frame : `repaintNow` s'abstient, le rendu de fin de frame vient. */
+  private inTick = false
+
   /** Pose de la caméra à la dernière frame — détecteur de mouvement du rendu à la demande. */
   private readonly lastCamMatrix = new THREE.Matrix4()
   /** Désabonnement du repaint sur le filtre de tags (cf. constructeur). */
@@ -2359,7 +2433,7 @@ export class MapEngine {
    * redemander ici réallouait le tampon de rendu deux fois par palier.
    *
    * ⚠️ Écrire `canvas.width/height` VIDE le tampon de rendu : tout appelant doit repeindre
-   * dans la foulée, sinon le navigateur compose un canvas noir. D'où `invalidate()` ici —
+   * dans la foulée, sinon le navigateur compose un canvas vide. D'où `invalidate()` ici (frame
    * qui garantit la peinture, mais à la frame SUIVANTE : un appel en cours de `tick` doit
    * en plus se placer avant les passes de rendu (cf. son site d'appel dans `tick`).
    */
@@ -2369,6 +2443,10 @@ export class MapEngine {
     // La résolution entre dans le calcul d'erreur d'écran des tuiles : sans ça, le LOD
     // continuerait de viser la finesse de l'ancienne définition.
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
+    // Appelé hors boucle (`setConfig` change `pixelRatio`) : même vidage de tampon qu'un
+    // redimensionnement, donc même parade. Dans la boucle, `repaintNow` s'abstient — le
+    // rendu de fin de frame suit de toute façon.
+    this.repaintNow()
   }
 
   /**
@@ -2496,12 +2574,48 @@ export class MapEngine {
     return this.basemap2d.busy || this.buildings.busy
   }
 
+  /**
+   * Une frame de la boucle. Le drapeau `inTick` dit à `repaintNow` que le rendu de fin de
+   * frame vient, et qu'il n'a donc rien à peindre de son côté.
+   */
   private tick(now: number): void {
+    this.inTick = true
+    try {
+      this.frame(now)
+    } finally {
+      this.inTick = false
+    }
+  }
+
+  /**
+   * Repeint IMMÉDIATEMENT, dans le tour de boucle courant.
+   *
+   * Redimensionner le tampon de rendu — `renderer.setSize`, `setPixelRatio` — écrit
+   * `canvas.width/height`, ce qui le VIDE. Attendre la frame suivante laisse alors le
+   * compositeur afficher un canvas transparent : le `ResizeObserver` appelant `setSize` hors
+   * de la boucle, un redimensionnement de fenêtre vidait le tampon à CHAQUE frame du geste
+   * (mesuré : 40 vidages, 0 repeint avant composition) — d'où le clignotement. Peindre ici
+   * ferme le trou, puisque la phase `ResizeObserver` précède encore la composition.
+   *
+   * Sans effet dans la boucle (`inTick`) : le rendu de fin de frame s'en charge déjà.
+   */
+  private repaintNow(): void {
+    if (!this.running || this.disposed || this.inTick) return
+    this.renderFrame(this.camera.getState())
+    // La frame de filet (`maxIdleMs`) se compte depuis la dernière image RÉELLEMENT peinte.
+    this.paintedAt = performance.now()
+  }
+
+  private frame(now: number): void {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000)
+
     this.lastTime = now
     this.totalFrames++
+    // Le rect du canvas vaut pour toute la frame (cf. `canvasRect`).
+    this.canvasRect = null
 
-    const controlling = this.camera.update()
+    const controlling = this.camera.update(dt)
+
     // En dessin : neutralise pan/rotation avant l'update (le zoom molette passe).
     // Suspendu (barre espace) : la caméra reprend la main sans quitter l'outil.
     if (this.drawingMode && !this.drawingSuspended) this.freezeControlsPanRotate()
@@ -2701,20 +2815,11 @@ export class MapEngine {
     // Alias nécessaire : `this` dans le getter ci-dessous désignerait `ctx`, pas le
     // moteur. Une flèche ne peut pas être un getter, et lier la méthode calculerait
     // la vue à chaque frame — ce que ce getter paresseux existe justement pour éviter.
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const engine = this
-    const ctx: FrameContext = {
-      camera: this.threeCamera,
-      cameraState: state,
-      projection: this.projection,
-      get view() {
-        return engine.computeView(state)
-      },
-      size: this.size,
-      dt,
-      invalidate: this.invalidate,
-    }
+    this.frameState = state
+    this.frameDt = dt
+    const ctx = this.frameCtx
     for (const layer of this.layers) layer.update(ctx)
+
     /**
      * Charnière entre la passe de LECTURE et la passe d'ÉCRITURE : `update` vient de poser
      * les positions locales des overlays, `project` va lire leurs matrices monde, et le
@@ -3075,7 +3180,7 @@ export class MapEngine {
     }
   }
 
-  private buildFallbackGlobe(oceanColor: string): THREE.Group {
+  private buildFallbackGlobe(oceanColor: string, landColor: string): THREE.Group {
     const group = new THREE.Group()
     const r = this.tiles.ellipsoid.radius
     const geo = new THREE.SphereGeometry(1, 96, 64)
@@ -3085,7 +3190,8 @@ export class MapEngine {
     group.add(new THREE.Mesh(geo, mat))
 
     // Graticule pour percevoir la rotation du globe.
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x5b7aa5, transparent: true, opacity: 0.4 })
+    const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(landColor), transparent: true, opacity: 0.4 })
+
     const pts: THREE.Vector3[] = []
     const push = (lat: number, lon: number) => {
       const v = new THREE.Vector3()
@@ -3293,7 +3399,8 @@ export class MapEngine {
    * pas se figer parce que le pointeur a débordé.
    */
   pickLatLngAtClient(clientX: number, clientY: number, fallbackToEllipsoid = false): LatLng | null {
-    const rect = this.canvas.getBoundingClientRect()
+    const rect = this.clientRect()
+
     const x = clientX - rect.left
     const y = clientY - rect.top
     const hit = this.projection.pickLatLng(x, y, this.threeCamera)
@@ -3305,6 +3412,11 @@ export class MapEngine {
     return this.pickLatLngAtClient(e.clientX, e.clientY)
   }
 
+  /** Rect du canvas, mémoïsé par frame (cf. `canvasRect`). */
+  private clientRect(): DOMRect {
+    return (this.canvasRect ??= this.canvas.getBoundingClientRect())
+  }
+
   /**
    * Bâtiment sous le pointeur — brut : sa référence et le point d'impact en repère MONDE.
    *
@@ -3312,7 +3424,8 @@ export class MapEngine {
    * que de la référence. C'est `buildingHitOf` qui convertit, au clic seulement.
    */
   private pickBuildingAt(e: PointerEvent): BuildingPickResult | null {
-    const rect = this.canvas.getBoundingClientRect()
+    const rect = this.clientRect()
+
     this.pickNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
     return this.buildings.pick(this.pickNdc, this.threeCamera)
   }
@@ -3409,7 +3522,11 @@ export class MapEngine {
   dispose(): void {
     this.disposed = true
     this.stop()
+    // Démonté en marche ou en placement : le Pointer Lock, les classes du conteneur et le
+    // plein écran ne se relâchaient pas d'eux-mêmes.
+    if (this.cameraMode === 'pedestrian') this.exitPedestrian()
     this.canvas.style.cursor = ''
+
     this.unbindInput()
     this.unbindTagPaint()
     for (const layer of this.layers) layer.dispose()
@@ -3418,7 +3535,13 @@ export class MapEngine {
     this.buildings.dispose()
     this.scene.remove(this.internalSurface)
     this.controls.dispose()
+    // `TilesRenderer.dispose` ne libère pas les enfants étrangers de son groupe : la sphère
+    // de repli (12 k sommets) et son graticule fuitaient à chaque démontage sans token.
+    if (this.fallback) disposeObject3D(this.fallback)
+    this.fallback = null
+    this.fallbackGraticule = null
     this.tiles.dispose()
+
     this.renderer.dispose()
     this.sky.dispose()
     this.watermark.dispose()
@@ -3427,5 +3550,6 @@ export class MapEngine {
     this.templates.dispose()
     this.canvas.parentElement?.removeEventListener('wheel', this.forwardWheel)
     this.labelRenderer.domElement.remove()
+    for (const set of Object.values(this.listeners)) set.clear()
   }
 }

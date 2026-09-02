@@ -132,18 +132,35 @@ export function useTemplates(opts: UseTemplatesOptions = {}): TemplatesView {
     providerRef.current?.setConfig?.(cfg)
   }, [cfg])
 
+  /**
+   * Requête de liste en vol. Une nouvelle la remplace, le démontage la coupe : sans
+   * cela, StrictMode lançait deux `list()` au montage et la première réponse — arrivée
+   * après le démontage de l'arbre de répétition — écrivait dans le registre hors de
+   * tout composant ; et une réponse lente pouvait écraser une liste plus récente.
+   */
+  const listCtlRef = useRef<AbortController | null>(null)
   const refresh = useCallback(async () => {
     const provider = providerRef.current
     if (!provider) return
+    listCtlRef.current?.abort()
+    const ctl = new AbortController()
+    listCtlRef.current = ctl
     setBusy(true)
     try {
-      const remote = await provider.list()
+      const remote = await provider.list(ctl.signal)
+      if (ctl.signal.aborted) return
       // La liste distante fait foi : elle écrase la vue (templates marqués `api`).
       reg.setAll(remote.map((t) => ({ ...t, origin: 'api' })))
+    } catch (e) {
+      // Coupée par nous : ce n'est pas une erreur, et il n'y a rien à écrire.
+      if (ctl.signal.aborted) return
+      throw e
     } finally {
-      setBusy(false)
+      // Une requête remplacée ne doit pas éteindre l'indicateur de celle qui la suit.
+      if (!ctl.signal.aborted) setBusy(false)
     }
   }, [reg])
+  useEffect(() => () => listCtlRef.current?.abort(), [])
 
   // Synchro initiale : dès qu'un provider est présent, sa liste prend la main sur le
   // localStorage (des templates d'autres utilisateurs ont pu être publiés).

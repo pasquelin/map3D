@@ -166,14 +166,15 @@ export class ShapeLayer extends DrapedLayer<ShapeData> {
    * précisément ce que la forme drapée masquait, puisqu'elle se dessine par-dessus
    * tout sans test de profondeur.
    *
-   * Le sol est échantillonné sur le contour (au plus `GROUND_SAMPLES` points, un
+   * Le sol est échantillonné sur le contour (au plus `performance.shapeGroundSamples` points, un
    * raycast chacun — au build seulement, jamais par frame), et le bas descend
    * encore de `BASE_SINK` pour rester enterré entre deux échantillons. Un terrain
    * inconnu (tuiles absentes) ramène simplement au plan de l'ancre : le drape sera
    * reconstruit quand les hauteurs se résoudront.
    */
   private extrudeBaseY(points: readonly Pt[], frame: EnuFrame, anchorHeight: number): number {
-    const step = Math.max(1, Math.floor(points.length / ShapeLayer.GROUND_SAMPLES))
+    const step = Math.max(1, Math.floor(points.length / this.config.performance.shapeGroundSamples))
+
     let lowest: number | null = null
     for (let i = 0; i < points.length; i += step) {
       const g = this.projection.resolveAnchorHeight(frame.toLatLng(points[i]!))
@@ -183,9 +184,8 @@ export class ShapeLayer extends DrapedLayer<ShapeData> {
     return Math.min(0, lowest - anchorHeight) - ShapeLayer.BASE_SINK
   }
 
-  /** Points de contour échantillonnés pour trouver le sol le plus bas sous un volume. */
-  private static readonly GROUND_SAMPLES = 16
   /** Enfouissement du bas d'un volume sous le sol le plus bas mesuré (m). */
+
   private static readonly BASE_SINK = 8
 
   protected buildDrape(shape: ShapeData, height: number | null): Drape<ShapeData> | null {

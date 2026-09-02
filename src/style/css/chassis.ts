@@ -39,7 +39,7 @@ export const CSS_CHASSIS = `
    Position écrite par useAnchoredPortal : plus de left:calc(100%+gap) ni de top, qui
    supposaient un parent-ancre. Les variantes ne gardent que largeur et padding. */
 .m3d-dropdown{position:absolute;top:0;left:0;z-index:var(--m3d-z-ui,999);
-  animation:m3d-menu-in var(--m3d-menu-dur,200ms) cubic-bezier(.32,1.3,.5,1) backwards}
+  animation:m3d-menu-in var(--m3d-menu-dur,200ms) var(--m3d-menu-ease,cubic-bezier(.32,1.3,.5,1)) backwards}
 
 /* Barres : toute la géométrie est proportionnelle à --m3d-bar-scale, que
    useFitColumns réduit quand la carte est trop courte (puis passe en colonnes).

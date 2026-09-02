@@ -206,6 +206,23 @@ if (canEnterMode(basemap, '3d')) {
 }
 ```
 
+La table entière est exportée elle aussi : `deriveBasemapCapabilities(mode, support, traffic)`
+rend le `BasemapState` complet à partir d'un `BasemapSupport` — ce que le moteur sait de ses
+sources au moment de publier : `hasBasemap2d`, `sourceSupportsTraffic`, `canBorrowTraffic`,
+`provider3d`, `has3dTileset`, `hasRelief`, `hasBuildings`. Pure, sans moteur ni WebGL, c'est
+elle que `MapEngine` applique à chaque changement de config ou de mode ; elle se teste telle
+quelle pour vérifier ce qu'une configuration donnée proposera à l'écran.
+
+```ts
+import { deriveBasemapCapabilities, type BasemapSupport } from '@pasquelin/map3d'
+
+const support: BasemapSupport = {
+  hasBasemap2d: true, sourceSupportsTraffic: false, canBorrowTraffic: true,
+  provider3d: 'internal', has3dTileset: false, hasRelief: true, hasBuildings: true,
+}
+deriveBasemapCapabilities('plan', support, true).trafficAvailable   // true — par emprunt
+```
+
 ## 5. Le volume interne — bâtiments extrudés
 
 `providers.tiles3d.provider` décide d'où vient le volume, **indépendamment du fond 2D** :
@@ -369,6 +386,16 @@ export type TileSource = {
 
 `createTileSource(cfg, origin, apiKey?)` rend la source correspondant à `cfg.provider`, ou
 `null` quand le fournisseur n'a rien pour servir.
+
+Les deux sources livrées sont exportées, pour être instanciées à la main — tests, source
+composite qui délègue à l'une d'elles :
+
+| Classe | Constructeur | Ce qu'elle fait |
+|---|---|---|
+| `GoogleTileSource` | `new GoogleTileSource(apiKey, cfg?)` | session `createSession` (re)créée à la demande et réutilisée tant que sa signature (type de fond, trafic) ne change pas ; `supportsTraffic = true` |
+| `InternalTileSource` | `new InternalTileSource(cfg?, origin?)` | URLs XYZ sans session ni clé : le gabarit `internalTileUrl` est résolu une fois par `setConfig`, pas par tuile ; `supportsTraffic = false` |
+
+`cfg` et `origin` retombent sur `defaultConfig.providers.tiles` / `.internal.origin`.
 
 ---
 

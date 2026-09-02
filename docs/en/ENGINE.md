@@ -37,6 +37,10 @@ const engine = useMap()   // or map.current?.engine
 | `markers` | marker inventory (`MarkerRegistry`) |
 | `clusters` | grouping registry (`ClusterRegistry`) — fed by the layers, consumed by `<ClusterSurface>` |
 | `selectables` | registry of marquee-selectable items |
+| `erasables` | registry of host objects the eraser may remove (`ErasableRegistry`) |
+| `counters` | diagnostics panel counters (`CounterRegistry`) |
+| `catalog` | registry of catalog sources (`CatalogRegistry`) — see [CATALOG.md](CATALOG.md) |
+| `enrichment` | enrichment orchestrator at building pick (`PluginEnrichment`) — see [PLUGINS.md](PLUGINS.md) |
 | `drag` | drag-and-drop registry (`DragRegistry`) |
 | `ready` | synchronous boolean (see [CAMERA.md § 2](CAMERA.md#2-the-map-is-ready-ready)) |
 | `interactive` | current mode (`true` \| `'view'` \| `false`) |
@@ -128,6 +132,10 @@ have nothing to switch on.
 `setMapMode('plan')` without `canPlan`, like `setTrafficVisible(true)` without
 `trafficAvailable`, are **no-ops** — a state accepted with nothing on screen is worth less
 than a clean refusal.
+
+These flags come out of an exported pure function, `deriveBasemapCapabilities(mode, support,
+traffic)`, whose `BasemapSupport` input describes what the engine knows about its sources —
+see [TILES.md § 4](TILES.md#4-what-the-ui-offers-capabilities).
 
 ---
 
@@ -324,6 +332,25 @@ type SelectableProvider = {
 Plug your own layer in to make it marquee-selectable. `itemsChanged()` signals a change
 (pruning the selection).
 
+### `ErasableRegistry` (`engine.erasables`)
+
+Mirror of `selectables` for the **eraser**, but separate: an erasable object is not thereby
+selectable, and vice versa. A host layer plugs a provider in; the `DrawLayer` queries it on
+click or when a marquee finalizes, never per frame.
+
+```ts
+type ErasableProvider = {
+  readonly kind: HostLayerKind   // 'path' | 'shape' — governed by `config.erase.targets`
+  items(): ErasableItem[]        // { id, ring: LatLng[], closed, kind } — only objects marked `erasable`
+  has(): boolean                 // answers WITHOUT building the list: decides whether the eraser is warranted
+}
+const off = engine.erasables.register(provider)
+```
+
+The library does not own these objects (they are your props): it only knows a geodesic
+ring, and the actual removal goes through your `onErase`. `all()` concatenates the objects
+of every provider; `hasAny(targets)` answers at the first hit, allocating nothing.
+
 ### `CounterRegistry` (`engine.counters`)
 
 What the view **actually holds**, for the diagnostics panel (`<StatsPanel>`). A layer registers and declares its elements; the panel aggregates.
@@ -340,6 +367,8 @@ const off = engine.counters.register({
 `stats(bounds)` receives the view bounds and is only called at the panel's refresh rate (`performance.readoutRefreshMs`), **and only while it is open** — that is where the scan is paid for, never in a frame pass.
 
 `engine.viewStats(out)` returns the full snapshot (content, render, tiles), writing into `out` so it can be reused between calls.
+
+`statLevel(value, threshold)` is the verdict (`'ok' | 'warn' | 'bad'`) the panel applies to each metric from `performance.statThresholds` — exported for a custom panel colouring its own cells. The direction is inferred from the order of the two bounds (`ok < warn`: small is good, like triangles; `ok > warn`: large is good, like fps), and a non-finite value yields `'ok'` — a metric that cannot be measured yet is not an alert, and painting it red would teach the reader to ignore red.
 
 ### `DragRegistry` (`engine.drag`)
 
@@ -406,6 +435,8 @@ nothing.
 | `boundsContains(bounds, p)` | containment test against a geographic box |
 | `resolveLocale()` / `resolveRegion()` | 🌍 resolves `'auto'` into an effective locale/region |
 | `DEFAULT_STROKE_OPACITY`, `MEASURE_STROKE_OPACITY` | reference stroke opacities |
+| `VERSION` | package version, read from `package.json` at build time — for diagnostics or a host-side compatibility guard |
+| `RemoveButton` / `REMOVE_ICON_PATH` | shared "remove" button (`label`, `withText?`, `className?`, `onRemove`) — relation status bar, dock, removal hint while dragging — and its `mdiClose` icon path; so a custom removal gesture wears the same face |
 
 **On `setGeometryWarner`**: geometries with non-finite coordinates are discarded and
 reported **once per origin**. Redirect them to your application's logger, or silence
@@ -431,6 +462,9 @@ component: it runs server-side or in tests with a fake provider (no Three, no Re
 `fetch`).
 
 ---
+
+**Constructor options** (`MapEngineOptions`): among them, `landColor?: string` paints the
+landmasses of the fallback globe — under React, `<Map>` passes `theme.globe.landColor`.
 
 ## See also
 

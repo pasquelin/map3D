@@ -44,6 +44,8 @@ export const providersDefaults: ProvidersConfig = {
     tileUrl: 'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}',
     backoffAuthMs: 5 * 60_000,
     backoffTransientMs: 10_000,
+    fetch: { timeoutMs: 10_000, retries: 0, backoffMs: 0 },
+
     // ⚠️ 500 → 700 : la cascade descend jusqu'au niveau de base, ce qui ajoute un anneau
     // de `lodRing²` tuiles par cran grossier (~375 au total depuis un zoom de rue). Sous
     // l'ancien plafond, ces niveaux se faisaient évincer par les tuiles fines aussitôt
@@ -76,6 +78,11 @@ export const providersDefaults: ProvidersConfig = {
     maxRequest: 200,
     maxAttempts: 3,
     retryDelays: [1000, 4000],
+    errorTtlMs: 30_000,
+    // Deux secondes à 60 fps : bien au-delà de la cadence des mises à jour de la couche,
+    // bien en deçà d'un pan qui a changé de quartier.
+    staleFrames: 120,
+
     // Un seul niveau sur toute l'emprise (pas de boîte de détail au centre), à plat comme
     // incliné. Cascade gardée seulement en marche (piéton).
     uniformDetail: true,
@@ -233,6 +240,9 @@ export const providersDefaults: ProvidersConfig = {
     maxRequest: 49,
     maxAttempts: 3,
     retryDelays: [1000, 4000],
+    errorTtlMs: 30_000,
+    staleFrames: 120,
+
     // Vide : un attribut demandé traverse le worker pour CHAQUE emprise de CHAQUE tuile
     // (~2 300 par tuile dense). L'hôte qui en affiche un le nomme, les autres ne coûtent
     // rien — `height`, `minHeight` et l'identifiant sont là de toute façon.

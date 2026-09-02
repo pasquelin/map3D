@@ -664,11 +664,10 @@ export class Projection {
       hit = this.ellipsoid.intersectRay(ray, this.scratchLocal)
       if (!hit) return null
     }
-    const c = this.ellipsoid.getPositionToCartographic(hit, { lat: 0, lon: 0, height: 0 }) as {
-      lat: number
-      lon: number
-      height: number
-    }
+    // Cible réutilisée : `computeBounds` lance 25 picks par frame en mouvement, et chacun
+    // allouait ce triplet pour n'en lire que deux champs. Le `LatLng` rendu, lui, reste neuf :
+    // l'appelant peut le retenir (événements, bornes).
+    const c = this.ellipsoid.getPositionToCartographic(hit, this.cartoScratch)
     return { lat: c.lat * RAD2DEG, lng: c.lon * RAD2DEG }
   }
 }
