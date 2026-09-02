@@ -1,7 +1,13 @@
 import { type CSSProperties, type Ref, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { CameraState } from '../core/Camera'
 import type { ImmersionLevel } from '../core/pedestrianState'
-import { type InteractiveMode, MapEngine, type MapMode, WHEEL_SURFACE_ATTR } from '../core/MapEngine'
+import {
+  type InteractiveMode,
+  MapEngine,
+  type MapEngineOptions,
+  type MapMode,
+  WHEEL_SURFACE_ATTR,
+} from '../core/MapEngine'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { Viewport } from '../data/types'
 import type { LatLng } from '../shared'
@@ -212,12 +218,16 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
     if (posKey && props.resetStoredPosition) removeStoredKey(posKey)
     const stored = posKey && !props.resetStoredPosition ? readStoredPosition(posKey) : null
 
-    const eng = new MapEngine({
+    // ⚠️ TRANSITOIRE : `landColor` rejoint `MapEngineOptions` par une autre branche (cœur,
+    // graticule du globe de repli — `theme.globe.landColor` n'était jamais lu). Objet
+    // élargi pour compiler seul ; à la fusion, repasser le littéral au constructeur.
+    const options: MapEngineOptions & { landColor?: string } = {
       canvas,
       center: props.center,
       zoom: props.zoom,
       background: theme.colors.background,
       oceanColor: theme.globe.oceanColor,
+      landColor: theme.globe.landColor,
       hazeColor: theme.globe.hazeColor,
       // ⚠️ Ces quatre-là n'étaient PAS transmises : le moteur retombait donc toujours sur
       // `defaultTheme`, et un hôte qui changeait la couleur de ses bâtiments ne voyait
@@ -241,7 +251,8 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       pluginStorageKey: props.pluginStorageKey,
       config: configRef.current,
       fov: config.camera.fov,
-    })
+    }
+    const eng = new MapEngine(options)
     applyAnimations(eng, theme.animations)
     // Appliqué AVANT `start()` : une carte montée figée ne doit pas être navigable,
     // même une frame (l'effet de synchro plus bas ne tourne qu'après le rendu).

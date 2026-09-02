@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { ViewportController } from '../../data/ViewportController'
+import { ViewportController, type ViewportControllerOptions } from '../../data/ViewportController'
 import type { DataSource } from '../../data/types'
 import { useConfig, useMap } from '../context'
 
 export type UseLiveDataOptions = {
   /** Anti-rebond du chargement (ms). Défaut `data.viewportDebounceMs`. */
   debounce?: number
+  /**
+   * Échec de `source.load` (hors abandon par une vue plus récente). Sans lui, l'erreur
+   * reste dans le contrôleur et l'hôte n'a aucun moyen d'afficher un bandeau.
+   */
+  onError?: (error: unknown) => void
 }
 
 /**
@@ -29,9 +34,19 @@ export function useLiveData<T>(
   // muet à jamais (`push` sort tant que `source` est nulle), sans la moindre erreur.
   const sourceRef = useRef(source)
   sourceRef.current = source
+  // Latest ref : un handler redéfini à chaque render de l'hôte ne doit pas reconstruire
+  // le contrôleur (et relancer un chargement).
+  const onErrorRef = useRef(opts.onError)
+  onErrorRef.current = opts.onError
 
   useEffect(() => {
-    const controller = new ViewportController<T>({ debounce: opts.debounce ?? viewportDebounceMs }, setData, setLoading)
+    // ⚠️ TRANSITOIRE : `onError` rejoint `ViewportControllerOptions` par une autre branche
+    // (cœur). Objet élargi pour compiler seul ; à la fusion, repasser le littéral.
+    const options: ViewportControllerOptions & { onError?: (error: unknown) => void } = {
+      debounce: opts.debounce ?? viewportDebounceMs,
+      onError: (error) => onErrorRef.current?.(error),
+    }
+    const controller = new ViewportController<T>(options, setData, setLoading)
     controllerRef.current = controller
     controller.setSource(sourceRef.current ?? null)
     // Amorce avec la vue courante.
