@@ -185,7 +185,7 @@ Drawing tools and symbols.
 | `onShapeEdit` | Double-click on a shape: intent to open a sheet — nothing has changed. | — |
 | `constraints` | Business rules for **user** drawing: allowed perimeters, maximum area. Programmatic mutations are not subject to them. | — |
 | `onReject` | Shape refused — wire it to your toast (the library displays nothing itself). | — |
-| `symbols` | The bar's **Symbols** tool: enabled by default with the MIL-STD-2525D catalogue and its renderer (SDK loaded through a dynamic import when the palette is first opened). `enabled: false` removes the tool; `catalog`/`renderer` replace the bundled symbology with yours; `cluster` and `minZoom` are passed to [`<SymbolMarkers>`](#symbolmarkers); `defaultVariant` picks the variant placed by default (default: first key of `catalog.variantColors`, `friendly` for MIL-STD; a catalogue without variants no longer passes a `variant` to the renderer). <!-- audit: à vérifier à la fusion (React) --> Texts (button, categories, affiliations) do NOT go through here: they live in `labels.symbols`. | — |
+| `symbols` | The bar's **Symbols** tool: enabled by default with the MIL-STD-2525D catalogue and its renderer (SDK loaded through a dynamic import when the palette is first opened). `enabled: false` removes the tool; `catalog`/`renderer` replace the bundled symbology with yours; `cluster` and `minZoom` are passed to [`<SymbolMarkers>`](#symbolmarkers); `defaultVariant` picks the variant placed by default (default: first key of `catalog.variantColors`, `friendly` for MIL-STD; a catalogue without variants no longer passes a `variant` to the renderer). Texts (button, categories, affiliations) do NOT go through here: they live in `labels.symbols`. | — |
 | `markerMenu` | Context menu of placed symbols — **strict parity with markers**. Receives the `<Map markerMenu>` menu **already bound to relations** by the surface (like data markers, the lens and the selection panel), so that a symbol opens the same menu as a marker on click. The library prepends “Delete” by default. Wired by `<Map>`; an application mounting `<DrawLayer>` by hand provides an already-bound menu here. | `<Map markerMenu>` |
 | `children` | Mounted inside the drawing context — place the bar and panels there. | — |
 
@@ -230,7 +230,7 @@ in the drawing collection (undo/redo history, GeoJSON, per-shape events). Mounte
 
 ## `<RelationLayer>`
 
-The visual defaults of the props below come from `theme.relations` (see [THEME.md](THEME.md#relations--relation-link-defaults)); the initial zoom step is read from the camera on mount, no longer a hard-coded `14`. <!-- audit: à vérifier à la fusion (React) -->
+The visual defaults of the props below come from `theme.relations` (see [THEME.md](THEME.md#relations--relation-link-defaults)); the initial zoom step is read from the camera on mount, no longer a hard-coded `14`.
 
 Routed links between markers. 💰
 

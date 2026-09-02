@@ -465,7 +465,7 @@ Three, ni React, ni `fetch`).
 ---
 
 **Options du constructeur** (`MapEngineOptions`) : parmi elles, `landColor?: string` peint les
-terres du globe de repli — sous React, `<Map>` y passe `theme.globe.landColor`. <!-- audit: à vérifier à la fusion (cœur) -->
+terres du globe de repli — sous React, `<Map>` y passe `theme.globe.landColor`.
 
 ## Voir aussi
 

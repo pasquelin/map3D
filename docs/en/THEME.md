@@ -27,196 +27,196 @@ Generated from `src/theme/defaultTheme.ts` and `src/theme/types.ts`.
 
 ## `colorScheme` — Default mode
 
-| Key           | Description                                                           | Default  |
+| Key | Description | Default |
 | ------------- | --------------------------------------------------------------------- | -------- |
 | `colorScheme` | The theme's default mode (a `{light, dark}` pair makes it automatic). | `'dark'` |
 
 ## `colors` — Palette
 
-| Key                                | Description                                                                                                                                                                                                                                                                                                                                                                       | Default                                                              |
+| Key | Description | Default |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `colors.background`                | Canvas background, visible before tiles load.                                                                                                                                                                                                                                                                                                                                     | `'#0d1415'`                                                          |
-| `colors.marker.default.base`       | Colour per marker type (e.g. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                | `'#2E7CF6'`                                                          |
-| `colors.marker.default.accent`     | Colour per marker type (e.g. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                | `'#78BEFF'`                                                          |
-| `colors.marker.default.contrast`   | Colour per marker type (e.g. 'alert-critical', 'agent-available').                                                                                                                                                                                                                                                                                                                | `'#ffffff'`                                                          |
-| `colors.tags`                      | Per-tag colour ("Layers" panel), key = tag name. A tag absent from this object falls back to the library's hashed palette. Optional.                                                                                                                                                                                                                                              | `{}`                                                                 |
-| `colors.tagPalette`                | **Optional.** Fallback palette for tags with no colour declared in `colors.tags`: a stable hash of the tag name picks one — the same tag keeps the same colour across sessions. Absent, the library's 12 colours. <!-- audit: à vérifier à la fusion (cœur) --> | `['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899']` |
-| `colors.cluster.core`              | Donut core.                                                                                                                                                                                                                                                                                                                                                                       | `'#1e293b'`                                                          |
-| `colors.cluster.text`              | Total displayed in the centre.                                                                                                                                                                                                                                                                                                                                                    | `'#ffffff'`                                                          |
-| `colors.cluster.ring`              | Separating ring between core and slices.                                                                                                                                                                                                                                                                                                                                          | `'#ffffff'`                                                          |
-| `colors.cluster.stroke` | Light outline of the donut segments (thickness `clusters.strokeWidth`). <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
-| `colors.draw.palette`              | Palette offered by the drawing colour picker.                                                                                                                                                                                                                                                                                                                                     | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
-| `colors.draw.default`              | Colour of a newly drawn shape.                                                                                                                                                                                                                                                                                                                                                    | `'#2E7CF6'`                                                          |
-| `colors.ui.panel`                  | Panel and bar background (translucent).                                                                                                                                                                                                                                                                                                                                           | `'rgba(20,26,30,0.9)'`                                               |
-| `colors.ui.text`                   | Primary text.                                                                                                                                                                                                                                                                                                                                                                     | `'#f8fafc'`                                                          |
-| `colors.ui.muted`                  | Secondary text, discreet labels.                                                                                                                                                                                                                                                                                                                                                  | `'#94a3b8'`                                                          |
-| `colors.ui.accent`                 | Accent colour: active state, focus, selection.                                                                                                                                                                                                                                                                                                                                    | `'#2E7CF6'`                                                          |
-| `colors.ui.error`                  | Errors and destructive actions.                                                                                                                                                                                                                                                                                                                                                   | `'#d11a01'`                                                          |
-| `colors.ui.border`                 | Borders and separators.                                                                                                                                                                                                                                                                                                                                                           | `'rgba(255,255,255,0.10)'`                                           |
-| `colors.ui.stat`                   | **Optional.** Diagnostics panel verdicts (`ok` / `warn` / `bad`), see [`performance.statThresholds`](CONFIG.md). Distinct from `error`: an excessive value is not an error, it is a budget overrun — conflating them would make a heavy map read as a broken one. When absent the panel falls back to `colors.ui.text`: no colour rather than a verdict the theme did not intend. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }`                 |
-| `colors.attention.sonar`           | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid.                                                                                                                                                                                                                                 | `'#ffd60a'`                                                          |
-| `colors.attention.target`          | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid.                                                                                                                                                                                                                                 | `'#ff3b30'`                                                          |
-| `colors.pedestrian.placeValid`     | Pedestrian mode: placement cursor and full-immersion reticle. Target shown when the aimed point is a placeable street. Optional: an earlier theme stays valid.                                                                                                                                                                                                                    | `'#2E7CF6'`                                                          |
-| `colors.pedestrian.placeBlocked`   | Pedestrian mode: crossed-out target when the aimed point is a roof or the sky. Optional.                                                                                                                                                                                                                                                                                          | `'#d11a01'`                                                          |
-| `colors.pedestrian.reticle`        | Pedestrian mode: central reticle of full immersion. Optional.                                                                                                                                                                                                                                                                                                                     | `'#f8fafc'`                                                          |
-| `colors.path.base`                 | Colour of a path.                                                                                                                                                                                                                                                                                                                                                                 | `'#2E7CF6'`                                                          |
-| `colors.path.casing`               | Path casing (legibility on satellite imagery).                                                                                                                                                                                                                                                                                                                                    | `'#ffffff'`                                                          |
-| `colors.zone.fill`                 | Zone fill.                                                                                                                                                                                                                                                                                                                                                                        | `'#079A7D'`                                                          |
-| `colors.zone.stroke`               | Zone stroke.                                                                                                                                                                                                                                                                                                                                                                      | `'#079A7D'`                                                          |
-| `colors.graticule.line`            | Coordinate grid: ordinary parallels and meridians. Optional — an older theme stays valid (falls back to the default theme).                                                                                                                                                                                                                                                       | `'#ffd54a'`                                                          |
-| `colors.graticule.remarkable`      | Equator, tropics, polar circles, remarkable meridians.                                                                                                                                                                                                                                                                                                                            | `'#ff8f00'`                                                          |
-| `colors.graticule.label`           | Coordinate label text.                                                                                                                                                                                                                                                                                                                                                            | `'#ffffff'`                                                          |
-| `colors.graticule.labelBackground` | Label pill background.                                                                                                                                                                                                                                                                                                                                                            | `'rgba(0,0,0,0.55)'`                                                 |
-| `colors.marquee.fill`              | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath…                                                                                        | `'rgba(255,255,255,0.12)'`                                           |
-| `colors.marquee.stroke`            | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath…                                                                                        | `'#000000'`                                                          |
-| `colors.marquee.under`             | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath…                                                                                        | `'#ffffff'`                                                          |
-| `colors.readable.dark` | Text laid on an arbitrary colour (affiliation chip): dark ink when the background is light. <!-- audit: à vérifier à la fusion (React) --> | `'#101828'` |
-| `colors.readable.light` | Light ink when the background is dark. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
-| `colors.readable.threshold` | Perceived luminance above which the background counts as light. <!-- audit: à vérifier à la fusion (React) --> | `0.6` |
-| `colors.pinShade.color` | Darkening of the bottom of a dock chip with an explicit colour (`color-mix`). <!-- audit: à vérifier à la fusion (React) --> | `'#000000'` |
-| `colors.pinShade.percent` | Share (%) of `pinShade.color` in the mix. <!-- audit: à vérifier à la fusion (React) --> | `45` |
+| `colors.background` | Canvas background, visible before tiles load. | `'#0d1415'` |
+| `colors.marker.default.base` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#2E7CF6'` |
+| `colors.marker.default.accent` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#78BEFF'` |
+| `colors.marker.default.contrast` | Colour per marker type (e.g. 'alert-critical', 'agent-available'). | `'#ffffff'` |
+| `colors.tags` | Per-tag colour ("Layers" panel), key = tag name. A tag absent from this object falls back to the library's hashed palette. Optional. | `{}` |
+| `colors.tagPalette` | **Optional.** Fallback palette for tags with no colour declared in `colors.tags`: a stable hash of the tag name picks one — the same tag keeps the same colour across sessions. Absent, the library's 12 colours. | `['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899']` |
+| `colors.cluster.core` | Donut core. | `'#1e293b'` |
+| `colors.cluster.text` | Total displayed in the centre. | `'#ffffff'` |
+| `colors.cluster.ring` | Separating ring between core and slices. | `'#ffffff'` |
+| `colors.cluster.stroke` | Light outline of the donut segments (thickness `clusters.strokeWidth`). | `'#ffffff'` |
+| `colors.draw.palette` | Palette offered by the drawing colour picker. | `["#F0503A", "#EE8F0A", "#079A7D", "#2E7CF6", "#6344F0", "#101828"]` |
+| `colors.draw.default` | Colour of a newly drawn shape. | `'#2E7CF6'` |
+| `colors.ui.panel` | Panel and bar background (translucent). | `'rgba(20,26,30,0.9)'` |
+| `colors.ui.text` | Primary text. | `'#f8fafc'` |
+| `colors.ui.muted` | Secondary text, discreet labels. | `'#94a3b8'` |
+| `colors.ui.accent` | Accent colour: active state, focus, selection. | `'#2E7CF6'` |
+| `colors.ui.error` | Errors and destructive actions. | `'#d11a01'` |
+| `colors.ui.border` | Borders and separators. | `'rgba(255,255,255,0.10)'` |
+| `colors.ui.stat` | **Optional.** Diagnostics panel verdicts (`ok` / `warn` / `bad`), see [`performance.statThresholds`](CONFIG.md). Distinct from `error`: an excessive value is not an error, it is a budget overrun — conflating them would make a heavy map read as a broken one. When absent the panel falls back to `colors.ui.text`: no colour rather than a verdict the theme did not intend. | `{ ok: '#4ade80', warn: '#facc15', bad: '#f87171' }` |
+| `colors.attention.sonar` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ffd60a'` |
+| `colors.attention.target` | Attention decorations for markers (`new`/`urgent`) — operational signals, deliberately very loud colours. Optional: an earlier theme stays valid. | `'#ff3b30'` |
+| `colors.pedestrian.placeValid` | Pedestrian mode: placement cursor and full-immersion reticle. Target shown when the aimed point is a placeable street. Optional: an earlier theme stays valid. | `'#2E7CF6'` |
+| `colors.pedestrian.placeBlocked` | Pedestrian mode: crossed-out target when the aimed point is a roof or the sky. Optional. | `'#d11a01'` |
+| `colors.pedestrian.reticle` | Pedestrian mode: central reticle of full immersion. Optional. | `'#f8fafc'` |
+| `colors.path.base` | Colour of a path. | `'#2E7CF6'` |
+| `colors.path.casing` | Path casing (legibility on satellite imagery). | `'#ffffff'` |
+| `colors.zone.fill` | Zone fill. | `'#079A7D'` |
+| `colors.zone.stroke` | Zone stroke. | `'#079A7D'` |
+| `colors.graticule.line` | Coordinate grid: ordinary parallels and meridians. Optional — an older theme stays valid (falls back to the default theme). | `'#ffd54a'` |
+| `colors.graticule.remarkable` | Equator, tropics, polar circles, remarkable meridians. | `'#ff8f00'` |
+| `colors.graticule.label` | Coordinate label text. | `'#ffffff'` |
+| `colors.graticule.labelBackground` | Label pill background. | `'rgba(0,0,0,0.55)'` |
+| `colors.marquee.fill` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'rgba(255,255,255,0.12)'` |
+| `colors.marquee.stroke` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#000000'` |
+| `colors.marquee.under` | Marching ants **shared** by the three selection surfaces: outline of selected shapes, the selector stroke (rect/poly/lasso) and the lens area. `fill` = background veil (selector and lens only — a shape outline stays hollow), `stroke` = animated dashes, `under` = solid line beneath… | `'#ffffff'` |
+| `colors.readable.dark` | Text laid on an arbitrary colour (affiliation chip): dark ink when the background is light. | `'#101828'` |
+| `colors.readable.light` | Light ink when the background is dark. | `'#ffffff'` |
+| `colors.readable.threshold` | Perceived luminance above which the background counts as light. | `0.6` |
+| `colors.pinShade.color` | Darkening of the bottom of a dock chip with an explicit colour (`color-mix`). | `'#000000'` |
+| `colors.pinShade.percent` | Share (%) of `pinShade.color` in the mix. | `45` |
 
 ## `shadows` — Shadows
 
-| Key          | Description                         | Default                                                    |
+| Key | Description | Default |
 | ------------ | ----------------------------------- | ---------------------------------------------------------- |
-| `shadows.sm` | Resting elements (swatches, chips). | `'0 1px 2px rgba(0,0,0,0.3)'`                              |
-| `shadows.md` | Buttons and small surfaces.         | `'0 3px 8px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.3)'`   |
-| `shadows.lg` | Floating panels and menus.          | `'0 10px 26px rgba(0,0,0,0.45),0 3px 8px rgba(0,0,0,0.3)'` |
+| `shadows.sm` | Resting elements (swatches, chips). | `'0 1px 2px rgba(0,0,0,0.3)'` |
+| `shadows.md` | Buttons and small surfaces. | `'0 3px 8px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.3)'` |
+| `shadows.lg` | Floating panels and menus. | `'0 10px 26px rgba(0,0,0,0.45),0 3px 8px rgba(0,0,0,0.3)'` |
 
 ## `radii` — Corner radii (px)
 
-| Key          | Description                               | Default |
+| Key | Description | Default |
 | ------------ | ----------------------------------------- | ------- |
-| `radii.sm`   | Small elements: toolbar buttons, handles. | `6`     |
-| `radii.md`   | Panels and menus.                         | `10`    |
-| `radii.lg`   | Large surfaces.                           | `14`    |
-| `radii.pill` | Pill shape (deliberately huge value).     | `999`   |
+| `radii.sm` | Small elements: toolbar buttons, handles. | `6` |
+| `radii.md` | Panels and menus. | `10` |
+| `radii.lg` | Large surfaces. | `14` |
+| `radii.pill` | Pill shape (deliberately huge value). | `999` |
 
 ## `typography` — Typography
 
-| Key                           | Description                                                                                                                                                                     | Default                                                      |
+| Key | Description | Default |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `typography.fontFamily`       | Font stack for the whole map UI.                                                                                                                                                | `'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'` |
-| `typography.sizes.xs`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `10.5`                                                       |
-| `typography.sizes.sm`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `12.5`                                                       |
-| `typography.sizes.md`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `13.5`                                                       |
-| `typography.sizes.lg`         | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `16`                                                         |
-| `typography.weights.medium`   | Weights, published as `--m3d-weight-*`.                                                                                                                                         | `500`                                                        |
-| `typography.weights.semibold` | Weights, published as `--m3d-weight-*`.                                                                                                                                         | `600`                                                        |
-| `typography.weights.bold`     | Weights, published as `--m3d-weight-*`.                                                                                                                                         | `700`                                                        |
+| `typography.fontFamily` | Font stack for the whole map UI. | `'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'` |
+| `typography.sizes.xs` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `10.5` |
+| `typography.sizes.sm` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `12.5` |
+| `typography.sizes.md` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `13.5` |
+| `typography.sizes.lg` | Type scale (px). Published as `--m3d-size-*`. ⚠️ Does not yet cover the whole stylesheet: 26 accidental sizes (9.5 to 22 px) remain literal there, for lack of a matching step. | `16` |
+| `typography.weights.medium` | Weights, published as `--m3d-weight-*`. | `500` |
+| `typography.weights.semibold` | Weights, published as `--m3d-weight-*`. | `600` |
+| `typography.weights.bold` | Weights, published as `--m3d-weight-*`. | `700` |
 
 ## `markers` — Markers
 
-| Key                          | Description                                                               | Default      |
+| Key | Description | Default |
 | ---------------------------- | ------------------------------------------------------------------------- | ------------ |
-| `markers.size`               | Sprite diameter (px).                                                     | `44`         |
-| `markers.ringWidth`          | Ring thickness (px).                                                      | `3`          |
-| `markers.selectedGapPx`      | Gap (px, each side) between the marker and its selection ring.            | `4`          |
-| `markers.gradient`           | Gradient on the marker body.                                              | `true`       |
-| `markers.gloss`              | Gloss highlight on the chip.                                              | `true`       |
-| `markers.icon`               | Default content of a marker: nothing, the type icon, its rank, or a node. | `'type'`     |
-| `markers.moveTween.duration` | Position tween (animated agent movement).                                 | `500`        |
-| `markers.moveTween.easing`   | Position tween (animated agent movement).                                 | _(function)_ |
-| `markers.selectionRingExtraPx` | Extra diameter (px) of a sprite's multi-selection ring — fallback of `<MarkerLayer selectionRing>`. <!-- audit: à vérifier à la fusion (React) --> | `4` |
-| `markers.tipGapPx` | Gap (px) between the top of the visual and its tooltip. <!-- audit: à vérifier à la fusion (React) --> | `10` |
-| `markers.ringColor` | Light ring between body and halo of the default marker. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
-| `markers.glossColor` | Gloss colour. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
+| `markers.size` | Sprite diameter (px). | `44` |
+| `markers.ringWidth` | Ring thickness (px). | `3` |
+| `markers.selectedGapPx` | Gap (px, each side) between the marker and its selection ring. | `4` |
+| `markers.gradient` | Gradient on the marker body. | `true` |
+| `markers.gloss` | Gloss highlight on the chip. | `true` |
+| `markers.icon` | Default content of a marker: nothing, the type icon, its rank, or a node. | `'type'` |
+| `markers.moveTween.duration` | Position tween (animated agent movement). | `500` |
+| `markers.moveTween.easing` | Position tween (animated agent movement). | _(function)_ |
+| `markers.selectionRingExtraPx` | Extra diameter (px) of a sprite's multi-selection ring — fallback of `<MarkerLayer selectionRing>`. | `4` |
+| `markers.tipGapPx` | Gap (px) between the top of the visual and its tooltip. | `10` |
+| `markers.ringColor` | Light ring between body and halo of the default marker. | `'#ffffff'` |
+| `markers.glossColor` | Gloss colour. | `'#ffffff'` |
 
 ## `clusters` — Default cluster geometry (donut)
 
-| Key                      | Description                                                                         | Default             |
+| Key | Description | Default |
 | ------------------------ | ----------------------------------------------------------------------------------- | ------------------- |
-| `clusters.coreRadius`    | Core radius (px) as a function of the total number of points.                       | _(function)_        |
-| `clusters.ringWidth`     | Thickness of the segmented ring (px).                                               | `30`                |
-| `clusters.strokeWidth`   | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5`               |
-| `clusters.segmentGap`    | Angular gap between two slices (rad); `0` makes them contiguous.                    | `0.045`             |
-| `clusters.startAngle`    | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom.       | `3.141592653589793` |
-| `clusters.selectedGapPx` | Gap (px) between the badge and its marching-ants selection ring.                    | `4`                 |
-| `clusters.sizeRatio` | Diameter of a custom chip as a fraction of `markers.size` — fallback of `<ClusterSurface size>`. <!-- audit: à vérifier à la fusion (React) --> | `1.18` |
-| `clusters.text.segmentSize` | Donut digits: size (px) of a segment's count. <!-- audit: à vérifier à la fusion (React) --> | `13` |
-| `clusters.text.segmentSizeWide` | Segment size (px) from `wideFrom` on. <!-- audit: à vérifier à la fusion (React) --> | `11` |
-| `clusters.text.coreSize` | Size (px) of the total in the centre. <!-- audit: à vérifier à la fusion (React) --> | `19` |
-| `clusters.text.coreSizeWide` | Total size (px) from `wideFrom` on. <!-- audit: à vérifier à la fusion (React) --> | `16` |
-| `clusters.text.wideFrom` | Point count from which the “wide” sizes apply. <!-- audit: à vérifier à la fusion (React) --> | `100` |
-| `clusters.text.weight` | Digit weight. <!-- audit: à vérifier à la fusion (React) --> | `800` |
-| `clusters.tip.background` | Hover tip of a segment (portal outside `.m3d-root`, read in JS); font = `typography.fontFamily`. Background. <!-- audit: à vérifier à la fusion (React) --> | `'rgba(17,24,39,0.96)'` |
-| `clusters.tip.color` | Tip text. <!-- audit: à vérifier à la fusion (React) --> | `'#ffffff'` |
-| `clusters.tip.fontSize` | Text size (px). <!-- audit: à vérifier à la fusion (React) --> | `12` |
-| `clusters.tip.weight` | Text weight. <!-- audit: à vérifier à la fusion (React) --> | `600` |
-| `clusters.tip.radius` | Corner radius (px). <!-- audit: à vérifier à la fusion (React) --> | `8` |
-| `clusters.tip.gap` | Gap (px) between the segment and the tip. <!-- audit: à vérifier à la fusion (React) --> | `7` |
-| `clusters.tip.paddingY` | Vertical padding (px). <!-- audit: à vérifier à la fusion (React) --> | `6` |
-| `clusters.tip.paddingX` | Horizontal padding (px). <!-- audit: à vérifier à la fusion (React) --> | `10` |
-| `clusters.tip.dotSize` | Diameter (px) of the colour dot. <!-- audit: à vérifier à la fusion (React) --> | `9` |
-| `clusters.tip.shadow` | Drop shadow. <!-- audit: à vérifier à la fusion (React) --> | `'0 6px 20px rgba(0,0,0,0.35)'` |
-| `clusters.tip.separatorOpacity` | Separator opacity. <!-- audit: à vérifier à la fusion (React) --> | `0.6` |
+| `clusters.coreRadius` | Core radius (px) as a function of the total number of points. | _(function)_ |
+| `clusters.ringWidth` | Thickness of the segmented ring (px). | `30` |
+| `clusters.strokeWidth` | Light outline of the slices (px) — it overflows the outer radius by half its width. | `2.5` |
+| `clusters.segmentGap` | Angular gap between two slices (rad); `0` makes them contiguous. | `0.045` |
+| `clusters.startAngle` | Angle of the first slice (rad). `Math.PI` = 9 o'clock, two slices top/bottom. | `3.141592653589793` |
+| `clusters.selectedGapPx` | Gap (px) between the badge and its marching-ants selection ring. | `4` |
+| `clusters.sizeRatio` | Diameter of a custom chip as a fraction of `markers.size` — fallback of `<ClusterSurface size>`. | `1.18` |
+| `clusters.text.segmentSize` | Donut digits: size (px) of a segment's count. | `13` |
+| `clusters.text.segmentSizeWide` | Segment size (px) from `wideFrom` on. | `11` |
+| `clusters.text.coreSize` | Size (px) of the total in the centre. | `19` |
+| `clusters.text.coreSizeWide` | Total size (px) from `wideFrom` on. | `16` |
+| `clusters.text.wideFrom` | Point count from which the “wide” sizes apply. | `100` |
+| `clusters.text.weight` | Digit weight. | `800` |
+| `clusters.tip.background` | Hover tip of a segment (portal outside `.m3d-root`, read in JS); font = `typography.fontFamily`. Background. | `'rgba(17,24,39,0.96)'` |
+| `clusters.tip.color` | Tip text. | `'#ffffff'` |
+| `clusters.tip.fontSize` | Text size (px). | `12` |
+| `clusters.tip.weight` | Text weight. | `600` |
+| `clusters.tip.radius` | Corner radius (px). | `8` |
+| `clusters.tip.gap` | Gap (px) between the segment and the tip. | `7` |
+| `clusters.tip.paddingY` | Vertical padding (px). | `6` |
+| `clusters.tip.paddingX` | Horizontal padding (px). | `10` |
+| `clusters.tip.dotSize` | Diameter (px) of the colour dot. | `9` |
+| `clusters.tip.shadow` | Drop shadow. | `'0 6px 20px rgba(0,0,0,0.35)'` |
+| `clusters.tip.separatorOpacity` | Separator opacity. | `0.6` |
 
 ## `animations` — Animation and camera-flight rhythm
 
-| Key                                | Description                                                                  | Default                        |
+| Key | Description | Default |
 | ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
-| `animations.enabled`               | Turns off ALL JS animations (CSS has its own `prefers-reduced-motion` rule). | `true`                         |
-| `animations.pulse.duration`        | Pulse of a marker to signal. `false` turns it off.                           | `2000`                         |
-| `animations.pulse.easing`          | Pulse of a marker to signal. `false` turns it off.                           | `'ease-out'`                   |
-| `animations.pulse.scale`           | Pulse of a marker to signal. `false` turns it off.                           | `1.16`                         |
-| `animations.halo.duration`         | Halo expanding away from a marker (`maxScale` = final magnification).        | `2600`                         |
-| `animations.halo.easing`           | Halo expanding away from a marker (`maxScale` = final magnification).        | `'cubic-bezier(.2,.6,.35,1)'`  |
-| `animations.halo.maxScale`         | Halo expanding away from a marker (`maxScale` = final magnification).        | `2.1`                          |
-| `animations.bob.duration`          | Slight vertical bobbing (`amplitude` in px).                                 | `2400`                         |
-| `animations.bob.amplitude`         | Slight vertical bobbing (`amplitude` in px).                                 | `4`                            |
-| `animations.markerEnter.duration`  | Marker entrance (`stagger` = delay between two appearances, ms).             | `460`                          |
-| `animations.markerEnter.easing`    | Marker entrance (`stagger` = delay between two appearances, ms).             | `'cubic-bezier(.32,1.5,.5,1)'` |
-| `animations.markerEnter.stagger`   | Marker entrance (`stagger` = delay between two appearances, ms).             | `30`                           |
-| `animations.clusterEnter.duration` | Cluster entrance.                                                            | `460`                          |
-| `animations.clusterEnter.easing`   | Cluster entrance.                                                            | `'cubic-bezier(.32,1.5,.5,1)'` |
-| `animations.clusterEnter.stagger`  | Cluster entrance.                                                            | `55`                           |
-| `animations.menuOpen.duration`     | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`.         | `200`                          |
-| `animations.menuOpen.easing`       | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`.         | `'cubic-bezier(.32,1.3,.5,1)'` |
-| `animations.flyDuration`           | Duration of an ordinary camera flight (s) — `flyTo`, `fitBounds`.            | `1`                            |
-| `animations.flyEasing`             | Easing curve of camera flights.                                              | _(function)_                   |
-| `animations.pan`                   | Lateral movement.                                                            | `0.5`                          |
-| `animations.zoom`                  | Zoom change via a button.                                                    | `0.4`                          |
-| `animations.moveTo`                | “Instant” recentring (`useCamera().moveTo`).                                 | `0.4`                          |
-| `animations.target`                | Targeting flight from a listing or a pinned favourite.                       | `0.8`                          |
-| `animations.clusterOpen`           | Opening a cluster (zoom to its extent).                                      | `0.6`                          |
-| `animations.topDown`               | Switch to top-down view.                                                     | `0.5`                          |
-| `animations.globe`                 | Pull back to globe view.                                                     | `1`                            |
+| `animations.enabled` | Turns off ALL JS animations (CSS has its own `prefers-reduced-motion` rule). | `true` |
+| `animations.pulse.duration` | Pulse of a marker to signal. `false` turns it off. | `2000` |
+| `animations.pulse.easing` | Pulse of a marker to signal. `false` turns it off. | `'ease-out'` |
+| `animations.pulse.scale` | Pulse of a marker to signal. `false` turns it off. | `1.16` |
+| `animations.halo.duration` | Halo expanding away from a marker (`maxScale` = final magnification). | `2600` |
+| `animations.halo.easing` | Halo expanding away from a marker (`maxScale` = final magnification). | `'cubic-bezier(.2,.6,.35,1)'` |
+| `animations.halo.maxScale` | Halo expanding away from a marker (`maxScale` = final magnification). | `2.1` |
+| `animations.bob.duration` | Slight vertical bobbing (`amplitude` in px). | `2400` |
+| `animations.bob.amplitude` | Slight vertical bobbing (`amplitude` in px). | `4` |
+| `animations.markerEnter.duration` | Marker entrance (`stagger` = delay between two appearances, ms). | `460` |
+| `animations.markerEnter.easing` | Marker entrance (`stagger` = delay between two appearances, ms). | `'cubic-bezier(.32,1.5,.5,1)'` |
+| `animations.markerEnter.stagger` | Marker entrance (`stagger` = delay between two appearances, ms). | `30` |
+| `animations.clusterEnter.duration` | Cluster entrance. | `460` |
+| `animations.clusterEnter.easing` | Cluster entrance. | `'cubic-bezier(.32,1.5,.5,1)'` |
+| `animations.clusterEnter.stagger` | Cluster entrance. | `55` |
+| `animations.menuOpen.duration` | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`. | `200` |
+| `animations.menuOpen.easing` | Opening of menus, flyouts and panels. Published as `--m3d-menu-dur`. | `'cubic-bezier(.32,1.3,.5,1)'` |
+| `animations.flyDuration` | Duration of an ordinary camera flight (s) — `flyTo`, `fitBounds`. | `1` |
+| `animations.flyEasing` | Easing curve of camera flights. | _(function)_ |
+| `animations.pan` | Lateral movement. | `0.5` |
+| `animations.zoom` | Zoom change via a button. | `0.4` |
+| `animations.moveTo` | “Instant” recentring (`useCamera().moveTo`). | `0.4` |
+| `animations.target` | Targeting flight from a listing or a pinned favourite. | `0.8` |
+| `animations.clusterOpen` | Opening a cluster (zoom to its extent). | `0.6` |
+| `animations.topDown` | Switch to top-down view. | `0.5` |
+| `animations.globe` | Pull back to globe view. | `1` |
 
-`themeToVars` also publishes these rhythms as CSS variables: `--m3d-{pulse,halo,bob,enter,cluster-enter}-{dur,ease,scale,amp,stagger}` and `--m3d-menu-ease`. A spec set to `false` yields a `0ms` duration. <!-- audit: à vérifier à la fusion (React) -->
+`themeToVars` also publishes these rhythms as CSS variables: `--m3d-{pulse,halo,bob,enter,cluster-enter}-{dur,ease,scale,amp,stagger}` and `--m3d-menu-ease`. A spec set to `false` yields a `0ms` duration.
 
 ## `spacing` — Spacing of floating surfaces (px)
 
-| Key                | Description                                              | Default |
+| Key | Description | Default |
 | ------------------ | -------------------------------------------------------- | ------- |
-| `spacing.gap`      | Gap between an anchored surface and its anchor.          | `12`    |
-| `spacing.edge`     | Minimum margin between a surface and the container edge. | `8`     |
-| `spacing.barInset` | Inset of the vertical bars from the edge.                | `16`    |
-| `spacing.rowMenuGap` | Gap between a row's “…” button and its menu. <!-- audit: à vérifier à la fusion (React) --> | `2` |
+| `spacing.gap` | Gap between an anchored surface and its anchor. | `12` |
+| `spacing.edge` | Minimum margin between a surface and the container edge. | `8` |
+| `spacing.barInset` | Inset of the vertical bars from the edge. | `16` |
+| `spacing.rowMenuGap` | Gap between a row's “…” button and its menu. | `2` |
 
 ## `sizing` — Surface and icon dimensions
 
-| Key                                 | Description                                                                                                                                                                                                              | Default |
+| Key | Description | Default |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `sizing.lensPanelW`                 | Width of the lens inventory panel (px).                                                                                                                                                                                  | `260`   |
-| `sizing.selectionPanelW`            | Width of the selection panel (px).                                                                                                                                                                                       | `260`   |
-| `sizing.templatesPanelW`            | Width of the templates panel (px), sized after its busiest checkbox row (categories + “View”).                                                                                                                           | `352`   |
-| `sizing.panelMaxHeight.tags`        | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `380`   |
-| `sizing.panelMaxHeight.symbols`     | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `420`   |
-| `sizing.panelMaxHeight.search`      | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `340`   |
-| `sizing.panelMaxHeight.settings`    | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `560`   |
-| `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `520`   |
-| `sizing.panelMaxHeight.templates`   | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520).                                                                                                  | `460`   |
-| `sizing.panelMaxHeight.catalog`     | Maximum height of the catalog panel (px).                                                                                                                                                                                | `380`   |
-| `sizing.catalogRowHeight`           | Catalog row height (px). ⚠️ CONSTANT by contract: `visibleWindow` derives the window to render from it without measuring rows. A taller row would shift everything below it.                                             | `34`    |
-| `sizing.catalogIndent`              | Horizontal offset of an expanded child row (px).                                                                                                                                                                         | `18`    |
-| `sizing.catalogChevronW`            | Expand-chevron width (px). ⚠️ It ALSO sets the width of the gutter reserved on rows without children: the two must match, otherwise names in the same list stop aligning depending on whether the row carries a chevron. | `18`    |
-| `sizing.catalogPanelW`              | Catalog panel width — the type menu (px). Also used as a framing margin, together with `catalogSubPanelW`: a zone framed while the catalog is open must not land underneath it.                                          | `252`   |
-| `sizing.catalogSubPanelW`           | Width of the second panel, the list one (px). Distinct from `catalogPanelW` although equal by default: the two surfaces sit SIDE BY SIDE on the same edge, so framing must reserve their SUM.                            | `252`   |
-| `sizing.iconSize`                   | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out.                                                                              | `0.8`   |
-| `sizing.rowMenuW` | Width (px) of a list row's actions menu. <!-- audit: à vérifier à la fusion (React) --> | `180` |
-| `sizing.pinSize` | Size (px) of a dock chip — fallback of `<PinnedDock size>`. <!-- audit: à vérifier à la fusion (React) --> | `64` |
-| `sizing.panelMaxHeight.searchScope` | Maximum height (px) of the search scope menu. <!-- audit: à vérifier à la fusion (React) --> | `280` |
+| `sizing.lensPanelW` | Width of the lens inventory panel (px). | `260` |
+| `sizing.selectionPanelW` | Width of the selection panel (px). | `260` |
+| `sizing.templatesPanelW` | Width of the templates panel (px), sized after its busiest checkbox row (categories + “View”). | `352` |
+| `sizing.panelMaxHeight.tags` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `380` |
+| `sizing.panelMaxHeight.symbols` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `420` |
+| `sizing.panelMaxHeight.search` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `340` |
+| `sizing.panelMaxHeight.settings` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `560` |
+| `sizing.panelMaxHeight.settingsSub` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `520` |
+| `sizing.panelMaxHeight.templates` | Maximum panel heights when space allows (px). They used to diverge with no stated reason (380 / 420 / 300 / 560 / 520). | `460` |
+| `sizing.panelMaxHeight.catalog` | Maximum height of the catalog panel (px). | `380` |
+| `sizing.catalogRowHeight` | Catalog row height (px). ⚠️ CONSTANT by contract: `visibleWindow` derives the window to render from it without measuring rows. A taller row would shift everything below it. | `34` |
+| `sizing.catalogIndent` | Horizontal offset of an expanded child row (px). | `18` |
+| `sizing.catalogChevronW` | Expand-chevron width (px). ⚠️ It ALSO sets the width of the gutter reserved on rows without children: the two must match, otherwise names in the same list stop aligning depending on whether the row carries a chevron. | `18` |
+| `sizing.catalogPanelW` | Catalog panel width — the type menu (px). Also used as a framing margin, together with `catalogSubPanelW`: a zone framed while the catalog is open must not land underneath it. | `252` |
+| `sizing.catalogSubPanelW` | Width of the second panel, the list one (px). Distinct from `catalogPanelW` although equal by default: the two surfaces sit SIDE BY SIDE on the same edge, so framing must reserve their SUM. | `252` |
+| `sizing.iconSize` | Size of @mdi icons (the `@mdi/react` unit: 1 ≈ 24 px). A single value where seven coexisted hard-coded (0.5 to 0.8) with none standing out. | `0.8` |
+| `sizing.rowMenuW` | Width (px) of a list row's actions menu. | `180` |
+| `sizing.pinSize` | Size (px) of a dock chip — fallback of `<PinnedDock size>`. | `64` |
+| `sizing.panelMaxHeight.searchScope` | Maximum height (px) of the search scope menu. | `280` |
 
 ## `relations` — Relation link defaults
 
@@ -224,55 +224,55 @@ Defaults of the [`<RelationLayer>`](PROPS.md#relationlayer) props — props take
 
 | Key | Description | Default |
 |---|---|---|
-| `relations.width` | Link stroke width (screen px). <!-- audit: à vérifier à la fusion (React) --> | `8` |
-| `relations.defaultColor` | Last colour fallback of a link. <!-- audit: à vérifier à la fusion (React) --> | `'#ffd400'` |
-| `relations.routeColor` | Colour of the real route. <!-- audit: à vérifier à la fusion (React) --> | `'#7c4dff'` |
-| `relations.hoverDarken` | Darkening factor of the hovered stroke. <!-- audit: à vérifier à la fusion (React) --> | `0.72` |
-| `relations.hubRadius` | Radius (screen px) of the hub under the source marker. <!-- audit: à vérifier à la fusion (React) --> | `26` |
-| `relations.casingWidth` | Dark casing under the stroke (px). <!-- audit: à vérifier à la fusion (React) --> | `3` |
-| `relations.minOpacity` | Opacity of the lowest-ranked link. <!-- audit: à vérifier à la fusion (React) --> | `1` |
-| `relations.dash` | Scrolling dash of search strokes (`DashStyle`). <!-- audit: à vérifier à la fusion (React) --> | `{ length: 20, gap: 8, speed: 16, gapOpacity: 0.3 }` |
+| `relations.width` | Link stroke width (screen px). | `8` |
+| `relations.defaultColor` | Last colour fallback of a link. | `'#ffd400'` |
+| `relations.routeColor` | Colour of the real route. | `'#7c4dff'` |
+| `relations.hoverDarken` | Darkening factor of the hovered stroke. | `0.72` |
+| `relations.hubRadius` | Radius (screen px) of the hub under the source marker. | `26` |
+| `relations.casingWidth` | Dark casing under the stroke (px). | `3` |
+| `relations.minOpacity` | Opacity of the lowest-ranked link. | `1` |
+| `relations.dash` | Scrolling dash of search strokes (`DashStyle`). | `{ length: 20, gap: 8, speed: 16, gapOpacity: 0.3 }` |
 
 ## `draw` — Style of a newly drawn shape
 
 | Key | Description | Default |
 |---|---|---|
-| `draw.width` | Stroke width. <!-- audit: à vérifier à la fusion (React) --> | `8` |
-| `draw.fillOpacity` | Fill opacity. <!-- audit: à vérifier à la fusion (React) --> | `0.3` |
-| `draw.stroke` | Stroke style (`StrokeStyle`). <!-- audit: à vérifier à la fusion (React) --> | `'solid'` |
-| `draw.strokeOpacity` | Stroke opacity. <!-- audit: à vérifier à la fusion (React) --> | `0.95` |
+| `draw.width` | Stroke width. | `8` |
+| `draw.fillOpacity` | Fill opacity. | `0.3` |
+| `draw.stroke` | Stroke style (`StrokeStyle`). | `'solid'` |
+| `draw.strokeOpacity` | Stroke opacity. | `0.95` |
 
 ## `path` and `zone` — Draped paths and zones
 
 | Key | Description | Default |
 |---|---|---|
-| `path.width` | `<PathLayer>`: path width (m on the ground). <!-- audit: à vérifier à la fusion (React) --> | `6` |
-| `path.casingWidth` | `<PathLayer>`: casing (m on the ground). <!-- audit: à vérifier à la fusion (React) --> | `3` |
-| `zone.width` | `<ShapeLayer>`: outline width (m on the ground). <!-- audit: à vérifier à la fusion (React) --> | `6` |
-| `zone.fillOpacity` | `<ShapeLayer>`: fill opacity. <!-- audit: à vérifier à la fusion (React) --> | `0.22` |
+| `path.width` | `<PathLayer>`: path width (m on the ground). | `6` |
+| `path.casingWidth` | `<PathLayer>`: casing (m on the ground). | `3` |
+| `zone.width` | `<ShapeLayer>`: outline width (m on the ground). | `6` |
+| `zone.fillOpacity` | `<ShapeLayer>`: fill opacity. | `0.22` |
 
 ## `tiles` — Colour treatment of the basemap (dark mode)
 
-| Key                       | Description                                                           | Default   |
+| Key | Description | Default |
 | ------------------------- | --------------------------------------------------------------------- | --------- |
-| `tiles.filter.brightness` | `1` = unchanged; `< 1` darkens.                                       | `0.85`    |
-| `tiles.filter.saturation` | `1` = unchanged; `< 1` desaturates.                                   | `0.9`     |
-| `tiles.filter.contrast`   | `1` = unchanged.                                                      | `1.05`    |
-| `tiles.filter.invert`     | `0` = unchanged; `1` inverts — dramatic but rarely legible. Optional. | _(unset)_ |
-| `tiles.filter.hueRotate`  | Hue rotation, in degrees. Optional.                                   | _(unset)_ |
+| `tiles.filter.brightness` | `1` = unchanged; `< 1` darkens. | `0.85` |
+| `tiles.filter.saturation` | `1` = unchanged; `< 1` desaturates. | `0.9` |
+| `tiles.filter.contrast` | `1` = unchanged. | `1.05` |
+| `tiles.filter.invert` | `0` = unchanged; `1` inverts — dramatic but rarely legible. Optional. | _(unset)_ |
+| `tiles.filter.hueRotate` | Hue rotation, in degrees. Optional. | _(unset)_ |
 
 ## `globe` — Globe and atmosphere
 
-| Key                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Default     |
+| Key | Description | Default |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `globe.background`          | Background behind the globe (space).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `'#070C16'` |
-| `globe.oceanColor`          | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `'#0F2942'` |
-| `globe.hazeColor`           | Colour the distant scene dissolves into in **pedestrian mode** (fog from `pedestrian.fogStartMeters` to `viewDistanceMeters`). ⚠️ This used to be the canvas background, which was right as long as the background was what you saw behind the scene; since the atmospheric sky paints at the far plane, distant façades faded towards a light background **against a blue sky**, drawing a sharp horizontal bar at eye level. With the sky off (`sky.enabled: false`), the canvas background takes the role back. A low sky's tint varies with time of day and scattering: this default targets the default sky, at midday. | `'#C4D6E4'` |
-| `globe.landColor`           | Landmasses of the fallback globe (the graticule drawing them is painted in this colour).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `'#4F7A45'` |
-| `globe.buildingColor`       | Walls of the extruded buildings (internal provider's volume). A footprint carrying its own colour (`colour` attribute) keeps it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `'#8A8E96'` |
-| `globe.buildingRoofColor`   | Roofs of the extruded buildings, lighter than the walls — the top face reads at once.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `'#C2C6CE'` |
-| `globe.buildingRoofLighten` | How much to lighten the roof of a footprint carrying ITS OWN colour (the `colour` attribute), as a fraction towards white. `buildingRoofColor` only applies to footprints left to the theme, and without this offset volume disappears on those. ⚠️ Was a literal in `BuildingsLayer`: an appearance decision written into a layer's code, invisible from the theme. `0` makes the roof exactly the wall colour.                                                                                                                                                                                                             | `0.35`      |
-| `globe.buildingSunAzimuth`  | Azimuth of the fake sun (degrees from north, clockwise) that modulates walls by orientation. The scene has **no** light: the term is baked into vertex colours by the extrusion worker, so it costs nothing per frame. Avoid multiples of 45°: on an exact diagonal, the four walls of an orthogonal building collapse pairwise onto the same tone.                                                                                                                                                                                                                                                                          | `120`       |
-| `globe.buildingShadeMin`    | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `0.62`      |
-| `globe.buildingHoverColor`  | Tint of a hovered building while the selection tool is active. It replaces the footprint's vertex colours but stays MODULATED by the shading baked into them: the building stands out of the neighbourhood without losing the relief of its walls.                                                                                                                                                                                                                                                                                                                                                                           | `'#F2B441'` |
-| `globe.buildingSelectColor` | Tint of the building whose context menu is open.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `'#E8613C'` |
+| `globe.background` | Background behind the globe (space). | `'#070C16'` |
+| `globe.oceanColor` | Ocean of the fallback globes — the emergency one and the one beneath the 2D tiles. | `'#0F2942'` |
+| `globe.hazeColor` | Colour the distant scene dissolves into in **pedestrian mode** (fog from `pedestrian.fogStartMeters` to `viewDistanceMeters`). ⚠️ This used to be the canvas background, which was right as long as the background was what you saw behind the scene; since the atmospheric sky paints at the far plane, distant façades faded towards a light background **against a blue sky**, drawing a sharp horizontal bar at eye level. With the sky off (`sky.enabled: false`), the canvas background takes the role back. A low sky's tint varies with time of day and scattering: this default targets the default sky, at midday. | `'#C4D6E4'` |
+| `globe.landColor` | Landmasses of the fallback globe (the graticule drawing them is painted in this colour). | `'#4F7A45'` |
+| `globe.buildingColor` | Walls of the extruded buildings (internal provider's volume). A footprint carrying its own colour (`colour` attribute) keeps it. | `'#8A8E96'` |
+| `globe.buildingRoofColor` | Roofs of the extruded buildings, lighter than the walls — the top face reads at once. | `'#C2C6CE'` |
+| `globe.buildingRoofLighten` | How much to lighten the roof of a footprint carrying ITS OWN colour (the `colour` attribute), as a fraction towards white. `buildingRoofColor` only applies to footprints left to the theme, and without this offset volume disappears on those. ⚠️ Was a literal in `BuildingsLayer`: an appearance decision written into a layer's code, invisible from the theme. `0` makes the roof exactly the wall colour. | `0.35` |
+| `globe.buildingSunAzimuth` | Azimuth of the fake sun (degrees from north, clockwise) that modulates walls by orientation. The scene has **no** light: the term is baked into vertex colours by the extrusion worker, so it costs nothing per frame. Avoid multiples of 45°: on an exact diagonal, the four walls of an orthogonal building collapse pairwise onto the same tone. | `120` |
+| `globe.buildingShadeMin` | Tone of the least-exposed wall, as a fraction of its colour. `1` disables shading. | `0.62` |
+| `globe.buildingHoverColor` | Tint of a hovered building while the selection tool is active. It replaces the footprint's vertex colours but stays MODULATED by the shading baked into them: the building stands out of the neighbourhood without losing the relief of its walls. | `'#F2B441'` |
+| `globe.buildingSelectColor` | Tint of the building whose context menu is open. | `'#E8613C'` |

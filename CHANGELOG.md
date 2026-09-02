@@ -88,25 +88,25 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   reste une dépendance installée avec `@pasquelin/map3d`, chargée à la demande par
   `import()` au premier symbole affiché, mais ne fait plus partie du `dist/` de la lib —
   jamais dans le bundle initial de l'hôte. Le `dist/` publié passe de 23 Mo à 4,1 Mo.
-  <!-- audit: à compléter (cœur, React) -->
+
 - **Tween caméra en temps et non par frame** : un vol dure le même temps à 30 comme à
-  120 Hz. <!-- audit: à compléter (cœur, React) -->
+  120 Hz.
 - **`clustering.levelQuantization` est désormais appliqué** (il était lu mais sans effet).
-  <!-- audit: à compléter (cœur, React) -->
+
 - **Nouvelles clés de `MapConfig`** — cf. `CONFIG.md` : `style.renderOrder.{shapes,paths,
   links,relations,drawings}` (défauts `1,1,1,2,4`), `providers.tiles.errorTtlMs` /
   `providers.buildings.errorTtlMs` (défaut `30000`), `providers.tiles.staleFrames` /
   `providers.buildings.staleFrames` (défaut `120`), `providers.tiles.fetch` (`FetchPolicy`
   `{ timeoutMs: 10000, retries: 0, backoffMs: 0 }`), `performance.shapeGroundSamples`
   (défaut `16`), `interaction.lockFlashMs` (défaut `800`).
-  <!-- audit: à compléter (cœur, React) -->
+
 - **`theme.colors.tagPalette`** (optionnel) : palette de repli des tags sans couleur
   déclarée, choisie par hash stable du nom ; défaut = les 12 couleurs de la lib.
   **`theme.globe.landColor`** est désormais réellement peint (graticule du globe de repli),
-  et `MapEngineOptions.landColor` le porte hors React. <!-- audit: à compléter (cœur, React) -->
+  et `MapEngineOptions.landColor` le porte hors React.
 - **`ViewportControllerOptions.onError?: (error: unknown) => void`** : échec de `source.load`
   (hors abandon). Types désormais exportés : `ViewportControllerOptions`, `DashStyle`,
-  `NavigateShortcuts`, `CatalogContent`. <!-- audit: à compléter (cœur, React) -->
+  `NavigateShortcuts`, `CatalogContent`.
 - **Thème : les valeurs en dur de la couche React passent dans `MapTheme`** (défaut = valeur
   remplacée, zéro régression visuelle) — cf. `THEME.md` : `colors.cluster.stroke`,
   `colors.readable.{dark,light,threshold}`, `colors.pinShade.{color,percent}`,
@@ -116,15 +116,15 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   `<RelationLayer>`, dont `dash: DashStyle`), `draw`, `path`, `zone`. `themeToVars` publie
   `--m3d-{pulse,halo,bob,enter,cluster-enter}-*` et `--m3d-menu-ease` (`false` → `0ms`).
   `<DrawLayer symbols={{ defaultVariant }}>` ; `<RelationLayer>` lit son palier de zoom
-  initial sur la caméra. <!-- audit: à compléter (cœur, React) -->
+  initial sur la caméra.
 - **Interne** : `TileDeferred` (`core/TileQueue`) — une source diffère une tuile sans
-  consommer d'essai ; `PoolCrashError` (`WorkerPool`). <!-- audit: à compléter (cœur, React) -->
+  consommer d'essai ; `PoolCrashError` (`WorkerPool`).
 
 ### Retiré
 
 - **`camera.zoomStep`, `camera.dragSpeed.min` et `camera.dragSpeed.max`** (`MapConfig`) : jamais lus par le code. Une
   config qui les fournissait ne casse pas au merge, mais le type ne les accepte plus —
-  **rupture 0.x**. <!-- audit: à compléter (cœur, React) -->
+  **rupture 0.x**.
 - **Libellés morts** : `settings.preferences.controls.{keyboard,azerty,qwerty,press}` et
   `selection.deleteShape` (`MapLabels`), qu'aucune surface n'affichait. Un `labels` qui
   les surchargeait doit les retirer (le type les refuse).
@@ -141,8 +141,60 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 - **`THEME.md`** : `sizing.lensPanelW` et `sizing.selectionPanelW` valent `260`
   (`src/style/panelGeometry.ts`), pas 252 / 236. **`CONFIG.md`** : la référence est extraite
   de `src/config/types/*.ts`, pas d'un fichier `types.ts` unique.
+- **Un worker qui meurt sur une tuile ne renaît plus sans fin** (`WorkerPool`) : la tâche
+  était remise en tête de file et confiée à un worker neuf qui mourait à son tour ; la
+  promesse ne se réglait jamais et le créneau de la file de tuiles restait consommé — quatre
+  tuiles empoisonnées gelaient tout le volume. La tâche compte ses remplacements, le pool ses
+  morts consécutives ; au-delà, rejet réessayable ou repli.
+- **Une tuile en échec est redemandée** : l'état d'erreur était définitif. Un 429 de session
+  Google (cinq minutes de backoff) faisait brûler les essais de chaque tuile visible en
+  quelques secondes, et la zone restait blanche jusqu'au rechargement de la page. L'erreur
+  expire (`errorTtlMs`) et une source en backoff **diffère** la tuile sans lui compter d'essai.
+  La création de session a un délai d'abandon (`providers.tiles.fetch`), et un montage de
+  tuile qui lève ne fige plus la tuile ni ne sort de la boucle de frame.
+- **Une feuille `undefined` dans `config`, `theme` ou `labels` garde son défaut** au lieu de
+  l'effacer (`{ retries: env.X }` avec la variable absente faisait lire `undefined` à la lib).
+  Une clé `__proto__` propre est ignorée.
+- **`import { Map }` ne plante plus en rendu serveur** : la détection de plateforme se faisait
+  à l'import (`navigator`).
+- **Deux `<Map>` sur la même page** : seule la carte active (dernier `pointerdown`/`focusin`
+  dans sa racine) répond aux raccourcis clavier globaux ; une carte seule reste toujours
+  active. Les infobulles des barres portent un id par instance.
+- **La loupe ne fait plus déborder la pile** au-delà de ~120 000 markers (`push(...found)`).
+- **Le globe de repli est libéré au démontage** (sphère de 12 k sommets, deux matériaux, graticule).
+- **`repositionable` et `leaderLine` de `<MarkerLayer>`** sont suivis quand l'hôte les bascule ;
+  la pagination au défilement du catalogue ne s'arrêtait plus après un chargement ; démonter le
+  dessin pendant que la loupe est active ne la laisse plus muette ; `selectModes`/`eraseModes`
+  changés à chaud sont honorés au clavier ; une liste de templates ou une capture en vol
+  n'écrit plus dans un composant démonté.
+- **`clustering.levelQuantization`, `theme.globe.landColor`, `theme.animations.{pulse,bob,
+  markerEnter,clusterEnter}` et `halo.easing`** étaient documentés mais sans effet.
+
+### Performance
+
+- **La scène WebGL ne recalcule plus toutes ses matrices monde à chaque frame** : la scène
+  racine et les groupes conteneurs étaient en `matrixAutoUpdate`, ce qui forçait la
+  descendance entière — jusqu'à 700 tuiles raster, 80 tuiles de volume et chaque groupe ENU
+  — à recomposer sa matrice à chaque frame peinte, caméra immobile comprise.
+- **Boucle de frame sans allocation** : contexte de frame persistant, clé de tuile numérique
+  (400 à 600 chaînes par frame en mode plan), lots de resettle réutilisés, angles de sondage
+  piéton mémoïsés, triplet cartographique du pick réutilisé (25 par frame en mouvement).
+- **Écritures DOM au changement seulement** : les étiquettes de grille, de liens et de mesure
+  réécrivaient `transform`/`display` par frame, frames non peintes comprises.
+- **Le rect du canvas est mémoïsé par frame** : `getBoundingClientRect` était demandé à chaque
+  `pointermove` par les picks, entre les écritures DOM de la projection.
+- **Rendu à la demande** : une tête de tracé animée ne réveille le rendu que si elle est à
+  l'écran (la carte ne dormait jamais tant qu'un tracé était monté).
+- **Tuiles** : les tuiles vues cette frame se téléchargent avant celles d'une vue quittée, et
+  celles qu'on n'a plus vues depuis `staleFrames` sortent de la file — un pan rapide laissait
+  des dizaines de tuiles hors champ se télécharger (et se facturer) d'abord.
+- **React** : un restyle ou un geste d'édition ne recompose plus l'API de dessin (toute la
+  barre re-rendait par frame) ; la vignette de cluster et le ghost de glisser suivent le
+  pointeur sans re-render ; le renderer MIL-STD s'instancie dans un effet, plus pendant le
+  rendu ; `hitTest` des tracés sans allocation par sommet.
 
 ## [0.5.0] — 2026-08-31
+
 
 ### change! : `toolbar.selectModes` / `toolbar.eraseModes` bornent aussi le clavier
 
@@ -1275,10 +1327,10 @@ division par 1000, deux décimales, point décimal imposé par `toFixed`). Aucun
 traduction ne pouvait donc produire des miles, ni le séparateur décimal d'une locale
 qui n'est pas l'anglaise.
 
-| Avant                | Après             |
+| Avant | Après |
 | -------------------- | ----------------- |
-| `measure.kilometers` | `measure.major`   |
-| `measure.meters`     | `measure.minor`   |
+| `measure.kilometers` | `measure.major` |
+| `measure.meters` | `measure.minor` |
 
 Champs ajoutés, tous optionnels dans un override partiel : `majorThreshold` (seuil de
 bascule, en mètres), `majorFactor` / `minorFactor` (diviseurs), `majorDecimals` /

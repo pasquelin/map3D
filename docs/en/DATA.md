@@ -61,7 +61,7 @@ const { data, loading } = useLiveData(source, { debounce: 800 })
 And the bare controller, outside React: `ViewportController` (`push`, `setSource`,
 `dispose`). Its options (`ViewportControllerOptions`): `debounce` (ms) and `onError?:
 (error: unknown) => void`, called when `source.load` fails — never for a request
-abandoned by a more recent view. <!-- audit: à vérifier à la fusion (cœur) -->
+abandoned by a more recent view.
 
 ### Just subscribing to the view
 
