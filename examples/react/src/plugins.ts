@@ -3,8 +3,8 @@ import type { AnyPlugin } from '@pasquelin/map3d'
 import { WINDY_API_KEY } from './config/env'
 
 /* ══════════════════ PLUGINS OFFICIELS — OPTIONNELS ══════════════════
-   Les plugins (geopf, windy, plan-3d) vivent dans un AUTRE dépôt, `plugingsMap3D`, attendu
-   en voisin de celui-ci (`../plugingsMap3D`, cf. `examples/react/README.md`). Un clone frais
+   Les plugins (geopf, windy, plan-3d) vivent dans un AUTRE dépôt, `map3d-plugins`, attendu
+   en voisin de celui-ci (`../map3d-plugins`, cf. `examples/react/README.md`). Un clone frais
    de map3D ne l'a pas — et l'exemple doit compiler ET tourner sans lui.
 
    D'où `import.meta.glob` plutôt qu'un `import` statique ou un `import()` littéral : Vite
@@ -30,19 +30,19 @@ type OptionalPlugin = {
  */
 const OPTIONAL_PLUGINS: readonly OptionalPlugin[] = [
   {
-    modules: import.meta.glob<PluginFactory>('../../../../plugingsMap3D/packages/geopf/src/index.ts', {
+    modules: import.meta.glob<PluginFactory>('../../../../map3d-plugins/packages/geopf/src/index.ts', {
       import: 'geopfBatiments',
     }),
   },
   {
-    modules: import.meta.glob<PluginFactory>('../../../../plugingsMap3D/packages/windy/src/index.ts', {
+    modules: import.meta.glob<PluginFactory>('../../../../map3d-plugins/packages/windy/src/index.ts', {
       import: 'windyWebcams',
     }),
     // `init.apiKey` seede le champ `apiKey` du hub des plugins — modifiable ensuite dedans.
     init: { apiKey: WINDY_API_KEY },
   },
   {
-    modules: import.meta.glob<PluginFactory>('../../../../plugingsMap3D/packages/plan-3d/src/index.ts', {
+    modules: import.meta.glob<PluginFactory>('../../../../map3d-plugins/packages/plan-3d/src/index.ts', {
       import: 'plan3d',
     }),
   },

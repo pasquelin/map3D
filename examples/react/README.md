@@ -39,13 +39,13 @@ pnpm exec vite build --config examples/react/vite.config.ts
 ## Plugins officiels — optionnels
 
 Les plugins (`geopf` : bâtiments IGN au clic, `windy` : webcams, `plan-3d` : objet 3D de démo)
-vivent dans un **autre dépôt**, [github.com/pasquelin/plugingsMap3D](https://github.com/pasquelin/plugingsMap3D).
+vivent dans un **autre dépôt**, [github.com/pasquelin/map3d-plugins](https://github.com/pasquelin/map3d-plugins).
 L'exemple les découvre s'il est cloné **en voisin** de celui-ci :
 
 ```
 Applications/
 ├── map3D/            ← ce dépôt
-└── plugingsMap3D/    ← git clone https://github.com/pasquelin/plugingsMap3D && pnpm install
+└── map3d-plugins/    ← git clone https://github.com/pasquelin/map3d-plugins && pnpm install
 ```
 
 Sans lui, l'exemple compile et tourne à l'identique, simplement sans plugin dans le hub (bouton

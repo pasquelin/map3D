@@ -101,7 +101,7 @@
   "start": {
     "eyebrow": "البداية السريعة",
     "title": "خريطة بتجمّعات في اثني عشر سطرًا",
-    "plugins": "الإضافات الاختيارية — IGN Géoplateforme وWindy ومخطّطات الطوابق الداخلية — تعيش في <a href=\"https://github.com/pasquelin/plugingsMap3D\">مستودع منفصل</a>، ويمكنك كتابة إضافتك بواسطة <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">واجهة الإضافات</a>."
+    "plugins": "الإضافات الاختيارية — IGN Géoplateforme وWindy ومخطّطات الطوابق الداخلية — تعيش في <a href=\"https://github.com/pasquelin/map3d-plugins\">مستودع منفصل</a>، ويمكنك كتابة إضافتك بواسطة <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">واجهة الإضافات</a>."
   },
   "footer": {
     "docsFr": "التوثيق 🇫🇷",

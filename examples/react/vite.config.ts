@@ -4,12 +4,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 /**
- * Dépôt voisin des plugins officiels (`plugingsMap3D`), OPTIONNEL : l'exemple le découvre par
+ * Dépôt voisin des plugins officiels (`map3d-plugins`), OPTIONNEL : l'exemple le découvre par
  * `import.meta.glob` (cf. `src/plugins.ts`) et tourne sans lui. Sa présence ne change ici
  * qu'une chose : ses sources doivent être SERVABLES en dev — elles sont hors de la racine du
  * workspace, que Vite refuse de servir par défaut (`server.fs.allow`).
  */
-const PLUGINS_REPO = resolve(__dirname, '../../../plugingsMap3D')
+const PLUGINS_REPO = resolve(__dirname, '../../../map3d-plugins')
 const pluginsRepoFound = existsSync(PLUGINS_REPO)
 
 // App d'exemple : carte 3D plein écran.
@@ -23,7 +23,7 @@ export default defineConfig({
       'three/addons': resolve(__dirname, '../../node_modules/three/examples/jsm'),
     },
     /*
-     * Les plugins vivent dans un AUTRE projet pnpm (`../../../plugingsMap3D`), avec son
+     * Les plugins vivent dans un AUTRE projet pnpm (`../../../map3d-plugins`), avec son
      * propre store : `import 'three'` y résolvait vers une seconde copie physique — même
      * version, autre module. three le signale lui-même (« Multiple instances of Three.js
      * being imported ») et il a raison : deux copies, ce sont deux registres de classes,

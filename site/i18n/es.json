@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Primeros pasos",
     "title": "Un mapa con clusters en una docena de líneas",
-    "plugins": "Los plugins opcionales — IGN Géoplateforme, Windy, planos de interior — viven en <a href=\"https://github.com/pasquelin/plugingsMap3D\">un repositorio aparte</a>, y puedes escribir el tuyo con la <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API de plugins</a>."
+    "plugins": "Los plugins opcionales — IGN Géoplateforme, Windy, planos de interior — viven en <a href=\"https://github.com/pasquelin/map3d-plugins\">un repositorio aparte</a>, y puedes escribir el tuyo con la <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API de plugins</a>."
   },
   "footer": {
     "docsFr": "Docs 🇫🇷",

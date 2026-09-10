@@ -332,14 +332,14 @@ chaque `pointermove` d'un slider.
 
 **La lib ne ship aucun plugin concret** : elle expose uniquement la plateforme
 (contrat `Plugin`, `PluginRegistry`, hub, hooks). Les plugins officiels vivent
-**hors de la lib**, dans le monorepo `plugingsMap3D` (scope npm `@map3d`, un paquet
-par plugin — `@map3d/plugin-<nom>`), chacun avec `map3d` en **peerDependency**.
+**hors de la lib**, dans le monorepo `map3d-plugins` (scope npm `@pasquelin`, un paquet
+par plugin — `@pasquelin/map3d-plugin-<nom>`), chacun avec `map3d` en **peerDependency**.
 
 Un plugin **tiers** suit le même contrat, livré en paquet npm publié ou en
 dépendance locale `file:` — aucun chargement distant à l'exécution.
 
 ```tsx
-import { monPluginOfficiel } from '@map3d/plugin-quelquechose'
+import { monPluginOfficiel } from '@pasquelin/map3d-plugin-quelquechose'
 import { monPluginMaison } from './plugins/maison'
 
 <Map plugins={[monPluginOfficiel(), monPluginMaison()]} />
@@ -424,8 +424,8 @@ l'auteur :
 Un plugin autonome, sans réseau (procédural), qui exerce la voie A, les 4 types de
 champ de config, `refetch` vs cosmétique, et l'enrichissement au pick. À but purement
 illustratif : il ne vit pas dans `examples/react/`, qui branche à la place de vrais
-plugins officiels (`@map3d/plugin-geopf`, `@map3d/plugin-windy`,
-`@map3d/plugin-plan-3d` — cf. § 13).
+plugins officiels (`@pasquelin/map3d-plugin-geopf`, `@pasquelin/map3d-plugin-windy`,
+`@pasquelin/map3d-plugin-plan-3d` — cf. § 13).
 
 **1. Meta et activation**
 
@@ -520,18 +520,18 @@ plugin officiel du registre (§ 13) pour un exemple complet en conditions réell
 
 ## 13. Registre des plugins officiels
 
-Un plugin **officiel** est maintenu dans le monorepo `plugingsMap3D`, publié sous le
-scope npm `@map3d`, et listé ici. Techniquement identique à un plugin tiers —
+Un plugin **officiel** est maintenu dans le monorepo `map3d-plugins`, publié sous le
+scope npm `@pasquelin`, et listé ici. Techniquement identique à un plugin tiers —
 l'organisation et le scope font l'« officiel ». Ce tableau **lie** vers la doc de
 chaque plugin (README de son paquet) ; il ne la duplique pas.
 
 | Nom | Paquet npm | Lien | Plage `map3d` compatible |
 |---|---|---|---|
-| Bâtiments France (BDTOPO) | `@map3d/plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
-| Windy Webcams | `@map3d/plugin-windy` | `plugingsMap3D/packages/windy` | `>=0.1.0 <0.2.0` |
-| Plan 3D (placeholder) | `@map3d/plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
+| Bâtiments France (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `map3d-plugins/packages/geopf` | `>=0.1.0 <0.2.0` |
+| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `map3d-plugins/packages/windy` | `>=0.1.0 <0.2.0` |
+| Plan 3D (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `map3d-plugins/packages/plan-3d` | `>=0.1.0 <0.2.0` |
 
-Ce registre s'enrichit au fil des plugins officiels publiés dans `plugingsMap3D` —
+Ce registre s'enrichit au fil des plugins officiels publiés dans `map3d-plugins` —
 à mettre à jour dans le même mouvement que leur première publication.
 
 ---
