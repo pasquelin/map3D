@@ -1,0 +1,48 @@
+name: ✨ Feature request
+description: Propose a new capability or an API change.
+title: '[feat] '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        🇫🇷 Le français est bienvenu.
+
+        map3d is an imperative three.js engine driven declaratively by React, and **everything is
+        config**: no hard-coded value, no hard-coded string. Proposals that fit that grain get built
+        fastest — see [ARCHITECTURE.md](https://github.com/pasquelin/map3D/blob/main/docs/ARCHITECTURE.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that the library makes hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: What it would look like from the host app — props, config keys, theme or labels entries, hooks.
+      render: tsx
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Workarounds, other libraries, or why an existing option doesn't cover it.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Engine / camera / tiles
+        - Markers & clusters
+        - Drawing editor
+        - Relations & routing
+        - Symbols (MIL-STD-2525D)
+        - Search / lens / pedestrian
+        - Theme, labels or config
+        - React API (components, props, hooks)
+        - Documentation
+        - Other
+    validations:
+      required: true

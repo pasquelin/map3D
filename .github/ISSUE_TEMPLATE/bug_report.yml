@@ -1,0 +1,72 @@
+name: 🐛 Bug report
+description: Something in the library behaves differently from what the docs say.
+title: '[bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. 🇫🇷 Le français est bienvenu.
+
+        Please check the [documentation](https://github.com/pasquelin/map3D#readme) and the
+        [open issues](https://github.com/pasquelin/map3D/issues) first.
+        **Security issue? Don't post it here** — see [SECURITY.md](https://github.com/pasquelin/map3D/security/policy).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you observed, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        Minimal steps, or the smallest `<Map>` / `MapEngine` snippet that shows it. A link to a fork
+        of `examples/react` is the fastest path to a fix.
+      render: tsx
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: map3d version
+      placeholder: '0.6.0'
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: React, three.js, browser, OS.
+      placeholder: 'React 19.1, three 0.170, Chrome 130, macOS 15'
+    validations:
+      required: true
+  - type: dropdown
+    id: basemap
+    attributes:
+      label: Basemap in use
+      options:
+        - Google Photorealistic 3D Tiles (Cesium Ion token set)
+        - Ellipsoid globe fallback (no token)
+        - Flat 2D — Google
+        - Flat 2D — self-hosted XYZ
+        - Not relevant
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output
+      description: Errors or warnings, if any. Redact your API keys.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I'm on the latest published version, or I checked the [CHANGELOG](https://github.com/pasquelin/map3D/blob/main/CHANGELOG.md).
+          required: true
+        - label: I searched the existing issues.
+          required: true
