@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "शुरुआत",
     "title": "एक दर्जन पंक्तियों में क्लस्टर वाला मानचित्र",
-    "plugins": "वैकल्पिक प्लगइन — IGN Géoplateforme, Windy, इनडोर फ़्लोर प्लान — <a href=\"https://github.com/pasquelin/plugingsMap3D\">एक अलग रिपॉज़िटरी</a> में हैं, और आप <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">प्लगइन API</a> से अपना भी लिख सकते हैं।"
+    "plugins": "वैकल्पिक प्लगइन — IGN Géoplateforme, Windy, इनडोर फ़्लोर प्लान — <a href=\"https://github.com/pasquelin/map3d-plugins\">एक अलग रिपॉज़िटरी</a> में हैं, और आप <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">प्लगइन API</a> से अपना भी लिख सकते हैं।"
   },
   "footer": {
     "docsFr": "दस्तावेज़ 🇫🇷",

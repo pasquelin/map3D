@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Hızlı başlangıç",
     "title": "On küsur satırda kümelenmiş bir harita",
-    "plugins": "İsteğe bağlı eklentiler — IGN Géoplateforme, Windy, iç mekân kat planları — <a href=\"https://github.com/pasquelin/plugingsMap3D\">ayrı bir depoda</a> yaşar; <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">eklenti API’siyle</a> kendinizinkini de yazabilirsiniz."
+    "plugins": "İsteğe bağlı eklentiler — IGN Géoplateforme, Windy, iç mekân kat planları — <a href=\"https://github.com/pasquelin/map3d-plugins\">ayrı bir depoda</a> yaşar; <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">eklenti API’siyle</a> kendinizinkini de yazabilirsiniz."
   },
   "footer": {
     "docsFr": "Belgeler 🇫🇷",

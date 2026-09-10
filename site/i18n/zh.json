@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "快速上手",
     "title": "十几行代码画出带聚合的地图",
-    "plugins": "可选插件 —— IGN Géoplateforme、Windy、室内平面图 —— 位于<a href=\"https://github.com/pasquelin/plugingsMap3D\">独立仓库</a>，你也可以用<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">插件 API</a> 编写自己的插件。"
+    "plugins": "可选插件 —— IGN Géoplateforme、Windy、室内平面图 —— 位于<a href=\"https://github.com/pasquelin/map3d-plugins\">独立仓库</a>，你也可以用<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">插件 API</a> 编写自己的插件。"
   },
   "footer": {
     "docsFr": "文档 🇫🇷",

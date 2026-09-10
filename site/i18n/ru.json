@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Быстрый старт",
     "title": "Карта с кластерами в десяток строк",
-    "plugins": "Дополнительные плагины — IGN Géoplateforme, Windy, планы помещений — живут в <a href=\"https://github.com/pasquelin/plugingsMap3D\">отдельном репозитории</a>, а свой можно написать через <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API плагинов</a>."
+    "plugins": "Дополнительные плагины — IGN Géoplateforme, Windy, планы помещений — живут в <a href=\"https://github.com/pasquelin/map3d-plugins\">отдельном репозитории</a>, а свой можно написать через <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API плагинов</a>."
   },
   "footer": {
     "docsFr": "Док. 🇫🇷",

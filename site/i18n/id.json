@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Mulai cepat",
     "title": "Peta dengan cluster dalam belasan baris",
-    "plugins": "Plugin opsional — IGN Géoplateforme, Windy, denah dalam ruangan — berada di <a href=\"https://github.com/pasquelin/plugingsMap3D\">repositori terpisah</a>, dan Anda bisa menulis sendiri lewat <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
+    "plugins": "Plugin opsional — IGN Géoplateforme, Windy, denah dalam ruangan — berada di <a href=\"https://github.com/pasquelin/map3d-plugins\">repositori terpisah</a>, dan Anda bisa menulis sendiri lewat <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
   },
   "footer": {
     "docsFr": "Dokumen 🇫🇷",

@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Per iniziare",
     "title": "Una mappa con cluster in una dozzina di righe",
-    "plugins": "I plugin opzionali — IGN Géoplateforme, Windy, piante d’interni — vivono in <a href=\"https://github.com/pasquelin/plugingsMap3D\">un repository separato</a>, e puoi scrivere il tuo con la <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
+    "plugins": "I plugin opzionali — IGN Géoplateforme, Windy, piante d’interni — vivono in <a href=\"https://github.com/pasquelin/map3d-plugins\">un repository separato</a>, e puoi scrivere il tuo con la <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">API plugin</a>."
   },
   "footer": {
     "docsFr": "Docs 🇫🇷",
