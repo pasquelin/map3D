@@ -364,7 +364,7 @@ export function App() {
   /* Menu d'un bâtiment du volume 3D interne. La poignée est passée par REF : le menu se
      fabrique une fois, et lit la caméra au moment du clic. */
   const buildingMenu = useMemo(() => createBuildingMenu(map), [])
-  // Plateforme plugins : geopf/windy/plan-3d viennent du dépôt voisin `map3d-plugins`,
+  // Plateforme plugins : geopf/windy/plan-3d viennent du dépôt voisin `plugingsMap3D`,
   // OPTIONNEL (cf. `plugins.ts`) — sans lui, la liste reste vide et la carte tourne
   // pareil. Chargés une fois, en asynchrone ; `<Map plugins>` resynchronise son registre
   // quand la liste arrive. Les trois sont `enabledByDefault: false` : opt-in via le hub

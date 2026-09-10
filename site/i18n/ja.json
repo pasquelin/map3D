@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "クイックスタート",
     "title": "十数行でクラスタ付きの地図を",
-    "plugins": "任意のプラグイン —— IGN Géoplateforme、Windy、屋内フロアプラン —— は<a href=\"https://github.com/pasquelin/map3d-plugins\">別リポジトリ</a>にあり、<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">プラグイン API</a> で自作もできます。"
+    "plugins": "任意のプラグイン —— IGN Géoplateforme、Windy、屋内フロアプラン —— は<a href=\"https://github.com/pasquelin/plugingsMap3D\">別リポジトリ</a>にあり、<a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">プラグイン API</a> で自作もできます。"
   },
   "footer": {
     "docsFr": "ドキュメント 🇫🇷",

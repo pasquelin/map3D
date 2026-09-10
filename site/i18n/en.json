@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Quick start",
     "title": "A clustered map in a dozen lines",
-    "plugins": "Optional plugins — IGN Géoplateforme, Windy, indoor floor plans — live in <a href=\"https://github.com/pasquelin/map3d-plugins\">a separate repository</a>, and you can write your own with the <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">plugin API</a>."
+    "plugins": "Optional plugins — IGN Géoplateforme, Windy, indoor floor plans — live in <a href=\"https://github.com/pasquelin/plugingsMap3D\">a separate repository</a>, and you can write your own with the <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">plugin API</a>."
   },
   "footer": {
     "docsFr": "Docs 🇫🇷",

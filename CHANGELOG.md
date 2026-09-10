@@ -44,7 +44,7 @@ le paquet npm et la documentation. Trois ruptures mineures, listées sous « Ret
 - **Exemple React : typecheck dans `pnpm validate`** (`typecheck:example`, `tsc -p
   examples/react/tsconfig.json`). L'exemple se type contre `src/` (`@pasquelin/map3d`) et
   compile sur un clone frais : les plugins `@map3d/plugin-*` du dépôt voisin
-  `../map3d-plugins` sont **optionnels** (import dynamique, absents = démo sans eux).
+  `../plugingsMap3D` sont **optionnels** (import dynamique, absents = démo sans eux).
   Un `examples/react/README.md` dit ce qu'il faut pour le lancer.
 - **Exemple React : onglet « Hooks » du banc d'essai** (Tweakpane de droite, alimenté par
   `HooksBridge` sous `<Map>`) qui exerce `onViewportChange`, `onCameraChange`,

@@ -100,7 +100,7 @@
   "start": {
     "eyebrow": "Schnellstart",
     "title": "Eine geclusterte Karte in einem Dutzend Zeilen",
-    "plugins": "Optionale Plugins — IGN Géoplateforme, Windy, Innenraumpläne — liegen in <a href=\"https://github.com/pasquelin/map3d-plugins\">einem eigenen Repository</a>, und eigene lassen sich mit der <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">Plugin-API</a> schreiben."
+    "plugins": "Optionale Plugins — IGN Géoplateforme, Windy, Innenraumpläne — liegen in <a href=\"https://github.com/pasquelin/plugingsMap3D\">einem eigenen Repository</a>, und eigene lassen sich mit der <a href=\"https://github.com/pasquelin/map3D/blob/main/docs/en/PLUGINS.md\">Plugin-API</a> schreiben."
   },
   "footer": {
     "docsFr": "Docs 🇫🇷",

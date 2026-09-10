@@ -330,7 +330,7 @@ every `pointermove` of a slider.
 
 **The library ships no concrete plugin**: it exposes only the platform (the
 `Plugin` contract, `PluginRegistry`, hub, hooks). Official plugins live **outside
-the library**, in the `map3d-plugins` monorepo (npm scope `@pasquelin`, one package per
+the library**, in the `plugingsMap3D` monorepo (npm scope `@pasquelin`, one package per
 plugin — `@pasquelin/map3d-plugin-<name>`), each with `map3d` as a **peerDependency**.
 
 A **third-party** plugin follows the same contract, shipped as a published npm
@@ -517,7 +517,7 @@ official plugin from the registry (§ 13) for a complete real-world example.
 
 ## 13. Registry of official plugins
 
-An **official** plugin is maintained in the `map3d-plugins` monorepo, published
+An **official** plugin is maintained in the `plugingsMap3D` monorepo, published
 under the `@pasquelin` npm scope, and listed here. Technically identical to a
 third-party plugin — the organisation and the scope make it “official”. This table
 **links** to each plugin's own documentation (its package README); it does not
@@ -525,11 +525,11 @@ duplicate it.
 
 | Name | npm package | Link | Compatible `map3d` range |
 |---|---|---|---|
-| France buildings (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `map3d-plugins/packages/geopf` | `>=0.1.0 <0.2.0` |
-| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `map3d-plugins/packages/windy` | `>=0.1.0 <0.2.0` |
-| 3D plan (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `map3d-plugins/packages/plan-3d` | `>=0.1.0 <0.2.0` |
+| France buildings (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
+| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `plugingsMap3D/packages/windy` | `>=0.1.0 <0.2.0` |
+| 3D plan (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
 
-This registry grows with each official plugin published in `map3d-plugins` — update
+This registry grows with each official plugin published in `plugingsMap3D` — update
 it in the same movement as their first publication.
 
 ---
