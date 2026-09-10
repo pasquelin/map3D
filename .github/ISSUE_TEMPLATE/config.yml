@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/pasquelin/map3D#readme
+    about: Guides and API reference, in English and French.
+  - name: 🕹️ Live demo
+    url: https://pasquelin.github.io/map3D/
+    about: Try the library in the browser before filing an issue.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/pasquelin/map3D/security/advisories/new
+    about: Private disclosure — never open a public issue for a vulnerability.
+  - name: 💼 Commercial license
+    url: https://github.com/pasquelin/map3D/discussions
+    about: map3d is PolyForm Noncommercial; commercial use needs a separate license from the author.

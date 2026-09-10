@@ -6,6 +6,9 @@
 
 *map3d — cartographie 3D temps réel pour React : globe photoréaliste, markers DOM, éditeur de dessin, données temps réel.*
 
+[![npm version](https://img.shields.io/npm/v/%40pasquelin%2Fmap3d?logo=npm&logoColor=white&label=npm&color=cb3837)](https://www.npmjs.com/package/@pasquelin/map3d)
+[![npm downloads](https://img.shields.io/npm/dm/%40pasquelin%2Fmap3d?label=downloads&color=cb3837)](https://www.npmjs.com/package/@pasquelin/map3d)
+[![CI](https://github.com/pasquelin/map3D/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pasquelin/map3D/actions/workflows/ci.yml)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![Three.js ≥0.160](https://img.shields.io/badge/Three.js-%E2%89%A50.160-000000?logo=three.js&logoColor=white)](https://threejs.org)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -153,6 +156,16 @@ pnpm build        # ESM + CJS + types → dist/
 pnpm typecheck    # tsc --noEmit (strict)
 pnpm test         # vitest
 ```
+
+## Contributing
+
+Issues and pull requests are welcome, in English or French. Features branch off **`develop`**;
+`main` is the release branch. One command has to be green before you push: `pnpm validate`.
+
+- [Contributing guide](.github/CONTRIBUTING.md) — setup, branching, house rules, what "finished" means
+- [Code of conduct](.github/CODE_OF_CONDUCT.md)
+- [Security policy](.github/SECURITY.md) — never open a public issue for a vulnerability
+- [Changelog](CHANGELOG.md) · [Releases](https://github.com/pasquelin/map3D/releases)
 
 ## License
 

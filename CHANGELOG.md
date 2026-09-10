@@ -6,6 +6,16 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Ajouté
+
+- **Fichiers communautaires GitHub** (`.github/`) : `CONTRIBUTING.md` (installation, modèle de
+  branches `develop`, worktree obligatoire, le garde-fou `pnpm validate`, les règles de la maison,
+  ce qu'« une feature finie » veut dire), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1),
+  `SECURITY.md` (versions suivies, signalement privé par avis de sécurité GitHub, périmètre,
+  chaîne d'approvisionnement OIDC + provenance), gabarits d'issues (bug, feature) et de PR.
+- **README** : badges npm (version, téléchargements) et statut CI, plus une section
+  « Contributing » qui pointe les fichiers ci-dessus, le changelog et les releases.
+
 ## [0.6.0] — 2026-09-02
 
 Version d'audit : une passe complète sur le rendu, la robustesse réseau, la couche React,
