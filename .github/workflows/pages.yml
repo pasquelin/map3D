@@ -8,7 +8,7 @@
 #
 # La démo importe `@map3d/plugin-*`, qui vit dans un AUTRE dépôt (public). Les deux
 # dépôts sont donc checkout côte à côte dans le workspace, exactement comme en local :
-# `examples/react/vite.config.ts` aliase `../../../map3d-plugins/packages/*/src`.
+# `examples/react/vite.config.ts` aliase `../../../plugingsMap3D/packages/*/src`.
 name: Pages
 
 on:
@@ -61,8 +61,8 @@ jobs:
       - name: Récupérer les plugins (dépôt public séparé)
         uses: actions/checkout@v7
         with:
-          repository: pasquelin/map3d-plugins
-          path: map3d-plugins
+          repository: pasquelin/plugingsMap3D
+          path: plugingsMap3D
 
       - name: Installer pnpm
         uses: pnpm/action-setup@v6
@@ -83,7 +83,7 @@ jobs:
       # Les alias pointent vers les SOURCES des plugins : leurs propres imports
       # (`@mdi/js`, `three`) doivent être résolvables depuis leur dossier.
       - name: Installer les dépendances des plugins
-        working-directory: map3d-plugins
+        working-directory: plugingsMap3D
         run: pnpm install --no-frozen-lockfile
 
       # La vitrine n'est publiée que si ce qu'elle montre tient debout.

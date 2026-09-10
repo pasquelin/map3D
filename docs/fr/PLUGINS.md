@@ -332,7 +332,7 @@ chaque `pointermove` d'un slider.
 
 **La lib ne ship aucun plugin concret** : elle expose uniquement la plateforme
 (contrat `Plugin`, `PluginRegistry`, hub, hooks). Les plugins officiels vivent
-**hors de la lib**, dans le monorepo `map3d-plugins` (scope npm `@pasquelin`, un paquet
+**hors de la lib**, dans le monorepo `plugingsMap3D` (scope npm `@pasquelin`, un paquet
 par plugin — `@pasquelin/map3d-plugin-<nom>`), chacun avec `map3d` en **peerDependency**.
 
 Un plugin **tiers** suit le même contrat, livré en paquet npm publié ou en
@@ -520,18 +520,18 @@ plugin officiel du registre (§ 13) pour un exemple complet en conditions réell
 
 ## 13. Registre des plugins officiels
 
-Un plugin **officiel** est maintenu dans le monorepo `map3d-plugins`, publié sous le
+Un plugin **officiel** est maintenu dans le monorepo `plugingsMap3D`, publié sous le
 scope npm `@pasquelin`, et listé ici. Techniquement identique à un plugin tiers —
 l'organisation et le scope font l'« officiel ». Ce tableau **lie** vers la doc de
 chaque plugin (README de son paquet) ; il ne la duplique pas.
 
 | Nom | Paquet npm | Lien | Plage `map3d` compatible |
 |---|---|---|---|
-| Bâtiments France (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `map3d-plugins/packages/geopf` | `>=0.1.0 <0.2.0` |
-| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `map3d-plugins/packages/windy` | `>=0.1.0 <0.2.0` |
-| Plan 3D (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `map3d-plugins/packages/plan-3d` | `>=0.1.0 <0.2.0` |
+| Bâtiments France (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
+| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `plugingsMap3D/packages/windy` | `>=0.1.0 <0.2.0` |
+| Plan 3D (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
 
-Ce registre s'enrichit au fil des plugins officiels publiés dans `map3d-plugins` —
+Ce registre s'enrichit au fil des plugins officiels publiés dans `plugingsMap3D` —
 à mettre à jour dans le même mouvement que leur première publication.
 
 ---

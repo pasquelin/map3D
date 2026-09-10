@@ -13,7 +13,7 @@
 [![ESM + CJS](https://img.shields.io/badge/build-ESM%20%2B%20CJS%20%2B%20types-cb3837?logo=npm&logoColor=white)](#build)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-1e6fbf)](LICENSE)
 
-**[Live demo ↗](https://pasquelin.github.io/map3D/)** · **[Documentation 🇫🇷](docs/fr/README.md)** · **[Documentation 🇬🇧](docs/en/README.md)** · **[Plugins ↗](https://github.com/pasquelin/map3d-plugins)**
+**[Live demo ↗](https://pasquelin.github.io/map3D/)** · **[Documentation 🇫🇷](docs/fr/README.md)** · **[Documentation 🇬🇧](docs/en/README.md)** · **[Plugins ↗](https://github.com/pasquelin/plugingsMap3D)**
 
 <br/>
 
@@ -123,7 +123,7 @@ Language folders are named after their **ISO 639-1** code and hold identical fil
 
 ## Plugins
 
-Optional plugins live in a separate repository: **[github.com/pasquelin/map3d-plugins ↗](https://github.com/pasquelin/map3d-plugins)**
+Optional plugins live in a separate repository: **[github.com/pasquelin/plugingsMap3D ↗](https://github.com/pasquelin/plugingsMap3D)**
 
 - **GeoPF** — French IGN Géoplateforme basemaps & data
 - **Windy** — animated wind/weather overlay
@@ -145,7 +145,7 @@ pnpm dev:example
 
 Reproduces an operator dashboard: 3D map, severity-clustered alerts refetched on move, animated agents with camera follow, zones, drawing, light/dark toggle, an alternative neon theme, and the fallback globe.
 
-The official plugins (GeoPF, Windy, Plan-3D) are **optional**: the example picks them up when [map3d-plugins](https://github.com/pasquelin/map3d-plugins) is cloned **next to** this repository (`../map3d-plugins`, with its own `pnpm install`), and runs identically without it. Details in [`examples/react/README.md`](examples/react/README.md).
+The official plugins (GeoPF, Windy, Plan-3D) are **optional**: the example picks them up when [plugingsMap3D](https://github.com/pasquelin/plugingsMap3D) is cloned **next to** this repository (`../plugingsMap3D`, with its own `pnpm install`), and runs identically without it. Details in [`examples/react/README.md`](examples/react/README.md).
 
 ## Build
 
