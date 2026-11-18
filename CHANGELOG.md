@@ -38,9 +38,9 @@ Une application qui ne passait ni `cesiumIonToken` ni `cesiumIonAssetId` n'a **r
 - **Entrée `@pasquelin/map3d/cesium-ion`** (`exports` du paquet, dans les mêmes formats que
   l'entrée principale ; `typesVersions` pour les hôtes TypeScript en `moduleResolution: node`) :
   `cesiumIon({ token, assetId? })` rend la source à passer à `<Map tileset3d>` (`undefined`
-  sans jeton), et
-  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles) est le défaut
-  d'`assetId`. Elle seule importe le greffon Cesium ion ; rien du cœur ne l'importe.
+  sans jeton), et `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles)
+  est le défaut d'un `assetId` absent ou vide. Elle seule importe le greffon Cesium ion ; rien
+  du cœur ne l'importe.
 - **`<Map tileset3d>` / `MapEngineOptions.tileset3d`** et le contrat **`Tileset3dSource`**
   (`{ key, attach(tiles) }`, exporté par l'entrée principale) : la source des tuiles 3D
   photoréalistes est fournie par l'hôte, lue au montage. Pour le volume elle **prime sur

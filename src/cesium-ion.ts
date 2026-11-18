@@ -7,7 +7,7 @@ import type { Tileset3dSource } from './core/tileset3d'
 
 export type { Tileset3dSource }
 
-/** Asset Cesium ion servi quand `assetId` est omis : Google Photorealistic 3D Tiles. */
+/** Asset Cesium ion servi quand `assetId` est absent ou vide : Google Photorealistic 3D Tiles. */
 export const CESIUM_ION_DEFAULT_ASSET_ID = '2275207'
 
 export type CesiumIonOptions = {

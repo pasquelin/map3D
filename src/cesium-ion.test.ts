@@ -52,6 +52,7 @@ describe('cesiumIon', () => {
     source({ assetId: '' }).attach(tiles)
     expect(adresse(tiles)).toBe(`https://api.cesium.com/v1/assets/${CESIUM_ION_DEFAULT_ASSET_ID}/endpoint`)
     expect(source({ assetId: '' }).key).toBe(source().key)
+    expect(source({ assetId: null }).key).toBe(source().key)
   })
 })
 
