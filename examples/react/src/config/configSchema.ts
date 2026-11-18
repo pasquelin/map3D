@@ -151,7 +151,6 @@ const CONFIG_META: Readonly<Record<string, LeafMeta>> = {
     kind: 'list',
     options: { 'photoréaliste (externe)': 'external', 'serveur interne': 'internal' },
   },
-  'providers.tiles3d.cesiumIonAssetId': { cold: true },
 
   'providers.buildings.defaultHeight': { min: 2, max: 30, step: 1 },
   // La Burj Khalifa fait 828 m : au-delà, c'est une erreur de saisie OSM (`height=99999`

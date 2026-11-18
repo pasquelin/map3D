@@ -3,6 +3,7 @@
  * vit dans `src/vite-env.d.ts`, l'endroit prévu par Vite — le reste de l'exemple importe
  * ces constantes et ne connaît plus `import.meta`.
  */
+/** Token Cesium ion — branché par l'entrée à part `@pasquelin/map3d/cesium-ion` (cf. `App.tsx`). */
 export const CESIUM_ION_TOKEN = import.meta.env.VITE_CESIUM_ION_TOKEN
 export const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY
 /**

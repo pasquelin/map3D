@@ -26,9 +26,14 @@
   `npm i @pasquelin/map3d three react react-dom`.
 - **Per-frame read/write separation**: layers run `update()` (advance the 3D — read pass) then
   `project()` (write DOM overlays in a single pass) — aim for zero allocation in the frame loop.
-- **Photorealistic 3D**: Google Photorealistic 3D Tiles via **Cesium Ion** (a single token,
-  `VITE_CESIUM_ION_TOKEN` in the example), with an ellipsoid globe fallback when no token is
-  set. The 2D basemap comes from Google **or** a self-hosted XYZ server, chosen by config alone.
+- **Photorealistic 3D**: Google Photorealistic 3D Tiles, either directly (`<Map googleMapsApiKey>`)
+  or via **Cesium ion** through a **separate entry** the core never imports:
+  `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` then
+  `<Map tileset3d={cesiumIon({ token })} />` (`assetId` optional; `VITE_CESIUM_ION_TOKEN` in the
+  example). An app that does not import that entry bundles nothing from Cesium. There is **no**
+  `cesiumIonToken` / `cesiumIonAssetId` prop and no `providers.tiles3d.cesiumIonAssetId` setting
+  (removed in 0.7.0). Ellipsoid globe fallback when neither a source nor a key is set. The 2D
+  basemap comes from Google **or** a self-hosted XYZ server, chosen by config alone.
 - **"Latest ref pattern" is intentional**: state lives in `MapEngine`, not React. The
   `ref.current = props` on render, read by a long-lived handler, is deliberate — do not convert
   it into React state.
@@ -116,7 +121,7 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 - [LABELS](docs/en/LABELS.md): `MapLabels` — every **text string** and formatting rule (units, distances, durations)
 - [PROPS](docs/en/PROPS.md): React component props
 
-## Public API — map by domain (every value export of `src/index.ts`, all from `'@pasquelin/map3d'`)
+## Public API — map by domain (every value export of `src/index.ts`, all from `'@pasquelin/map3d'`; the one separate entry, `'@pasquelin/map3d/cesium-ion'`, is listed under Tiles)
 
 - **React mounting**: `MapProvider`, `Map` (+ `MapHandle` ref, `MapSurfaces` props), typed layer factories `markersLayer` / `pathsLayer` / `shapesLayer` (`LayerSpec`, `MarkersSpec`); layer components for manual placement `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `SymbolMarkers`, `ClusterSurface`; default renderers `DefaultMarker`, `DefaultCluster`; `svgToDataUri` (SVG markup → data URI for icons).
 - **Built-in UI** (all mounted by `<Map>`; exported for manual placement): `Toolbar` (+ `useToolbar`, `useCloseWhenHidden`), `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel` (+ `TemplateThumb`), `PreferencesPanel`, `StatsPanel`, `ContextMenu` (`MenuItem`), `MarkerList`, `LensPanel`, `DrawStylePanel`, `Confirm`, `DraggablePanel`; bar buttons `ToolButton`, `LensToolButton`, `MeasureToolButton`, `DrawSettingsButton`, `SymbolPaletteButton`; atoms `SelectionBadges`, `RelationStatusBar`, `Swatch`, `RemoveButton` (+ `REMOVE_ICON_PATH`).
@@ -130,7 +135,7 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 - **Search / catalog**: `SearchRegistry` (+ `markerGroupId`, groups `SHAPE_GROUP` / `DRAW_GROUP` / `PLACE_GROUP`), `createGooglePlacesSearch`, matching `normalizeSearch`, `scoreMatch`, `proximityRank`, `rankHits`, `NO_MATCH`, `createTitleCache`; catalog `CatalogRegistry` (`CatalogContent`, `CatalogSettings`), `catalogKey` / `parseCatalogKey`, `isBrowseSource` / `isToggleSource`, `categoryOf`, `filterByCategories`, `mergeCollections`, `statsOf`, `CatalogBrowseSource.checkable` (`false` = index mode: no checkbox, the name frames — for a reference set the host paints itself).
 - **Relations / routing**: types `Link`, `LinkVisual`, `DashStyle`; `RelationEngine`, `selectTargets`, `matchesSelector`, `familyTag`, `buildRelationMenu`, `createGoogleRoutesProvider`, `haversineMeters`, `bearingDeg`, `greatCirclePoints`, `fanLegs`, `decodePolyline`, `RouteCache`.
 - **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `PersistedVersionedStore` (shared base of the persisted registries), `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
-- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`.
+- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`; photorealistic 3D source contract `Tileset3dSource` (type, `<Map tileset3d>` / `MapEngineOptions.tileset3d`). **Separate entry `'@pasquelin/map3d/cesium-ion'`** (never imported by the core): `cesiumIon({ token, assetId? })` → `Tileset3dSource`, `CESIUM_ION_DEFAULT_ASSET_ID`, type `CesiumIonOptions`.
 - **Capture**: `engine.capture(opts)` / `MapHandle.capture` / `useCapture()` → `Promise<Blob>` (synchronous WebGL render + optional DOM-overlay compositing via an injected `rasterizeOverlay`); `<Map capture>` (`CaptureProps`), `config.capture` (`CaptureConfig`), types `CaptureOptions` / `CaptureFormat` / `CaptureBackground` / `OverlayRasterizer`. UI: "Take a photo" row in the ⚙ menu (download / mail / Web Share).
 - **Watermark**: "map3D" signature painted into the canvas + licence link, `config.watermark` (`WatermarkConfig`, `enabled` default `true`). Disabling requires a commercial licence — removing attribution under the default PolyForm-Noncommercial licence violates it.
 
@@ -164,7 +169,8 @@ agents), but generic and transport-agnostic (no Apollo/Socket.IO dependency).
 
 ## Highlights
 
-- **Photorealistic 3D tiles** (Google via Cesium Ion) + fallback ellipsoid globe.
+- **Photorealistic 3D tiles** (Google directly, or via Cesium ion through a separate
+  entry) + fallback ellipsoid globe.
 - **DOM/CSS markers and clusters** (native animations, `:hover`, accessibility), pooled
   nodes, `translate3d` positioning in a single project → write pass.
 - **Inertia-free camera**: a single exponential smoothing (no oscillation).
@@ -178,8 +184,9 @@ agents), but generic and transport-agnostic (no Apollo/Socket.IO dependency).
 - **Full Figma-style drawing editor**: selection (click, marquee, lasso), resize/rotate
   handles, separate fill/stroke styles, persisted per-tool settings, undo/redo,
   host-lockable shapes.
-- **One single 3D source**: Google Photorealistic 3D Tiles via **Cesium Ion** (one
-  token).
+- **Your choice of 3D source, no imposed weight**: Google Photorealistic 3D Tiles directly
+  (`googleMapsApiKey`) or via **Cesium ion** (`@pasquelin/map3d/cesium-ion`) — the core
+  imports nothing from Cesium, only an application importing that entry bundles it.
 - **Tag filtering (“layers”)**: tagged markers and drawings, filter panel built into the
   controls (search, checkboxes, colour chips, counters), persisted selection.
 - **Typed light/dark theme**, `prefers-reduced-motion` honoured.
@@ -238,6 +245,7 @@ diverge from what the library applies:
 | adapt the visual identity | [THEME.md](THEME.md) |
 | show a coordinate grid | [GRATICULE.md § 2](GRATICULE.md#2-turning-it-on) |
 | serve tiles from your own server | [TILES.md § 2](TILES.md#2-configuring-the-internal-server) |
+| plug in photorealistic 3D tiles (Cesium ion) | [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source) |
 | open a menu on a 3D building | [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--the-contract) |
 | write your own layer | [ENGINE.md § 3](ENGINE.md#3-writing-a-layer) |
 | add a plugin (third-party source) | [PLUGINS.md § 1](PLUGINS.md#1-concept-and-mental-model) |
@@ -290,7 +298,6 @@ export function App() {
     <MapProvider colorScheme="auto">
       <div style={{ height: '100vh' }}>
         <Map
-          cesiumIonToken={import.meta.env.VITE_CESIUM_ION_TOKEN} // optional — omit for the globe fallback
           center={{ lat: 48.8566, lng: 2.3522 }}
           zoom={13}
           controls={{ position: 'right' }}
@@ -307,6 +314,19 @@ export function App() {
   )
 }
 ```
+
+**Photorealistic 3D tiles** — optional: without them, the map shows the fallback globe or
+your own tile server. Two ways to get them: `googleMapsApiKey` (Google directly), or Cesium
+ion, through its **separate entry**:
+
+```tsx
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map tileset3d={cesiumIon({ token: import.meta.env.VITE_CESIUM_ION_TOKEN })} center={{ lat: 48.8566, lng: 2.3522 }} zoom={13} />
+```
+
+The core imports nothing from Cesium: an application that does not import that entry bundles
+none of it (see [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source)).
 
 ## Dynamic data (bbox + real time)
 
@@ -936,7 +956,7 @@ shortcuts).
 | Item | Role |
 |---|---|
 | `<MapProvider theme colorScheme labels>` | Resolved theme (light/dark + reduced-motion) + translatable labels ([LABELS.md](LABELS.md)). |
-| `<Map cesiumIonToken googleMapsApiKey center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + engine (Cesium Ion). |
+| `<Map googleMapsApiKey tileset3d center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + engine. |
 | `<MarkerLayer points/source getId cluster icon typeLabel tooltip menu selectedId followId onSelect selectionRing draggable repositionable onReposition leaderLine cullMargin staticMinZoom>` | DOM markers/clusters. Hover tooltips derived from `MarkerData.title`/`titleColor`/`content` (`tooltip` remains the override for a title plain text cannot express — clicking = actions), `MarkerData.avatar` (managed round photo), `MarkerData.new` (sonar until clicked) and `MarkerData.urgent` (red reticle, urgent-styled tooltip). `typeLabel` names a type once and for all (search groups, cluster satellites). An inseparable cluster at maximum zoom → automatically fanned out. |
 | `<Map cluster={{ enabled, size, icon, typeIcon, typeLabel, tooltip }}>` `<ClusterSurface>` | The **map's** grouping: a single index fed by every layer (`engine.clusters`), which renders the chips. The algorithm lives in `config.clustering`; `<MarkerLayer cluster={{ enabled: false }}>` opts a layer out. |
 | `<PathLayer paths animateHead>` | Paths/routes (animated GPS trace). |
@@ -1240,8 +1260,8 @@ the photorealistic tiles; without a Google key, `'3d'` is the only possible mode
 stays the default.
 
 ⚠️ **Quota** — the 2D basemap consumes the **Map Tiles API quota of your Google key**,
-whereas 3D via `cesiumIonToken` is served by Cesium Ion: starting in 2D *moves* the cost,
-it does not remove it. Two guardrails on the library side: during a camera flight (the
+whereas 3D from a `tileset3d` source (Cesium ion) is served by its own provider: starting
+in 2D *moves* the cost, it does not remove it. Two guardrails on the library side: during a camera flight (the
 intro in particular) only base levels are requested, instead of the eleven levels
 traversed; and a failed tile is retried with backoff (1 s then 4 s, three attempts)
 instead of being abandoned — a single `429` otherwise left permanent holes in the map. If
@@ -1252,7 +1272,7 @@ Cloud console.
 
 ```bash
 npm install
-cp examples/react/.env.example examples/react/.env   # set VITE_CESIUM_ION_TOKEN
+cp examples/react/.env.example examples/react/.env   # VITE_CESIUM_ION_TOKEN, optional
 npm run dev:example
 ```
 
@@ -5328,7 +5348,7 @@ Two basemaps, plus one overlay:
 
 | | Source | Quota |
 |---|---|---|
-| **Photorealistic 3D** | Google Photorealistic 3D Tiles, via `cesiumIonToken` (Cesium Ion) or `googleMapsApiKey` (direct) | Cesium Ion, or Google |
+| **Photorealistic 3D** | Google Photorealistic 3D Tiles, via `googleMapsApiKey` (direct) or a `tileset3d` source (Cesium ion, through its separate entry — see [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source)) | Google, or the source's provider |
 | **2D plan** | Google Map Tiles | **your Google key** |
 | **Traffic** | overlay of the 2D plan | Google |
 
@@ -5354,9 +5374,9 @@ tile is available: the map stays a map even without network or token.
 
 > ### ⚠️ Quota
 >
-> The 2D basemap consumes the **Map Tiles API quota of your Google key**, whereas 3D via
-> `cesiumIonToken` is served by Cesium Ion: starting in 2D **moves** the cost, it does
-> not remove it.
+> The 2D basemap consumes the **Map Tiles API quota of your Google key**, whereas 3D from
+> a `tileset3d` source (Cesium ion) is served by its own provider: starting in 2D **moves**
+> the cost, it does not remove it.
 >
 > Two guardrails on the library side: during a camera flight (the intro in particular)
 > only base levels are requested, instead of the eleven levels traversed; and a failed
@@ -5506,7 +5526,7 @@ Pedestrian mode is **already in the toolbar** as soon as 3D is available: a butt
 the compass group, key `W` by default.
 
 ```tsx
-<Map cesiumIonToken={TOKEN} center={PARIS} zoom={17} controls={{}} />
+<Map center={PARIS} zoom={17} controls={{}} />
 {/* "Pedestrian mode" button (walk icon), visible as soon as 3D is servable */}
 ```
 
@@ -5889,7 +5909,7 @@ no quota. A complete 2D map without an API key becomes possible.
 | Authentication        | API key + signed session              | none                           |
 | Minimum setting       | `<Map googleMapsApiKey>`              | `providers.internal.origin`       |
 | Traffic layer         | yes                                   | borrowed, with a key (see § 4) |
-| Volume (`'3d'` mode)  | photorealistic 3D tiles (Cesium Ion)  | extruded buildings (see § 5)   |
+| Volume (`'3d'` mode)  | photorealistic 3D tiles (see § 7)     | extruded buildings (see § 5)   |
 | Quota                 | billed per tile                       | yours                          |
 
 The provider changes **the basemap only**. Place search, routing and photorealistic 3D
@@ -6006,13 +6026,13 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 
 | Situation                                        | `2D` button | `3D` button | Traffic button |
 | ------------------------------------------------ | ----------- | ----------- | -------------- |
-| `external` + Google key + Ion token              | shown       | shown       | shown in plan  |
-| `external` + Google key, no Ion token            | shown       | **hidden**  | shown in plan  |
-| `external` without key (Ion token only)          | hidden      | shown       | hidden         |
-| neither key nor token                            | hidden      | hidden      | hidden         |
+| `external` + Google key + `tileset3d` source     | shown       | shown       | shown in plan  |
+| `external` + Google key, no `tileset3d` source   | shown       | shown       | shown in plan  |
+| `external` without key (`tileset3d` source only) | hidden      | shown       | hidden         |
+| neither key nor source                           | hidden      | hidden      | hidden         |
 | `internal` (origin set), no Google key           | shown       | shown       | hidden         |
 | `internal` (origin set) + Google key             | shown       | shown       | shown in plan  |
-| `internal` for 2D, `external` without token in 3D | shown      | **hidden**  | hidden         |
+| `internal` for 2D, `external` with neither key nor source in 3D | shown | **hidden** | hidden |
 
 Three rules behind that table:
 
@@ -6091,7 +6111,7 @@ config={{
   providers: {
     internal: { origin: TILE_ORIGIN },
     tiles: { provider: 'internal' },
-    tiles3d: { provider: 'internal' },   // 'external' = photorealistic tiles (Cesium Ion)
+    tiles3d: { provider: 'internal' },   // 'external' = photorealistic tiles (see § 7)
   },
 }}
 ```
@@ -6099,8 +6119,8 @@ config={{
 With `'internal'`, `'3d'` mode extrudes buildings from the server's vector tiles —
 OpenMapTiles `building` layer, `render_height` / `render_min_height`, courtyards punched
 through — above the raster basemap, which **stays visible**: it is what terrain will
-displace. No photorealistic tileset is driven, so **no request goes to Cesium or Google**,
-even when a token is configured elsewhere.
+displace. No photorealistic tileset is driven, so **no request goes to its provider**
+(Google, Cesium ion), even when a key or a `tileset3d` source is supplied elsewhere.
 
 There is no separate switch for buildings: `providers.tiles3d.provider` already states
 where volume comes from, and a second setting could only contradict it — leaving a `'3d'`
@@ -6250,6 +6270,65 @@ delegating to one of them:
 | `InternalTileSource` | `new InternalTileSource(cfg?, origin?)` | XYZ URLs with neither session nor key: the `internalTileUrl` template is resolved once per `setConfig`, not per tile; `supportsTraffic = false` |
 
 `cfg` and `origin` fall back to `defaultConfig.providers.tiles` / `.internal.origin`.
+
+## 7. Photorealistic volume — its source
+
+With `providers.tiles3d.provider: 'external'`, volume comes from a photorealistic tileset.
+Two ways to serve it:
+
+| Source          | What the host writes                     | What its bundle carries                                        |
+| --------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| Google directly | `<Map googleMapsApiKey>`                 | the Google plugin of `3d-tiles-renderer`, imported by the core |
+| Cesium ion      | `<Map tileset3d={cesiumIon({ token })}>` | the Cesium ion plugin, **only if it imports the entry**        |
+
+```tsx
+import { Map } from '@pasquelin/map3d'
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map
+  center={PARIS}
+  zoom={14}
+  tileset3d={cesiumIon({ token: CESIUM_ION_TOKEN })} // `assetId` is optional
+  config={{ providers: { tiles3d: { provider: 'external' } } }}
+/>
+```
+
+**The core imports nothing from Cesium.** `@pasquelin/map3d/cesium-ion` is a separate entry
+of the package, the only one importing the plugin: an application that does not import it
+bundles neither that plugin nor the `api.cesium.com` address.
+
+What to know:
+
+- **`cesiumIon({ token, assetId? })`** returns a `Tileset3dSource`. `assetId` defaults to
+  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by
+  the same entry.
+- **`tileset3d` takes precedence over `googleMapsApiKey`** for volume. The key keeps
+  everything else: 2D basemap, traffic, places, routing. That is the setup for EEA
+  accounts, for which direct Photorealistic 3D Tiles are blocked.
+- **Read at mount.** The map remounts when the source's `key` changes — token or asset —,
+  not on every render: calling it inline in JSX is safe, no memoization needed.
+- **With neither source nor key**, the `TilesRenderer` stays empty: fallback globe
+  (`fallbackGlobe`).
+- **Outside React**, the same source goes to the engine: `new MapEngine({ …, tileset3d })`.
+
+### Writing your own source
+
+The contract is two fields — enough to plug in another 3D tile provider, or a corporate
+proxy, without asking anything of the library:
+
+```ts
+import type { Tileset3dSource } from '@pasquelin/map3d'
+
+export type Tileset3dSource = {
+  key: string // identity: the map remounts when it changes
+  attach(tiles: TilesRenderer): void // registers what authenticates and serves the tileset
+}
+```
+
+`attach` receives the `TilesRenderer` from `3d-tiles-renderer` once, when the engine is
+constructed, before any request: registering a plugin on it (`tiles.registerPlugin(…)`) is
+enough. ⚠️ `key` may carry a token — the one from `cesiumIon()` does: never display or log
+it.
 
 ---
 
@@ -7871,6 +7950,9 @@ component: it runs server-side or in tests with a fake provider (no Three, no Re
 
 **Constructor options** (`MapEngineOptions`): among them, `landColor?: string` paints the
 landmasses of the fallback globe — under React, `<Map>` passes `theme.globe.landColor`.
+`tileset3d?: Tileset3dSource` plugs in the photorealistic 3D tile source, read once at
+construction; for volume it takes precedence over `googleMapsApiKey`
+(see [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source)).
 
 ## See also
 
@@ -8648,7 +8730,7 @@ compile error.
 | `providers.places.retries` | Retries after a network failure or 5xx. `0` = none. 💰 Since search re-runs on every keystroke, each retry is one more billed Places call. | `1` |
 | `providers.places.backoffMs` | Wait before the first retry, doubled each round, with a random share. `0` = immediate retry. | `300` |
 | `providers.places.headers` | Extra headers, taking precedence over ours — same use and priority as `providers.routing.headers`. | *(absent)* |
-| `providers.tiles3d.provider` | Volume provider (`'3d'` mode): `'external'` (photorealistic 3D tiles, from the Ion token / key passed to `<Map>`) or `'internal'` (terrain and buildings from the self-hosted server). Independent of `providers.tiles.provider`. Changeable at runtime; with `'internal'` the photorealistic tileset is frozen, so it **issues no request**. See [TILES.md](TILES.md). | `'internal'` |
+| `providers.tiles3d.provider` | Volume provider (`'3d'` mode): `'external'` (photorealistic 3D tiles: the source passed to `<Map tileset3d>`, otherwise Google directly through `googleMapsApiKey`) or `'internal'` (terrain and buildings from the self-hosted server). Independent of `providers.tiles.provider`. Changeable at runtime; with `'internal'` the photorealistic tileset is frozen, so it **issues no request**. See [TILES.md](TILES.md). | `'internal'` |
 | `providers.buildings.tileUrl` | URL template for a vector tile — `{origin}`, `{z}`, `{x}`, `{y}` substituted. | `'{origin}/data/openmaptiles/{z}/{x}/{y}.pbf'` |
 | `providers.buildings.sourceLayer` | OpenMapTiles layer holding the footprints. | `'building'` |
 | `providers.buildings.heightField` | Total height attribute (m above ground). | `'render_height'` |
@@ -8676,7 +8758,6 @@ compile error.
 | `providers.buildings.errorTtlMs` | Duration (ms) a tile that exhausted its attempts stays in error before being requested again, if it is still in view. `0` = permanent error. | `30000` |
 | `providers.buildings.staleFrames` | Frames out of view beyond which a pending tile leaves the download queue. Seen again, it comes back. | `120` |
 | `providers.buildings.pickFields` | MVT attributes surfaced by the building pick (`buildingMenu`). **Empty by default**: the data carries dozens per footprint, and carrying them all would cost, per tile, more than the whole geometry. The host asks for what it displays. | `[]` |
-| `providers.tiles3d.cesiumIonAssetId` | Cesium Ion asset served by default (Google Photorealistic 3D Tiles). ⚠️ The identifier used to be written in the engine and repeated in TWO documentation blocks: three copies of a value that designates a provider, the only one of its kind living outside `providers`. | `'2275207'` |
 | `providers.tiles3d.hideVolumeWhenClamped` | Hides the internal buildings above `providers.buildings.maxViewAltitude`: from higher up they cover only a few pixels and leave a "square" in the void. Faded out then hidden — but **kept in memory** as long as you stay within the `requestAltitudeFactor` band, otherwise the reappearance would restart from an empty cache and pop instead of fading. RAM/VRAM is returned only above that band. The criterion is a height above ground, so **valid at any tilt**. **The mode does not change** (stays `'3d'`). `false` = always shown. Internal only. | `true` |
 | `providers.tiles3d.volumeFadeMs` | Duration of the buildings' opacity fade on appearance/disappearance (ms). `0` = hard cut. | `250` |
 | `providers.symbols.cacheMaxEntries` | Cap of the rendered thumbnail cache. ⚠️ Unbounded until now. | `200` |
@@ -10519,9 +10600,8 @@ Root — mounts the engine and every surface.
 |---|---|---|
 | `center` **(required)** | Initial position. A remembered position (`positionStorageKey`) replaces it. | — |
 | `zoom` **(required)** | Initial zoom (Web Mercator scale: 0 = world, ~21 = street level). | — |
-| `googleMapsApiKey` | Google Maps Platform key → Photorealistic 3D Tiles directly (takes precedence over Ion). | — |
-| `cesiumIonToken` | Cesium Ion token → Google Photorealistic 3D Tiles via Cesium. | — |
-| `cesiumIonAssetId` | Cesium Ion asset (default 2275207 = Google Photorealistic 3D Tiles). | — |
+| `googleMapsApiKey` | Google Maps Platform key → Photorealistic 3D Tiles directly, when no `tileset3d` is given. | — |
+| `tileset3d` | Photorealistic 3D tile source supplied by the host (`Tileset3dSource`) — for volume, it takes precedence over `googleMapsApiKey`. The library imports none on its own: it comes from a separate entry of the package, bundled only by the host that uses it — `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` then `<Map tileset3d={cesiumIon({ token })} />`. The map remounts when the source's `key` changes (token, asset), not on every render: calling it inline is safe. See [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source). | — |
 | `mapMode` | Map type at startup. Default: `'plan'` as soon as a 2D basemap is servable — Google key **or** an internal server's `providers.internal.origin` (see [TILES.md](TILES.md)) — otherwise `'3d'`. Pass `'3d'` explicitly to start on volume. Read at **construction**: switching afterwards goes through the toolbar button or `MapHandle`. | — |
 | `fallbackGlobe` | Plain ellipsoid fallback globe when no tile is available (default: true). | — |
 | `errorTarget` | Target screen-space error (quality/perf). | — |
@@ -11277,6 +11357,11 @@ clients sous licence commerciale.
 ## 5. Conventions de code (non négociables)
 
 - **Point d'entrée public unique** : `src/index.ts`. Toute API publique y est ré-exportée.
+  **Exception assumée** : `src/cesium-ion.ts`, publiée sous `@pasquelin/map3d/cesium-ion`. Elle
+  seule importe le greffon Cesium ion de `3d-tiles-renderer`, et **rien du cœur ne l'importe** —
+  c'est ce qui garantit qu'un hôte qui ne s'en sert pas n'embarque rien de Cesium
+  (`src/cesium-ion.test.ts` garde la règle). Une source 3D tierce de plus suivrait le même
+  chemin : une entrée à elle, branchée par `<Map tileset3d>` (contrat `Tileset3dSource`).
 - **Tout est config et params.** Aucune valeur ni texte en dur : comportement, couleur, libellé,
   seuil passent par `config` / `theme` / `labels` ou une prop.
   **Exception assumée** : `config.toolbar.autoHide` (outil de la barre retiré faute d'objet)

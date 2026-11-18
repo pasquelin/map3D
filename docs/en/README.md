@@ -10,7 +10,8 @@ agents), but generic and transport-agnostic (no Apollo/Socket.IO dependency).
 
 ## Highlights
 
-- **Photorealistic 3D tiles** (Google via Cesium Ion) + fallback ellipsoid globe.
+- **Photorealistic 3D tiles** (Google directly, or via Cesium ion through a separate
+  entry) + fallback ellipsoid globe.
 - **DOM/CSS markers and clusters** (native animations, `:hover`, accessibility), pooled
   nodes, `translate3d` positioning in a single project → write pass.
 - **Inertia-free camera**: a single exponential smoothing (no oscillation).
@@ -24,8 +25,9 @@ agents), but generic and transport-agnostic (no Apollo/Socket.IO dependency).
 - **Full Figma-style drawing editor**: selection (click, marquee, lasso), resize/rotate
   handles, separate fill/stroke styles, persisted per-tool settings, undo/redo,
   host-lockable shapes.
-- **One single 3D source**: Google Photorealistic 3D Tiles via **Cesium Ion** (one
-  token).
+- **Your choice of 3D source, no imposed weight**: Google Photorealistic 3D Tiles directly
+  (`googleMapsApiKey`) or via **Cesium ion** (`@pasquelin/map3d/cesium-ion`) — the core
+  imports nothing from Cesium, only an application importing that entry bundles it.
 - **Tag filtering (“layers”)**: tagged markers and drawings, filter panel built into the
   controls (search, checkboxes, colour chips, counters), persisted selection.
 - **Typed light/dark theme**, `prefers-reduced-motion` honoured.
@@ -84,6 +86,7 @@ diverge from what the library applies:
 | adapt the visual identity | [THEME.md](THEME.md) |
 | show a coordinate grid | [GRATICULE.md § 2](GRATICULE.md#2-turning-it-on) |
 | serve tiles from your own server | [TILES.md § 2](TILES.md#2-configuring-the-internal-server) |
+| plug in photorealistic 3D tiles (Cesium ion) | [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source) |
 | open a menu on a 3D building | [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--the-contract) |
 | write your own layer | [ENGINE.md § 3](ENGINE.md#3-writing-a-layer) |
 | add a plugin (third-party source) | [PLUGINS.md § 1](PLUGINS.md#1-concept-and-mental-model) |
@@ -136,7 +139,6 @@ export function App() {
     <MapProvider colorScheme="auto">
       <div style={{ height: '100vh' }}>
         <Map
-          cesiumIonToken={import.meta.env.VITE_CESIUM_ION_TOKEN} // optional — omit for the globe fallback
           center={{ lat: 48.8566, lng: 2.3522 }}
           zoom={13}
           controls={{ position: 'right' }}
@@ -153,6 +155,19 @@ export function App() {
   )
 }
 ```
+
+**Photorealistic 3D tiles** — optional: without them, the map shows the fallback globe or
+your own tile server. Two ways to get them: `googleMapsApiKey` (Google directly), or Cesium
+ion, through its **separate entry**:
+
+```tsx
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map tileset3d={cesiumIon({ token: import.meta.env.VITE_CESIUM_ION_TOKEN })} center={{ lat: 48.8566, lng: 2.3522 }} zoom={13} />
+```
+
+The core imports nothing from Cesium: an application that does not import that entry bundles
+none of it (see [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source)).
 
 ## Dynamic data (bbox + real time)
 
@@ -782,7 +797,7 @@ shortcuts).
 | Item | Role |
 |---|---|
 | `<MapProvider theme colorScheme labels>` | Resolved theme (light/dark + reduced-motion) + translatable labels ([LABELS.md](LABELS.md)). |
-| `<Map cesiumIonToken googleMapsApiKey center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + engine (Cesium Ion). |
+| `<Map googleMapsApiKey tileset3d center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + engine. |
 | `<MarkerLayer points/source getId cluster icon typeLabel tooltip menu selectedId followId onSelect selectionRing draggable repositionable onReposition leaderLine cullMargin staticMinZoom>` | DOM markers/clusters. Hover tooltips derived from `MarkerData.title`/`titleColor`/`content` (`tooltip` remains the override for a title plain text cannot express — clicking = actions), `MarkerData.avatar` (managed round photo), `MarkerData.new` (sonar until clicked) and `MarkerData.urgent` (red reticle, urgent-styled tooltip). `typeLabel` names a type once and for all (search groups, cluster satellites). An inseparable cluster at maximum zoom → automatically fanned out. |
 | `<Map cluster={{ enabled, size, icon, typeIcon, typeLabel, tooltip }}>` `<ClusterSurface>` | The **map's** grouping: a single index fed by every layer (`engine.clusters`), which renders the chips. The algorithm lives in `config.clustering`; `<MarkerLayer cluster={{ enabled: false }}>` opts a layer out. |
 | `<PathLayer paths animateHead>` | Paths/routes (animated GPS trace). |
@@ -1086,8 +1101,8 @@ the photorealistic tiles; without a Google key, `'3d'` is the only possible mode
 stays the default.
 
 ⚠️ **Quota** — the 2D basemap consumes the **Map Tiles API quota of your Google key**,
-whereas 3D via `cesiumIonToken` is served by Cesium Ion: starting in 2D *moves* the cost,
-it does not remove it. Two guardrails on the library side: during a camera flight (the
+whereas 3D from a `tileset3d` source (Cesium ion) is served by its own provider: starting
+in 2D *moves* the cost, it does not remove it. Two guardrails on the library side: during a camera flight (the
 intro in particular) only base levels are requested, instead of the eleven levels
 traversed; and a failed tile is retried with backoff (1 s then 4 s, three attempts)
 instead of being abandoned — a single `429` otherwise left permanent holes in the map. If
@@ -1098,7 +1113,7 @@ Cloud console.
 
 ```bash
 npm install
-cp examples/react/.env.example examples/react/.env   # set VITE_CESIUM_ION_TOKEN
+cp examples/react/.env.example examples/react/.env   # VITE_CESIUM_ION_TOKEN, optional
 npm run dev:example
 ```
 

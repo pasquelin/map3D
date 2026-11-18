@@ -29,7 +29,7 @@ no quota. A complete 2D map without an API key becomes possible.
 | Authentication        | API key + signed session              | none                           |
 | Minimum setting       | `<Map googleMapsApiKey>`              | `providers.internal.origin`       |
 | Traffic layer         | yes                                   | borrowed, with a key (see § 4) |
-| Volume (`'3d'` mode)  | photorealistic 3D tiles (Cesium Ion)  | extruded buildings (see § 5)   |
+| Volume (`'3d'` mode)  | photorealistic 3D tiles (see § 7)     | extruded buildings (see § 5)   |
 | Quota                 | billed per tile                       | yours                          |
 
 The provider changes **the basemap only**. Place search, routing and photorealistic 3D
@@ -146,13 +146,13 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 
 | Situation                                        | `2D` button | `3D` button | Traffic button |
 | ------------------------------------------------ | ----------- | ----------- | -------------- |
-| `external` + Google key + Ion token              | shown       | shown       | shown in plan  |
-| `external` + Google key, no Ion token            | shown       | **hidden**  | shown in plan  |
-| `external` without key (Ion token only)          | hidden      | shown       | hidden         |
-| neither key nor token                            | hidden      | hidden      | hidden         |
+| `external` + Google key + `tileset3d` source     | shown       | shown       | shown in plan  |
+| `external` + Google key, no `tileset3d` source   | shown       | shown       | shown in plan  |
+| `external` without key (`tileset3d` source only) | hidden      | shown       | hidden         |
+| neither key nor source                           | hidden      | hidden      | hidden         |
 | `internal` (origin set), no Google key           | shown       | shown       | hidden         |
 | `internal` (origin set) + Google key             | shown       | shown       | shown in plan  |
-| `internal` for 2D, `external` without token in 3D | shown      | **hidden**  | hidden         |
+| `internal` for 2D, `external` with neither key nor source in 3D | shown | **hidden** | hidden |
 
 Three rules behind that table:
 
@@ -231,7 +231,7 @@ config={{
   providers: {
     internal: { origin: TILE_ORIGIN },
     tiles: { provider: 'internal' },
-    tiles3d: { provider: 'internal' },   // 'external' = photorealistic tiles (Cesium Ion)
+    tiles3d: { provider: 'internal' },   // 'external' = photorealistic tiles (see § 7)
   },
 }}
 ```
@@ -239,8 +239,8 @@ config={{
 With `'internal'`, `'3d'` mode extrudes buildings from the server's vector tiles —
 OpenMapTiles `building` layer, `render_height` / `render_min_height`, courtyards punched
 through — above the raster basemap, which **stays visible**: it is what terrain will
-displace. No photorealistic tileset is driven, so **no request goes to Cesium or Google**,
-even when a token is configured elsewhere.
+displace. No photorealistic tileset is driven, so **no request goes to its provider**
+(Google, Cesium ion), even when a key or a `tileset3d` source is supplied elsewhere.
 
 There is no separate switch for buildings: `providers.tiles3d.provider` already states
 where volume comes from, and a second setting could only contradict it — leaving a `'3d'`
@@ -390,6 +390,65 @@ delegating to one of them:
 | `InternalTileSource` | `new InternalTileSource(cfg?, origin?)` | XYZ URLs with neither session nor key: the `internalTileUrl` template is resolved once per `setConfig`, not per tile; `supportsTraffic = false` |
 
 `cfg` and `origin` fall back to `defaultConfig.providers.tiles` / `.internal.origin`.
+
+## 7. Photorealistic volume — its source
+
+With `providers.tiles3d.provider: 'external'`, volume comes from a photorealistic tileset.
+Two ways to serve it:
+
+| Source          | What the host writes                     | What its bundle carries                                        |
+| --------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| Google directly | `<Map googleMapsApiKey>`                 | the Google plugin of `3d-tiles-renderer`, imported by the core |
+| Cesium ion      | `<Map tileset3d={cesiumIon({ token })}>` | the Cesium ion plugin, **only if it imports the entry**        |
+
+```tsx
+import { Map } from '@pasquelin/map3d'
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map
+  center={PARIS}
+  zoom={14}
+  tileset3d={cesiumIon({ token: CESIUM_ION_TOKEN })} // `assetId` is optional
+  config={{ providers: { tiles3d: { provider: 'external' } } }}
+/>
+```
+
+**The core imports nothing from Cesium.** `@pasquelin/map3d/cesium-ion` is a separate entry
+of the package, the only one importing the plugin: an application that does not import it
+bundles neither that plugin nor the `api.cesium.com` address.
+
+What to know:
+
+- **`cesiumIon({ token, assetId? })`** returns a `Tileset3dSource`. `assetId` defaults to
+  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by
+  the same entry.
+- **`tileset3d` takes precedence over `googleMapsApiKey`** for volume. The key keeps
+  everything else: 2D basemap, traffic, places, routing. That is the setup for EEA
+  accounts, for which direct Photorealistic 3D Tiles are blocked.
+- **Read at mount.** The map remounts when the source's `key` changes — token or asset —,
+  not on every render: calling it inline in JSX is safe, no memoization needed.
+- **With neither source nor key**, the `TilesRenderer` stays empty: fallback globe
+  (`fallbackGlobe`).
+- **Outside React**, the same source goes to the engine: `new MapEngine({ …, tileset3d })`.
+
+### Writing your own source
+
+The contract is two fields — enough to plug in another 3D tile provider, or a corporate
+proxy, without asking anything of the library:
+
+```ts
+import type { Tileset3dSource } from '@pasquelin/map3d'
+
+export type Tileset3dSource = {
+  key: string // identity: the map remounts when it changes
+  attach(tiles: TilesRenderer): void // registers what authenticates and serves the tileset
+}
+```
+
+`attach` receives the `TilesRenderer` from `3d-tiles-renderer` once, when the engine is
+constructed, before any request: registering a plugin on it (`tiles.registerPlugin(…)`) is
+enough. ⚠️ `key` may carry a token — the one from `cesiumIon()` does: never display or log
+it.
 
 ---
 

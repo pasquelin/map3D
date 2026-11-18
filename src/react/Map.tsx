@@ -2,6 +2,7 @@ import { type CSSProperties, type Ref, useEffect, useImperativeHandle, useMemo, 
 import type { CameraState } from '../core/Camera'
 import type { ImmersionLevel } from '../core/pedestrianState'
 import { type InteractiveMode, MapEngine, type MapMode, WHEEL_SURFACE_ATTR } from '../core/MapEngine'
+import type { Tileset3dSource } from '../core/tileset3d'
 import { readStoredJSON, removeStoredKey, writeStoredJSON } from '../core/storage'
 import type { Viewport } from '../data/types'
 import type { LatLng } from '../shared'
@@ -33,12 +34,22 @@ export type MapProps<T = unknown, TPin = unknown> = {
   center: LatLng
   /** Zoom initial (échelle Web Mercator : 0 = monde, ~21 = niveau rue). */
   zoom: number
-  /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
+  /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct, à défaut de `tileset3d`. */
   googleMapsApiKey?: string
-  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
-  cesiumIonToken?: string
-  /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
-  cesiumIonAssetId?: string
+  /**
+   * Source de tuiles 3D photoréalistes fournie par l'hôte — pour le volume, elle prime sur
+   * `googleMapsApiKey`. La lib n'en importe aucune d'elle-même : elle vient d'une entrée à
+   * part du paquet, que seul l'hôte qui s'en sert embarque.
+   *
+   * ```tsx
+   * import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+   * <Map tileset3d={cesiumIon({ token })} />
+   * ```
+   *
+   * La carte se remonte quand la `key` de la source change (jeton, asset), pas à chaque
+   * render : l'appel en ligne est sans risque.
+   */
+  tileset3d?: Tileset3dSource
   /**
    * Type de carte au démarrage. Défaut : `'plan'` dès qu'un fond 2D est disponible —
    * clé `googleMapsApiKey` **ou** serveur de tuiles interne (`providers.internal.origin`) —,
@@ -233,8 +244,7 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       buildingHoverColor: theme.globe.buildingHoverColor,
       buildingSelectColor: theme.globe.buildingSelectColor,
       googleMapsApiKey: props.googleMapsApiKey,
-      cesiumIonToken: props.cesiumIonToken,
-      cesiumIonAssetId: props.cesiumIonAssetId,
+      tileset3d: props.tileset3d,
       mapMode: props.mapMode,
       fallbackGlobe: props.fallbackGlobe ?? true,
       errorTarget: props.errorTarget,
@@ -312,7 +322,7 @@ function MapBody<T = unknown, TPin = unknown>(props: MapProps<T, TPin>) {
       setEngine(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.googleMapsApiKey, props.cesiumIonToken, props.cesiumIonAssetId])
+  }, [props.googleMapsApiKey, props.tileset3d?.key])
 
   // Bascule à chaud (une vue qui passe en lecture seule sans se démonter).
   useEffect(() => {

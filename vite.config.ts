@@ -14,9 +14,14 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        // Entrée à part (`@pasquelin/map3d/cesium-ion`) : la seule à importer le greffon
+        // Cesium ion. Elle ne partage aucun code d'exécution avec `index`, qui ne l'importe pas.
+        'cesium-ion': resolve(__dirname, 'src/cesium-ion.ts'),
+      },
       formats: ['es', 'cjs'],
-      fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
+      fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
     },
     rollupOptions: {
       // Rien de ce qui est externe ne doit être embarqué dans le bundle.
@@ -35,14 +40,16 @@ export default defineConfig({
 
       output: {
         globals: { react: 'React', 'react-dom': 'ReactDOM', three: 'THREE' },
-        // Directive « client » sur le POINT D'ENTRÉE : la carte est intrinsèquement
+        // Directive « client » sur les POINTS D'ENTRÉE : la carte est intrinsèquement
         // cliente (WebGL, hooks, DOM). Sans elle, un simple `import` depuis un React
         // Server Component (Next App Router) casse le build serveur. Le banner Rollup
         // est posé AVANT les imports, seul endroit où Next/RSC la reconnaît.
         //
-        // L'entrée seule : les chunks chargés dynamiquement (worker de volume, construction
-        // de tuile) le sont déjà par elle, et marquer tous les chunks empêcherait d'exposer
-        // un jour un sous-chemin server-safe sans revoir la règle.
+        // Les entrées seules — `cesium-ion` comprise, dont la source ne se construit que côté
+        // client (elle porte une fonction, qu'un Server Component ne peut pas passer) : les
+        // chunks chargés dynamiquement (worker de volume, construction de tuile) le sont déjà
+        // par `index`, et marquer tous les chunks empêcherait d'exposer un jour un sous-chemin
+        // server-safe sans revoir la règle.
 
         banner: (chunk) => (chunk.isEntry ? "'use client';" : ''),
       },

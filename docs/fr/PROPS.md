@@ -20,9 +20,8 @@ Racine — monte le moteur et toutes les surfaces.
 |---|---|---|
 | `center` **(requis)** | Position initiale. Une position mémorisée (`positionStorageKey`) la remplace. | — |
 | `zoom` **(requis)** | Zoom initial (échelle Web Mercator : 0 = monde, ~21 = niveau rue). | — |
-| `googleMapsApiKey` | Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). | — |
-| `cesiumIonToken` | Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. | — |
-| `cesiumIonAssetId` | Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). | — |
+| `googleMapsApiKey` | Clé Google Maps Platform → Photorealistic 3D Tiles en direct, à défaut de `tileset3d`. | — |
+| `tileset3d` | Source de tuiles 3D photoréalistes fournie par l'hôte (`Tileset3dSource`) — pour le volume, elle prime sur `googleMapsApiKey`. La lib n'en importe aucune d'elle-même : elle vient d'une entrée à part du paquet, que seul l'hôte qui s'en sert embarque — `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` puis `<Map tileset3d={cesiumIon({ token })} />`. La carte se remonte quand la `key` de la source change (jeton, asset), pas à chaque render : l'appel en ligne est sans risque. Cf. [TILES.md § 7](TILES.md#7-le-volume-photoréaliste--sa-source). | — |
 | `mapMode` | Type de carte au démarrage. Défaut : `'plan'` dès qu'un fond 2D est servable — clé Google **ou** `providers.internal.origin` d'un serveur interne (cf. [TILES.md](TILES.md)) — sinon `'3d'`. `'3d'` explicite pour démarrer sur le volume. Lu à la **construction** : la bascule ensuite passe par le bouton de la barre ou `MapHandle`. | — |
 | `fallbackGlobe` | Globe ellipsoïde uni de repli quand aucune tuile n'est disponible (défaut: true). | — |
 | `errorTarget` | Erreur d'écran cible (qualité/perf). | — |

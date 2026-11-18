@@ -18,7 +18,7 @@ Pedestrian mode is **already in the toolbar** as soon as 3D is available: a butt
 the compass group, key `W` by default.
 
 ```tsx
-<Map cesiumIonToken={TOKEN} center={PARIS} zoom={17} controls={{}} />
+<Map center={PARIS} zoom={17} controls={{}} />
 {/* "Pedestrian mode" button (walk icon), visible as soon as 3D is servable */}
 ```
 
