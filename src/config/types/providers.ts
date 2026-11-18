@@ -367,8 +367,8 @@ export type Tiles3dConfig = {
   /**
    * Fournisseur du relief et du bâti :
    *
-   * - `'external'` — tuiles 3D photoréalistes (Cesium Ion, ou Google en direct), selon le
-   *   token/la clé passés à `<Map>`. C'est le défaut.
+   * - `'external'` — tuiles 3D photoréalistes : la source passée à `<Map tileset3d>`, sinon
+   *   Google en direct par `googleMapsApiKey`.
    * - `'internal'` — relief et bâtiments reconstruits depuis le serveur auto-hébergé
    *   (cf. `providers.terrain` / `providers.buildings`). Aucun tileset photoréaliste
    *   n'est alors monté : rien n'est streamé ni facturé chez le fournisseur externe.
@@ -378,17 +378,9 @@ export type Tiles3dConfig = {
    *
    * Modifiable à chaud : le réglage commande la visibilité et le pilotage du tileset
    * photoréaliste, pas son enregistrement. Un tileset gelé n'émet aucune requête, donc
-   * `'internal'` ne fait rien facturer même quand un token est configuré.
+   * `'internal'` ne fait rien facturer même quand une source ou une clé est fournie.
    */
   provider: TileProvider
-  /**
-   * Asset Cesium Ion servi par défaut (Google Photorealistic 3D Tiles).
-   *
-   * ⚠️ L'identifiant était écrit dans le moteur et répété dans DEUX blocs de
-   * documentation : trois copies d'une valeur qui désigne un fournisseur, seule de
-   * son espèce à vivre hors de `providers`.
-   */
-  cesiumIonAssetId: string
   /**
    * Masque les bâtiments internes au-dessus de `providers.buildings.maxViewAltitude` : de
    * plus haut ils ne couvrent que quelques pixels et leur chargement borné laisse un

@@ -466,6 +466,9 @@ Three, ni React, ni `fetch`).
 
 **Options du constructeur** (`MapEngineOptions`) : parmi elles, `landColor?: string` peint les
 terres du globe de repli — sous React, `<Map>` y passe `theme.globe.landColor`.
+`tileset3d?: Tileset3dSource` branche la source des tuiles 3D photoréalistes, lue une fois à
+la construction ; elle prime sur `googleMapsApiKey` pour le volume
+(cf. [TILES.md § 7](TILES.md#7-le-volume-photoréaliste--sa-source)).
 
 ## Voir aussi
 

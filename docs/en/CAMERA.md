@@ -291,7 +291,7 @@ Two basemaps, plus one overlay:
 
 | | Source | Quota |
 |---|---|---|
-| **Photorealistic 3D** | Google Photorealistic 3D Tiles, via `cesiumIonToken` (Cesium Ion) or `googleMapsApiKey` (direct) | Cesium Ion, or Google |
+| **Photorealistic 3D** | Google Photorealistic 3D Tiles, via `googleMapsApiKey` (direct) or a `tileset3d` source (Cesium ion, through its separate entry — see [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source)) | Google, or the source's provider |
 | **2D plan** | Google Map Tiles | **your Google key** |
 | **Traffic** | overlay of the 2D plan | Google |
 
@@ -317,9 +317,9 @@ tile is available: the map stays a map even without network or token.
 
 > ### ⚠️ Quota
 >
-> The 2D basemap consumes the **Map Tiles API quota of your Google key**, whereas 3D via
-> `cesiumIonToken` is served by Cesium Ion: starting in 2D **moves** the cost, it does
-> not remove it.
+> The 2D basemap consumes the **Map Tiles API quota of your Google key**, whereas 3D from
+> a `tileset3d` source (Cesium ion) is served by its own provider: starting in 2D **moves**
+> the cost, it does not remove it.
 >
 > Two guardrails on the library side: during a camera flight (the intro in particular)
 > only base levels are requested, instead of the eleven levels traversed; and a failed

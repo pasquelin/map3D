@@ -135,14 +135,11 @@ export const providersDefaults: ProvidersConfig = {
     backoffMs: 300,
   },
 
-  // ⚠️ Nouveau : l'identifiant vivait dans `MapEngine` (`?? '2275207'`) et dans
-  // deux blocs de doc. Surchargeable par la prop `cesiumIonAssetId`, qui prime.
   // ⚠️ Le volume venait NÉCESSAIREMENT des tuiles photoréalistes dès qu'un token ou une
   // clé était fourni. Il vient désormais du serveur interne (bâtiments extrudés) ;
   // `'external'` rétablit les tuiles photoréalistes.
   tiles3d: {
     provider: 'internal',
-    cesiumIonAssetId: '2275207',
     hideVolumeWhenClamped: true,
     volumeFadeMs: 250,
   },

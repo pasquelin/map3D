@@ -218,6 +218,12 @@ export { createTileSource, type TileSource } from './core/tileSource'
 export { InternalTileSource } from './core/internalTiles'
 export { GoogleTileSource } from './core/googleTiles'
 /**
+ * Source de tuiles 3D photoréalistes (`<Map tileset3d>`). Seul le CONTRAT vit ici : une
+ * source concrète sort d'une entrée à part du paquet (`@pasquelin/map3d/cesium-ion`),
+ * pour qu'un hôte qui ne s'en sert pas n'en embarque rien.
+ */
+export type { Tileset3dSource } from './core/tileset3d'
+/**
  * Capacités du fond de carte. `canEnterMode` est la table de vérité que la barre livrée
  * applique déjà : un hôte qui compose la sienne s'en sert plutôt que de redériver la
  * règle — c'est de l'avoir redérivée qui laissait un bouton « 3D » sans volume derrière.

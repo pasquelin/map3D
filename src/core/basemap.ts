@@ -30,7 +30,7 @@ export type BasemapState = {
    */
   canPlan: boolean
   /**
-   * Du volume est servable : un tileset 3D (token Ion ou clé Google) en `'external'`,
+   * Du volume est servable : un tileset 3D (source `tileset3d` ou clé Google) en `'external'`,
    * du relief ou des bâtiments en `'internal'`.
    */
   can3d: boolean
@@ -70,7 +70,7 @@ export type BasemapSupport = {
   canBorrowTraffic: boolean
   /** D'où doit venir le volume — `providers.tiles3d.provider`. */
   provider3d: TileProvider
-  /** Un tileset 3D photoréaliste est monté (token Cesium Ion ou clé Google). */
+  /** Un tileset 3D photoréaliste est monté (source `tileset3d` ou clé Google). */
   has3dTileset: boolean
   /** Le relief interne est activé ET servable. */
   hasRelief: boolean
@@ -82,13 +82,13 @@ export type BasemapSupport = {
  * Capacités du fond de carte pour un mode donné. Pure : c'est la table de vérité de
  * l'UI, et elle se teste sans moteur ni WebGL.
  *
- * NB : `can3d` en externe se déduit de la présence d'un token/clé, pas d'un tileset
+ * NB : `can3d` en externe se déduit de la présence d'une source ou d'une clé, pas d'un tileset
  * réellement servi — les tuiles 3D Google sont par exemple bloquées pour les comptes
  * EEA. C'était déjà le cas avant que ces règles soient rassemblées.
  */
 export function deriveBasemapCapabilities(mode: MapMode, support: BasemapSupport, traffic: boolean): BasemapState {
   const canPlan = support.hasBasemap2d
-  // Le fournisseur de volume décide de ce qui COMPTE : un token Ion ne donne pas de 3D à
+  // Le fournisseur de volume décide de ce qui COMPTE : une source photoréaliste ne donne pas de 3D à
   // qui a choisi le volume interne, et un relief interne n'en donne pas à qui attend les
   // tuiles photoréalistes. Les deux axes (2D / 3D) restent indépendants.
   const can3d = support.provider3d === 'external' ? support.has3dTileset : support.hasRelief || support.hasBuildings

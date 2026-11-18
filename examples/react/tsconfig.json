@@ -10,7 +10,8 @@
     // un chemin relatif se résoudrait depuis la racine du dépôt (ou depuis ce fichier,
     // selon la présence de `baseUrl`) — deux réponses différentes pour la même ligne.
     "paths": {
-      "@pasquelin/map3d": ["${configDir}/../../src/index.ts"]
+      "@pasquelin/map3d": ["${configDir}/../../src/index.ts"],
+      "@pasquelin/map3d/cesium-ion": ["${configDir}/../../src/cesium-ion.ts"]
     }
   },
   "include": ["src"]

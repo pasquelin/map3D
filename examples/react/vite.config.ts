@@ -19,6 +19,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // L'entrée à part AVANT la principale : un alias en chaîne capture aussi les
+      // sous-chemins, et `@pasquelin/map3d/cesium-ion` deviendrait `…/src/index.ts/cesium-ion`.
+      '@pasquelin/map3d/cesium-ion': resolve(__dirname, '../../src/cesium-ion.ts'),
       '@pasquelin/map3d': resolve(__dirname, '../../src/index.ts'),
       'three/addons': resolve(__dirname, '../../node_modules/three/examples/jsm'),
     },

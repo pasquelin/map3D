@@ -27,7 +27,7 @@
 
 An **imperative Three.js engine driven declaratively by React**. `MapEngine` owns the truth (camera, tiles, layers); React mounts it and stays out of the frame loop — so you get 60 fps on modest laptops without fighting re-renders.
 
-- 🌐 **Photorealistic 3D → flat 2D**, one library. Google Photorealistic 3D Tiles (via Cesium Ion) with an ellipsoid-globe fallback when no token is set.
+- 🌐 **Photorealistic 3D → flat 2D**, one library. Google Photorealistic 3D Tiles — directly, or via Cesium ion through an opt-in entry the core never imports — with an ellipsoid-globe fallback when no source is set.
 - 🧩 **Bring your own tiles.** The 2D basemap runs from Google *or* your self-hosted XYZ server — no key, no quota — switched by configuration alone.
 - 📍 **DOM/CSS markers & clusters** with native `:hover`, accessibility and animations; pooled nodes, `translate3d` in a single write pass. Stable identity → a moving agent *glides* instead of being recreated.
 - ✏️ **Full drawing editor**, Figma-style: marquee/lasso select, resize & rotate handles, per-tool styles, undo/redo, GeoJSON in/out.
@@ -48,7 +48,7 @@ An **imperative Three.js engine driven declaratively by React**. `MapEngine` own
   </tr>
   <tr>
     <td width="50%"><img src="docs/assets/pedestrian.webp" alt="First-person view from street level" width="100%"/><br/><sub><b>Pedestrian mode</b> · eye height, gravity, collisions</sub></td>
-    <td width="50%"><img src="docs/assets/photorealistic-3d.webp" alt="Photorealistic 3D city with zones and clusters" width="100%"/><br/><sub><b>Photorealistic 3D</b> · Google 3D Tiles via Cesium Ion</sub></td>
+    <td width="50%"><img src="docs/assets/photorealistic-3d.webp" alt="Photorealistic 3D city with zones and clusters" width="100%"/><br/><sub><b>Photorealistic 3D</b> · Google 3D Tiles, direct or via Cesium ion</sub></td>
   </tr>
 </table>
 
@@ -78,7 +78,6 @@ export function App() {
   return (
     <div style={{ height: '100vh' }}>
       <Map
-        cesiumIonToken={import.meta.env.VITE_CESIUM_ION_TOKEN} // optional — omit for the globe fallback
         center={{ lat: 48.8566, lng: 2.3522 }}
         zoom={13}
         layers={[markersLayer<Alert>({ points: alerts, cluster: { enabled: true } })]}
@@ -89,6 +88,14 @@ export function App() {
 ```
 
 That's it — the toolbar, navigation controls, clustering, search and coordinate grid are all mounted **inside** `<Map>` and driven by config; you only add your data.
+
+**Photorealistic 3D tiles** are optional. Pass `googleMapsApiKey` for Google directly, or plug Cesium ion in from its own entry — the core imports nothing from Cesium, so an app that skips this import bundles none of it:
+
+```tsx
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map tileset3d={cesiumIon({ token: import.meta.env.VITE_CESIUM_ION_TOKEN })} center={{ lat: 48.8566, lng: 2.3522 }} zoom={13} />
+```
 
 ## Documentation
 
@@ -133,7 +140,7 @@ Write your own with the [plugin API](docs/en/PLUGINS.md) — start from `plugin-
 
 ## Example app
 
-The React example runs in the browser at **[pasquelin.github.io/map3D](https://pasquelin.github.io/map3D/)** — published from `main` on every push, without a Cesium Ion token (photorealistic 3D tiles are off there).
+The React example runs in the browser at **[pasquelin.github.io/map3D](https://pasquelin.github.io/map3D/)** — published from `main` on every push, without a Cesium ion token (photorealistic 3D tiles are off there).
 
 To run it locally, with your own token:
 

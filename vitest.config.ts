@@ -11,6 +11,12 @@ export default defineConfig({
     // test (cf. `examples/react/src/config/configLabels.test.ts`).
     include: ['src/**/*.test.ts', 'examples/**/*.test.ts'],
   },
-  // L'exemple importe la lib par son nom public, comme le ferait une application.
-  resolve: { alias: { '@pasquelin/map3d': resolve(__dirname, 'src/index.ts') } },
+  // L'exemple importe la lib par son nom public, comme le ferait une application. L'entrée
+  // à part passe AVANT la principale, dont l'alias capturerait sinon le sous-chemin.
+  resolve: {
+    alias: {
+      '@pasquelin/map3d/cesium-ion': resolve(__dirname, 'src/cesium-ion.ts'),
+      '@pasquelin/map3d': resolve(__dirname, 'src/index.ts'),
+    },
+  },
 })

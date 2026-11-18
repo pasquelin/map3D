@@ -18,14 +18,18 @@ entier, les props de `<Map>` hors config, les surfaces d'interface au bouton pr�
 cp examples/react/.env.example examples/react/.env
 ```
 
-| Variable                | Rôle                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `VITE_CESIUM_ION_TOKEN` | Google Photorealistic 3D Tiles via Cesium Ion. Sans lui : globe ellipsoïde de repli. |
-| `VITE_GOOGLE_MAPS_KEY`  | Fond 2D externe, trafic, recherche de lieux, routage (fournisseur `external`).       |
-| `VITE_TILE_ORIGIN`      | Origine du serveur de tuiles auto-hébergé (fournisseur `internal`, le défaut).       |
-| `VITE_WINDY_API_KEY`    | Clé du plugin optionnel `windy` (cf. ci-dessous). Se renseigne aussi dans le hub.    |
+| Variable                | Rôle                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `VITE_CESIUM_ION_TOKEN` | Google Photorealistic 3D Tiles via Cesium ion (entrée à part, cf. ci-dessous). Sans lui : globe ellipsoïde de repli. |
+| `VITE_GOOGLE_MAPS_KEY`  | Fond 2D externe, trafic, recherche de lieux, routage (fournisseur `external`).                                       |
+| `VITE_TILE_ORIGIN`      | Origine du serveur de tuiles auto-hébergé (fournisseur `internal`, le défaut).                                       |
+| `VITE_WINDY_API_KEY`    | Clé du plugin optionnel `windy` (cf. ci-dessous). Se renseigne aussi dans le hub.                                    |
 
 Toutes sont facultatives : sans aucune, la carte démarre sur le globe de repli.
+
+Cesium ion n'est plus dans le cœur de la lib : l'exemple l'obtient par l'**entrée à part**
+`@pasquelin/map3d/cesium-ion` (`src/App.tsx` : `tileset3d={cesiumIon({ token })}`), résolue comme
+la lib vers ses sources (`src/cesium-ion.ts`, alias Vite + `paths` TypeScript).
 
 ## Lancer
 
@@ -56,8 +60,8 @@ voisin en dev que s'il existe.
 ## Ce que l'exemple démontre
 
 - **Tout en props de `<Map>`** : `toolbar`, `controls`, `search`, `dock`, `templates`, `draw`,
-  `relations`, `cluster`, `layers`, `plugins`, `capture`, `theme`/`colorScheme`, `config`,
-  `positionStorageKey`/`resetStoredPosition`, `onReady`/`onViewportChange`/`onCameraChange`.
+  `relations`, `cluster`, `layers`, `plugins`, `capture`, `tileset3d`, `theme`/`colorScheme`,
+  `config`, `positionStorageKey`/`resetStoredPosition`, `onReady`/`onViewportChange`/`onCameraChange`.
 - **La poignée `MapHandle`** (ref) depuis l'extérieur : caméra (`fitBounds`, `flyTo`, `panTo`),
   dessin par identité (`addShape`/`updateShape`/`getShape`), interrogation (`engine.getView()`).
 - **Les hooks de contexte**, depuis des overlays hôte montés en enfants de `<Map>` :
