@@ -53,7 +53,7 @@
     "reactName": "Tableau de bord opérateur",
     "reactText": "Une carte 3D avec des alertes regroupées par gravité et rechargées au déplacement, des agents animés suivis par la caméra, des zones, l'éditeur de dessin complet, une bascule clair/sombre et un thème néon alternatif.",
     "reactShotAlt": "La démo React : éditeur de dessin, sélection au lasso et liste de markers en direct",
-    "reactNote": "Publiée sans token Cesium Ion : elle ouvre sur le fond auto-hébergé — tout le reste fonctionne. Pour le globe photoréaliste, clonez le dépôt, renseignez <code>VITE_CESIUM_ION_TOKEN</code> et passez <code>providers.tiles3d.provider</code> à <code>external</code>.",
+    "reactNote": "Publiée sans token Cesium ion : elle ouvre sur le fond auto-hébergé — tout le reste fonctionne. Pour le globe photoréaliste, clonez le dépôt, renseignez <code>VITE_CESIUM_ION_TOKEN</code> et passez <code>providers.tiles3d.provider</code> à <code>external</code>.",
     "reactCta": "Ouvrir la démo"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "Ce qui est livré",
     "lede": "Toutes les surfaces — barre d'outils, contrôles, recherche, grille de coordonnées, clustering — sont montées dans <code>&lt;Map&gt;</code> et pilotées par la configuration. Vous n'ajoutez que les données.",
     "tilesName": "3D photoréaliste, 2D à plat",
-    "tilesText": "Google Photorealistic 3D Tiles via Cesium Ion, un globe ellipsoïde quand aucun token n'est posé, et un fond 2D servi par Google ou par votre propre serveur XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles — directement, ou via Cesium ion par un point d'entrée optionnel que le cœur n'importe jamais —, un globe ellipsoïde quand aucune source n'est configurée, et un fond 2D servi par Google ou par votre propre serveur XYZ.",
     "markersName": "Markers et clusters DOM",
     "markersText": "De vrais nœuds DOM, avec survol, focus et animations CSS natifs. Recyclés et écrits en une seule passe <code>translate3d</code> : un agent qui bouge glisse au lieu d'être recréé.",
     "drawingName": "Éditeur de dessin",

@@ -53,7 +53,7 @@
     "reactName": "Leitstand",
     "reactText": "Eine 3D-Karte mit nach Schweregrad geclusterten Meldungen, die beim Bewegen nachgeladen werden, animierten Einheiten mit Kameraverfolgung, Zonen, dem vollständigen Zeichen-Editor, Hell/Dunkel-Umschaltung und einem alternativen Neon-Theme.",
     "reactShotAlt": "Die React-Demo: Zeichen-Editor, Rahmenauswahl und Live-Markerliste",
-    "reactNote": "Ohne Cesium-Ion-Token veröffentlicht, startet also auf der selbst gehosteten Basiskarte — alles andere läuft. Für den fotorealistischen Globus das Repository klonen, <code>VITE_CESIUM_ION_TOKEN</code> setzen und <code>providers.tiles3d.provider</code> auf <code>external</code> stellen.",
+    "reactNote": "Ohne Cesium-ion-Token veröffentlicht, startet also auf der selbst gehosteten Basiskarte — alles andere läuft. Für den fotorealistischen Globus das Repository klonen, <code>VITE_CESIUM_ION_TOKEN</code> setzen und <code>providers.tiles3d.provider</code> auf <code>external</code> stellen.",
     "reactCta": "Demo öffnen"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "Was mitgeliefert wird",
     "lede": "Jede Oberfläche — Werkzeugleiste, Steuerung, Suche, Koordinatengitter, Clustering — wird innerhalb von <code>&lt;Map&gt;</code> montiert und über Konfiguration gesteuert. Sie liefern die Daten.",
     "tilesName": "Fotorealistisches 3D, flaches 2D",
-    "tilesText": "Google Photorealistic 3D Tiles über Cesium Ion, ein Ellipsoid-Globus ohne Token und eine 2D-Basiskarte von Google oder Ihrem eigenen XYZ-Server.",
+    "tilesText": "Google Photorealistic 3D Tiles — direkt oder über Cesium ion mit einem optionalen Einstiegspunkt, den der Kern nie importiert —, ein Ellipsoid-Globus, wenn keine Quelle gesetzt ist, und eine 2D-Basiskarte von Google oder Ihrem eigenen XYZ-Server.",
     "markersName": "DOM-Marker und -Cluster",
     "markersText": "Echte DOM-Knoten mit nativem Hover, Fokus und CSS-Animation. Wiederverwendet und in einem einzigen <code>translate3d</code>-Durchgang geschrieben; eine bewegte Einheit gleitet, statt neu erzeugt zu werden.",
     "drawingName": "Zeichen-Editor",

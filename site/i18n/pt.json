@@ -53,7 +53,7 @@
     "reactName": "Painel do operador",
     "reactText": "Um mapa 3D com alertas agrupados por gravidade e recarregados ao mover, agentes animados seguidos pela câmera, zonas, o editor de desenho completo, alternância claro/escuro e um tema neon alternativo.",
     "reactShotAlt": "A demo React: editor de desenho, seleção por marquise e lista de markers ao vivo",
-    "reactNote": "Publicada sem token do Cesium Ion, então abre no mapa base auto-hospedado — todo o resto funciona. Para o globo fotorrealista, clone o repositório, defina <code>VITE_CESIUM_ION_TOKEN</code> e mude <code>providers.tiles3d.provider</code> para <code>external</code>.",
+    "reactNote": "Publicada sem token do Cesium ion, então abre no mapa base auto-hospedado — todo o resto funciona. Para o globo fotorrealista, clone o repositório, defina <code>VITE_CESIUM_ION_TOKEN</code> e mude <code>providers.tiles3d.provider</code> para <code>external</code>.",
     "reactCta": "Abrir a demo"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "O que vem na caixa",
     "lede": "Cada superfície — barra de ferramentas, controles, busca, retícula, clustering — é montada dentro de <code>&lt;Map&gt;</code> e governada por configuração. Você entra com os dados.",
     "tilesName": "3D fotorrealista, 2D plano",
-    "tilesText": "Google Photorealistic 3D Tiles via Cesium Ion, um globo elipsoidal quando não há token, e um mapa base 2D servido pelo Google ou pelo seu próprio servidor XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles — diretamente, ou via Cesium ion por meio de um ponto de entrada opcional que o núcleo nunca importa —, um globo elipsoidal quando não há nenhuma fonte, e um mapa base 2D servido pelo Google ou pelo seu próprio servidor XYZ.",
     "markersName": "Markers e clusters em DOM",
     "markersText": "Nós DOM reais com hover, foco e animação CSS nativos. Reciclados e escritos em uma única passada <code>translate3d</code>; um agente em movimento desliza em vez de ser recriado.",
     "drawingName": "Editor de desenho",

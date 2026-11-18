@@ -6,6 +6,13 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Modifié
+
+- **Vitrine (15 langues)** : la carte « Photorealistic 3D, flat 2D » dit les deux voies vers les
+  tuiles photoréalistes — Google en direct, ou Cesium ion par le point d'entrée optionnel de la
+  0.7.0, que le cœur n'importe jamais — et annonce le globe de repli « sans source » plutôt que
+  « sans token ». Graphie « Cesium ion » partout.
+
 ## [0.7.0] — 2026-11-18
 
 **Rupture 0.x** : le cœur n'importe plus rien de Cesium. Cesium ion reste disponible, par une

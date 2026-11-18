@@ -53,7 +53,7 @@
     "reactName": "Dasbor operator",
     "reactText": "Peta 3D dengan peringatan yang dikelompokkan menurut tingkat keparahan dan dimuat ulang saat digeser, agen beranimasi yang diikuti kamera, zona, editor gambar lengkap, sakelar terang/gelap, dan tema neon alternatif.",
     "reactShotAlt": "Demo React: editor gambar, seleksi kotak, dan daftar marker langsung",
-    "reactNote": "Diterbitkan tanpa token Cesium Ion, jadi terbuka pada basemap yang di-host sendiri — selebihnya berjalan normal. Untuk globe fotorealistis, klona repositorinya, setel <code>VITE_CESIUM_ION_TOKEN</code>, lalu ubah <code>providers.tiles3d.provider</code> menjadi <code>external</code>.",
+    "reactNote": "Diterbitkan tanpa token Cesium ion, jadi terbuka pada basemap yang di-host sendiri — selebihnya berjalan normal. Untuk globe fotorealistis, klona repositorinya, setel <code>VITE_CESIUM_ION_TOKEN</code>, lalu ubah <code>providers.tiles3d.provider</code> menjadi <code>external</code>.",
     "reactCta": "Buka demo"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "Yang sudah tersedia",
     "lede": "Setiap permukaan — bilah alat, kontrol, pencarian, grid koordinat, clustering — dipasang di dalam <code>&lt;Map&gt;</code> dan dikendalikan oleh konfigurasi. Anda tinggal menambahkan datanya.",
     "tilesName": "3D fotorealistis, 2D datar",
-    "tilesText": "Google Photorealistic 3D Tiles lewat Cesium Ion, globe elipsoid bila token tidak disetel, dan basemap 2D dari Google atau dari server XYZ Anda sendiri.",
+    "tilesText": "Google Photorealistic 3D Tiles — langsung, atau lewat Cesium ion melalui titik masuk opsional yang tidak pernah diimpor oleh inti —, globe elipsoid bila tidak ada sumber yang disetel, dan basemap 2D dari Google atau dari server XYZ Anda sendiri.",
     "markersName": "Marker dan cluster DOM",
     "markersText": "Node DOM sungguhan dengan hover, fokus, dan animasi CSS bawaan. Dipakai ulang dan ditulis dalam satu lintasan <code>translate3d</code>; agen yang bergerak meluncur, bukan dibuat ulang.",
     "drawingName": "Editor gambar",

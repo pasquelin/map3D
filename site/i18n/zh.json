@@ -53,7 +53,7 @@
     "reactName": "指挥调度面板",
     "reactText": "一张三维地图：按严重程度聚合并随视图移动重新拉取的告警、被相机跟随的动画目标、区域、完整的绘图编辑器、明暗主题切换，以及一套霓虹备选主题。",
     "reactShotAlt": "React 演示：绘图编辑器、框选与实时标记列表",
-    "reactNote": "发布时未附带 Cesium Ion 令牌，因此打开的是自托管底图 —— 其余功能一切正常。若需照片级地球，请克隆仓库，设置 <code>VITE_CESIUM_ION_TOKEN</code>，并将 <code>providers.tiles3d.provider</code> 改为 <code>external</code>。",
+    "reactNote": "发布时未附带 Cesium ion 令牌，因此打开的是自托管底图 —— 其余功能一切正常。若需照片级地球，请克隆仓库，设置 <code>VITE_CESIUM_ION_TOKEN</code>，并将 <code>providers.tiles3d.provider</code> 改为 <code>external</code>。",
     "reactCta": "打开演示"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "开箱即有",
     "lede": "每一层界面 —— 工具栏、控件、搜索、坐标网格、聚合 —— 都挂载在 <code>&lt;Map&gt;</code> 内部，由配置驱动。你只需要提供数据。",
     "tilesName": "照片级三维，平面二维",
-    "tilesText": "通过 Cesium Ion 接入 Google Photorealistic 3D Tiles；未设置令牌时退回椭球地球；二维底图可来自 Google，也可来自你自己的 XYZ 服务器。",
+    "tilesText": "直接接入 Google Photorealistic 3D Tiles，或通过核心从不导入的可选入口经由 Cesium ion 接入；未设置数据源时退回椭球地球；二维底图可来自 Google，也可来自你自己的 XYZ 服务器。",
     "markersName": "DOM 标记与聚合",
     "markersText": "真实的 DOM 节点，原生 hover、焦点与 CSS 动画。节点复用，并在单次 <code>translate3d</code> 中写入；移动中的目标是滑动，而不是被重建。",
     "drawingName": "绘图编辑器",
