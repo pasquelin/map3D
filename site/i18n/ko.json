@@ -84,7 +84,7 @@
     "title": "기본으로 제공되는 것",
     "lede": "툴바, 컨트롤, 검색, 좌표 격자, 클러스터링 등 모든 표면은 <code>&lt;Map&gt;</code> 내부에 마운트되고 설정으로 제어됩니다. 데이터만 넣으면 됩니다.",
     "tilesName": "실사 3D, 평면 2D",
-    "tilesText": "Google Photorealistic 3D Tiles는 직접, 또는 코어가 절대 임포트하지 않는 선택형 엔트리 포인트를 통해 Cesium ion을 거쳐 사용할 수 있습니다. 소스를 설정하지 않으면 타원체 지구본이 표시되고, 2D 베이스맵은 Google 또는 직접 운영하는 XYZ 서버에서 제공됩니다.",
+    "tilesText": "Google Photorealistic 3D Tiles를 직접, 또는 선택형 Cesium ion 엔트리 포인트를 통해 사용할 수 있으며, 폴백으로 타원체 지구본이 표시됩니다. 2D 베이스맵은 Google 또는 직접 운영하는 XYZ 서버에서 제공됩니다.",
     "markersName": "DOM 마커와 클러스터",
     "markersText": "네이티브 hover와 포커스, CSS 애니메이션이 동작하는 실제 DOM 노드입니다. 풀링되어 단 한 번의 <code>translate3d</code> 패스로 기록되며, 움직이는 개체는 새로 만들어지는 대신 미끄러집니다.",
     "drawingName": "드로잉 편집기",

@@ -84,7 +84,7 @@
     "title": "开箱即有",
     "lede": "每一层界面 —— 工具栏、控件、搜索、坐标网格、聚合 —— 都挂载在 <code>&lt;Map&gt;</code> 内部，由配置驱动。你只需要提供数据。",
     "tilesName": "照片级三维，平面二维",
-    "tilesText": "直接接入 Google Photorealistic 3D Tiles，或通过核心从不导入的可选入口经由 Cesium ion 接入；未设置数据源时退回椭球地球；二维底图可来自 Google，也可来自你自己的 XYZ 服务器。",
+    "tilesText": "直接接入 Google Photorealistic 3D Tiles，或经由可选的 Cesium ion 入口接入，并以椭球地球作为后备；二维底图可来自 Google，也可来自你自己的 XYZ 服务器。",
     "markersName": "DOM 标记与聚合",
     "markersText": "真实的 DOM 节点，原生 hover、焦点与 CSS 动画。节点复用，并在单次 <code>translate3d</code> 中写入；移动中的目标是滑动，而不是被重建。",
     "drawingName": "绘图编辑器",

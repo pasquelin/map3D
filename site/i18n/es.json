@@ -84,7 +84,7 @@
     "title": "Lo que viene incluido",
     "lede": "Cada superficie — barra de herramientas, controles, búsqueda, retícula, clustering — se monta dentro de <code>&lt;Map&gt;</code> y se gobierna por configuración. Tú aportas los datos.",
     "tilesName": "3D fotorrealista, 2D plano",
-    "tilesText": "Google Photorealistic 3D Tiles —directamente, o vía Cesium ion mediante un punto de entrada opcional que el núcleo nunca importa—, un globo elipsoidal cuando no hay ninguna fuente, y un mapa base 2D servido por Google o por tu propio servidor XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles, directamente o vía el punto de entrada opcional de Cesium ion, con un globo elipsoidal como respaldo, y un mapa base 2D servido por Google o por tu propio servidor XYZ.",
     "markersName": "Markers y clusters en DOM",
     "markersText": "Nodos DOM reales con hover, foco y animación CSS nativos. Reciclados y escritos en una única pasada <code>translate3d</code>; un agente en movimiento se desliza en lugar de recrearse.",
     "drawingName": "Editor de dibujo",

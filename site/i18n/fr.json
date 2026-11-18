@@ -84,7 +84,7 @@
     "title": "Ce qui est livré",
     "lede": "Toutes les surfaces — barre d'outils, contrôles, recherche, grille de coordonnées, clustering — sont montées dans <code>&lt;Map&gt;</code> et pilotées par la configuration. Vous n'ajoutez que les données.",
     "tilesName": "3D photoréaliste, 2D à plat",
-    "tilesText": "Google Photorealistic 3D Tiles — directement, ou via Cesium ion par un point d'entrée optionnel que le cœur n'importe jamais —, un globe ellipsoïde quand aucune source n'est configurée, et un fond 2D servi par Google ou par votre propre serveur XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles, directement ou via le point d'entrée optionnel de Cesium ion, avec un globe ellipsoïde en repli, et un fond 2D servi par Google ou par votre propre serveur XYZ.",
     "markersName": "Markers et clusters DOM",
     "markersText": "De vrais nœuds DOM, avec survol, focus et animations CSS natifs. Recyclés et écrits en une seule passe <code>translate3d</code> : un agent qui bouge glisse au lieu d'être recréé.",
     "drawingName": "Éditeur de dessin",

@@ -84,7 +84,7 @@
     "title": "Yang sudah tersedia",
     "lede": "Setiap permukaan — bilah alat, kontrol, pencarian, grid koordinat, clustering — dipasang di dalam <code>&lt;Map&gt;</code> dan dikendalikan oleh konfigurasi. Anda tinggal menambahkan datanya.",
     "tilesName": "3D fotorealistis, 2D datar",
-    "tilesText": "Google Photorealistic 3D Tiles — langsung, atau lewat Cesium ion melalui titik masuk opsional yang tidak pernah diimpor oleh inti —, globe elipsoid bila tidak ada sumber yang disetel, dan basemap 2D dari Google atau dari server XYZ Anda sendiri.",
+    "tilesText": "Google Photorealistic 3D Tiles, langsung atau lewat titik masuk opsional Cesium ion, dengan globe elipsoid sebagai cadangan, dan basemap 2D dari Google atau dari server XYZ Anda sendiri.",
     "markersName": "Marker dan cluster DOM",
     "markersText": "Node DOM sungguhan dengan hover, fokus, dan animasi CSS bawaan. Dipakai ulang dan ditulis dalam satu lintasan <code>translate3d</code>; agen yang bergerak meluncur, bukan dibuat ulang.",
     "drawingName": "Editor gambar",

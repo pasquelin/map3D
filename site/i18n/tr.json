@@ -84,7 +84,7 @@
     "title": "Kutudan çıkanlar",
     "lede": "Her yüzey — araç çubuğu, denetimler, arama, koordinat ızgarası, kümeleme — <code>&lt;Map&gt;</code> içinde monte edilir ve yapılandırmayla yönetilir. Siz yalnızca veriyi eklersiniz.",
     "tilesName": "Fotogerçekçi 3B, düz 2B",
-    "tilesText": "Google Photorealistic 3D Tiles — doğrudan ya da çekirdeğin asla içe aktarmadığı isteğe bağlı bir giriş noktasıyla Cesium ion üzerinden —, kaynak yoksa elipsoit küre ve Google’dan ya da kendi XYZ sunucunuzdan gelen 2B temel harita.",
+    "tilesText": "Doğrudan ya da isteğe bağlı Cesium ion giriş noktası üzerinden Google Photorealistic 3D Tiles, yedek olarak elipsoit küre ve Google’dan ya da kendi XYZ sunucunuzdan gelen 2B temel harita.",
     "markersName": "DOM işaretçileri ve kümeleri",
     "markersText": "Yerel hover, odak ve CSS animasyonu çalışan gerçek DOM düğümleri. Havuzlanır ve tek bir <code>translate3d</code> geçişinde yazılır; hareket eden birim yeniden oluşturulmak yerine kayar.",
     "drawingName": "Çizim düzenleyici",

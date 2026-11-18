@@ -84,7 +84,7 @@
     "title": "What ships in the box",
     "lede": "Every surface — toolbar, controls, search, coordinate grid, clustering — is mounted inside <code>&lt;Map&gt;</code> and driven by configuration. You add the data.",
     "tilesName": "Photorealistic 3D, flat 2D",
-    "tilesText": "Google Photorealistic 3D Tiles — directly, or through Cesium ion via an opt-in entry the core never imports — an ellipsoid globe when no source is set, and a 2D basemap that runs from Google or your own XYZ server.",
+    "tilesText": "Google Photorealistic 3D Tiles, directly or through the opt-in Cesium ion entry point, with an ellipsoid globe as a fallback, and a 2D basemap that runs from Google or your own XYZ server.",
     "markersName": "DOM markers and clusters",
     "markersText": "Real DOM nodes with native hover, focus and CSS animation. Pooled and written in a single <code>translate3d</code> pass; a moving agent glides instead of being recreated.",
     "drawingName": "Drawing editor",

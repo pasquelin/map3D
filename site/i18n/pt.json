@@ -84,7 +84,7 @@
     "title": "O que vem na caixa",
     "lede": "Cada superfície — barra de ferramentas, controles, busca, retícula, clustering — é montada dentro de <code>&lt;Map&gt;</code> e governada por configuração. Você entra com os dados.",
     "tilesName": "3D fotorrealista, 2D plano",
-    "tilesText": "Google Photorealistic 3D Tiles — diretamente, ou via Cesium ion por meio de um ponto de entrada opcional que o núcleo nunca importa —, um globo elipsoidal quando não há nenhuma fonte, e um mapa base 2D servido pelo Google ou pelo seu próprio servidor XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles, diretamente ou via o ponto de entrada opcional do Cesium ion, com um globo elipsoidal de reserva, e um mapa base 2D servido pelo Google ou pelo seu próprio servidor XYZ.",
     "markersName": "Markers e clusters em DOM",
     "markersText": "Nós DOM reais com hover, foco e animação CSS nativos. Reciclados e escritos em uma única passada <code>translate3d</code>; um agente em movimento desliza em vez de ser recriado.",
     "drawingName": "Editor de desenho",

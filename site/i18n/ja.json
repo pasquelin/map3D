@@ -84,7 +84,7 @@
     "title": "最初から入っているもの",
     "lede": "ツールバー、コントロール、検索、座標グリッド、クラスタリング —— どの面も <code>&lt;Map&gt;</code> の内部にマウントされ、設定で制御されます。用意するのはデータだけです。",
     "tilesName": "フォトリアル 3D、平面 2D",
-    "tilesText": "Google Photorealistic 3D Tiles は直接、またはコアが決してインポートしないオプトインのエントリポイントを通じて Cesium ion 経由で利用できます。ソースが未設定なら楕円体の地球儀を表示し、2D ベースマップは Google または自前の XYZ サーバーから配信されます。",
+    "tilesText": "Google Photorealistic 3D Tiles を直接、またはオプトインの Cesium ion エントリポイント経由で利用でき、フォールバックとして楕円体の地球儀を表示します。2D ベースマップは Google または自前の XYZ サーバーから配信されます。",
     "markersName": "DOM マーカーとクラスタ",
     "markersText": "ネイティブの hover・フォーカス・CSS アニメーションが効く本物の DOM ノード。プールされ、単一の <code>translate3d</code> パスで書き込まれます。動く対象は作り直されるのではなく滑ります。",
     "drawingName": "描画エディタ",

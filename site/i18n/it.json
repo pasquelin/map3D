@@ -84,7 +84,7 @@
     "title": "Cosa c’è nella scatola",
     "lede": "Ogni superficie — barra strumenti, controlli, ricerca, reticolo, clustering — è montata dentro <code>&lt;Map&gt;</code> e guidata dalla configurazione. Tu metti i dati.",
     "tilesName": "3D fotorealistico, 2D piano",
-    "tilesText": "Google Photorealistic 3D Tiles — direttamente, oppure tramite Cesium ion con un punto di ingresso opzionale che il nucleo non importa mai —, un globo ellissoidale quando manca una sorgente, e una mappa base 2D servita da Google o dal tuo server XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles, direttamente o tramite il punto di ingresso opzionale di Cesium ion, con un globo ellissoidale di riserva, e una mappa base 2D servita da Google o dal tuo server XYZ.",
     "markersName": "Marker e cluster in DOM",
     "markersText": "Veri nodi DOM con hover, focus e animazioni CSS nativi. Riciclati e scritti in un’unica passata <code>translate3d</code>; un agente in movimento scivola invece di essere ricreato.",
     "drawingName": "Editor di disegno",
