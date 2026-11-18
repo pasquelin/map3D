@@ -419,13 +419,14 @@ bundles neither that plugin nor the `api.cesium.com` address.
 
 What to know:
 
-- **`cesiumIon({ token, assetId? })`** returns a `Tileset3dSource`. `assetId` defaults to
-  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by
-  the same entry.
-- **No token, no source.** With a missing or empty `token` — an unset environment variable —,
-  `cesiumIon()` returns `undefined`: the map keeps the Google key or its fallback globe, as
-  with an omitted `tileset3d`. An optional token is therefore passed as is, with no guard on
-  the host side.
+- **`cesiumIon({ token, assetId? })`** returns the `Tileset3dSource` to pass to `tileset3d` —
+  or `undefined` without a token (next bullet). `assetId`, when missing or empty, is
+  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by the
+  same entry.
+- **No token, no source.** With a missing or empty `token` — an unset environment variable,
+  the `null` of a storage read —, `cesiumIon()` returns `undefined`: the map keeps the Google
+  key or its fallback globe, as with an omitted `tileset3d`. An optional token is therefore
+  passed as is, with no guard on the host side.
 - **`tileset3d` takes precedence over `googleMapsApiKey`** for volume. The key keeps
   everything else: 2D basemap, traffic, places, routing. That is the setup for EEA
   accounts, for which direct Photorealistic 3D Tiles are blocked.
@@ -463,8 +464,9 @@ export const inHouseTiles = (url: string, token: string): Tileset3dSource => ({
   change, React strict mode's double mount. **So create the plugin inside `attach`**, never
   outside: `3d-tiles-renderer` refuses to register the same one twice, even after the first
   `TilesRenderer` was disposed.
-- **A single copy of `3d-tiles-renderer`.** map3d already installs it (`^0.5.0`): declare the
-  same range in your application, so that your plugins and the engine share one copy.
+- **A single copy of `3d-tiles-renderer`.** map3d already installs it: declare in your
+  application the same range as its own (`dependencies` in its `package.json`), so that your
+  plugins and the engine share one copy.
 
 ---
 

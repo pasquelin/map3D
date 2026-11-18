@@ -138,8 +138,10 @@ export type MapEngineOptions = {
    * Source de tuiles 3D photoréalistes fournie par l'hôte — pour le volume, elle prime sur
    * `googleMapsApiKey`. Le cœur n'en importe aucune : elle vient d'une entrée à part du
    * paquet (ex. `cesiumIon()` de `@pasquelin/map3d/cesium-ion`). Lue au montage.
+   * `undefined` explicite admis, comme la prop de `<Map>` : c'est ce que rend `cesiumIon()`
+   * sans jeton.
    */
-  tileset3d?: Tileset3dSource
+  tileset3d?: Tileset3dSource | undefined
   /**
    * Type de carte au démarrage. Défaut : `'plan'` dès qu'une clé Google fournit le
    * fond 2D (plus lisible pour lire des positions), sinon `'3d'`. Sans clé, `'plan'`

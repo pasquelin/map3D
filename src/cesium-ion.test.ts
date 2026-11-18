@@ -1,13 +1,12 @@
 import { TilesRenderer } from '3d-tiles-renderer'
 import { describe, expect, it } from 'vitest'
-import { CESIUM_ION_DEFAULT_ASSET_ID, cesiumIon, type Tileset3dSource } from './cesium-ion'
-import { attachTileset3d } from './core/tileset3d'
+import { CESIUM_ION_DEFAULT_ASSET_ID, type CesiumIonOptions, cesiumIon, type Tileset3dSource } from './cesium-ion'
 
 const JETON = 'jeton-ion'
 
 /** La source d'un jeton RENSEIGNÉ : elle existe, sinon le test qui s'en sert n'a rien à dire. */
-const source = (assetId?: string, token = JETON): Tileset3dSource => {
-  const s = cesiumIon({ token, assetId })
+const source = (options: Partial<CesiumIonOptions> = {}): Tileset3dSource => {
+  const s = cesiumIon({ token: JETON, ...options })
   if (!s) throw new Error('cesiumIon devait rendre une source')
   return s
 }
@@ -26,28 +25,33 @@ describe('cesiumIon', () => {
 
   it("sert l'asset demandé quand `assetId` est fourni", () => {
     const tiles = new TilesRenderer()
-    source('96188').attach(tiles)
+    source({ assetId: '96188' }).attach(tiles)
     expect(adresse(tiles)).toBe('https://api.cesium.com/v1/assets/96188/endpoint')
   })
 
   it('garde la même clé pour les mêmes options : un appel en ligne ne remonte pas la carte', () => {
     expect(source().key).toBe(source().key)
-    expect(source().key).toBe(source(CESIUM_ION_DEFAULT_ASSET_ID).key)
+    expect(source().key).toBe(source({ assetId: CESIUM_ION_DEFAULT_ASSET_ID }).key)
   })
 
   it("change de clé avec le jeton ou l'asset : la carte doit alors se remonter", () => {
     const { key } = source()
-    expect(source(undefined, 'autre-jeton').key).not.toBe(key)
-    expect(source('96188').key).not.toBe(key)
+    expect(source({ token: 'autre-jeton' }).key).not.toBe(key)
+    expect(source({ assetId: '96188' }).key).not.toBe(key)
   })
 
-  it('ne rend aucune source sans jeton : la carte garde sa clé Google ou son globe de repli', () => {
+  it('ne rend aucune source sans jeton, absent ou vide', () => {
     expect(cesiumIon({ token: undefined })).toBeUndefined()
+    expect(cesiumIon({ token: null })).toBeUndefined()
     // Vide : ce que donne une variable d'environnement déclarée sans valeur.
     expect(cesiumIon({ token: '' })).toBeUndefined()
+  })
+
+  it("retombe sur l'asset par défaut quand `assetId` est vide, comme s'il était omis", () => {
     const tiles = new TilesRenderer()
-    expect(attachTileset3d(tiles, cesiumIon({ token: '' }), undefined)).toBe(false)
-    expect(greffonIon(tiles)).toBeNull()
+    source({ assetId: '' }).attach(tiles)
+    expect(adresse(tiles)).toBe(`https://api.cesium.com/v1/assets/${CESIUM_ION_DEFAULT_ASSET_ID}/endpoint`)
+    expect(source({ assetId: '' }).key).toBe(source().key)
   })
 })
 

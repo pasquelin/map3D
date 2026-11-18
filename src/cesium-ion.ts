@@ -11,10 +11,13 @@ export type { Tileset3dSource }
 export const CESIUM_ION_DEFAULT_ASSET_ID = '2275207'
 
 export type CesiumIonOptions = {
-  /** Jeton d'accès Cesium ion. Absent ou vide (variable d'environnement non renseignée) : pas de source. */
-  token: string | undefined
-  /** Asset à servir. Défaut : `CESIUM_ION_DEFAULT_ASSET_ID`. */
-  assetId?: string
+  /**
+   * Jeton d'accès Cesium ion. Absent ou vide — variable d'environnement non renseignée,
+   * `null` d'un stockage — : pas de source.
+   */
+  token: string | null | undefined
+  /** Asset à servir. Absent ou vide : `CESIUM_ION_DEFAULT_ASSET_ID`. */
+  assetId?: string | null | undefined
 }
 
 /**
@@ -35,15 +38,15 @@ export type CesiumIonOptions = {
  * garde la clé Google ou son globe de repli. Une source au jeton vide ferait croire au moteur
  * qu'un tileset existe, pour une requête refusée que le greffon avale sans rien dire.
  */
-export function cesiumIon({
-  token,
-  assetId = CESIUM_ION_DEFAULT_ASSET_ID,
-}: CesiumIonOptions): Tileset3dSource | undefined {
+export function cesiumIon({ token, assetId }: CesiumIonOptions): Tileset3dSource | undefined {
   if (!token) return undefined
+  // `||` et non un défaut de déstructuration, qui ne vaut que pour `undefined` : un asset
+  // vide (variable déclarée sans valeur) vise `…/assets//endpoint`, refusé lui aussi en silence.
+  const asset = assetId || CESIUM_ION_DEFAULT_ASSET_ID
   return {
-    key: `cesium-ion:${assetId}:${token}`,
+    key: `cesium-ion:${asset}:${token}`,
     attach: (tiles) => {
-      tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: token, assetId, autoRefreshToken: true }))
+      tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: token, assetId: asset, autoRefreshToken: true }))
     },
   }
 }

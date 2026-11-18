@@ -6302,13 +6302,14 @@ bundles neither that plugin nor the `api.cesium.com` address.
 
 What to know:
 
-- **`cesiumIon({ token, assetId? })`** returns a `Tileset3dSource`. `assetId` defaults to
-  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by
-  the same entry.
-- **No token, no source.** With a missing or empty `token` — an unset environment variable —,
-  `cesiumIon()` returns `undefined`: the map keeps the Google key or its fallback globe, as
-  with an omitted `tileset3d`. An optional token is therefore passed as is, with no guard on
-  the host side.
+- **`cesiumIon({ token, assetId? })`** returns the `Tileset3dSource` to pass to `tileset3d` —
+  or `undefined` without a token (next bullet). `assetId`, when missing or empty, is
+  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by the
+  same entry.
+- **No token, no source.** With a missing or empty `token` — an unset environment variable,
+  the `null` of a storage read —, `cesiumIon()` returns `undefined`: the map keeps the Google
+  key or its fallback globe, as with an omitted `tileset3d`. An optional token is therefore
+  passed as is, with no guard on the host side.
 - **`tileset3d` takes precedence over `googleMapsApiKey`** for volume. The key keeps
   everything else: 2D basemap, traffic, places, routing. That is the setup for EEA
   accounts, for which direct Photorealistic 3D Tiles are blocked.
@@ -6346,8 +6347,9 @@ export const inHouseTiles = (url: string, token: string): Tileset3dSource => ({
   change, React strict mode's double mount. **So create the plugin inside `attach`**, never
   outside: `3d-tiles-renderer` refuses to register the same one twice, even after the first
   `TilesRenderer` was disposed.
-- **A single copy of `3d-tiles-renderer`.** map3d already installs it (`^0.5.0`): declare the
-  same range in your application, so that your plugins and the engine share one copy.
+- **A single copy of `3d-tiles-renderer`.** map3d already installs it: declare in your
+  application the same range as its own (`dependencies` in its `package.json`), so that your
+  plugins and the engine share one copy.
 
 ---
 
@@ -10620,7 +10622,7 @@ Root — mounts the engine and every surface.
 | `center` **(required)** | Initial position. A remembered position (`positionStorageKey`) replaces it. | — |
 | `zoom` **(required)** | Initial zoom (Web Mercator scale: 0 = world, ~21 = street level). | — |
 | `googleMapsApiKey` | Google Maps Platform key → Photorealistic 3D Tiles directly, when no `tileset3d` is given. | — |
-| `tileset3d` | Photorealistic 3D tile source supplied by the host (`Tileset3dSource`) — for volume, it takes precedence over `googleMapsApiKey`. The library imports none on its own: it comes from a separate entry of the package, bundled only by the host that uses it — `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` then `<Map tileset3d={cesiumIon({ token })} />`. The map remounts when the source's `key` changes (token, asset), not on every render: calling it inline is safe. See [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source). | — |
+| `tileset3d` | Photorealistic 3D tile source supplied by the host (`Tileset3dSource`) — for volume, it takes precedence over `googleMapsApiKey`. The library imports none on its own: it comes from a separate entry of the package, bundled only by the host that uses it — `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` then `<Map tileset3d={cesiumIon({ token })} />`. The map remounts when the source's `key` changes (token, asset), not on every render: calling it inline is safe. An explicit `undefined` is accepted: that is what `cesiumIon()` returns without a token. See [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source). | — |
 | `mapMode` | Map type at startup. Default: `'plan'` as soon as a 2D basemap is servable — Google key **or** an internal server's `providers.internal.origin` (see [TILES.md](TILES.md)) — otherwise `'3d'`. Pass `'3d'` explicitly to start on volume. Read at **construction**: switching afterwards goes through the toolbar button or `MapHandle`. | — |
 | `fallbackGlobe` | Plain ellipsoid fallback globe when no tile is available (default: true). | — |
 | `errorTarget` | Target screen-space error (quality/perf). | — |

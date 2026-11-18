@@ -426,13 +426,14 @@ ce greffon ni l'adresse `api.cesium.com`.
 
 Ce qu'il faut savoir :
 
-- **`cesiumIon({ token, assetId? })`** rend une `Tileset3dSource`. `assetId` vaut par défaut
-  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exporté par
-  la même entrée.
+- **`cesiumIon({ token, assetId? })`** rend la `Tileset3dSource` à passer à `tileset3d` — ou
+  `undefined` sans jeton (puce suivante). `assetId`, absent ou vide, vaut
+  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exporté par la
+  même entrée.
 - **Sans jeton, pas de source.** Avec un `token` absent ou vide — une variable d'environnement
-  non renseignée —, `cesiumIon()` rend `undefined` : la carte garde la clé Google ou son globe
-  de repli, comme un `tileset3d` omis. Un jeton facultatif se passe donc tel quel, sans garde
-  côté hôte.
+  non renseignée, le `null` d'un stockage —, `cesiumIon()` rend `undefined` : la carte garde la
+  clé Google ou son globe de repli, comme un `tileset3d` omis. Un jeton facultatif se passe
+  donc tel quel, sans garde côté hôte.
 - **`tileset3d` prime sur `googleMapsApiKey`** pour le volume. La clé garde tout le reste :
   fond 2D, trafic, lieux, routage. C'est le montage des comptes EEA, pour qui les
   Photorealistic 3D Tiles en direct sont bloquées.
@@ -471,9 +472,9 @@ export const tuilesMaison = (url: string, jeton: string): Tileset3dSource => ({
   changement de clé, double montage du mode strict de React. **Le greffon se crée donc dans
   `attach`**, jamais en dehors : `3d-tiles-renderer` refuse d'enregistrer deux fois le même,
   même après le `dispose` du premier `TilesRenderer`.
-- **Une seule copie de `3d-tiles-renderer`.** map3d l'installe déjà (`^0.5.0`) : déclarez la
-  même plage dans votre application, pour que vos greffons et le moteur partagent le même
-  exemplaire.
+- **Une seule copie de `3d-tiles-renderer`.** map3d l'installe déjà : déclarez dans votre
+  application la même plage que la sienne (`dependencies` de son `package.json`), pour que vos
+  greffons et le moteur partagent le même exemplaire.
 
 ---
 

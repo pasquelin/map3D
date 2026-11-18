@@ -48,8 +48,11 @@ export type MapProps<T = unknown, TPin = unknown> = {
    *
    * La carte se remonte quand la `key` de la source change (jeton, asset), pas à chaque
    * render : l'appel en ligne est sans risque.
+   *
+   * `undefined` explicite admis : c'est ce que rend `cesiumIon()` sans jeton, et un hôte en
+   * `exactOptionalPropertyTypes` ne pourrait sinon pas passer son résultat.
    */
-  tileset3d?: Tileset3dSource
+  tileset3d?: Tileset3dSource | undefined
   /**
    * Type de carte au démarrage. Défaut : `'plan'` dès qu'un fond 2D est disponible —
    * clé `googleMapsApiKey` **ou** serveur de tuiles interne (`providers.internal.origin`) —,
