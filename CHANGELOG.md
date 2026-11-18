@@ -6,6 +6,14 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+### Modifié
+
+- **Vitrine : la carte « 3D photoréaliste, 2D à plat » suit la 0.7.0** (`caps.tilesText`,
+  `site/i18n/`, 15 langues) : elle cite les deux voies vers les tuiles photoréalistes — Google
+  en direct, ou Cesium ion par son point d'entrée optionnel — et présente le globe ellipsoïde
+  comme leur repli, sans plus parler de token. Graphie « Cesium ion » dans tous les
+  dictionnaires.
+
 ## [0.7.0] — 2026-11-18
 
 **Rupture 0.x** : le cœur n'importe plus rien de Cesium. Cesium ion reste disponible, par une

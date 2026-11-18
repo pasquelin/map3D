@@ -53,7 +53,7 @@
     "reactName": "Operatör panosu",
     "reactText": "Önem derecesine göre kümelenen ve hareket ettikçe yeniden çekilen uyarılar, kameranın izlediği hareketli birimler, bölgeler, eksiksiz çizim düzenleyici, açık/koyu geçişi ve alternatif bir neon tema içeren bir 3B harita.",
     "reactShotAlt": "React demosu: çizim düzenleyici, çerçeveyle seçim ve canlı işaretçi listesi",
-    "reactNote": "Cesium Ion belirteci olmadan yayımlandı; bu yüzden kendi barındırdığımız temel haritayla açılır — geri kalan her şey çalışır. Fotogerçekçi küre için depoyu klonlayın, <code>VITE_CESIUM_ION_TOKEN</code> değerini verin ve <code>providers.tiles3d.provider</code> ayarını <code>external</code> yapın.",
+    "reactNote": "Cesium ion belirteci olmadan yayımlandı; bu yüzden kendi barındırdığımız temel haritayla açılır — geri kalan her şey çalışır. Fotogerçekçi küre için depoyu klonlayın, <code>VITE_CESIUM_ION_TOKEN</code> değerini verin ve <code>providers.tiles3d.provider</code> ayarını <code>external</code> yapın.",
     "reactCta": "Demoyu aç"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "Kutudan çıkanlar",
     "lede": "Her yüzey — araç çubuğu, denetimler, arama, koordinat ızgarası, kümeleme — <code>&lt;Map&gt;</code> içinde monte edilir ve yapılandırmayla yönetilir. Siz yalnızca veriyi eklersiniz.",
     "tilesName": "Fotogerçekçi 3B, düz 2B",
-    "tilesText": "Cesium Ion üzerinden Google Photorealistic 3D Tiles, belirteç yoksa elipsoit küre ve Google’dan ya da kendi XYZ sunucunuzdan gelen 2B temel harita.",
+    "tilesText": "Doğrudan ya da isteğe bağlı Cesium ion giriş noktası üzerinden Google Photorealistic 3D Tiles, yedek olarak elipsoit küre ve Google’dan ya da kendi XYZ sunucunuzdan gelen 2B temel harita.",
     "markersName": "DOM işaretçileri ve kümeleri",
     "markersText": "Yerel hover, odak ve CSS animasyonu çalışan gerçek DOM düğümleri. Havuzlanır ve tek bir <code>translate3d</code> geçişinde yazılır; hareket eden birim yeniden oluşturulmak yerine kayar.",
     "drawingName": "Çizim düzenleyici",

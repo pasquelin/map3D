@@ -53,7 +53,7 @@
     "reactName": "Panel de operador",
     "reactText": "Un mapa 3D con alertas agrupadas por gravedad y recargadas al desplazarse, agentes animados seguidos por la cámara, zonas, el editor de dibujo completo, alternancia claro/oscuro y un tema neón alternativo.",
     "reactShotAlt": "La demo de React: editor de dibujo, selección por marco y lista de markers en vivo",
-    "reactNote": "Publicada sin token de Cesium Ion, así que abre con el mapa base autoalojado — todo lo demás funciona. Para el globo fotorrealista, clona el repositorio, define <code>VITE_CESIUM_ION_TOKEN</code> y cambia <code>providers.tiles3d.provider</code> a <code>external</code>.",
+    "reactNote": "Publicada sin token de Cesium ion, así que abre con el mapa base autoalojado — todo lo demás funciona. Para el globo fotorrealista, clona el repositorio, define <code>VITE_CESIUM_ION_TOKEN</code> y cambia <code>providers.tiles3d.provider</code> a <code>external</code>.",
     "reactCta": "Abrir la demo"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "Lo que viene incluido",
     "lede": "Cada superficie — barra de herramientas, controles, búsqueda, retícula, clustering — se monta dentro de <code>&lt;Map&gt;</code> y se gobierna por configuración. Tú aportas los datos.",
     "tilesName": "3D fotorrealista, 2D plano",
-    "tilesText": "Google Photorealistic 3D Tiles vía Cesium Ion, un globo elipsoidal cuando no hay token, y un mapa base 2D servido por Google o por tu propio servidor XYZ.",
+    "tilesText": "Google Photorealistic 3D Tiles, directamente o vía el punto de entrada opcional de Cesium ion, con un globo elipsoidal como respaldo, y un mapa base 2D servido por Google o por tu propio servidor XYZ.",
     "markersName": "Markers y clusters en DOM",
     "markersText": "Nodos DOM reales con hover, foco y animación CSS nativos. Reciclados y escritos en una única pasada <code>translate3d</code>; un agente en movimiento se desliza en lugar de recrearse.",
     "drawingName": "Editor de dibujo",

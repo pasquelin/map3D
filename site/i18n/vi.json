@@ -53,7 +53,7 @@
     "reactName": "Bảng điều hành",
     "reactText": "Một bản đồ 3D với cảnh báo gom cụm theo mức nghiêm trọng và tải lại khi di chuyển, các đối tượng động được camera bám theo, các vùng, trình vẽ đầy đủ, công tắc sáng/tối và một giao diện neon thay thế.",
     "reactShotAlt": "Bản demo React: trình vẽ, chọn theo khung và danh sách marker trực tiếp",
-    "reactNote": "Được xuất bản mà không kèm token Cesium Ion, nên mở ra với bản đồ nền tự lưu trữ — mọi thứ còn lại vẫn chạy. Muốn có địa cầu ảnh thực, hãy sao chép kho, đặt <code>VITE_CESIUM_ION_TOKEN</code> và chuyển <code>providers.tiles3d.provider</code> sang <code>external</code>.",
+    "reactNote": "Được xuất bản mà không kèm token Cesium ion, nên mở ra với bản đồ nền tự lưu trữ — mọi thứ còn lại vẫn chạy. Muốn có địa cầu ảnh thực, hãy sao chép kho, đặt <code>VITE_CESIUM_ION_TOKEN</code> và chuyển <code>providers.tiles3d.provider</code> sang <code>external</code>.",
     "reactCta": "Mở bản demo"
   },
   "gallery": {
@@ -84,7 +84,7 @@
     "title": "Những gì có sẵn",
     "lede": "Mọi bề mặt — thanh công cụ, các nút điều khiển, tìm kiếm, lưới toạ độ, gom cụm — đều được gắn bên trong <code>&lt;Map&gt;</code> và điều khiển bằng cấu hình. Bạn chỉ thêm dữ liệu.",
     "tilesName": "3D ảnh thực, 2D phẳng",
-    "tilesText": "Google Photorealistic 3D Tiles qua Cesium Ion, địa cầu ellipsoid khi không có token, và bản đồ nền 2D từ Google hoặc từ máy chủ XYZ của bạn.",
+    "tilesText": "Google Photorealistic 3D Tiles, trực tiếp hoặc qua điểm vào tuỳ chọn của Cesium ion, với địa cầu ellipsoid dự phòng, và bản đồ nền 2D từ Google hoặc từ máy chủ XYZ của bạn.",
     "markersName": "Marker và cụm bằng DOM",
     "markersText": "Là các nút DOM thật, có hover, focus và hoạt ảnh CSS nguyên bản. Được tái sử dụng và ghi trong một lượt <code>translate3d</code> duy nhất; đối tượng đang di chuyển sẽ trượt đi thay vì bị dựng lại.",
     "drawingName": "Trình vẽ",
