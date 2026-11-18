@@ -14,6 +14,13 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
   comme leur repli, sans plus parler de token. Graphie « Cesium ion » dans tous les
   dictionnaires.
 
+### Corrigé
+
+- **Docs : le registre des plugins officiels annonce la plage `map3d` des plugins 0.1.2**
+  (§ 13 de `docs/fr/PLUGINS.md` et `docs/en/PLUGINS.md`, `llms-full.txt`) : `>=0.2.0 <0.8.0`
+  au lieu de `>=0.1.0 <0.2.0`, jamais relevée. Le registre dit aussi quand le mettre à jour :
+  à chaque nouvelle mineure de `map3d`, une fois les plugins vérifiés contre elle.
+
 ## [0.7.0] — 2026-11-18
 
 **Rupture 0.x** : le cœur n'importe plus rien de Cesium. Cesium ion reste disponible, par une
