@@ -11,8 +11,8 @@ export type { Tileset3dSource }
 export const CESIUM_ION_DEFAULT_ASSET_ID = '2275207'
 
 export type CesiumIonOptions = {
-  /** Jeton d'accès Cesium ion. */
-  token: string
+  /** Jeton d'accès Cesium ion. Absent ou vide (variable d'environnement non renseignée) : pas de source. */
+  token: string | undefined
   /** Asset à servir. Défaut : `CESIUM_ION_DEFAULT_ASSET_ID`. */
   assetId?: string
 }
@@ -30,8 +30,16 @@ export type CesiumIonOptions = {
  *
  * L'appel en ligne est sans risque : la carte ne se remonte que si le jeton ou l'asset
  * change (cf. `Tileset3dSource.key`).
+ *
+ * Sans jeton, rend `undefined` — donc aucune source, comme un `tileset3d` omis : la carte
+ * garde la clé Google ou son globe de repli. Une source au jeton vide ferait croire au moteur
+ * qu'un tileset existe, pour une requête refusée que le greffon avale sans rien dire.
  */
-export function cesiumIon({ token, assetId = CESIUM_ION_DEFAULT_ASSET_ID }: CesiumIonOptions): Tileset3dSource {
+export function cesiumIon({
+  token,
+  assetId = CESIUM_ION_DEFAULT_ASSET_ID,
+}: CesiumIonOptions): Tileset3dSource | undefined {
+  if (!token) return undefined
   return {
     key: `cesium-ion:${assetId}:${token}`,
     attach: (tiles) => {

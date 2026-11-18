@@ -429,6 +429,10 @@ Ce qu'il faut savoir :
 - **`cesiumIon({ token, assetId? })`** rend une `Tileset3dSource`. `assetId` vaut par défaut
   `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exporté par
   la même entrée.
+- **Sans jeton, pas de source.** Avec un `token` absent ou vide — une variable d'environnement
+  non renseignée —, `cesiumIon()` rend `undefined` : la carte garde la clé Google ou son globe
+  de repli, comme un `tileset3d` omis. Un jeton facultatif se passe donc tel quel, sans garde
+  côté hôte.
 - **`tileset3d` prime sur `googleMapsApiKey`** pour le volume. La clé garde tout le reste :
   fond 2D, trafic, lieux, routage. C'est le montage des comptes EEA, pour qui les
   Photorealistic 3D Tiles en direct sont bloquées.
@@ -437,25 +441,39 @@ Ce qu'il faut savoir :
   mémoïser.
 - **Sans source ni clé**, le `TilesRenderer` reste vide : globe de repli (`fallbackGlobe`).
 - **Hors React**, la même source se passe au moteur : `new MapEngine({ …, tileset3d })`.
+- **Sous React Server Components** (Next App Router), `cesiumIon()` s'appelle dans un
+  composant client (`'use client'`) : la source porte une fonction, qu'un Server Component ne
+  peut pas passer à `<Map>`.
 
 ### Écrire sa propre source
 
-Le contrat tient en deux champs — de quoi brancher un autre fournisseur de tuiles 3D, ou un
-proxy d'entreprise, sans rien demander à la lib :
+Une source tient en deux champs — de quoi brancher un autre fournisseur de tuiles 3D, ou un
+proxy d'entreprise, sans rien demander à la lib. `MonGreffon` est ici votre greffon
+`3d-tiles-renderer` :
 
 ```ts
 import type { Tileset3dSource } from '@pasquelin/map3d'
 
-export type Tileset3dSource = {
-  key: string // identité : la carte se remonte quand elle change
-  attach(tiles: TilesRenderer): void // enregistre ce qui authentifie et sert le tileset
-}
+export const tuilesMaison = (url: string, jeton: string): Tileset3dSource => ({
+  key: `maison:${url}:${jeton}`,
+  attach: (tiles) => {
+    // Créé ICI, à chaque appel : un greffon ne s'enregistre que sur un seul `TilesRenderer`.
+    tiles.registerPlugin(new MonGreffon({ url, jeton }))
+  },
+})
 ```
 
-`attach` reçoit le `TilesRenderer` de `3d-tiles-renderer` une fois, à la construction du
-moteur, avant toute requête : y enregistrer un greffon (`tiles.registerPlugin(…)`) suffit.
-⚠️ `key` peut porter un jeton — celle de `cesiumIon()` le fait : ne jamais l'afficher ni la
-journaliser.
+- **`key`** — l'identité de la source : la carte se remonte quand elle change, et seulement
+  alors. ⚠️ Elle peut porter un jeton — celle de `cesiumIon()` le fait : ne jamais l'afficher
+  ni la journaliser.
+- **`attach(tiles)`** — reçoit le `TilesRenderer` de `3d-tiles-renderer` à la construction de
+  **chaque** moteur, avant toute requête. `<Map>` en construit un par montage : remontage,
+  changement de clé, double montage du mode strict de React. **Le greffon se crée donc dans
+  `attach`**, jamais en dehors : `3d-tiles-renderer` refuse d'enregistrer deux fois le même,
+  même après le `dispose` du premier `TilesRenderer`.
+- **Une seule copie de `3d-tiles-renderer`.** map3d l'installe déjà (`^0.5.0`) : déclarez la
+  même plage dans votre application, pour que vos greffons et le moteur partagent le même
+  exemplaire.
 
 ---
 

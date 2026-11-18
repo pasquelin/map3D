@@ -25,8 +25,12 @@ export type Tileset3dSource = {
   key: string
   /**
    * Enregistre sur le `TilesRenderer` du moteur ce qui authentifie et sert le tileset.
-   * Appelé une fois, à la construction du moteur — avant le premier `update`, donc avant
-   * toute requête.
+   * Appelé à la construction de CHAQUE moteur — avant le premier `update`, donc avant toute
+   * requête — et `<Map>` en construit un par montage : remontage, changement de clé, double
+   * montage du mode strict de React.
+   *
+   * ⚠️ Créer le greffon ICI, jamais en dehors : `3d-tiles-renderer` refuse d'enregistrer
+   * deux fois le même, même après le `dispose` du premier `TilesRenderer`.
    */
   attach(tiles: TilesRenderer): void
 }
@@ -44,9 +48,11 @@ export function attachTileset3d(
   source: Tileset3dSource | undefined,
   googleMapsApiKey: string | undefined,
 ): boolean {
-  if (source) source.attach(tiles)
-  else if (googleMapsApiKey)
-    tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: googleMapsApiKey, autoRefreshToken: true }))
-  else return false
+  if (source) {
+    source.attach(tiles)
+    return true
+  }
+  if (!googleMapsApiKey) return false
+  tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: googleMapsApiKey, autoRefreshToken: true }))
   return true
 }

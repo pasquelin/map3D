@@ -27,9 +27,16 @@ minifiés) ; les mêmes chaînes reviennent dès que l'entrée Cesium est import
 
 Une application qui ne passait ni `cesiumIonToken` ni `cesiumIonAssetId` n'a **rien à changer**.
 
+- **Token facultatif** : il se passe tel quel. Sans jeton (absent ou vide), `cesiumIon()` rend
+  `undefined` et la carte garde la clé Google ou le globe de repli, comme le faisait
+  `cesiumIonToken` absent.
+- **React Server Components** (Next App Router) : `cesiumIonToken` était une chaîne, la source
+  porte une fonction. `cesiumIon()` s'appelle donc dans un composant client (`'use client'`).
+
 ### Ajouté
 
-- **Entrée `@pasquelin/map3d/cesium-ion`** (`exports` du paquet, ESM + CJS + types) :
+- **Entrée `@pasquelin/map3d/cesium-ion`** (`exports` du paquet, dans les mêmes formats que
+  l'entrée principale ; `typesVersions` pour les hôtes TypeScript en `moduleResolution: node`) :
   `cesiumIon({ token, assetId? })` rend la source à passer à `<Map tileset3d>`, et
   `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles) est le défaut
   d'`assetId`. Elle seule importe le greffon Cesium ion ; rien du cœur ne l'importe.
@@ -38,7 +45,8 @@ Une application qui ne passait ni `cesiumIonToken` ni `cesiumIonAssetId` n'a **r
   photoréalistes est fournie par l'hôte, lue au montage. Pour le volume elle **prime sur
   `googleMapsApiKey`**, comme le token Ion primait — la clé garde le fond 2D, le trafic, les
   lieux et le routage. La carte se remonte quand la `key` de la source change (jeton, asset),
-  pas à chaque render. Un hôte peut écrire sa propre source.
+  pas à chaque render. Un hôte peut écrire sa propre source : `attach` est rappelé à chaque
+  moteur, le greffon s'y crée.
 - **Docs** : [TILES.md § 7](docs/fr/TILES.md#7-le-volume-photoréaliste--sa-source) (FR + EN) —
   brancher Cesium ion, écrire sa source.
 

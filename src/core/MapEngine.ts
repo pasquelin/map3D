@@ -736,13 +736,13 @@ export class MapEngine {
     // Platform en direct (clé) — cf. `attachTileset3d`. Sans l'une ni l'autre, le
     // TilesRenderer reste vide → globe ellipsoïde de repli.
     //
-    // La source est branchée dès qu'elle existe, indépendamment de
-    // `providers.tiles3d.provider` : c'est la VISIBILITÉ et l'`update` du tileset que ce
-    // réglage commande (cf. `applyModeVisibility` et `tick`), ce qui le rend modifiable à
-    // chaud dans les deux sens. Un tileset jamais updaté n'émet aucune requête.
+    // La source est branchée dès qu'elle existe, indépendamment de `providers.tiles3d.provider` :
+    // c'est la VISIBILITÉ et l'`update` du tileset que ce réglage commande (cf.
+    // `applyModeVisibility` et `tick`), ce qui le rend modifiable à chaud dans les deux sens.
+    // Un tileset jamais updaté n'émet aucune requête.
     this.provider3d = this.config.providers.tiles3d.provider
     this.tiles = new TilesRenderer()
-    const hasCustomTiles = attachTileset3d(this.tiles, opts.tileset3d, opts.googleMapsApiKey)
+    this.has3dTileset = attachTileset3d(this.tiles, opts.tileset3d, opts.googleMapsApiKey)
     if (opts.errorTarget !== undefined) this.tiles.errorTarget = opts.errorTarget
     this.tiles.setCamera(this.threeCamera)
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
@@ -822,7 +822,6 @@ export class MapEngine {
         select: opts.buildingSelectColor ?? defaultTheme.globe.buildingSelectColor,
       },
     )
-    this.has3dTileset = hasCustomTiles
 
     // Renderer HTML superposé au canvas : positionne chaque `CSS2DObject` via la
     // caméra Three (aucune projection écran manuelle → zéro dérive). `domElement`
@@ -839,7 +838,7 @@ export class MapEngine {
     labelDom.style.overflow = 'visible'
     this.canvas.parentElement?.appendChild(labelDom)
 
-    if (opts.fallbackGlobe && !hasCustomTiles) {
+    if (opts.fallbackGlobe && !this.has3dTileset) {
       this.fallback = this.buildFallbackGlobe(opts.oceanColor, opts.landColor ?? defaultTheme.globe.landColor)
 
       this.tiles.group.add(this.fallback)

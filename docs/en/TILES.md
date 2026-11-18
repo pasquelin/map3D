@@ -422,6 +422,10 @@ What to know:
 - **`cesiumIon({ token, assetId? })`** returns a `Tileset3dSource`. `assetId` defaults to
   `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by
   the same entry.
+- **No token, no source.** With a missing or empty `token` — an unset environment variable —,
+  `cesiumIon()` returns `undefined`: the map keeps the Google key or its fallback globe, as
+  with an omitted `tileset3d`. An optional token is therefore passed as is, with no guard on
+  the host side.
 - **`tileset3d` takes precedence over `googleMapsApiKey`** for volume. The key keeps
   everything else: 2D basemap, traffic, places, routing. That is the setup for EEA
   accounts, for which direct Photorealistic 3D Tiles are blocked.
@@ -430,25 +434,37 @@ What to know:
 - **With neither source nor key**, the `TilesRenderer` stays empty: fallback globe
   (`fallbackGlobe`).
 - **Outside React**, the same source goes to the engine: `new MapEngine({ …, tileset3d })`.
+- **Under React Server Components** (Next App Router), call `cesiumIon()` in a client
+  component (`'use client'`): the source carries a function, which a Server Component cannot
+  pass to `<Map>`.
 
 ### Writing your own source
 
-The contract is two fields — enough to plug in another 3D tile provider, or a corporate
-proxy, without asking anything of the library:
+A source is two fields — enough to plug in another 3D tile provider, or a corporate proxy,
+without asking anything of the library. `MyPlugin` here is your own `3d-tiles-renderer`
+plugin:
 
 ```ts
 import type { Tileset3dSource } from '@pasquelin/map3d'
 
-export type Tileset3dSource = {
-  key: string // identity: the map remounts when it changes
-  attach(tiles: TilesRenderer): void // registers what authenticates and serves the tileset
-}
+export const inHouseTiles = (url: string, token: string): Tileset3dSource => ({
+  key: `in-house:${url}:${token}`,
+  attach: (tiles) => {
+    // Created HERE, on every call: a plugin registers on a single `TilesRenderer` only.
+    tiles.registerPlugin(new MyPlugin({ url, token }))
+  },
+})
 ```
 
-`attach` receives the `TilesRenderer` from `3d-tiles-renderer` once, when the engine is
-constructed, before any request: registering a plugin on it (`tiles.registerPlugin(…)`) is
-enough. ⚠️ `key` may carry a token — the one from `cesiumIon()` does: never display or log
-it.
+- **`key`** — the source's identity: the map remounts when it changes, and only then.
+  ⚠️ It may carry a token — the one from `cesiumIon()` does: never display or log it.
+- **`attach(tiles)`** — receives the `TilesRenderer` from `3d-tiles-renderer` when **each**
+  engine is constructed, before any request. `<Map>` builds one per mount: remount, key
+  change, React strict mode's double mount. **So create the plugin inside `attach`**, never
+  outside: `3d-tiles-renderer` refuses to register the same one twice, even after the first
+  `TilesRenderer` was disposed.
+- **A single copy of `3d-tiles-renderer`.** map3d already installs it (`^0.5.0`): declare the
+  same range in your application, so that your plugins and the engine share one copy.
 
 ---
 

@@ -30,7 +30,10 @@
   or via **Cesium ion** through a **separate entry** the core never imports:
   `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` then
   `<Map tileset3d={cesiumIon({ token })} />` (`assetId` optional; `VITE_CESIUM_ION_TOKEN` in the
-  example). An app that does not import that entry bundles nothing from Cesium. There is **no**
+  example). With a missing or empty token `cesiumIon()` returns `undefined` — no source, the map
+  keeps the Google key or the fallback globe — so an optional token needs no guard. Under React
+  Server Components, call it in a client component (the source carries a function). An app that
+  does not import that entry bundles nothing from Cesium. There is **no**
   `cesiumIonToken` / `cesiumIonAssetId` prop and no `providers.tiles3d.cesiumIonAssetId` setting
   (removed in 0.7.0). Ellipsoid globe fallback when neither a source nor a key is set. The 2D
   basemap comes from Google **or** a self-hosted XYZ server, chosen by config alone.
@@ -135,7 +138,7 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 - **Search / catalog**: `SearchRegistry` (+ `markerGroupId`, groups `SHAPE_GROUP` / `DRAW_GROUP` / `PLACE_GROUP`), `createGooglePlacesSearch`, matching `normalizeSearch`, `scoreMatch`, `proximityRank`, `rankHits`, `NO_MATCH`, `createTitleCache`; catalog `CatalogRegistry` (`CatalogContent`, `CatalogSettings`), `catalogKey` / `parseCatalogKey`, `isBrowseSource` / `isToggleSource`, `categoryOf`, `filterByCategories`, `mergeCollections`, `statsOf`, `CatalogBrowseSource.checkable` (`false` = index mode: no checkbox, the name frames — for a reference set the host paints itself).
 - **Relations / routing**: types `Link`, `LinkVisual`, `DashStyle`; `RelationEngine`, `selectTargets`, `matchesSelector`, `familyTag`, `buildRelationMenu`, `createGoogleRoutesProvider`, `haversineMeters`, `bearingDeg`, `greatCirclePoints`, `fanLegs`, `decodePolyline`, `RouteCache`.
 - **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `PersistedVersionedStore` (shared base of the persisted registries), `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
-- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`; photorealistic 3D source contract `Tileset3dSource` (type, `<Map tileset3d>` / `MapEngineOptions.tileset3d`). **Separate entry `'@pasquelin/map3d/cesium-ion'`** (never imported by the core): `cesiumIon({ token, assetId? })` → `Tileset3dSource`, `CESIUM_ION_DEFAULT_ASSET_ID`, type `CesiumIonOptions`.
+- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`; photorealistic 3D source contract `Tileset3dSource` (type, `<Map tileset3d>` / `MapEngineOptions.tileset3d`). **Separate entry `'@pasquelin/map3d/cesium-ion'`** (never imported by the core): `cesiumIon({ token, assetId? })` → `Tileset3dSource | undefined` (`undefined` without a token), `CESIUM_ION_DEFAULT_ASSET_ID`, type `CesiumIonOptions`. A host-written source must create its `3d-tiles-renderer` plugin inside `attach`, which runs once per engine.
 - **Capture**: `engine.capture(opts)` / `MapHandle.capture` / `useCapture()` → `Promise<Blob>` (synchronous WebGL render + optional DOM-overlay compositing via an injected `rasterizeOverlay`); `<Map capture>` (`CaptureProps`), `config.capture` (`CaptureConfig`), types `CaptureOptions` / `CaptureFormat` / `CaptureBackground` / `OverlayRasterizer`. UI: "Take a photo" row in the ⚙ menu (download / mail / Web Share).
 - **Watermark**: "map3D" signature painted into the canvas + licence link, `config.watermark` (`WatermarkConfig`, `enabled` default `true`). Disabling requires a commercial licence — removing attribution under the default PolyForm-Noncommercial licence violates it.
 
@@ -6302,6 +6305,10 @@ What to know:
 - **`cesiumIon({ token, assetId? })`** returns a `Tileset3dSource`. `assetId` defaults to
   `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exported by
   the same entry.
+- **No token, no source.** With a missing or empty `token` — an unset environment variable —,
+  `cesiumIon()` returns `undefined`: the map keeps the Google key or its fallback globe, as
+  with an omitted `tileset3d`. An optional token is therefore passed as is, with no guard on
+  the host side.
 - **`tileset3d` takes precedence over `googleMapsApiKey`** for volume. The key keeps
   everything else: 2D basemap, traffic, places, routing. That is the setup for EEA
   accounts, for which direct Photorealistic 3D Tiles are blocked.
@@ -6310,25 +6317,37 @@ What to know:
 - **With neither source nor key**, the `TilesRenderer` stays empty: fallback globe
   (`fallbackGlobe`).
 - **Outside React**, the same source goes to the engine: `new MapEngine({ …, tileset3d })`.
+- **Under React Server Components** (Next App Router), call `cesiumIon()` in a client
+  component (`'use client'`): the source carries a function, which a Server Component cannot
+  pass to `<Map>`.
 
 ### Writing your own source
 
-The contract is two fields — enough to plug in another 3D tile provider, or a corporate
-proxy, without asking anything of the library:
+A source is two fields — enough to plug in another 3D tile provider, or a corporate proxy,
+without asking anything of the library. `MyPlugin` here is your own `3d-tiles-renderer`
+plugin:
 
 ```ts
 import type { Tileset3dSource } from '@pasquelin/map3d'
 
-export type Tileset3dSource = {
-  key: string // identity: the map remounts when it changes
-  attach(tiles: TilesRenderer): void // registers what authenticates and serves the tileset
-}
+export const inHouseTiles = (url: string, token: string): Tileset3dSource => ({
+  key: `in-house:${url}:${token}`,
+  attach: (tiles) => {
+    // Created HERE, on every call: a plugin registers on a single `TilesRenderer` only.
+    tiles.registerPlugin(new MyPlugin({ url, token }))
+  },
+})
 ```
 
-`attach` receives the `TilesRenderer` from `3d-tiles-renderer` once, when the engine is
-constructed, before any request: registering a plugin on it (`tiles.registerPlugin(…)`) is
-enough. ⚠️ `key` may carry a token — the one from `cesiumIon()` does: never display or log
-it.
+- **`key`** — the source's identity: the map remounts when it changes, and only then.
+  ⚠️ It may carry a token — the one from `cesiumIon()` does: never display or log it.
+- **`attach(tiles)`** — receives the `TilesRenderer` from `3d-tiles-renderer` when **each**
+  engine is constructed, before any request. `<Map>` builds one per mount: remount, key
+  change, React strict mode's double mount. **So create the plugin inside `attach`**, never
+  outside: `3d-tiles-renderer` refuses to register the same one twice, even after the first
+  `TilesRenderer` was disposed.
+- **A single copy of `3d-tiles-renderer`.** map3d already installs it (`^0.5.0`): declare the
+  same range in your application, so that your plugins and the engine share one copy.
 
 ---
 

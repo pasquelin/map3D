@@ -541,7 +541,8 @@ export function App() {
           theme={theme}
           googleMapsApiKey={GOOGLE_MAPS_KEY || undefined}
           // Appel en ligne assumé : la carte ne se remonte que si la `key` de la source change.
-          tileset3d={CESIUM_ION_TOKEN ? cesiumIon({ token: CESIUM_ION_TOKEN }) : undefined}
+          // Sans token, `cesiumIon` ne rend aucune source — globe de repli, ou Google par clé.
+          tileset3d={cesiumIon({ token: CESIUM_ION_TOKEN })}
           center={PARIS}
           zoom={14}
           // Le cas d'usage type : gater un cadrage sur la disponibilité de la carte.

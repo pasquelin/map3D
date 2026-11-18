@@ -8,8 +8,6 @@ const CLE_GOOGLE = 'cle-google'
 const sourceHote = (): Tileset3dSource => ({ key: 'hote', attach: vi.fn() })
 
 const greffonGoogle = (tiles: TilesRenderer) => tiles.getPluginByName('GOOGLE_CLOUD_AUTH_PLUGIN')
-/** Adresse que le tileset ira chercher — posée par le greffon, absente des types de la lib. */
-const adresse = (tiles: TilesRenderer) => (tiles as unknown as { rootURL: string | null }).rootURL
 
 describe('attachTileset3d', () => {
   it("branche la source de l'hôte sur le TilesRenderer du moteur", () => {
@@ -31,7 +29,6 @@ describe('attachTileset3d', () => {
     const tiles = new TilesRenderer()
     expect(attachTileset3d(tiles, undefined, CLE_GOOGLE)).toBe(true)
     expect(greffonGoogle(tiles)).toMatchObject({ apiToken: CLE_GOOGLE })
-    expect(adresse(tiles)).toContain('tile.googleapis.com')
   })
 
   it("ne branche rien sans source ni clé : c'est ce qui appelle le globe de repli", () => {
