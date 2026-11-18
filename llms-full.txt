@@ -8519,6 +8519,8 @@ duplicate it.
 | Windy Webcams | `@pasquelin/map3d-plugin-windy` | `plugingsMap3D/packages/windy` | `>=0.2.0 <0.8.0` |
 | 3D plan (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.2.0 <0.8.0` |
 
+`geopf` and `windy` declare this range from their version 0.1.2 onwards.
+
 This registry grows with each official plugin published in `plugingsMap3D` — update
 it in the same movement as their first publication, then at every new `map3d` minor,
 once the plugins have been checked against it.
