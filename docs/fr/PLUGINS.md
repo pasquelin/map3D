@@ -527,12 +527,13 @@ chaque plugin (README de son paquet) ; il ne la duplique pas.
 
 | Nom | Paquet npm | Lien | Plage `map3d` compatible |
 |---|---|---|---|
-| Bâtiments France (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.1.0 <0.2.0` |
-| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `plugingsMap3D/packages/windy` | `>=0.1.0 <0.2.0` |
-| Plan 3D (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.1.0 <0.2.0` |
+| Bâtiments France (BDTOPO) | `@pasquelin/map3d-plugin-geopf` | `plugingsMap3D/packages/geopf` | `>=0.2.0 <0.8.0` |
+| Windy Webcams | `@pasquelin/map3d-plugin-windy` | `plugingsMap3D/packages/windy` | `>=0.2.0 <0.8.0` |
+| Plan 3D (placeholder) | `@pasquelin/map3d-plugin-plan-3d` | `plugingsMap3D/packages/plan-3d` | `>=0.2.0 <0.8.0` |
 
 Ce registre s'enrichit au fil des plugins officiels publiés dans `plugingsMap3D` —
-à mettre à jour dans le même mouvement que leur première publication.
+à mettre à jour dans le même mouvement que leur première publication, puis à chaque
+nouvelle mineure de `map3d`, une fois les plugins vérifiés contre elle.
 
 ---
 
