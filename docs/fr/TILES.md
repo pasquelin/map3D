@@ -29,7 +29,7 @@ Avec `internal`, **aucune requête ne part chez Google** pour le fond : ni
 | Authentification       | clé d'API + session signée                | aucune                              |
 | Réglage minimal        | `<Map googleMapsApiKey>`                  | `providers.internal.origin`            |
 | Calque trafic          | oui                                       | par emprunt, avec une clé (cf. § 4) |
-| Volume (mode `'3d'`)   | tuiles 3D photoréalistes (Cesium Ion)     | bâtiments extrudés (cf. § 5)        |
+| Volume (mode `'3d'`)   | tuiles 3D photoréalistes (cf. § 7)        | bâtiments extrudés (cf. § 5)        |
 | Quota                  | facturé à la tuile                        | le vôtre                            |
 
 Le fournisseur ne change **que le fond de carte**. Recherche de lieux, routage et tuiles
@@ -148,13 +148,13 @@ const { canPlan, can3d, trafficAvailable } = engine.getBasemap()
 
 | Situation                                          | Bouton `2D` | Bouton `3D` | Bouton trafic   |
 | -------------------------------------------------- | ----------- | ----------- | --------------- |
-| `external` + clé Google + token Ion                | affiché     | affiché     | affiché en plan |
-| `external` + clé Google, sans token Ion            | affiché     | **masqué**  | affiché en plan |
-| `external` sans clé (token Ion seul)               | masqué      | affiché     | masqué          |
-| ni clé ni token                                    | masqué      | masqué      | masqué          |
+| `external` + clé Google + source `tileset3d`       | affiché     | affiché     | affiché en plan |
+| `external` + clé Google, sans source `tileset3d`   | affiché     | affiché     | affiché en plan |
+| `external` sans clé (source `tileset3d` seule)     | masqué      | affiché     | masqué          |
+| ni clé ni source                                   | masqué      | masqué      | masqué          |
 | `internal` (origine renseignée), sans clé Google   | affiché     | affiché     | masqué          |
 | `internal` (origine renseignée) + clé Google       | affiché     | affiché     | affiché en plan |
-| `internal` pour la 2D, `external` sans token en 3D | affiché     | **masqué**  | masqué          |
+| `internal` pour la 2D, `external` sans clé ni source en 3D | affiché | **masqué** | masqué     |
 
 Trois règles derrière ce tableau :
 
@@ -232,7 +232,7 @@ config={{
   providers: {
     internal: { origin: TILE_ORIGIN },
     tiles: { provider: 'internal' },
-    tiles3d: { provider: 'internal' },   // 'external' = tuiles photoréalistes (Cesium Ion)
+    tiles3d: { provider: 'internal' },   // 'external' = tuiles photoréalistes (cf. § 7)
   },
 }}
 ```
@@ -241,7 +241,8 @@ En `'internal'`, le mode `'3d'` extrude les bâtiments des tuiles vectorielles d
 couche `building` du schéma OpenMapTiles, hauteurs `render_height` / `render_min_height`,
 cours intérieures percées — au-dessus du fond raster, qui **reste affiché** : c'est lui
 que le relief déformera. Aucun tileset photoréaliste n'est alors piloté, donc **aucune
-requête ne part chez Cesium ou Google**, même si un token est configuré par ailleurs.
+requête ne part chez son fournisseur** (Google, Cesium ion), même si une clé ou une source
+`tileset3d` est fournie par ailleurs.
 
 Il n'y a pas d'interrupteur séparé pour les bâtiments : `providers.tiles3d.provider` dit
 déjà d'où vient le volume, et un second réglage ne pourrait que le contredire — en
@@ -396,6 +397,84 @@ composite qui délègue à l'une d'elles :
 | `InternalTileSource` | `new InternalTileSource(cfg?, origin?)` | URLs XYZ sans session ni clé : le gabarit `internalTileUrl` est résolu une fois par `setConfig`, pas par tuile ; `supportsTraffic = false` |
 
 `cfg` et `origin` retombent sur `defaultConfig.providers.tiles` / `.internal.origin`.
+
+## 7. Le volume photoréaliste — sa source
+
+En `providers.tiles3d.provider: 'external'`, le volume vient d'un tileset photoréaliste.
+Deux façons de le servir :
+
+| Source           | Ce que l'hôte écrit                      | Ce que son bundle embarque                                   |
+| ---------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| Google en direct | `<Map googleMapsApiKey>`                 | le greffon Google de `3d-tiles-renderer`, importé par le cœur |
+| Cesium ion       | `<Map tileset3d={cesiumIon({ token })}>` | le greffon Cesium ion, **seulement s'il importe l'entrée**   |
+
+```tsx
+import { Map } from '@pasquelin/map3d'
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map
+  center={PARIS}
+  zoom={14}
+  tileset3d={cesiumIon({ token: CESIUM_ION_TOKEN })} // `assetId` en option
+  config={{ providers: { tiles3d: { provider: 'external' } } }}
+/>
+```
+
+**Le cœur n'importe rien de Cesium.** `@pasquelin/map3d/cesium-ion` est une entrée à part du
+paquet, la seule à importer le greffon : une application qui ne l'importe pas n'embarque ni
+ce greffon ni l'adresse `api.cesium.com`.
+
+Ce qu'il faut savoir :
+
+- **`cesiumIon({ token, assetId? })`** rend la `Tileset3dSource` à passer à `tileset3d` — ou
+  `undefined` sans jeton (puce suivante). `assetId`, absent ou vide, vaut
+  `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles), exporté par la
+  même entrée.
+- **Sans jeton, pas de source.** Avec un `token` absent ou vide — une variable d'environnement
+  non renseignée, le `null` d'un stockage —, `cesiumIon()` rend `undefined` : la carte garde la
+  clé Google ou son globe de repli, comme un `tileset3d` omis. Un jeton facultatif se passe
+  donc tel quel, sans garde côté hôte.
+- **`tileset3d` prime sur `googleMapsApiKey`** pour le volume. La clé garde tout le reste :
+  fond 2D, trafic, lieux, routage. C'est le montage des comptes EEA, pour qui les
+  Photorealistic 3D Tiles en direct sont bloquées.
+- **Lue au montage.** La carte se remonte quand la `key` de la source change — jeton ou
+  asset —, pas à chaque render : l'appel en ligne dans le JSX est sans risque, inutile de
+  mémoïser.
+- **Sans source ni clé**, le `TilesRenderer` reste vide : globe de repli (`fallbackGlobe`).
+- **Hors React**, la même source se passe au moteur : `new MapEngine({ …, tileset3d })`.
+- **Sous React Server Components** (Next App Router), `cesiumIon()` s'appelle dans un
+  composant client (`'use client'`) : la source porte une fonction, qu'un Server Component ne
+  peut pas passer à `<Map>`.
+
+### Écrire sa propre source
+
+Une source tient en deux champs — de quoi brancher un autre fournisseur de tuiles 3D, ou un
+proxy d'entreprise, sans rien demander à la lib. `MonGreffon` est ici votre greffon
+`3d-tiles-renderer` :
+
+```ts
+import type { Tileset3dSource } from '@pasquelin/map3d'
+
+export const tuilesMaison = (url: string, jeton: string): Tileset3dSource => ({
+  key: `maison:${url}:${jeton}`,
+  attach: (tiles) => {
+    // Créé ICI, à chaque appel : un greffon ne s'enregistre que sur un seul `TilesRenderer`.
+    tiles.registerPlugin(new MonGreffon({ url, jeton }))
+  },
+})
+```
+
+- **`key`** — l'identité de la source : la carte se remonte quand elle change, et seulement
+  alors. ⚠️ Elle peut porter un jeton — celle de `cesiumIon()` le fait : ne jamais l'afficher
+  ni la journaliser.
+- **`attach(tiles)`** — reçoit le `TilesRenderer` de `3d-tiles-renderer` à la construction de
+  **chaque** moteur, avant toute requête. `<Map>` en construit un par montage : remontage,
+  changement de clé, double montage du mode strict de React. **Le greffon se crée donc dans
+  `attach`**, jamais en dehors : `3d-tiles-renderer` refuse d'enregistrer deux fois le même,
+  même après le `dispose` du premier `TilesRenderer`.
+- **Une seule copie de `3d-tiles-renderer`.** map3d l'installe déjà : déclarez dans votre
+  application la même plage que la sienne (`dependencies` de son `package.json`), pour que vos
+  greffons et le moteur partagent le même exemplaire.
 
 ---
 

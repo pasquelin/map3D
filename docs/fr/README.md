@@ -8,7 +8,7 @@ Conçue pour un *Dashboard Opérateur* (alertes par sévérité, agents mobiles 
 
 ## Points clés
 
-- **Tuiles 3D photoréalistes** (Google via Cesium Ion) + globe ellipsoïde de repli.
+- **Tuiles 3D photoréalistes** (Google en direct, ou via Cesium ion par une entrée à part) + globe ellipsoïde de repli.
 - **Markers/clusters en DOM/CSS** (animations natives, `:hover`, accessibilité), pool recyclé, positionnement `translate3d` en passe projection → écriture.
 - **Caméra sans inertie** : un unique lissage exponentiel (pas d'oscillation).
 - **Clustering** en espace monde (supercluster), paliers de zoom discrets, clés stables (aucun clignotement).
@@ -16,7 +16,7 @@ Conçue pour un *Dashboard Opérateur* (alertes par sévérité, agents mobiles 
 - **Données viewport-driven** : rechargement à la bbox au déplacement + temps réel live.
 - **Tracés/formes drapés au sol** (hauteur d'ancre sur le terrain, traits en **px écran** constants au zoom).
 - **Éditeur de dessin complet** façon Figma : sélection (clic, marquee, lasso), poignées de resize/rotation, styles fond/bordure séparés, réglages par outil persistés, undo/redo, formes verrouillables par l'hôte.
-- **Source 3D unique** : Google Photorealistic 3D Tiles via **Cesium Ion** (un seul token).
+- **Source 3D au choix, sans poids imposé** : Google Photorealistic 3D Tiles en direct (`googleMapsApiKey`) ou via **Cesium ion** (`@pasquelin/map3d/cesium-ion`) — le cœur n'importe rien de Cesium, seule l'application qui importe cette entrée l'embarque.
 - **Filtrage par tags (« couches »)** : markers et dessins tagués, panneau de filtre intégré aux contrôles (recherche, checkboxes, pastilles couleur, compteurs), sélection persistée.
 - **Thème typé** clair/sombre, `prefers-reduced-motion` respecté.
 - **Libellés 100 % traduisibles** : aucun texte en dur, tout est overridable via `<MapProvider labels>` (voir [docs/LABELS.md](LABELS.md)).
@@ -73,6 +73,7 @@ ne peut diverger de ce que la lib applique :
 | adapter la charte | [THEME.md](THEME.md) |
 | afficher une grille de coordonnées | [GRATICULE.md § 2](GRATICULE.md#2-lactiver) |
 | servir vos tuiles depuis votre serveur | [TILES.md § 2](TILES.md#2-régler-le-serveur-interne) |
+| brancher les tuiles 3D photoréalistes (Cesium ion) | [TILES.md § 7](TILES.md#7-le-volume-photoréaliste--sa-source) |
 | ouvrir un menu sur un bâtiment 3D | [BUILDINGS.md § 3](BUILDINGS.md#3-buildingmenu--le-contrat) |
 | écrire votre propre couche | [ENGINE.md § 3](ENGINE.md#3-écrire-une-couche) |
 | ajouter un plugin (source tierce) | [PLUGINS.md § 1](PLUGINS.md#1-concept-et-modèle-mental) |
@@ -125,7 +126,6 @@ export function App() {
     <MapProvider colorScheme="auto">
       <div style={{ height: '100vh' }}>
         <Map
-          cesiumIonToken={import.meta.env.VITE_CESIUM_ION_TOKEN} // facultatif — sans token, globe de repli
           center={{ lat: 48.8566, lng: 2.3522 }}
           zoom={13}
           controls={{ position: 'right' }}
@@ -142,6 +142,19 @@ export function App() {
   )
 }
 ```
+
+**Tuiles 3D photoréalistes** — facultatives : sans elles, la carte s'affiche sur le globe de
+repli ou sur votre serveur de tuiles. Deux façons de les obtenir : `googleMapsApiKey` (Google
+en direct), ou Cesium ion, par son **entrée à part** :
+
+```tsx
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+
+<Map tileset3d={cesiumIon({ token: import.meta.env.VITE_CESIUM_ION_TOKEN })} center={{ lat: 48.8566, lng: 2.3522 }} zoom={13} />
+```
+
+Le cœur n'importe rien de Cesium : une application qui n'importe pas cette entrée n'en embarque
+rien (cf. [TILES.md § 7](TILES.md#7-le-volume-photoréaliste--sa-source)).
 
 ## Données dynamiques (bbox + temps réel)
 
@@ -558,7 +571,7 @@ Un remapping est immédiatement reflété dans les tooltips (les deux barres aff
 | Élément | Rôle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `<MapProvider theme colorScheme labels>` | Thème résolu (clair/sombre + reduced-motion) + libellés traduisibles ([docs/LABELS.md](LABELS.md)).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `<Map cesiumIonToken googleMapsApiKey center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + moteur (Cesium Ion).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `<Map googleMapsApiKey tileset3d center zoom mapMode fallbackGlobe interactive onReady onViewportChange onCameraChange>` | Canvas + moteur.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `<MarkerLayer points/source getId cluster icon typeLabel tooltip menu selectedId followId onSelect selectionRing draggable repositionable onReposition leaderLine cullMargin staticMinZoom>` | Markers/clusters DOM. Infobulles au survol déduites de `MarkerData.title`/`titleColor`/`content` (`tooltip` reste la surcharge pour un titre que du texte ne peut pas dire — le clic = actions), `MarkerData.avatar` (photo ronde gérée), `MarkerData.new` (sonar jusqu'au clic) et `MarkerData.urgent` (viseur rouge, infobulle style urgence). `typeLabel` nomme un type une fois pour toutes (rubriques de recherche, satellites de cluster). Cluster inséparable au zoom max → éclaté automatiquement en éventail.                                                                                                                                                                                                                                                                                                                                                               |
 | `<Map cluster={{ enabled, size, icon, typeIcon, typeLabel, tooltip }}>` `<ClusterSurface>` | Regroupement **de la carte** : un index unique alimenté par toutes les couches (`engine.clusters`), qui rend les pastilles. L'algorithme est dans `config.clustering` ; `<MarkerLayer cluster={{ enabled: false }}>` retire une couche. |
 | `<PathLayer paths animateHead>` | Tracés/parcours (trace GPS animée).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -781,13 +794,13 @@ Par défaut `altitudeForBounds` borne à `[350 m, 6000 km]` avec une marge de 1.
 
 **Mode au démarrage (`<Map mapMode>`)** — avec `googleMapsApiKey`, la carte **démarre en plan 2D** : plus lisible pour lire des positions, et le tileset 3D n'est même pas requêté tant qu'on ne bascule pas (aucune tuile photoréaliste téléchargée au chargement). `mapMode="3d"` démarre sur les tuiles photoréalistes ; sans clé Google, `'3d'` est le seul mode possible et reste le défaut.
 
-⚠️ **Quota** — le fond 2D consomme le quota **Map Tiles API de votre clé Google**, alors que la 3D via `cesiumIonToken` est servie par Cesium Ion : démarrer en 2D *déplace* le coût, il ne le supprime pas. Deux garde-fous côté lib : pendant un vol caméra (l'intro notamment) seuls les niveaux de base sont demandés, au lieu des onze niveaux traversés ; et une tuile en échec est réessayée avec du recul (1 s puis 4 s, trois essais) au lieu d'être abandonnée — un simple `429` laissait sinon des trous définitifs dans la carte. Si vous voyez des `429 Too Many Requests`, vérifiez aussi les quotas par minute du projet dans la console Google Cloud.
+⚠️ **Quota** — le fond 2D consomme le quota **Map Tiles API de votre clé Google**, alors que la 3D d'une source `tileset3d` (Cesium ion) est servie par son fournisseur : démarrer en 2D *déplace* le coût, il ne le supprime pas. Deux garde-fous côté lib : pendant un vol caméra (l'intro notamment) seuls les niveaux de base sont demandés, au lieu des onze niveaux traversés ; et une tuile en échec est réessayée avec du recul (1 s puis 4 s, trois essais) au lieu d'être abandonnée — un simple `429` laissait sinon des trous définitifs dans la carte. Si vous voyez des `429 Too Many Requests`, vérifiez aussi les quotas par minute du projet dans la console Google Cloud.
 
 ## Exemple complet (Dashboard Opérateur)
 
 ```bash
 npm install
-cp examples/react/.env.example examples/react/.env   # renseigner VITE_CESIUM_ION_TOKEN
+cp examples/react/.env.example examples/react/.env   # VITE_CESIUM_ION_TOKEN, facultatif
 npm run dev:example
 ```
 

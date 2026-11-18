@@ -297,7 +297,7 @@ Deux fonds, plus un calque :
 
 | | Source | Quota |
 |---|---|---|
-| **3D photoréaliste** | Google Photorealistic 3D Tiles, via `cesiumIonToken` (Cesium Ion) ou `googleMapsApiKey` (direct) | Cesium Ion, ou Google |
+| **3D photoréaliste** | Google Photorealistic 3D Tiles, via `googleMapsApiKey` (direct) ou une source `tileset3d` (Cesium ion, par son entrée à part — cf. [TILES.md § 7](TILES.md#7-le-volume-photoréaliste--sa-source)) | Google, ou le fournisseur de la source |
 | **Plan 2D** | Google Map Tiles | **votre clé Google** |
 | **Trafic** | calque du plan 2D | Google |
 
@@ -324,8 +324,8 @@ aucune tuile n'est disponible : la carte reste une carte même sans réseau ni t
 > ### ⚠️ Quota
 >
 > Le fond 2D consomme le quota **Map Tiles API de votre clé Google**, alors que la 3D
-> via `cesiumIonToken` est servie par Cesium Ion : démarrer en 2D **déplace** le coût,
-> il ne le supprime pas.
+> d'une source `tileset3d` (Cesium ion) est servie par son fournisseur : démarrer en 2D
+> **déplace** le coût, il ne le supprime pas.
 >
 > Deux garde-fous côté lib : pendant un vol caméra (l'intro notamment) seuls les
 > niveaux de base sont demandés, au lieu des onze niveaux traversés ; et une tuile en

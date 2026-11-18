@@ -6,6 +6,73 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
+À publier en **0.7.0** — **rupture 0.x** : le cœur n'importe plus rien de Cesium. Cesium ion
+reste disponible, par une entrée à part que l'application importe elle-même.
+
+### ⚠️ Rupture — Cesium ion sort du cœur : `cesiumIonToken` devient `tileset3d={cesiumIon(…)}`
+
+`MapEngine` importait `CesiumIonAuthPlugin` de `3d-tiles-renderer` en dur : toute application
+embarquait le greffon et l'adresse `api.cesium.com`, **même sans jamais fournir de token**.
+Mesuré sur une application Vite 8 de production qui n'affiche que la carte : 1 occurrence de
+`api.cesium.com` et 3 de `CesiumIonAuthPlugin` en 0.6.0, **0 et 0** désormais (−47,6 Ko
+minifiés) ; les mêmes chaînes reviennent dès que l'entrée Cesium est importée.
+
+**Migrer, en trois lignes :**
+
+```diff
++ import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
+- <Map cesiumIonToken={TOKEN} cesiumIonAssetId="2275207" … />
++ <Map tileset3d={cesiumIon({ token: TOKEN, assetId: '2275207' })} … />   // `assetId` facultatif
+```
+
+Une application qui ne passait ni `cesiumIonToken` ni `cesiumIonAssetId` n'a **rien à changer**.
+
+- **Token facultatif** : il se passe tel quel. Sans jeton (absent ou vide), `cesiumIon()` rend
+  `undefined` et la carte garde la clé Google ou le globe de repli, comme le faisait
+  `cesiumIonToken` absent.
+- **React Server Components** (Next App Router) : `cesiumIonToken` était une chaîne, la source
+  porte une fonction. `cesiumIon()` s'appelle donc dans un composant client (`'use client'`).
+
+### Ajouté
+
+- **Entrée `@pasquelin/map3d/cesium-ion`** (`exports` du paquet, dans les mêmes formats que
+  l'entrée principale ; `typesVersions` pour les hôtes TypeScript en `moduleResolution: node`) :
+  `cesiumIon({ token, assetId? })` rend la source à passer à `<Map tileset3d>` (`undefined`
+  sans jeton), et `CESIUM_ION_DEFAULT_ASSET_ID` (`'2275207'`, Google Photorealistic 3D Tiles)
+  est le défaut d'un `assetId` absent ou vide. Elle seule importe le greffon Cesium ion ; rien
+  du cœur ne l'importe.
+- **`<Map tileset3d>` / `MapEngineOptions.tileset3d`** et le contrat **`Tileset3dSource`**
+  (`{ key, attach(tiles) }`, exporté par l'entrée principale) : la source des tuiles 3D
+  photoréalistes est fournie par l'hôte, lue au montage. Pour le volume elle **prime sur
+  `googleMapsApiKey`**, comme le token Ion primait — la clé garde le fond 2D, le trafic, les
+  lieux et le routage. La carte se remonte quand la `key` de la source change (jeton, asset),
+  pas à chaque render. Un hôte peut écrire sa propre source : `attach` est rappelé à chaque
+  moteur, le greffon s'y crée.
+- **Docs** : [TILES.md § 7](docs/fr/TILES.md#7-le-volume-photoréaliste--sa-source) (FR + EN) —
+  brancher Cesium ion, écrire sa source.
+
+### Retiré
+
+- **`cesiumIonToken` et `cesiumIonAssetId`** — props de `<Map>` et options de `MapEngine` —,
+  sans alias de transition : le type les refuse. Remplacées par `tileset3d` (ci-dessus).
+- **`providers.tiles3d.cesiumIonAssetId`** (`MapConfig`, `defaultConfig`) : l'asset se passe à
+  `cesiumIon({ assetId })`. Une config qui le fournissait ne casse pas au merge, mais le type
+  ne l'accepte plus et plus rien ne le lit.
+
+### Modifié
+
+- **Exemple React** : `VITE_CESIUM_ION_TOKEN` passe par la nouvelle entrée
+  (`tileset3d={cesiumIon({ token })}`) ; le réglage « asset Cesium Ion » du banc d'essai
+  disparaît avec la clé de config.
+- **Inchangé** : les tuiles Google en direct (`googleMapsApiKey`), le globe de repli, le
+  fournisseur interne et `providers.tiles3d.provider`.
+
+### Corrigé
+
+- **Docs** : le tableau des capacités de TILES.md § 4 annonçait le bouton « 3D » masqué en
+  `external` avec une clé Google sans token Ion. Le moteur fait l'inverse — la clé sert les
+  Photorealistic 3D Tiles en direct, donc le bouton est proposé ; la ligne le dit.
+
 ## [0.6.0] — 2026-09-02
 
 Version d'audit : une passe complète sur le rendu, la robustesse réseau, la couche React,

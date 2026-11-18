@@ -234,7 +234,6 @@ export const CONFIG_LABELS: Readonly<Record<string, string>> = {
   'providers.buildings.staleFrames': 'frames hors vue avant abandon',
 
   'providers.buildings.pickFields': 'attributs remontés au clic',
-  'providers.tiles3d.cesiumIonAssetId': 'asset Cesium Ion',
   'providers.tiles3d.hideVolumeWhenClamped': 'masquer la 3D si vue non couverte',
   'providers.tiles3d.volumeFadeMs': 'durée du fondu (ms)',
   'providers.symbols.cacheMaxEntries': 'cache de vignettes',

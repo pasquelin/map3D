@@ -19,7 +19,7 @@ Le mode piéton est **déjà dans la barre** dès que la 3D est disponible : un 
 le groupe boussole, touche `W` par défaut.
 
 ```tsx
-<Map cesiumIonToken={TOKEN} center={PARIS} zoom={17} controls={{}} />
+<Map center={PARIS} zoom={17} controls={{}} />
 {/* bouton « Mode piéton » (icône marche), visible dès que la 3D est servable */}
 ```
 

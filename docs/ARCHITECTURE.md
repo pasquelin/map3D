@@ -74,6 +74,11 @@ clients sous licence commerciale.
 ## 5. Conventions de code (non négociables)
 
 - **Point d'entrée public unique** : `src/index.ts`. Toute API publique y est ré-exportée.
+  **Exception assumée** : `src/cesium-ion.ts`, publiée sous `@pasquelin/map3d/cesium-ion`. Elle
+  seule importe le greffon Cesium ion de `3d-tiles-renderer`, et **rien du cœur ne l'importe** —
+  c'est ce qui garantit qu'un hôte qui ne s'en sert pas n'embarque rien de Cesium
+  (`src/cesium-ion.test.ts` garde la règle). Une source 3D tierce de plus suivrait le même
+  chemin : une entrée à elle, branchée par `<Map tileset3d>` (contrat `Tileset3dSource`).
 - **Tout est config et params.** Aucune valeur ni texte en dur : comportement, couleur, libellé,
   seuil passent par `config` / `theme` / `labels` ou une prop.
   **Exception assumée** : `config.toolbar.autoHide` (outil de la barre retiré faute d'objet)

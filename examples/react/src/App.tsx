@@ -24,6 +24,9 @@ import {
   shapesLayer,
   useBuildingEnrichment,
 } from '@pasquelin/map3d'
+// Entrée à part : la lib n'importe plus rien de Cesium d'elle-même. Qui veut les tuiles
+// photoréalistes par Cesium ion importe cette entrée — et elle seule en porte le poids.
+import { cesiumIon } from '@pasquelin/map3d/cesium-ion'
 import { toCanvas } from 'html-to-image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -537,7 +540,9 @@ export function App() {
           style={{ flex: '1 1 0%', width: 'auto', minWidth: 0 }}
           theme={theme}
           googleMapsApiKey={GOOGLE_MAPS_KEY || undefined}
-          cesiumIonToken={CESIUM_ION_TOKEN || undefined}
+          // Appel en ligne assumé : la carte ne se remonte que si la `key` de la source change.
+          // Sans token, `cesiumIon` ne rend aucune source — globe de repli, ou Google par clé.
+          tileset3d={cesiumIon({ token: CESIUM_ION_TOKEN })}
           center={PARIS}
           zoom={14}
           // Le cas d'usage type : gater un cadrage sur la disponibilité de la carte.

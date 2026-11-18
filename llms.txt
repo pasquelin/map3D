@@ -26,9 +26,17 @@
   `npm i @pasquelin/map3d three react react-dom`.
 - **Per-frame read/write separation**: layers run `update()` (advance the 3D — read pass) then
   `project()` (write DOM overlays in a single pass) — aim for zero allocation in the frame loop.
-- **Photorealistic 3D**: Google Photorealistic 3D Tiles via **Cesium Ion** (a single token,
-  `VITE_CESIUM_ION_TOKEN` in the example), with an ellipsoid globe fallback when no token is
-  set. The 2D basemap comes from Google **or** a self-hosted XYZ server, chosen by config alone.
+- **Photorealistic 3D**: Google Photorealistic 3D Tiles, either directly (`<Map googleMapsApiKey>`)
+  or via **Cesium ion** through a **separate entry** the core never imports:
+  `import { cesiumIon } from '@pasquelin/map3d/cesium-ion'` then
+  `<Map tileset3d={cesiumIon({ token })} />` (`assetId` optional; `VITE_CESIUM_ION_TOKEN` in the
+  example). With a missing or empty token `cesiumIon()` returns `undefined` — no source, the map
+  keeps the Google key or the fallback globe — so an optional token needs no guard. Under React
+  Server Components, call it in a client component (the source carries a function). An app that
+  does not import that entry bundles nothing from Cesium. There is **no**
+  `cesiumIonToken` / `cesiumIonAssetId` prop and no `providers.tiles3d.cesiumIonAssetId` setting
+  (removed in 0.7.0). Ellipsoid globe fallback when neither a source nor a key is set. The 2D
+  basemap comes from Google **or** a self-hosted XYZ server, chosen by config alone.
 - **"Latest ref pattern" is intentional**: state lives in `MapEngine`, not React. The
   `ref.current = props` on render, read by a long-lived handler, is deliberate — do not convert
   it into React state.
@@ -116,7 +124,7 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 - [LABELS](docs/en/LABELS.md): `MapLabels` — every **text string** and formatting rule (units, distances, durations)
 - [PROPS](docs/en/PROPS.md): React component props
 
-## Public API — map by domain (every value export of `src/index.ts`, all from `'@pasquelin/map3d'`)
+## Public API — map by domain (every value export of `src/index.ts`, all from `'@pasquelin/map3d'`; the one separate entry, `'@pasquelin/map3d/cesium-ion'`, is listed under Tiles)
 
 - **React mounting**: `MapProvider`, `Map` (+ `MapHandle` ref, `MapSurfaces` props), typed layer factories `markersLayer` / `pathsLayer` / `shapesLayer` (`LayerSpec`, `MarkersSpec`); layer components for manual placement `MarkerLayer` (+ `MarkerLayerDecl`), `PathLayer`, `ShapeLayer`, `DrawLayer`, `RelationLayer`, `LinkLayer`, `GraticuleLayer`, `LensLayer`, `SymbolMarkers`, `ClusterSurface`; default renderers `DefaultMarker`, `DefaultCluster`; `svgToDataUri` (SVG markup → data URI for icons).
 - **Built-in UI** (all mounted by `<Map>`; exported for manual placement): `Toolbar` (+ `useToolbar`, `useCloseWhenHidden`), `MapControls`, `SearchBox`, `CameraReadout`, `PinnedDock`, `TagFilterControl`, `CatalogControl`, `TemplatesPanel` (+ `TemplateThumb`), `PreferencesPanel`, `StatsPanel`, `ContextMenu` (`MenuItem`), `MarkerList`, `LensPanel`, `DrawStylePanel`, `Confirm`, `DraggablePanel`; bar buttons `ToolButton`, `LensToolButton`, `MeasureToolButton`, `DrawSettingsButton`, `SymbolPaletteButton`; atoms `SelectionBadges`, `RelationStatusBar`, `Swatch`, `RemoveButton` (+ `REMOVE_ICON_PATH`).
@@ -130,7 +138,7 @@ generic onto the call site (typing `icon`, `menu`, `tooltip`). `<Map>` mounts th
 - **Search / catalog**: `SearchRegistry` (+ `markerGroupId`, groups `SHAPE_GROUP` / `DRAW_GROUP` / `PLACE_GROUP`), `createGooglePlacesSearch`, matching `normalizeSearch`, `scoreMatch`, `proximityRank`, `rankHits`, `NO_MATCH`, `createTitleCache`; catalog `CatalogRegistry` (`CatalogContent`, `CatalogSettings`), `catalogKey` / `parseCatalogKey`, `isBrowseSource` / `isToggleSource`, `categoryOf`, `filterByCategories`, `mergeCollections`, `statsOf`, `CatalogBrowseSource.checkable` (`false` = index mode: no checkbox, the name frames — for a reference set the host paints itself).
 - **Relations / routing**: types `Link`, `LinkVisual`, `DashStyle`; `RelationEngine`, `selectTargets`, `matchesSelector`, `familyTag`, `buildRelationMenu`, `createGoogleRoutesProvider`, `haversineMeters`, `bearingDeg`, `greatCirclePoints`, `fanLegs`, `decodePolyline`, `RouteCache`.
 - **Plugins / templates**: `definePlugin`, `PluginRegistry`, `PluginEnrichment`, `PersistedVersionedStore` (shared base of the persisted registries), `TemplateRegistry`, `createHttpTemplateProvider`, `captureView` / `applyView`.
-- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`.
+- **Tiles / basemap**: `createTileSource`, `InternalTileSource`, `GoogleTileSource`, `deriveBasemapCapabilities` (`BasemapSupport`), `canEnterMode`; photorealistic 3D source contract `Tileset3dSource` (type, `<Map tileset3d>` / `MapEngineOptions.tileset3d`). **Separate entry `'@pasquelin/map3d/cesium-ion'`** (never imported by the core): `cesiumIon({ token, assetId? })` → `Tileset3dSource | undefined` (`undefined` without a token), `CESIUM_ION_DEFAULT_ASSET_ID`, type `CesiumIonOptions`. A host-written source must create its `3d-tiles-renderer` plugin inside `attach`, which runs once per engine.
 - **Capture**: `engine.capture(opts)` / `MapHandle.capture` / `useCapture()` → `Promise<Blob>` (synchronous WebGL render + optional DOM-overlay compositing via an injected `rasterizeOverlay`); `<Map capture>` (`CaptureProps`), `config.capture` (`CaptureConfig`), types `CaptureOptions` / `CaptureFormat` / `CaptureBackground` / `OverlayRasterizer`. UI: "Take a photo" row in the ⚙ menu (download / mail / Web Share).
 - **Watermark**: "map3D" signature painted into the canvas + licence link, `config.watermark` (`WatermarkConfig`, `enabled` default `true`). Disabling requires a commercial licence — removing attribution under the default PolyForm-Noncommercial licence violates it.
 

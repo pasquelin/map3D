@@ -465,6 +465,9 @@ component: it runs server-side or in tests with a fake provider (no Three, no Re
 
 **Constructor options** (`MapEngineOptions`): among them, `landColor?: string` paints the
 landmasses of the fallback globe — under React, `<Map>` passes `theme.globe.landColor`.
+`tileset3d?: Tileset3dSource` plugs in the photorealistic 3D tile source, read once at
+construction; for volume it takes precedence over `googleMapsApiKey`
+(see [TILES.md § 7](TILES.md#7-photorealistic-volume--its-source)).
 
 ## See also
 

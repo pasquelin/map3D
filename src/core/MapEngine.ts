@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'
 import { GlobeControls, TilesRenderer } from '3d-tiles-renderer'
-import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/plugins'
 import { defaultConfig } from '../config/defaultConfig'
 import type { MapConfig, TileProvider, TilesConfig } from '../config/types'
 import {
@@ -45,6 +44,7 @@ import type { ApplyMode, Template } from './templates/types'
 import { defaultPluginFetchPolicy } from '../plugins/fetchPolicy'
 import { TILE_SIZE } from './googleTiles'
 import { createTileSource } from './tileSource'
+import { attachTileset3d, type Tileset3dSource } from './tileset3d'
 import type { FrameContext, Layer, MapView } from './Layer'
 import {
   altitudeForZoom,
@@ -132,20 +132,24 @@ export type MapEngineOptions = {
    */
   buildingHoverColor?: string
   buildingSelectColor?: string
-  /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct (prioritaire sur Ion). */
+  /** Clé Google Maps Platform → Photorealistic 3D Tiles en direct, à défaut de `tileset3d`. */
   googleMapsApiKey?: string
-  /** Token Cesium Ion → Google Photorealistic 3D Tiles via Cesium. */
-  cesiumIonToken?: string
-  /** Asset Cesium Ion (défaut 2275207 = Google Photorealistic 3D Tiles). */
-  cesiumIonAssetId?: string
+  /**
+   * Source de tuiles 3D photoréalistes fournie par l'hôte — pour le volume, elle prime sur
+   * `googleMapsApiKey`. Le cœur n'en importe aucune : elle vient d'une entrée à part du
+   * paquet (ex. `cesiumIon()` de `@pasquelin/map3d/cesium-ion`). Lue au montage.
+   * `undefined` explicite admis, comme la prop de `<Map>` : c'est ce que rend `cesiumIon()`
+   * sans jeton.
+   */
+  tileset3d?: Tileset3dSource | undefined
   /**
    * Type de carte au démarrage. Défaut : `'plan'` dès qu'une clé Google fournit le
    * fond 2D (plus lisible pour lire des positions), sinon `'3d'`. Sans clé, `'plan'`
    * est ignoré — comme `setMapMode`.
    *
    * NB coût : le fond 2D consomme le quota **Map Tiles API de votre clé Google**, là
-   * où la 3D via `cesiumIonToken` est servie par Cesium Ion. Démarrer en 2D déplace
-   * donc la facture, il ne la supprime pas.
+   * où la 3D d'une source `tileset3d` est servie — et facturée — par son fournisseur.
+   * Démarrer en 2D déplace donc la facture, il ne la supprime pas.
    */
   mapMode?: MapMode
   /** Affiche un globe ellipsoïde uni de repli quand aucune tuile n'est disponible. */
@@ -589,7 +593,7 @@ export class MapEngine {
    * partagent ainsi exactement le même repère (ECEF local), sans en dépendre.
    */
   private readonly internalSurface = new THREE.Group()
-  /** Un tileset 3D photoréaliste est disponible (token Cesium Ion ou clé Google) — figé au montage. */
+  /** Un tileset 3D photoréaliste est disponible (source `tileset3d` ou clé Google) — figé au montage. */
   private readonly has3dTileset: boolean
   /**
    * D'où vient le volume — `providers.tiles3d.provider`, relu à chaud par `setConfig`.
@@ -730,29 +734,17 @@ export class MapEngine {
     )
     this.labelCamera.matrixWorldAutoUpdate = false
 
-    // Source de tuiles 3D : Cesium Ion (token) en priorité, sinon Google Maps Platform
-    // en direct (clé). NB : les Photorealistic 3D Tiles Google sont bloquées pour les
-    // comptes EEA → Ion reste la source fiable. Sans l'un ni l'autre, le TilesRenderer
-    // reste vide → globe ellipsoïde de repli.
+    // Source de tuiles 3D : celle de l'hôte (`tileset3d`) en priorité, sinon Google Maps
+    // Platform en direct (clé) — cf. `attachTileset3d`. Sans l'une ni l'autre, le
+    // TilesRenderer reste vide → globe ellipsoïde de repli.
     //
-    // Les plugins sont enregistrés dès qu'un token/une clé existe, indépendamment de
-    // `providers.tiles3d.provider` : c'est la VISIBILITÉ et l'`update` du tileset que ce
-    // réglage commande (cf. `applyModeVisibility` et `tick`), ce qui le rend modifiable à
-    // chaud dans les deux sens. Un tileset jamais updaté n'émet aucune requête.
+    // La source est branchée dès qu'elle existe, indépendamment de `providers.tiles3d.provider` :
+    // c'est la VISIBILITÉ et l'`update` du tileset que ce réglage commande (cf.
+    // `applyModeVisibility` et `tick`), ce qui le rend modifiable à chaud dans les deux sens.
+    // Un tileset jamais updaté n'émet aucune requête.
     this.provider3d = this.config.providers.tiles3d.provider
-    const hasCustomTiles = !!(opts.cesiumIonToken || opts.googleMapsApiKey)
     this.tiles = new TilesRenderer()
-    if (opts.cesiumIonToken) {
-      this.tiles.registerPlugin(
-        new CesiumIonAuthPlugin({
-          apiToken: opts.cesiumIonToken,
-          assetId: opts.cesiumIonAssetId ?? this.config.providers.tiles3d.cesiumIonAssetId,
-          autoRefreshToken: true,
-        }),
-      )
-    } else if (opts.googleMapsApiKey) {
-      this.tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: opts.googleMapsApiKey, autoRefreshToken: true }))
-    }
+    this.has3dTileset = attachTileset3d(this.tiles, opts.tileset3d, opts.googleMapsApiKey)
     if (opts.errorTarget !== undefined) this.tiles.errorTarget = opts.errorTarget
     this.tiles.setCamera(this.threeCamera)
     this.tiles.setResolutionFromRenderer(this.threeCamera, this.renderer)
@@ -832,7 +824,6 @@ export class MapEngine {
         select: opts.buildingSelectColor ?? defaultTheme.globe.buildingSelectColor,
       },
     )
-    this.has3dTileset = hasCustomTiles
 
     // Renderer HTML superposé au canvas : positionne chaque `CSS2DObject` via la
     // caméra Three (aucune projection écran manuelle → zéro dérive). `domElement`
@@ -849,7 +840,7 @@ export class MapEngine {
     labelDom.style.overflow = 'visible'
     this.canvas.parentElement?.appendChild(labelDom)
 
-    if (opts.fallbackGlobe && !hasCustomTiles) {
+    if (opts.fallbackGlobe && !this.has3dTileset) {
       this.fallback = this.buildFallbackGlobe(opts.oceanColor, opts.landColor ?? defaultTheme.globe.landColor)
 
       this.tiles.group.add(this.fallback)
@@ -1149,8 +1140,8 @@ export class MapEngine {
      * Les fournisseurs ont pu changer (bascule à chaud) : le fond 2D peut apparaître ou
      * disparaître sous nos pieds, et le volume passer du photoréaliste à l'interne. Si le
      * mode courant n'a plus de quoi s'afficher, on part vers l'autre — dans les DEUX sens,
-     * là où seul le retour vers `'3d'` était traité : retirer le token Ion en 3D externe
-     * laissait la carte sur un mode vide.
+     * là où seul le retour vers `'3d'` était traité : retirer la source photoréaliste en 3D
+     * externe laissait la carte sur un mode vide.
      *
      * `setMapMode` porte les règles de bascule (intro, trafic, visibilité) ; les rejouer
      * ici en écrivant `mapMode` à la main laissait par exemple le calque trafic allumé
@@ -2024,7 +2015,7 @@ export class MapEngine {
      *
      * Dépend du seul FOURNISSEUR DE VOLUME, jamais du mode : en externe c'est toujours
      * le `TilesRenderer` qui répond — y compris en mode plan, comme depuis toujours —
-     * sinon la surface d'appui de la caméra changeait sous les pieds d'un hôte Ion.
+     * sinon la surface d'appui de la caméra changeait sous les pieds d'un hôte photoréaliste.
      *
      * Les deux cibles sont désormais du même ordre de coût, ce qui est la condition pour
      * que ce choix reste invisible : `TilesGroup` descend par la hiérarchie de volumes du
@@ -3212,7 +3203,7 @@ export class MapEngine {
     }
     const lineGeo = new THREE.BufferGeometry().setFromPoints(pts)
     // Retenu pour être effacé quand la vraie grille est allumée — sans être supprimé : sans
-    // token Cesium et grille éteinte, le globe perdrait ses repères de rotation.
+    // tuiles 3D et grille éteinte, le globe perdrait ses repères de rotation.
     this.fallbackGraticule = new THREE.LineSegments(lineGeo, lineMat)
     this.fallbackGraticule.visible = !(this.graticuleVisible && this.graticuleMounted)
     group.add(this.fallbackGraticule)
@@ -3536,7 +3527,7 @@ export class MapEngine {
     this.scene.remove(this.internalSurface)
     this.controls.dispose()
     // `TilesRenderer.dispose` ne libère pas les enfants étrangers de son groupe : la sphère
-    // de repli (12 k sommets) et son graticule fuitaient à chaque démontage sans token.
+    // de repli (12 k sommets) et son graticule fuitaient à chaque démontage sans tuiles 3D.
     if (this.fallback) disposeObject3D(this.fallback)
     this.fallback = null
     this.fallbackGraticule = null
