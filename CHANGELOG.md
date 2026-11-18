@@ -6,8 +6,10 @@ en `0.x`, une version mineure peut casser l'API — les ruptures sont listées i
 
 ## [Non publié]
 
-À publier en **0.7.0** — **rupture 0.x** : le cœur n'importe plus rien de Cesium. Cesium ion
-reste disponible, par une entrée à part que l'application importe elle-même.
+## [0.7.0] — 2026-11-18
+
+**Rupture 0.x** : le cœur n'importe plus rien de Cesium. Cesium ion reste disponible, par une
+entrée à part que l'application importe elle-même.
 
 ### ⚠️ Rupture — Cesium ion sort du cœur : `cesiumIonToken` devient `tileset3d={cesiumIon(…)}`
 
